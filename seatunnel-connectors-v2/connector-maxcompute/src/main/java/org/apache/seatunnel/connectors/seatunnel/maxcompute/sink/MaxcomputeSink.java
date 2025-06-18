@@ -32,6 +32,7 @@ import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSimpleSink;
 import org.apache.seatunnel.connectors.seatunnel.maxcompute.catalog.MaxComputeCatalog;
 import org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.maxcompute.exception.MaxcomputeConnectorException;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -57,7 +58,10 @@ public class MaxcomputeSink extends AbstractSimpleSink<SeaTunnelRow, Void>
 
     @Override
     public MaxcomputeWriter createWriter(SinkWriter.Context context) {
-        return new MaxcomputeWriter(this.readonlyConfig, this.catalogTable.getSeaTunnelRowType(), this.catalogTable.getTableSchema().getPrimaryKey());
+        return new MaxcomputeWriter(
+                this.readonlyConfig,
+                this.catalogTable.getSeaTunnelRowType(),
+                this.catalogTable.getTableSchema().getPrimaryKey());
     }
 
     @Override

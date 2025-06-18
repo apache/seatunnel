@@ -18,7 +18,6 @@
 package org.apache.seatunnel.connectors.seatunnel.maxcompute.util;
 
 import com.aliyun.odps.PartitionSpec;
-import com.aliyun.odps.Table;
 import com.aliyun.odps.TableSchema;
 import com.aliyun.odps.data.ArrayRecord;
 import com.aliyun.odps.data.Record;
@@ -28,20 +27,16 @@ import com.aliyun.odps.tunnel.TunnelException;
 import com.aliyun.odps.tunnel.streams.UpsertStream;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
-import org.apache.seatunnel.api.options.table.FormatOptions;
 import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonError;
+import org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeBaseOptions;
 import org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeSinkOptions;
-import org.apache.seatunnel.connectors.seatunnel.maxcompute.exception.MaxcomputeConnectorException;
-import org.apache.seatunnel.shade.com.fasterxml.jackson.core.JsonProcessingException;
-import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.seatunnel.shade.com.google.common.util.concurrent.Striped;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.locks.Lock;
 
 @Slf4j
@@ -62,19 +57,15 @@ public class MaxcomputeOutputFormat {
     private TableTunnel.UploadSession uploadSession;
     private TableTunnel.UpsertSession upsertSession;
 
-    public MaxcomputeOutputFormat(ReadonlyConfig readonlyConfig, SeaTunnelRowType rowType, PrimaryKey primaryKey) {
-        this.readonlyConfig = readonlyConfig;
-
+    public MaxcomputeOutputFormat(SeaTunnelRowType rowType, ReadonlyConfig readonlyConfig, TableSchema tableSchema,
+                                  FormatterContext formatterContext, PrimaryKey primaryKey, int lockCount) {
         this.rowType = rowType;
-        Table table = MaxcomputeUtil.getTable(readonlyConfig);
-        this.tableSchema = table.getSchema();
-        this.formatterContext =
-                new FormatterContext(readonlyConfig.get(FormatOptions.DATETIME_FORMAT));
-
-        int stripes =
-                validateLockCount(readonlyConfig.get(MaxcomputeSinkOptions.UPSERT_LOCK_COUNT));
-        this.stripedLocks = Striped.lock(stripes);
+        this.readonlyConfig = readonlyConfig;
+        this.tableSchema = tableSchema;
+        this.formatterContext = formatterContext;
         this.primaryKey = primaryKey;
+        int stripes = validateLockCount(lockCount);
+        this.stripedLocks = Striped.lock(stripes);
     }
 
     public void write(SeaTunnelRow seaTunnelRow) throws IOException, TunnelException {
@@ -89,9 +80,10 @@ public class MaxcomputeOutputFormat {
                 deleteRecord(seaTunnelRow);
                 break;
             default:
-                throw new MaxcomputeConnectorException(
-                        CommonErrorCode.UNSUPPORTED_DATA_TYPE,
-                        "Unsupported write row kind: " + seaTunnelRow.getRowKind());
+                throw CommonError.unsupportedDataType(
+                        MaxcomputeBaseOptions.PLUGIN_NAME,
+                        seaTunnelRow.getRowKind().toString(),
+                        seaTunnelRow.toString());
         }
     }
 
@@ -107,7 +99,7 @@ public class MaxcomputeOutputFormat {
         }
     }
 
-    private int validateLockCount(int inputCount) {
+    int validateLockCount(int inputCount) {
         if (inputCount < MIN_LOCK_COUNT) {
             return MIN_LOCK_COUNT;
         }
@@ -139,36 +131,41 @@ public class MaxcomputeOutputFormat {
                         this.rowType,
                         formatterContext);
 
-        Lock lock = getLockByPrimaryKey(seaTunnelRow);
+        lockProcess(seaTunnelRow, () -> upsertStream.upsert(upsertRecord));
+    }
+
+    void lockProcess(SeaTunnelRow row, CheckedRunnable runnable) throws IOException, TunnelException {
+        Lock lock = getLockByPrimaryKey(row);
         lock.lock();
         try {
-            upsertStream.upsert(upsertRecord);
+            runnable.run();
+        } catch (IOException | TunnelException e1) {
+            throw  e1;
+        } catch (Exception e){
+            throw CommonError.illegalArgument(row.toString(),"Maxcompute upsert lockProcess");
         } finally {
             lock.unlock();
         }
     }
 
-    private Lock getLockByPrimaryKey(SeaTunnelRow seaTunnelRow) throws JsonProcessingException {
-        String pkKey = buildPrimaryKey(seaTunnelRow);
-        Lock lock = stripedLocks.get(pkKey);
-        return lock;
+    Lock getLockByPrimaryKey(SeaTunnelRow seaTunnelRow) {
+        int pkKey = buildPrimaryKey(seaTunnelRow);
+        return stripedLocks.get(pkKey);
     }
 
-    private String buildPrimaryKey(SeaTunnelRow seaTunnelRow) throws JsonProcessingException {
-        ObjectMapper mapper = new ObjectMapper();
-        List<Object> pkValues = new ArrayList<>();
-
+    int buildPrimaryKey(SeaTunnelRow seaTunnelRow) {
+        int result = 1;
         for (int i = 0; i < seaTunnelRow.getFields().length; i++) {
             String fieldName = rowType.getFieldName(i);
-            if(PrimaryKey.isPrimaryKeyField(primaryKey, fieldName)) {
+            if (PrimaryKey.isPrimaryKeyField(primaryKey, fieldName)) {
                 Object value = seaTunnelRow.getField(i);
                 if (value == null)
                     throw new IllegalArgumentException(
                             "Primary key column '" + fieldName + "' must not be null.");
-                pkValues.add(value);
+                result = 31 * result + value.hashCode();
             }
         }
-        return mapper.writeValueAsString(pkValues);
+        return result;
     }
 
     private void deleteRecord(SeaTunnelRow seaTunnelRow) throws TunnelException, IOException {
@@ -186,34 +183,22 @@ public class MaxcomputeOutputFormat {
     private void ensureInsertSessionAndWriter() throws TunnelException {
         if (uploadSession == null) {
             initializeInsertSession();
+            Objects.requireNonNull(uploadSession, "UploadSession was not initialized properly");
         }
-        if (uploadSession == null) {
-            throw new IllegalStateException("UploadSession was not initialized properly");
-        }
-
         if (recordWriter == null) {
             this.recordWriter = uploadSession.openBufferedWriter();
             log.info("open record writer success");
-        }
-        if (recordWriter == null) {
-            throw new IllegalStateException("RecordWriter was not initialized properly");
         }
     }
 
     private void ensureUpsertSessionAndWriter() throws TunnelException, IOException {
         if (upsertSession == null) {
             initializeUpsertSession();
+            Objects.requireNonNull(upsertSession, "UpsertSession was not initialized properly");
         }
-        if (upsertSession == null) {
-            throw new IllegalStateException("UploadSession was not initialized properly");
-        }
-
         if (upsertStream == null) {
             this.upsertStream = upsertSession.buildUpsertStream().build();
             log.info("build upsert stream success");
-        }
-        if (upsertStream == null) {
-            throw new IllegalStateException("RecordWriter was not initialized properly");
         }
     }
 
@@ -255,5 +240,10 @@ public class MaxcomputeOutputFormat {
                                     readonlyConfig.get(MaxcomputeSinkOptions.TABLE_NAME))
                             .build();
         }
+    }
+
+    @FunctionalInterface
+    public interface CheckedRunnable {
+        void run() throws Exception;
     }
 }

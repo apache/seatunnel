@@ -17,17 +17,23 @@
 
 package org.apache.seatunnel.connectors.seatunnel.maxcompute.sink;
 
+import com.aliyun.odps.TableSchema;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.options.table.FormatOptions;
 import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
 import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
+import org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeBaseOptions;
+import org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.maxcompute.exception.MaxcomputeConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.maxcompute.util.FormatterContext;
 import org.apache.seatunnel.connectors.seatunnel.maxcompute.util.MaxcomputeOutputFormat;
+import org.apache.seatunnel.connectors.seatunnel.maxcompute.util.MaxcomputeUtil;
 
 import java.io.IOException;
 
@@ -36,9 +42,19 @@ public class MaxcomputeWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
         implements SupportMultiTableSinkWriter<Void> {
     private MaxcomputeOutputFormat writer;
 
-    public MaxcomputeWriter(ReadonlyConfig readonlyConfig, SeaTunnelRowType rowType, PrimaryKey primaryKey) {
+    public MaxcomputeWriter(
+            ReadonlyConfig readonlyConfig, SeaTunnelRowType rowType, PrimaryKey primaryKey) {
         try {
-            writer = new MaxcomputeOutputFormat(readonlyConfig, rowType, primaryKey);
+            TableSchema schema = MaxcomputeUtil.getTable(readonlyConfig).getSchema();
+            FormatterContext formatterContext = new FormatterContext(readonlyConfig.get(FormatOptions.DATETIME_FORMAT));
+            int lockCount = readonlyConfig.get(MaxcomputeSinkOptions.UPSERT_LOCK_COUNT);
+            writer = new MaxcomputeOutputFormat(
+                    rowType,
+                    readonlyConfig,
+                    schema,
+                    formatterContext,
+                    primaryKey,
+                    lockCount);
         } catch (Exception e) {
             throw new MaxcomputeConnectorException(
                     CommonErrorCodeDeprecated.WRITER_OPERATION_FAILED, e);
@@ -51,12 +67,11 @@ public class MaxcomputeWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
             writer.write(seaTunnelRow);
         } catch (IOException e1) {
             throw e1;
-        }catch(RuntimeException e){
-            log.info("c = {}, m = {}", e.getCause(), e.getMessage());
+        } catch (RuntimeException e) {
             throw e;
-        }catch (Exception e2) {
-            log.info("c = {}, m = {}", e2.getCause(), e2.getMessage());
-            throw new MaxcomputeConnectorException(CommonErrorCode.WRITE_SEATUNNEL_ROW_ERROR, e2);
+        } catch (Exception e2) {
+            throw CommonError.writeSeaTunnelRowFailed(
+                    MaxcomputeBaseOptions.PLUGIN_NAME, seaTunnelRow.toString(), e2);
         }
     }
 
@@ -67,7 +82,7 @@ public class MaxcomputeWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
         } catch (IOException e1) {
             throw e1;
         } catch (Exception e2) {
-            throw new MaxcomputeConnectorException(CommonErrorCode.WRITE_SEATUNNEL_ROW_ERROR, e2);
+            throw CommonError.closeFailed(MaxcomputeBaseOptions.PLUGIN_NAME, e2);
         }
     }
 }
