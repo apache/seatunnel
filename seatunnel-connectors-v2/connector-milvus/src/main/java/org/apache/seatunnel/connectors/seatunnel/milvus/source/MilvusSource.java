@@ -27,7 +27,7 @@ import org.apache.seatunnel.api.source.SupportParallelism;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.connectors.seatunnel.milvus.config.MilvusSourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.milvus.config.MilvusSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.milvus.utils.MilvusConvertUtils;
 
 import java.util.ArrayList;
@@ -79,6 +79,6 @@ public class MilvusSource
 
     @Override
     public String getPluginName() {
-        return MilvusSourceConfig.CONNECTOR_IDENTITY;
+        return MilvusSourceOptions.CONNECTOR_IDENTITY;
     }
 }

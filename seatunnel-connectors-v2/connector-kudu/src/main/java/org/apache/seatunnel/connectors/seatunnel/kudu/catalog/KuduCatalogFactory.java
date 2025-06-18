@@ -23,17 +23,9 @@ import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.factory.CatalogFactory;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.connectors.seatunnel.kudu.config.CommonConfig;
+import org.apache.seatunnel.connectors.seatunnel.kudu.config.KuduBaseOptions;
 
 import com.google.auto.service.AutoService;
-
-import static org.apache.seatunnel.connectors.seatunnel.kudu.config.CommonConfig.ADMIN_OPERATION_TIMEOUT;
-import static org.apache.seatunnel.connectors.seatunnel.kudu.config.CommonConfig.ENABLE_KERBEROS;
-import static org.apache.seatunnel.connectors.seatunnel.kudu.config.CommonConfig.KERBEROS_KEYTAB;
-import static org.apache.seatunnel.connectors.seatunnel.kudu.config.CommonConfig.KERBEROS_KRB5_CONF;
-import static org.apache.seatunnel.connectors.seatunnel.kudu.config.CommonConfig.KERBEROS_PRINCIPAL;
-import static org.apache.seatunnel.connectors.seatunnel.kudu.config.CommonConfig.MASTER;
-import static org.apache.seatunnel.connectors.seatunnel.kudu.config.CommonConfig.OPERATION_TIMEOUT;
-import static org.apache.seatunnel.connectors.seatunnel.kudu.config.CommonConfig.WORKER_COUNT;
 
 @AutoService(Factory.class)
 public class KuduCatalogFactory implements CatalogFactory {
@@ -55,13 +47,17 @@ public class KuduCatalogFactory implements CatalogFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(MASTER)
-                .optional(WORKER_COUNT)
-                .optional(OPERATION_TIMEOUT)
-                .optional(ADMIN_OPERATION_TIMEOUT)
-                .optional(KERBEROS_KRB5_CONF)
-                .optional(ENABLE_KERBEROS)
-                .conditional(ENABLE_KERBEROS, true, KERBEROS_PRINCIPAL, KERBEROS_KEYTAB)
+                .required(KuduBaseOptions.MASTER)
+                .optional(KuduBaseOptions.WORKER_COUNT)
+                .optional(KuduBaseOptions.OPERATION_TIMEOUT)
+                .optional(KuduBaseOptions.ADMIN_OPERATION_TIMEOUT)
+                .optional(KuduBaseOptions.KERBEROS_KRB5_CONF)
+                .optional(KuduBaseOptions.ENABLE_KERBEROS)
+                .conditional(
+                        KuduBaseOptions.ENABLE_KERBEROS,
+                        true,
+                        KuduBaseOptions.KERBEROS_PRINCIPAL,
+                        KuduBaseOptions.KERBEROS_KEYTAB)
                 .build();
     }
 }

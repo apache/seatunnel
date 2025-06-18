@@ -34,7 +34,7 @@ Used to send data to Console. Both support streaming and batch mode.
 
 ## Task Example
 
-### Simple:
+### Simple
 
 > This is a randomly generated data, written to the console, with a degree of parallelism of 1
 
@@ -63,7 +63,7 @@ sink {
 }
 ```
 
-### Multiple Sources Simple:
+### Multiple Sources Simple
 
 > This is a multiple source and you can specify a data source to write to the specified end
 

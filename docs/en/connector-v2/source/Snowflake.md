@@ -82,7 +82,7 @@ Read external data source data through JDBC.
 
 ## Task Example
 
-### simple:
+### simple
 
 > This example queries type_bin 'table' 16 data in your test "database" in single parallel and queries all of its fields. You can also specify which fields to query for final output to the console.
 >
@@ -111,7 +111,7 @@ Read external data source data through JDBC.
 > }
 > ```
 
-### parallel:
+### parallel
 
 > Read your query table in parallel with the shard field you configured and the shard data  You can do this if you want to read the whole table
 >
@@ -131,7 +131,7 @@ Read external data source data through JDBC.
 > }
 > ```
 
-### parallel boundary:
+### parallel boundary
 
 > It is more efficient to specify the data within the upper and lower bounds of the query It is more efficient to read your data source according to the upper and lower boundaries you configured
 >

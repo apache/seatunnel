@@ -2,10 +2,15 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
-|[Fix] Fix error log name for SourceSplitEnumerator implements class (#8817)|https://github.com/apache/seatunnel/commit/55ed90ecaf| dev |
-|[Improve] restruct connector common options (#8634)|https://github.com/apache/seatunnel/commit/f3499a6eeb| dev |
-|[improve] add Elasticsearch options (#8623)|https://github.com/apache/seatunnel/commit/d307ab44f2| dev |
-|[Fix][connector-elasticsearch] support elasticsearch nest type &amp;&amp; spark with Array&lt;map&gt; (#8492)|https://github.com/apache/seatunnel/commit/92d2a4a106| dev |
+|[Feature][Connectors-V2][Elasticsearch] Support vector transformation sink (#9330)|https://github.com/apache/seatunnel/commit/a1ce97155f| dev |
+|[Feature][Checkpoint] Add check script for source/sink state class serialVersionUID missing (#9118)|https://github.com/apache/seatunnel/commit/4f5adeb1c7|2.3.11|
+|[Feature][connector-elasticsearch] elasticsearch source support PIT (#9150)|https://github.com/apache/seatunnel/commit/948d588d06|2.3.11|
+|[Bugfix][Elasticsearch] Fix add column event (#9069)|https://github.com/apache/seatunnel/commit/3455316981|2.3.11|
+|[Feature][elasticsearch-connector] support elasticsearch sql source (#8895)|https://github.com/apache/seatunnel/commit/8140862795|2.3.10|
+|[Fix] Fix error log name for SourceSplitEnumerator implements class (#8817)|https://github.com/apache/seatunnel/commit/55ed90ecaf|2.3.10|
+|[Improve] restruct connector common options (#8634)|https://github.com/apache/seatunnel/commit/f3499a6eeb|2.3.10|
+|[improve] add Elasticsearch options (#8623)|https://github.com/apache/seatunnel/commit/d307ab44f2|2.3.10|
+|[Fix][connector-elasticsearch] support elasticsearch nest type &amp;&amp; spark with Array&lt;map&gt; (#8492)|https://github.com/apache/seatunnel/commit/92d2a4a106|2.3.10|
 |Revert &quot;[Feature][connector-elasticsearch] elasticsearch support nested type (#8462)&quot; (#8485)|https://github.com/apache/seatunnel/commit/c68944893a|2.3.9|
 |[Feature][connector-elasticsearch] elasticsearch support nested type (#8462)|https://github.com/apache/seatunnel/commit/eaa15e4c8d|2.3.9|
 |[Feature][Elasticsearch] Support sink ddl  (#8412)|https://github.com/apache/seatunnel/commit/a4a38ccff2|2.3.9|

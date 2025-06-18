@@ -2,10 +2,12 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
-|[Improve][CDC] Filter ddl for snapshot phase (#8911)|https://github.com/apache/seatunnel/commit/641cc72f2f| dev |
-|[Improve][Oracle-CDC] Support ReadOnlyLogWriterFlushStrategy (#8912)|https://github.com/apache/seatunnel/commit/6aebdc0384| dev |
-|[Improve][CDC] Extract duplicate code (#8906)|https://github.com/apache/seatunnel/commit/b922bb90e6| dev |
-|[Improve] restruct connector common options (#8634)|https://github.com/apache/seatunnel/commit/f3499a6eeb| dev |
+|[Improve][Oracle-CDC] Remove duplicate load table names (#9357)|https://github.com/apache/seatunnel/commit/90e88cafc5| dev |
+|[Feature][Connector-JDBC] Supprot read Oracle BLOB data as string instead of bytes (#9305)|https://github.com/apache/seatunnel/commit/454a88f81a|2.3.11|
+|[Improve][CDC] Filter ddl for snapshot phase (#8911)|https://github.com/apache/seatunnel/commit/641cc72f2f|2.3.10|
+|[Improve][Oracle-CDC] Support ReadOnlyLogWriterFlushStrategy (#8912)|https://github.com/apache/seatunnel/commit/6aebdc0384|2.3.10|
+|[Improve][CDC] Extract duplicate code (#8906)|https://github.com/apache/seatunnel/commit/b922bb90e6|2.3.10|
+|[Improve] restruct connector common options (#8634)|https://github.com/apache/seatunnel/commit/f3499a6eeb|2.3.10|
 |[hotfix] [connector-cdc-oracle ] support read partition table (#8265)|https://github.com/apache/seatunnel/commit/91b86b2faf|2.3.9|
 |[Improve][E2E] improve oracle e2e (#8292)|https://github.com/apache/seatunnel/commit/9f761b9d32|2.3.9|
 |[Feature][CDC] Add &#x27;schema-changes.enabled&#x27; options (#8285)|https://github.com/apache/seatunnel/commit/8e29ecf54f|2.3.9|

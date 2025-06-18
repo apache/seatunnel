@@ -14,16 +14,16 @@ import ChangeLog from '../changelog/connector-datahub.md';
 
 ## 选项
 
-|      名称           |  类型  | 必需 | 默认值 |
-|----------------|--------|----|---------------|
-| endpoint       | string | 是  | -             |
-| accessId       | string | 是  | -             |
-| accessKey      | string | 是  | -             |
-| project        | string | 是  | -             |
-| topic          | string | 是  | -             |
-| timeout        | int    | 是  | -             |
-| retryTimes     | int    | 是  | -             |
-| common-options |        | 否  | -             |
+|      名称           |  类型  | 必需  | 默认值  |
+|----------------|--------|-----|------|
+| endpoint       | string | 是   | -    |
+| accessId       | string | 是   | -    |
+| accessKey      | string | 是   | -    |
+| project        | string | 是   | -    |
+| topic          | string | 是   | -    |
+| timeout        | int    | 否   | 3000 |
+| retryTimes     | int    | 否   | 3    |
+| common-options |        | 否   | -    |
 
 ### endpoint [string]
 

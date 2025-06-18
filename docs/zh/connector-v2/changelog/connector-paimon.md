@@ -2,9 +2,16 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
-|[Feature][Paimon] Customize the hadoop user  (#8888)|https://github.com/apache/seatunnel/commit/2657626f93| dev |
-|[Improve][Connector-v2][Paimon]PaimonCatalog close error message update (#8640)|https://github.com/apache/seatunnel/commit/48253da8d6| dev |
-|[Improve] restruct connector common options (#8634)|https://github.com/apache/seatunnel/commit/f3499a6eeb| dev |
+|[feature][connectors-v2] Support in predicate pushdown in paimon (#9379)|https://github.com/apache/seatunnel/commit/1ec43755d5| dev |
+|[Improve][Connector-V2] Fix the word misspellings for paimon connector (#9332)|https://github.com/apache/seatunnel/commit/ba7f5c9e30|2.3.11|
+|[Feature][Transform] Support define sink column type (#9114)|https://github.com/apache/seatunnel/commit/ab7119e507|2.3.11|
+|[improve] paimon options (#9167)|https://github.com/apache/seatunnel/commit/b0889305c2|2.3.11|
+|[Fix][Paimon] nullable and comment attribute was lost during automatic table creation (#9020)|https://github.com/apache/seatunnel/commit/eb54fdd52c|2.3.11|
+|[Feature][Connector-V2] Support between predicate pushdown in paimon (#8962)|https://github.com/apache/seatunnel/commit/3b141cf621|2.3.10|
+|[Feature][Connector-V2] Suppor Time type in paimon connector (#8880)|https://github.com/apache/seatunnel/commit/9f1e590091|2.3.10|
+|[Feature][Paimon] Customize the hadoop user  (#8888)|https://github.com/apache/seatunnel/commit/2657626f93|2.3.10|
+|[Improve][Connector-v2][Paimon]PaimonCatalog close error message update (#8640)|https://github.com/apache/seatunnel/commit/48253da8d6|2.3.10|
+|[Improve] restruct connector common options (#8634)|https://github.com/apache/seatunnel/commit/f3499a6eeb|2.3.10|
 |[Improve][Connector-v2] Support checkpoint in batch mode for paimon sink (#8333)|https://github.com/apache/seatunnel/commit/f22d4ebd4d|2.3.9|
 |[Feature][Connector-v2] Support schema evolution for paimon sink (#8211)|https://github.com/apache/seatunnel/commit/57190e2a3b|2.3.9|
 |[Improve][dist]add shade check rule (#8136)|https://github.com/apache/seatunnel/commit/51ef800016|2.3.9|

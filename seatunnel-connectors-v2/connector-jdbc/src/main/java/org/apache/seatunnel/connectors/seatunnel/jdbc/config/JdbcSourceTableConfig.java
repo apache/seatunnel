@@ -27,7 +27,6 @@ import lombok.Data;
 import lombok.experimental.Tolerate;
 
 import java.io.Serializable;
-import java.math.BigDecimal;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
@@ -53,10 +52,10 @@ public class JdbcSourceTableConfig implements Serializable {
     private Integer partitionNumber;
 
     @JsonProperty("partition_lower_bound")
-    private BigDecimal partitionStart;
+    private String partitionStart;
 
     @JsonProperty("partition_upper_bound")
-    private BigDecimal partitionEnd;
+    private String partitionEnd;
 
     @JsonProperty("use_select_count")
     private Boolean useSelectCount;

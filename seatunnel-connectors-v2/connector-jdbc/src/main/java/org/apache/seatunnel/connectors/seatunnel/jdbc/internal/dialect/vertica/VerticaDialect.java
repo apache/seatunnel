@@ -22,6 +22,8 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseI
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectTypeMapper;
 
+import org.apache.commons.lang3.StringUtils;
+
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
@@ -106,5 +108,23 @@ public class VerticaDialect implements JdbcDialect {
                         insertValues);
 
         return Optional.of(upsertSQL);
+    }
+
+    /**
+     * <a
+     * href="https://docs.vertica.com/23.4.x/en/sql-reference/functions/data-type-specific-functions/string-functions/collation/">vertica-collation</a>
+     *
+     * @param collate
+     * @return
+     */
+    @Override
+    public String getCollateSql(String collate) {
+        if (StringUtils.isNotBlank(collate)) {
+            StringBuilder sql = new StringBuilder();
+            sql.append("COLLATION(").append("char_val").append(", '").append(collate).append("')");
+            return sql.toString();
+        } else {
+            return "char_val";
+        }
     }
 }

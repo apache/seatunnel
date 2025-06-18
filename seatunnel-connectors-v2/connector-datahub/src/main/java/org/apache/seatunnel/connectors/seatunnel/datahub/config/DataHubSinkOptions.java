@@ -57,12 +57,12 @@ public class DataHubSinkOptions {
     public static Option<Integer> TIMEOUT =
             Options.key("timeout")
                     .intType()
-                    .noDefaultValue()
+                    .defaultValue(3000)
                     .withDescription("The max connection timeout");
 
     public static Option<Integer> RETRY_TIMES =
             Options.key("retryTimes")
                     .intType()
-                    .noDefaultValue()
+                    .defaultValue(3)
                     .withDescription("The max retry times when your client put record failed");
 }

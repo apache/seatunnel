@@ -79,7 +79,7 @@ The supported formats include CSV and JSON
 
 ## Task Example
 
-### Simple:
+### Simple
 
 > The following example describes writing multiple data types to SelectDBCloud, and users need to create corresponding tables downstream
 

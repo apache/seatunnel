@@ -49,7 +49,9 @@ public class EasysearchSinkFactory implements TableSinkFactory {
                         EasysearchSinkOptions.TLS_KEY_STORE_PATH,
                         EasysearchSinkOptions.TLS_KEY_STORE_PASSWORD,
                         EasysearchSinkOptions.TLS_TRUST_STORE_PATH,
-                        EasysearchSinkOptions.TLS_TRUST_STORE_PASSWORD)
+                        EasysearchSinkOptions.TLS_TRUST_STORE_PASSWORD,
+                        EasysearchSinkOptions.SCHEMA_SAVE_MODE,
+                        EasysearchSinkOptions.DATA_SAVE_MODE)
                 .build();
     }
 

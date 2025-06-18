@@ -164,6 +164,36 @@ public class MarkdownTest {
     }
 
     @Test
+    public void testAllHeaderNotEndWithSymbol() {
+        connectorsDirectories.forEach(
+                docsDirectory -> {
+                    try (Stream<Path> paths = Files.walk(docsDirectory)) {
+                        List<Path> mdFiles =
+                                paths.filter(Files::isRegularFile)
+                                        .filter(path -> path.toString().endsWith(".md"))
+                                        .collect(Collectors.toList());
+
+                        for (Path mdPath : mdFiles) {
+                            List<String> lines = Files.readAllLines(mdPath, StandardCharsets.UTF_8);
+                            for (String line : lines) {
+                                String trimmedLine = line.trim();
+                                if (trimmedLine.startsWith("#")) {
+                                    if (trimmedLine.endsWith(":") || trimmedLine.endsWith("：")) {
+                                        Assertions.fail(
+                                                String.format(
+                                                        "The header in the file %s ends with a symbol. Header content: “%s”",
+                                                        mdPath, trimmedLine));
+                                    }
+                                }
+                            }
+                        }
+                    } catch (IOException e) {
+                        throw new RuntimeException(e);
+                    }
+                });
+    }
+
+    @Test
     public void testConnectorDocWithChangeLogFlagAndFile() {
         Pattern importPattern =
                 Pattern.compile("import ChangeLog from '../changelog/(connector-.*).md';");

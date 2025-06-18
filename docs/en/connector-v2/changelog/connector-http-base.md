@@ -2,8 +2,12 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
-|[Fix][connector-http] fix when post have param (#8434)|https://github.com/apache/seatunnel/commit/c1b2675ab0| dev |
-|[Improve] restruct connector common options (#8634)|https://github.com/apache/seatunnel/commit/f3499a6eeb| dev |
+|[Feature][http-Sink] Implementing http batch writes (#9292)|https://github.com/apache/seatunnel/commit/04ee8aca04|2.3.11|
+|[Feature][connector-http] Parameters support placeholder replacement (#9184)|https://github.com/apache/seatunnel/commit/8617014edc|2.3.11|
+|[Improve][Connector-V2][Http] Supports Cursor-based Pagination (#9109) (#9138)|https://github.com/apache/seatunnel/commit/879b1e2d5b|2.3.11|
+|[improve] http connector options (#8969)|https://github.com/apache/seatunnel/commit/63ff9f910a|2.3.10|
+|[Fix][connector-http] fix when post have param (#8434)|https://github.com/apache/seatunnel/commit/c1b2675ab0|2.3.10|
+|[Improve] restruct connector common options (#8634)|https://github.com/apache/seatunnel/commit/f3499a6eeb|2.3.10|
 |[Improve][dist]add shade check rule (#8136)|https://github.com/apache/seatunnel/commit/51ef800016|2.3.9|
 |[Feature][Connector-V2] Add prometheus source and sink (#7265)|https://github.com/apache/seatunnel/commit/dde6f9fcbd|2.3.9|
 |[Feature][Restapi] Allow metrics information to be associated to logical plan nodes (#7786)|https://github.com/apache/seatunnel/commit/6b7c53d03c|2.3.9|

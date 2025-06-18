@@ -118,6 +118,8 @@ sink {
 
 ## WriteBatchExample
 > The unwind keyword provided by cypher supports batch writing, and the default variable for a batch of data is batch. If you write a batch write statement, then you should declare cypher:unwind $batch as row to do someting
+ 
+
 ```
 sink {
   Neo4j {

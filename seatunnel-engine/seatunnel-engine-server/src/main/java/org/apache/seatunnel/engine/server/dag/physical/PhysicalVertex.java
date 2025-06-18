@@ -238,9 +238,10 @@ public class PhysicalVertex {
             try {
                 return (Boolean) invoke.get();
             } catch (InterruptedException | ExecutionException e) {
-                log.warn(
-                        "Execution of CheckTaskGroupIsExecutingOperation {} failed, checkTaskGroupIsExecuting return false. ",
-                        taskGroupLocation,
+                log.error(
+                        String.format(
+                                "Execution of CheckTaskGroupIsExecutingOperation %s failed, checkTaskGroupIsExecuting return false. ",
+                                taskGroupLocation),
                         e);
             }
         }

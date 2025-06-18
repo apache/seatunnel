@@ -78,7 +78,7 @@ Read external data source data through JDBC.
 
 ## Task Example
 
-### Simple:
+### Simple
 
 ```
 env {
@@ -106,7 +106,7 @@ sink {
 }
 ```
 
-### Parallel:
+### Parallel
 
 > Read your query table in parallel with the shard field you configured and the shard data. You can do this if you want to read the whole table
 
@@ -126,7 +126,7 @@ source {
 }
 ```
 
-### Parallel Boundary:
+### Parallel Boundary
 
 > It is more efficient to read your data source according to the upper and lower boundaries you configured
 

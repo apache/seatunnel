@@ -26,4 +26,6 @@ import java.io.Serializable;
 @Data
 @SuperBuilder
 @AllArgsConstructor
-public class MilvusSinkState implements Serializable {}
+public class MilvusSinkState implements Serializable {
+    private static final long serialVersionUID = -6605873999971307109L;
+}

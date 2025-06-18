@@ -45,8 +45,9 @@ public class RedshiftCatalog extends AbstractJdbcCatalog {
             String username,
             String pwd,
             JdbcUrlUtil.UrlInfo urlInfo,
-            String schema) {
-        super(catalogName, username, pwd, urlInfo, schema);
+            String schema,
+            String driverClass) {
+        super(catalogName, username, pwd, urlInfo, schema, driverClass);
     }
 
     @Override

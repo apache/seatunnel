@@ -86,7 +86,7 @@ Output data to hdfs file
 
 ## Task Example
 
-### Simple:
+### Simple
 
 > This example defines a SeaTunnel synchronization task that automatically generates data through FakeSource and sends it to Hdfs.
 

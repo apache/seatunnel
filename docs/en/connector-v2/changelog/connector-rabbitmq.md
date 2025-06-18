@@ -2,8 +2,9 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
-|[Improve] rabbit mq options (#8740)|https://github.com/apache/seatunnel/commit/4eec9be012| dev |
-|[Improve] restruct connector common options (#8634)|https://github.com/apache/seatunnel/commit/f3499a6eeb| dev |
+|[Feature][Checkpoint] Add check script for source/sink state class serialVersionUID missing (#9118)|https://github.com/apache/seatunnel/commit/4f5adeb1c7|2.3.11|
+|[Improve] rabbit mq options (#8740)|https://github.com/apache/seatunnel/commit/4eec9be012|2.3.10|
+|[Improve] restruct connector common options (#8634)|https://github.com/apache/seatunnel/commit/f3499a6eeb|2.3.10|
 |[Improve][dist]add shade check rule (#8136)|https://github.com/apache/seatunnel/commit/51ef800016|2.3.9|
 |[Feature][Restapi] Allow metrics information to be associated to logical plan nodes (#7786)|https://github.com/apache/seatunnel/commit/6b7c53d03c|2.3.9|
 |[Feature][Rabbitmq] Allow configuration of queue durability and deletion policy (#7365)|https://github.com/apache/seatunnel/commit/aabfc8eb78|2.3.8|

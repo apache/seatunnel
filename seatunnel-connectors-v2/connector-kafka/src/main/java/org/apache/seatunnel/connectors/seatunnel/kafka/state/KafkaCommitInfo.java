@@ -27,6 +27,7 @@ import java.util.Properties;
 @AllArgsConstructor
 public class KafkaCommitInfo implements Serializable {
 
+    private static final long serialVersionUID = 6744911880963367089L;
     private final String transactionId;
     private final Properties kafkaProperties;
     private final long producerId;

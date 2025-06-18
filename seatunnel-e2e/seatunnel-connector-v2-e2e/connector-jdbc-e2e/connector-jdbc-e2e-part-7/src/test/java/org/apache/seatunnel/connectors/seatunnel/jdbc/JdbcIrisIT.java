@@ -69,7 +69,7 @@ import java.util.stream.Collectors;
 
 @Slf4j
 public class JdbcIrisIT extends AbstractJdbcIT {
-    private static final String IRIS_IMAGE = "intersystems/iris-community:2023.1";
+    private static final String IRIS_IMAGE = "intersystems/iris-community:2025.1";
     private static final String IRIS_NETWORK_ALIASES = "e2e_irisDb";
     private static final String DRIVER_CLASS = "com.intersystems.jdbc.IRISDriver";
     private static final int IRIS_PORT = 1972;
@@ -585,7 +585,8 @@ public class JdbcIrisIT extends AbstractJdbcIT {
                         "iris",
                         jdbcCase.getUserName(),
                         jdbcCase.getPassword(),
-                        JdbcUrlUtil.getUrlInfo(jdbcUrl));
+                        JdbcUrlUtil.getUrlInfo(jdbcUrl),
+                        "com.intersystems.jdbc.IRISDriver");
         // set connection
         ((IrisCatalog) catalog).setConnection(jdbcUrl, connection);
         catalog.open();

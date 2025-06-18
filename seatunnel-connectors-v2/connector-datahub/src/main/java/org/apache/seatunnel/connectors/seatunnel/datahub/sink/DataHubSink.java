@@ -19,10 +19,10 @@ package org.apache.seatunnel.connectors.seatunnel.datahub.sink;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.sink.SinkWriter.Context;
+import org.apache.seatunnel.api.sink.SupportMultiTableSink;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSimpleSink;
-import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 
 import java.io.IOException;
 import java.util.Optional;
@@ -35,7 +35,8 @@ import static org.apache.seatunnel.connectors.seatunnel.datahub.config.DataHubSi
 import static org.apache.seatunnel.connectors.seatunnel.datahub.config.DataHubSinkOptions.TIMEOUT;
 import static org.apache.seatunnel.connectors.seatunnel.datahub.config.DataHubSinkOptions.TOPIC;
 
-public class DataHubSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
+public class DataHubSink extends AbstractSimpleSink<SeaTunnelRow, Void>
+        implements SupportMultiTableSink {
 
     private final ReadonlyConfig pluginConfig;
     private final CatalogTable catalogTable;
@@ -51,7 +52,7 @@ public class DataHubSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
     }
 
     @Override
-    public AbstractSinkWriter<SeaTunnelRow, Void> createWriter(Context context) throws IOException {
+    public DataHubWriter createWriter(Context context) throws IOException {
         return new DataHubWriter(
                 catalogTable.getSeaTunnelRowType(),
                 pluginConfig.get(ENDPOINT),

@@ -66,11 +66,14 @@ To use this connector you need put hadoop-cos-{hadoop.version}-{version}.jar and
 | sheet_name                | string  | no       | -                   |
 | xml_row_tag               | string  | no       | -                   |
 | xml_use_attr_format       | boolean | no       | -                   |
+| csv_use_header_line       | boolean | no       | false               |
 | file_filter_pattern       | string  | no       | -                   |
 | filename_extension            | string  | no       | -                   |
 | compress_codec            | string  | no       | none                |
 | archive_compress_codec    | string  | no       | none                |
 | encoding                  | string  | no       | UTF-8               |
+| binary_chunk_size         | int     | no       | 1024                |
+| binary_complete_file_mode | boolean | no       | false               |
 | common-options            |         | no       | -                   |
 
 ### path [string]
@@ -274,6 +277,10 @@ Only need to be configured when file_format is xml.
 
 Specifies Whether to process data using the tag attribute format.
 
+### csv_use_header_line [boolean]
+
+Whether to use the header line to parse the file, only used when the file_format is `csv` and the file contains the header line that match RFC 4180
+
 ### file_filter_pattern [string]
 
 Filter pattern, which used for filtering files.
@@ -360,6 +367,18 @@ Note: gz compressed excel file needs to compress the original file or specify th
 Only used when file_format_type is json,text,csv,xml.
 The encoding of the file to read. This param will be parsed by `Charset.forName(encoding)`.
 
+### binary_chunk_size [int]
+
+Only used when file_format_type is binary.
+
+The chunk size (in bytes) for reading binary files. Default is 1024 bytes. Larger values may improve performance for large files but use more memory.
+
+### binary_complete_file_mode [boolean]
+
+Only used when file_format_type is binary.
+
+Whether to read the complete file as a single chunk instead of splitting into chunks. When enabled, the entire file content will be read into memory at once. Default is false.
+
 ### common options
 
 Source plugin common parameters, please refer to [Source Common Options](../source-common-options.md) for details.
@@ -415,6 +434,8 @@ source {
     region = "ap-chengdu"
     path = "/seatunnel/read/binary/"
     file_format_type = "binary"
+    binary_chunk_size = 2048
+    binary_complete_file_mode = false
   }
 }
 sink {

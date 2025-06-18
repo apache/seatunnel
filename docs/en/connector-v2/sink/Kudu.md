@@ -57,7 +57,7 @@ import ChangeLog from '../changelog/connector-kudu.md';
 
 ## Task Example
 
-### Simple:
+### Simple
 
 > The following example refers to a FakeSource named "kudu" cdc write kudu table "kudu_sink_table"
 

@@ -48,6 +48,9 @@ public class HttpSinkFactory implements TableSinkFactory {
                 .optional(HttpSinkOptions.RETRY)
                 .optional(HttpSinkOptions.RETRY_BACKOFF_MULTIPLIER_MS)
                 .optional(HttpSinkOptions.RETRY_BACKOFF_MAX_MS)
+                .optional(HttpSinkOptions.ARRAY_MODE)
+                .optional(HttpSinkOptions.BATCH_SIZE)
+                .optional(HttpSinkOptions.REQUEST_INTERVAL_MS)
                 .optional(SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA)
                 .build();
     }

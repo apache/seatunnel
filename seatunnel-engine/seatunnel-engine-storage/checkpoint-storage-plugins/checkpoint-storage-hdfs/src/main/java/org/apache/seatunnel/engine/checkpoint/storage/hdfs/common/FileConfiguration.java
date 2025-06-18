@@ -38,7 +38,7 @@ public enum FileConfiguration {
         this.configuration = configuration;
     }
 
-    public AbstractConfiguration getConfiguration(String name) {
+    public AbstractConfiguration getConfiguration() {
         return configuration;
     }
 

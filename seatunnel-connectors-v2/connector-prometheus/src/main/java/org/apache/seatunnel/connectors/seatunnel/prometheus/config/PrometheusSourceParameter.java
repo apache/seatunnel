@@ -23,6 +23,7 @@ import org.apache.seatunnel.connectors.seatunnel.http.config.HttpParameter;
 import org.apache.seatunnel.connectors.seatunnel.http.config.HttpRequestMethod;
 import org.apache.seatunnel.connectors.seatunnel.prometheus.Exception.PrometheusConnectorException;
 
+import java.time.Instant;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
@@ -76,14 +77,18 @@ public class PrometheusSourceParameter extends HttpParameter {
         if (isValidISO8601(time)) {
             return time;
         }
-        throw new PrometheusConnectorException(
-                CommonErrorCode.UNSUPPORTED_DATA_TYPE, "unsupported time type");
+        try {
+            Double.parseDouble(time);
+            return time;
+        } catch (NumberFormatException e) {
+            throw new PrometheusConnectorException(
+                    CommonErrorCode.UNSUPPORTED_DATA_TYPE, "unsupported time type");
+        }
     }
 
     private boolean isValidISO8601(String dateTimeString) {
         try {
-            DateTimeFormatter formatter = DateTimeFormatter.ISO_INSTANT;
-            ZonedDateTime.parse(dateTimeString, formatter);
+            Instant.parse(dateTimeString);
             return true;
         } catch (DateTimeParseException e) {
             return false;

@@ -33,6 +33,8 @@ import org.apache.seatunnel.api.table.catalog.exception.DatabaseNotExistExceptio
 import org.apache.seatunnel.api.table.catalog.exception.TableAlreadyExistException;
 import org.apache.seatunnel.api.table.catalog.exception.TableNotExistException;
 import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
+import org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeBaseOptions;
+import org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.maxcompute.datatype.MaxComputeTypeConverter;
 import org.apache.seatunnel.connectors.seatunnel.maxcompute.util.MaxcomputeUtil;
 
@@ -55,12 +57,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
-import static org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeConfig.ACCESS_ID;
-import static org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeConfig.ACCESS_KEY;
-import static org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeConfig.ENDPOINT;
-import static org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeConfig.PARTITION_SPEC;
-import static org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeConfig.PROJECT;
-import static org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeConfig.SAVE_MODE_CREATE_TEMPLATE;
 import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkArgument;
 
 @Slf4j
@@ -78,7 +74,10 @@ public class MaxComputeCatalog implements Catalog {
 
     @Override
     public void open() throws CatalogException {
-        account = new AliyunAccount(readonlyConfig.get(ACCESS_ID), readonlyConfig.get(ACCESS_KEY));
+        account =
+                new AliyunAccount(
+                        readonlyConfig.get(MaxcomputeBaseOptions.ACCESS_ID),
+                        readonlyConfig.get(MaxcomputeBaseOptions.ACCESS_KEY));
     }
 
     @Override
@@ -91,13 +90,13 @@ public class MaxComputeCatalog implements Catalog {
 
     @Override
     public String getDefaultDatabase() throws CatalogException {
-        return readonlyConfig.get(PROJECT);
+        return readonlyConfig.get(MaxcomputeBaseOptions.PROJECT);
     }
 
     @Override
     public boolean databaseExists(String databaseName) throws CatalogException {
         try {
-            Odps odps = getOdps(readonlyConfig.get(PROJECT));
+            Odps odps = getOdps(readonlyConfig.get(MaxcomputeBaseOptions.PROJECT));
             Projects projects = odps.projects();
             return projects.exists(databaseName);
         } catch (OdpsException e) {
@@ -109,7 +108,7 @@ public class MaxComputeCatalog implements Catalog {
     public List<String> listDatabases() throws CatalogException {
         try {
             // todo: how to get all projects
-            String project = readonlyConfig.get(PROJECT);
+            String project = readonlyConfig.get(MaxcomputeBaseOptions.PROJECT);
             if (databaseExists(project)) {
                 return Lists.newArrayList(project);
             }
@@ -210,7 +209,8 @@ public class MaxComputeCatalog implements Catalog {
             SQLTask.run(
                             odps,
                             MaxComputeCatalogUtil.getCreateTableStatement(
-                                    readonlyConfig.get(SAVE_MODE_CREATE_TEMPLATE),
+                                    readonlyConfig.get(
+                                            MaxcomputeSinkOptions.SAVE_MODE_CREATE_TEMPLATE),
                                     tablePath,
                                     table))
                     .waitForSuccess();
@@ -250,8 +250,10 @@ public class MaxComputeCatalog implements Catalog {
             Odps odps = getOdps(tablePath.getDatabaseName());
             Table odpsTable = odps.tables().get(tablePath.getTableName());
             if (odpsTable.isPartitioned()
-                    && StringUtils.isNotEmpty(readonlyConfig.get(PARTITION_SPEC))) {
-                PartitionSpec partitionSpec = new PartitionSpec(readonlyConfig.get(PARTITION_SPEC));
+                    && StringUtils.isNotEmpty(
+                            readonlyConfig.get(MaxcomputeBaseOptions.PARTITION_SPEC))) {
+                PartitionSpec partitionSpec =
+                        new PartitionSpec(readonlyConfig.get(MaxcomputeBaseOptions.PARTITION_SPEC));
                 odpsTable.deletePartition(partitionSpec, ignoreIfNotExists);
                 odpsTable.createPartition(partitionSpec, true);
             } else {
@@ -313,7 +315,7 @@ public class MaxComputeCatalog implements Catalog {
             checkArgument(catalogTable.isPresent(), "CatalogTable cannot be null");
             return new SQLPreviewResult(
                     MaxComputeCatalogUtil.getCreateTableStatement(
-                            readonlyConfig.get(SAVE_MODE_CREATE_TEMPLATE),
+                            readonlyConfig.get(MaxcomputeSinkOptions.SAVE_MODE_CREATE_TEMPLATE),
                             tablePath,
                             catalogTable.get()));
         } else if (actionType == ActionType.DROP_TABLE) {
@@ -325,7 +327,7 @@ public class MaxComputeCatalog implements Catalog {
 
     private Odps getOdps(String project) {
         Odps odps = new Odps(account);
-        odps.setEndpoint(readonlyConfig.get(ENDPOINT));
+        odps.setEndpoint(readonlyConfig.get(MaxcomputeBaseOptions.ENDPOINT));
         odps.setDefaultProject(project);
         return odps;
     }

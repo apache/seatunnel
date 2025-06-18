@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.myhours.source.config;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.connectors.seatunnel.http.config.HttpCommonOptions;
 import org.apache.seatunnel.connectors.seatunnel.http.config.HttpParameter;
 import org.apache.seatunnel.connectors.seatunnel.http.config.HttpRequestMethod;
@@ -49,7 +50,7 @@ public class MyHoursSourceParameter extends HttpParameter {
         bodyParams.put(MyHoursSourceOptions.EMAIL.key(), email);
         bodyParams.put(MyHoursSourceOptions.PASSWORD.key(), password);
         bodyParams.put(MyHoursSourceOptions.CLIENT_ID, MyHoursSourceOptions.API);
-        this.setBody(bodyParams);
+        this.setBody(JsonUtils.toJsonString(bodyParams));
         if (pluginConfig.getOptional(HttpCommonOptions.RETRY).isPresent()) {
             this.setRetry(pluginConfig.get(HttpCommonOptions.RETRY));
             this.setRetryBackoffMultiplierMillis(

@@ -69,7 +69,6 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | database                                  | String  | No       | -       | 使用这个 `database` 和 `table-name` 自动生成sql并接收上游输入数据写入数据库.<br/>此选项与 `query` 互斥，具有更高的优先级.                                                                                                                                                            |
 | table                                     | String  | No       | -       | 使用数据库和此表名自动生成sql并接收上游输入数据写入数据库.<br/>此选项与 `query` 互斥，具有更高的优先级.                                                                                                                                                                                  |
 | primary_keys                              | Array   | No       | -       | 此选项用于在自动生成sql时支持 `insert`, `delete`, 和 `update` 等操作.                                                                                                                                                                                           |
-| support_upsert_by_query_primary_key_exist | Boolean | No       | false   | 选择使用INSERT sql、UPDATE sql根据查询主键是否存在来处理更新事件(INSERT, UPDATE_AFTER). 此配置仅在数据库不支持升级语法时使用. **注**: 此方法性能低                                                                                                                                            |
 | connection_check_timeout_sec              | Int     | No       | 30      | 等待用于验证连接的数据库操作完成的时间（秒）.                                                                                                                                                                                                                        |
 | max_retries                               | Int     | No       | 0       | 提交失败的重试次数 (执行批处理)                                                                                                                                                                                                                              |
 | batch_size                                | Int     | No       | 1000    | 对于批量写入，当缓冲记录的数量达到 `batch_size` 的数量或时间达到 `checkpoint.interval` 时<br/>, 数据将被刷新到数据库中                                                                                                                                                              |
@@ -88,7 +87,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 ## 任务示例
 
-### 简单:
+### 简单
 
 > 此示例定义了一个SeaTunnel同步任务，该任务通过FakeSource自动生成数据并将其发送到JDBC Sink。FakeSource总共生成16行数据（row.num=16），每行有两个字段，name（字符串类型）和age（int类型）。最终的目标表是test_table，表中也将有16行数据。在运行此作业之前，您需要在DB2中创建数据库测试和表test_table。如果您尚未安装和部署SeaTunnel，则需要按照[Install SeaTunnel](../../start-v2/locally/deployment.md)中的说明安装和部署SeaTunnel。然后按照[Quick Start With SeaTunnel Engine](../../start-v2/locally/quick-start-seatunnel-engine.md) 中的说明运行此作业.
 
@@ -153,7 +152,7 @@ sink {
 }
 ```
 
-### 精确一次 :
+### 精确一次
 
 > 为了准确的书写场景，我们保证一次准确
 

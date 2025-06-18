@@ -2,6 +2,7 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
+|[improve] http connector options (#8969)|https://github.com/apache/seatunnel/commit/63ff9f910a|2.3.10|
 |[Feature][Restapi] Allow metrics information to be associated to logical plan nodes (#7786)|https://github.com/apache/seatunnel/commit/6b7c53d03c|2.3.9|
 |[Feature][Core] Support using upstream table placeholders in sink options and auto replacement (#7131)|https://github.com/apache/seatunnel/commit/c4ca74122c|2.3.6|
 |[Feature][Connector-V2] Support TableSourceFactory/TableSinkFactory on http (#5816)|https://github.com/apache/seatunnel/commit/6f49ec6ead|2.3.4|

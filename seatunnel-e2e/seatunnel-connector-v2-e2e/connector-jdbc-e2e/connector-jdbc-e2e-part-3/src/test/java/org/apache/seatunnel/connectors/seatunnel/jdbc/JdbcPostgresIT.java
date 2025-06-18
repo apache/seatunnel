@@ -278,7 +278,8 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
                         POSTGRESQL_CONTAINER.getUsername(),
                         POSTGRESQL_CONTAINER.getPassword(),
                         JdbcUrlUtil.getUrlInfo(POSTGRESQL_CONTAINER.getJdbcUrl()),
-                        schema);
+                        schema,
+                        null);
         postgresCatalog.open();
 
         CatalogTable catalogTable = postgresCatalog.getTable(sourceTablePath);
@@ -361,7 +362,8 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
                         POSTGRESQL_CONTAINER.getUsername(),
                         POSTGRESQL_CONTAINER.getPassword(),
                         JdbcUrlUtil.getUrlInfo(POSTGRESQL_CONTAINER.getJdbcUrl()),
-                        schema);
+                        schema,
+                        null);
         catalog.open();
 
         TablePath tablePath = new TablePath(databaseName, schema, tableName);
@@ -544,7 +546,8 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
                         POSTGRESQL_CONTAINER.getUsername(),
                         POSTGRESQL_CONTAINER.getPassword(),
                         JdbcUrlUtil.getUrlInfo(POSTGRESQL_CONTAINER.getJdbcUrl()),
-                        schema);
+                        schema,
+                        null);
         postgresCatalog.open();
         CatalogTable catalogTable = postgresCatalog.getTable(tablePathPG);
         // sink tableExists ?

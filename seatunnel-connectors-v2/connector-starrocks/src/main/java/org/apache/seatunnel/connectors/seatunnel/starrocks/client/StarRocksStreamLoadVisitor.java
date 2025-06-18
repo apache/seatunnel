@@ -64,6 +64,7 @@ public class StarRocksStreamLoadVisitor {
         this.sinkConfig = sinkConfig;
         this.tableSchema = tableSchema;
         this.httpHelper = new HttpHelper(sinkConfig);
+        checkBatchMaxBytes(sinkConfig.getBatchMaxBytes(), sinkConfig.getBatchMaxSize());
     }
 
     public Boolean doStreamLoad(StarRocksFlushTuple flushData) throws IOException {
@@ -92,7 +93,7 @@ public class StarRocksStreamLoadVisitor {
         Map<String, Object> loadResult =
                 httpHelper.doHttpPut(
                         loadUrl,
-                        joinRows(flushData.getRows(), flushData.getBytes().intValue()),
+                        joinRows(flushData.getRows(), flushData.getBytes()),
                         getStreamLoadHttpHeader(flushData.getLabel()));
         final String keyStatus = "Status";
         if (null == loadResult || !loadResult.containsKey(keyStatus)) {
@@ -150,13 +151,15 @@ public class StarRocksStreamLoadVisitor {
         return null;
     }
 
-    private byte[] joinRows(List<byte[]> rows, int totalBytes) {
+    private byte[] joinRows(List<byte[]> rows, Long totalBytes) {
+        checkBatchMaxBytes(totalBytes, rows.size());
         if (SinkConfig.StreamLoadFormat.CSV.equals(sinkConfig.getLoadFormat())) {
             Map<String, Object> props = sinkConfig.getStreamLoadProps();
             byte[] lineDelimiter =
                     StarRocksDelimiterParser.parse((String) props.get("row_delimiter"), "\n")
                             .getBytes(StandardCharsets.UTF_8);
-            ByteBuffer bos = ByteBuffer.allocate(totalBytes + rows.size() * lineDelimiter.length);
+            ByteBuffer bos =
+                    ByteBuffer.allocate(totalBytes.intValue() + rows.size() * lineDelimiter.length);
             for (byte[] row : rows) {
                 bos.put(row);
                 bos.put(lineDelimiter);
@@ -166,7 +169,8 @@ public class StarRocksStreamLoadVisitor {
 
         if (SinkConfig.StreamLoadFormat.JSON.equals(sinkConfig.getLoadFormat())) {
             ByteBuffer bos =
-                    ByteBuffer.allocate(totalBytes + (rows.isEmpty() ? 2 : rows.size() + 1));
+                    ByteBuffer.allocate(
+                            totalBytes.intValue() + (rows.isEmpty() ? 2 : rows.size() + 1));
             bos.put("[".getBytes(StandardCharsets.UTF_8));
             byte[] jsonDelimiter = ",".getBytes(StandardCharsets.UTF_8);
             boolean isFirstElement = true;
@@ -299,5 +303,31 @@ public class StarRocksStreamLoadVisitor {
                 getBasicAuthHeader(sinkConfig.getUsername(), sinkConfig.getPassword()));
         headerMap.put("Connection", "close");
         return headerMap;
+    }
+
+    void checkBatchMaxBytes(long batchMaxBytes, long batchMaxRows) {
+        long batchMaxBytesLimit;
+        if (SinkConfig.StreamLoadFormat.CSV.equals(sinkConfig.getLoadFormat())) {
+            Map<String, Object> props = sinkConfig.getStreamLoadProps();
+            byte[] lineDelimiter =
+                    StarRocksDelimiterParser.parse((String) props.get("row_delimiter"), "\n")
+                            .getBytes(StandardCharsets.UTF_8);
+            batchMaxBytesLimit = Integer.MAX_VALUE - batchMaxRows * lineDelimiter.length;
+        } else if (SinkConfig.StreamLoadFormat.JSON.equals(sinkConfig.getLoadFormat())) {
+            batchMaxBytesLimit = Integer.MAX_VALUE - (batchMaxRows == 0 ? 2 : batchMaxRows + 1);
+        } else {
+            throw new StarRocksConnectorException(
+                    StarRocksConnectorErrorCode.FLUSH_DATA_FAILED,
+                    "Failed to join rows data, unsupported `format` from stream load properties:");
+        }
+
+        if (batchMaxBytes > batchMaxBytesLimit) {
+            throw new StarRocksConnectorException(
+                    StarRocksConnectorErrorCode.FLUSH_DATA_FAILED,
+                    String.format(
+                            "The batch_max_bytes[%d] of the data exceeds the maximum limit[%d], "
+                                    + "please reset the batch_max_bytes.",
+                            batchMaxBytes, batchMaxBytesLimit));
+        }
     }
 }

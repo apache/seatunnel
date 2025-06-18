@@ -19,4 +19,6 @@ package org.apache.seatunnel.connectors.seatunnel.kudu.state;
 
 import java.io.Serializable;
 
-public class KuduAggregatedCommitInfo implements Serializable {}
+public class KuduAggregatedCommitInfo implements Serializable {
+    private static final long serialVersionUID = 1942126095088508489L;
+}

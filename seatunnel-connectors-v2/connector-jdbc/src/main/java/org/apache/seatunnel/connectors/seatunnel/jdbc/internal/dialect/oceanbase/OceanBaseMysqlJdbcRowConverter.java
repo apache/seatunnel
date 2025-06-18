@@ -51,7 +51,7 @@ import java.util.Optional;
 public class OceanBaseMysqlJdbcRowConverter extends AbstractJdbcRowConverter {
     @Override
     public String converterName() {
-        return DatabaseIdentifier.OCENABASE;
+        return DatabaseIdentifier.OCEANBASE;
     }
 
     @Override

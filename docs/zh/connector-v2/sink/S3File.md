@@ -27,6 +27,9 @@ import ChangeLog from '../changelog/connector-file-s3.md';
   - [x] excel
   - [x] xml
   - [x] binary
+  - [x] canal_json
+  - [x] debezium_json
+  - [x] maxwell_json
 
 ## 描述
 
@@ -182,7 +185,7 @@ hadoop_s3_properties {
 
 我们支持以下文件类型：
 
-`text` `csv` `parquet` `orc` `json` `excel` `xml` `binary`
+`text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `canal_json` `debezium_json` `maxwell_json`
 
 请注意，最终文件名将以文件格式类型的后缀结尾，文本文件的后缀为 `txt`。
 
@@ -313,7 +316,7 @@ Sink 插件通用参数，请参考 [Sink 通用选项](../sink-common-options.m
 
 ## 示例
 
-### 简单示例：
+### 简单示例
 
 > 此示例定义了一个 SeaTunnel 同步任务，通过 FakeSource 自动生成数据并将其发送到 S3File Sink。FakeSource 总共生成 16 行数据 (row.num=16)，每行有两个字段，name (字符串类型) 和 age (int 类型)。最终的目标 s3 目录将创建一个文件，并将所有数据写入其中。
 > 在运行此作业之前，您需要创建 s3 路径：/seatunnel/text。如果您尚未安装和部署 SeaTunnel，您需要按照 [安装 SeaTunnel](../../start-v2/locally/deployment.md) 中的说明安装和部署 SeaTunnel。然后按照 [使用 SeaTunnel Engine 快速入门](../../start-v2/locally/quick-start-seatunnel-engine.md) 中的说明运行此作业。

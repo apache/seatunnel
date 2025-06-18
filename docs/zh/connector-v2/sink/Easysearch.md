@@ -61,6 +61,8 @@ import ChangeLog from '../changelog/connector-easysearch.md';
 | tls_keystore_password   | string  | 否 | -             |
 | tls_truststore_path     | string  | 否 | -             |
 | tls_truststore_password | string  | 否 | -             |
+| schema_save_mode        | enum    | 否 | CREATE_SCHEMA_WHEN_NOT_EXIST |
+| data_save_mode          | enum    | 否 | APPEND_DATA   |
 | common-options          |         | 否 | -             |
 
 ### hosts [array]
@@ -120,6 +122,21 @@ PEM或JKS信任存储的路径。运行SeaTunnel的操作系统用户必须能�
 
 指定的信任存储的密钥密码
 
+### schema_save_mode [enum]
+
+在启动同步任务之前，针对目标侧已有的表结构选择不同的处理方案：
+- `RECREATE_SCHEMA`：当表不存在时会创建，当表已存在时会删除并重建
+- `CREATE_SCHEMA_WHEN_NOT_EXIST`：当表不存在时会创建，当表已存在时则跳过创建
+- `ERROR_WHEN_SCHEMA_NOT_EXIST`：当表不存在时将抛出错误
+- `IGNORE`：忽略对表的处理
+
+### data_save_mode [enum]
+
+在启动同步任务之前，针对目标端已有的数据选择不同的处理方案：
+- `DROP_DATA`：保留数据库结构并删除数据
+- `APPEND_DATA`：保留数据库结构，保留数据
+- `ERROR_WHEN_DATA_EXISTS`：有数据时报错
+
 ### common options
 
 接收器插件常用参数，详见 [Sink Common Options](../sink-common-options.md)
@@ -144,7 +161,7 @@ sink {
     Easysearch {
         hosts = ["localhost:9200"]
         index = "seatunnel-${age}"
-        
+
         # cdc required options
         primary_keys = ["key1", "key2", ...]
     }
@@ -159,7 +176,7 @@ sink {
         hosts = ["https://localhost:9200"]
         username = "admin"
         password = "admin"
-        
+
         tls_verify_certificate = false
     }
 }
@@ -173,7 +190,7 @@ sink {
         hosts = ["https://localhost:9200"]
         username = "admin"
         password = "admin"
-        
+
         tls_verify_hostname = false
     }
 }
@@ -187,9 +204,24 @@ sink {
         hosts = ["https://localhost:9200"]
         username = "admin"
         password = "admin"
-        
+
         tls_keystore_path = "${your Easysearch home}/config/certs/http.p12"
         tls_keystore_password = "${your password}"
+    }
+}
+```
+
+配置表生成策略
+
+```hocon
+sink {
+    Easysearch {
+        hosts = ["https://localhost:9200"]
+        username = "admin"
+        password = "admin"
+
+        schema_save_mode = "CREATE_SCHEMA_WHEN_NOT_EXIST"
+        data_save_mode = "APPEND_DATA"
     }
 }
 ```

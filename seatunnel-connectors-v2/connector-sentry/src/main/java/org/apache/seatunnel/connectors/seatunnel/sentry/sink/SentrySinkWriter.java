@@ -17,12 +17,10 @@
 
 package org.apache.seatunnel.connectors.seatunnel.sentry.sink;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
-import org.apache.seatunnel.connectors.seatunnel.sentry.config.SentryConfig;
+import org.apache.seatunnel.connectors.seatunnel.sentry.config.SentrySinkOptions;
 
 import io.sentry.Sentry;
 import io.sentry.SentryOptions;
@@ -31,33 +29,31 @@ import java.io.IOException;
 
 /** @description: SentrySinkWriter class */
 public class SentrySinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
-    private SeaTunnelRowType seaTunnelRowType;
 
-    public SentrySinkWriter(SeaTunnelRowType seaTunnelRowType, Config pluginConfig) {
+    public SentrySinkWriter(ReadonlyConfig pluginConfig) {
         SentryOptions options = new SentryOptions();
-        options.setDsn(pluginConfig.getString(SentryConfig.DSN.key()));
-        if (pluginConfig.hasPath(SentryConfig.ENV.key())) {
-            options.setEnvironment(pluginConfig.getString(SentryConfig.ENV.key()));
+        options.setDsn(pluginConfig.get(SentrySinkOptions.DSN));
+        if (pluginConfig.getOptional(SentrySinkOptions.ENV).isPresent()) {
+            options.setEnvironment(pluginConfig.get(SentrySinkOptions.ENV));
         }
-        if (pluginConfig.hasPath(SentryConfig.RELEASE.key())) {
-            options.setRelease(pluginConfig.getString(SentryConfig.RELEASE.key()));
+        if (pluginConfig.getOptional(SentrySinkOptions.RELEASE).isPresent()) {
+            options.setRelease(pluginConfig.get(SentrySinkOptions.RELEASE));
         }
-        if (pluginConfig.hasPath(SentryConfig.CACHE_DIRPATH.key())) {
-            options.setCacheDirPath(pluginConfig.getString(SentryConfig.CACHE_DIRPATH.key()));
+        if (pluginConfig.getOptional(SentrySinkOptions.CACHE_DIRPATH).isPresent()) {
+            options.setCacheDirPath(pluginConfig.get(SentrySinkOptions.CACHE_DIRPATH));
         }
-        if (pluginConfig.hasPath(SentryConfig.MAX_CACHEITEMS.key())) {
-            options.setMaxCacheItems(pluginConfig.getInt(SentryConfig.MAX_CACHEITEMS.key()));
+        if (pluginConfig.getOptional(SentrySinkOptions.MAX_CACHEITEMS).isPresent()) {
+            options.setMaxCacheItems(pluginConfig.get(SentrySinkOptions.MAX_CACHEITEMS));
         }
-        if (pluginConfig.hasPath(SentryConfig.MAX_QUEUESIZE.key())) {
-            options.setMaxQueueSize(pluginConfig.getInt(SentryConfig.MAX_QUEUESIZE.key()));
+        if (pluginConfig.getOptional(SentrySinkOptions.MAX_QUEUESIZE).isPresent()) {
+            options.setMaxQueueSize(pluginConfig.get(SentrySinkOptions.MAX_QUEUESIZE));
         }
-        if (pluginConfig.hasPath(SentryConfig.FLUSH_TIMEOUTMILLIS.key())) {
-            options.setFlushTimeoutMillis(
-                    pluginConfig.getLong(SentryConfig.FLUSH_TIMEOUTMILLIS.key()));
+        if (pluginConfig.getOptional(SentrySinkOptions.FLUSH_TIMEOUTMILLIS).isPresent()) {
+            options.setFlushTimeoutMillis(pluginConfig.get(SentrySinkOptions.FLUSH_TIMEOUTMILLIS));
         }
-        if (pluginConfig.hasPath(SentryConfig.ENABLE_EXTERNAL_CONFIGURATION.key())) {
+        if (pluginConfig.getOptional(SentrySinkOptions.ENABLE_EXTERNAL_CONFIGURATION).isPresent()) {
             options.setEnableExternalConfiguration(
-                    pluginConfig.getBoolean(SentryConfig.ENABLE_EXTERNAL_CONFIGURATION.key()));
+                    pluginConfig.get(SentrySinkOptions.ENABLE_EXTERNAL_CONFIGURATION));
         }
         Sentry.init(options);
     }

@@ -98,7 +98,7 @@ http请求失败，最大重试回退时间(毫秒)
 
 ## 示例
 
-### Instant:
+### Instant
 
 ```hocon
 source {

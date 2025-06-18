@@ -93,6 +93,11 @@ clickhouse:
       - changed-files:
           - any-glob-to-any-file: seatunnel-connectors-v2/connector-clickhouse/**
           - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(clickhouse)/**'
+databend:
+  - all:
+      - changed-files:
+          - any-glob-to-any-file: seatunnel-connectors-v2/connector-databend/**
+          - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(databend)/**'
 datahub:
   - all:
       - changed-files:
@@ -143,6 +148,11 @@ google-sheets:
       - changed-files:
           - any-glob-to-any-file: seatunnel-connectors-v2/connector-google-sheets/**
           - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(google-sheets)/**'
+graphql:
+  - all:
+      - changed-files:
+          - any-glob-to-any-file: seatunnel-connectors-v2/connector-graphql/**
+          - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(graphql)/**'
 hbase:
   - all:
       - changed-files:
@@ -306,3 +316,8 @@ sls:
       - changed-files:
           - any-glob-to-any-file: seatunnel-connectors-v2/connector-sls/**
           - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(sls)/**'
+aerospike:
+  - all:
+      - changed-files:
+          - any-glob-to-any-file: seatunnel-connectors-v2/connector-aerospike/**
+          - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(aerospike)/**'

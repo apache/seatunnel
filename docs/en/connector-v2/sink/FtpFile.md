@@ -43,13 +43,14 @@ By default, we use 2PC commit to ensure `exactly-once`
 | path                                  | string  | yes      | -                                          |                                                                                                                                                                        |
 | tmp_path                              | string  | yes      | /tmp/seatunnel                             | The result file will write to a tmp path first and then use `mv` to submit tmp dir to target dir. Need a FTP dir.                                                      |
 | connection_mode                       | string  | no       | active_local                               | The target ftp connection mode                                                                                                                                         |
+| remote_verification_enabled           | boolean | no       | true                                       | Whether to enable remote host verification for FTP data channels                                                                                                       |
 | custom_filename                       | boolean | no       | false                                      | Whether you need custom the filename                                                                                                                                   |
 | file_name_expression                  | string  | no       | "${transactionId}"                         | Only used when custom_filename is true                                                                                                                                 |
 | filename_time_format                  | string  | no       | "yyyy.MM.dd"                               | Only used when custom_filename is true                                                                                                                                 |
 | file_format_type                      | string  | no       | "csv"                                      |                                                                                                                                                                        |
 | filename_extension                    | string  | no       | -                                          | Override the default file name extensions with custom file name extensions. E.g. `.xml`, `.json`, `dat`, `.customtype`                                                 |
 | field_delimiter                       | string  | no       | '\001'                                     | Only used when file_format_type is text                                                                                                                                |
-| row_delimiter                         | string  | no       | "\n"                                       | Only used when file_format_type is `text`, `csv` and `json`                                                                                                             |
+| row_delimiter                         | string  | no       | "\n"                                       | Only used when file_format_type is `text`, `csv` and `json`                                                                                                            |
 | have_partition                        | boolean | no       | false                                      | Whether you need processing partitions.                                                                                                                                |
 | partition_by                          | array   | no       | -                                          | Only used then have_partition is true                                                                                                                                  |
 | partition_dir_expression              | string  | no       | "${k0}=${v0}/${k1}=${v1}/.../${kn}=${vn}/" | Only used then have_partition is true                                                                                                                                  |
@@ -100,6 +101,10 @@ The target ftp connection mode , default is active mode, supported as the follow
 
 `active_local` `passive_local`
 
+### remote_verification_enabled [boolean]
+
+Whether to enable remote host verification for FTP data channels, default is `true`.
+
 ### custom_filename [boolean]
 
 Whether custom the filename
@@ -119,7 +124,7 @@ Only used when `custom_filename` is `true`
 
 When the format in the `file_name_expression` parameter is `xxxx-${now}` , `filename_time_format` can specify the time format of the path, and the default value is `yyyy.MM.dd` . The commonly used time formats are listed as follows:
 
-| Symbol |    Description     |
+| Symbol | Description        |
 |--------|--------------------|
 | y      | Year               |
 | M      | Month              |

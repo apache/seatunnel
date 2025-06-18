@@ -2,7 +2,7 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
-|[improve] cassandra connector options (#8608)|https://github.com/apache/seatunnel/commit/d9201108cf| dev |
+|[improve] cassandra connector options (#8608)|https://github.com/apache/seatunnel/commit/d9201108cf|2.3.10|
 |[Feature][Restapi] Allow metrics information to be associated to logical plan nodes (#7786)|https://github.com/apache/seatunnel/commit/6b7c53d03c|2.3.9|
 |[Improve] Improve some connectors prepare check error message (#7465)|https://github.com/apache/seatunnel/commit/6930a25edd|2.3.8|
 |[Improve][Common] Introduce new error define rule (#5793)|https://github.com/apache/seatunnel/commit/9d1b2582b2|2.3.4|

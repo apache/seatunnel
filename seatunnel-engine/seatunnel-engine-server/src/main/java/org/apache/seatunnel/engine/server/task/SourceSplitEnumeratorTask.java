@@ -200,6 +200,8 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
         } else {
             this.enumerator = this.source.getSource().createEnumerator(enumeratorContext);
         }
+        enumerator.open();
+        enumeratorContext.getEventListener().onEvent(new EnumeratorOpenEvent());
         restoreComplete.complete(null);
         log.debug("restoreState split enumerator [{}] finished", actionStateList);
     }
@@ -311,8 +313,6 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
             case READY_START:
                 if (startCalled && readerRegisterComplete) {
                     currState = STARTING;
-                    enumerator.open();
-                    enumeratorContext.getEventListener().onEvent(new EnumeratorOpenEvent());
                 } else {
                     Thread.sleep(100);
                 }

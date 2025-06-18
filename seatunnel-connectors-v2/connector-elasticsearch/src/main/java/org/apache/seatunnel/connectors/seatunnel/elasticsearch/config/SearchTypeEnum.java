@@ -18,6 +18,9 @@
 package org.apache.seatunnel.connectors.seatunnel.elasticsearch.config;
 
 public enum SearchTypeEnum {
+    /** Use Domain Specific Language (DSL) query */
     DSL,
+
+    /** Use SQL query */
     SQL
 }

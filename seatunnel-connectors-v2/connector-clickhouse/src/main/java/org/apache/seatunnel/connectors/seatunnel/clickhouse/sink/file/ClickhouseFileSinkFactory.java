@@ -42,6 +42,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseBaseOptions.CLICKHOUSE_CONFIG;
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseBaseOptions.DATABASE;
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseBaseOptions.HOST;
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseBaseOptions.PASSWORD;
@@ -95,7 +96,7 @@ public class ClickhouseFileSinkFactory implements TableSinkFactory {
                         readonlyConfig.get(SERVER_TIME_ZONE),
                         readonlyConfig.get(USERNAME),
                         readonlyConfig.get(PASSWORD),
-                        null);
+                        readonlyConfig.get(CLICKHOUSE_CONFIG));
 
         ClickhouseProxy proxy = new ClickhouseProxy(nodes.get(0));
         Map<String, String> tableSchema = proxy.getClickhouseTableSchema(readonlyConfig.get(TABLE));

@@ -110,7 +110,7 @@ GRANT SELECT ANY TABLE TO logminer_user;
 GRANT ANALYZE ANY TO logminer_user;
 ```
 
-#### To enable Logminer in Oracle with CDB (Container Database) + PDB (Pluggable Database) mode, follow the steps below:
+#### To enable Logminer in Oracle with CDB (Container Database) + PDB (Pluggable Database) mode
 
 1. The operating system creates an empty file directory to store Oracle archived logs and user tablespaces.
 

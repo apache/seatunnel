@@ -57,7 +57,7 @@ import ChangeLog from '../changelog/connector-kudu.md';
 
 ## 任务示例
 
-### 简单示例:
+### 简单示例
 
 > 以下示例引用了FakeSource kudu写入表kudu_sink_table
 

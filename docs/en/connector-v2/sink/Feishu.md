@@ -52,7 +52,7 @@ Used to launch Feishu web hooks using data.
 
 ## Task Example
 
-### Simple:
+### Simple
 
 ```hocon
 Feishu {

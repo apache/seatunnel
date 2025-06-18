@@ -19,12 +19,14 @@ package org.apache.seatunnel.connectors.cdc.base.schema;
 
 import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.schema.event.AlterTableChangeColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableColumnsEvent;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.utils.SourceRecordUtils;
 
@@ -40,6 +42,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.stream.Collectors;
 
 @Slf4j
 public abstract class AbstractSchemaChangeResolver implements SchemaChangeResolver {
@@ -71,7 +74,7 @@ public abstract class AbstractSchemaChangeResolver implements SchemaChangeResolv
     }
 
     @Override
-    public SchemaChangeEvent resolve(SourceRecord record, SeaTunnelDataType dataType) {
+    public SchemaChangeEvent resolve(SourceRecord record, List<CatalogTable> catalogTables) {
         TablePath tablePath = SourceRecordUtils.getTablePath(record);
         String ddl = SourceRecordUtils.getDdl(record);
         if (Objects.isNull(ddlParser)) {
@@ -85,6 +88,7 @@ public abstract class AbstractSchemaChangeResolver implements SchemaChangeResolv
         // Parse DDL statement using Debezium's Antlr parser
         ddlParser.parse(ddl, tables);
         List<AlterTableColumnEvent> parsedEvents = getAndClearParsedEvents();
+        parsedEvents = completionEvent(parsedEvents, catalogTables);
         parsedEvents.forEach(e -> e.setSourceDialectName(getSourceDialectName()));
         AlterTableColumnsEvent alterTableColumnsEvent =
                 new AlterTableColumnsEvent(
@@ -97,6 +101,61 @@ public abstract class AbstractSchemaChangeResolver implements SchemaChangeResolv
         alterTableColumnsEvent.setStatement(ddl);
         alterTableColumnsEvent.setSourceDialectName(getSourceDialectName());
         return parsedEvents.isEmpty() ? null : alterTableColumnsEvent;
+    }
+
+    List<AlterTableColumnEvent> completionEvent(
+            List<AlterTableColumnEvent> events, List<CatalogTable> catalogTables) {
+        return events.stream()
+                .map(
+                        columnEvent -> {
+                            columnEvent.setSourceDialectName(getSourceDialectName());
+                            if (catalogTables == null || catalogTables.isEmpty()) {
+                                return columnEvent;
+                            }
+                            if (!(columnEvent instanceof AlterTableChangeColumnEvent)) {
+                                return columnEvent;
+                            }
+
+                            AlterTableChangeColumnEvent changeColumnEvent =
+                                    (AlterTableChangeColumnEvent) columnEvent;
+                            if (changeColumnEvent.getColumn().getDataType() != null) {
+                                return columnEvent;
+                            }
+                            CatalogTable table =
+                                    catalogTables.stream()
+                                            .filter(
+                                                    catalogTable ->
+                                                            catalogTable
+                                                                    .getTablePath()
+                                                                    .equals(
+                                                                            columnEvent
+                                                                                    .getTablePath()))
+                                            .findFirst()
+                                            .orElse(null);
+                            if (table != null) {
+                                Column oldColumn =
+                                        table.getTableSchema()
+                                                .getColumn(changeColumnEvent.getOldColumn());
+                                Column newColumn =
+                                        oldColumn.rename(changeColumnEvent.getColumn().getName());
+                                AlterTableChangeColumnEvent newEvent =
+                                        new AlterTableChangeColumnEvent(
+                                                changeColumnEvent.getTableIdentifier(),
+                                                changeColumnEvent.getOldColumn(),
+                                                newColumn,
+                                                changeColumnEvent.isFirst(),
+                                                changeColumnEvent.getAfterColumn());
+                                newEvent.setSourceDialectName(getSourceDialectName());
+                                return newEvent;
+                            } else {
+                                log.warn(
+                                        "Ignoring rename column {} type completion for table {}",
+                                        changeColumnEvent.getOldColumn(),
+                                        changeColumnEvent.getTablePath());
+                            }
+                            return columnEvent;
+                        })
+                .collect(Collectors.toList());
     }
 
     protected abstract DdlParser createDdlParser(TablePath tablePath);

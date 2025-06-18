@@ -60,7 +60,7 @@ semantics (using XA transaction guarantee).
 
 ## Task Example
 
-### Simple:
+### Simple
 
 ```
 sink {

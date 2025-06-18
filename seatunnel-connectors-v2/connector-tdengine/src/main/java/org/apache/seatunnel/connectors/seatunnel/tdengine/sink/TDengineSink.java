@@ -17,40 +17,34 @@
 
 package org.apache.seatunnel.connectors.seatunnel.tdengine.sink;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
-import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.sink.SupportMultiTableSink;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSimpleSink;
-import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
-
-import com.google.auto.service.AutoService;
+import org.apache.seatunnel.connectors.seatunnel.tdengine.config.TDengineSinkConfig;
 
 import java.io.IOException;
 import java.util.Optional;
 
-@AutoService(SeaTunnelSink.class)
-public class TDengineSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
-    private SeaTunnelRowType seaTunnelRowType;
-    private Config pluginConfig;
+public class TDengineSink extends AbstractSimpleSink<SeaTunnelRow, Void>
+        implements SupportMultiTableSink {
 
-    @Override
-    public void setTypeInfo(SeaTunnelRowType seaTunnelRowType) {
-        this.seaTunnelRowType = seaTunnelRowType;
+    private final TDengineSinkConfig tdengineSinkConfig;
+    private final CatalogTable catalogTable;
+
+    private final SeaTunnelRowType seaTunnelRowType;
+
+    public TDengineSink(TDengineSinkConfig tdengineSinkConfig, CatalogTable catalogTable) {
+        this.tdengineSinkConfig = tdengineSinkConfig;
+        this.catalogTable = catalogTable;
+        this.seaTunnelRowType = catalogTable.getSeaTunnelRowType();
     }
 
     @Override
-    public AbstractSinkWriter<SeaTunnelRow, Void> createWriter(SinkWriter.Context context)
-            throws IOException {
-        return new TDengineSinkWriter(pluginConfig, seaTunnelRowType);
-    }
-
-    @Override
-    public void prepare(Config pluginConfig) {
-        this.pluginConfig = pluginConfig;
+    public TDengineSinkWriter createWriter(SinkWriter.Context context) throws IOException {
+        return new TDengineSinkWriter(tdengineSinkConfig, seaTunnelRowType);
     }
 
     @Override
@@ -60,6 +54,6 @@ public class TDengineSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
 
     @Override
     public Optional<CatalogTable> getWriteCatalogTable() {
-        return super.getWriteCatalogTable();
+        return Optional.of(catalogTable);
     }
 }

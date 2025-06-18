@@ -30,6 +30,7 @@ import org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.Elasticsea
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.BulkResponse;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.ElasticsearchClusterInfo;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.source.IndexDocsCount;
+import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.source.PointInTimeResult;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.source.ScrollResult;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.exception.ElasticsearchConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.exception.ElasticsearchConnectorException;
@@ -61,6 +62,7 @@ import javax.net.ssl.SSLContext;
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
@@ -875,5 +877,207 @@ public class EsRestClient implements Closeable {
                             "Failed to add field %s to index %s", fieldTypeDefine.getName(), index),
                     ex);
         }
+    }
+
+    /**
+     * Creates a Point-in-Time (PIT) for the specified index.
+     *
+     * @param index The index to create a PIT for
+     * @param keepAlive The time to keep the PIT alive (in milliseconds)
+     * @return The PIT ID
+     */
+    public String createPointInTime(String index, long keepAlive) {
+        String endpoint = String.format("/%s/_pit?keep_alive=%dms", index.toLowerCase(), keepAlive);
+        Request request = new Request("POST", endpoint);
+        try {
+            Response response = restClient.performRequest(request);
+            if (response == null) {
+                throw new ElasticsearchConnectorException(
+                        ElasticsearchConnectorErrorCode.CREATE_PIT_FAILED,
+                        "POST " + endpoint + " response null");
+            }
+            if (response.getStatusLine().getStatusCode() == HttpStatus.SC_OK) {
+                String entity = EntityUtils.toString(response.getEntity());
+                JsonNode jsonNode = JsonUtils.parseObject(entity);
+                return jsonNode.get("id").asText();
+            } else {
+                throw new ElasticsearchConnectorException(
+                        ElasticsearchConnectorErrorCode.CREATE_PIT_FAILED,
+                        String.format(
+                                "POST %s response status code=%d",
+                                endpoint, response.getStatusLine().getStatusCode()));
+            }
+        } catch (IOException ex) {
+            throw new ElasticsearchConnectorException(
+                    ElasticsearchConnectorErrorCode.CREATE_PIT_FAILED, ex);
+        }
+    }
+
+    /**
+     * Deletes a Point-in-Time (PIT).
+     *
+     * @param pitId The PIT ID to delete
+     * @return True if the PIT was successfully deleted
+     */
+    public boolean deletePointInTime(String pitId) {
+        String endpoint = "/_pit";
+        Request request = new Request("DELETE", endpoint);
+        Map<String, String> requestBody = new HashMap<>();
+        requestBody.put("id", pitId);
+        request.setJsonEntity(JsonUtils.toJsonString(requestBody));
+        try {
+            Response response = restClient.performRequest(request);
+            if (response == null) {
+                throw new ElasticsearchConnectorException(
+                        ElasticsearchConnectorErrorCode.DELETE_PIT_FAILED,
+                        "DELETE " + endpoint + " response null");
+            }
+            if (response.getStatusLine().getStatusCode() == HttpStatus.SC_OK) {
+                String entity = EntityUtils.toString(response.getEntity());
+                JsonNode jsonNode = JsonUtils.parseObject(entity);
+                return jsonNode.get("succeeded").asBoolean();
+            } else {
+                throw new ElasticsearchConnectorException(
+                        ElasticsearchConnectorErrorCode.DELETE_PIT_FAILED,
+                        String.format(
+                                "DELETE %s response status code=%d",
+                                endpoint, response.getStatusLine().getStatusCode()));
+            }
+        } catch (IOException ex) {
+            throw new ElasticsearchConnectorException(
+                    ElasticsearchConnectorErrorCode.DELETE_PIT_FAILED, ex);
+        }
+    }
+
+    /**
+     * Searches using a Point-in-Time (PIT).
+     *
+     * @param pitId The PIT ID to use
+     * @param source The fields to include in the response
+     * @param query The query to execute
+     * @param batchSize The number of documents to return
+     * @param searchAfter The sort values to search after (for pagination)
+     * @param keepAlive The time to keep the PIT alive (in milliseconds)
+     * @return The search results
+     */
+    public PointInTimeResult searchWithPointInTime(
+            String pitId,
+            List<String> source,
+            Map<String, Object> query,
+            int batchSize,
+            Object[] searchAfter,
+            long keepAlive) {
+
+        Map<String, Object> requestBody = new HashMap<>();
+        requestBody.put("size", batchSize);
+        requestBody.put("query", query);
+        requestBody.put("_source", source);
+
+        // Add PIT information
+        Map<String, Object> pit = new HashMap<>();
+        pit.put("id", pitId);
+        pit.put("keep_alive", keepAlive + "ms");
+        requestBody.put("pit", pit);
+
+        // Add sort for search_after
+        List<Map<String, String>> sort = new ArrayList<>();
+        sort.add(Collections.singletonMap("_shard_doc", "asc"));
+        requestBody.put("sort", sort);
+
+        // Add search_after if provided
+        if (searchAfter != null && searchAfter.length > 0) {
+            requestBody.put("search_after", searchAfter);
+        }
+
+        String endpoint = "/_search";
+        Request request = new Request("POST", endpoint);
+        request.setJsonEntity(JsonUtils.toJsonString(requestBody));
+
+        try {
+            Response response = restClient.performRequest(request);
+            if (response == null) {
+                throw new ElasticsearchConnectorException(
+                        ElasticsearchConnectorErrorCode.SEARCH_WITH_PIT_FAILED,
+                        "POST " + endpoint + " response null");
+            }
+            if (response.getStatusLine().getStatusCode() == HttpStatus.SC_OK) {
+                String entity = EntityUtils.toString(response.getEntity());
+                return parsePointInTimeResponse(entity, pitId);
+            } else {
+                throw new ElasticsearchConnectorException(
+                        ElasticsearchConnectorErrorCode.SEARCH_WITH_PIT_FAILED,
+                        String.format(
+                                "POST %s response status code=%d",
+                                endpoint, response.getStatusLine().getStatusCode()));
+            }
+        } catch (IOException ex) {
+            throw new ElasticsearchConnectorException(
+                    ElasticsearchConnectorErrorCode.SEARCH_WITH_PIT_FAILED, ex);
+        }
+    }
+
+    /**
+     * Parses the response from a Point-in-Time search.
+     *
+     * @param responseJson The JSON response from Elasticsearch
+     * @param pitId The PIT ID used for the search
+     * @return The parsed search results
+     */
+    private PointInTimeResult parsePointInTimeResponse(String responseJson, String pitId) {
+        JsonNode rootNode = JsonUtils.parseObject(responseJson);
+        JsonNode hitsNode = rootNode.get("hits");
+        JsonNode totalNode = hitsNode.get("total");
+        long totalHits = totalNode.get("value").asLong();
+
+        List<Map<String, Object>> docs = new ArrayList<>();
+        JsonNode hitsArray = hitsNode.get("hits");
+        Object[] searchAfter = null;
+
+        for (JsonNode hit : hitsArray) {
+            Map<String, Object> doc = new HashMap<>();
+            // Add metadata fields
+            doc.put("_index", hit.get("_index").textValue());
+            doc.put("_id", hit.get("_id").textValue());
+            if (hit.has("_type")) {
+                doc.put("_type", hit.get("_type").textValue());
+            }
+
+            // Extract document source fields
+            JsonNode source = hit.get("_source");
+            for (Iterator<Map.Entry<String, JsonNode>> iterator = source.fields();
+                    iterator.hasNext(); ) {
+                Map.Entry<String, JsonNode> entry = iterator.next();
+                String fieldName = entry.getKey();
+                if (entry.getValue() instanceof TextNode) {
+                    doc.put(fieldName, entry.getValue().textValue());
+                } else {
+                    doc.put(fieldName, entry.getValue());
+                }
+            }
+            docs.add(doc);
+
+            // Get sort values from the last document for search_after
+            if (hit.has("sort")) {
+                searchAfter = new Object[hit.get("sort").size()];
+                for (int i = 0; i < searchAfter.length; i++) {
+                    JsonNode sortValue = hit.get("sort").get(i);
+                    if (sortValue.isNumber()) {
+                        searchAfter[i] = sortValue.asDouble();
+                    } else if (sortValue.isTextual()) {
+                        searchAfter[i] = sortValue.asText();
+                    } else {
+                        searchAfter[i] = sortValue.toString();
+                    }
+                }
+            }
+        }
+
+        // Get the updated PIT ID
+        String updatedPitId = rootNode.has("pit_id") ? rootNode.get("pit_id").asText() : pitId;
+
+        // Determine if there are more results
+        boolean hasMore = docs.size() > 0 && totalHits > 0 && docs.size() < totalHits;
+
+        return new PointInTimeResult(updatedPitId, docs, totalHits, searchAfter, hasMore);
     }
 }

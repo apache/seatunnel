@@ -26,5 +26,6 @@ import java.util.List;
 @Data
 @AllArgsConstructor
 public class MongodbCommitInfo implements Serializable {
+    private static final long serialVersionUID = -8437379022903705979L;
     List<DocumentBulk> documentBulks;
 }

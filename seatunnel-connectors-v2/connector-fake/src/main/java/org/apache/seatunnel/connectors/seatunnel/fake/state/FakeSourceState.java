@@ -28,5 +28,6 @@ import java.util.Set;
 @Getter
 @AllArgsConstructor
 public class FakeSourceState implements Serializable {
+    private static final long serialVersionUID = 3518027332238448485L;
     private final Set<FakeSourceSplit> assignedSplits;
 }

@@ -41,7 +41,7 @@ public class IcebergSourceConfig extends IcebergCommonConfig {
         this.incrementScanInterval =
                 readonlyConfig.get(IcebergSourceOptions.KEY_INCREMENT_SCAN_INTERVAL);
         if (this.getTable() != null) {
-            SourceTableConfig tableConfig =
+            SourceTableConfig.SourceTableConfigBuilder builder =
                     SourceTableConfig.builder()
                             .namespace(this.getNamespace())
                             .table(this.getTable())
@@ -60,7 +60,9 @@ public class IcebergSourceConfig extends IcebergCommonConfig {
                             .streamScanStrategy(
                                     readonlyConfig.get(
                                             IcebergSourceOptions.KEY_STREAM_SCAN_STRATEGY))
-                            .build();
+                            .query(readonlyConfig.get(IcebergSourceOptions.QUERY));
+
+            SourceTableConfig tableConfig = builder.build();
             this.tableList = Collections.singletonList(tableConfig);
         } else {
             this.tableList =

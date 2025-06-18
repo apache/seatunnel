@@ -50,23 +50,24 @@ public class S3HadoopConf extends HadoopConf {
 
     public static HadoopConf buildWithReadOnlyConfig(ReadonlyConfig config) {
 
-        String bucketName = config.get(S3ConfigOptions.S3_BUCKET);
+        String bucketName = config.get(S3FileBaseOptions.S3_BUCKET);
         S3HadoopConf hadoopConf = new S3HadoopConf(bucketName);
         if (bucketName.startsWith(S3A_SCHEMA)) {
             hadoopConf.setSchema(S3A_SCHEMA);
         }
         HashMap<String, String> s3Options = new HashMap<>();
         hadoopConf.putS3SK(s3Options, config);
-        if (config.getOptional(S3ConfigOptions.S3_PROPERTIES).isPresent()) {
-            config.get(S3ConfigOptions.S3_PROPERTIES)
+        if (config.getOptional(S3FileBaseOptions.S3_PROPERTIES).isPresent()) {
+            config.get(S3FileBaseOptions.S3_PROPERTIES)
                     .forEach((key, value) -> s3Options.put(key, String.valueOf(value)));
         }
 
         s3Options.put(
-                S3ConfigOptions.S3A_AWS_CREDENTIALS_PROVIDER.key(),
-                config.get(S3ConfigOptions.S3A_AWS_CREDENTIALS_PROVIDER).getProvider());
+                S3FileBaseOptions.S3A_AWS_CREDENTIALS_PROVIDER.key(),
+                config.get(S3FileBaseOptions.S3A_AWS_CREDENTIALS_PROVIDER).getProvider());
         s3Options.put(
-                S3ConfigOptions.FS_S3A_ENDPOINT.key(), config.get(S3ConfigOptions.FS_S3A_ENDPOINT));
+                S3FileBaseOptions.FS_S3A_ENDPOINT.key(),
+                config.get(S3FileBaseOptions.FS_S3A_ENDPOINT));
         hadoopConf.setExtraOptions(s3Options);
         return hadoopConf;
     }
@@ -81,12 +82,12 @@ public class S3HadoopConf extends HadoopConf {
     }
 
     private void putS3SK(Map<String, String> s3Options, ReadonlyConfig config) {
-        if (!config.getOptional(S3ConfigOptions.S3_ACCESS_KEY).isPresent()
-                && !config.getOptional(S3ConfigOptions.S3_SECRET_KEY).isPresent()) {
+        if (!config.getOptional(S3FileBaseOptions.S3_ACCESS_KEY).isPresent()
+                && !config.getOptional(S3FileBaseOptions.S3_SECRET_KEY).isPresent()) {
             return;
         }
-        String accessKey = config.get(S3ConfigOptions.S3_ACCESS_KEY);
-        String secretKey = config.get(S3ConfigOptions.S3_SECRET_KEY);
+        String accessKey = config.get(S3FileBaseOptions.S3_ACCESS_KEY);
+        String secretKey = config.get(S3FileBaseOptions.S3_SECRET_KEY);
         if (S3A_SCHEMA.equals(this.schema)) {
             s3Options.put("fs.s3a.access.key", accessKey);
             s3Options.put("fs.s3a.secret.key", secretKey);

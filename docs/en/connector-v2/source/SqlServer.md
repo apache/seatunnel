@@ -159,7 +159,7 @@ How many splits do we need to split into, only support positive integer. default
 
 ## Task Example
 
-### Simple:
+### Simple
 
 > Simple single task to read the data table
 
@@ -189,7 +189,7 @@ sink {
 }
 ```
 
-### Parallel:
+### Parallel
 
 > Read your query table in parallel with the shard field you configured and the shard data You can do this if you want to read the whole table
 
@@ -225,7 +225,7 @@ sink {
 
 ```
 
-### Fragmented Parallel Read Simple:
+### Fragmented Parallel Read Simple
 
 > It is a shard that reads data in parallel fast
 

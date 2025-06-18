@@ -34,6 +34,7 @@
         <httpcore.version>4.4.4</httpcore.version>
         <mockwebserver.version>3.6.0</mockwebserver.version>
         <zhipu.version>release-V4-2.3.0</zhipu.version>
+        <aws.sdk.version>2.27.21</aws.sdk.version>
     </properties>
 
     <dependencyManagement>
@@ -48,6 +49,16 @@
     </dependencyManagement>
 
     <dependencies>
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>bedrockruntime</artifactId>
+            <version>${aws.sdk.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>apache-client</artifactId>
+            <version>${aws.sdk.version}</version>
+        </dependency>
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
             <artifactId>seatunnel-api</artifactId>
