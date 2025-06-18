@@ -19,5 +19,4 @@ package org.apache.seatunnel.connectors.seatunnel.sink;
 
 import org.apache.seatunnel.api.options.SinkConnectorCommonOptions;
 
-public class BlackHoleOptions extends SinkConnectorCommonOptions {
-}
+public class BlackHoleOptions extends SinkConnectorCommonOptions {}
