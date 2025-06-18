@@ -17,16 +17,18 @@
 
 package org.apache.seatunnel.connectors.seatunnel.maxcompute.util;
 
-import com.aliyun.odps.TableSchema;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.MockitoAnnotations;
+
+import com.aliyun.odps.TableSchema;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -175,8 +177,7 @@ class MaxcomputeOutputFormatTest {
                             outputFormat.lockProcess(
                                     row,
                                     () -> {
-                                        int value = counter.get();
-                                        counter.set(value + 1);
+                                        counter.incrementAndGet();
                                     });
 
                         } catch (Exception e) {
