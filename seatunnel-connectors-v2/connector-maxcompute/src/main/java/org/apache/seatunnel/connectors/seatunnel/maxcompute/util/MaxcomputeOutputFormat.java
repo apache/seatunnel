@@ -168,8 +168,8 @@ public class MaxcomputeOutputFormat {
             if (PrimaryKey.isPrimaryKeyField(primaryKey, fieldName)) {
                 Object value = seaTunnelRow.getField(i);
                 if (value == null)
-                    throw new IllegalArgumentException(
-                            "Primary key column '" + fieldName + "' must not be null.");
+                    throw CommonError.illegalArgument(
+                            fieldName, "Primary key column must not be null.");
                 result = 31 * result + value.hashCode();
             }
         }
