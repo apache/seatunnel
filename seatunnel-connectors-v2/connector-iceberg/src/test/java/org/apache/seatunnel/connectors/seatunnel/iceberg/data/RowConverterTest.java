@@ -194,8 +194,8 @@ public class RowConverterTest {
         // get system offset for the local timestamp
         ZoneOffset systemOffset = ZoneId.systemDefault().getRules().getOffset(localDateTime);
         // convert local timestamp to UTC
-        OffsetDateTime expected = localDateTime.minusSeconds(systemOffset.getTotalSeconds())
-                .atOffset(ZoneOffset.UTC);
+        OffsetDateTime expected =
+                localDateTime.minusSeconds(systemOffset.getTotalSeconds()).atOffset(ZoneOffset.UTC);
 
         assertEquals(expected, converted, "Should convert to correct UTC time");
     }
