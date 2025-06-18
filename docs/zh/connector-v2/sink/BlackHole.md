@@ -1,3 +1,6 @@
+import ChangeLog from '../changelog/connector-blackhole.md';
+
+
 # BlackHole
 
 > BlackHole sink 连接器
