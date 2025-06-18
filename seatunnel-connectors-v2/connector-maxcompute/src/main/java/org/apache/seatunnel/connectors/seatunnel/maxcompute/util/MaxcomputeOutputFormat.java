@@ -17,6 +17,16 @@
 
 package org.apache.seatunnel.connectors.seatunnel.maxcompute.util;
 
+import org.apache.seatunnel.shade.com.google.common.util.concurrent.Striped;
+
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.table.catalog.PrimaryKey;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.exception.CommonError;
+import org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeBaseOptions;
+import org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeSinkOptions;
+
 import com.aliyun.odps.PartitionSpec;
 import com.aliyun.odps.TableSchema;
 import com.aliyun.odps.data.ArrayRecord;
@@ -26,14 +36,6 @@ import com.aliyun.odps.tunnel.TableTunnel;
 import com.aliyun.odps.tunnel.TunnelException;
 import com.aliyun.odps.tunnel.streams.UpsertStream;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.seatunnel.api.configuration.ReadonlyConfig;
-import org.apache.seatunnel.api.table.catalog.PrimaryKey;
-import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.exception.CommonError;
-import org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeBaseOptions;
-import org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeSinkOptions;
-import org.apache.seatunnel.shade.com.google.common.util.concurrent.Striped;
 
 import java.io.IOException;
 import java.util.Objects;
@@ -57,8 +59,13 @@ public class MaxcomputeOutputFormat {
     private TableTunnel.UploadSession uploadSession;
     private TableTunnel.UpsertSession upsertSession;
 
-    public MaxcomputeOutputFormat(SeaTunnelRowType rowType, ReadonlyConfig readonlyConfig, TableSchema tableSchema,
-                                  FormatterContext formatterContext, PrimaryKey primaryKey, int lockCount) {
+    public MaxcomputeOutputFormat(
+            SeaTunnelRowType rowType,
+            ReadonlyConfig readonlyConfig,
+            TableSchema tableSchema,
+            FormatterContext formatterContext,
+            PrimaryKey primaryKey,
+            int lockCount) {
         this.rowType = rowType;
         this.readonlyConfig = readonlyConfig;
         this.tableSchema = tableSchema;
@@ -134,15 +141,16 @@ public class MaxcomputeOutputFormat {
         lockProcess(seaTunnelRow, () -> upsertStream.upsert(upsertRecord));
     }
 
-    void lockProcess(SeaTunnelRow row, CheckedRunnable runnable) throws IOException, TunnelException {
+    void lockProcess(SeaTunnelRow row, CheckedRunnable runnable)
+            throws IOException, TunnelException {
         Lock lock = getLockByPrimaryKey(row);
         lock.lock();
         try {
             runnable.run();
         } catch (IOException | TunnelException e1) {
-            throw  e1;
-        } catch (Exception e){
-            throw CommonError.illegalArgument(row.toString(),"Maxcompute upsert lockProcess");
+            throw e1;
+        } catch (Exception e) {
+            throw CommonError.illegalArgument(row.toString(), "Maxcompute upsert lockProcess");
         } finally {
             lock.unlock();
         }
