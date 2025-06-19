@@ -51,7 +51,10 @@ public class TransformCommonOptions {
             Options.key("row_error_handle_way")
                     .singleChoice(
                             ErrorHandleWay.class,
-                            Arrays.asList(ErrorHandleWay.FAIL, ErrorHandleWay.SKIP))
+                            Arrays.asList(
+                                    ErrorHandleWay.FAIL,
+                                    ErrorHandleWay.SKIP,
+                                    ErrorHandleWay.ROUTE_TO_TABLE))
                     .defaultValue(ErrorHandleWay.FAIL)
                     .withDescription(
                             "The processing method of data format error. The default value is fail, and the optional value is (fail, skip). "
