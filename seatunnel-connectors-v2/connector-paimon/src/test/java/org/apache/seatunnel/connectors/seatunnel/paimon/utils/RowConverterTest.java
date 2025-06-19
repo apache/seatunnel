@@ -360,7 +360,7 @@ public class RowConverterTest {
                         RowConverter.reconvert(data, sourceType, sinkSchema);
                     } catch (Exception e) {
                         Assertions.assertEquals(
-                                "ErrorCode:[PAIMON-11], ErrorDescription:[deciaml type precision is incompatible. ] - `f0` field value is: 123.4, except filed schema of sink is `f0` DECIMAL(4, 1), but the filed in sink table which actual schema is `f0` DECIMAL(4, 2).Please check schema of sink table.",
+                                "ErrorCode:[PAIMON-11], ErrorDescription:[decimal type precision is incompatible. ] - `f0` field value is: 123.4, except field schema of sink is `f0` DECIMAL(4, 1), but the field in sink table which actual schema is `f0` DECIMAL(4, 2).Please check schema of sink table.",
                                 e.getMessage());
                         throw e;
                     }
