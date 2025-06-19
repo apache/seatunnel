@@ -38,16 +38,19 @@ public class SplitContext {
     private final TableId collectionId;
     private final BsonDocument collectionStats;
     private final int chunkSizeMB;
+    private final String whereConditionClause;
 
     public SplitContext(
             MongoClient mongoClient,
             TableId collectionId,
             BsonDocument collectionStats,
-            int chunkSizeMB) {
+            int chunkSizeMB,
+            String whereConditionClause) {
         this.mongoClient = mongoClient;
         this.collectionId = collectionId;
         this.collectionStats = collectionStats;
         this.chunkSizeMB = chunkSizeMB;
+        this.whereConditionClause = whereConditionClause;
     }
 
     @Nonnull
@@ -55,7 +58,9 @@ public class SplitContext {
         MongoClient mongoClient = MongodbUtils.createMongoClient(sourceConfig);
         BsonDocument collectionStats = collStats(mongoClient, collectionId);
         int chunkSizeMB = sourceConfig.getSplitSize();
-        return new SplitContext(mongoClient, collectionId, collectionStats, chunkSizeMB);
+        String whereConditionClause = sourceConfig.getWhereConditionClause();
+        return new SplitContext(
+                mongoClient, collectionId, collectionStats, chunkSizeMB, whereConditionClause);
     }
 
     public MongoClient getMongoClient() {
@@ -68,6 +73,10 @@ public class SplitContext {
 
     public int getChunkSizeMB() {
         return chunkSizeMB;
+    }
+
+    public String getWhereConditionClause() {
+        return whereConditionClause;
     }
 
     public long getDocumentCount() {

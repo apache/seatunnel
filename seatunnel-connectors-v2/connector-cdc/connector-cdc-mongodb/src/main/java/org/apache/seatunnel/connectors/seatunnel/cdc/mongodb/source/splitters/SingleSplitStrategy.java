@@ -37,18 +37,20 @@ public enum SingleSplitStrategy implements SplitStrategy {
     @Override
     public Collection<SnapshotSplit> split(@Nonnull SplitContext splitContext) {
         TableId collectionId = splitContext.getCollectionId();
-        SnapshotSplit snapshotSplit = createSnapshotSplit(collectionId);
+        String whereConditionClause = splitContext.getWhereConditionClause();
+        SnapshotSplit snapshotSplit = createSnapshotSplit(collectionId, whereConditionClause);
         return Collections.singletonList(snapshotSplit);
     }
 
     @Nonnull
-    private SnapshotSplit createSnapshotSplit(TableId collectionId) {
+    private SnapshotSplit createSnapshotSplit(TableId collectionId, String whereConditionClause) {
         SeaTunnelRowType rowType = shardKeysToRowType(Collections.singleton(ID_FIELD));
         return new SnapshotSplit(
                 splitId(collectionId, 0),
                 collectionId,
                 rowType,
                 minLowerBoundOfId(),
-                maxUpperBoundOfId());
+                maxUpperBoundOfId(),
+                whereConditionClause);
     }
 }

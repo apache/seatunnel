@@ -92,7 +92,6 @@ public enum SplitVectorSplitStrategy implements SplitStrategy {
         List<SnapshotSplit> snapshotSplits = new ArrayList<>(splitKeys.size() + 1);
 
         BsonValue lowerValue = new BsonMinKey();
-        ;
         for (int i = 0; i < splitKeys.size(); i++) {
             BsonValue splitKeyValue = splitKeys.get(i).asDocument().get(ID_FIELD);
             snapshotSplits.add(
@@ -101,7 +100,8 @@ public enum SplitVectorSplitStrategy implements SplitStrategy {
                             collectionId,
                             rowType,
                             boundOfId(lowerValue),
-                            boundOfId(splitKeyValue)));
+                            boundOfId(splitKeyValue),
+                            splitContext.getWhereConditionClause()));
             lowerValue = splitKeyValue;
         }
 
@@ -111,7 +111,8 @@ public enum SplitVectorSplitStrategy implements SplitStrategy {
                         collectionId,
                         rowType,
                         boundOfId(lowerValue),
-                        maxUpperBoundOfId());
+                        maxUpperBoundOfId(),
+                        splitContext.getWhereConditionClause());
         snapshotSplits.add(lastSplit);
 
         return snapshotSplits;

@@ -101,6 +101,8 @@ public class MongodbIncrementalSource<T> extends IncrementalSource<T, MongodbSou
                 .ifPresent(builder::splitSizeMB);
         Optional.ofNullable(startupConfig).ifPresent(builder::startupOptions);
         Optional.ofNullable(stopConfig).ifPresent(builder::stopOptions);
+        Optional.ofNullable(config.get(MongodbSourceOptions.WHERE_CONDITION))
+                .ifPresent(builder::whereConditionClause);
         return builder;
     }
 

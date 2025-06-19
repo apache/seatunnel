@@ -281,4 +281,13 @@ public class MongodbSourceOptions extends SourceOptions {
                     .withDescription(
                             "Optional stop mode for CDC source, valid enumerations are "
                                     + "\"never\", \"latest\", \"timestamp\"\n or \"specific\"");
+
+    public static final Option<String> WHERE_CONDITION =
+            Options.key("where-condition")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "The where condition clause to filter the data in the change stream. "
+                                    + "This is useful for filtering out unnecessary data from the change stream. "
+                                    + "The clause should be a valid MongoDB query filter, e.g., \"{'field': 'value'}\".");
 }

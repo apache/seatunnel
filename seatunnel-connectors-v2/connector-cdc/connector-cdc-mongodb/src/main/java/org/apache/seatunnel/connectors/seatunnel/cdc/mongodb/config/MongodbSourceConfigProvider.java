@@ -59,6 +59,7 @@ public class MongodbSourceConfigProvider {
         private int heartbeatIntervalMillis = HEARTBEAT_INTERVAL_MILLIS.defaultValue();
         private int splitMetaGroupSize = 2;
         private int splitSizeMB = INCREMENTAL_SNAPSHOT_CHUNK_SIZE_MB.defaultValue();
+        private String whereConditionClause;
 
         public Builder hosts(String hosts) {
             this.hosts = hosts;
@@ -141,6 +142,11 @@ public class MongodbSourceConfigProvider {
             return this;
         }
 
+        public Builder whereConditionClause(String whereConditionClause) {
+            this.whereConditionClause = whereConditionClause;
+            return this;
+        }
+
         public Builder splitMetaGroupSize(int splitMetaGroupSize) {
             this.splitMetaGroupSize = splitMetaGroupSize;
             return this;
@@ -169,7 +175,8 @@ public class MongodbSourceConfigProvider {
                     stopOptions,
                     heartbeatIntervalMillis,
                     splitMetaGroupSize,
-                    splitSizeMB);
+                    splitSizeMB,
+                    whereConditionClause);
         }
     }
 }

@@ -71,7 +71,8 @@ public class MongodbIncrementalSourceFactory implements TableSourceFactory {
                         MongodbSourceOptions.HEARTBEAT_INTERVAL_MILLIS,
                         MongodbSourceOptions.INCREMENTAL_SNAPSHOT_CHUNK_SIZE_MB,
                         MongodbSourceOptions.STARTUP_MODE,
-                        MongodbSourceOptions.STOP_MODE)
+                        MongodbSourceOptions.STOP_MODE,
+                        MongodbSourceOptions.WHERE_CONDITION)
                 .conditional(
                         MongodbSourceOptions.STARTUP_MODE,
                         StartupMode.TIMESTAMP,
