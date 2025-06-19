@@ -76,6 +76,24 @@ Parameters:
 - `case_sensitive` (optional): Whether pattern matching is case sensitive (default: true)
 - `custom_message` (optional): Custom error message
 
+##### UDF (User Defined Function)
+Validates field values using custom business logic implemented as a User Defined Function.
+
+Parameters:
+- `rule_type`: "UDF"
+- `function_name`: Name of the UDF function to execute (required)
+- `custom_message` (optional): Custom error message
+
+**Built-in UDF Functions:**
+- `EMAIL`: Validates email addresses using practical validation rules based on OWASP recommendations
+
+**Creating Custom UDF Functions:**
+To create a custom UDF function:
+1. Implement the `DataValidatorUDF` interface
+2. Use `@AutoService(DataValidatorUDF.class)` annotation
+3. Provide a unique `functionName()`
+4. Implement the `validate()` method with your custom logic
+
 ### common options [string]
 
 Transform plugin common parameters, please refer to [Transform Plugin](common-options.md) for details
@@ -191,10 +209,93 @@ transform {
 }
 ```
 
-## Changelog
+### Example 5: Email Validation using Built-in UDF
 
-### new version
-- Add DataValidator Transform Connector
-- Support NOT_NULL, RANGE, LENGTH, and REGEX validation rules
-- Support FAIL, SKIP, and ROUTE_TO_TABLE error handling modes
-- Support both flat and nested rule configuration formats
+```hocon
+transform {
+  DataValidator {
+    plugin_input = "source_table"
+    plugin_output = "validated_table"
+    error_handle_way = "FAIL"
+    field_rules = [
+      {
+        field_name = "email"
+        rule_type = "UDF"
+        function_name = "EMAIL"
+        custom_message = "Invalid email address format"
+      }
+    ]
+  }
+}
+```
+
+## UDF Development Guide
+
+### Creating Custom UDF Functions
+
+To create a custom validation UDF function, follow these steps:
+
+#### 1. Implement the DataValidatorUDF Interface
+
+```java
+package com.example.validator;
+
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.transform.validator.ValidationContext;
+import org.apache.seatunnel.transform.validator.ValidationResult;
+import org.apache.seatunnel.transform.validator.udf.DataValidatorUDF;
+import com.google.auto.service.AutoService;
+
+@AutoService(DataValidatorUDF.class)
+public class PhoneValidator implements DataValidatorUDF {
+
+    @Override
+    public String functionName() {
+        return "PHONE_VALIDATOR";
+    }
+
+    @Override
+    public ValidationResult validate(
+            Object value, SeaTunnelDataType<?> dataType, ValidationContext context) {
+
+        if (value == null) {
+            return ValidationResult.success();
+        }
+
+        String phone = value.toString().trim();
+
+        // Custom phone validation logic
+        if (phone.matches("^\\+?[1-9]\\d{1,14}$")) {
+            return ValidationResult.success();
+        } else {
+            return ValidationResult.failure("Invalid phone number format: " + phone);
+        }
+    }
+
+    @Override
+    public String getDescription() {
+        return "Validates international phone number format";
+    }
+}
+```
+
+#### 2. Register the UDF
+
+The UDF is automatically registered using the `@AutoService(DataValidatorUDF.class)` annotation. This uses Java's ServiceLoader mechanism to discover and load UDF implementations at runtime.
+
+#### 3. Package and Deploy
+
+1. Compile your UDF class and package it into a JAR file
+2. Place the JAR file in the SeaTunnel classpath
+3. The UDF will be automatically discovered and available for use
+
+
+**Usage Example**:
+```hocon
+{
+  field_name = "email"
+  rule_type = "UDF"
+  function_name = "EMAIL"
+  custom_message = "Please provide a valid email address"
+}
+```

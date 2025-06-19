@@ -76,6 +76,24 @@ DataValidator 转换插件根据配置的规则验证字段值，并基于指定
 - `case_sensitive` (可选): 模式匹配是否区分大小写（默认: true）
 - `custom_message` (可选): 自定义错误消息
 
+##### UDF (用户自定义函数)
+使用自定义业务逻辑实现的用户自定义函数验证字段值。
+
+参数：
+- `rule_type`: "UDF"
+- `function_name`: 要执行的UDF函数名称（必需）
+- `custom_message` (可选): 自定义错误消息
+
+**内置UDF函数：**
+- `EMAIL`: 基于OWASP建议使用实用验证规则验证电子邮件地址
+
+**创建自定义UDF函数：**
+要创建自定义UDF函数：
+1. 实现 `DataValidatorUDF` 接口
+2. 使用 `@AutoService(DataValidatorUDF.class)` 注解
+3. 提供唯一的 `functionName()`
+4. 实现包含自定义逻辑的 `validate()` 方法
+
 ### 通用选项 [string]
 
 转换插件通用参数，请参考 [Transform Plugin](common-options.md) 了解详情
@@ -191,10 +209,92 @@ transform {
 }
 ```
 
-## 更新日志
+### 示例 5: 使用内置UDF进行邮箱验证
 
-### 新版本
-- 添加 DataValidator 转换连接器
-- 支持 NOT_NULL、RANGE、LENGTH 和 REGEX 验证规则
-- 支持 FAIL、SKIP 和 ROUTE_TO_TABLE 错误处理模式
-- 支持扁平和嵌套规则配置格式
+```hocon
+transform {
+  DataValidator {
+    plugin_input = "source_table"
+    plugin_output = "validated_table"
+    error_handle_way = "FAIL"
+    field_rules = [
+      {
+        field_name = "email"
+        rule_type = "UDF"
+        function_name = "EMAIL"
+        custom_message = "邮箱地址格式无效"
+      }
+    ]
+  }
+}
+```
+
+## UDF开发指南
+
+### 创建自定义UDF函数
+
+要创建自定义验证UDF函数，请按照以下步骤：
+
+#### 1. 实现DataValidatorUDF接口
+
+```java
+package com.example.validator;
+
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.transform.validator.ValidationContext;
+import org.apache.seatunnel.transform.validator.ValidationResult;
+import org.apache.seatunnel.transform.validator.udf.DataValidatorUDF;
+import com.google.auto.service.AutoService;
+
+@AutoService(DataValidatorUDF.class)
+public class PhoneValidator implements DataValidatorUDF {
+
+    @Override
+    public String functionName() {
+        return "PHONE_VALIDATOR";
+    }
+
+    @Override
+    public ValidationResult validate(
+            Object value, SeaTunnelDataType<?> dataType, ValidationContext context) {
+
+        if (value == null) {
+            return ValidationResult.success();
+        }
+
+        String phone = value.toString().trim();
+
+        // 自定义手机号验证逻辑
+        if (phone.matches("^\\+?[1-9]\\d{1,14}$")) {
+            return ValidationResult.success();
+        } else {
+            return ValidationResult.failure("手机号码格式无效: " + phone);
+        }
+    }
+
+    @Override
+    public String getDescription() {
+        return "验证国际手机号码格式";
+    }
+}
+```
+
+#### 2. 注册UDF
+
+UDF通过 `@AutoService(DataValidatorUDF.class)` 注解自动注册。这使用Java的ServiceLoader机制在运行时发现和加载UDF实现。
+
+#### 3. 打包和部署
+
+1. 编译您的UDF类并将其打包到JAR文件中
+2. 将JAR文件放置在SeaTunnel类路径中
+3. UDF将被自动发现并可供使用
+
+**使用示例**:
+```hocon
+{
+  field_name = "email"
+  rule_type = "UDF"
+  function_name = "EMAIL"
+  custom_message = "请提供有效的邮箱地址"
+}
+```

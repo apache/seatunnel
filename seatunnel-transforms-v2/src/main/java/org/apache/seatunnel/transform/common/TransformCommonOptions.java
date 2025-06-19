@@ -66,4 +66,11 @@ public class TransformCommonOptions {
                                     + "When fail is selected, data format error will block and an exception will be thrown. "
                                     + "When skip is selected, data format error will skip this column data."
                                     + "When skip_row is selected, data format error will skip this line data.");
+
+    public static final Option<String> ERROR_TABLE_OPTION =
+            Options.key("error_table")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "Target table name for routing invalid data when error_handle_way is ROUTE_TO_TABLE");
 }

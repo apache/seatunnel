@@ -26,8 +26,6 @@ import org.apache.seatunnel.transform.common.TransformCommonOptions;
 
 import com.google.auto.service.AutoService;
 
-import static org.apache.seatunnel.transform.validator.DataValidatorTransformConfig.ERROR_HANDLE_WAY;
-import static org.apache.seatunnel.transform.validator.DataValidatorTransformConfig.ERROR_TABLE;
 import static org.apache.seatunnel.transform.validator.DataValidatorTransformConfig.FIELD_RULES;
 
 /** Factory for creating DataValidator Transform instances. */
@@ -42,19 +40,17 @@ public class DataValidatorTransformFactory implements TableTransformFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .optional(ERROR_HANDLE_WAY)
-                .optional(ERROR_TABLE)
                 .required(FIELD_RULES)
                 .optional(TransformCommonOptions.MULTI_TABLES)
                 .optional(TransformCommonOptions.TABLE_MATCH_REGEX)
+                .optional(TransformCommonOptions.ROW_ERROR_HANDLE_WAY_OPTION)
+                .optional(TransformCommonOptions.ERROR_TABLE_OPTION)
                 .build();
     }
 
     @Override
     public TableTransform createTransform(TableTransformFactoryContext context) {
         return () ->
-                new DataValidatorTransform(
-                        DataValidatorTransformConfig.of(context.getOptions()),
-                        context.getCatalogTables().get(0));
+                new DataValidatorTransform(context.getOptions(), context.getCatalogTables().get(0));
     }
 }

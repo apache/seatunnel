@@ -23,17 +23,13 @@ import lombok.Data;
 
 import java.io.Serializable;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 /** Handler for processing validation results and generating output. */
 public class ValidationResultHandler implements Serializable {
-    private final DataValidatorTransformConfig config;
 
-    public ValidationResultHandler(DataValidatorTransformConfig config) {
-        this.config = config;
-    }
+    public ValidationResultHandler() {}
 
     /**
      * Process validation results for all fields and generate final result.
@@ -47,9 +43,6 @@ public class ValidationResultHandler implements Serializable {
 
         ValidationProcessResult result = new ValidationProcessResult();
         result.setOriginalRow(inputRow);
-
-        // Calculate validation statistics
-        int totalValidations = 0;
         int failedValidations = 0;
         List<String> errorMessages = new ArrayList<>();
 
@@ -58,7 +51,6 @@ public class ValidationResultHandler implements Serializable {
             List<ValidationResult> results = entry.getValue();
 
             for (ValidationResult validationResult : results) {
-                totalValidations++;
                 if (!validationResult.isValid()) {
                     failedValidations++;
                     errorMessages.add(
@@ -66,14 +58,6 @@ public class ValidationResultHandler implements Serializable {
                 }
             }
         }
-
-        // Calculate validation score
-        double validationScore =
-                totalValidations > 0
-                        ? (double) (totalValidations - failedValidations) / totalValidations
-                        : 1.0;
-
-        result.setValidationScore(validationScore);
         result.setErrorMessages(errorMessages);
         result.setValid(failedValidations == 0);
 
@@ -85,8 +69,6 @@ public class ValidationResultHandler implements Serializable {
     public static class ValidationProcessResult implements Serializable {
         private SeaTunnelRow originalRow;
         private boolean valid;
-        private double validationScore;
         private List<String> errorMessages = new ArrayList<>();
-        private Map<String, Object> additionalFields = new HashMap<>();
     }
 }

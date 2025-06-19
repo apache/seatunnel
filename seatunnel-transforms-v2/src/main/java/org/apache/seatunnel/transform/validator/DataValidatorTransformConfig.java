@@ -20,7 +20,6 @@ package org.apache.seatunnel.transform.validator;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.annotation.JsonAlias;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
-import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 
 import org.apache.seatunnel.api.configuration.Option;
@@ -50,29 +49,11 @@ import java.util.Map;
 @Slf4j
 public class DataValidatorTransformConfig implements Serializable {
 
-    public static final Option<ValidationErrorHandleWay> ERROR_HANDLE_WAY =
-            Options.key("error_handle_way")
-                    .enumType(ValidationErrorHandleWay.class)
-                    .defaultValue(ValidationErrorHandleWay.FAIL)
-                    .withDescription(
-                            "Error handling strategy: FAIL - fail the task, SKIP - skip invalid data, ROUTE_TO_TABLE - route to specified table");
-
-    public static final Option<String> ERROR_TABLE =
-            Options.key("error_table")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription(
-                            "Target table name for routing invalid data when error_handle_way is ROUTE_TO_TABLE");
-
     public static final Option<List<Map<String, Object>>> FIELD_RULES =
             Options.key("field_rules")
                     .type(new TypeReference<List<Map<String, Object>>>() {})
                     .noDefaultValue()
                     .withDescription("Field validation rules");
-
-    private ValidationErrorHandleWay errorHandleWay = ValidationErrorHandleWay.FAIL;
-
-    private String errorTable;
 
     private List<FieldValidationRule> fieldRules = new ArrayList<>();
 
@@ -89,20 +70,8 @@ public class DataValidatorTransformConfig implements Serializable {
         private List<ValidationRule> rules = new ArrayList<>();
     }
 
-    public enum ValidationErrorHandleWay {
-        FAIL,
-        SKIP,
-        ROUTE_TO_TABLE
-    }
-
     public static DataValidatorTransformConfig of(ReadonlyConfig config) {
         DataValidatorTransformConfig validatorConfig = new DataValidatorTransformConfig();
-        validatorConfig.setErrorHandleWay(config.get(ERROR_HANDLE_WAY));
-        if (config.getOptional(ERROR_TABLE).isPresent()) {
-            validatorConfig.setErrorTable(config.get(ERROR_TABLE));
-        }
-
-        // Parse field rules from configuration (supports both flat and nested formats)
         List<Map<String, Object>> fieldRulesMap = config.get(FIELD_RULES);
         List<FieldValidationRule> fieldRules = parseFieldRules(fieldRulesMap);
         validatorConfig.setFieldRules(fieldRules);
@@ -113,7 +82,6 @@ public class DataValidatorTransformConfig implements Serializable {
     private static List<FieldValidationRule> parseFieldRules(
             List<Map<String, Object>> fieldRulesMap) {
         List<FieldValidationRule> fieldRules = new ArrayList<>();
-        ObjectMapper objectMapper = new ObjectMapper();
 
         for (Map<String, Object> ruleMap : fieldRulesMap) {
             String fieldName = (String) ruleMap.get("field_name");
@@ -124,16 +92,12 @@ public class DataValidatorTransformConfig implements Serializable {
 
             FieldValidationRule fieldRule = new FieldValidationRule();
             fieldRule.setFieldName(fieldName);
-
-            // Check if this is nested format (has "rules" array) or flat format
             Object rulesObj = ruleMap.get("rules");
             if (rulesObj != null) {
-                // Nested format: {field_name: "name", rules: [{rule_type: "NOT_NULL"}, ...]}
-                List<ValidationRule> rules = parseNestedRules(rulesObj, objectMapper);
+                List<ValidationRule> rules = parseNestedRules(rulesObj);
                 fieldRule.setRules(rules);
                 fieldRules.add(fieldRule);
             } else {
-                // Flat format: {field_name: "name", rule_type: "NOT_NULL", ...}
                 ValidationRule validationRule = parseValidationRuleFromMap(ruleMap);
                 if (validationRule != null) {
                     fieldRule.setRules(Lists.newArrayList(validationRule));
@@ -141,14 +105,11 @@ public class DataValidatorTransformConfig implements Serializable {
                 }
             }
         }
-
-        // Group flat format rules by field name
         return groupFlatRulesByField(fieldRules);
     }
 
     @SuppressWarnings("unchecked")
-    private static List<ValidationRule> parseNestedRules(
-            Object rulesObj, ObjectMapper objectMapper) {
+    private static List<ValidationRule> parseNestedRules(Object rulesObj) {
         List<ValidationRule> rules = new ArrayList<>();
 
         try {
@@ -349,8 +310,6 @@ public class DataValidatorTransformConfig implements Serializable {
         }
 
         String trimmedValue = value.trim();
-
-        // Try to parse as different numeric types
         try {
             if (trimmedValue.contains(".")) {
                 return Double.parseDouble(trimmedValue);
@@ -362,7 +321,6 @@ public class DataValidatorTransformConfig implements Serializable {
                 return longValue;
             }
         } catch (NumberFormatException e) {
-            // If not a number, return as string
             log.debug("Value '{}' is not a number, treating as string", value);
             return value;
         }

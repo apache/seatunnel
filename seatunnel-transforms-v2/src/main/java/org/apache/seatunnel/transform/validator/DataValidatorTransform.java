@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.transform.validator;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.ConstraintKey;
@@ -27,6 +28,8 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.transform.common.AbstractCatalogSupportMapTransform;
+import org.apache.seatunnel.transform.common.ErrorHandleWay;
+import org.apache.seatunnel.transform.common.TransformCommonOptions;
 import org.apache.seatunnel.transform.exception.TransformException;
 import org.apache.seatunnel.transform.validator.ValidationResultHandler.ValidationProcessResult;
 
@@ -48,11 +51,19 @@ public class DataValidatorTransform extends AbstractCatalogSupportMapTransform {
     private final DataValidatorTransformConfig config;
     private final List<FieldValidator> fieldValidators;
     private final ValidationResultHandler resultHandler;
+    private final ErrorHandleWay errorHandleWay;
+    private final String errorTable;
 
-    public DataValidatorTransform(DataValidatorTransformConfig config, CatalogTable catalogTable) {
+    public DataValidatorTransform(ReadonlyConfig readonlyConfig, CatalogTable catalogTable) {
         super(catalogTable);
-        this.config = config;
-        this.resultHandler = new ValidationResultHandler(config);
+        this.config = DataValidatorTransformConfig.of(readonlyConfig);
+        this.errorHandleWay =
+                readonlyConfig
+                        .getOptional(TransformCommonOptions.ROW_ERROR_HANDLE_WAY_OPTION)
+                        .orElse(ErrorHandleWay.FAIL);
+        this.errorTable =
+                readonlyConfig.getOptional(TransformCommonOptions.ERROR_TABLE_OPTION).orElse(null);
+        this.resultHandler = new ValidationResultHandler();
         this.fieldValidators = initializeFieldValidators();
     }
 
@@ -94,24 +105,21 @@ public class DataValidatorTransform extends AbstractCatalogSupportMapTransform {
                     "Validation failed for row: {}",
                     String.join("; ", processResult.getErrorMessages()));
 
-            if (config.getErrorHandleWay()
-                    == DataValidatorTransformConfig.ValidationErrorHandleWay.FAIL) {
+            if (errorHandleWay == ErrorHandleWay.FAIL) {
                 Map<String, String> params =
                         new SingletonMap<>(
                                 "message",
                                 "Validation failed: "
                                         + String.join("; ", processResult.getErrorMessages()));
                 throw new TransformException(CommonErrorCode.VALIDATION_FAILED, params);
-            } else if (config.getErrorHandleWay()
-                    == DataValidatorTransformConfig.ValidationErrorHandleWay.SKIP) {
+            } else if (errorHandleWay == ErrorHandleWay.SKIP) {
                 return null; // Skip this row
-            } else if (config.getErrorHandleWay()
-                    == DataValidatorTransformConfig.ValidationErrorHandleWay.ROUTE_TO_TABLE) {
+            } else if (errorHandleWay.allowRouteToTable()) {
                 // Route invalid data to error table by setting tableId
-                if (config.getErrorTable() != null && !config.getErrorTable().isEmpty()) {
+                if (errorTable != null && !errorTable.isEmpty()) {
                     SeaTunnelRow errorRow = inputRow.copy();
-                    errorRow.setTableId(config.getErrorTable());
-                    log.debug("Routing invalid data to error table: {}", config.getErrorTable());
+                    errorRow.setTableId(errorTable);
+                    log.debug("Routing invalid data to error table: {}", errorTable);
                     return errorRow;
                 } else {
                     log.warn("Error table not configured, skipping invalid row");
