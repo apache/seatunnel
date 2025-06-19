@@ -153,7 +153,7 @@ public class AmazonDynamoDBSourceSplitEnumerator
 
     @Override
     public void registerReader(int subtaskId) {
-        log.debug("Register reader {} to IoTDBSourceSplitEnumerator.", subtaskId);
+        log.debug("Register reader {} to AmazonDynamoDBSourceSplitEnumerator.", subtaskId);
         if (!pendingSplits.isEmpty()) {
             assignSplit(Collections.singleton(subtaskId));
         }

@@ -37,6 +37,14 @@ public class ElasticsearchConfig implements Serializable {
     private Map<String, Object> query;
     private String scrollTime;
     private int scrollSize;
+    private SearchTypeEnum searchType;
+    private SearchApiTypeEnum searchApiType;
+    private String sqlQuery;
+
+    private long pitKeepAlive;
+    private int pitBatchSize;
+    private String pitId;
+    private Object[] searchAfter;
 
     private CatalogTable catalogTable;
 
@@ -48,6 +56,14 @@ public class ElasticsearchConfig implements Serializable {
         elasticsearchConfig.setScrollTime(scrollTime);
         elasticsearchConfig.setScrollSize(scrollSize);
         elasticsearchConfig.setCatalogTable(catalogTable);
+        elasticsearchConfig.setSearchType(searchType);
+        elasticsearchConfig.setSearchApiType(searchApiType);
+        elasticsearchConfig.setSqlQuery(sqlQuery);
+        elasticsearchConfig.setPitKeepAlive(pitKeepAlive);
+        elasticsearchConfig.setPitBatchSize(pitBatchSize);
+        elasticsearchConfig.setPitId(pitId);
+        elasticsearchConfig.setSearchAfter(searchAfter != null ? searchAfter.clone() : null);
+
         return elasticsearchConfig;
     }
 }

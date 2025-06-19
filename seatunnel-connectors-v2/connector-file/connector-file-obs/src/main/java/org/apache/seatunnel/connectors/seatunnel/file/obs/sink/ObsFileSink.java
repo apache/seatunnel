@@ -26,10 +26,11 @@ import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.PluginType;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.file.obs.config.ObsConf;
-import org.apache.seatunnel.connectors.seatunnel.file.obs.config.ObsConfig;
+import org.apache.seatunnel.connectors.seatunnel.file.obs.config.ObsFileSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.BaseFileSink;
 
 import com.google.auto.service.AutoService;
@@ -49,11 +50,11 @@ public class ObsFileSink extends BaseFileSink {
         CheckResult result =
                 CheckConfigUtil.checkAllExists(
                         pluginConfig,
-                        ObsConfig.FILE_PATH.key(),
-                        ObsConfig.BUCKET.key(),
-                        ObsConfig.ACCESS_KEY.key(),
-                        ObsConfig.ACCESS_SECRET.key(),
-                        ObsConfig.BUCKET.key());
+                        FileBaseOptions.FILE_PATH.key(),
+                        ObsFileSinkOptions.BUCKET.key(),
+                        ObsFileSinkOptions.ACCESS_KEY.key(),
+                        ObsFileSinkOptions.ACCESS_SECRET.key(),
+                        ObsFileSinkOptions.BUCKET.key());
         if (!result.isSuccess()) {
             throw new FileConnectorException(
                     SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,

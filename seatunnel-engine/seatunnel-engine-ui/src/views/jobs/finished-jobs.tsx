@@ -53,24 +53,27 @@ export default defineComponent({
         },
         {
           title: 'Id',
-          key: 'jobId'
+          key: 'jobId',
+          sorter: 'default'
         },
         {
           title: 'Name',
-          key: 'jobName'
+          key: 'jobName',
+          sorter: 'default'
         },
         {
           title: 'Create Time',
-          key: 'createTime'
+          key: 'createTime',
+          sorter: 'default'
         },
         {
           title: 'Status',
           key: 'jobStatus',
           render(row) {
             return (
-              <NTag bordered={false} color={getColorFromStatus(row.jobStatus)}>
-                {row.jobStatus}
-              </NTag>
+                <NTag bordered={false} color={getColorFromStatus(row.jobStatus)}>
+                  {row.jobStatus}
+                </NTag>
             )
           }
         },
@@ -79,14 +82,14 @@ export default defineComponent({
           key: 'actions',
           render(row) {
             return h(
-              NButton,
-              {
-                strong: true,
-                tertiary: true,
-                size: 'small',
-                onClick: () => view(row)
-              },
-              { default: () => 'View' }
+                NButton,
+                {
+                  strong: true,
+                  tertiary: true,
+                  size: 'small',
+                  onClick: () => view(row)
+                },
+                { default: () => 'View' }
             )
           }
         }
@@ -95,10 +98,10 @@ export default defineComponent({
 
     const columns = createColumns()
     return () => (
-      <div class="w-full bg-white p-6 border border-gray-100 rounded-xl">
-        <h2 class="font-bold text-2xl pb-6">{t('jobs.finishedJobs')}</h2>
-        <NDataTable columns={columns} data={jobs.value} pagination={false} bordered={false} />
-      </div>
+        <div class="w-full bg-white p-6 border border-gray-100 rounded-xl">
+          <h2 class="font-bold text-2xl pb-6">{t('jobs.finishedJobs')}</h2>
+          <NDataTable columns={columns} data={jobs.value} pagination={false} bordered={false} />
+        </div>
     )
   }
 })

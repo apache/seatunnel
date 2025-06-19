@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-hudi.md';
+
 # Hudi
 
 > Hudi 接收器连接器
@@ -204,3 +206,6 @@ sink {
 }
 ```
 
+## 变更日志
+
+<ChangeLog />

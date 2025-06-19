@@ -135,7 +135,7 @@ public class ArrowToSeatunnelRowReader implements AutoCloseable {
             Integer fieldIndex = fieldIndexMap.get(name);
             Types.MinorType minorType = fieldVector.getMinorType();
             for (int i = 0; i < seatunnelRowBatch.size(); i++) {
-                // arrow field not in the Seatunnel Sechma field, skip it
+                // arrow field not in the Seatunnel Schema field, skip it
                 if (fieldIndex != null) {
                     SeaTunnelDataType<?> seaTunnelDataType = seaTunnelDataTypes[fieldIndex];
                     Object fieldValue =
@@ -204,9 +204,17 @@ public class ArrowToSeatunnelRowReader implements AutoCloseable {
                 }
             case TIMESTAMP:
                 if (fieldValue instanceof Long) {
-                    return Instant.ofEpochMilli((Long) fieldValue)
-                            .atZone(ZoneId.systemDefault())
-                            .toLocalDateTime();
+                    // this TIMESTAMP value may be  SECOND not  milliseconds
+                    if (Types.MinorType.TIMESTAMPSEC == minorType
+                            || Types.MinorType.TIMESTAMPSECTZ == minorType) {
+                        return Instant.ofEpochSecond((Long) fieldValue)
+                                .atZone(ZoneId.systemDefault())
+                                .toLocalDateTime();
+                    } else {
+                        return Instant.ofEpochMilli((Long) fieldValue)
+                                .atZone(ZoneId.systemDefault())
+                                .toLocalDateTime();
+                    }
                 } else if (fieldValue instanceof String) {
                     return LocalDateTime.parse((String) fieldValue, DATETIME_FORMATTER);
                 } else if (fieldValue instanceof Text) {

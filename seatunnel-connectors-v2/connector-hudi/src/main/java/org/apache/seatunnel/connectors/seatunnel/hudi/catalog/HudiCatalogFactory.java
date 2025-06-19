@@ -22,13 +22,12 @@ import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.factory.CatalogFactory;
 import org.apache.seatunnel.api.table.factory.Factory;
+import org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiSinkOptions;
 
 import org.apache.hadoop.conf.Configuration;
 
 import com.google.auto.service.AutoService;
 
-import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiOptions.CONF_FILES_PATH;
-import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiOptions.TABLE_DFS_PATH;
 import static org.apache.seatunnel.connectors.seatunnel.hudi.util.HudiUtil.getConfiguration;
 
 @AutoService(Factory.class)
@@ -36,8 +35,8 @@ public class HudiCatalogFactory implements CatalogFactory {
 
     @Override
     public Catalog createCatalog(String catalogName, ReadonlyConfig options) {
-        Configuration hadoopConf = getConfiguration(options.get(CONF_FILES_PATH));
-        String tableDfsPath = options.get(TABLE_DFS_PATH);
+        Configuration hadoopConf = getConfiguration(options.get(HudiSinkOptions.CONF_FILES_PATH));
+        String tableDfsPath = options.get(HudiSinkOptions.TABLE_DFS_PATH);
         return new HudiCatalog(catalogName, hadoopConf, tableDfsPath);
     }
 
@@ -48,6 +47,9 @@ public class HudiCatalogFactory implements CatalogFactory {
 
     @Override
     public OptionRule optionRule() {
-        return OptionRule.builder().required(TABLE_DFS_PATH).optional(CONF_FILES_PATH).build();
+        return OptionRule.builder()
+                .required(HudiSinkOptions.TABLE_DFS_PATH)
+                .optional(HudiSinkOptions.CONF_FILES_PATH)
+                .build();
     }
 }

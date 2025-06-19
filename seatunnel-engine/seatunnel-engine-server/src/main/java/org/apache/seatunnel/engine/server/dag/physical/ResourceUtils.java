@@ -38,7 +38,7 @@ public class ResourceUtils {
 
     private static final ILogger LOGGER = Logger.getLogger(ResourceUtils.class);
 
-    public static void applyResourceForPipeline(
+    public static Map<TaskGroupLocation, SlotProfile> applyResourceForPipeline(
             @NonNull JobMaster jobMaster, @NonNull SubPlan subPlan) {
 
         Map<TaskGroupLocation, CompletableFuture<SlotProfile>> futures = new HashMap<>();
@@ -65,6 +65,7 @@ public class ResourceUtils {
         if (futures.size() != slotProfiles.size()) {
             throw new NoEnoughResourceException();
         }
+        return slotProfiles;
     }
 
     private static void allocateResources(

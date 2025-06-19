@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-http-klaviyo.md';
+
 # Klaviyo
 
 > Klaviyo source connector
@@ -305,8 +307,4 @@ Klaviyo {
 
 ## Changelog
 
-### next version
-
-- Add Klaviyo Source Connector
-- [Feature][Connector-V2][HTTP] Use json-path parsing ([3510](https://github.com/apache/seatunnel/pull/3510))
-
+<ChangeLog />

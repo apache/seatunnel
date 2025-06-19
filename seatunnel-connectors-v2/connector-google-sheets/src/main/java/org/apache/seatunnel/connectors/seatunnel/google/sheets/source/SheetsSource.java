@@ -17,73 +17,36 @@
 
 package org.apache.seatunnel.connectors.seatunnel.google.sheets.source;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
-import org.apache.seatunnel.api.common.PrepareFailException;
-import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
-import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.source.Boundedness;
-import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
-import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.config.CheckConfigUtil;
-import org.apache.seatunnel.common.config.CheckResult;
-import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitReader;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitSource;
 import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
-import org.apache.seatunnel.connectors.seatunnel.google.sheets.config.SheetsConfig;
 import org.apache.seatunnel.connectors.seatunnel.google.sheets.config.SheetsParameters;
-import org.apache.seatunnel.connectors.seatunnel.google.sheets.exception.GoogleSheetsConnectorException;
 import org.apache.seatunnel.format.json.JsonDeserializationSchema;
 
-import com.google.auto.service.AutoService;
+import java.util.Collections;
+import java.util.List;
 
-@AutoService(SeaTunnelSource.class)
 public class SheetsSource extends AbstractSingleSplitSource<SeaTunnelRow> {
 
-    private SeaTunnelRowType seaTunnelRowType;
-    private CatalogTable catalogTable;
+    private final CatalogTable catalogTable;
 
-    private SheetsParameters sheetsParameters;
+    private final SheetsParameters sheetsParameters;
 
-    private DeserializationSchema<SeaTunnelRow> deserializationSchema;
+    private final DeserializationSchema<SeaTunnelRow> deserializationSchema;
+
+    public SheetsSource(CatalogTable catalogTable, SheetsParameters sheetsParameters) {
+        this.catalogTable = catalogTable;
+        this.sheetsParameters = sheetsParameters;
+        this.deserializationSchema = new JsonDeserializationSchema(catalogTable, false, false);
+    }
 
     @Override
     public String getPluginName() {
         return "GoogleSheets";
-    }
-
-    @Override
-    public void prepare(Config pluginConfig) throws PrepareFailException {
-        CheckResult checkResult =
-                CheckConfigUtil.checkAllExists(
-                        pluginConfig,
-                        SheetsConfig.SERVICE_ACCOUNT_KEY.key(),
-                        SheetsConfig.SHEET_ID.key(),
-                        SheetsConfig.SHEET_NAME.key(),
-                        SheetsConfig.RANGE.key(),
-                        ConnectorCommonOptions.SCHEMA.key());
-        if (!checkResult.isSuccess()) {
-            throw new GoogleSheetsConnectorException(
-                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                    String.format(
-                            "PluginName: %s, PluginType: %s, Message: %s",
-                            getPluginName(), PluginType.SOURCE, checkResult.getMsg()));
-        }
-        this.sheetsParameters = new SheetsParameters().buildWithConfig(pluginConfig);
-        if (pluginConfig.hasPath(ConnectorCommonOptions.SCHEMA.key())) {
-            this.catalogTable = CatalogTableUtil.buildWithConfig(pluginConfig);
-        } else {
-            this.catalogTable = CatalogTableUtil.buildSimpleTextTable();
-        }
-
-        this.seaTunnelRowType = catalogTable.getSeaTunnelRowType();
-        this.deserializationSchema = new JsonDeserializationSchema(catalogTable, false, false);
     }
 
     @Override
@@ -92,14 +55,17 @@ public class SheetsSource extends AbstractSingleSplitSource<SeaTunnelRow> {
     }
 
     @Override
-    public SeaTunnelDataType<SeaTunnelRow> getProducedType() {
-        return seaTunnelRowType;
+    public List<CatalogTable> getProducedCatalogTables() {
+        return Collections.singletonList(catalogTable);
     }
 
     @Override
     public AbstractSingleSplitReader<SeaTunnelRow> createReader(
             SingleSplitReaderContext readerContext) throws Exception {
         return new SheetsSourceReader(
-                sheetsParameters, readerContext, deserializationSchema, this.seaTunnelRowType);
+                sheetsParameters,
+                readerContext,
+                deserializationSchema,
+                catalogTable.getSeaTunnelRowType());
     }
 }

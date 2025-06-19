@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.gbase8a;
 
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectFactory;
 
@@ -24,6 +25,11 @@ import com.google.auto.service.AutoService;
 
 @AutoService(JdbcDialectFactory.class)
 public class Gbase8aDialectFactory implements JdbcDialectFactory {
+    @Override
+    public String dialectFactoryName() {
+        return DatabaseIdentifier.GBASE_8A;
+    }
+
     @Override
     public boolean acceptsURL(String url) {
         return url.startsWith("jdbc:gbase:");

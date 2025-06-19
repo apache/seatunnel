@@ -41,18 +41,24 @@ public class ClickhouseFileSinkAggCommitter
         implements SinkAggregatedCommitter<CKFileCommitInfo, CKFileAggCommitInfo> {
 
     private transient ClickhouseProxy proxy;
-    private final ClickhouseTable clickhouseTable;
+    private ClickhouseTable clickhouseTable;
 
     private final FileReaderOption fileReaderOption;
 
     public ClickhouseFileSinkAggCommitter(FileReaderOption readerOption) {
         fileReaderOption = readerOption;
-        proxy = new ClickhouseProxy(readerOption.getShardMetadata().getDefaultShard().getNode());
+    }
+
+    @Override
+    public void init() {
+        proxy =
+                new ClickhouseProxy(
+                        fileReaderOption.getShardMetadata().getDefaultShard().getNode());
         clickhouseTable =
                 proxy.getClickhouseTable(
                         proxy.getClickhouseConnection(),
-                        readerOption.getShardMetadata().getDatabase(),
-                        readerOption.getShardMetadata().getTable());
+                        fileReaderOption.getShardMetadata().getDatabase(),
+                        fileReaderOption.getShardMetadata().getTable());
     }
 
     @Override

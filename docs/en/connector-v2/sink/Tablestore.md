@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-tablestore.md';
+
 # Tablestore
 
 > Tablestore sink connector
@@ -66,7 +68,4 @@ Tablestore {
 
 ## Changelog
 
-### next version
-
-- Add Tablestore Sink Connector
-
+<ChangeLog />

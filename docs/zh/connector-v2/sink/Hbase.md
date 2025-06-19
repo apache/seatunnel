@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-hbase.md';
+
 # Hbase
 
 > Hbase 数据连接器
@@ -205,9 +207,6 @@ Hbase {
 }
 ```
 
-## 更改日志
+## 变更日志
 
-### 下一个版本
-
-- 添加 hbase 输出连接器 ([4049](https://github.com/apache/seatunnel/pull/4049))
-
+<ChangeLog />

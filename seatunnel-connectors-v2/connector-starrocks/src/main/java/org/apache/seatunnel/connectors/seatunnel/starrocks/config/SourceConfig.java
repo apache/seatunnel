@@ -22,7 +22,9 @@ import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 @Setter
@@ -49,6 +51,7 @@ public class SourceConfig extends StarRocksConfig {
                                         key.substring(prefix.length()).toLowerCase(), value);
                             }
                         });
+        this.tableConfigList = StarRocksSourceTableConfig.of(config);
     }
 
     private int maxRetries = StarRocksSourceOptions.MAX_RETRIES.defaultValue();
@@ -59,5 +62,7 @@ public class SourceConfig extends StarRocksConfig {
     private int keepAliveMin = StarRocksSourceOptions.SCAN_KEEP_ALIVE_MIN.defaultValue();
     private int batchRows = StarRocksSourceOptions.SCAN_BATCH_ROWS.defaultValue();
     private int connectTimeoutMs = StarRocksSourceOptions.SCAN_CONNECT_TIMEOUT.defaultValue();
+    private List<StarRocksSourceTableConfig> tableConfigList = new ArrayList<>();
+
     private Map<String, String> sourceOptionProps = new HashMap<>();
 }

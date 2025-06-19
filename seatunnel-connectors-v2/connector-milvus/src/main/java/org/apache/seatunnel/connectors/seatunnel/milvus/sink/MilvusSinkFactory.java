@@ -25,7 +25,7 @@ import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
-import org.apache.seatunnel.connectors.seatunnel.milvus.config.MilvusSinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.milvus.config.MilvusSinkOptions;
 
 import org.apache.commons.lang3.StringUtils;
 
@@ -42,13 +42,13 @@ public class MilvusSinkFactory implements TableSinkFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(MilvusSinkConfig.URL, MilvusSinkConfig.TOKEN)
+                .required(MilvusSinkOptions.URL, MilvusSinkOptions.TOKEN)
                 .optional(
-                        MilvusSinkConfig.ENABLE_UPSERT,
-                        MilvusSinkConfig.ENABLE_DYNAMIC_FIELD,
-                        MilvusSinkConfig.ENABLE_AUTO_ID,
-                        MilvusSinkConfig.SCHEMA_SAVE_MODE,
-                        MilvusSinkConfig.DATA_SAVE_MODE)
+                        MilvusSinkOptions.ENABLE_UPSERT,
+                        MilvusSinkOptions.ENABLE_DYNAMIC_FIELD,
+                        MilvusSinkOptions.ENABLE_AUTO_ID,
+                        MilvusSinkOptions.SCHEMA_SAVE_MODE,
+                        MilvusSinkOptions.DATA_SAVE_MODE)
                 .build();
     }
 
@@ -62,8 +62,8 @@ public class MilvusSinkFactory implements TableSinkFactory {
             ReadonlyConfig config, CatalogTable sourceCatalogTable) {
         TableIdentifier sourceTableId = sourceCatalogTable.getTableId();
         String databaseName;
-        if (StringUtils.isNotEmpty(config.get(MilvusSinkConfig.DATABASE))) {
-            databaseName = config.get(MilvusSinkConfig.DATABASE);
+        if (StringUtils.isNotEmpty(config.get(MilvusSinkOptions.DATABASE))) {
+            databaseName = config.get(MilvusSinkOptions.DATABASE);
         } else {
             databaseName = sourceTableId.getDatabaseName();
         }

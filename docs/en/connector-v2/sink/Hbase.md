@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-hbase.md';
+
 # Hbase
 
 > Hbase sink connector
@@ -207,7 +209,4 @@ Hbase {
 
 ## Changelog
 
-### next version
-
-- Add hbase sink connector ([4049](https://github.com/apache/seatunnel/pull/4049))
-
+<ChangeLog />

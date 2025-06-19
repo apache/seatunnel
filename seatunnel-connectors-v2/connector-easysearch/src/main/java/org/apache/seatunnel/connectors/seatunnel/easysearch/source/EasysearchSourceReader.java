@@ -17,8 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.easysearch.source;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -44,14 +43,16 @@ public class EasysearchSourceReader implements SourceReader<SeaTunnelRow, Easyse
 
     private final SeaTunnelRowDeserializer deserializer;
     private final long pollNextWaitTime = 1000L;
-    private final Config pluginConfig;
+    private final ReadonlyConfig pluginConfig;
     SourceReader.Context context;
     Deque<EasysearchSourceSplit> splits = new LinkedList<>();
     boolean noMoreSplit;
     private EasysearchClient ezsClient;
 
     public EasysearchSourceReader(
-            SourceReader.Context context, Config pluginConfig, SeaTunnelRowType rowTypeInfo) {
+            SourceReader.Context context,
+            ReadonlyConfig pluginConfig,
+            SeaTunnelRowType rowTypeInfo) {
         this.context = context;
         this.pluginConfig = pluginConfig;
         this.deserializer = new DefaultSeaTunnelRowDeserializer(rowTypeInfo);

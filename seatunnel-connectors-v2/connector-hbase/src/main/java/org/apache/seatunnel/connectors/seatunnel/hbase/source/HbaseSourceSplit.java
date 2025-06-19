@@ -22,6 +22,7 @@ import org.apache.seatunnel.api.source.SourceSplit;
 
 public class HbaseSourceSplit implements SourceSplit {
     public static final String HBASE_SOURCE_SPLIT_PREFIX = "hbase_source_split_";
+    private static final long serialVersionUID = 34191409620359295L;
     private String splitId;
     private byte[] startRow;
     private byte[] endRow;

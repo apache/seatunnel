@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-cdc-postgres.md';
+
 # PostgreSQL CDC
 
 > PostgreSQL CDC 源连接器
@@ -186,8 +188,6 @@ source {
 }
 ```
 
-## 更新日志
+## 变更日志
 
-- 添加 PostgreSQL CDC 源连接器
-
-### 下一个版本
+<ChangeLog />

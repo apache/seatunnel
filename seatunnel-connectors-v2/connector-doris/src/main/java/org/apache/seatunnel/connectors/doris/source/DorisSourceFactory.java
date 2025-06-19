@@ -29,6 +29,7 @@ import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.connectors.doris.catalog.DorisCatalog;
 import org.apache.seatunnel.connectors.doris.catalog.DorisCatalogFactory;
 import org.apache.seatunnel.connectors.doris.config.DorisSourceConfig;
+import org.apache.seatunnel.connectors.doris.config.DorisSourceOptions;
 import org.apache.seatunnel.connectors.doris.config.DorisTableConfig;
 
 import org.apache.commons.lang3.StringUtils;
@@ -43,37 +44,36 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-import static org.apache.seatunnel.connectors.doris.config.DorisOptions.DATABASE;
-import static org.apache.seatunnel.connectors.doris.config.DorisOptions.DORIS_BATCH_SIZE;
-import static org.apache.seatunnel.connectors.doris.config.DorisOptions.FENODES;
-import static org.apache.seatunnel.connectors.doris.config.DorisOptions.IDENTIFIER;
-import static org.apache.seatunnel.connectors.doris.config.DorisOptions.PASSWORD;
-import static org.apache.seatunnel.connectors.doris.config.DorisOptions.QUERY_PORT;
-import static org.apache.seatunnel.connectors.doris.config.DorisOptions.TABLE;
-import static org.apache.seatunnel.connectors.doris.config.DorisOptions.USERNAME;
-import static org.apache.seatunnel.connectors.doris.config.DorisSourceOptions.DORIS_FILTER_QUERY;
-import static org.apache.seatunnel.connectors.doris.config.DorisSourceOptions.DORIS_READ_FIELD;
-import static org.apache.seatunnel.connectors.doris.config.DorisSourceOptions.TABLE_LIST;
-
 @Slf4j
 @AutoService(Factory.class)
 public class DorisSourceFactory implements TableSourceFactory {
     @Override
     public String factoryIdentifier() {
-        return IDENTIFIER;
+        return DorisSourceOptions.IDENTIFIER;
     }
 
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(FENODES, USERNAME, PASSWORD)
-                .optional(TABLE_LIST)
-                .optional(DATABASE)
-                .optional(TABLE)
-                .optional(DORIS_FILTER_QUERY)
-                .optional(DORIS_READ_FIELD)
-                .optional(QUERY_PORT)
-                .optional(DORIS_BATCH_SIZE)
+                .required(
+                        DorisSourceOptions.FENODES,
+                        DorisSourceOptions.USERNAME,
+                        DorisSourceOptions.PASSWORD)
+                .optional(DorisSourceOptions.TABLE_LIST)
+                .optional(DorisSourceOptions.DATABASE)
+                .optional(DorisSourceOptions.TABLE)
+                .optional(DorisSourceOptions.DORIS_FILTER_QUERY)
+                .optional(DorisSourceOptions.DORIS_TABLET_SIZE)
+                .optional(DorisSourceOptions.DORIS_REQUEST_CONNECT_TIMEOUT_MS)
+                .optional(DorisSourceOptions.DORIS_REQUEST_READ_TIMEOUT_MS)
+                .optional(DorisSourceOptions.DORIS_REQUEST_QUERY_TIMEOUT_S)
+                .optional(DorisSourceOptions.DORIS_REQUEST_RETRIES)
+                .optional(DorisSourceOptions.DORIS_DESERIALIZE_ARROW_ASYNC)
+                .optional(DorisSourceOptions.DORIS_DESERIALIZE_QUEUE_SIZE)
+                .optional(DorisSourceOptions.DORIS_READ_FIELD)
+                .optional(DorisSourceOptions.QUERY_PORT)
+                .optional(DorisSourceOptions.DORIS_BATCH_SIZE)
+                .optional(DorisSourceOptions.DORIS_EXEC_MEM_LIMIT)
                 .build();
     }
 

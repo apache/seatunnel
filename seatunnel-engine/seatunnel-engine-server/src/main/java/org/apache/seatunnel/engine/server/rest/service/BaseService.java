@@ -63,7 +63,7 @@ import com.hazelcast.internal.json.JsonObject;
 import com.hazelcast.internal.json.JsonValue;
 import com.hazelcast.internal.serialization.Data;
 import com.hazelcast.internal.util.JsonUtil;
-import com.hazelcast.jet.impl.execution.init.CustomClassLoadedObject;
+import com.hazelcast.map.IMap;
 import com.hazelcast.spi.impl.NodeEngineImpl;
 import lombok.extern.slf4j.Slf4j;
 
@@ -131,15 +131,11 @@ public abstract class BaseService {
                 seaTunnelServer == null
                         ? getSeaTunnelServer(false).getClassLoaderService()
                         : seaTunnelServer.getClassLoaderService();
-        ClassLoader classLoader =
-                classLoaderService.getClassLoader(
-                        jobId, jobImmutableInformation.getPluginJarsUrls());
         LogicalDag logicalDag =
-                CustomClassLoadedObject.deserializeWithCustomClassLoader(
+                DAGUtils.restoreLogicalDag(
+                        jobImmutableInformation,
                         nodeEngine.getSerializationService(),
-                        classLoader,
-                        jobImmutableInformation.getLogicalDag());
-        classLoaderService.releaseClassLoader(jobId, jobImmutableInformation.getPluginJarsUrls());
+                        classLoaderService);
 
         String jobMetrics;
         JobStatus jobStatus;
@@ -184,6 +180,7 @@ public abstract class BaseService {
                         DateTimeUtils.toString(
                                 jobImmutableInformation.getCreateTime(),
                                 DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS))
+                .add(RestConstant.START_TIME, getJobStartTime(jobId))
                 .add(RestConstant.JOB_DAG, jobDAGInfo.toJsonObject())
                 .add(
                         RestConstant.PLUGIN_JARS_URLS,
@@ -205,6 +202,18 @@ public abstract class BaseService {
         return jobInfoJson;
     }
 
+    private String getJobStartTime(long jobId) {
+        IMap<Object, Long[]> stateTimestamps =
+                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_STATE_TIMESTAMPS);
+        Long[] jobnStateTimestamps = stateTimestamps.get(jobId);
+        if (jobnStateTimestamps != null) {
+            Long startTimestamp = jobnStateTimestamps[JobStatus.SCHEDULED.ordinal()];
+            return DateTimeUtils.toString(
+                    startTimestamp, DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS);
+        }
+        return null;
+    }
+
     protected JsonObject getJobInfoJson(
             JobHistoryService.JobState jobState, String jobMetrics, JobDAGInfo jobDAGInfo) {
         return new JsonObject()
@@ -216,6 +225,11 @@ public abstract class BaseService {
                         RestConstant.CREATE_TIME,
                         DateTimeUtils.toString(
                                 jobState.getSubmitTime(),
+                                DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS))
+                .add(
+                        RestConstant.START_TIME,
+                        DateTimeUtils.toString(
+                                jobState.getStartTime(),
                                 DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS))
                 .add(
                         RestConstant.FINISH_TIME,

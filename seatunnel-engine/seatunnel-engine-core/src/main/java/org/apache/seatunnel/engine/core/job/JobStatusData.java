@@ -31,5 +31,6 @@ public final class JobStatusData implements Serializable {
     private String jobName;
     private JobStatus jobStatus;
     private long submitTime;
+    private Long startTime;
     private Long finishTime;
 }

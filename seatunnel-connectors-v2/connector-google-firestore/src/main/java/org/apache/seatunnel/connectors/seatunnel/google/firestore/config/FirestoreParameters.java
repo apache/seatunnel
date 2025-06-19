@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.google.firestore.config;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 
 import lombok.Data;
 
@@ -32,11 +32,11 @@ public class FirestoreParameters implements Serializable {
 
     private String collection;
 
-    public FirestoreParameters buildWithConfig(Config config) {
-        this.projectId = config.getString(FirestoreConfig.PROJECT_ID.key());
-        this.collection = config.getString(FirestoreConfig.COLLECTION.key());
-        if (config.hasPath(FirestoreConfig.CREDENTIALS.key())) {
-            this.credentials = config.getString(FirestoreConfig.CREDENTIALS.key());
+    public FirestoreParameters buildWithConfig(ReadonlyConfig config) {
+        this.projectId = config.get(FirestoreSinkOptions.PROJECT_ID);
+        this.collection = config.get(FirestoreSinkOptions.COLLECTION);
+        if (config.getOptional(FirestoreSinkOptions.CREDENTIALS).isPresent()) {
+            this.credentials = config.get(FirestoreSinkOptions.CREDENTIALS);
         }
         return this;
     }

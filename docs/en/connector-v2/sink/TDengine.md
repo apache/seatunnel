@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-tdengine.md';
+
 # TDengine
 
 > TDengine sink connector
@@ -69,3 +71,6 @@ sink {
 }
 ```
 
+## Changelog
+
+<ChangeLog />

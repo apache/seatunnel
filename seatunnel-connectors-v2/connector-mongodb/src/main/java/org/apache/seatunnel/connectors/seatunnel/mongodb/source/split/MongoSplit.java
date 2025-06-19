@@ -29,6 +29,7 @@ import lombok.Getter;
 @AllArgsConstructor
 public class MongoSplit implements SourceSplit {
 
+    private static final long serialVersionUID = 6349181541535290370L;
     private final String splitId;
 
     private final BsonDocument query;

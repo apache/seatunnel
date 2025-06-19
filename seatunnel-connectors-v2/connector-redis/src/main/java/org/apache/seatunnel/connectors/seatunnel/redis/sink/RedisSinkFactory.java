@@ -45,11 +45,7 @@ public class RedisSinkFactory implements TableSinkFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(
-                        RedisBaseOptions.HOST,
-                        RedisBaseOptions.PORT,
-                        RedisBaseOptions.KEY,
-                        RedisBaseOptions.DATA_TYPE)
+                .required(RedisBaseOptions.KEY, RedisBaseOptions.DATA_TYPE)
                 .optional(
                         RedisBaseOptions.MODE,
                         RedisBaseOptions.AUTH,
@@ -62,6 +58,11 @@ public class RedisSinkFactory implements TableSinkFactory {
                         RedisSinkOptions.HASH_KEY_FIELD,
                         RedisSinkOptions.HASH_VALUE_FIELD,
                         SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA)
+                .conditional(
+                        RedisBaseOptions.MODE,
+                        RedisBaseOptions.RedisMode.SINGLE,
+                        RedisBaseOptions.HOST,
+                        RedisBaseOptions.PORT)
                 .conditional(
                         RedisBaseOptions.MODE,
                         RedisBaseOptions.RedisMode.CLUSTER,

@@ -22,8 +22,8 @@ import org.apache.seatunnel.api.sink.SupportMultiTableSink;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSimpleSink;
-import org.apache.seatunnel.connectors.seatunnel.http.config.HttpConfig;
 import org.apache.seatunnel.connectors.seatunnel.http.config.HttpParameter;
+import org.apache.seatunnel.connectors.seatunnel.prometheus.config.PrometheusSinkOptions;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -39,12 +39,12 @@ public class PrometheusSink extends AbstractSimpleSink<SeaTunnelRow, Void>
 
     public PrometheusSink(ReadonlyConfig pluginConfig, CatalogTable catalogTable) {
         this.pluginConfig = pluginConfig;
-        httpParameter.setUrl(pluginConfig.get(HttpConfig.URL));
-        if (pluginConfig.getOptional(HttpConfig.HEADERS).isPresent()) {
-            httpParameter.setHeaders(pluginConfig.get(HttpConfig.HEADERS));
+        httpParameter.setUrl(pluginConfig.get(PrometheusSinkOptions.URL));
+        if (pluginConfig.getOptional(PrometheusSinkOptions.HEADERS).isPresent()) {
+            httpParameter.setHeaders(pluginConfig.get(PrometheusSinkOptions.HEADERS));
         }
-        if (pluginConfig.getOptional(HttpConfig.PARAMS).isPresent()) {
-            httpParameter.setHeaders(pluginConfig.get(HttpConfig.PARAMS));
+        if (pluginConfig.getOptional(PrometheusSinkOptions.PARAMS).isPresent()) {
+            httpParameter.setHeaders(pluginConfig.get(PrometheusSinkOptions.PARAMS));
         }
         this.catalogTable = catalogTable;
 

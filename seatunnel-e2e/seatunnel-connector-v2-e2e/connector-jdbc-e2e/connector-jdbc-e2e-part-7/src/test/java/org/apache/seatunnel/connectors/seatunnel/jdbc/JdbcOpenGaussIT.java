@@ -325,7 +325,8 @@ public class JdbcOpenGaussIT extends AbstractJdbcIT {
                         jdbcCase.getUserName(),
                         jdbcCase.getPassword(),
                         JdbcUrlUtil.getUrlInfo(jdbcUrl),
-                        SCHEMA);
+                        SCHEMA,
+                        null);
         // set connection
         ((OpenGaussCatalog) catalog).setConnection(jdbcUrl, connection);
         catalog.open();

@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-prometheus.md';
+
 # Prometheus
 
 > Prometheus source connector
@@ -96,7 +98,7 @@ Source plugin common parameters, please refer to [Source Common Options](../sour
 
 ## Example
 
-### Instant:
+### Instant
 
 ```hocon
 source {
@@ -145,8 +147,4 @@ source {
 
 ## Changelog
 
-### next version
-
-- Add Prometheus Source Connector
-- Reduce configuration items
-
+<ChangeLog />

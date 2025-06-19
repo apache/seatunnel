@@ -60,6 +60,7 @@ import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.CUSTOM_SQL;
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.DATABASE;
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.DATA_SAVE_MODE;
+import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.DIALECT;
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.DRIVER;
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.GENERATE_SINK_SQL;
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.IS_EXACTLY_ONCE;
@@ -69,7 +70,6 @@ import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.PRIMARY_KEYS;
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.QUERY;
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.SCHEMA_SAVE_MODE;
-import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.SUPPORT_UPSERT_BY_QUERY_PRIMARY_KEY_EXIST;
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.TABLE;
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.TRANSACTION_TIMEOUT_SEC;
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.URL;
@@ -234,6 +234,7 @@ public class JdbcSinkFactory implements TableSinkFactory {
                 JdbcDialectLoader.load(
                         sinkConfig.getJdbcConnectionConfig().getUrl(),
                         sinkConfig.getJdbcConnectionConfig().getCompatibleMode(),
+                        sinkConfig.getJdbcConnectionConfig().getDialect(),
                         fieldIdeEnum == null ? null : fieldIdeEnum.getValue());
         dialect.connectionUrlParse(
                 sinkConfig.getJdbcConnectionConfig().getUrl(),
@@ -266,10 +267,10 @@ public class JdbcSinkFactory implements TableSinkFactory {
                         IS_EXACTLY_ONCE,
                         GENERATE_SINK_SQL,
                         AUTO_COMMIT,
-                        SUPPORT_UPSERT_BY_QUERY_PRIMARY_KEY_EXIST,
                         PRIMARY_KEYS,
                         COMPATIBLE_MODE,
-                        MULTI_TABLE_SINK_REPLICA)
+                        MULTI_TABLE_SINK_REPLICA,
+                        DIALECT)
                 .conditional(
                         IS_EXACTLY_ONCE,
                         true,

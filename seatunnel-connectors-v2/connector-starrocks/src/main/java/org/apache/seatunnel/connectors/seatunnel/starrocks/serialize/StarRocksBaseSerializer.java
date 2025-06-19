@@ -19,25 +19,29 @@ package org.apache.seatunnel.connectors.seatunnel.starrocks.serialize;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
-import org.apache.seatunnel.common.utils.DateTimeUtils;
 import org.apache.seatunnel.common.utils.DateUtils;
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.common.utils.TimeUtils;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.exception.StarRocksConnectorException;
 
-import lombok.Builder;
-
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeFormatterBuilder;
+import java.time.temporal.ChronoField;
 
 public class StarRocksBaseSerializer {
-    @Builder.Default private DateUtils.Formatter dateFormatter = DateUtils.Formatter.YYYY_MM_DD;
+    private DateUtils.Formatter dateFormatter = DateUtils.Formatter.YYYY_MM_DD;
 
-    @Builder.Default
-    private DateTimeUtils.Formatter dateTimeFormatter = DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS;
+    private DateTimeFormatter dateTimeFormatter =
+            new DateTimeFormatterBuilder()
+                    .appendPattern("yyyy-MM-dd HH:mm:ss")
+                    .optionalStart()
+                    .appendFraction(ChronoField.NANO_OF_SECOND, 0, 9, true)
+                    .toFormatter();
 
-    @Builder.Default private TimeUtils.Formatter timeFormatter = TimeUtils.Formatter.HH_MM_SS;
+    private TimeUtils.Formatter timeFormatter = TimeUtils.Formatter.HH_MM_SS;
 
     protected Object convert(SeaTunnelDataType dataType, Object val) {
         if (val == null) {
@@ -59,7 +63,7 @@ public class StarRocksBaseSerializer {
             case TIME:
                 return TimeUtils.toString((LocalTime) val, timeFormatter);
             case TIMESTAMP:
-                return DateTimeUtils.toString((LocalDateTime) val, dateTimeFormatter);
+                return ((LocalDateTime) val).format(dateTimeFormatter);
             case ARRAY:
             case MAP:
                 return JsonUtils.toJsonString(val);

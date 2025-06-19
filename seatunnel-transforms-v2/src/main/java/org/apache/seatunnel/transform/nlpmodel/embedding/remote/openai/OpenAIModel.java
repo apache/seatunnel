@@ -53,7 +53,7 @@ public class OpenAIModel extends AbstractModel {
     }
 
     @Override
-    protected List<List<Float>> vector(Object[] fields) throws IOException {
+    protected List<List<Double>> vector(Object[] fields) throws IOException {
         if (fields.length > 1) {
             throw new IllegalArgumentException("OpenAI model only supports single input");
         }
@@ -65,7 +65,7 @@ public class OpenAIModel extends AbstractModel {
         return vectorGeneration(new Object[] {DIMENSION_EXAMPLE}).size();
     }
 
-    private List<List<Float>> vectorGeneration(Object[] fields) throws IOException {
+    private List<List<Double>> vectorGeneration(Object[] fields) throws IOException {
         HttpPost post = new HttpPost(apiPath);
         post.setHeader("Authorization", "Bearer " + apiKey);
         post.setHeader("Content-Type", "application/json");
@@ -84,14 +84,14 @@ public class OpenAIModel extends AbstractModel {
         }
 
         JsonNode data = OBJECT_MAPPER.readTree(responseStr).get("data");
-        List<List<Float>> embeddings = new ArrayList<>();
+        List<List<Double>> embeddings = new ArrayList<>();
 
         if (data.isArray()) {
             for (JsonNode node : data) {
                 JsonNode embeddingNode = node.get("embedding");
-                List<Float> embedding =
+                List<Double> embedding =
                         OBJECT_MAPPER.readValue(
-                                embeddingNode.traverse(), new TypeReference<List<Float>>() {});
+                                embeddingNode.traverse(), new TypeReference<List<Double>>() {});
                 embeddings.add(embedding);
             }
         }

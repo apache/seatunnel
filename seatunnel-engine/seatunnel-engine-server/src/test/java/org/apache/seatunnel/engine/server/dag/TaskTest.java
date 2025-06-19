@@ -50,10 +50,15 @@ import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.server.AbstractSeaTunnelServerTest;
 import org.apache.seatunnel.engine.server.TestUtils;
 import org.apache.seatunnel.engine.server.dag.physical.PhysicalPlan;
+import org.apache.seatunnel.engine.server.dag.physical.PhysicalVertex;
 import org.apache.seatunnel.engine.server.dag.physical.PlanUtils;
+import org.apache.seatunnel.engine.server.dag.physical.SubPlan;
+import org.apache.seatunnel.engine.server.execution.Task;
+import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junitpioneer.jupiter.SetEnvironmentVariable;
 
 import com.hazelcast.map.IMap;
 
@@ -64,6 +69,8 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.concurrent.Executors;
+
+import static org.apache.seatunnel.engine.core.classloader.DefaultClassLoaderService.SKIP_CHECK_JAR;
 
 public class TaskTest extends AbstractSeaTunnelServerTest {
 
@@ -81,8 +88,8 @@ public class TaskTest extends AbstractSeaTunnelServerTest {
                 new JobImmutableInformation(
                         jobId,
                         "Test",
-                        nodeEngine.getSerializationService().toData(testLogicalDag),
-                        config,
+                        nodeEngine.getSerializationService(),
+                        testLogicalDag,
                         Collections.emptyList(),
                         Collections.emptyList());
 
@@ -99,6 +106,7 @@ public class TaskTest extends AbstractSeaTunnelServerTest {
     }
 
     @Test
+    @SetEnvironmentVariable(key = SKIP_CHECK_JAR, value = "true")
     public void testLogicalToPhysical() throws MalformedURLException {
 
         IdGenerator idGenerator = new IdGenerator();
@@ -143,22 +151,29 @@ public class TaskTest extends AbstractSeaTunnelServerTest {
 
         LogicalEdge edge = new LogicalEdge(fakeVertex, consoleVertex);
 
-        LogicalDag logicalDag = new LogicalDag();
+        JobConfig config = new JobConfig();
+        config.setName("test");
+        LogicalDag logicalDag = new LogicalDag(config, idGenerator);
         logicalDag.addLogicalVertex(fakeVertex);
         logicalDag.addLogicalVertex(consoleVertex);
         logicalDag.addEdge(edge);
-
-        JobConfig config = new JobConfig();
-        config.setName("test");
 
         JobImmutableInformation jobImmutableInformation =
                 new JobImmutableInformation(
                         1,
                         "Test",
-                        nodeEngine.getSerializationService().toData(logicalDag),
-                        config,
+                        nodeEngine.getSerializationService(),
+                        logicalDag,
                         Collections.emptyList(),
                         Collections.emptyList());
+
+        Assertions.assertEquals(2, jobImmutableInformation.getLogicalVertexJarsList().size());
+        Assertions.assertIterableEquals(
+                Sets.newHashSet(new URL("file:///fake.jar")),
+                jobImmutableInformation.getLogicalVertexJarsList().get(0));
+        Assertions.assertIterableEquals(
+                Sets.newHashSet(new URL("file:///console.jar")),
+                jobImmutableInformation.getLogicalVertexJarsList().get(1));
 
         IMap<Object, Object> runningJobState =
                 nodeEngine.getHazelcastInstance().getMap("testRunningJobState");
@@ -172,6 +187,7 @@ public class TaskTest extends AbstractSeaTunnelServerTest {
                                 jobImmutableInformation,
                                 System.currentTimeMillis(),
                                 Executors.newCachedThreadPool(),
+                                server.getClassLoaderService(),
                                 instance.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME),
                                 runningJobState,
                                 runningJobStateTimestamp,
@@ -214,6 +230,81 @@ public class TaskTest extends AbstractSeaTunnelServerTest {
                         .getJars()
                         .get(1),
                 Sets.newHashSet(new URL("file:///console.jar")));
+    }
+
+    @Test
+    public void testTaskGroupAndTaskLocationInfos() {
+        Long jobId = 1L;
+        LogicalDag testLogicalDag =
+                TestUtils.createTestLogicalPlan(
+                        "stream_fake_to_console.conf", "test_task_group_info", jobId);
+        JobImmutableInformation jobImmutableInformation =
+                new JobImmutableInformation(
+                        jobId,
+                        "Test",
+                        nodeEngine.getSerializationService(),
+                        testLogicalDag,
+                        Collections.emptyList(),
+                        Collections.emptyList());
+        IMap<Object, Object> runningJobState =
+                nodeEngine.getHazelcastInstance().getMap("testRunningJobState");
+        IMap<Object, Long[]> runningJobStateTimestamp =
+                nodeEngine.getHazelcastInstance().getMap("testRunningJobStateTimestamp");
+        PhysicalPlan physicalPlan =
+                PlanUtils.fromLogicalDAG(
+                                testLogicalDag,
+                                nodeEngine,
+                                jobImmutableInformation,
+                                System.currentTimeMillis(),
+                                Executors.newCachedThreadPool(),
+                                server.getClassLoaderService(),
+                                instance.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME),
+                                runningJobState,
+                                runningJobStateTimestamp,
+                                QueueType.BLOCKINGQUEUE,
+                                new EngineConfig())
+                        .f0();
+        Assertions.assertEquals(2, physicalPlan.getPipelineList().size());
+        for (int i = 0; i < physicalPlan.getPipelineList().size(); i++) {
+            SubPlan subPlan = physicalPlan.getPipelineList().get(i);
+            int pipelineId = subPlan.getPipelineId();
+
+            for (int j = 0; j < subPlan.getCoordinatorVertexList().size(); j++) {
+                PhysicalVertex physicalVertex = subPlan.getCoordinatorVertexList().get(j);
+                TaskGroupLocation taskGroupLocation = physicalVertex.getTaskGroupLocation();
+                List<Task> physicalTasks =
+                        new ArrayList<>(physicalVertex.getTaskGroup().getTasks());
+                for (int taskInGroupIndex = 0;
+                        taskInGroupIndex < physicalTasks.size();
+                        taskInGroupIndex++) {
+                    Task task = physicalTasks.get(taskInGroupIndex);
+                    long expectedTaskId =
+                            pipelineId * 10000L * 10000L * 10000L
+                                    + taskGroupLocation.getTaskGroupId() * 10000L * 10000L
+                                    + taskInGroupIndex * 10000L;
+                    Assertions.assertEquals(expectedTaskId, task.getTaskID());
+                }
+            }
+
+            for (int j = 0; j < subPlan.getPhysicalVertexList().size(); j++) {
+                PhysicalVertex physicalVertex = subPlan.getPhysicalVertexList().get(j);
+                TaskGroupLocation taskGroupLocation = physicalVertex.getTaskGroupLocation();
+                List<Task> physicalTasks =
+                        new ArrayList<>(physicalVertex.getTaskGroup().getTasks());
+                for (int taskInGroupIndex = 0;
+                        taskInGroupIndex < physicalTasks.size();
+                        taskInGroupIndex++) {
+                    Task task = physicalTasks.get(taskInGroupIndex);
+                    // can't get job parallel index, use prefix check
+                    long expectedTaskIdPrefix =
+                            pipelineId * 10000L * 10000L * 10000L
+                                    + taskGroupLocation.getTaskGroupId() * 10000L * 10000L
+                                    + taskInGroupIndex * 10000L;
+                    Assertions.assertEquals(
+                            expectedTaskIdPrefix / 10000L, task.getTaskID() / 10000L);
+                }
+            }
+        }
     }
 
     private static FakeSource createFakeSource() {

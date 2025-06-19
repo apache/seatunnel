@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-cassandra.md';
+
 # Cassandra
 
 > Cassandra 源连接器
@@ -74,7 +76,4 @@ source {
 
 ## 变更日志
 
-### 下一个版本
-
-- 添加 Cassandra 源连接器
-
+<ChangeLog />

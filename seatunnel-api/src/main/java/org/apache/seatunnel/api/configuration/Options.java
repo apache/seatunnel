@@ -125,6 +125,14 @@ public class Options {
         }
 
         /**
+         * Defines that the value of the option should be a set of properties, which can be
+         * represented as {@code Map<String, Object>}.
+         */
+        public TypedOptionBuilder<Map<String, Object>> mapObjectType() {
+            return new TypedOptionBuilder<>(key, new TypeReference<Map<String, Object>>() {});
+        }
+
+        /**
          * Defines that the value of the option should be a list of properties, which can be
          * represented as {@code List<String>}.
          */

@@ -47,8 +47,9 @@ public abstract class AbstractPaimonIT extends TestSuiteBase {
     protected static final String FAKE_DATABASE1 = "FakeDatabase1";
     protected static final String FAKE_TABLE2 = "FakeTable1";
     protected static final String FAKE_DATABASE2 = "FakeDatabase2";
-    protected String CATALOG_ROOT_DIR_WIN = "C:/Users/";
-    protected String CATALOG_DIR_WIN = CATALOG_ROOT_DIR_WIN + NAMESPACE + "/";
+    private final String CATALOG_ROOT_DIR_WIN =
+            "C:/Users/" + System.getProperty("user.name") + "/tmp/";
+    private final String CATALOG_DIR_WIN = CATALOG_ROOT_DIR_WIN + NAMESPACE + "/";
     protected boolean isWindows;
     protected boolean changeLogEnabled = false;
 

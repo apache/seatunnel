@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-amazondynamodb.md';
+
 # AmazonDynamoDB
 
 > AmazonDynamoDB source connector
@@ -113,8 +115,4 @@ Amazondynamodb {
 
 ## Changelog
 
-### next version
-
-- Add Amazon DynamoDB Source Connector
-- Add source  split to Amazondynamodb Connectors
-
+<ChangeLog />

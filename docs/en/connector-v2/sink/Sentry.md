@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-sentry.md';
+
 # Sentry
 
 ## Description
@@ -72,7 +74,5 @@ Sink plugin common parameters, please refer to [Sink Common Options](../sink-com
 
 ## Changelog
 
-### 2.2.0-beta 2022-09-26
-
-- Add Sentry Sink Connector
+<ChangeLog />
 

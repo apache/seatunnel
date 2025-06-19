@@ -244,7 +244,8 @@ public class JdbcXuguIT extends AbstractJdbcIT {
                         jdbcCase.getUserName(),
                         jdbcCase.getPassword(),
                         JdbcUrlUtil.getUrlInfo(jdbcUrl),
-                        XUGU_SCHEMA);
+                        XUGU_SCHEMA,
+                        null);
         catalog.open();
     }
 }

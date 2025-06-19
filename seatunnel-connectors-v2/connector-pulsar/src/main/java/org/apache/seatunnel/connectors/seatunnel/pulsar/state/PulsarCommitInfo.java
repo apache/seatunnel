@@ -28,6 +28,7 @@ import java.io.Serializable;
 @AllArgsConstructor
 public class PulsarCommitInfo implements Serializable {
 
+    private static final long serialVersionUID = -9211914520132746418L;
     /** The transaction id. */
     private final TxnID txnID;
 }

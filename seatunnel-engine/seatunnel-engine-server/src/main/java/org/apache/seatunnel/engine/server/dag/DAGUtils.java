@@ -22,6 +22,7 @@ import org.apache.seatunnel.api.sink.multitablesink.MultiTableSink;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.engine.common.config.EngineConfig;
+import org.apache.seatunnel.engine.core.classloader.ClassLoaderService;
 import org.apache.seatunnel.engine.core.dag.actions.Action;
 import org.apache.seatunnel.engine.core.dag.actions.ActionUtils;
 import org.apache.seatunnel.engine.core.dag.actions.SinkAction;
@@ -36,8 +37,11 @@ import org.apache.seatunnel.engine.core.job.VertexInfo;
 import org.apache.seatunnel.engine.server.dag.execution.ExecutionPlanGenerator;
 import org.apache.seatunnel.engine.server.dag.execution.Pipeline;
 
+import com.hazelcast.internal.serialization.Data;
+import com.hazelcast.internal.serialization.SerializationService;
 import lombok.extern.slf4j.Slf4j;
 
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -49,6 +53,46 @@ import java.util.stream.Collectors;
 
 @Slf4j
 public class DAGUtils {
+
+    public static LogicalDag restoreLogicalDag(
+            JobImmutableInformation jobImmutableInformation,
+            SerializationService serializationService,
+            List<ClassLoader> classLoaders) {
+        LogicalDag logicalDag =
+                serializationService.toObject(jobImmutableInformation.getLogicalDag());
+        ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
+        try {
+            List<Data> logicalVertexDataList = jobImmutableInformation.getLogicalVertexDataList();
+            for (int i = 0; i < jobImmutableInformation.getLogicalVertexDataList().size(); i++) {
+                Thread.currentThread().setContextClassLoader(classLoaders.get(i));
+                logicalDag.addLogicalVertex(
+                        serializationService.toObject(logicalVertexDataList.get(i)));
+            }
+            return logicalDag;
+        } finally {
+            Thread.currentThread().setContextClassLoader(classLoader);
+        }
+    }
+
+    public static LogicalDag restoreLogicalDag(
+            JobImmutableInformation jobImmutableInformation,
+            SerializationService serializationService,
+            ClassLoaderService classLoaderService) {
+        List<Set<URL>> logicalVertexJarsList = jobImmutableInformation.getLogicalVertexJarsList();
+        List<ClassLoader> classLoaders = new ArrayList<>();
+        try {
+            for (Set<URL> urls : logicalVertexJarsList) {
+                classLoaders.add(
+                        classLoaderService.getClassLoader(
+                                jobImmutableInformation.getJobId(), urls));
+            }
+            return restoreLogicalDag(jobImmutableInformation, serializationService, classLoaders);
+        } finally {
+            for (Set<URL> urls : logicalVertexJarsList) {
+                classLoaderService.releaseClassLoader(jobImmutableInformation.getJobId(), urls);
+            }
+        }
+    }
 
     public static JobDAGInfo getJobDAGInfo(
             LogicalDag logicalDag,

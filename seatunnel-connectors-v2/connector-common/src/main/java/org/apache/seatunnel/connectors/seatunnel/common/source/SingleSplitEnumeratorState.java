@@ -19,4 +19,6 @@ package org.apache.seatunnel.connectors.seatunnel.common.source;
 
 import java.io.Serializable;
 
-public class SingleSplitEnumeratorState implements Serializable {}
+public class SingleSplitEnumeratorState implements Serializable {
+    private static final long serialVersionUID = -2700283917471267033L;
+}

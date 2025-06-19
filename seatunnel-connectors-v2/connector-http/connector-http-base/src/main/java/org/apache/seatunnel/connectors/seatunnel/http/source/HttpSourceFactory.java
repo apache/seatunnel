@@ -26,6 +26,7 @@ import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.connectors.seatunnel.http.config.HttpConfig;
+import org.apache.seatunnel.connectors.seatunnel.http.config.HttpSourceOptions;
 
 import com.google.auto.service.AutoService;
 
@@ -47,30 +48,29 @@ public class HttpSourceFactory implements TableSourceFactory {
     @Override
     public <T, SplitT extends SourceSplit, StateT extends Serializable>
             TableSource<T, SplitT, StateT> createSource(TableSourceFactoryContext context) {
-        return () ->
-                (SeaTunnelSource<T, SplitT, StateT>)
-                        new HttpSource(context.getOptions().toConfig());
+        return () -> (SeaTunnelSource<T, SplitT, StateT>) new HttpSource(context.getOptions());
     }
 
     public OptionRule.Builder getHttpBuilder() {
         return OptionRule.builder()
-                .required(HttpConfig.URL)
-                .optional(HttpConfig.METHOD)
-                .optional(HttpConfig.HEADERS)
-                .optional(HttpConfig.PARAMS)
-                .optional(HttpConfig.FORMAT)
-                .optional(HttpConfig.BODY)
-                .optional(HttpConfig.PAGEING)
-                .optional(HttpConfig.JSON_FIELD)
-                .optional(HttpConfig.CONTENT_FIELD)
+                .required(HttpSourceOptions.URL)
+                .optional(
+                        HttpSourceOptions.METHOD,
+                        HttpSourceOptions.HEADERS,
+                        HttpSourceOptions.PARAMS,
+                        HttpSourceOptions.FORMAT,
+                        HttpSourceOptions.BODY,
+                        HttpSourceOptions.PAGEING,
+                        HttpSourceOptions.JSON_FIELD,
+                        HttpSourceOptions.CONTENT_FIELD,
+                        HttpSourceOptions.POLL_INTERVAL_MILLS,
+                        HttpSourceOptions.RETRY,
+                        HttpSourceOptions.RETRY_BACKOFF_MULTIPLIER_MS,
+                        HttpSourceOptions.RETRY_BACKOFF_MAX_MS)
                 .conditional(
-                        HttpConfig.FORMAT,
+                        HttpSourceOptions.FORMAT,
                         HttpConfig.ResponseFormat.JSON,
-                        ConnectorCommonOptions.SCHEMA)
-                .optional(HttpConfig.POLL_INTERVAL_MILLS)
-                .optional(HttpConfig.RETRY)
-                .optional(HttpConfig.RETRY_BACKOFF_MULTIPLIER_MS)
-                .optional(HttpConfig.RETRY_BACKOFF_MAX_MS);
+                        ConnectorCommonOptions.SCHEMA);
     }
 
     @Override

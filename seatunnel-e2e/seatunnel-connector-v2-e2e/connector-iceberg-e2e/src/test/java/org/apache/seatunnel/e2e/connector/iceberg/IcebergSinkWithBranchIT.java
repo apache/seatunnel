@@ -20,8 +20,8 @@ package org.apache.seatunnel.e2e.connector.iceberg;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.common.utils.FileUtils;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.IcebergTableLoader;
-import org.apache.seatunnel.connectors.seatunnel.iceberg.config.CommonConfig;
-import org.apache.seatunnel.connectors.seatunnel.iceberg.config.SourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergCommonOptions;
+import org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergSourceConfig;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
@@ -191,12 +191,12 @@ public class IcebergSinkWithBranchIT extends TestSuiteBase {
         Map<String, Object> catalogProps = new HashMap<>();
         catalogProps.put("type", HADOOP.getType());
         catalogProps.put("warehouse", "file://" + CATALOG_DIR);
-        configs.put(CommonConfig.KEY_CATALOG_NAME.key(), "seatunnel_test");
-        configs.put(CommonConfig.KEY_NAMESPACE.key(), "seatunnel_namespace");
-        configs.put(CommonConfig.KEY_TABLE.key(), "iceberg_sink_table");
-        configs.put(CommonConfig.CATALOG_PROPS.key(), catalogProps);
+        configs.put(IcebergCommonOptions.KEY_CATALOG_NAME.key(), "seatunnel_test");
+        configs.put(IcebergCommonOptions.KEY_NAMESPACE.key(), "seatunnel_namespace");
+        configs.put(IcebergCommonOptions.KEY_TABLE.key(), "iceberg_sink_table");
+        configs.put(IcebergCommonOptions.CATALOG_PROPS.key(), catalogProps);
         IcebergTableLoader tableLoader =
-                IcebergTableLoader.create(new SourceConfig(ReadonlyConfig.fromMap(configs)));
+                IcebergTableLoader.create(new IcebergSourceConfig(ReadonlyConfig.fromMap(configs)));
         tableLoader.open();
         // from branch
         return tableLoader.loadTable();

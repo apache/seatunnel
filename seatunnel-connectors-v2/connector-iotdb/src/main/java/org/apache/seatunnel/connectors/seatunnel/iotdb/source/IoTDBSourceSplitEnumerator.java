@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.iotdb.source;
 
 import org.apache.seatunnel.shade.com.google.common.base.Strings;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.iotdb.exception.IotdbConnectorException;
@@ -36,10 +37,10 @@ import java.util.Map;
 import java.util.Set;
 
 import static org.apache.iotdb.tsfile.common.constant.QueryConstant.RESERVED_TIME;
-import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.SourceConfig.LOWER_BOUND;
-import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.SourceConfig.NUM_PARTITIONS;
-import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.SourceConfig.SQL;
-import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.SourceConfig.UPPER_BOUND;
+import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.IoTDBSourceOptions.LOWER_BOUND;
+import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.IoTDBSourceOptions.NUM_PARTITIONS;
+import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.IoTDBSourceOptions.SQL;
+import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.IoTDBSourceOptions.UPPER_BOUND;
 import static org.apache.seatunnel.connectors.seatunnel.iotdb.constant.SourceConstants.DEFAULT_PARTITIONS;
 import static org.apache.seatunnel.connectors.seatunnel.iotdb.constant.SourceConstants.SQL_ALIGN;
 import static org.apache.seatunnel.connectors.seatunnel.iotdb.constant.SourceConstants.SQL_WHERE;
@@ -56,18 +57,18 @@ public class IoTDBSourceSplitEnumerator
 
     private final Object stateLock = new Object();
     private final Context<IoTDBSourceSplit> context;
-    private final Map<String, Object> conf;
+    private final ReadonlyConfig conf;
     private final Map<Integer, List<IoTDBSourceSplit>> pendingSplit;
     private volatile boolean shouldEnumerate;
 
     public IoTDBSourceSplitEnumerator(
-            SourceSplitEnumerator.Context<IoTDBSourceSplit> context, Map<String, Object> conf) {
+            SourceSplitEnumerator.Context<IoTDBSourceSplit> context, ReadonlyConfig conf) {
         this(context, conf, null);
     }
 
     public IoTDBSourceSplitEnumerator(
             SourceSplitEnumerator.Context<IoTDBSourceSplit> context,
-            Map<String, Object> conf,
+            ReadonlyConfig conf,
             IoTDBSourceState sourceState) {
         this.context = context;
         this.conf = conf;
@@ -115,16 +116,16 @@ public class IoTDBSourceSplitEnumerator
      * <p>split 2: select * from test where (time >= 6 and time < 11) and ( age > 0 and age < 10 )
      */
     private Set<IoTDBSourceSplit> getIotDBSplit() {
-        String sql = conf.get(SQL.key()).toString();
+        String sql = conf.get(SQL);
         Set<IoTDBSourceSplit> iotDBSourceSplits = new HashSet<>();
         // no need numPartitions, use one partition
-        if (!conf.containsKey(NUM_PARTITIONS.key())) {
+        if (!conf.getOptional(NUM_PARTITIONS).isPresent()) {
             iotDBSourceSplits.add(new IoTDBSourceSplit(DEFAULT_PARTITIONS, sql));
             return iotDBSourceSplits;
         }
-        long start = Long.parseLong(conf.get(LOWER_BOUND.key()).toString());
-        long end = Long.parseLong(conf.get(UPPER_BOUND.key()).toString());
-        int numPartitions = Integer.parseInt(conf.get(NUM_PARTITIONS.key()).toString());
+        long start = conf.get(LOWER_BOUND);
+        long end = conf.get(UPPER_BOUND);
+        int numPartitions = conf.get(NUM_PARTITIONS);
         String sqlBase = sql;
         String sqlAlign = null;
         String sqlCondition = null;

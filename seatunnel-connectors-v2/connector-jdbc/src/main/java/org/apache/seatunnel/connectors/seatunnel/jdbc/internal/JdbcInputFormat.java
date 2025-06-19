@@ -67,7 +67,9 @@ public class JdbcInputFormat implements Serializable {
     public JdbcInputFormat(JdbcSourceConfig config, Map<TablePath, CatalogTable> tables) {
         this.jdbcDialect =
                 JdbcDialectLoader.load(
-                        config.getJdbcConnectionConfig().getUrl(), config.getCompatibleMode());
+                        config.getJdbcConnectionConfig().getUrl(),
+                        config.getJdbcConnectionConfig().getDialect(),
+                        config.getCompatibleMode());
         this.chunkSplitter = ChunkSplitter.create(config);
         this.jdbcRowConverter = jdbcDialect.getRowConverter();
         this.tables = tables;
@@ -153,12 +155,16 @@ public class JdbcInputFormat implements Serializable {
         } catch (SQLException se) {
             throw new JdbcConnectorException(
                     CommonErrorCodeDeprecated.SQL_OPERATION_FAILED,
-                    "Couldn't read data - " + se.getMessage(),
+                    String.format(
+                            "Failed to read data from table '%s': %s",
+                            splitTableId, se.getMessage()),
                     se);
         } catch (NullPointerException npe) {
             throw new JdbcConnectorException(
                     CommonErrorCodeDeprecated.SQL_OPERATION_FAILED,
-                    "Couldn't access resultSet",
+                    String.format(
+                            "Failed to access resultSet for table '%s': NullPointerException occurred",
+                            splitTableId),
                     npe);
         }
     }

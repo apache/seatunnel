@@ -23,6 +23,7 @@ import org.apache.seatunnel.api.common.PluginIdentifier;
 import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.config.DeployMode;
 import org.apache.seatunnel.common.constants.PluginType;
+import org.apache.seatunnel.common.utils.SeaTunnelException;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
@@ -53,7 +54,13 @@ class SeaTunnelSourcePluginDiscoveryTest {
                     Paths.get(seatunnelHome, "connectors", "connector-http.jar"),
                     Paths.get(seatunnelHome, "connectors", "connector-kafka.jar"),
                     Paths.get(seatunnelHome, "connectors", "connector-kafka-alcs.jar"),
-                    Paths.get(seatunnelHome, "connectors", "connector-kafka-blcs.jar"));
+                    Paths.get(seatunnelHome, "connectors", "connector-kafka-blcs.jar"),
+                    Paths.get(seatunnelHome, "connectors", "connector-jdbc-release-1.1.jar"),
+                    Paths.get(seatunnelHome, "connectors", "connector-jdbc-hive1.jar"),
+                    Paths.get(seatunnelHome, "connectors", "connector-odbc-baidu-v1.jar"),
+                    Paths.get(seatunnelHome, "connectors", "connector-odbc-baidu-release-1.1.jar"),
+                    Paths.get(seatunnelHome, "connectors", "seatunnel-transforms-v2.jar"),
+                    Paths.get(seatunnelHome, "connectors", "seatunnel-transforms-v1.jar"));
 
     @BeforeEach
     public void before() throws IOException {
@@ -75,7 +82,8 @@ class SeaTunnelSourcePluginDiscoveryTest {
                         PluginIdentifier.of("seatunnel", PluginType.SOURCE.getType(), "HttpJira"),
                         PluginIdentifier.of("seatunnel", PluginType.SOURCE.getType(), "HttpBase"),
                         PluginIdentifier.of("seatunnel", PluginType.SOURCE.getType(), "Kafka"),
-                        PluginIdentifier.of("seatunnel", PluginType.SINK.getType(), "Kafka-Blcs"));
+                        PluginIdentifier.of("seatunnel", PluginType.SINK.getType(), "Kafka-Blcs"),
+                        PluginIdentifier.of("seatunnel", PluginType.SINK.getType(), "Jdbc"));
         SeaTunnelSourcePluginDiscovery seaTunnelSourcePluginDiscovery =
                 new SeaTunnelSourcePluginDiscovery();
         Assertions.assertIterableEquals(
@@ -87,6 +95,57 @@ class SeaTunnelSourcePluginDiscoveryTest {
                                 Paths.get(seatunnelHome, "connectors", "connector-kafka.jar")
                                         .toString(),
                                 Paths.get(seatunnelHome, "connectors", "connector-kafka-blcs.jar")
+                                        .toString(),
+                                Paths.get(
+                                                seatunnelHome,
+                                                "connectors",
+                                                "connector-jdbc-release-1.1.jar")
+                                        .toString())
+                        .collect(Collectors.toList()),
+                seaTunnelSourcePluginDiscovery.getPluginJarPaths(pluginIdentifiers).stream()
+                        .map(URL::getPath)
+                        .collect(Collectors.toList()));
+    }
+
+    @Test
+    void getPluginBaseClassFailureScenario() {
+        List<PluginIdentifier> pluginIdentifiers =
+                Lists.newArrayList(
+                        PluginIdentifier.of("seatunnel", PluginType.SOURCE.getType(), "Odbc"));
+        SeaTunnelSourcePluginDiscovery seaTunnelSourcePluginDiscovery =
+                new SeaTunnelSourcePluginDiscovery();
+        Exception exception =
+                Assertions.assertThrows(
+                        SeaTunnelException.class,
+                        () -> seaTunnelSourcePluginDiscovery.getPluginJarPaths(pluginIdentifiers));
+        System.out.println(exception.getMessage());
+        Assertions.assertTrue(
+                exception
+                        .getMessage()
+                        .matches(
+                                "Cannot find unique plugin jar for pluginIdentifier: odbc -> connector-odbc. "
+                                        + "Possible impact jar: \\[.*.jar, .*.jar]"));
+    }
+
+    @Test
+    void getTransformClass() {
+        List<PluginIdentifier> pluginIdentifiers =
+                Lists.newArrayList(
+                        PluginIdentifier.of("seatunnel", PluginType.TRANSFORM.getType(), "Sql"),
+                        PluginIdentifier.of("seatunnel", PluginType.TRANSFORM.getType(), "Filter"));
+        SeaTunnelSourcePluginDiscovery seaTunnelSourcePluginDiscovery =
+                new SeaTunnelSourcePluginDiscovery();
+        Assertions.assertIterableEquals(
+                Stream.of(
+                                Paths.get(
+                                                seatunnelHome,
+                                                "connectors",
+                                                "seatunnel-transforms-v2.jar")
+                                        .toString(),
+                                Paths.get(
+                                                seatunnelHome,
+                                                "connectors",
+                                                "seatunnel-transforms-v1.jar")
                                         .toString())
                         .collect(Collectors.toList()),
                 seaTunnelSourcePluginDiscovery.getPluginJarPaths(pluginIdentifiers).stream()

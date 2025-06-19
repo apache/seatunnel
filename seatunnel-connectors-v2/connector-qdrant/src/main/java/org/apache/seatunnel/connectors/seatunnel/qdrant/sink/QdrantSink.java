@@ -23,7 +23,7 @@ import org.apache.seatunnel.api.sink.SupportMultiTableSink;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSimpleSink;
-import org.apache.seatunnel.connectors.seatunnel.qdrant.config.QdrantConfig;
+import org.apache.seatunnel.connectors.seatunnel.qdrant.config.QdrantBaseOptions;
 import org.apache.seatunnel.connectors.seatunnel.qdrant.config.QdrantParameters;
 
 import java.io.IOException;
@@ -41,7 +41,7 @@ public class QdrantSink extends AbstractSimpleSink<SeaTunnelRow, Void>
 
     @Override
     public String getPluginName() {
-        return QdrantConfig.CONNECTOR_IDENTITY;
+        return QdrantBaseOptions.CONNECTOR_IDENTITY;
     }
 
     @Override

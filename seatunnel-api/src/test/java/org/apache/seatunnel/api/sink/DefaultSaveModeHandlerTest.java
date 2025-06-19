@@ -22,15 +22,24 @@ import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.catalog.InMemoryCatalog;
 import org.apache.seatunnel.api.table.catalog.InMemoryCatalogFactory;
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 public class DefaultSaveModeHandlerTest {
 
@@ -113,6 +122,61 @@ public class DefaultSaveModeHandlerTest {
         assertFalse(
                 inMemoryCatalog.isRunTruncateTable(),
                 "Should not truncate data for recreated table");
+    }
+
+    @Test
+    public void handlesErrorWhenSchemaNotExist() {
+        Catalog catalog = mock(Catalog.class);
+        CatalogTable catalogTable = createCatalogTable("notExistsTable");
+        when(catalog.tableExists(any(TablePath.class))).thenReturn(false);
+        DefaultSaveModeHandler handler =
+                new DefaultSaveModeHandler(
+                        SchemaSaveMode.ERROR_WHEN_SCHEMA_NOT_EXIST,
+                        DataSaveMode.APPEND_DATA,
+                        catalog,
+                        catalogTable,
+                        null);
+
+        assertThrows(SeaTunnelRuntimeException.class, handler::handleSchemaSaveModeWithRestore);
+    }
+
+    @Test
+    public void createsSchemaWhenNotExist() {
+        CatalogTable catalogTable = createCatalogTable("notExistsTable");
+
+        Catalog catalog = mock(Catalog.class);
+        when(catalog.tableExists(any(TablePath.class))).thenReturn(false);
+        DefaultSaveModeHandler handler =
+                new DefaultSaveModeHandler(
+                        SchemaSaveMode.CREATE_SCHEMA_WHEN_NOT_EXIST,
+                        DataSaveMode.APPEND_DATA,
+                        catalog,
+                        catalogTable,
+                        null);
+
+        handler.handleSchemaSaveModeWithRestore();
+
+        verify(catalog, times(1))
+                .createTable(any(TablePath.class), any(CatalogTable.class), eq(true));
+    }
+
+    @Test
+    public void recreatesSchemaWhenNotExist() {
+        CatalogTable catalogTable = createCatalogTable("notExistsTable");
+        Catalog catalog = mock(Catalog.class);
+        when(catalog.tableExists(any(TablePath.class))).thenReturn(false);
+        DefaultSaveModeHandler handler =
+                new DefaultSaveModeHandler(
+                        SchemaSaveMode.RECREATE_SCHEMA,
+                        DataSaveMode.APPEND_DATA,
+                        catalog,
+                        catalogTable,
+                        null);
+
+        handler.handleSchemaSaveModeWithRestore();
+
+        verify(catalog, times(1))
+                .createTable(any(TablePath.class), any(CatalogTable.class), eq(true));
     }
 
     private CatalogTable createCatalogTable(String tableName) {
