@@ -195,6 +195,7 @@ public class ZetaSQLFunction {
     public static final String COALESCE = "COALESCE";
     public static final String IFNULL = "IFNULL";
     public static final String NULLIF = "NULLIF";
+    public static final String MULTI_IF = "MULTI_IF";
 
     public static final String UUID = "UUID";
 
@@ -327,6 +328,14 @@ public class ZetaSQLFunction {
         }
         if (expression instanceof Function) {
             Function function = (Function) expression;
+            String functionName = function.getName();
+
+            // Special handling for MULTI_IF to properly evaluate comparison expressions
+            if (MULTI_IF.equalsIgnoreCase(functionName)) {
+                return multiIfFunction(function, inputFields);
+            }
+
+            // Standard handling for other functions
             ExpressionList<Expression> expressionList =
                     (ExpressionList<Expression>) function.getParameters();
             List<Object> functionArgs = new ArrayList<>();
@@ -335,7 +344,7 @@ public class ZetaSQLFunction {
                     functionArgs.add(computeForValue(funcArgExpression, inputFields));
                 }
             }
-            return executeFunctionExpr(function.getName(), functionArgs);
+            return executeFunctionExpr(functionName, functionArgs);
         }
         if (expression instanceof TimeKeyExpression) {
             return executeTimeKeyExpr(((TimeKeyExpression) expression).getStringValue());
@@ -910,6 +919,49 @@ public class ZetaSQLFunction {
             }
         }
         return new SeaTunnelRowType(fieldNames, seaTunnelDataTypes);
+    }
+
+    private Object multiIfFunction(Function function, Object[] inputFields) {
+        ExpressionList<Expression> expressionList =
+                (ExpressionList<Expression>) function.getParameters();
+        if (expressionList == null
+                || expressionList.getExpressions() == null
+                || expressionList.getExpressions().isEmpty()) {
+            throw new TransformException(
+                    CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
+                    "MULTI_IF function requires parameters");
+        }
+
+        List<Expression> expressions = expressionList.getExpressions();
+        if (expressions.size() < 3 || expressions.size() % 2 == 0) {
+            throw new TransformException(
+                    CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
+                    String.format(
+                            "MULTI_IF function requires at least 3 arguments and an odd number of arguments: %s",
+                            function));
+        }
+
+        // Process pairs of condition-result with special handling for comparison expressions
+        for (int i = 0; i < expressions.size() - 1; i += 2) {
+            Expression conditionExpr = expressions.get(i);
+            Object conditionResult;
+
+            // Special handling for comparison expressions
+            if (conditionExpr instanceof BinaryExpression
+                    && zetaSQLFilter.isConditionExpr(conditionExpr)) {
+                conditionResult = zetaSQLFilter.executeFilter(conditionExpr, inputFields);
+            } else {
+                conditionResult = computeForValue(conditionExpr, inputFields);
+            }
+
+            if (conditionResult instanceof Boolean && (Boolean) conditionResult) {
+                // Condition is true, evaluate and return the corresponding result
+                return computeForValue(expressions.get(i + 1), inputFields);
+            }
+        }
+
+        // No condition was true, evaluate and return the default value (last argument)
+        return computeForValue(expressions.get(expressions.size() - 1), inputFields);
     }
 
     private Object computeDateTimeLiteralExpression(DateTimeLiteralExpression expression) {

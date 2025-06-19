@@ -877,6 +877,8 @@ MONTHNAME(CREATED)
 示例:
 
 CALL PARSEDATETIME('2021-04-08 13:34:45','yyyy-MM-dd HH:mm:ss')
+CALL TO_DATE('2021-04-08T13:34:45','yyyy-MM-dd''T''HH:mm:ss')
+注意SQL函数中的`'`填写时需要转义为`''`。
 
 ### QUARTER
 
@@ -1009,6 +1011,15 @@ IFNULL(A, B)
 示例:
 
 NULLIF(A, B)
+
+### MULTI_IF
+```MULTI_IF(condition1, value1, condition2, value2, ... conditionN, valueN, bValue)```
+
+返回第一个满足相应条件的值。如果所有条件均为假，则返回最后一个值。
+
+示例:
+
+MULTI_IF(A > 1, 'A', B > 1, 'B', C > 1, 'C', 'D')
 
 ### CASE WHEN
 
