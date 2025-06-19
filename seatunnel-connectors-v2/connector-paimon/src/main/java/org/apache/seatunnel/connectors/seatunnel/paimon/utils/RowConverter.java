@@ -534,7 +534,7 @@ public class RowConverter {
             if (bd.precision() > sinkDecimalType.getPrecision()) {
                 String message =
                         String.format(
-                                "`%s` field value is: %s, except filed schema of sink is %s, but the filed in sink table which actual schema is %s.Please check schema of sink table.",
+                                "`%s` field value is: %s, except field schema of sink is %s, but the field in sink table with actual schema is %s. Please check the schema of the sink table.",
                                 sourceFieldName,
                                 fieldValue,
                                 exceptDataField.asSQLString(),
