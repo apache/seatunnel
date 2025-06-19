@@ -188,7 +188,7 @@ public class RowConverterTest {
         org.apache.iceberg.data.Record result = converter.convert(row, rowType);
         OffsetDateTime converted = (OffsetDateTime) result.getField("timestamp_field");
 
-// Debug print statements removed to keep test output clean and focused.
+        // Debug print statements removed to keep test output clean and focused.
 
         // get system offset for the local timestamp
         ZoneOffset systemOffset = ZoneId.systemDefault().getRules().getOffset(localDateTime);
