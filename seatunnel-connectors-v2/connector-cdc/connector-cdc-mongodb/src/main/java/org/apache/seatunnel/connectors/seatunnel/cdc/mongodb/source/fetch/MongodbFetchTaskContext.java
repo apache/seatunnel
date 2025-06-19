@@ -139,7 +139,7 @@ public class MongodbFetchTaskContext implements FetchTask.Context {
 
     @Override
     public boolean isExactlyOnce() {
-        return false;
+        return sourceConfig.isExactlyOnce();
     }
 
     @Override
