@@ -17,11 +17,11 @@
 
 package org.apache.seatunnel.connectors.selectdb.rest;
 
-import org.apache.seatunnel.connectors.selectdb.config.SelectDBSinkConfig;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 
 import org.apache.seatunnel.connectors.selectdb.config.SelectDBConfig;
+import org.apache.seatunnel.connectors.selectdb.config.SelectDBSinkConfig;
 import org.apache.seatunnel.connectors.selectdb.exception.SelectDBConnectorErrorCode;
 import org.apache.seatunnel.connectors.selectdb.exception.SelectDBConnectorException;
 import org.apache.seatunnel.connectors.selectdb.sink.LoadStatus;

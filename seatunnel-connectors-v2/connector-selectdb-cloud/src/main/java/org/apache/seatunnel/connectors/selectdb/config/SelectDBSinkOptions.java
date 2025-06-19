@@ -137,5 +137,6 @@ public class SelectDBSinkOptions extends SelectDBBaseOptions {
                                     + "\"storage_format\" = \"V2\",\n"
                                     + "\"disable_auto_compaction\" = \"false\"\n"
                                     + ")")
-                    .withDescription("Create table statement template, used to create SelectDB table");
+                    .withDescription(
+                            "Create table statement template, used to create SelectDB table");
 }

@@ -17,24 +17,36 @@
 
 package org.apache.seatunnel.connectors.selectdb.config;
 
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+
 import lombok.Getter;
 import lombok.Setter;
 import lombok.ToString;
-import org.apache.seatunnel.api.configuration.ReadonlyConfig;
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import java.io.Serializable;
 import java.util.Map;
 import java.util.Properties;
 
 import static org.apache.seatunnel.connectors.selectdb.config.SelectDBBaseOptions.DATABASE;
-import static org.apache.seatunnel.connectors.selectdb.config.SelectDBBaseOptions.SELECTDB_BATCH_SIZE;
 import static org.apache.seatunnel.connectors.selectdb.config.SelectDBBaseOptions.FENODES;
 import static org.apache.seatunnel.connectors.selectdb.config.SelectDBBaseOptions.PASSWORD;
 import static org.apache.seatunnel.connectors.selectdb.config.SelectDBBaseOptions.QUERY_PORT;
+import static org.apache.seatunnel.connectors.selectdb.config.SelectDBBaseOptions.SELECTDB_BATCH_SIZE;
 import static org.apache.seatunnel.connectors.selectdb.config.SelectDBBaseOptions.TABLE;
 import static org.apache.seatunnel.connectors.selectdb.config.SelectDBBaseOptions.USERNAME;
-import static org.apache.seatunnel.connectors.selectdb.config.SelectDBSinkOptions.*;
+import static org.apache.seatunnel.connectors.selectdb.config.SelectDBSinkOptions.NEEDS_UNSUPPORTED_TYPE_CASTING;
+import static org.apache.seatunnel.connectors.selectdb.config.SelectDBSinkOptions.SAVE_MODE_CREATE_TEMPLATE;
+import static org.apache.seatunnel.connectors.selectdb.config.SelectDBSinkOptions.SELECTDB_SINK_CONFIG_PREFIX;
+import static org.apache.seatunnel.connectors.selectdb.config.SelectDBSinkOptions.SINK_BUFFER_COUNT;
+import static org.apache.seatunnel.connectors.selectdb.config.SelectDBSinkOptions.SINK_BUFFER_SIZE;
+import static org.apache.seatunnel.connectors.selectdb.config.SelectDBSinkOptions.SINK_CHECK_INTERVAL;
+import static org.apache.seatunnel.connectors.selectdb.config.SelectDBSinkOptions.SINK_ENABLE_2PC;
+import static org.apache.seatunnel.connectors.selectdb.config.SelectDBSinkOptions.SINK_ENABLE_DELETE;
+import static org.apache.seatunnel.connectors.selectdb.config.SelectDBSinkOptions.SINK_LABEL_PREFIX;
+import static org.apache.seatunnel.connectors.selectdb.config.SelectDBSinkOptions.SINK_MAX_RETRIES;
+import static org.apache.seatunnel.connectors.selectdb.config.SelectDBSinkOptions.TABLE_IDENTIFIER;
 
 @Setter
 @Getter
@@ -49,8 +61,7 @@ public class SelectDBSinkConfig implements Serializable {
     private String password;
     private Integer queryPort;
     private int batchSize;
-    @Deprecated
-    private String tableIdentifier;
+    @Deprecated private String tableIdentifier;
 
     // sink option
     private Boolean enable2PC;
@@ -93,7 +104,8 @@ public class SelectDBSinkConfig implements Serializable {
         selectdbSinkConfig.setBufferSize(config.get(SINK_BUFFER_SIZE));
         selectdbSinkConfig.setBufferCount(config.get(SINK_BUFFER_COUNT));
         selectdbSinkConfig.setEnableDelete(config.get(SINK_ENABLE_DELETE));
-        selectdbSinkConfig.setNeedsUnsupportedTypeCasting(config.get(NEEDS_UNSUPPORTED_TYPE_CASTING));
+        selectdbSinkConfig.setNeedsUnsupportedTypeCasting(
+                config.get(NEEDS_UNSUPPORTED_TYPE_CASTING));
 
         // create table option
         selectdbSinkConfig.setCreateTableTemplate(config.get(SAVE_MODE_CREATE_TEMPLATE));
@@ -112,5 +124,4 @@ public class SelectDBSinkConfig implements Serializable {
         }
         return streamLoadProps;
     }
-
 }

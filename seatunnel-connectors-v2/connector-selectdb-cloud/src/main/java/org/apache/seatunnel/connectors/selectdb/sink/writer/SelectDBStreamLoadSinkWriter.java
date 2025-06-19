@@ -17,28 +17,26 @@
 
 package org.apache.seatunnel.connectors.selectdb.sink.writer;
 
-import org.apache.seatunnel.connectors.selectdb.config.SelectDBSinkConfig;
 import org.apache.seatunnel.shade.com.google.common.util.concurrent.ThreadFactoryBuilder;
 
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
 import org.apache.seatunnel.api.sink.SupportSchemaEvolutionSinkWriter;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
-import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.schema.handler.TableSchemaChangeEventDispatcher;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.connectors.selectdb.config.SelectDBConfig;
+import org.apache.seatunnel.connectors.selectdb.config.SelectDBSinkConfig;
 import org.apache.seatunnel.connectors.selectdb.exception.SelectDBConnectorErrorCode;
 import org.apache.seatunnel.connectors.selectdb.exception.SelectDBConnectorException;
 import org.apache.seatunnel.connectors.selectdb.rest.models.RespContent;
 import org.apache.seatunnel.connectors.selectdb.schema.SchemaChangeManager;
 import org.apache.seatunnel.connectors.selectdb.serialize.SeaTunnelRowSerializer;
-import org.apache.seatunnel.connectors.selectdb.sink.LoadStatus;
 import org.apache.seatunnel.connectors.selectdb.serialize.SelectDBSerializer;
+import org.apache.seatunnel.connectors.selectdb.sink.LoadStatus;
 import org.apache.seatunnel.connectors.selectdb.sink.committer.SelectDBCommitInfo;
 import org.apache.seatunnel.connectors.selectdb.util.HttpUtil;
 import org.apache.seatunnel.connectors.selectdb.util.UnsupportedTypeConverterUtils;
@@ -119,7 +117,7 @@ public class SelectDBStreamLoadSinkWriter
         Collections.shuffle(feNodes);
         int feNodesNum = feNodes.size();
 
-        for (int i = 0; i <  feNodesNum; i++) {
+        for (int i = 0; i < feNodesNum; i++) {
             try {
                 this.selectDBStreamLoad =
                         new SelectDBStreamLoad(
@@ -137,7 +135,8 @@ public class SelectDBStreamLoadSinkWriter
                     throw new SelectDBConnectorException(
                             SelectDBConnectorErrorCode.STREAM_LOAD_FAILED, e);
                 }
-                log.error("stream load error for feNode: {} with exception: {}",
+                log.error(
+                        "stream load error for feNode: {} with exception: {}",
                         feNodes.get(i),
                         e.getMessage());
             }
@@ -276,7 +275,9 @@ public class SelectDBStreamLoadSinkWriter
                         .getProperty(LoadConstants.FORMAT_KEY)
                         .toLowerCase(),
                 seaTunnelRowType,
-                selectDBSinkConfig.getStreamLoadProps().getProperty(LoadConstants.FIELD_DELIMITER_KEY),
+                selectDBSinkConfig
+                        .getStreamLoadProps()
+                        .getProperty(LoadConstants.FIELD_DELIMITER_KEY),
                 selectDBSinkConfig.getEnableDelete());
     }
 }

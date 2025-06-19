@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.connectors.selectdb.sink.writer;
 
-import org.apache.seatunnel.connectors.selectdb.config.SelectDBSinkConfig;
-import org.apache.seatunnel.connectors.selectdb.sink.LoadStatus;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.seatunnel.shade.com.google.common.util.concurrent.ThreadFactoryBuilder;
@@ -26,10 +24,12 @@ import org.apache.seatunnel.shade.com.google.common.util.concurrent.ThreadFactor
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.common.utils.JsonUtils;
+import org.apache.seatunnel.connectors.selectdb.config.SelectDBSinkConfig;
 import org.apache.seatunnel.connectors.selectdb.exception.SelectDBConnectorErrorCode;
 import org.apache.seatunnel.connectors.selectdb.exception.SelectDBConnectorException;
 import org.apache.seatunnel.connectors.selectdb.rest.models.RespContent;
 import org.apache.seatunnel.connectors.selectdb.sink.HttpPutBuilder;
+import org.apache.seatunnel.connectors.selectdb.sink.LoadStatus;
 import org.apache.seatunnel.connectors.selectdb.util.ResponseUtil;
 
 import org.apache.http.client.methods.CloseableHttpResponse;
@@ -113,7 +113,8 @@ public class SelectDBStreamLoad implements Serializable {
                         new LinkedBlockingQueue<>(),
                         new ThreadFactoryBuilder().setNameFormat("stream-load-upload").build());
         this.recordStream =
-                new RecordStream(selectDBSinkConfig.getBufferSize(), selectDBSinkConfig.getBufferCount());
+                new RecordStream(
+                        selectDBSinkConfig.getBufferSize(), selectDBSinkConfig.getBufferCount());
         lineDelimiter =
                 streamLoadProp.getProperty(LINE_DELIMITER_KEY, LINE_DELIMITER_DEFAULT).getBytes();
         loadBatchFirstRecord = true;

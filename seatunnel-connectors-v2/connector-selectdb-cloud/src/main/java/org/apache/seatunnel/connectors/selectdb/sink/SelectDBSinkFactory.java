@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.connectors.selectdb.sink;
 
-import com.google.auto.service.AutoService;
-import org.apache.commons.lang3.StringUtils;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.options.SinkConnectorCommonOptions;
@@ -34,6 +32,10 @@ import org.apache.seatunnel.connectors.selectdb.config.SelectDBSinkOptions;
 import org.apache.seatunnel.connectors.selectdb.sink.committer.SelectDBCommitInfo;
 import org.apache.seatunnel.connectors.selectdb.sink.writer.SelectDBSinkState;
 import org.apache.seatunnel.connectors.selectdb.util.UnsupportedTypeConverterUtils;
+
+import org.apache.commons.lang3.StringUtils;
+
+import com.google.auto.service.AutoService;
 
 import java.util.Arrays;
 import java.util.List;
@@ -90,8 +92,8 @@ public class SelectDBSinkFactory implements TableSinkFactory {
     }
 
     @Override
-    public TableSink<SeaTunnelRow, SelectDBSinkState, SelectDBCommitInfo, SelectDBCommitInfo> createSink(
-            TableSinkFactoryContext context) {
+    public TableSink<SeaTunnelRow, SelectDBSinkState, SelectDBCommitInfo, SelectDBCommitInfo>
+            createSink(TableSinkFactoryContext context) {
         ReadonlyConfig config = context.getOptions();
         CatalogTable catalogTable =
                 config.get(NEEDS_UNSUPPORTED_TYPE_CASTING)

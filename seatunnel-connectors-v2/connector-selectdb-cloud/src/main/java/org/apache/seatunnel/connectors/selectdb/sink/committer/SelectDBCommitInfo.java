@@ -33,10 +33,8 @@ public class SelectDBCommitInfo implements Serializable {
     private final String db;
     private final long txbID;
 
-    @Deprecated
-    private String clusterName;
-    @Deprecated
-    private String copySQL;
+    @Deprecated private String clusterName;
+    @Deprecated private String copySQL;
 
     public SelectDBCommitInfo(String hostPort, String db, long txbID) {
         this.hostPort = hostPort;
@@ -44,7 +42,8 @@ public class SelectDBCommitInfo implements Serializable {
         this.txbID = txbID;
     }
 
-    public SelectDBCommitInfo(String hostPort,String db, long txbID, String clusterName, String copySQL) {
+    public SelectDBCommitInfo(
+            String hostPort, String db, long txbID, String clusterName, String copySQL) {
         this.hostPort = hostPort;
         this.db = db;
         this.txbID = txbID;

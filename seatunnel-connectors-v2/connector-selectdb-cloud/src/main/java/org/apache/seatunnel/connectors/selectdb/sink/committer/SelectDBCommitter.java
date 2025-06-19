@@ -17,20 +17,20 @@
 
 package org.apache.seatunnel.connectors.selectdb.sink.committer;
 
-import org.apache.commons.lang3.StringUtils;
-import org.apache.seatunnel.connectors.selectdb.config.SelectDBSinkConfig;
-import org.apache.seatunnel.connectors.selectdb.sink.LoadStatus;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 
 import org.apache.seatunnel.api.sink.SinkCommitter;
+import org.apache.seatunnel.connectors.selectdb.config.SelectDBSinkConfig;
 import org.apache.seatunnel.connectors.selectdb.exception.SelectDBConnectorErrorCode;
 import org.apache.seatunnel.connectors.selectdb.exception.SelectDBConnectorException;
 import org.apache.seatunnel.connectors.selectdb.rest.CopySQLUtil;
 import org.apache.seatunnel.connectors.selectdb.sink.HttpPutBuilder;
+import org.apache.seatunnel.connectors.selectdb.sink.LoadStatus;
 import org.apache.seatunnel.connectors.selectdb.util.HttpUtil;
 import org.apache.seatunnel.connectors.selectdb.util.ResponseUtil;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.util.EntityUtils;
@@ -168,8 +168,7 @@ public class SelectDBCommitter implements SinkCommitter<SelectDBCommitInfo> {
                         "Fail to abort transaction "
                                 + committable.getTxbID()
                                 + " with url "
-                                + String.format(
-                                        COMMIT_PATTERN, hostPort, committable.getDb()));
+                                + String.format(COMMIT_PATTERN, hostPort, committable.getDb()));
             }
         }
 

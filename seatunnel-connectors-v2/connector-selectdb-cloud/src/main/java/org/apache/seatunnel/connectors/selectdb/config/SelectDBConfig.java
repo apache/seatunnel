@@ -34,7 +34,7 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.UUID;
 
-//import static org.apache.seatunnel.api.sink.SinkCommonOptions.MULTI_TABLE_SINK_REPLICA;
+// import static org.apache.seatunnel.api.sink.SinkCommonOptions.MULTI_TABLE_SINK_REPLICA;
 
 @Setter
 @Getter
@@ -54,12 +54,14 @@ public class SelectDBConfig {
                     .stringType()
                     .noDefaultValue()
                     .withDescription("SelectDB load http address.");
+
     @Deprecated
     public static final Option<String> JDBC_URL =
             Options.key("jdbc-url")
                     .stringType()
                     .noDefaultValue()
                     .withDescription("SelectDB jdbc query address.");
+
     public static final Option<String> CLUSTER_NAME =
             Options.key("cluster-name")
                     .stringType()
@@ -84,12 +86,14 @@ public class SelectDBConfig {
                     .stringType()
                     .noDefaultValue()
                     .withDescription("the jdbc table name.");
+
     @Deprecated
     public static final Option<String> USERNAME =
             Options.key("username")
                     .stringType()
                     .noDefaultValue()
                     .withDescription("the jdbc user name.");
+
     @Deprecated
     public static final Option<String> PASSWORD =
             Options.key("password")
@@ -110,24 +114,28 @@ public class SelectDBConfig {
                     .intType()
                     .defaultValue(DEFAULT_SINK_MAX_RETRIES)
                     .withDescription("the max retry times if writing records to database failed.");
+
     @Deprecated
     public static final Option<Integer> SINK_BUFFER_SIZE =
             Options.key("sink.buffer-size")
                     .intType()
                     .defaultValue(DEFAULT_SINK_BUFFER_SIZE)
                     .withDescription("the buffer size to cache data for stream load.");
+
     @Deprecated
     public static final Option<Integer> SINK_BUFFER_COUNT =
             Options.key("sink.buffer-count")
                     .intType()
                     .defaultValue(DEFAULT_SINK_BUFFER_COUNT)
                     .withDescription("the buffer count to cache data for stream load.");
+
     @Deprecated
     public static final Option<String> SINK_LABEL_PREFIX =
             Options.key("sink.label-prefix")
                     .stringType()
                     .defaultValue(UUID.randomUUID().toString())
                     .withDescription("the unique label prefix.");
+
     @Deprecated
     public static final Option<Boolean> SINK_ENABLE_DELETE =
             Options.key("sink.enable-delete")
@@ -207,12 +215,14 @@ public class SelectDBConfig {
                                     + "\"disable_auto_compaction\" = \"false\"\n"
                                     + ")")
                     .withDescription("Create table statement template, used to create Doris table");
+
     @Deprecated
     public static final Option<DataSaveMode> DATA_SAVE_MODE =
             Options.key("data_save_mode")
                     .enumType(DataSaveMode.class)
                     .defaultValue(DataSaveMode.APPEND_DATA)
                     .withDescription("data_save_mode");
+
     @Deprecated
     public static final Option<String> CUSTOM_SQL =
             Options.key("custom_sql").stringType().noDefaultValue().withDescription("custom_sql");
@@ -225,7 +235,7 @@ public class SelectDBConfig {
                             TABLE_IDENTIFIER,
                             SINK_ENABLE_2PC,
                             SINK_ENABLE_DELETE,
-//                            MULTI_TABLE_SINK_REPLICA,
+                            //  MULTI_TABLE_SINK_REPLICA,
                             SAVE_MODE_CREATE_TEMPLATE,
                             NEEDS_UNSUPPORTED_TYPE_CASTING);
 

@@ -1,4 +1,4 @@
-///*
+/// *
 // * Licensed to the Apache Software Foundation (ASF) under one or more
 // * contributor license agreements.  See the NOTICE file distributed with
 // * this work for additional information regarding copyright ownership.
@@ -15,14 +15,14 @@
 // * limitations under the License.
 // */
 //
-//package org.apache.seatunnel.connectors.selectdb.sink.writer;
+// package org.apache.seatunnel.connectors.selectdb.sink.writer;
 //
-///** enum of LoadStatus. */
-//@Deprecated
-//public class LoadStatus {
+/// ** enum of LoadStatus. */
+// @Deprecated
+// public class LoadStatus {
 //    public static final int SUCCESS = 0;
 //    public static final String FAIL = "1";
 //
 //    public static final String PUBLISH_TIMEOUT = "Publish Timeout";
 //    public static final String LABEL_ALREADY_EXIST = "Label Already Exists";
-//}
+// }

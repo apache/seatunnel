@@ -115,7 +115,11 @@ public class SelectDBSinkWriter
         String copySql = copySQLBuilder.buildCopySQL();
         return Optional.of(
                 new SelectDBCommitInfo(
-                        selectDBStageLoad.getHostPort(), null, 0, selectdbConfig.getClusterName(), copySql));
+                        selectDBStageLoad.getHostPort(),
+                        null,
+                        0,
+                        selectdbConfig.getClusterName(),
+                        copySql));
     }
 
     @Override

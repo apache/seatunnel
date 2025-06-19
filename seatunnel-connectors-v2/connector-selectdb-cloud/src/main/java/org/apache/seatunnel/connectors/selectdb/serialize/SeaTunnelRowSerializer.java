@@ -17,17 +17,17 @@
 
 package org.apache.seatunnel.connectors.selectdb.serialize;
 
-import org.apache.seatunnel.api.serialization.SerializationSchema;
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
-import org.apache.seatunnel.format.json.JsonSerializationSchema;
-import org.apache.seatunnel.format.text.TextSerializationSchema;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.core.JsonGenerator;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 
+import org.apache.seatunnel.api.serialization.SerializationSchema;
 import org.apache.seatunnel.api.table.type.RowKind;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.selectdb.sink.writer.LoadConstants;
+import org.apache.seatunnel.format.json.JsonSerializationSchema;
+import org.apache.seatunnel.format.text.TextSerializationSchema;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -67,7 +67,6 @@ public class SeaTunnelRowSerializer implements SelectDBSerializer {
                 new SeaTunnelRowType(
                         fieldNames.toArray(new String[0]),
                         fieldTypes.toArray(new SeaTunnelDataType<?>[0]));
-
 
         if (JSON.equals(type)) {
             JsonSerializationSchema jsonSerializationSchema =
