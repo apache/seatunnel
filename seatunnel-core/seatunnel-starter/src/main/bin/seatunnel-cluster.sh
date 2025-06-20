@@ -78,6 +78,8 @@ do
     ROLE_FLAG=false
   elif [[ "${i}" == "-h" || "${i}" == "--help" ]]; then
     HELP=true
+  elif [[ "${i}" == "-m" || "${i}" == "--member" ]]; then
+    SHOW_MEMBER=true
   fi
 done
 
