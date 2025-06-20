@@ -96,12 +96,14 @@ public class ClickhouseIT extends TestSuiteBase implements TestResource {
     private ClickHouseContainer container;
     private Connection connection;
 
+    private static final String FIX_PARTITION_DATE = "2025-06-17";
+
     @TestTemplate
     public void testClickhouse(TestContainer container) throws Exception {
         Container.ExecResult execResult = container.executeJob(CLICKHOUSE_JOB_CONFIG);
         Assertions.assertEquals(0, execResult.getExitCode());
         assertHasData(SINK_TABLE);
-        compareResult();
+        compareResult(SOURCE_TABLE, SINK_TABLE);
         clearTable(SINK_TABLE);
     }
 
@@ -215,12 +217,35 @@ public class ClickhouseIT extends TestSuiteBase implements TestResource {
 
     @TestTemplate
     public void testClickhouseWithParallelismRead(TestContainer testContainer)
-            throws IOException, InterruptedException {
+            throws IOException, InterruptedException, SQLException {
         Container.ExecResult execResult =
                 testContainer.executeJob("/clickhouse_with_parallelism_read.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
         Assertions.assertEquals(100, countData(SOURCE_MERGE_TREE_TABLE));
         Assertions.assertEquals(100, countData(SINK_TABLE));
+        compareResult(SOURCE_MERGE_TREE_TABLE, SINK_TABLE);
+        clearTable(SINK_TABLE);
+    }
+
+    @TestTemplate
+    public void testClickhouseWithParallelismAddFilterQuery(TestContainer testContainer)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                testContainer.executeJob("/clickhouse_with_parallelism_add_filter_query.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+        Assertions.assertEquals(100, countData(SOURCE_MERGE_TREE_TABLE));
+        Assertions.assertEquals(47, countData(SINK_TABLE));
+        clearTable(SINK_TABLE);
+    }
+
+    @TestTemplate
+    public void testClickhouseWithParallelismAddPartitionList(TestContainer testContainer)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                testContainer.executeJob("/clickhouse_with_parallelism_add_partition_list.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+        Assertions.assertEquals(100, countData(SOURCE_MERGE_TREE_TABLE));
+        Assertions.assertEquals(30, countData(SINK_TABLE));
         clearTable(SINK_TABLE);
     }
 
@@ -488,7 +513,7 @@ public class ClickhouseIT extends TestSuiteBase implements TestResource {
                                 Float.parseFloat("1.1"),
                                 Double.parseDouble("1.1"),
                                 BigDecimal.valueOf(11L, 1),
-                                LocalDate.now(),
+                                i < 30 ? LocalDate.parse(FIX_PARTITION_DATE) : LocalDate.now(),
                                 LocalDateTime.now(),
                                 i,
                                 "string",
@@ -507,9 +532,10 @@ public class ClickhouseIT extends TestSuiteBase implements TestResource {
         return Pair.of(rowType, rows);
     }
 
-    private void compareResult() throws SQLException, IOException {
-        String sourceSql = "select * from " + SOURCE_TABLE + " order by id";
-        String sinkSql = "select * from " + SINK_TABLE + " order by id";
+    private void compareResult(String sourceTable, String sinkTable)
+            throws SQLException, IOException {
+        String sourceSql = "select * from " + sourceTable + " order by id";
+        String sinkSql = "select * from " + sinkTable + " order by id";
         List<String> columnList =
                 Arrays.stream(generateTestDataSet().getKey().getFieldNames())
                         .collect(Collectors.toList());
@@ -520,6 +546,7 @@ public class ClickhouseIT extends TestSuiteBase implements TestResource {
             Assertions.assertEquals(
                     sourceResultSet.getMetaData().getColumnCount(),
                     sinkResultSet.getMetaData().getColumnCount());
+
             while (sourceResultSet.next()) {
                 if (sinkResultSet.next()) {
                     for (String column : columnList) {

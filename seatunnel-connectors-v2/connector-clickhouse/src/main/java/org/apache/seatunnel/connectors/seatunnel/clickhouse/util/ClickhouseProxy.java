@@ -109,10 +109,11 @@ public class ClickhouseProxy implements AutoCloseable {
 
                 String localTableSQL =
                         String.format(
-                                "select engine,create_table_query from system.tables where database = '%s' and name = '%s'",
+                                "select engine,create_table_query,sorting_key from system.tables where database = '%s' and name = '%s'",
                                 localDatabase, localTable);
                 String localTableDDL;
                 String localTableEngine;
+                String sortingKey;
                 try (ClickHouseResponse localTableResponse =
                         clickhouseRequest.query(localTableSQL).executeAndWait()) {
                     List<ClickHouseRecord> localTableRecords =
@@ -125,10 +126,16 @@ public class ClickhouseProxy implements AutoCloseable {
                     localTableEngine = localTableRecords.get(0).getValue(0).asString();
                     localTableDDL = localTableRecords.get(0).getValue(1).asString();
                     localTableDDL = localizationEngine(localTableEngine, localTableDDL);
+                    sortingKey = localTableRecords.get(0).getValue(2).asString();
                 }
 
                 return new DistributedEngine(
-                        clusterName, localDatabase, localTable, localTableEngine, localTableDDL);
+                        clusterName,
+                        localDatabase,
+                        localTable,
+                        localTableEngine,
+                        localTableDDL,
+                        sortingKey);
             }
             throw new ClickhouseConnectorException(
                     SeaTunnelAPIErrorCode.TABLE_NOT_EXISTED,
@@ -269,6 +276,7 @@ public class ClickhouseProxy implements AutoCloseable {
                 distributedEngine =
                         getClickhouseDistributedTable(clickhouseRequest, database, table);
                 createTableDDL = distributedEngine.getTableDDL();
+                sortingKey = distributedEngine.getSortingKey();
             }
             return new ClickhouseTable(
                     database,
@@ -470,31 +478,45 @@ public class ClickhouseProxy implements AutoCloseable {
         }
     }
 
-    public List<SeaTunnelRow> getDataFromSplit(
+    public List<SeaTunnelRow> queryDataFromPart(
             ClickhousePart part,
             SeaTunnelRowType seaTunnelRowType,
             ClickhouseSourceTable clickhouseSourceTable,
             int offset) {
 
-        long st = System.currentTimeMillis();
-        List<SeaTunnelRow> seaTunnelRowList = new ArrayList<>();
         TablePath tablePath = TablePath.of(part.getDatabase(), part.getTable());
+        ClickhouseTable clickhouseTable = clickhouseSourceTable.getClickhouseTable();
+        List<SeaTunnelRow> seaTunnelRowList = new ArrayList<>();
 
         String whereClause = String.format("_part = '%s'", part.getName());
         if (StringUtils.isNotEmpty(clickhouseSourceTable.getFilterQuery())) {
             whereClause += " AND (" + clickhouseSourceTable.getFilterQuery() + ")";
         }
 
-        String sql =
-                String.format(
-                        "select * from %s.%s where %s limit %d, %d",
-                        tablePath.getDatabaseName(),
-                        tablePath.getTableName(),
-                        whereClause,
-                        offset,
-                        clickhouseSourceTable.getBatchSize());
+        String orderByClause = "";
+        if (StringUtils.isNotEmpty(clickhouseTable.getSortingKey())) {
+            orderByClause = " ORDER BY " + clickhouseTable.getSortingKey();
+        }
 
-        log.debug("query data part sql: {}. shard: {}", sql, node.getHost());
+        String sql;
+        if (StringUtils.isNotEmpty(orderByClause)) {
+            sql =
+                    String.format(
+                            "SELECT * FROM %s.%s WHERE %s %s LIMIT %d, %d WITH TIES",
+                            tablePath.getDatabaseName(),
+                            tablePath.getTableName(),
+                            whereClause,
+                            orderByClause,
+                            offset,
+                            clickhouseSourceTable.getBatchSize());
+        } else {
+            sql =
+                    String.format(
+                            "SELECT * FROM %s.%s WHERE %s",
+                            tablePath.getDatabaseName(), tablePath.getTableName(), whereClause);
+        }
+
+        log.debug("run query data part sql: {}", sql);
 
         try (ClickHouseResponse response = clickhouseRequest.query(sql).executeAndWait()) {
             response.stream()
@@ -519,16 +541,68 @@ public class ClickhouseProxy implements AutoCloseable {
                             });
         } catch (ClickHouseException e) {
             throw new ClickhouseConnectorException(
-                    ClickhouseConnectorErrorCode.QUERY_WITH_PART_ERROR,
+                    ClickhouseConnectorErrorCode.QUERY_DATA_ERROR,
                     "Query data with part error. sql: " + sql,
                     e);
         }
 
-        log.debug(
-                "query data count {} from clickhouse source split {}. cost time: {} ms",
-                seaTunnelRowList.size(),
-                part.getName(),
-                System.currentTimeMillis() - st);
+        return seaTunnelRowList;
+    }
+
+    public List<SeaTunnelRow> queryDataFromSql(
+            String sql,
+            SeaTunnelRowType seaTunnelRowType,
+            ClickhouseTable clickhouseTable,
+            int batchSize,
+            int offset) {
+
+        String orderByClause = "";
+        if (StringUtils.isNotEmpty(clickhouseTable.getSortingKey())) {
+            orderByClause = " ORDER BY " + clickhouseTable.getSortingKey();
+        }
+
+        String executeSql;
+        if (StringUtils.isNotEmpty(orderByClause)) {
+            executeSql =
+                    String.format(
+                            "SELECT * FROM (%s) AS t %s LIMIT %d, %d WITH TIES",
+                            sql, orderByClause, offset, batchSize);
+        } else {
+            executeSql = String.format("SELECT * FROM (%s) AS t", sql);
+        }
+
+        log.debug("run query sql: {}", executeSql);
+        List<SeaTunnelRow> seaTunnelRowList = new ArrayList<>();
+
+        try (ClickHouseResponse response =
+                getClickhouseConnection().query(executeSql).executeAndWait()) {
+            response.stream()
+                    .forEach(
+                            record -> {
+                                Object[] values =
+                                        new Object[seaTunnelRowType.getFieldNames().length];
+                                for (int i = 0; i < record.size(); i++) {
+                                    if (record.getValue(i) == null
+                                            || record.getValue(i).isNullOrEmpty()) {
+                                        values[i] = null;
+                                    } else {
+                                        values[i] =
+                                                TypeConvertUtil.valueUnwrap(
+                                                        seaTunnelRowType.getFieldType(i),
+                                                        record.getValue(i));
+                                    }
+                                }
+                                SeaTunnelRow seaTunnelRow = new SeaTunnelRow(values);
+                                seaTunnelRow.setTableId(clickhouseTable.getLocalTableIdentifier());
+                                seaTunnelRowList.add(seaTunnelRow);
+                            });
+        } catch (ClickHouseException e) {
+            throw new ClickhouseConnectorException(
+                    ClickhouseConnectorErrorCode.QUERY_DATA_ERROR,
+                    "Query data with sql error. sql: " + sql,
+                    e);
+        }
+
         return seaTunnelRowList;
     }
 

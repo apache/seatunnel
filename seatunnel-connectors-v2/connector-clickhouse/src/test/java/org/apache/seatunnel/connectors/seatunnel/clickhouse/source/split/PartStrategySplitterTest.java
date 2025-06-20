@@ -38,11 +38,11 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public class TablePartSplitterTest {
+public class PartStrategySplitterTest {
 
     @Mock private ClickhouseTable mockTable;
 
-    private TablePartSplitter splitter;
+    private PartStrategySplitter splitter;
     private static final String DATABASE_NAME = "test_db";
     private static final String TABLE_NAME = "test_table";
 
@@ -55,7 +55,7 @@ public class TablePartSplitterTest {
         Mockito.when(mockTable.getLocalDatabase()).thenReturn(DATABASE_NAME);
         Mockito.when(mockTable.getLocalTableName()).thenReturn(TABLE_NAME);
 
-        splitter = new TablePartSplitter();
+        splitter = new PartStrategySplitter();
     }
 
     @Test

@@ -34,14 +34,17 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 @Slf4j
-public class TablePartSplitter implements AutoCloseable, Serializable {
+public class PartStrategySplitter implements Splitter, AutoCloseable, Serializable {
 
     private static final long serialVersionUID = 1284356772463422708L;
 
     public List<ClickhouseSourceSplit> generateSplits(ClickhouseSourceTable clickhouseSourceTable) {
-        log.info("start generate splits. table: {}", clickhouseSourceTable.getTablePath());
+        log.info(
+                "start part strategy splitter generate splits. table: {}",
+                clickhouseSourceTable.getTablePath());
 
         ClickhouseTable clickhouseTable = clickhouseSourceTable.getClickhouseTable();
         Map<Shard, List<ClickhousePart>> shardToParts = new HashMap<>();
@@ -66,6 +69,11 @@ public class TablePartSplitter implements AutoCloseable, Serializable {
         return partMapToSplits(clickhouseSourceTable, shardToParts);
     }
 
+    @Override
+    public String createSplitId(TablePath tablePath, Shard shard, int index) {
+        return String.format("%s-%s-%s", tablePath, shard.hashCode(), index);
+    }
+
     public List<ClickhouseSourceSplit> partMapToSplits(
             ClickhouseSourceTable clickhouseSourceTable,
             Map<Shard, List<ClickhousePart>> shardToParts) {
@@ -76,7 +84,6 @@ public class TablePartSplitter implements AutoCloseable, Serializable {
 
         // generate splits
         for (Map.Entry<Shard, List<ClickhousePart>> shardPartsEntry : shardToParts.entrySet()) {
-            log.debug("generate splits with shard part: {}", shardPartsEntry);
             HashSet<ClickhousePart> partSet = new HashSet<>(shardPartsEntry.getValue());
             shardPartsEntry.getValue().clear();
             shardPartsEntry.getValue().addAll(partSet);
@@ -93,7 +100,6 @@ public class TablePartSplitter implements AutoCloseable, Serializable {
                                                         fromIndex + partSplitSize,
                                                         shardPartsEntry.getValue().size())));
 
-                log.debug("partSplit size: {}", partSplit.size());
                 fromIndex += partSplitSize;
 
                 String splitId =
@@ -101,7 +107,7 @@ public class TablePartSplitter implements AutoCloseable, Serializable {
                                 createSplitId(
                                         clickhouseSourceTable.getTablePath(),
                                         shardPartsEntry.getKey(),
-                                        partSplit));
+                                        splits.size()));
                 ClickhouseSourceSplit clickhouseSourceSplit =
                         new ClickhouseSourceSplit(
                                 TablePath.of(
@@ -110,13 +116,22 @@ public class TablePartSplitter implements AutoCloseable, Serializable {
                                 TablePath.of(
                                         clickhouseTable.getDatabase(),
                                         clickhouseTable.getTableName()),
-                                partSplit,
+                                new ArrayList<>(partSplit),
                                 shardPartsEntry.getKey(),
+                                clickhouseSourceTable.getOriginQuery(),
                                 splitId);
-                log.debug("generate one split: {}", clickhouseSourceSplit);
                 splits.add(clickhouseSourceSplit);
             }
         }
+
+        for (ClickhouseSourceSplit split : splits) {
+            List<String> partNameList =
+                    split.getParts().stream()
+                            .map(ClickhousePart::getName)
+                            .collect(Collectors.toList());
+            log.debug("generate shard {} to parts {}", split.getShard().getNode(), partNameList);
+        }
+
         log.info("generate splits size: {}", splits.size());
         return splits;
     }
@@ -138,15 +153,6 @@ public class TablePartSplitter implements AutoCloseable, Serializable {
         log.debug("part size is set to {}", partSize);
 
         return partSize;
-    }
-
-    public int createSplitId(TablePath tablePath, Shard shard, Set<ClickhousePart> parts) {
-
-        int result = tablePath.hashCode();
-        result = 31 * result * shard.hashCode();
-        result = 31 * result * parts.hashCode();
-
-        return result;
     }
 
     @Override

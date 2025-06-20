@@ -32,11 +32,14 @@ public enum ClickhouseConnectorErrorCode implements SeaTunnelErrorCode {
     FILE_NOT_EXISTS("CLICKHOUSE-07", "Clickhouse local file not exists"),
     GET_PART_ERROR("CLICKHOUSE-08", "Get part name from system.parts error."),
     CHOICE_SHARD_FOR_PART_ERROR("CLICKHOUSE-09", "Cannot choice clickhouse shard for part"),
-    QUERY_WITH_PART_ERROR("CLICKHOUSE-10", "Query data with part error."),
+    QUERY_DATA_ERROR("CLICKHOUSE-10", "Query data error."),
     QUERY_TABLE_NOT_SUPPORT_NON_MERGE_TREE_TABLE(
             "CLICKHOUSE-11",
-            "Query table mode not support non-MergeTree table. Please use the sql mode."),
-    TABLE_NOT_FOUND_ERROR("CLICKHOUSE-12", "Table not found in table list of job configuration.");
+            "Query table mode not support non-MergeTree local table. Please specify sql in configuration"),
+    TABLE_NOT_FOUND_ERROR("CLICKHOUSE-12", "Table not found in table list of job configuration."),
+    BOTH_TABLE_AND_SQL_EMPTY_ERROR("CLICKHOUSE-13", "Both table and sql are empty."),
+    EXTRACT_TABLE_FROM_SQL_ERROR(
+            "CLICKHOUSE-14", "Extract table path from sql failed, please check your sql.");
 
     private final String code;
     private final String description;

@@ -21,14 +21,12 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.exception.ClickhouseConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.exception.ClickhouseConnectorException;
-import org.apache.seatunnel.connectors.seatunnel.clickhouse.shard.Shard;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.source.split.ClickhouseSourceSplit;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.util.ClickhouseProxy;
 
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.Serializable;
-import java.util.ArrayList;
 import java.util.List;
 
 @Slf4j
@@ -42,6 +40,7 @@ public class ClickhouseValueReader implements Serializable {
     private ClickhouseProxy proxy;
 
     protected int currentPartIndex = 0;
+    protected int sqlOffset = 0;
 
     private List<SeaTunnelRow> rowBatch;
 
@@ -52,72 +51,15 @@ public class ClickhouseValueReader implements Serializable {
         this.clickhouseSourceSplit = clickhouseSourceSplit;
         this.rowTypeInfo = seaTunnelRowType;
         this.clickhouseSourceTable = clickhouseSourceTable;
-
-        Shard shard = clickhouseSourceSplit.getShard();
-        this.proxy = new ClickhouseProxy(shard.getNode());
+        this.proxy = new ClickhouseProxy(clickhouseSourceSplit.getShard().getNode());
     }
 
     public boolean hasNext() {
-        boolean hasNext = false;
-        List<ClickhousePart> parts = new ArrayList<>(clickhouseSourceSplit.getParts());
-        int partSize = parts.size();
-        int batchSize = clickhouseSourceTable.getBatchSize();
-
-        try {
-            if (currentPartIndex < partSize) {
-                ClickhousePart currentPart = parts.get(currentPartIndex);
-
-                log.debug(
-                        "partName: {}, offset: {}, partSize: {}, currentPartIndex: {}",
-                        currentPart.getName(),
-                        currentPart.getOffset(),
-                        partSize,
-                        currentPartIndex);
-
-                if (currentPart.isEos()) {
-                    currentPartIndex++;
-                    if (currentPartIndex >= partSize) {
-                        return hasNext;
-                    }
-                    return hasNext();
-                }
-
-                hasNext = true;
-                // read data in batch
-                rowBatch =
-                        proxy.getDataFromSplit(
-                                currentPart,
-                                rowTypeInfo,
-                                clickhouseSourceTable,
-                                currentPart.getOffset());
-
-                for (SeaTunnelRow row : rowBatch) {
-                    row.setTableId(clickhouseSourceTable.getTablePath().toString());
-                }
-
-                if (rowBatch.isEmpty()) {
-                    currentPart.setEos(true);
-                    currentPartIndex++;
-                    if (currentPartIndex < partSize) {
-                        return hasNext();
-                    }
-                } else {
-                    // update part offset
-                    currentPart.setOffset(currentPart.getOffset() + rowBatch.size());
-                    if (rowBatch.size() < batchSize) {
-                        currentPart.setEos(true);
-                        currentPartIndex++;
-                    }
-                }
-            }
-        } catch (Exception e) {
-            throw new ClickhouseConnectorException(
-                    ClickhouseConnectorErrorCode.QUERY_WITH_PART_ERROR,
-                    "Failed to read data from clickhouse split: "
-                            + clickhouseSourceSplit.getSplitId());
+        if (clickhouseSourceTable.isSqlStrategyRead()) {
+            return sqlStrategyRead();
+        } else {
+            return partStrategyRead();
         }
-
-        return hasNext;
     }
 
     public List<SeaTunnelRow> next() {
@@ -127,6 +69,82 @@ public class ClickhouseValueReader implements Serializable {
         }
 
         return rowBatch;
+    }
+
+    private boolean partStrategyRead() {
+        List<ClickhousePart> parts = clickhouseSourceSplit.getParts();
+        int partSize = parts.size();
+
+        if (currentPartIndex >= partSize) {
+            return false;
+        }
+        ClickhousePart currentPart = parts.get(currentPartIndex);
+
+        // If current part has been processed, move to the next part
+        if (currentPart.isEos()) {
+            currentPartIndex++;
+            return currentPartIndex < partSize && partStrategyRead();
+        }
+
+        try {
+            rowBatch =
+                    proxy.queryDataFromPart(
+                            currentPart,
+                            rowTypeInfo,
+                            clickhouseSourceTable,
+                            currentPart.getOffset());
+
+            log.debug(
+                    "SplitId: {}, partName: {} read rowBatch size: {}",
+                    clickhouseSourceSplit.getSplitId(),
+                    currentPart.getName(),
+                    rowBatch.size());
+
+            if (rowBatch.isEmpty()) {
+                currentPart.setEos(true);
+                currentPartIndex++;
+                return currentPartIndex < partSize && partStrategyRead();
+            }
+
+            // update part offset
+            currentPart.setOffset(currentPart.getOffset() + rowBatch.size());
+            return true;
+        } catch (Exception e) {
+            throw new ClickhouseConnectorException(
+                    ClickhouseConnectorErrorCode.QUERY_DATA_ERROR,
+                    String.format(
+                            "Failed to read data from part %s.  shard: %s, splitId: %s",
+                            currentPart.getName(),
+                            currentPart.getShard().getNode(),
+                            clickhouseSourceSplit.getSplitId()),
+                    e);
+        }
+    }
+
+    private boolean sqlStrategyRead() {
+        String splitQuery = clickhouseSourceSplit.getSplitQuery();
+        log.info("Sql strategy read split query: {}", splitQuery);
+
+        try {
+            int batchSize = clickhouseSourceTable.getBatchSize();
+            rowBatch =
+                    proxy.queryDataFromSql(
+                            splitQuery,
+                            rowTypeInfo,
+                            clickhouseSourceTable.getClickhouseTable(),
+                            batchSize,
+                            sqlOffset);
+
+            sqlOffset += rowBatch.size();
+
+            return !rowBatch.isEmpty();
+        } catch (Exception e) {
+            throw new ClickhouseConnectorException(
+                    ClickhouseConnectorErrorCode.QUERY_DATA_ERROR,
+                    String.format(
+                            "Failed to read data from sql %s, splitId %s ",
+                            splitQuery, clickhouseSourceSplit.getSplitId()));
+        }
     }
 
     public void close() {

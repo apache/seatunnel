@@ -48,7 +48,6 @@ public class ClickhouseSourceReader implements SourceReader<SeaTunnelRow, Clickh
     private final SeaTunnelRowType rowTypeInfo;
     private final Context context;
     private ClickHouseRequest<?> request;
-    private final String sql;
     private volatile boolean noMoreSplits;
     private final Queue<ClickhouseSourceSplit> splitQueue;
     private final Map<TablePath, ClickhouseSourceTable> tables;
@@ -56,12 +55,10 @@ public class ClickhouseSourceReader implements SourceReader<SeaTunnelRow, Clickh
     ClickhouseSourceReader(
             List<ClickHouseNode> servers,
             Context readerContext,
-            String sql,
             SeaTunnelRowType rowTypeInfo,
             Map<TablePath, ClickhouseSourceTable> tables) {
         this.servers = servers;
         this.context = readerContext;
-        this.sql = sql;
         this.rowTypeInfo = rowTypeInfo;
         this.splitQueue = new ArrayDeque<>();
         this.tables = tables;
@@ -89,7 +86,6 @@ public class ClickhouseSourceReader implements SourceReader<SeaTunnelRow, Clickh
             if (split != null) {
                 ClickhouseValueReader clickhouseValueReader = null;
                 try {
-                    long st = System.currentTimeMillis();
                     ClickhouseSourceTable clickhouseSourceTable =
                             tables.get(split.getConfigTablePath());
                     if (clickhouseSourceTable == null) {
@@ -106,10 +102,6 @@ public class ClickhouseSourceReader implements SourceReader<SeaTunnelRow, Clickh
                         List<SeaTunnelRow> next = clickhouseValueReader.next();
                         next.forEach(output::collect);
                     }
-                    log.debug(
-                            "reader read split: {}, cost: {} ms",
-                            split.getSplitId(),
-                            System.currentTimeMillis() - st);
                 } finally {
                     if (clickhouseValueReader != null) {
                         clickhouseValueReader.close();

@@ -15,32 +15,28 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.clickhouse.source;
+package org.apache.seatunnel.connectors.seatunnel.clickhouse.source.split;
 
 import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.shard.Shard;
-import org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.file.ClickhouseTable;
+import org.apache.seatunnel.connectors.seatunnel.clickhouse.source.ClickhouseSourceTable;
 
-import lombok.Builder;
-import lombok.Data;
-
-import java.io.Serializable;
 import java.util.List;
 
-@Data
-@Builder
-public class ClickhouseSourceTable implements Serializable {
+public interface Splitter {
 
-    private static final long serialVersionUID = 1L;
+    List<ClickhouseSourceSplit> generateSplits(ClickhouseSourceTable clickhouseSourceTable);
 
-    private TablePath tablePath;
-    private String originQuery;
-    private String filterQuery;
-    private Integer partSize;
-    private Integer batchSize;
-    private Long execMemLimit;
-    private List<String> partitionList;
-    private List<Shard> clusterShardList;
-    private ClickhouseTable clickhouseTable;
-    private boolean isSqlStrategyRead;
+    String createSplitId(TablePath tablePath, Shard shard, int index);
+
+    void close();
+
+    static Splitter createSplitter(ClickhouseSourceConfig clickhouseSourceConfig) {
+        if (clickhouseSourceConfig.isSqlStrategyRead()) {
+            return new SqlStrategySplitter();
+        } else {
+            return new PartStrategySplitter();
+        }
+    }
 }

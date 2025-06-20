@@ -18,7 +18,6 @@
 package org.apache.seatunnel.connectors.seatunnel.clickhouse.source;
 
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
-import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceSplit;
@@ -32,7 +31,7 @@ import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.common.constants.PluginType;
-import org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseBaseOptions;
+import org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.exception.ClickhouseConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.exception.ClickhouseConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.shard.Shard;
@@ -60,17 +59,16 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.IntStream;
 
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseBaseOptions.CLICKHOUSE_CONFIG;
-import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseBaseOptions.DATABASE;
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseBaseOptions.HOST;
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseBaseOptions.PASSWORD;
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseBaseOptions.SERVER_TIME_ZONE;
-import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseBaseOptions.TABLE;
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseBaseOptions.USERNAME;
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseSourceOptions.CLICKHOUSE_BATCH_SIZE;
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseSourceOptions.CLICKHOUSE_FILTER_QUERY;
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseSourceOptions.CLICKHOUSE_PARTITION_LIST;
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseSourceOptions.CLICKHOUSE_PART_SIZE;
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseSourceOptions.SQL;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseSourceOptions.TABLE_PATH;
 
 @AutoService(Factory.class)
 public class ClickhouseSourceFactory implements TableSourceFactory {
@@ -82,11 +80,19 @@ public class ClickhouseSourceFactory implements TableSourceFactory {
     @Override
     public <T, SplitT extends SourceSplit, StateT extends Serializable>
             TableSource<T, SplitT, StateT> createSource(TableSourceFactoryContext context) {
-        ReadonlyConfig readonlyConfig = context.getOptions();
-        List<ClickHouseNode> nodes = ClickhouseUtil.createNodes(readonlyConfig);
-        String sql = readonlyConfig.get(SQL);
-        String database = readonlyConfig.get(DATABASE);
-        String table = readonlyConfig.get(TABLE);
+        ClickhouseSourceConfig clickhouseSourceConfig =
+                ClickhouseSourceConfig.of(context.getOptions());
+
+        String sql = clickhouseSourceConfig.getSql();
+        TablePath tablePath = TablePath.of(clickhouseSourceConfig.getTableIdentifier());
+        List<ClickHouseNode> nodes =
+                ClickhouseUtil.createNodes(
+                        clickhouseSourceConfig.getHost(),
+                        tablePath.getDatabaseName(),
+                        clickhouseSourceConfig.getServerTimeZone(),
+                        clickhouseSourceConfig.getUsername(),
+                        clickhouseSourceConfig.getPassword(),
+                        clickhouseSourceConfig.getClickhouseConfig());
 
         ClickHouseNode currentServer = nodes.get(ThreadLocalRandom.current().nextInt(nodes.size()));
         Map<TablePath, ClickhouseSourceTable> clickhouseSourceTables = new HashMap<>();
@@ -94,7 +100,11 @@ public class ClickhouseSourceFactory implements TableSourceFactory {
         try (ClickhouseProxy proxy = new ClickhouseProxy(currentServer);
                 ClickHouseResponse response =
                         proxy.getClickhouseConnection()
-                                .query(generateQuerySql(sql, database, table))
+                                .query(
+                                        generateQuerySql(
+                                                sql,
+                                                tablePath.getDatabaseName(),
+                                                tablePath.getTableName()))
                                 .executeAndWait()) {
             TableSchema.Builder builder = TableSchema.builder();
             List<ClickHouseColumn> columns = response.getColumns();
@@ -114,33 +124,33 @@ public class ClickhouseSourceFactory implements TableSourceFactory {
             String catalogName = "clickhouse_catalog";
             CatalogTable catalogTable =
                     CatalogTable.of(
-                            TableIdentifier.of(
-                                    catalogName, readonlyConfig.get(DATABASE), "default"),
+                            TableIdentifier.of(catalogName, tablePath.getDatabaseName(), "default"),
                             builder.build(),
                             Collections.emptyMap(),
                             Collections.emptyList(),
                             "",
                             catalogName);
 
-            TablePath tablePath =
-                    TablePath.of(readonlyConfig.get(DATABASE), readonlyConfig.get(TABLE));
-
             ClickhouseTable clickhouseTable =
-                    proxy.getClickhouseTable(proxy.getClickhouseConnection(), database, table);
+                    proxy.getClickhouseTable(
+                            proxy.getClickhouseConnection(),
+                            tablePath.getDatabaseName(),
+                            tablePath.getTableName());
 
             List<Shard> clusterShardList =
-                    getClusterShardList(readonlyConfig, proxy, clickhouseTable);
+                    getClusterShardList(clickhouseSourceConfig, nodes, proxy, clickhouseTable);
 
             ClickhouseSourceTable clickhouseSourceTable =
                     ClickhouseSourceTable.builder()
                             .tablePath(tablePath)
                             .clickhouseTable(clickhouseTable)
                             .originQuery(sql)
-                            .filterQuery(readonlyConfig.get(CLICKHOUSE_FILTER_QUERY))
-                            .partSize(readonlyConfig.get(CLICKHOUSE_PART_SIZE))
-                            .batchSize(readonlyConfig.get(CLICKHOUSE_BATCH_SIZE))
-                            .partitionList(readonlyConfig.get(CLICKHOUSE_PARTITION_LIST))
+                            .filterQuery(clickhouseSourceConfig.getFilterQuery())
+                            .partSize(clickhouseSourceConfig.getPartSize())
+                            .batchSize(clickhouseSourceConfig.getBatchSize())
+                            .partitionList(clickhouseSourceConfig.getPartitionList())
                             .clusterShardList(clusterShardList)
+                            .isSqlStrategyRead(clickhouseSourceConfig.isSqlStrategyRead())
                             .build();
 
             clickhouseSourceTables.put(tablePath, clickhouseSourceTable);
@@ -150,9 +160,8 @@ public class ClickhouseSourceFactory implements TableSourceFactory {
                             new ClickhouseSource(
                                     nodes,
                                     catalogTable,
-                                    sql,
                                     clickhouseSourceTables,
-                                    readonlyConfig);
+                                    clickhouseSourceConfig);
         } catch (ClickHouseException e) {
             throw new ClickhouseConnectorException(
                     SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
@@ -175,11 +184,13 @@ public class ClickhouseSourceFactory implements TableSourceFactory {
     }
 
     private List<Shard> getClusterShardList(
-            ReadonlyConfig readonlyConfig, ClickhouseProxy proxy, ClickhouseTable clickhouseTable) {
+            ClickhouseSourceConfig clickhouseSourceConfig,
+            List<ClickHouseNode> nodes,
+            ClickhouseProxy proxy,
+            ClickhouseTable clickhouseTable) {
         String localTableEngine;
         List<Shard> clusterShardList;
 
-        List<ClickHouseNode> nodes = ClickhouseUtil.createNodes(readonlyConfig);
         if (clickhouseTable.getDistributedEngine() != null) {
             DistributedEngine distributedEngine = clickhouseTable.getDistributedEngine();
             localTableEngine = distributedEngine.getTableEngine();
@@ -190,8 +201,8 @@ public class ClickhouseSourceFactory implements TableSourceFactory {
                             distributedEngine.getClusterName(),
                             distributedEngine.getDatabase(),
                             nodes.get(0).getPort(),
-                            readonlyConfig.get(ClickhouseBaseOptions.USERNAME),
-                            readonlyConfig.get(ClickhouseBaseOptions.PASSWORD),
+                            clickhouseSourceConfig.getUsername(),
+                            clickhouseSourceConfig.getPassword(),
                             nodes.get(0).getOptions());
         } else {
             // if input is local table, generate shard list based on the input nodes
@@ -199,10 +210,11 @@ public class ClickhouseSourceFactory implements TableSourceFactory {
             localTableEngine = clickhouseTable.getEngine();
         }
 
-        if (!localTableEngine.contains("MergeTree")) {
+        if (StringUtils.isEmpty(clickhouseSourceConfig.getSql())
+                && !localTableEngine.contains("MergeTree")) {
             throw new ClickhouseConnectorException(
                     ClickhouseConnectorErrorCode.QUERY_TABLE_NOT_SUPPORT_NON_MERGE_TREE_TABLE,
-                    "Query table mode not support non-MergeTree table. Please use the sql mode.");
+                    "Query table mode not support non-MergeTree local table. Please specify sql in configuration");
         }
 
         return clusterShardList;
@@ -226,8 +238,7 @@ public class ClickhouseSourceFactory implements TableSourceFactory {
         return OptionRule.builder()
                 .required(HOST, USERNAME, PASSWORD)
                 .optional(
-                        DATABASE,
-                        TABLE,
+                        TABLE_PATH,
                         CLICKHOUSE_CONFIG,
                         SERVER_TIME_ZONE,
                         SQL,

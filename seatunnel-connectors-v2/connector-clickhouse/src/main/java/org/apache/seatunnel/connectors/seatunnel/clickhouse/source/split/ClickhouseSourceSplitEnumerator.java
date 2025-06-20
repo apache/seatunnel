@@ -17,10 +17,10 @@
 
 package org.apache.seatunnel.connectors.seatunnel.clickhouse.source.split;
 
-import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
+import org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.exception.ClickhouseConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.source.ClickhouseSourceTable;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.state.ClickhouseSourceState;
@@ -42,30 +42,30 @@ public class ClickhouseSourceSplitEnumerator
     private static final Logger LOG =
             LoggerFactory.getLogger(ClickhouseSourceSplitEnumerator.class);
 
-    private final ReadonlyConfig readonlyConfig;
+    private final ClickhouseSourceConfig clickhouseSourceConfig;
     private final Map<TablePath, ClickhouseSourceTable> clickhouseSourceTables;
     private volatile boolean shouldEnumerate;
     private final Map<Integer, List<ClickhouseSourceSplit>> pendingSplit;
-    private final TablePartSplitter splitter;
+    private final Splitter splitter;
     private final Context<ClickhouseSourceSplit> context;
     private final Object stateLock = new Object();
 
     public ClickhouseSourceSplitEnumerator(
             Context<ClickhouseSourceSplit> context,
-            ReadonlyConfig readonlyConfig,
+            ClickhouseSourceConfig clickhouseSourceConfig,
             Map<TablePath, ClickhouseSourceTable> clickhouseSourceTables) {
-        this(context, readonlyConfig, clickhouseSourceTables, null);
+        this(context, clickhouseSourceConfig, clickhouseSourceTables, null);
     }
 
     public ClickhouseSourceSplitEnumerator(
             Context<ClickhouseSourceSplit> context,
-            ReadonlyConfig readonlyConfig,
+            ClickhouseSourceConfig clickhouseSourceConfig,
             Map<TablePath, ClickhouseSourceTable> clickhouseSourceTables,
             ClickhouseSourceState sourceState) {
         this.context = context;
-        this.readonlyConfig = readonlyConfig;
+        this.clickhouseSourceConfig = clickhouseSourceConfig;
         this.clickhouseSourceTables = clickhouseSourceTables;
-        this.splitter = new TablePartSplitter();
+        this.splitter = Splitter.createSplitter(clickhouseSourceConfig);
         this.pendingSplit = new ConcurrentHashMap<>();
         this.shouldEnumerate = (sourceState == null);
         if (sourceState != null) {

@@ -36,10 +36,8 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.lang.reflect.Field;
 import java.util.ArrayList;
-import java.util.Comparator;
+import java.util.Arrays;
 import java.util.List;
-import java.util.Set;
-import java.util.TreeSet;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -78,16 +76,15 @@ public class ClickhouseValueReaderTest {
 
         ClickhousePart part1 = new ClickhousePart("part1", "test_db", "test_table", shard);
         ClickhousePart part2 = new ClickhousePart("part2", "test_db", "test_table", shard);
-        Set<ClickhousePart> parts = new TreeSet<>(Comparator.comparing(ClickhousePart::getName));
-        parts.add(part1);
-        parts.add(part2);
+        List<ClickhousePart> parts = Arrays.asList(part1, part2);
 
         split =
                 new ClickhouseSourceSplit(
                         TablePath.of("test_db", "test_table"),
                         TablePath.of("test_db", "test_table"),
-                        parts,
+                        new ArrayList<>(parts),
                         shard,
+                        "",
                         "split-1");
 
         mockProxy = Mockito.mock(ClickhouseProxy.class);
@@ -106,7 +103,7 @@ public class ClickhouseValueReaderTest {
     public void testHasNextWithFullBatch() {
         List<SeaTunnelRow> mockRows = createMockRows(BATCH_SIZE);
 
-        when(mockProxy.getDataFromSplit(
+        when(mockProxy.queryDataFromPart(
                         any(ClickhousePart.class), eq(rowType), eq(sourceTable), anyInt()))
                 .thenReturn(mockRows);
 
@@ -128,7 +125,7 @@ public class ClickhouseValueReaderTest {
         int partialSize = BATCH_SIZE - 2;
         List<SeaTunnelRow> mockRows = createMockRows(partialSize);
 
-        when(mockProxy.getDataFromSplit(
+        when(mockProxy.queryDataFromPart(
                         any(ClickhousePart.class), eq(rowType), eq(sourceTable), anyInt()))
                 .thenReturn(mockRows);
 
@@ -137,12 +134,11 @@ public class ClickhouseValueReaderTest {
         List<SeaTunnelRow> result = reader.next();
         Assertions.assertEquals(partialSize, result.size());
 
-        // Make sure the offset has been updated and mark part as eos
+        // Make sure the offset has been updated
         List<ClickhousePart> parts = new ArrayList<>(split.getParts());
         Assertions.assertEquals(partialSize, parts.get(0).getOffset());
-        Assertions.assertTrue(parts.get(0).isEos());
 
-        Assertions.assertEquals(1, reader.currentPartIndex);
+        Assertions.assertTrue(reader.hasNext());
     }
 
     @Test
@@ -150,17 +146,18 @@ public class ClickhouseValueReaderTest {
         // create empty test data
         List<SeaTunnelRow> mockRows = new ArrayList<>();
 
-        when(mockProxy.getDataFromSplit(
+        when(mockProxy.queryDataFromPart(
                         any(ClickhousePart.class), eq(rowType), eq(sourceTable), anyInt()))
                 .thenReturn(mockRows);
 
-        Assertions.assertTrue(reader.hasNext());
+        Assertions.assertFalse(reader.hasNext());
 
         List<SeaTunnelRow> result = reader.next();
         Assertions.assertEquals(0, result.size());
 
         // Make sure that part is marked as eos
         List<ClickhousePart> parts = new ArrayList<>(split.getParts());
+        Assertions.assertTrue(parts.get(0).isEos());
         Assertions.assertTrue(parts.get(0).isEos());
 
         Assertions.assertEquals(2, reader.currentPartIndex);
@@ -173,18 +170,19 @@ public class ClickhouseValueReaderTest {
         int partialSize = 5;
         List<SeaTunnelRow> mockRows2 = createMockRows(partialSize);
 
+        List<ClickhousePart> parts = split.getParts();
+
         // Return different data for different parts
-        when(mockProxy.getDataFromSplit(
+        when(mockProxy.queryDataFromPart(
                         any(ClickhousePart.class), eq(rowType), eq(sourceTable), anyInt()))
                 .thenAnswer(
                         invocation -> {
                             ClickhousePart part = invocation.getArgument(0);
                             if ("part1".equals(part.getName())) {
-                                return part.getOffset() != BATCH_SIZE
-                                        ? mockRows1
-                                        : new ArrayList<>();
+                                return part.getOffset() == 0 ? mockRows1 : new ArrayList<>();
+                            } else {
+                                return part.getOffset() == 0 ? mockRows2 : new ArrayList<>();
                             }
-                            return mockRows2;
                         });
 
         // First part - Full Batch
@@ -195,12 +193,15 @@ public class ClickhouseValueReaderTest {
 
         // Second part - Some Batches
         Assertions.assertTrue(reader.hasNext());
+        Assertions.assertTrue(parts.get(0).isEos());
+
         List<SeaTunnelRow> result2 = reader.next();
         Assertions.assertEquals(partialSize, result2.size());
-        Assertions.assertEquals(2, reader.currentPartIndex);
+        Assertions.assertEquals(1, reader.currentPartIndex);
 
         // All parts have been processed. hasNext should return false
         Assertions.assertFalse(reader.hasNext());
+        Assertions.assertTrue(parts.get(1).isEos());
     }
 
     private List<SeaTunnelRow> createMockRows(int size) {

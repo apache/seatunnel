@@ -19,6 +19,8 @@ package org.apache.seatunnel.connectors.seatunnel.clickhouse.util;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseBaseOptions;
+import org.apache.seatunnel.connectors.seatunnel.clickhouse.exception.ClickhouseConnectorErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.clickhouse.exception.ClickhouseConnectorException;
 
 import org.apache.commons.collections4.MapUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -80,5 +82,32 @@ public class ClickhouseUtil {
                             return builder.build();
                         })
                 .collect(Collectors.toList());
+    }
+
+    public static String extractTablePathFromSql(String sql) {
+        String lowerSql = sql.toLowerCase();
+
+        int fromIndex = lowerSql.indexOf(" from ");
+        if (fromIndex == -1) {
+            return null;
+        }
+
+        String afterFrom = sql.substring(fromIndex + 6).trim();
+
+        String[] parts = afterFrom.split("[\\s,();]+");
+        if (parts.length == 0) {
+            return null;
+        }
+
+        String tableFullNme = parts[0];
+        tableFullNme = tableFullNme.replaceAll("['\"`]", "");
+
+        if (StringUtils.isEmpty(tableFullNme) || !tableFullNme.contains(".")) {
+            throw new ClickhouseConnectorException(
+                    ClickhouseConnectorErrorCode.EXTRACT_TABLE_FROM_SQL_ERROR,
+                    "Extract table path from sql failed, please check your sql.");
+        }
+
+        return tableFullNme;
     }
 }

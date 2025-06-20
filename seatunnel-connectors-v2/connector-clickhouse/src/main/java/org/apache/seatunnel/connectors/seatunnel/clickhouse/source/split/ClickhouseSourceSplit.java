@@ -25,7 +25,7 @@ import org.apache.seatunnel.connectors.seatunnel.clickhouse.source.ClickhousePar
 import lombok.AllArgsConstructor;
 import lombok.Data;
 
-import java.util.Set;
+import java.util.List;
 
 @Data
 @AllArgsConstructor
@@ -35,8 +35,9 @@ public class ClickhouseSourceSplit implements SourceSplit {
 
     private final TablePath tablePath;
     private final TablePath configTablePath;
-    private final Set<ClickhousePart> parts;
+    private final List<ClickhousePart> parts;
     private final Shard shard;
+    private final String splitQuery;
 
     private final String splitId;
 
@@ -51,11 +52,17 @@ public class ClickhouseSourceSplit implements SourceSplit {
                 + "tablePath='"
                 + tablePath
                 + "'"
+                + ", configTablePath='"
+                + configTablePath
+                + "'"
                 + ", parts='"
                 + parts
                 + "'"
                 + ", shard='"
                 + shard
+                + "'"
+                + ", splitQuery='"
+                + splitQuery
                 + "'"
                 + ", splitId='"
                 + splitId

@@ -76,4 +76,16 @@ public class ClickhouseTable implements Serializable {
             return database;
         }
     }
+
+    public String getLocalTableIdentifier() {
+        if (distributedEngine != null) {
+            return String.format("%s.%s", getLocalDatabase(), getLocalTableName());
+        } else {
+            return String.format("%s.%s", database, tableName);
+        }
+    }
+
+    public String getTableIdentifier() {
+        return String.format("%s.%s", database, tableName);
+    }
 }
