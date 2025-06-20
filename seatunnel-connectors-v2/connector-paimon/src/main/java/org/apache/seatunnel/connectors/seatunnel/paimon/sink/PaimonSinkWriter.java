@@ -28,6 +28,7 @@ import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.schema.handler.TableSchemaChangeEventDispatcher;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.seatunnel.paimon.catalog.PaimonCatalog;
 import org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonHadoopConfiguration;
@@ -103,6 +104,8 @@ public class PaimonSinkWriter
     private final TableSchemaChangeEventDispatcher TABLE_SCHEMACHANGER =
             new TableSchemaChangeEventDispatcher();
 
+    private final JobContext jobContext;
+
     public PaimonSinkWriter(
             Context context,
             ReadonlyConfig readonlyConfig,
@@ -113,6 +116,7 @@ public class PaimonSinkWriter
             PaimonHadoopConfiguration paimonHadoopConfiguration) {
         this.sourceTableSchema = catalogTable.getTableSchema();
         this.seaTunnelRowType = this.sourceTableSchema.toPhysicalRowDataType();
+        this.jobContext = jobContext;
         this.paimonTablePath = catalogTable.getTablePath();
         this.paimonCatalog = PaimonCatalog.loadPaimonCatalog(readonlyConfig);
         this.paimonCatalog.open();
@@ -294,8 +298,14 @@ public class PaimonSinkWriter
     }
 
     private boolean waitCompaction() {
-        CoreOptions.ChangelogProducer changelogProducer =
-                this.paimonFileStoretable.coreOptions().changelogProducer();
+        if (JobMode.BATCH.equals(jobContext.getJobMode())) {
+            return true;
+        }
+        CoreOptions coreOptions = this.paimonFileStoretable.coreOptions();
+        if (coreOptions.writeOnly()) {
+            return false;
+        }
+        CoreOptions.ChangelogProducer changelogProducer = coreOptions.changelogProducer();
         return changelogProducer == CoreOptions.ChangelogProducer.LOOKUP
                 || changelogProducer == CoreOptions.ChangelogProducer.FULL_COMPACTION;
     }
