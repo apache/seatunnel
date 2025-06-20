@@ -268,7 +268,7 @@ public class ZetaSQLFunction {
             }
         }
         if (expression instanceof StringValue) {
-            return ((StringValue) expression).getValue();
+            return ((StringValue) expression).getNotExcapedValue();
         }
         if (expression instanceof Column) {
             Column columnExp = (Column) expression;
