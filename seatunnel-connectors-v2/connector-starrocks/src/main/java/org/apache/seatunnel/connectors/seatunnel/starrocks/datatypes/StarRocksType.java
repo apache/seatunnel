@@ -32,7 +32,6 @@ public class StarRocksType {
     public static final String SR_FLOAT = "FLOAT";
     public static final String SR_DOUBLE = "DOUBLE";
     public static final String SR_DECIMAL = "DECIMAL";
-    public static final String SR_DECIMALV3 = "DECIMALV3";
     public static final String SR_DATE = "DATE";
     public static final String SR_DATETIME = "DATETIME";
     public static final String SR_CHAR = "CHAR";
@@ -46,22 +45,17 @@ public class StarRocksType {
     public static final String SR_BIGINT_ARRAY = "ARRAY<bigint>";
     public static final String SR_FLOAT_ARRAY = "ARRAY<float>";
     public static final String SR_DOUBLE_ARRAY = "ARRAY<double>";
-    public static final String SR_DECIMALV3_ARRAY = "ARRAY<DECIMALV3>";
-    public static final String SR_DECIMALV3_ARRAY_COLUMN_TYPE_TMP = "ARRAY<DECIMALV3(%s, %s)>";
-    public static final String SR_DATEV2_ARRAY = "ARRAY<DATEV2>";
-    public static final String SR_DATETIMEV2_ARRAY = "ARRAY<DATETIMEV2>";
+    public static final String SR_DECIMAL_ARRAY = "ARRAY<DECIMAL>";
+    public static final String SR_DECIMAL_ARRAY_COLUMN_TYPE_TMP = "ARRAY<DECIMAL(%s, %s)>";
+    public static final String SR_DATE_ARRAY = "ARRAY<DATE>";
+    public static final String SR_DATETIME_ARRAY = "ARRAY<DATETIME>";
     public static final String SR_STRING_ARRAY = "ARRAY<STRING>";
 
     // Because can not get the column length from array, So the following types of arrays cannot be
     // generated properly.
     public static final String SR_LARGEINT_ARRAY = "ARRAY<largeint>";
-    public static final String SR_CHAR_ARRAY = "ARRAY<CHAR>";
-    public static final String SR_CHAR_ARRAY_COLUMN_TYPE_TMP = "ARRAY<CHAR(%s)>";
-    public static final String SR_VARCHAR_ARRAY = "ARRAY<VARCHAR>";
-    public static final String SR_VARCHAR_ARRAY_COLUMN_TYPE_TMP = "ARRAY<VARCHAR(%s)>";
 
     public static final String SR_JSON = "JSON";
-    public static final String SR_JSONB = "JSONB";
 
     public static final String SR_ARRAY = "ARRAY";
 
@@ -71,10 +65,8 @@ public class StarRocksType {
     public static final String SR_ARRAY_INT_INTER = "int(11)";
     public static final String SR_ARRAY_BIGINT_INTER = "bigint(20)";
     public static final String SR_ARRAY_DECIMAL_PRE = "DECIMAL";
-    public static final String SR_ARRAY_DATE_INTER = "date";
-    public static final String SR_ARRAY_DATEV2_INTER = "DATEV2";
+    public static final String SR_ARRAY_DATE_INTER = "DATE";
     public static final String SR_ARRAY_DATETIME_INTER = "DATETIME";
-    public static final String SR_ARRAY_DATETIMEV2_INTER = "DATETIMEV2";
 
     public static final String SR_MAP = "MAP";
     public static final String SR_MAP_COLUMN_TYPE = "MAP<%s, %s>";

@@ -42,9 +42,7 @@ import java.util.regex.Pattern;
 import static org.apache.seatunnel.connectors.seatunnel.starrocks.datatypes.StarRocksType.SR_ARRAY;
 import static org.apache.seatunnel.connectors.seatunnel.starrocks.datatypes.StarRocksType.SR_ARRAY_BIGINT_INTER;
 import static org.apache.seatunnel.connectors.seatunnel.starrocks.datatypes.StarRocksType.SR_ARRAY_BOOLEAN_INTER;
-import static org.apache.seatunnel.connectors.seatunnel.starrocks.datatypes.StarRocksType.SR_ARRAY_DATETIMEV2_INTER;
 import static org.apache.seatunnel.connectors.seatunnel.starrocks.datatypes.StarRocksType.SR_ARRAY_DATETIME_INTER;
-import static org.apache.seatunnel.connectors.seatunnel.starrocks.datatypes.StarRocksType.SR_ARRAY_DATEV2_INTER;
 import static org.apache.seatunnel.connectors.seatunnel.starrocks.datatypes.StarRocksType.SR_ARRAY_DATE_INTER;
 import static org.apache.seatunnel.connectors.seatunnel.starrocks.datatypes.StarRocksType.SR_ARRAY_DECIMAL_PRE;
 import static org.apache.seatunnel.connectors.seatunnel.starrocks.datatypes.StarRocksType.SR_ARRAY_INT_INTER;
@@ -58,12 +56,11 @@ import static org.apache.seatunnel.connectors.seatunnel.starrocks.datatypes.Star
 import static org.apache.seatunnel.connectors.seatunnel.starrocks.datatypes.StarRocksType.SR_CHAR;
 import static org.apache.seatunnel.connectors.seatunnel.starrocks.datatypes.StarRocksType.SR_DATE;
 import static org.apache.seatunnel.connectors.seatunnel.starrocks.datatypes.StarRocksType.SR_DATETIME;
-import static org.apache.seatunnel.connectors.seatunnel.starrocks.datatypes.StarRocksType.SR_DATETIMEV2_ARRAY;
-import static org.apache.seatunnel.connectors.seatunnel.starrocks.datatypes.StarRocksType.SR_DATEV2_ARRAY;
+import static org.apache.seatunnel.connectors.seatunnel.starrocks.datatypes.StarRocksType.SR_DATETIME_ARRAY;
+import static org.apache.seatunnel.connectors.seatunnel.starrocks.datatypes.StarRocksType.SR_DATE_ARRAY;
 import static org.apache.seatunnel.connectors.seatunnel.starrocks.datatypes.StarRocksType.SR_DECIMAL;
-import static org.apache.seatunnel.connectors.seatunnel.starrocks.datatypes.StarRocksType.SR_DECIMALV3;
-import static org.apache.seatunnel.connectors.seatunnel.starrocks.datatypes.StarRocksType.SR_DECIMALV3_ARRAY;
-import static org.apache.seatunnel.connectors.seatunnel.starrocks.datatypes.StarRocksType.SR_DECIMALV3_ARRAY_COLUMN_TYPE_TMP;
+import static org.apache.seatunnel.connectors.seatunnel.starrocks.datatypes.StarRocksType.SR_DECIMAL_ARRAY;
+import static org.apache.seatunnel.connectors.seatunnel.starrocks.datatypes.StarRocksType.SR_DECIMAL_ARRAY_COLUMN_TYPE_TMP;
 import static org.apache.seatunnel.connectors.seatunnel.starrocks.datatypes.StarRocksType.SR_DOUBLE;
 import static org.apache.seatunnel.connectors.seatunnel.starrocks.datatypes.StarRocksType.SR_DOUBLE_ARRAY;
 import static org.apache.seatunnel.connectors.seatunnel.starrocks.datatypes.StarRocksType.SR_FLOAT;
@@ -91,7 +88,6 @@ public class StarRocksTypeConverter implements TypeConverter<BasicTypeDefine<Sta
     public static final long MAX_STRING_LENGTH = 2147483643;
     public static final Long MAX_PRECISION = 38L;
     public static final Integer MAX_SCALE = 10;
-    public static final Integer MAX_DATETIME_SCALE = 6;
     public static final long POWER_2_8 = (long) Math.pow(2, 8);
 
     public static final StarRocksTypeConverter INSTANCE = new StarRocksTypeConverter();
@@ -148,7 +144,6 @@ public class StarRocksTypeConverter implements TypeConverter<BasicTypeDefine<Sta
                 builder.dataType(BasicType.DOUBLE_TYPE);
                 break;
             case SR_DECIMAL:
-            case SR_DECIMALV3:
                 setDecimalType(builder, typeDefine);
                 break;
             case SR_CHAR:
@@ -290,8 +285,8 @@ public class StarRocksTypeConverter implements TypeConverter<BasicTypeDefine<Sta
                             precision,
                             scale);
                 }
-                builder.columnType(String.format("%s(%s,%s)", SR_DECIMALV3, precision, scale));
-                builder.dataType(SR_DECIMALV3);
+                builder.columnType(String.format("%s(%s,%s)", SR_DECIMAL, precision, scale));
+                builder.dataType(SR_DECIMAL);
                 builder.precision((long) precision);
                 builder.scale(scale);
                 break;
@@ -381,11 +376,9 @@ public class StarRocksTypeConverter implements TypeConverter<BasicTypeDefine<Sta
                     new DecimalArrayType(
                             new DecimalType(precisionAndScale[0], precisionAndScale[1]));
             builder.dataType(decimalArray);
-        } else if (columnInterType.equalsIgnoreCase(SR_ARRAY_DATE_INTER)
-                || columnInterType.equalsIgnoreCase(SR_ARRAY_DATEV2_INTER)) {
+        } else if (columnInterType.equalsIgnoreCase(SR_ARRAY_DATE_INTER)) {
             builder.dataType(ArrayType.LOCAL_DATE_ARRAY_TYPE);
-        } else if (columnInterType.equalsIgnoreCase(SR_ARRAY_DATETIME_INTER)
-                || columnInterType.equalsIgnoreCase(SR_ARRAY_DATETIMEV2_INTER)) {
+        } else if (columnInterType.equalsIgnoreCase(SR_ARRAY_DATETIME_INTER)) {
             builder.dataType(ArrayType.LOCAL_DATE_TIME_ARRAY_TYPE);
         } else if (columnInterType.equalsIgnoreCase(SR_LARGEINT)) {
             DecimalArrayType decimalArray = new DecimalArrayType(new DecimalType(20, 0));
@@ -539,10 +532,10 @@ public class StarRocksTypeConverter implements TypeConverter<BasicTypeDefine<Sta
                 int[] precisionAndScale = getPrecisionAndScale(elementType.toString());
                 builder.columnType(
                         String.format(
-                                SR_DECIMALV3_ARRAY_COLUMN_TYPE_TMP,
+                                SR_DECIMAL_ARRAY_COLUMN_TYPE_TMP,
                                 precisionAndScale[0],
                                 precisionAndScale[1]));
-                builder.dataType(SR_DECIMALV3_ARRAY);
+                builder.dataType(SR_DECIMAL_ARRAY);
                 break;
             case STRING:
             case TIME:
@@ -550,12 +543,12 @@ public class StarRocksTypeConverter implements TypeConverter<BasicTypeDefine<Sta
                 builder.dataType(SR_STRING_ARRAY);
                 break;
             case DATE:
-                builder.columnType(SR_DATEV2_ARRAY);
-                builder.dataType(SR_DATEV2_ARRAY);
+                builder.columnType(SR_DATE_ARRAY);
+                builder.dataType(SR_DATE_ARRAY);
                 break;
             case TIMESTAMP:
-                builder.columnType(SR_DATETIMEV2_ARRAY);
-                builder.dataType(SR_DATETIMEV2_ARRAY);
+                builder.columnType(SR_DATETIME_ARRAY);
+                builder.dataType(SR_DATETIME_ARRAY);
                 break;
             default:
                 throw CommonError.convertToConnectorTypeError(
