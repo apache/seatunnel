@@ -149,12 +149,12 @@ public class JdbcOracleMultipleTablesIT extends TestSuiteBase implements TestRes
     }
 
     @TestTemplate
-    public void testOracleJdbcMultipleTableE2e(TestContainer container)
+    public void testOracleJdbcRegexPatternE2e(TestContainer container)
             throws IOException, InterruptedException, SQLException {
         clearSinkTables();
 
         Container.ExecResult execResult =
-                container.executeJob("/jdbc_oracle_source_with_multiple_tables_to_sink.conf");
+                container.executeJob("/jdbc_oracle_source_with_pattern_tables_to_sink.conf");
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
 
         List<Executable> asserts =
