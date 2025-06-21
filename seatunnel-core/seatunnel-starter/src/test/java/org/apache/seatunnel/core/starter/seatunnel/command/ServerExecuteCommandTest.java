@@ -52,9 +52,11 @@ public class ServerExecuteCommandTest {
         seaTunnelConfig.getHazelcastConfig().setClusterName(clusterName);
         seaTunnelConfig.getEngineConfig().getHttpConfig().setEnableDynamicPort(true);
 
-        SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
-        SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
-        SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
+        SeaTunnelServerStarter.createMasterHazelcastInstance(seaTunnelConfig);
+        SeaTunnelServerStarter.createMasterHazelcastInstance(seaTunnelConfig);
+        SeaTunnelServerStarter.createWorkerHazelcastInstance(seaTunnelConfig);
+        SeaTunnelServerStarter.createWorkerHazelcastInstance(seaTunnelConfig);
+        SeaTunnelServerStarter.createWorkerHazelcastInstance(seaTunnelConfig);
 
         ServerCommandArgs serverCommandArgs = new ServerCommandArgs();
         serverCommandArgs.setClusterName(clusterName);
@@ -62,7 +64,7 @@ public class ServerExecuteCommandTest {
 
         ServerExecuteCommand serverExecuteCommand = new ServerExecuteCommand(serverCommandArgs);
         Set<Member> members = serverExecuteCommand.showClusterMembers();
-        Assertions.assertEquals(3, members.size());
+        Assertions.assertEquals(5, members.size());
     }
 
     public static String getClusterName(String testClassName) {

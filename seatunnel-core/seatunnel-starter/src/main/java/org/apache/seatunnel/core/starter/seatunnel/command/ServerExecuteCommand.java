@@ -35,9 +35,11 @@ import com.hazelcast.client.HazelcastClient;
 import com.hazelcast.client.config.ClientConfig;
 import com.hazelcast.client.impl.clientside.HazelcastClientInstanceImpl;
 import com.hazelcast.client.impl.clientside.HazelcastClientProxy;
+import com.hazelcast.cluster.Address;
 import com.hazelcast.cluster.Member;
 import lombok.extern.slf4j.Slf4j;
 
+import java.util.Collection;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -137,19 +139,18 @@ public class ServerExecuteCommand implements Command<ServerCommandArgs> {
                 return members;
             }
 
+            Collection<Member> memberList = client.getClientClusterService().getMemberList();
+
             Member masterMember = client.getClientClusterService().getMasterMember();
             System.out.printf(
-                    "%-36s %-20s %-10s %-10s\n", "Member ID", "Address", "Role", "Version");
-            System.out.println(
-                    "----------------------------------------------------------------------");
+                    "%-36s %-20s %-20s %-10s\n", "Member ID", "Address", "Role", "Version");
+
             for (Member member : members) {
                 System.out.printf(
-                        "%-36s %-20s %-10s %-10s\n",
+                        "%-36s %-20s %-20s %-10s\n",
                         member.getUuid(),
                         member.getAddress(),
-                        member.getAddress().equals(masterMember.getAddress())
-                                ? EngineConfig.ClusterRole.MASTER
-                                : EngineConfig.ClusterRole.WORKER,
+                        getRole(masterMember.getAddress(), member),
                         member.getVersion());
             }
             return members;
@@ -164,5 +165,16 @@ public class ServerExecuteCommand implements Command<ServerCommandArgs> {
                 }
             }
         }
+    }
+
+    private String getRole(Address masterAddress, Member member) {
+
+        if (member.isLiteMember()) {
+            return EngineConfig.ClusterRole.WORKER.toString();
+        }
+        if (masterAddress.toString().equals(member.getAddress().toString())) {
+            return "ACTIVE MASTER";
+        }
+        return EngineConfig.ClusterRole.MASTER.toString();
     }
 }
