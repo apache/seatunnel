@@ -149,12 +149,70 @@ public class JdbcOracleMultipleTablesIT extends TestSuiteBase implements TestRes
     }
 
     @TestTemplate
+    public void testOracleJdbcMultipleTableE2e(TestContainer container)
+            throws IOException, InterruptedException, SQLException {
+        clearSinkTables();
+
+        Container.ExecResult execResult =
+                container.executeJob("/jdbc_oracle_source_with_multiple_tables_to_sink.conf");
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+
+        List<Executable> asserts =
+                TABLES.stream()
+                        .map(
+                                (Function<String, Executable>)
+                                        table ->
+                                                () ->
+                                                        Assertions.assertIterableEquals(
+                                                                query(
+                                                                        String.format(
+                                                                                "SELECT * FROM %s.%s order by INTEGER_COL asc",
+                                                                                SCHEMA, table)),
+                                                                query(
+                                                                        String.format(
+                                                                                "SELECT * FROM %s.%s order by INTEGER_COL asc",
+                                                                                SCHEMA,
+                                                                                "SINK_" + table))))
+                        .collect(Collectors.toList());
+        Assertions.assertAll(asserts);
+    }
+
+    @TestTemplate
     public void testOracleJdbcRegexPatternE2e(TestContainer container)
             throws IOException, InterruptedException, SQLException {
         clearSinkTables();
 
         Container.ExecResult execResult =
                 container.executeJob("/jdbc_oracle_source_with_pattern_tables_to_sink.conf");
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+
+        List<Executable> asserts =
+                TABLES.stream()
+                        .map(
+                                (Function<String, Executable>)
+                                        table ->
+                                                () ->
+                                                        Assertions.assertIterableEquals(
+                                                                query(
+                                                                        String.format(
+                                                                                "SELECT * FROM %s.%s order by INTEGER_COL asc",
+                                                                                SCHEMA, table)),
+                                                                query(
+                                                                        String.format(
+                                                                                "SELECT * FROM %s.%s order by INTEGER_COL asc",
+                                                                                SCHEMA,
+                                                                                "SINK_" + table))))
+                        .collect(Collectors.toList());
+        Assertions.assertAll(asserts);
+    }
+
+    @TestTemplate
+    public void testOracleJdbcRegexPatternAddXeE2e(TestContainer container)
+            throws IOException, InterruptedException, SQLException {
+        clearSinkTables();
+
+        Container.ExecResult execResult =
+                container.executeJob("/jdbc_oracle_source_with_pattern_addXe_tables_to_sink.conf");
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
 
         List<Executable> asserts =
