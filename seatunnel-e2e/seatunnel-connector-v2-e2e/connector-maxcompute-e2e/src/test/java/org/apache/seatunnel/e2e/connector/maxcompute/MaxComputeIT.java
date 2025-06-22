@@ -28,6 +28,7 @@ import org.apache.seatunnel.connectors.seatunnel.maxcompute.source.MaxcomputeSou
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
+import org.apache.seatunnel.e2e.common.container.spark.Spark3Container;
 
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterAll;
@@ -145,7 +146,11 @@ public class MaxComputeIT extends TestSuiteBase implements TestResource {
 
     private static void createTableWithData(Odps odps, String tableName) throws OdpsException {
         Instance instance =
-                SQLTask.run(odps, "create table " + tableName + " (id INT, name STRING, age INT);");
+                SQLTask.run(
+                        odps,
+                        "create table "
+                                + tableName
+                                + " (id INT, name STRING, age INT, PRIMARY KEY(id));");
         instance.waitForSuccess();
         Assertions.assertTrue(odps.tables().exists(tableName));
         Instance insert =
@@ -239,6 +244,69 @@ public class MaxComputeIT extends TestSuiteBase implements TestResource {
         CatalogTable table = source.getProducedCatalogTables().get(0);
         Assertions.assertArrayEquals(
                 new String[] {"ID", "NAME"}, table.getTableSchema().getFieldNames());
+    }
+
+    @TestTemplate
+    public void testMaxComputeUpsert(TestContainer container)
+            throws IOException, InterruptedException, OdpsException {
+        if (container instanceof Spark3Container) {
+            log.info("Skip on Spark 3.x due to Netty conflict.");
+            return;
+        }
+        prepareLocal();
+        Odps odps = getTestOdps();
+        odps.tables().delete("mocked_mc", "test_table_sink", true);
+        createTableWithData(odps, "test_table_sink");
+        List<Record> records = queryTable(odps, "test_table_sink");
+        Assertions.assertEquals("1", records.get(0).get(0));
+        Assertions.assertEquals("TEST", records.get(0).get(1));
+        Assertions.assertEquals("20", records.get(0).get(2));
+
+        prepareContainer();
+        Container.ExecResult execResult = container.executeJob("/fake_maxcompute_upsert.conf");
+
+        Assertions.assertEquals(0, execResult.getExitCode());
+        records = queryTable(odps, "test_table_sink");
+        Assertions.assertEquals(3, records.size());
+        Assertions.assertEquals("1", records.get(0).get(0));
+        Assertions.assertEquals("UPSERT_TEST", records.get(0).get(1));
+        Assertions.assertEquals("100", records.get(0).get(2));
+        Assertions.assertEquals("2", records.get(1).get(0));
+        Assertions.assertEquals("TEST2", records.get(1).get(1));
+        Assertions.assertEquals("30", records.get(1).get(2));
+        Assertions.assertEquals("3", records.get(2).get(0));
+        Assertions.assertEquals("TEST3", records.get(2).get(1));
+        Assertions.assertEquals("40", records.get(2).get(2));
+    }
+
+    @TestTemplate
+    public void testMaxComputeDelete(TestContainer container)
+            throws IOException, InterruptedException, OdpsException {
+        if (container instanceof Spark3Container) {
+            log.info("Skip on Spark 3.x due to Netty conflict.");
+            return;
+        }
+        prepareLocal();
+        Odps odps = getTestOdps();
+        odps.tables().delete("mocked_mc", "test_table_sink", true);
+        createTableWithData(odps, "test_table_sink");
+        List<Record> records = queryTable(odps, "test_table_sink");
+        Assertions.assertEquals("1", records.get(0).get(0));
+        Assertions.assertEquals("TEST", records.get(0).get(1));
+        Assertions.assertEquals("20", records.get(0).get(2));
+
+        prepareContainer();
+        Container.ExecResult execResult = container.executeJob("/fake_maxcompute_delete.conf");
+
+        Assertions.assertEquals(0, execResult.getExitCode());
+        records = queryTable(odps, "test_table_sink");
+        Assertions.assertEquals(2, records.size());
+        Assertions.assertEquals("2", records.get(0).get(0));
+        Assertions.assertEquals("TEST2", records.get(0).get(1));
+        Assertions.assertEquals("30", records.get(0).get(2));
+        Assertions.assertEquals("3", records.get(1).get(0));
+        Assertions.assertEquals("TEST3", records.get(1).get(1));
+        Assertions.assertEquals("40", records.get(1).get(2));
     }
 
     // here use java http client to send post, okhttp or other http client can also be used
