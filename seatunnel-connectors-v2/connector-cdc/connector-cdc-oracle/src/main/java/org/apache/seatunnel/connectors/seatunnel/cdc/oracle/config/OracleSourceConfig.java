@@ -67,7 +67,8 @@ public class OracleSourceConfig extends JdbcSourceConfig {
             long connectTimeoutMillis,
             int connectMaxRetries,
             int connectionPoolSize,
-            boolean exactlyOnce) {
+            boolean exactlyOnce,
+            String whereConditionClause) {
         super(
                 startupConfig,
                 stopConfig,
@@ -91,7 +92,8 @@ public class OracleSourceConfig extends JdbcSourceConfig {
                 connectTimeoutMillis,
                 connectMaxRetries,
                 connectionPoolSize,
-                exactlyOnce);
+                exactlyOnce,
+                whereConditionClause);
         this.useSelectCount = useSelectCount;
         this.skipAnalyze = skipAnalyze;
     }

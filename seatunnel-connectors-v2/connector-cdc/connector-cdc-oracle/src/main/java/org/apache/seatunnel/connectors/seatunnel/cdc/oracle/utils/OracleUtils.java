@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.cdc.base.utils.SourceRecordUtils;
+import org.apache.seatunnel.connectors.cdc.base.utils.SqlPostHook;
 import org.apache.seatunnel.connectors.seatunnel.cdc.oracle.config.OracleSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.cdc.oracle.source.offset.RedoLogOffset;
 
@@ -252,7 +253,17 @@ public class OracleUtils {
 
     public static String buildSplitScanQuery(
             TableId tableId, SeaTunnelRowType rowType, boolean isFirstSplit, boolean isLastSplit) {
-        return buildSplitQuery(tableId, rowType, isFirstSplit, isLastSplit, -1, true);
+        return buildSplitScanQuery(tableId, rowType, isFirstSplit, isLastSplit, SqlPostHook.NO_OP);
+    }
+
+    public static String buildSplitScanQuery(
+            TableId tableId,
+            SeaTunnelRowType rowType,
+            boolean isFirstSplit,
+            boolean isLastSplit,
+            SqlPostHook sqlPostHook) {
+        String query = buildSplitQuery(tableId, rowType, isFirstSplit, isLastSplit, -1, true);
+        return sqlPostHook.apply(query);
     }
 
     private static String buildSplitQuery(

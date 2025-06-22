@@ -75,7 +75,15 @@ public abstract class AbstractJdbcSourceChunkSplitter implements JdbcSourceChunk
                                     "Exactly once is enabled, but not found primary key or unique key for table %s",
                                     tableId));
                 }
-                SnapshotSplit singleSplit = createSnapshotSplit(jdbc, tableId, 0, null, null, null);
+                SnapshotSplit singleSplit =
+                        createSnapshotSplit(
+                                jdbc,
+                                tableId,
+                                0,
+                                null,
+                                null,
+                                null,
+                                sourceConfig.getWhereConditionClause());
                 splits.add(singleSplit);
                 log.warn(
                         "No evenly split column found for table {}, use single split {}",
@@ -100,7 +108,8 @@ public abstract class AbstractJdbcSourceChunkSplitter implements JdbcSourceChunk
                                     i,
                                     splitType,
                                     chunk.getChunkStart(),
-                                    chunk.getChunkEnd());
+                                    chunk.getChunkEnd(),
+                                    sourceConfig.getWhereConditionClause());
                     splits.add(split);
                 }
             }
@@ -373,12 +382,18 @@ public abstract class AbstractJdbcSourceChunkSplitter implements JdbcSourceChunk
             int chunkId,
             SeaTunnelRowType splitKeyType,
             Object chunkStart,
-            Object chunkEnd) {
+            Object chunkEnd,
+            String whereConditionClause) {
         // currently, we only support single split column
         Object[] splitStart = chunkStart == null ? null : new Object[] {chunkStart};
         Object[] splitEnd = chunkEnd == null ? null : new Object[] {chunkEnd};
         return new SnapshotSplit(
-                splitId(tableId, chunkId), tableId, splitKeyType, splitStart, splitEnd);
+                splitId(tableId, chunkId),
+                tableId,
+                splitKeyType,
+                splitStart,
+                splitEnd,
+                whereConditionClause);
     }
 
     protected Column getSplitColumn(

@@ -59,7 +59,8 @@ public class SqlServerSourceConfig extends JdbcSourceConfig {
             long connectTimeoutMillis,
             int connectMaxRetries,
             int connectionPoolSize,
-            boolean exactlyOnce) {
+            boolean exactlyOnce,
+            String whereConditionClause) {
         super(
                 startupConfig,
                 stopConfig,
@@ -83,7 +84,8 @@ public class SqlServerSourceConfig extends JdbcSourceConfig {
                 connectTimeoutMillis,
                 connectMaxRetries,
                 connectionPoolSize,
-                exactlyOnce);
+                exactlyOnce,
+                whereConditionClause);
     }
 
     @Override

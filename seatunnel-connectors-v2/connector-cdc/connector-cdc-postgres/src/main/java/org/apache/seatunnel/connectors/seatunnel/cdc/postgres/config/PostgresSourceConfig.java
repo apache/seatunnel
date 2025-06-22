@@ -54,7 +54,8 @@ public class PostgresSourceConfig extends JdbcSourceConfig {
             long connectTimeoutMillis,
             int connectMaxRetries,
             int connectionPoolSize,
-            boolean exactlyOnce) {
+            boolean exactlyOnce,
+            String whereConditionClause) {
         super(
                 startupConfig,
                 stopConfig,
@@ -78,7 +79,8 @@ public class PostgresSourceConfig extends JdbcSourceConfig {
                 connectTimeoutMillis,
                 connectMaxRetries,
                 connectionPoolSize,
-                exactlyOnce);
+                exactlyOnce,
+                whereConditionClause);
     }
 
     @Override

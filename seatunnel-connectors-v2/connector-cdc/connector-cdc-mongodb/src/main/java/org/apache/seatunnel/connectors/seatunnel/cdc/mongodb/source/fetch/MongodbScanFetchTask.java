@@ -176,8 +176,23 @@ public class MongodbScanFetchTask implements FetchTask<SourceSplitBase> {
                 startKey,
                 endKey,
                 hint);
+
+        String whereCondition = snapshotSplit.getWhereConditionClause();
+        BsonDocument queryFilter = new BsonDocument();
+
+        if (whereCondition != null && !whereCondition.trim().isEmpty()) {
+            try {
+                queryFilter = BsonDocument.parse(whereCondition);
+                log.info("Applying snapshot filter condition: {}", whereCondition);
+            } catch (Exception e) {
+                throw new MongodbConnectorException(
+                        ILLEGAL_ARGUMENT,
+                        String.format("Invalid WHERE_CONDITION format: %s", whereCondition));
+            }
+        }
+
         return collection
-                .find()
+                .find(queryFilter)
                 .min(startKey)
                 .max(endKey)
                 .hint(hint)

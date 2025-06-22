@@ -156,4 +156,11 @@ public class JdbcSourceOptions extends SourceOptions {
                                     + "       \"snapshotSplitColumn\": \"key2\""
                                     + "   }"
                                     + "]");
+
+    public static final Option<String> WHERE_CONDITION =
+            Options.key("where-condition")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "Add a filter condition for snapshot phase. For example, 'where id > 100'.");
 }

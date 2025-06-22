@@ -75,7 +75,8 @@ public class MySqlIncrementalSourceFactory extends BaseChangeStreamTableSourceFa
                         JdbcSourceOptions.INVERSE_SAMPLING_RATE,
                         JdbcSourceOptions.TABLE_NAMES_CONFIG,
                         JdbcSourceOptions.SCHEMA_CHANGES_ENABLED,
-                        JdbcOptions.INT_TYPE_NARROWING)
+                        JdbcOptions.INT_TYPE_NARROWING,
+                        JdbcSourceOptions.WHERE_CONDITION)
                 .optional(MySqlSourceOptions.STARTUP_MODE, MySqlSourceOptions.STOP_MODE)
                 .conditional(
                         MySqlSourceOptions.STARTUP_MODE,

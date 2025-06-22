@@ -237,7 +237,8 @@ public class IncrementalSplitAssigner<C extends SourceConfig> implements SplitAs
                             split.getSplitKeyType(),
                             split.getSplitStart(),
                             split.getSplitEnd(),
-                            splitWatermark));
+                            splitWatermark,
+                            split.getWhereConditionClause()));
         }
         for (TableId tableId : capturedTables) {
             Offset watermark = tableWatermarks.get(tableId);

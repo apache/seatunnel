@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.cdc.postgres.source.reader.sna
 import org.apache.seatunnel.connectors.cdc.base.relational.JdbcSourceEventDispatcher;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SnapshotSplit;
 import org.apache.seatunnel.connectors.cdc.base.source.split.wartermark.WatermarkKind;
+import org.apache.seatunnel.connectors.cdc.base.utils.WhereConditionClauseHook;
 import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.source.offset.LsnOffset;
 import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.utils.PostgresUtils;
 
@@ -187,7 +188,8 @@ public class PostgresSnapshotSplitReadTask
                         table,
                         snapshotSplit.getSplitKeyType(),
                         snapshotSplit.getSplitStart() == null,
-                        snapshotSplit.getSplitEnd() == null);
+                        snapshotSplit.getSplitEnd() == null,
+                        new WhereConditionClauseHook(snapshotSplit.getWhereConditionClause()));
         log.info(
                 "For split '{}' of table {} using select statement: '{}'",
                 snapshotSplit.splitId(),

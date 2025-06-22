@@ -22,6 +22,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.cdc.base.source.offset.Offset;
 import org.apache.seatunnel.connectors.cdc.base.utils.SourceRecordUtils;
+import org.apache.seatunnel.connectors.cdc.base.utils.SqlPostHook;
 import org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.offset.LsnOffset;
 
 import org.apache.kafka.connect.source.SourceRecord;
@@ -285,7 +286,17 @@ public class SqlServerUtils {
     /** Get split scan query for the given table. */
     public static String buildSplitScanQuery(
             TableId tableId, SeaTunnelRowType rowType, boolean isFirstSplit, boolean isLastSplit) {
-        return buildSplitQuery(tableId, rowType, isFirstSplit, isLastSplit, -1, true);
+        return buildSplitScanQuery(tableId, rowType, isFirstSplit, isLastSplit, SqlPostHook.NO_OP);
+    }
+
+    public static String buildSplitScanQuery(
+            TableId tableId,
+            SeaTunnelRowType rowType,
+            boolean isFirstSplit,
+            boolean isLastSplit,
+            SqlPostHook sqlPostHook) {
+        String query = buildSplitQuery(tableId, rowType, isFirstSplit, isLastSplit, -1, true);
+        return sqlPostHook.apply(query);
     }
 
     /** Get table split data PreparedStatement. */

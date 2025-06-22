@@ -46,6 +46,7 @@ public abstract class JdbcSourceConfigFactory implements SourceConfig.Factory<Jd
     protected String tablePattern;
     protected StartupConfig startupConfig;
     protected StopConfig stopConfig;
+    protected String whereCondition;
     protected double distributionFactorUpper =
             JdbcSourceOptions.CHUNK_KEY_EVEN_DISTRIBUTION_FACTOR_UPPER_BOUND.defaultValue();
     protected double distributionFactorLower =
@@ -238,6 +239,12 @@ public abstract class JdbcSourceConfigFactory implements SourceConfig.Factory<Jd
         return this;
     }
 
+    /** Specifies the where condition for snapshot phase. For example, "where id > 100". */
+    public JdbcSourceConfigFactory setWhereCondition(String whereCondition) {
+        this.whereCondition = whereCondition;
+        return this;
+    }
+
     public JdbcSourceConfigFactory fromReadonlyConfig(ReadonlyConfig config) {
         this.port = config.get(JdbcSourceOptions.PORT);
         this.hostname = config.get(JdbcSourceOptions.HOSTNAME);
@@ -275,6 +282,7 @@ public abstract class JdbcSourceConfigFactory implements SourceConfig.Factory<Jd
         this.dbzProperties = new Properties();
         config.getOptional(SourceOptions.DEBEZIUM_PROPERTIES)
                 .ifPresent(map -> dbzProperties.putAll(map));
+        this.whereCondition = config.getOptional(JdbcSourceOptions.WHERE_CONDITION).orElse(null);
         return this;
     }
 
