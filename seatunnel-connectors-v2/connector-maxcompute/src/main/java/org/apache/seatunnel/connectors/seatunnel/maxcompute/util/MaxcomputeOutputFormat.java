@@ -112,7 +112,9 @@ public class MaxcomputeOutputFormat {
                 recordWriter = null;
             }
         }
-        if (uploadSession != null) uploadSession.commit();
+        if (uploadSession != null) {
+            uploadSession.commit();
+        }
     }
 
     private void closeUpsertSession() throws IOException, TunnelException {
