@@ -69,4 +69,11 @@ public class MaxcomputeSinkOptions extends MaxcomputeBaseOptions {
                     .withDescription(
                             "Number of locks used for upsert operations. "
                                     + "Increase this value to reduce contention and improve upsert performance.");
+
+    public static final Option<String> TUNNEL_ENDPOINT =
+            Options.key("tunnel_endpoint")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "Tunnel endpoint, e.g. https://dt.cn-hangzhou.maxcompute.aliyun.com");
 }

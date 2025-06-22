@@ -50,12 +50,14 @@ public class MaxcomputeWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
             FormatterContext formatterContext =
                     new FormatterContext(readonlyConfig.get(FormatOptions.DATETIME_FORMAT));
             int lockCount = readonlyConfig.get(MaxcomputeSinkOptions.UPSERT_LOCK_COUNT);
+            String tunnelEndpoint = readonlyConfig.get(MaxcomputeSinkOptions.TUNNEL_ENDPOINT);
             writer =
                     new MaxcomputeOutputFormat(
                             rowType,
                             readonlyConfig,
                             schema,
                             formatterContext,
+                            tunnelEndpoint,
                             primaryKey,
                             lockCount);
         } catch (Exception e) {

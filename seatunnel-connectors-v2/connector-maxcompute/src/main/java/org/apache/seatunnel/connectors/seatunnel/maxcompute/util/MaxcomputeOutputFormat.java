@@ -17,16 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.maxcompute.util;
 
-import org.apache.seatunnel.shade.com.google.common.util.concurrent.Striped;
-
-import org.apache.seatunnel.api.configuration.ReadonlyConfig;
-import org.apache.seatunnel.api.table.catalog.PrimaryKey;
-import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.exception.CommonError;
-import org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeBaseOptions;
-import org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeSinkOptions;
-
 import com.aliyun.odps.PartitionSpec;
 import com.aliyun.odps.TableSchema;
 import com.aliyun.odps.data.ArrayRecord;
@@ -36,8 +26,18 @@ import com.aliyun.odps.tunnel.TableTunnel;
 import com.aliyun.odps.tunnel.TunnelException;
 import com.aliyun.odps.tunnel.streams.UpsertStream;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.table.catalog.PrimaryKey;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.exception.CommonError;
+import org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeBaseOptions;
+import org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeSinkOptions;
+import org.apache.seatunnel.shade.com.google.common.util.concurrent.Striped;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.locks.Lock;
 
@@ -53,6 +53,7 @@ public class MaxcomputeOutputFormat {
     private final TableSchema tableSchema;
     private final SeaTunnelRowType rowType;
     private final FormatterContext formatterContext;
+    private final String tunnelEndPoint;
 
     private RecordWriter recordWriter;
     private UpsertStream upsertStream;
@@ -64,12 +65,14 @@ public class MaxcomputeOutputFormat {
             ReadonlyConfig readonlyConfig,
             TableSchema tableSchema,
             FormatterContext formatterContext,
+            String tunnelEndPoint,
             PrimaryKey primaryKey,
             int lockCount) {
         this.rowType = rowType;
         this.readonlyConfig = readonlyConfig;
         this.tableSchema = tableSchema;
         this.formatterContext = formatterContext;
+        this.tunnelEndPoint = tunnelEndPoint;
         this.primaryKey = primaryKey;
         int stripes = validateLockCount(lockCount);
         this.stripedLocks = Striped.lock(stripes);
@@ -94,15 +97,45 @@ public class MaxcomputeOutputFormat {
         }
     }
 
-    public void close() throws TunnelException, IOException {
+    public void close() throws IOException, TunnelException {
+        closeUploadSession();
+        closeUpsertSession();
+    }
+
+    private void closeUploadSession() throws IOException, TunnelException {
         if (recordWriter != null) {
-            recordWriter.close();
-            uploadSession.commit();
-            recordWriter = null;
-        } else if (upsertStream != null) {
-            upsertStream.close();
-            upsertSession.commit(true);
-            upsertStream = null;
+            try {
+                recordWriter.close();
+            } finally {
+                recordWriter = null;
+            }
+        }
+
+        if (uploadSession != null) {
+            try {
+                uploadSession.commit();
+            } finally {
+                uploadSession = null;
+            }
+        }
+    }
+
+    private void closeUpsertSession() throws IOException, TunnelException {
+        if (upsertStream != null) {
+            try {
+                upsertStream.close();
+            } finally {
+                upsertStream = null;
+            }
+        }
+
+        if (upsertSession != null) {
+            try {
+                upsertSession.commit(true);
+            } finally {
+                upsertSession.close();
+                upsertSession = null;
+            }
         }
     }
 
@@ -162,7 +195,7 @@ public class MaxcomputeOutputFormat {
     }
 
     int buildPrimaryKey(SeaTunnelRow seaTunnelRow) {
-        int result = 1;
+        List<Object> pkValues = new ArrayList<>();
         for (int i = 0; i < seaTunnelRow.getFields().length; i++) {
             String fieldName = rowType.getFieldName(i);
             if (PrimaryKey.isPrimaryKeyField(primaryKey, fieldName)) {
@@ -170,10 +203,10 @@ public class MaxcomputeOutputFormat {
                 if (value == null)
                     throw CommonError.illegalArgument(
                             fieldName, "Primary key column must not be null.");
-                result = 31 * result + value.hashCode();
+                pkValues.add(value);
             }
         }
-        return result;
+        return Objects.hash(pkValues.toArray());
     }
 
     private void deleteRecord(SeaTunnelRow seaTunnelRow) throws TunnelException, IOException {
@@ -211,7 +244,7 @@ public class MaxcomputeOutputFormat {
     }
 
     private void initializeInsertSession() throws TunnelException {
-        TableTunnel tunnel = MaxcomputeUtil.getTableTunnel(readonlyConfig);
+        TableTunnel tunnel = getTableTunnel();
         if (readonlyConfig.getOptional(MaxcomputeSinkOptions.PARTITION_SPEC).isPresent()) {
             PartitionSpec partitionSpec =
                     new PartitionSpec(readonlyConfig.get(MaxcomputeSinkOptions.PARTITION_SPEC));
@@ -229,8 +262,16 @@ public class MaxcomputeOutputFormat {
         }
     }
 
-    private void initializeUpsertSession() throws TunnelException, IOException {
+    private TableTunnel getTableTunnel() {
         TableTunnel tunnel = MaxcomputeUtil.getTableTunnel(readonlyConfig);
+        if (this.tunnelEndPoint != null && !this.tunnelEndPoint.trim().isEmpty()) {
+            tunnel.setEndpoint(this.tunnelEndPoint);
+        }
+        return tunnel;
+    }
+
+    private void initializeUpsertSession() throws TunnelException, IOException {
+        TableTunnel tunnel = getTableTunnel();
         if (readonlyConfig.getOptional(MaxcomputeSinkOptions.PARTITION_SPEC).isPresent()) {
             PartitionSpec partitionSpec =
                     new PartitionSpec(readonlyConfig.get(MaxcomputeSinkOptions.PARTITION_SPEC));

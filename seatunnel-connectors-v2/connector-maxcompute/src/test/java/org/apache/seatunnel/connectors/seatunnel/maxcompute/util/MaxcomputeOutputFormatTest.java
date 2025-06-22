@@ -23,6 +23,7 @@ import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -32,6 +33,7 @@ import com.aliyun.odps.TableSchema;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -52,6 +54,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class MaxcomputeOutputFormatTest {
+    public static final String TUNNEL_ENDPOINT = "http://127.0.0.1:8080";
     public static FormatterContext defaultFormatterContext =
             new FormatterContext("yyyy-MM-dd HH:mm:ss");
 
@@ -79,7 +82,13 @@ class MaxcomputeOutputFormatTest {
 
         outputFormat =
                 new MaxcomputeOutputFormat(
-                        rowType, config, tableSchema, defaultFormatterContext, pk, 128);
+                        rowType,
+                        config,
+                        tableSchema,
+                        defaultFormatterContext,
+                        TUNNEL_ENDPOINT,
+                        pk,
+                        128);
     }
 
     @Test
@@ -97,9 +106,11 @@ class MaxcomputeOutputFormatTest {
     void testBuildPrimaryKey() {
         SeaTunnelRow row = new SeaTunnelRow(new Object[] {1, 1, "A"});
         int primaryKey = outputFormat.buildPrimaryKey(row);
-        int hashKey =
-                31 * (31 + Integer.hashCode((int) row.getField(0)))
-                        + Integer.hashCode((int) row.getField(1));
+        List<Object> pkValues = new ArrayList<>();
+        pkValues.add(row.getField(0));
+        pkValues.add(row.getField(1));
+
+        int hashKey = Objects.hash(pkValues.toArray());
         assertEquals(hashKey, primaryKey);
     }
 
@@ -110,7 +121,7 @@ class MaxcomputeOutputFormatTest {
         when(row.getField(0)).thenReturn(null);
 
         assertThrows(
-                IllegalArgumentException.class,
+                SeaTunnelRuntimeException.class,
                 () -> {
                     outputFormat.buildPrimaryKey(row);
                 });
