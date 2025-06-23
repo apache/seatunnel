@@ -454,13 +454,23 @@ public class JdbcCatalogUtils {
             fullTablePattern = tableNamePattern;
         } else if (parts.length == 2) {
             if (isOracleDialect) {
+                databasePattern = "default";
                 String schemaPattern = parts[0];
                 tableNamePattern = parts[1];
-                fullTablePattern = String.format("%s.%s", schemaPattern, tableNamePattern);
+                fullTablePattern =
+                        String.format(
+                                "%s.%s.%s",
+                                databasePattern,
+                                schemaPattern.replace(DOT_PLACEHOLDER, "."),
+                                tableNamePattern.replace(DOT_PLACEHOLDER, "."));
             } else {
                 databasePattern = parts[0];
                 tableNamePattern = parts[1];
-                fullTablePattern = String.format("%s.%s", databasePattern, tableNamePattern);
+                fullTablePattern =
+                        String.format(
+                                "%s.%s",
+                                databasePattern.replace(DOT_PLACEHOLDER, "."),
+                                tableNamePattern.replace(DOT_PLACEHOLDER, "."));
             }
         } else if (parts.length >= 3) {
             databasePattern = parts[0];
