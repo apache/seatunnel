@@ -17,13 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.maxcompute.util;
 
-import org.apache.seatunnel.api.configuration.ReadonlyConfig;
-import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.exception.CommonError;
-import org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeBaseOptions;
-import org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeSinkOptions;
-
 import com.aliyun.odps.PartitionSpec;
 import com.aliyun.odps.TableSchema;
 import com.aliyun.odps.data.ArrayRecord;
@@ -33,6 +26,12 @@ import com.aliyun.odps.tunnel.TableTunnel;
 import com.aliyun.odps.tunnel.TunnelException;
 import com.aliyun.odps.tunnel.streams.UpsertStream;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.exception.CommonError;
+import org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeBaseOptions;
+import org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeSinkOptions;
 
 import java.io.IOException;
 import java.util.Objects;
@@ -104,7 +103,6 @@ public class MaxcomputeOutputFormat {
     private void closeUpsertSession() throws IOException, TunnelException {
         if (upsertStream != null) {
             try {
-                upsertStream.flush();
                 upsertStream.close();
             } finally {
                 upsertStream = null;
