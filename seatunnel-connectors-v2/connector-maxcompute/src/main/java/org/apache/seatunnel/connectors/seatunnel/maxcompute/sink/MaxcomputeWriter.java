@@ -63,8 +63,6 @@ public class MaxcomputeWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
             writer.write(seaTunnelRow);
         } catch (IOException e1) {
             throw e1;
-        } catch (RuntimeException e) {
-            throw e;
         } catch (Exception e2) {
             throw CommonError.writeSeaTunnelRowFailed(
                     MaxcomputeBaseOptions.PLUGIN_NAME, seaTunnelRow.toString(), e2);
