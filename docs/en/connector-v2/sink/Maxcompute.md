@@ -132,26 +132,6 @@ Example values:
 
 Default: `yyyy-MM-dd HH:mm:ss`
 
-### upsert_lock_count[Int]
-
-Number of locks (lock stripes) used for upsert operations.
-
-Increasing this value reduces contention between threads and improves upsert performance by allowing more fine-grained locking.
-
-A higher number of locks may increase memory usage and management overhead, so choose an appropriate value based on your workload.
-
-The valid range is 64 to 2048. If the specified value is less than 64, it will be adjusted to 64; if it is greater than 2048, it will be adjusted to 2048.
-
-Example values:
-
-- `64`
-- `128`
-- `512`
-- `1024`
-- `2048`
-
-Default: `512`
-
 ### tunnel_endpoint[String]
 Specifies the custom endpoint URL for the MaxCompute Tunnel service.
 

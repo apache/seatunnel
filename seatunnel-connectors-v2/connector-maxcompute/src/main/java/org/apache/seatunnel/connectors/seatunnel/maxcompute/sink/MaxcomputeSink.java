@@ -58,10 +58,7 @@ public class MaxcomputeSink extends AbstractSimpleSink<SeaTunnelRow, Void>
 
     @Override
     public MaxcomputeWriter createWriter(SinkWriter.Context context) {
-        return new MaxcomputeWriter(
-                this.readonlyConfig,
-                this.catalogTable.getSeaTunnelRowType(),
-                this.catalogTable.getTableSchema().getPrimaryKey());
+        return new MaxcomputeWriter(this.readonlyConfig, this.catalogTable.getSeaTunnelRowType());
     }
 
     @Override

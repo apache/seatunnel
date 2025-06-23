@@ -17,10 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.maxcompute.util;
 
-import org.apache.seatunnel.shade.com.google.common.util.concurrent.Striped;
-
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
-import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonError;
@@ -38,18 +35,10 @@ import com.aliyun.odps.tunnel.streams.UpsertStream;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Objects;
-import java.util.concurrent.locks.Lock;
 
 @Slf4j
 public class MaxcomputeOutputFormat {
-    private static final int MIN_LOCK_COUNT = 16;
-    private static final int MAX_LOCK_COUNT = 2048;
-    private final Striped<Lock> stripedLocks;
-    private final PrimaryKey primaryKey;
-
     private final ReadonlyConfig readonlyConfig;
 
     private final TableSchema tableSchema;
@@ -67,17 +56,12 @@ public class MaxcomputeOutputFormat {
             ReadonlyConfig readonlyConfig,
             TableSchema tableSchema,
             FormatterContext formatterContext,
-            String tunnelEndPoint,
-            PrimaryKey primaryKey,
-            int lockCount) {
+            String tunnelEndPoint) {
         this.rowType = rowType;
         this.readonlyConfig = readonlyConfig;
         this.tableSchema = tableSchema;
         this.formatterContext = formatterContext;
         this.tunnelEndPoint = tunnelEndPoint;
-        this.primaryKey = primaryKey;
-        int stripes = validateLockCount(lockCount);
-        this.stripedLocks = Striped.lock(stripes);
     }
 
     public void write(SeaTunnelRow seaTunnelRow) throws IOException, TunnelException {
@@ -137,16 +121,6 @@ public class MaxcomputeOutputFormat {
         }
     }
 
-    int validateLockCount(int inputCount) {
-        if (inputCount < MIN_LOCK_COUNT) {
-            return MIN_LOCK_COUNT;
-        }
-        if (inputCount > MAX_LOCK_COUNT) {
-            return MAX_LOCK_COUNT;
-        }
-        return inputCount;
-    }
-
     private void insertRecord(SeaTunnelRow seaTunnelRow) throws TunnelException, IOException {
         ensureInsertSessionAndWriter();
         Record arrayRecord =
@@ -169,42 +143,7 @@ public class MaxcomputeOutputFormat {
                         this.rowType,
                         formatterContext);
 
-        lockProcess(seaTunnelRow, () -> upsertStream.upsert(upsertRecord));
-    }
-
-    void lockProcess(SeaTunnelRow row, CheckedRunnable runnable)
-            throws IOException, TunnelException {
-        Lock lock = getLockByPrimaryKey(row);
-        lock.lock();
-        try {
-            runnable.run();
-        } catch (IOException | TunnelException e1) {
-            throw e1;
-        } catch (Exception e) {
-            throw CommonError.illegalArgument(row.toString(), "Maxcompute upsert lockProcess");
-        } finally {
-            lock.unlock();
-        }
-    }
-
-    Lock getLockByPrimaryKey(SeaTunnelRow seaTunnelRow) {
-        int pkKey = buildPrimaryKey(seaTunnelRow);
-        return stripedLocks.get(pkKey);
-    }
-
-    int buildPrimaryKey(SeaTunnelRow seaTunnelRow) {
-        List<Object> pkValues = new ArrayList<>();
-        for (int i = 0; i < seaTunnelRow.getFields().length; i++) {
-            String fieldName = rowType.getFieldName(i);
-            if (PrimaryKey.isPrimaryKeyField(primaryKey, fieldName)) {
-                Object value = seaTunnelRow.getField(i);
-                if (value == null)
-                    throw CommonError.illegalArgument(
-                            fieldName, "Primary key column must not be null.");
-                pkValues.add(value);
-            }
-        }
-        return Objects.hash(pkValues.toArray());
+        upsertStream.upsert(upsertRecord);
     }
 
     private void deleteRecord(SeaTunnelRow seaTunnelRow) throws TunnelException, IOException {
@@ -287,10 +226,5 @@ public class MaxcomputeOutputFormat {
                                     readonlyConfig.get(MaxcomputeSinkOptions.TABLE_NAME))
                             .build();
         }
-    }
-
-    @FunctionalInterface
-    public interface CheckedRunnable {
-        void run() throws Exception;
     }
 }

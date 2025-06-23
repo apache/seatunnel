@@ -20,7 +20,6 @@ package org.apache.seatunnel.connectors.seatunnel.maxcompute.sink;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.options.table.FormatOptions;
 import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
-import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonError;
@@ -43,23 +42,15 @@ public class MaxcomputeWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
         implements SupportMultiTableSinkWriter<Void> {
     private MaxcomputeOutputFormat writer;
 
-    public MaxcomputeWriter(
-            ReadonlyConfig readonlyConfig, SeaTunnelRowType rowType, PrimaryKey primaryKey) {
+    public MaxcomputeWriter(ReadonlyConfig readonlyConfig, SeaTunnelRowType rowType) {
         try {
             TableSchema schema = MaxcomputeUtil.getTable(readonlyConfig).getSchema();
             FormatterContext formatterContext =
                     new FormatterContext(readonlyConfig.get(FormatOptions.DATETIME_FORMAT));
-            int lockCount = readonlyConfig.get(MaxcomputeSinkOptions.UPSERT_LOCK_COUNT);
             String tunnelEndpoint = readonlyConfig.get(MaxcomputeSinkOptions.TUNNEL_ENDPOINT);
             writer =
                     new MaxcomputeOutputFormat(
-                            rowType,
-                            readonlyConfig,
-                            schema,
-                            formatterContext,
-                            tunnelEndpoint,
-                            primaryKey,
-                            lockCount);
+                            rowType, readonlyConfig, schema, formatterContext, tunnelEndpoint);
         } catch (Exception e) {
             throw new MaxcomputeConnectorException(
                     CommonErrorCodeDeprecated.WRITER_OPERATION_FAILED, e);
