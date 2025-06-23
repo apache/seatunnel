@@ -66,7 +66,7 @@ public class ClickhouseSourceConfig implements Serializable {
     private boolean isSqlStrategyRead;
 
     public static ClickhouseSourceConfig of(ReadonlyConfig config) {
-        if (!config.getOptional(ClickhouseSourceOptions.TABLE_PATH).isPresent()
+        if (!config.getOptional(ClickhouseBaseOptions.TABLE_PATH).isPresent()
                 && !config.getOptional(ClickhouseSourceOptions.SQL).isPresent()) {
             throw new IllegalArgumentException(
                     "`table_path` and `sql` parameter cannot be both empty.");
@@ -76,7 +76,7 @@ public class ClickhouseSourceConfig implements Serializable {
         builder.host(config.get(ClickhouseBaseOptions.HOST));
         builder.username(config.get(ClickhouseBaseOptions.USERNAME));
         builder.password(config.get(ClickhouseBaseOptions.PASSWORD));
-        builder.tablePath(config.get(ClickhouseSourceOptions.TABLE_PATH));
+        builder.tablePath(config.get(ClickhouseBaseOptions.TABLE_PATH));
         builder.filterQuery(config.get(ClickhouseSourceOptions.CLICKHOUSE_FILTER_QUERY));
         builder.partitionList(config.get(ClickhouseSourceOptions.CLICKHOUSE_PARTITION_LIST));
         builder.batchSize(config.get(ClickhouseSourceOptions.CLICKHOUSE_BATCH_SIZE));

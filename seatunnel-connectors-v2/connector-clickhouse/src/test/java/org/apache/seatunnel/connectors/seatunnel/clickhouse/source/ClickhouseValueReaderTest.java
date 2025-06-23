@@ -23,6 +23,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.shard.Shard;
+import org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.file.ClickhouseTable;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.source.split.ClickhouseSourceSplit;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.util.ClickhouseProxy;
 
@@ -64,10 +65,14 @@ public class ClickhouseValueReaderTest {
                 };
         rowType = new SeaTunnelRowType(fieldNames, fieldTypes);
 
+        ClickhouseTable mockClickhouseTable = Mockito.mock(ClickhouseTable.class);
+        when(mockClickhouseTable.getSortingKey()).thenReturn("id");
+
         sourceTable =
                 ClickhouseSourceTable.builder()
                         .tablePath(TablePath.of("test_db", "test_table"))
                         .batchSize(BATCH_SIZE)
+                        .clickhouseTable(mockClickhouseTable)
                         .build();
 
         ClickHouseNode node = ClickHouseNode.builder().host("localhost").port(8123).build();
@@ -202,6 +207,110 @@ public class ClickhouseValueReaderTest {
         // All parts have been processed. hasNext should return false
         Assertions.assertFalse(reader.hasNext());
         Assertions.assertTrue(parts.get(1).isEos());
+    }
+
+    @Test
+    public void testPartStrategyReadWithNoSortingKey() {
+        when(sourceTable.getClickhouseTable().getSortingKey()).thenReturn("");
+
+        List<SeaTunnelRow> mockRows = createMockRows(BATCH_SIZE);
+        when(mockProxy.queryDataFromPart(
+                        any(ClickhousePart.class), eq(rowType), eq(sourceTable), anyInt()))
+                .thenReturn(mockRows);
+
+        Assertions.assertTrue(reader.hasNext());
+
+        List<SeaTunnelRow> result = reader.next();
+        Assertions.assertEquals(BATCH_SIZE, result.size());
+
+        Assertions.assertTrue(reader.hasNext());
+        Assertions.assertFalse(reader.hasNext());
+    }
+
+    @Test
+    public void testSqlStrategyReadWithNoSortingKey() {
+        try {
+            Field sqlStrategyField =
+                    ClickhouseSourceTable.class.getDeclaredField("isSqlStrategyRead");
+            sqlStrategyField.setAccessible(true);
+            sqlStrategyField.set(sourceTable, true);
+        } catch (Exception e) {
+            Assertions.fail("Failed to set isSqlStrategyRead field", e);
+        }
+
+        when(sourceTable.getClickhouseTable().getSortingKey()).thenReturn("");
+
+        List<SeaTunnelRow> mockRows = createMockRows(5);
+        when(mockProxy.queryDataFromSql(
+                        any(),
+                        eq(rowType),
+                        eq(sourceTable.getClickhouseTable()),
+                        eq(BATCH_SIZE),
+                        eq(0)))
+                .thenReturn(mockRows);
+
+        Assertions.assertTrue(reader.hasNext());
+
+        List<SeaTunnelRow> result = reader.next();
+        Assertions.assertEquals(5, result.size());
+
+        Assertions.assertFalse(reader.hasNext());
+
+        Mockito.verify(mockProxy, Mockito.times(1))
+                .queryDataFromSql(any(), any(), any(), anyInt(), anyInt());
+    }
+
+    @Test
+    public void testSqlStrategyReadWithSortingKey() {
+        try {
+            Field sqlStrategyField =
+                    ClickhouseSourceTable.class.getDeclaredField("isSqlStrategyRead");
+            sqlStrategyField.setAccessible(true);
+            sqlStrategyField.set(sourceTable, true);
+        } catch (Exception e) {
+            Assertions.fail("Failed to set isSqlStrategyRead field", e);
+        }
+
+        when(sourceTable.getClickhouseTable().getSortingKey()).thenReturn("id");
+
+        List<SeaTunnelRow> firstBatch = createMockRows(BATCH_SIZE);
+        List<SeaTunnelRow> secondBatch = createMockRows(5);
+        List<SeaTunnelRow> emptyBatch = new ArrayList<>();
+
+        when(mockProxy.queryDataFromSql(
+                        any(),
+                        eq(rowType),
+                        eq(sourceTable.getClickhouseTable()),
+                        eq(BATCH_SIZE),
+                        eq(0)))
+                .thenReturn(firstBatch);
+        when(mockProxy.queryDataFromSql(
+                        any(),
+                        eq(rowType),
+                        eq(sourceTable.getClickhouseTable()),
+                        eq(BATCH_SIZE),
+                        eq(BATCH_SIZE)))
+                .thenReturn(secondBatch);
+        when(mockProxy.queryDataFromSql(
+                        any(),
+                        eq(rowType),
+                        eq(sourceTable.getClickhouseTable()),
+                        eq(BATCH_SIZE),
+                        eq(BATCH_SIZE + 5)))
+                .thenReturn(emptyBatch);
+
+        Assertions.assertTrue(reader.hasNext());
+        List<SeaTunnelRow> result1 = reader.next();
+        Assertions.assertEquals(BATCH_SIZE, result1.size());
+
+        Assertions.assertTrue(reader.hasNext());
+        List<SeaTunnelRow> result2 = reader.next();
+        Assertions.assertEquals(5, result2.size());
+
+        Assertions.assertFalse(reader.hasNext());
+
+        Mockito.verify(mockProxy, Mockito.times(3))
+                .queryDataFromSql(any(), any(), any(), anyInt(), anyInt());
     }
 
     private List<SeaTunnelRow> createMockRows(int size) {

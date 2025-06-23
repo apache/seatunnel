@@ -24,6 +24,8 @@ import org.apache.seatunnel.connectors.seatunnel.clickhouse.exception.Clickhouse
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.source.split.ClickhouseSourceSplit;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.util.ClickhouseProxy;
 
+import org.apache.commons.lang3.StringUtils;
+
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.Serializable;
@@ -78,7 +80,15 @@ public class ClickhouseValueReader implements Serializable {
         if (currentPartIndex >= partSize) {
             return false;
         }
+
         ClickhousePart currentPart = parts.get(currentPartIndex);
+
+        if (StringUtils.isEmpty(clickhouseSourceTable.getClickhouseTable().getSortingKey())
+                && currentPart.getOffset() != 0) {
+            log.debug("Sorting key is empty, the part will be only read once.");
+            currentPartIndex++;
+            return currentPartIndex < partSize && partStrategyRead();
+        }
 
         // If current part has been processed, move to the next part
         if (currentPart.isEos()) {
@@ -123,7 +133,12 @@ public class ClickhouseValueReader implements Serializable {
 
     private boolean sqlStrategyRead() {
         String splitQuery = clickhouseSourceSplit.getSplitQuery();
-        log.info("Sql strategy read split query: {}", splitQuery);
+
+        if (StringUtils.isEmpty(clickhouseSourceTable.getClickhouseTable().getSortingKey())
+                && sqlOffset != 0) {
+            log.debug("Sorting key is empty, the query will be only execute once.");
+            return false;
+        }
 
         try {
             int batchSize = clickhouseSourceTable.getBatchSize();
@@ -150,6 +165,9 @@ public class ClickhouseValueReader implements Serializable {
     public void close() {
         if (proxy != null) {
             proxy.close();
+        }
+        if (rowBatch != null) {
+            rowBatch.clear();
         }
     }
 }

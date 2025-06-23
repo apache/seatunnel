@@ -28,12 +28,6 @@ public class ClickhouseSourceOptions {
     public static final int CLICKHOUSE_PART_SIZE_DEFAULT = Integer.MAX_VALUE;
     public static final int CLICKHOUSE_BATCH_SIZE_DEFAULT = 1024;
 
-    public static final Option<String> TABLE_PATH =
-            Options.key("table_path")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("The path to the full path of table");
-
     public static final Option<Integer> CLICKHOUSE_PART_SIZE =
             Options.key("part_size")
                     .intType()

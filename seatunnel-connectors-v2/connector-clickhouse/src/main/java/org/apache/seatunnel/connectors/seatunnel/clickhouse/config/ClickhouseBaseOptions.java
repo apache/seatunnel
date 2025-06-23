@@ -40,12 +40,12 @@ public class ClickhouseBaseOptions {
                     .noDefaultValue()
                     .withDescription("Clickhouse database name");
 
-    /** Clickhouse database name */
-    public static final Option<String> TABLE =
-            Options.key("table")
+    /** Clickhouse table path */
+    public static final Option<String> TABLE_PATH =
+            Options.key("table_path")
                     .stringType()
                     .noDefaultValue()
-                    .withDescription("Clickhouse table name");
+                    .withDescription("The path to the full path of table");
 
     /** Clickhouse server username */
     public static final Option<String> USERNAME =
