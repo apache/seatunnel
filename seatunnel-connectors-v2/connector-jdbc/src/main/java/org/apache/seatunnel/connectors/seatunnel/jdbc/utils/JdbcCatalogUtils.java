@@ -445,16 +445,14 @@ public class JdbcCatalogUtils {
 
         String fullTablePattern;
 
-        boolean isOracleDialect =
-                jdbcDialect.dialectName().equalsIgnoreCase("oracle")
-                        || jdbcDialect.dialectName().equalsIgnoreCase("oceanbase-oracle");
+        boolean useThreePartNaming = jdbcDialect.useThreePartTablePath();
 
         if (parts.length == 1) {
             tableNamePattern = parts[0];
             fullTablePattern = tableNamePattern;
         } else if (parts.length == 2) {
-            if (isOracleDialect) {
-                databasePattern = "default";
+            if (useThreePartNaming) {
+                databasePattern = jdbcDialect.getDefaultDatabase().orElse("default");
                 String schemaPattern = parts[0];
                 tableNamePattern = parts[1];
                 fullTablePattern =

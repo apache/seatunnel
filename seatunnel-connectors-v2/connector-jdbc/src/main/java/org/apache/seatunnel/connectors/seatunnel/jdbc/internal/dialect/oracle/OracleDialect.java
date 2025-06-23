@@ -511,4 +511,14 @@ public class OracleDialect implements JdbcDialect {
             return "char_val";
         }
     }
+
+    @Override
+    public Optional<String> getDefaultDatabase() {
+        return Optional.of("default");
+    }
+
+    @Override
+    public boolean useThreePartTablePath() {
+        return true;
+    }
 }
