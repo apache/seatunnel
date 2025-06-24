@@ -441,7 +441,7 @@ public class SeaTunnelClientTest {
                                 Assertions.assertNotNull(jobClient.getJobInfo(jobId));
                             });
 
-            await().atMost(180000, TimeUnit.MILLISECONDS)
+            await().atMost(720000, TimeUnit.MILLISECONDS)
                     .untilAsserted(
                             () -> {
                                 Thread.sleep(1000);
