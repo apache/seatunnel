@@ -34,7 +34,6 @@ import com.aliyun.odps.tunnel.streams.UpsertStream;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
-import java.util.Objects;
 
 @Slf4j
 public class MaxcomputeOutputFormat {
@@ -119,7 +118,6 @@ public class MaxcomputeOutputFormat {
     private void ensureUpsertSessionAndWriter() throws TunnelException, IOException {
         if (upsertSession == null) {
             initializeUpsertSession();
-            Objects.requireNonNull(upsertSession, "UpsertSession was not initialized properly");
         }
         if (upsertStream == null) {
             this.upsertStream = upsertSession.buildUpsertStream().build();
