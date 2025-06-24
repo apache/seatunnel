@@ -854,12 +854,4 @@ public interface JdbcDialect extends Serializable {
     default String dualTable() {
         return "";
     }
-
-    default Optional<String> getDefaultDatabase() {
-        return Optional.empty();
-    }
-
-    default boolean useThreePartTablePath() {
-        return false;
-    }
 }

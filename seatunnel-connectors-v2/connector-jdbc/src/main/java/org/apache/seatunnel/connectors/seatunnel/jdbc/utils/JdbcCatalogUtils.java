@@ -435,45 +435,21 @@ public class JdbcCatalogUtils {
         String tablePath = tableConfig.getTablePath();
         log.info("Processing table path with regex: {}", tablePath);
 
-        String databasePattern = ".*";
-        String tableNamePattern = ".*";
-
         String processedTablePath = tablePath.replace("\\.", DOT_PLACEHOLDER);
         log.debug("After replacing escaped dots with placeholder: {}", processedTablePath);
 
-        String[] parts = processedTablePath.split("\\.");
+        TablePath parsedPath = jdbcDialect.parse(processedTablePath);
+
+        String databasePattern = parsedPath.getDatabaseName();
+        String schemaPattern = parsedPath.getSchemaName();
+        String tableNamePattern = parsedPath.getTableName();
+
+        if (StringUtils.isEmpty(databasePattern)) {
+            databasePattern = ".*";
+        }
 
         String fullTablePattern;
-
-        boolean useThreePartNaming = jdbcDialect.useThreePartTablePath();
-
-        if (parts.length == 1) {
-            tableNamePattern = parts[0];
-            fullTablePattern = tableNamePattern;
-        } else if (parts.length == 2) {
-            if (useThreePartNaming) {
-                databasePattern = jdbcDialect.getDefaultDatabase().orElse("default");
-                String schemaPattern = parts[0];
-                tableNamePattern = parts[1];
-                fullTablePattern =
-                        String.format(
-                                "%s.%s.%s",
-                                databasePattern,
-                                schemaPattern.replace(DOT_PLACEHOLDER, "."),
-                                tableNamePattern.replace(DOT_PLACEHOLDER, "."));
-            } else {
-                databasePattern = parts[0];
-                tableNamePattern = parts[1];
-                fullTablePattern =
-                        String.format(
-                                "%s.%s",
-                                databasePattern.replace(DOT_PLACEHOLDER, "."),
-                                tableNamePattern.replace(DOT_PLACEHOLDER, "."));
-            }
-        } else if (parts.length >= 3) {
-            databasePattern = parts[0];
-            String schemaPattern = parts[1];
-            tableNamePattern = parts[2];
+        if (StringUtils.isNotEmpty(schemaPattern)) {
             fullTablePattern =
                     String.format(
                             "%s.%s.%s",
@@ -481,7 +457,11 @@ public class JdbcCatalogUtils {
                             schemaPattern.replace(DOT_PLACEHOLDER, "."),
                             tableNamePattern.replace(DOT_PLACEHOLDER, "."));
         } else {
-            fullTablePattern = ".*";
+            fullTablePattern =
+                    String.format(
+                            "%s.%s",
+                            databasePattern.replace(DOT_PLACEHOLDER, "."),
+                            tableNamePattern.replace(DOT_PLACEHOLDER, "."));
         }
 
         log.info(
