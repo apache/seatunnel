@@ -269,7 +269,6 @@ public class MaxComputeIT extends TestSuiteBase implements TestResource {
             log.info("Skip on Spark 3.3.0 due to Netty conflict.");
             return;
         }
-        prepareLocal();
         Odps odps = getTestOdps();
         odps.tables().delete("mocked_mc", "test_table_sink", true);
         createTableWithData(odps, "test_table_sink");
@@ -282,6 +281,7 @@ public class MaxComputeIT extends TestSuiteBase implements TestResource {
         Container.ExecResult execResult = container.executeJob("/fake_maxcompute_upsert.conf");
 
         Assertions.assertEquals(0, execResult.getExitCode());
+        prepareLocal();
         records = queryTable(odps, "test_table_sink");
         Assertions.assertEquals(3, records.size());
         Assertions.assertEquals("1", records.get(0).get(0));
@@ -302,7 +302,6 @@ public class MaxComputeIT extends TestSuiteBase implements TestResource {
             log.info("Skip on Spark 3.3.0 due to Netty conflict.");
             return;
         }
-        prepareLocal();
         Odps odps = getTestOdps();
         odps.tables().delete("mocked_mc", "test_table_sink", true);
         createTableWithData(odps, "test_table_sink");
@@ -315,6 +314,7 @@ public class MaxComputeIT extends TestSuiteBase implements TestResource {
         Container.ExecResult execResult = container.executeJob("/fake_maxcompute_delete.conf");
 
         Assertions.assertEquals(0, execResult.getExitCode());
+        prepareLocal();
         records = queryTable(odps, "test_table_sink");
         Assertions.assertEquals(2, records.size());
         Assertions.assertEquals("2", records.get(0).get(0));
