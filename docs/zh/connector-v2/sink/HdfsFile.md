@@ -12,7 +12,7 @@ import ChangeLog from '../changelog/connector-file-hadoop.md';
 
 ## 主要特性
 
-- [x] [精确一次](../../../en/concept/connector-v2-features.md)
+- [x] [精确一次](../../concept/connector-v2-features.md)
 
 默认情况下，我们使用2PC提交来确保"精确一次"
 

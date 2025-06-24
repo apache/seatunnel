@@ -77,7 +77,7 @@ sink {
 ### source
 
 source用于定义SeaTunnel在哪儿检索数据，并将检索的数据用于下一步。
-可以同时定义多个source。目前支持的source请看[Source of SeaTunnel](../../en/connector-v2/source)。每种source都有自己特定的参数用来
+可以同时定义多个source。目前支持的source请看[Source of SeaTunnel](../connector-v2/source)。每种source都有自己特定的参数用来
 定义如何检索数据，SeaTunnel也抽象了每种source所使用的参数，例如 `plugin_output` 参数，用于指定当前source生成的数据的名称，
 方便后续其他模块使用。
 
@@ -118,14 +118,14 @@ sink {
 }
 ```
 
-与source类似, transform也有属于每个模块的特定参数。目前支持的source请看。目前支持的transform请看 [Transform V2 of SeaTunnel](../../en/transform-v2)
+与source类似, transform也有属于每个模块的特定参数。目前支持的source请看。目前支持的transform请看 [Transform V2 of SeaTunnel](../transform-v2)
 
 <!-- TODO missing source links --->
 
 ### sink
 
 我们使用SeaTunnel的作用是将数据从一个地方同步到其它地方，所以定义数据如何写入，写入到哪里是至关重要的。通过SeaTunnel提供的
-sink模块，你可以快速高效地完成这个操作。Sink和source非常相似，区别在于读取和写入。所以去看看我们[Sink of SeaTunnel](../../en/connector-v2/sink)吧。
+sink模块，你可以快速高效地完成这个操作。Sink和source非常相似，区别在于读取和写入。所以去看看我们[Sink of SeaTunnel](../connector-v2/sink)吧。
 
 ### 其它
 

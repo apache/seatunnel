@@ -9,7 +9,7 @@ disruptor-3.4.4.jar
 guava-27.0-jre.jar
 hazelcast-5.1.jar
 httpclient-4.5.13.jar
-httpcore-4.4.4.jar
+httpcore-4.4.16.jar
 jackson-annotations-2.13.3.jar
 jackson-core-2.13.3.jar
 jackson-databind-2.13.3.jar

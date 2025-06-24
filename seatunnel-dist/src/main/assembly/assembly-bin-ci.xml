@@ -148,7 +148,6 @@
             <unpack>false</unpack>
             <includes>
                 <include>org.apache.seatunnel:connector-*:jar</include>
-                <include>org.apache.seatunnel:seatunnel-transforms-v2:jar</include>
             </includes>
             <excludes>
                 <exclude>org.apache.seatunnel:connector-common</exclude>
@@ -197,6 +196,7 @@
                 <include>org.apache.thrift:libfb303:jar</include>
                 <include>com.facebook.presto:presto-jdbc:jar</include>
                 <include>io.trino:trino-jdbc:jar</include>
+                <include>org.apache.seatunnel:seatunnel-transforms-v2:jar</include>
             </includes>
             <outputFileNameMapping>${artifact.file.name}</outputFileNameMapping>
             <outputDirectory>/lib</outputDirectory>
