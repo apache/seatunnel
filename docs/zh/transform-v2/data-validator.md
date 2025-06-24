@@ -27,6 +27,23 @@ DataValidator 转换插件根据配置的规则验证字段值，并基于指定
 
 当 `error_handle_way` 设置为 `ROUTE_TO_TABLE` 时，用于路由无效数据的目标表名。使用 `ROUTE_TO_TABLE` 模式时此参数为必需。
 
+#### 错误表Schema
+
+当使用 `ROUTE_TO_TABLE` 模式时，DataValidator会自动创建一个具有固定schema的错误表来存储验证失败的数据。错误表包含以下字段：
+
+| 字段名 | 数据类型 | 描述 |
+|--------|----------|------|
+| source_table_id | STRING | 源表标识符，标识数据来源的表 |
+| source_table_path | STRING | 源表路径，完整的表路径信息 |
+| original_data | STRING | 原始数据的JSON表示，包含验证失败的完整行数据 |
+| validation_errors | STRING | 验证错误详情的JSON数组，包含所有验证失败的字段和错误信息 |
+| create_time | TIMESTAMP | 验证错误的创建时间 |
+
+**数据路由机制**：
+- 验证通过的数据会保持原始schema并路由到主输出表
+- 验证失败的数据会被转换为上述错误表schema格式并路由到指定的错误表
+- 每个验证失败的行都会在错误表中生成一条记录，包含完整的原始数据和详细的错误信息
+
 ### field_rules [array]
 
 字段验证规则数组。每个规则定义特定字段的验证条件。
@@ -179,6 +196,10 @@ transform {
 ```
 
 **注意**: 使用 `ROUTE_TO_TABLE` 时，请确保您的 sink 连接器支持多表。有效数据将发送到主输出表，而无效数据将路由到指定的错误表。
+
+在此示例中：
+- 验证通过的数据将保持原始schema（包含name、age等字段）并发送到主输出表
+- 验证失败的数据将被转换为错误表schema（包含source_table_id、source_table_path、original_data、validation_errors、create_time字段）并路由到"error_data"表
 
 ### 示例 4: 嵌套规则格式
 

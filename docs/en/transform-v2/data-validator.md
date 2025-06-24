@@ -27,6 +27,23 @@ Error handling strategy when validation fails:
 
 Target table name for routing invalid data when `error_handle_way` is set to `ROUTE_TO_TABLE`. This parameter is required when using `ROUTE_TO_TABLE` mode.
 
+#### Error Table Schema
+
+When using `ROUTE_TO_TABLE` mode, DataValidator automatically creates an error table with a fixed schema to store validation failure data. The error table contains the following fields:
+
+| Field Name | Data Type | Description |
+|------------|-----------|-------------|
+| source_table_id | STRING | Source table identifier that identifies the originating table |
+| source_table_path | STRING | Source table path with complete table path information |
+| original_data | STRING | JSON representation of the original data containing the complete row that failed validation |
+| validation_errors | STRING | JSON array of validation error details containing all failed fields and error information |
+| create_time | TIMESTAMP | Creation time of the validation error |
+
+**Data Routing Mechanism**:
+- Data that passes validation maintains the original schema and is routed to the main output table
+- Data that fails validation is converted to the error table schema format above and routed to the specified error table
+- Each validation failure row generates one record in the error table, containing complete original data and detailed error information
+
 ### field_rules [array]
 
 Array of field validation rules. Each rule defines validation criteria for a specific field.
@@ -179,6 +196,10 @@ transform {
 ```
 
 **Note**: When using `ROUTE_TO_TABLE`, ensure your sink connector supports multiple tables. Valid data will be sent to the main output table, while invalid data will be routed to the specified error table.
+
+In this example:
+- Data that passes validation will maintain the original schema (containing name, age, etc. fields) and be sent to the main output table
+- Data that fails validation will be converted to the error table schema (containing source_table_id, source_table_path, original_data, validation_errors, create_time fields) and routed to the "error_data" table
 
 ### Example 4: Nested Rules Format
 

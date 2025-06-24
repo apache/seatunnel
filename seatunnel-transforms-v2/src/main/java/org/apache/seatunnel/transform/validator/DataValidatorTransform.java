@@ -20,13 +20,15 @@ package org.apache.seatunnel.transform.validator;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
-import org.apache.seatunnel.api.table.catalog.ConstraintKey;
-import org.apache.seatunnel.api.table.catalog.PrimaryKey;
+import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.transform.common.AbstractCatalogSupportMapTransform;
 import org.apache.seatunnel.transform.common.ErrorHandleWay;
 import org.apache.seatunnel.transform.common.TransformCommonOptions;
@@ -37,16 +39,23 @@ import org.apache.commons.collections4.map.SingletonMap;
 
 import lombok.extern.slf4j.Slf4j;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 /** DataValidator Transform for validating field values according to configured rules. */
 @Slf4j
 public class DataValidatorTransform extends AbstractCatalogSupportMapTransform {
     public static final String PLUGIN_NAME = "DataValidator";
+    public static final String SOURCE_TABLE_ID = "source_table_id";
+    public static final String SOURCE_TABLE_PATH = "source_table_path";
+    public static final String ORIGINAL_DATA = "original_data";
+    public static final String VALIDATION_ERRORS = "validation_errors";
+    public static final String CREATE_TIME = "create_time";
 
     private final DataValidatorTransformConfig config;
     private final List<FieldValidator> fieldValidators;
@@ -117,9 +126,18 @@ public class DataValidatorTransform extends AbstractCatalogSupportMapTransform {
             } else if (errorHandleWay.allowRouteToTable()) {
                 // Route invalid data to error table by setting tableId
                 if (errorTable != null && !errorTable.isEmpty()) {
-                    SeaTunnelRow errorRow = inputRow.copy();
+                    String sourceTableId = inputCatalogTable.getTableId().toString();
+                    String sourceTablePath = inputCatalogTable.getTablePath().toString();
+                    SeaTunnelRow errorRow =
+                            generateErrorRow(
+                                    inputRow,
+                                    inputCatalogTable.getTableSchema().toPhysicalRowDataType(),
+                                    sourceTableId,
+                                    sourceTablePath,
+                                    fieldResults,
+                                    errorTable);
                     errorRow.setTableId(errorTable);
-                    log.debug("Routing invalid data to error table: {}", errorTable);
+                    log.debug("Routing invalid data to unified error table: {}", errorTable);
                     return errorRow;
                 } else {
                     log.warn("Error table not configured, skipping invalid row");
@@ -127,37 +145,36 @@ public class DataValidatorTransform extends AbstractCatalogSupportMapTransform {
                 }
             }
         }
-
-        // If validation passes, return original row or row with validation columns
         return inputRow;
     }
 
     @Override
-    protected TableSchema transformTableSchema() {
+    public List<CatalogTable> getProducedCatalogTables() {
+        List<CatalogTable> outputTables = new ArrayList<>();
 
-        // Add all original columns
-        List<Column> outputColumns =
-                inputCatalogTable.getTableSchema().getColumns().stream()
-                        .map(Column::copy)
-                        .collect(Collectors.toList());
-
-        // Copy constraint keys and primary key
-        List<ConstraintKey> outputConstraintKeys =
-                inputCatalogTable.getTableSchema().getConstraintKeys().stream()
-                        .map(ConstraintKey::copy)
-                        .collect(Collectors.toList());
-
-        PrimaryKey copiedPrimaryKey = null;
-        PrimaryKey primaryKey = inputCatalogTable.getTableSchema().getPrimaryKey();
-        if (primaryKey != null) {
-            copiedPrimaryKey = primaryKey.copy();
+        outputTables.add(getProducedCatalogTable());
+        if (errorHandleWay.allowRouteToTable() && errorTable != null && !errorTable.isEmpty()) {
+            TableIdentifier errorTableId =
+                    TableIdentifier.of(
+                            inputCatalogTable.getTableId().getCatalogName(),
+                            inputCatalogTable.getTableId().getDatabaseName(),
+                            errorTable);
+            CatalogTable errorCatalogTable =
+                    CatalogTable.of(
+                            errorTableId,
+                            createErrorSchema(),
+                            new HashMap<>(),
+                            Collections.emptyList(),
+                            "Error table for validation failures");
+            outputTables.add(errorCatalogTable);
         }
 
-        return TableSchema.builder()
-                .columns(outputColumns)
-                .primaryKey(copiedPrimaryKey)
-                .constraintKey(outputConstraintKeys)
-                .build();
+        return outputTables;
+    }
+
+    @Override
+    protected TableSchema transformTableSchema() {
+        return inputCatalogTable.getTableSchema();
     }
 
     @Override
@@ -191,5 +208,107 @@ public class DataValidatorTransform extends AbstractCatalogSupportMapTransform {
     @Override
     public String getPluginName() {
         return PLUGIN_NAME;
+    }
+
+    private SeaTunnelRow generateErrorRow(
+            SeaTunnelRow originalRow,
+            SeaTunnelRowType originalRowType,
+            String sourceTableId,
+            String sourceTablePath,
+            Map<String, List<ValidationResult>> fieldResults,
+            String errorTable) {
+
+        try {
+            String validationErrorsJson = generateValidationErrorsJson(fieldResults);
+            String originalDataJson = generateOriginalDataJson(originalRow, originalRowType);
+            SeaTunnelRow errorRow = new SeaTunnelRow(5);
+            errorRow.setField(0, sourceTableId);
+            errorRow.setField(1, sourceTablePath);
+            errorRow.setField(2, originalDataJson);
+            errorRow.setField(3, validationErrorsJson);
+            errorRow.setField(4, LocalDateTime.now());
+            errorRow.setTableId(errorTable);
+
+            return errorRow;
+
+        } catch (Exception e) {
+            log.error("Failed to generate unified error row", e);
+            throw new RuntimeException("Failed to generate unified error row", e);
+        }
+    }
+
+    private String generateValidationErrorsJson(Map<String, List<ValidationResult>> fieldResults) {
+        List<Map<String, Object>> errorsList = new ArrayList<>();
+
+        for (Map.Entry<String, List<ValidationResult>> entry : fieldResults.entrySet()) {
+            String fieldName = entry.getKey();
+            List<ValidationResult> results = entry.getValue();
+
+            for (ValidationResult result : results) {
+                if (!result.isValid()) {
+                    Map<String, Object> errorObj = new HashMap<>();
+                    errorObj.put("field_name", fieldName);
+                    errorObj.put("error_message", result.getErrorMessage());
+                    errorsList.add(errorObj);
+                }
+            }
+        }
+
+        return JsonUtils.toJsonString(errorsList);
+    }
+
+    private String generateOriginalDataJson(
+            SeaTunnelRow originalRow, SeaTunnelRowType originalRowType) {
+        Map<String, Object> rowMap = new HashMap<>();
+
+        for (int i = 0; i < originalRow.getFields().length; i++) {
+            String fieldName = originalRowType.getFieldName(i);
+            Object fieldValue = originalRow.getField(i);
+            rowMap.put(fieldName, fieldValue);
+        }
+
+        return JsonUtils.toJsonString(rowMap);
+    }
+
+    private TableSchema createErrorSchema() {
+        List<Column> columns =
+                Arrays.asList(
+                        PhysicalColumn.of(
+                                SOURCE_TABLE_ID,
+                                BasicType.STRING_TYPE,
+                                (Long) null,
+                                false,
+                                null,
+                                "Source table identifier"),
+                        PhysicalColumn.of(
+                                SOURCE_TABLE_PATH,
+                                BasicType.STRING_TYPE,
+                                (Long) null,
+                                false,
+                                null,
+                                "Source table path"),
+                        PhysicalColumn.of(
+                                ORIGINAL_DATA,
+                                BasicType.STRING_TYPE,
+                                (Long) null,
+                                false,
+                                null,
+                                "JSON representation of the problematic row"),
+                        PhysicalColumn.of(
+                                VALIDATION_ERRORS,
+                                BasicType.STRING_TYPE,
+                                (Long) null,
+                                false,
+                                null,
+                                "JSON array of validation error details"),
+                        PhysicalColumn.of(
+                                CREATE_TIME,
+                                LocalTimeType.LOCAL_DATE_TIME_TYPE,
+                                (Long) null,
+                                false,
+                                null,
+                                "Create time of validation error"));
+
+        return TableSchema.builder().columns(columns).build();
     }
 }
