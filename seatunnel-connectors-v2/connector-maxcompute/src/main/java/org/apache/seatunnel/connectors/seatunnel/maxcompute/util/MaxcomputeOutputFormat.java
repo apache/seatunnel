@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.maxcompute.util;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.options.table.FormatOptions;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonError;
@@ -26,9 +27,7 @@ import org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeSin
 
 import com.aliyun.odps.PartitionSpec;
 import com.aliyun.odps.TableSchema;
-import com.aliyun.odps.data.ArrayRecord;
 import com.aliyun.odps.data.Record;
-import com.aliyun.odps.data.RecordWriter;
 import com.aliyun.odps.tunnel.TableTunnel;
 import com.aliyun.odps.tunnel.TunnelException;
 import com.aliyun.odps.tunnel.streams.UpsertStream;
@@ -44,31 +43,21 @@ public class MaxcomputeOutputFormat {
     private final TableSchema tableSchema;
     private final SeaTunnelRowType rowType;
     private final FormatterContext formatterContext;
-    private final String tunnelEndPoint;
 
-    private RecordWriter recordWriter;
     private UpsertStream upsertStream;
-    private TableTunnel.UploadSession uploadSession;
     private TableTunnel.UpsertSession upsertSession;
 
-    public MaxcomputeOutputFormat(
-            SeaTunnelRowType rowType,
-            ReadonlyConfig readonlyConfig,
-            TableSchema tableSchema,
-            FormatterContext formatterContext,
-            String tunnelEndPoint) {
+    public MaxcomputeOutputFormat(SeaTunnelRowType rowType, ReadonlyConfig readonlyConfig) {
         this.rowType = rowType;
         this.readonlyConfig = readonlyConfig;
-        this.tableSchema = tableSchema;
-        this.formatterContext = formatterContext;
-        this.tunnelEndPoint = tunnelEndPoint;
+        this.tableSchema = MaxcomputeUtil.getTable(readonlyConfig).getSchema();
+        this.formatterContext =
+                new FormatterContext(readonlyConfig.get(FormatOptions.DATETIME_FORMAT));
     }
 
     public void write(SeaTunnelRow seaTunnelRow) throws IOException, TunnelException {
         switch (seaTunnelRow.getRowKind()) {
             case INSERT:
-                insertRecord(seaTunnelRow);
-                break;
             case UPDATE_AFTER:
                 upsertRecord(seaTunnelRow);
                 break;
@@ -84,24 +73,6 @@ public class MaxcomputeOutputFormat {
     }
 
     public void close() throws IOException, TunnelException {
-        closeUploadSession();
-        closeUpsertSession();
-    }
-
-    private void closeUploadSession() throws IOException, TunnelException {
-        if (recordWriter != null) {
-            try {
-                recordWriter.close();
-            } finally {
-                recordWriter = null;
-            }
-        }
-        if (uploadSession != null) {
-            uploadSession.commit();
-        }
-    }
-
-    private void closeUpsertSession() throws IOException, TunnelException {
         if (upsertStream != null) {
             try {
                 upsertStream.close();
@@ -118,18 +89,6 @@ public class MaxcomputeOutputFormat {
                 upsertSession = null;
             }
         }
-    }
-
-    private void insertRecord(SeaTunnelRow seaTunnelRow) throws TunnelException, IOException {
-        ensureInsertSessionAndWriter();
-        Record arrayRecord =
-                MaxcomputeTypeMapper.getMaxcomputeRowData(
-                        new ArrayRecord(tableSchema),
-                        seaTunnelRow,
-                        this.tableSchema,
-                        this.rowType,
-                        formatterContext);
-        recordWriter.write(arrayRecord);
     }
 
     private void upsertRecord(SeaTunnelRow seaTunnelRow) throws TunnelException, IOException {
@@ -157,17 +116,6 @@ public class MaxcomputeOutputFormat {
         upsertStream.delete(deleteRecord);
     }
 
-    private void ensureInsertSessionAndWriter() throws TunnelException {
-        if (uploadSession == null) {
-            initializeInsertSession();
-            Objects.requireNonNull(uploadSession, "UploadSession was not initialized properly");
-        }
-        if (recordWriter == null) {
-            this.recordWriter = uploadSession.openBufferedWriter();
-            log.info("open record writer success");
-        }
-    }
-
     private void ensureUpsertSessionAndWriter() throws TunnelException, IOException {
         if (upsertSession == null) {
             initializeUpsertSession();
@@ -179,35 +127,17 @@ public class MaxcomputeOutputFormat {
         }
     }
 
-    private void initializeInsertSession() throws TunnelException {
-        TableTunnel tunnel = getTableTunnel();
-        if (readonlyConfig.getOptional(MaxcomputeSinkOptions.PARTITION_SPEC).isPresent()) {
-            PartitionSpec partitionSpec =
-                    new PartitionSpec(readonlyConfig.get(MaxcomputeSinkOptions.PARTITION_SPEC));
-            uploadSession =
-                    tunnel.createUploadSession(
-                            readonlyConfig.get(MaxcomputeSinkOptions.PROJECT),
-                            readonlyConfig.get(MaxcomputeSinkOptions.TABLE_NAME),
-                            partitionSpec);
-
-        } else {
-            uploadSession =
-                    tunnel.createUploadSession(
-                            readonlyConfig.get(MaxcomputeSinkOptions.PROJECT),
-                            readonlyConfig.get(MaxcomputeSinkOptions.TABLE_NAME));
+    private TableTunnel getTableTunnel(String tunnelEndpoint) {
+        TableTunnel tableTunnel = MaxcomputeUtil.getTableTunnel(readonlyConfig);
+        if (tunnelEndpoint != null && !tunnelEndpoint.trim().isEmpty()) {
+            tableTunnel.setEndpoint(tunnelEndpoint);
         }
-    }
-
-    private TableTunnel getTableTunnel() {
-        TableTunnel tunnel = MaxcomputeUtil.getTableTunnel(readonlyConfig);
-        if (this.tunnelEndPoint != null && !this.tunnelEndPoint.trim().isEmpty()) {
-            tunnel.setEndpoint(this.tunnelEndPoint);
-        }
-        return tunnel;
+        return tableTunnel;
     }
 
     private void initializeUpsertSession() throws TunnelException, IOException {
-        TableTunnel tunnel = getTableTunnel();
+        TableTunnel tunnel =
+                getTableTunnel(readonlyConfig.get(MaxcomputeSinkOptions.TUNNEL_ENDPOINT));
         if (readonlyConfig.getOptional(MaxcomputeSinkOptions.PARTITION_SPEC).isPresent()) {
             PartitionSpec partitionSpec =
                     new PartitionSpec(readonlyConfig.get(MaxcomputeSinkOptions.PARTITION_SPEC));
