@@ -264,6 +264,12 @@
                 </dependency>
                 <dependency>
                     <groupId>org.apache.seatunnel</groupId>
+                    <artifactId>connector-databend</artifactId>
+                    <version>${project.version}</version>
+                    <scope>provided</scope>
+                </dependency>
+                <dependency>
+                    <groupId>org.apache.seatunnel</groupId>
                     <artifactId>connector-pulsar</artifactId>
                     <version>${project.version}</version>
                     <scope>provided</scope>
@@ -439,12 +445,6 @@
                 <dependency>
                     <groupId>org.apache.seatunnel</groupId>
                     <artifactId>connector-tablestore</artifactId>
-                    <version>${project.version}</version>
-                    <scope>provided</scope>
-                </dependency>
-                <dependency>
-                    <groupId>org.apache.seatunnel</groupId>
-                    <artifactId>connector-doris</artifactId>
                     <version>${project.version}</version>
                     <scope>provided</scope>
                 </dependency>
@@ -732,6 +732,18 @@
                     <version>${tidb.version}</version>
                     <scope>provided</scope>
                 </dependency>
+                <dependency>
+                    <groupId>com.facebook.presto</groupId>
+                    <artifactId>presto-jdbc</artifactId>
+                    <version>${presto.version}</version>
+                    <scope>provided</scope>
+                </dependency>
+                <dependency>
+                    <groupId>io.trino</groupId>
+                    <artifactId>trino-jdbc</artifactId>
+                    <version>${trino.version}</version>
+                    <scope>provided</scope>
+                </dependency>
                 <!-- jdbc driver end -->
 
                 <dependency>
@@ -982,18 +994,6 @@
                     <artifactId>seatunnel-hadoop-aws</artifactId>
                     <version>${project.version}</version>
                     <classifier>optional</classifier>
-                    <scope>provided</scope>
-                </dependency>
-                <dependency>
-                    <groupId>com.facebook.presto</groupId>
-                    <artifactId>presto-jdbc</artifactId>
-                    <version>${presto.version}</version>
-                    <scope>provided</scope>
-                </dependency>
-                <dependency>
-                    <groupId>io.trino</groupId>
-                    <artifactId>trino-jdbc</artifactId>
-                    <version>${trino.version}</version>
                     <scope>provided</scope>
                 </dependency>
             </dependencies>
