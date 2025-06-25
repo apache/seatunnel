@@ -26,6 +26,7 @@ import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
 import org.apache.seatunnel.connectors.seatunnel.http.client.HttpClientProvider;
 import org.apache.seatunnel.connectors.seatunnel.http.client.HttpResponse;
+import org.apache.seatunnel.connectors.seatunnel.http.config.HttpPaginationType;
 import org.apache.seatunnel.connectors.seatunnel.http.config.HttpParameter;
 import org.apache.seatunnel.connectors.seatunnel.http.config.HttpRequestMethod;
 import org.apache.seatunnel.connectors.seatunnel.http.config.JsonField;
@@ -215,6 +216,7 @@ public class HttpSourceReaderUpdateRequestParamTest {
         pageInfo.setUsePlaceholderReplacement(true);
 
         // Call updateRequestParam method directly
+        httpSourceReader.setRawBody(bodyJson);
         httpSourceReader.updateRequestParam(pageInfo, true);
 
         // Verify the body was updated correctly
@@ -241,6 +243,7 @@ public class HttpSourceReaderUpdateRequestParamTest {
         pageInfo.setUsePlaceholderReplacement(true);
 
         // Call updateRequestParam method directly
+        httpSourceReader.setRawBody(bodyJson);
         httpSourceReader.updateRequestParam(pageInfo, true);
 
         // Verify the body was updated correctly
@@ -268,6 +271,7 @@ public class HttpSourceReaderUpdateRequestParamTest {
         pageInfo.setUsePlaceholderReplacement(true);
 
         // Call updateRequestParam method directly
+        httpSourceReader.setRawBody(bodyJson);
         httpSourceReader.updateRequestParam(pageInfo, true);
 
         // Verify the nested body was updated correctly
@@ -319,6 +323,7 @@ public class HttpSourceReaderUpdateRequestParamTest {
         pageInfo.setUsePlaceholderReplacement(false);
 
         // Call updateRequestParam method directly
+        httpSourceReader.setRawBody(bodyJson);
         httpSourceReader.updateRequestParam(pageInfo, false);
 
         // Verify the body was updated correctly using key-based replacement
@@ -345,6 +350,7 @@ public class HttpSourceReaderUpdateRequestParamTest {
         pageInfo.setUsePlaceholderReplacement(false);
 
         // Call updateRequestParam method directly
+        httpSourceReader.setRawBody(bodyJson);
         httpSourceReader.updateRequestParam(pageInfo, false);
 
         // Verify the nested body was updated correctly using key-based replacement
@@ -372,6 +378,7 @@ public class HttpSourceReaderUpdateRequestParamTest {
         pageInfo.setUsePlaceholderReplacement(true);
 
         // Call updateRequestParam method directly
+        httpSourceReader.setRawBody(bodyJson);
         httpSourceReader.updateRequestParam(pageInfo, true);
 
         // Verify the body was updated correctly
@@ -398,6 +405,7 @@ public class HttpSourceReaderUpdateRequestParamTest {
         pageInfo.setUsePlaceholderReplacement(true);
 
         // Call updateRequestParam method directly
+        httpSourceReader.setRawBody(bodyJson);
         httpSourceReader.updateRequestParam(pageInfo, true);
 
         // Verify the body was updated correctly
@@ -425,6 +433,7 @@ public class HttpSourceReaderUpdateRequestParamTest {
         pageInfo.setUsePlaceholderReplacement(true);
 
         // Call updateRequestParam method directly
+        httpSourceReader.setRawBody(bodyJson);
         httpSourceReader.updateRequestParam(pageInfo, true);
 
         // Verify the body was updated correctly
@@ -455,6 +464,7 @@ public class HttpSourceReaderUpdateRequestParamTest {
         pageInfo.setUsePlaceholderReplacement(true);
 
         // Call updateRequestParam method directly
+        httpSourceReader.setRawBody(bodyJson);
         httpSourceReader.updateRequestParam(pageInfo, true);
 
         // Verify the body was updated correctly
@@ -485,6 +495,7 @@ public class HttpSourceReaderUpdateRequestParamTest {
         pageInfo.setUsePlaceholderReplacement(true);
 
         // Call updateRequestParam method directly
+        httpSourceReader.setRawBody(bodyJson);
         httpSourceReader.updateRequestParam(pageInfo, true);
 
         // Verify the body was updated correctly
@@ -502,6 +513,31 @@ public class HttpSourceReaderUpdateRequestParamTest {
         Assertions.assertEquals("cursor", pagination.get("cursor"));
         Assertions.assertEquals(true, filters.get("active"));
         Assertions.assertEquals("5", filters.get("code"));
+        Assertions.assertEquals(10, bodyMap.get("limit"));
+    }
+
+    @Test
+    public void testInternalPollNextWithBodyPlaceholderBatchSize() throws Exception {
+        // Setup test data
+        String bodyJson = "{\"page\":\"${page}\",\"limit\":10}";
+        httpParameter.setBody(bodyJson);
+
+        PageInfo pageInfo = new PageInfo();
+        pageInfo.setPageField("page");
+        pageInfo.setPageIndex(5L);
+        pageInfo.setBatchSize(10);
+        pageInfo.setPageType(HttpPaginationType.PAGE_NUMBER.getCode());
+        pageInfo.setUsePlaceholderReplacement(true);
+
+        // Call updateRequestParam method directly
+        httpSourceReader.setRawBody(bodyJson);
+        httpSourceReader.updateRequestParam(pageInfo, true);
+
+        // Verify the body was updated correctly
+        Assertions.assertEquals("{\"page\":\"5\",\"limit\":10}", httpParameter.getBody());
+        Map<String, Object> bodyMap =
+                JsonUtils.toMap(JsonUtils.stringToJsonNode(httpParameter.getBody()));
+        Assertions.assertEquals("5", bodyMap.get("page"));
         Assertions.assertEquals(10, bodyMap.get("limit"));
     }
 }
