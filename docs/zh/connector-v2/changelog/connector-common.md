@@ -2,7 +2,10 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
-|[Improve] Refactor file enumerator to prevent duplicate put split (#8989)|https://github.com/apache/seatunnel/commit/fdf1beae9c| dev |
+|[Fix][Connector-V2] ArrowToSeatunnelRowReader convertSeatunnelRowValue add handle Second TIMESTAMP type (#9393)|https://github.com/apache/seatunnel/commit/0555f8520b| dev |
+|[Feature][Checkpoint] Add check script for source/sink state class serialVersionUID missing (#9118)|https://github.com/apache/seatunnel/commit/4f5adeb1c7|2.3.11|
+|[Fix][API] Fixed not invoke the `SinkAggregatedCommitter`&#x27;s init method (#9070)|https://github.com/apache/seatunnel/commit/df0d11d632|2.3.11|
+|[Improve] Refactor file enumerator to prevent duplicate put split (#8989)|https://github.com/apache/seatunnel/commit/fdf1beae9c|2.3.11|
 |[Feature][Connector-V2] Add `filename_extension` parameter for read/write file (#8769)|https://github.com/apache/seatunnel/commit/78b23c0ef5|2.3.10|
 |[Fix][Connector-v2] Add DateMilliConvertor to Convert DateMilliVector into Default Timezone (#8736)|https://github.com/apache/seatunnel/commit/7b8298a8a4|2.3.10|
 |[Fix][Connector-V2] fix starRocks automatically creates tables with comment (#8568)|https://github.com/apache/seatunnel/commit/c4cb1fc4a3|2.3.10|

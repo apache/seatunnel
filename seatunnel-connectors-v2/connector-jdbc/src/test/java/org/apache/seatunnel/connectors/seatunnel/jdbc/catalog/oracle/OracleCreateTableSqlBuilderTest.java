@@ -39,6 +39,7 @@ import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -111,7 +112,8 @@ public class OracleCreateTableSqlBuilderTest {
 
         OracleCreateTableSqlBuilder oracleCreateTableSqlBuilder =
                 new OracleCreateTableSqlBuilder(catalogTable, true);
-        String createTableSql = oracleCreateTableSqlBuilder.build(tablePath).get(0);
+        List<String> sqls = oracleCreateTableSqlBuilder.build(tablePath);
+        String createTableSql = sqls.get(0);
         // create table sql is change; The old unit tests are no longer applicable
         String expect =
                 "CREATE TABLE \"test_table\" (\n"
@@ -130,6 +132,8 @@ public class OracleCreateTableSqlBuilderTest {
         String replacedStr2 = expect.replaceAll(regex, "id_");
         CONSOLE.println(replacedStr2);
         Assertions.assertEquals(replacedStr2, replacedStr1);
+
+        Assertions.assertEquals("COMMENT ON TABLE \"test_table\" IS 'User table'", sqls.get(1));
 
         // skip index
         OracleCreateTableSqlBuilder oracleCreateTableSqlBuilderSkipIndex =

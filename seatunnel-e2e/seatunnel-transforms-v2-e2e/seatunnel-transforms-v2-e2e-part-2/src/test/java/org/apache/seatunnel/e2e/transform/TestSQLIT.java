@@ -81,6 +81,9 @@ public class TestSQLIT extends TestSuiteBase {
         Container.ExecResult maxMinSql =
                 container.executeJob("/sql_transform/func_array_max_min.conf");
         Assertions.assertEquals(0, maxMinSql.getExitCode());
+
+        Container.ExecResult multiIfSql = container.executeJob("/sql_transform/func_multi_if.conf");
+        Assertions.assertEquals(0, multiIfSql.getExitCode());
     }
 
     @TestTemplate

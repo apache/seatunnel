@@ -33,6 +33,7 @@
         <module>connector-common</module>
         <module>connector-cdc</module>
         <module>connector-clickhouse</module>
+        <module>connector-databend</module>
         <module>connector-console</module>
         <module>connector-fake</module>
         <module>connector-http</module>

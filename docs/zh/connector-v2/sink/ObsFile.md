@@ -25,6 +25,9 @@ import ChangeLog from '../changelog/connector-file-obs.md';
   - [x] orc
   - [x] json
   - [x] excel
+  - [x] canal_json
+  - [x] debezium_json
+  - [x] maxwell_json
 
 ## 描述
 
@@ -111,7 +114,7 @@ import ChangeLog from '../changelog/connector-file-obs.md';
 
 >我们支持以下文件类型：
 >
-> `text` `json` `csv` `orc` `parquet` `excel`
+> `text` `json` `csv` `orc` `parquet` `excel` `canal_json` `debezium_json` `maxwell_json`
 
 请注意，最终文件名将以file_format的后缀结尾，文本文件的后缀为“txt”。
 

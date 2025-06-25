@@ -155,12 +155,16 @@ public class JdbcInputFormat implements Serializable {
         } catch (SQLException se) {
             throw new JdbcConnectorException(
                     CommonErrorCodeDeprecated.SQL_OPERATION_FAILED,
-                    "Couldn't read data - " + se.getMessage(),
+                    String.format(
+                            "Failed to read data from table '%s': %s",
+                            splitTableId, se.getMessage()),
                     se);
         } catch (NullPointerException npe) {
             throw new JdbcConnectorException(
                     CommonErrorCodeDeprecated.SQL_OPERATION_FAILED,
-                    "Couldn't access resultSet",
+                    String.format(
+                            "Failed to access resultSet for table '%s': NullPointerException occurred",
+                            splitTableId),
                     npe);
         }
     }
