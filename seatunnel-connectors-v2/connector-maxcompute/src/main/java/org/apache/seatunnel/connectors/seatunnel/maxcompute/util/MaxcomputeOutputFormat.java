@@ -17,14 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.maxcompute.util;
 
-import org.apache.seatunnel.api.configuration.ReadonlyConfig;
-import org.apache.seatunnel.api.options.table.FormatOptions;
-import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.exception.CommonError;
-import org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeBaseOptions;
-import org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeSinkOptions;
-
 import com.aliyun.odps.PartitionSpec;
 import com.aliyun.odps.TableSchema;
 import com.aliyun.odps.data.Record;
@@ -32,6 +24,13 @@ import com.aliyun.odps.tunnel.TableTunnel;
 import com.aliyun.odps.tunnel.TunnelException;
 import com.aliyun.odps.tunnel.streams.UpsertStream;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.options.table.FormatOptions;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.exception.CommonError;
+import org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeBaseOptions;
+import org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeSinkOptions;
 
 import java.io.IOException;
 
@@ -55,13 +54,22 @@ public class MaxcomputeOutputFormat {
     }
 
     public void write(SeaTunnelRow seaTunnelRow) throws IOException, TunnelException {
+        ensureUpsertSessionAndWriter();
+        Record newRecord =
+                MaxcomputeTypeMapper.getMaxcomputeRowData(
+                        upsertSession.newRecord(),
+                        seaTunnelRow,
+                        this.tableSchema,
+                        this.rowType,
+                        formatterContext);
+
         switch (seaTunnelRow.getRowKind()) {
             case INSERT:
             case UPDATE_AFTER:
-                upsertRecord(seaTunnelRow);
+                upsertStream.upsert(newRecord);
                 break;
             case DELETE:
-                deleteRecord(seaTunnelRow);
+                upsertStream.delete(newRecord);
                 break;
             default:
                 throw CommonError.unsupportedDataType(
@@ -88,31 +96,6 @@ public class MaxcomputeOutputFormat {
                 upsertSession = null;
             }
         }
-    }
-
-    private void upsertRecord(SeaTunnelRow seaTunnelRow) throws TunnelException, IOException {
-        ensureUpsertSessionAndWriter();
-        Record upsertRecord =
-                MaxcomputeTypeMapper.getMaxcomputeRowData(
-                        upsertSession.newRecord(),
-                        seaTunnelRow,
-                        this.tableSchema,
-                        this.rowType,
-                        formatterContext);
-
-        upsertStream.upsert(upsertRecord);
-    }
-
-    private void deleteRecord(SeaTunnelRow seaTunnelRow) throws TunnelException, IOException {
-        ensureUpsertSessionAndWriter();
-        Record deleteRecord =
-                MaxcomputeTypeMapper.getMaxcomputeRowData(
-                        upsertSession.newRecord(),
-                        seaTunnelRow,
-                        this.tableSchema,
-                        this.rowType,
-                        formatterContext);
-        upsertStream.delete(deleteRecord);
     }
 
     private void ensureUpsertSessionAndWriter() throws TunnelException, IOException {
