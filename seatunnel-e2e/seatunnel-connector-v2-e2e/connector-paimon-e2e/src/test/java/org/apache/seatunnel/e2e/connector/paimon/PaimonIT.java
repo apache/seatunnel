@@ -17,16 +17,15 @@
 
 package org.apache.seatunnel.e2e.connector.paimon;
 
-import org.apache.seatunnel.e2e.common.TestResource;
+import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
-import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
+import org.apache.seatunnel.e2e.common.container.TestContainerId;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 import org.apache.seatunnel.e2e.common.util.ContainerUtil;
 
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.Container;
 import org.testcontainers.utility.MountableFile;
@@ -35,21 +34,9 @@ import java.io.IOException;
 import java.nio.file.Path;
 
 @DisabledOnContainer(
-        value = {},
-        type = {EngineType.SPARK, EngineType.FLINK},
-        disabledReason =
-                "Spark and Flink engine can not auto create paimon table on worker node in local file(e.g flink tm) by savemode feature which can lead error")
-public class PaimonIT extends AbstractPaimonIT implements TestResource {
-
-    @BeforeAll
-    @Override
-    public void startUp() throws Exception {
-        this.isWindows =
-                System.getProperties().getProperty("os.name").toUpperCase().contains("WINDOWS");
-    }
-
-    @Override
-    public void tearDown() throws Exception {}
+        value = TestContainerId.FLINK_1_13,
+        disabledReason = "Paimon does not support flink 1.13")
+public class PaimonIT extends TestSuiteBase {
 
     @TestContainerExtension
     private final ContainerExtendedFactory extendedFactory =
@@ -57,8 +44,8 @@ public class PaimonIT extends AbstractPaimonIT implements TestResource {
                 Path schemaPath = ContainerUtil.getResourcesFile("/schema-0.json").toPath();
                 container.copyFileToContainer(
                         MountableFile.forHostPath(schemaPath),
-                        "/tmp/paimon/default.db/st_test/schema/schema-0");
-                container.execInContainer("chmod", "777", "-R", "/tmp/paimon");
+                        "/opt/seatunnel_mounts/paimon/default.db/st_test/schema/schema-0");
+                container.execInContainer("chmod", "777", "-R", "/opt/seatunnel_mounts/paimon");
             };
 
     @TestTemplate
