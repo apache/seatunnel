@@ -93,6 +93,18 @@ public class FakeDataRandomUtils {
     }
 
     public Integer randomInt(Column column) {
+        if (fakeConfig.getAutoIncrementEnabled()
+                && IdGeneratorUtils.isPrimaryColumn(fakeConfig, column.getName())) {
+            if (fakeConfig.getAutoIncrementStart()
+                            + ((long) fakeConfig.getParallelism() * fakeConfig.getRowNum())
+                    > Integer.MAX_VALUE) {
+                throw new IllegalArgumentException(
+                        "The auto increment start value is too large, please check your configuration.");
+            }
+            return IdGeneratorUtils.getIdGenerator(fakeConfig, column.getName())
+                    .getNextId()
+                    .intValue();
+        }
         List<Integer> intTemplate = fakeConfig.getIntTemplate();
         if (!CollectionUtils.isEmpty(intTemplate)) {
             return randomFromList(intTemplate);
@@ -101,6 +113,10 @@ public class FakeDataRandomUtils {
     }
 
     public Long randomBigint(Column column) {
+        if (fakeConfig.getAutoIncrementEnabled()
+                && IdGeneratorUtils.isPrimaryColumn(fakeConfig, column.getName())) {
+            return IdGeneratorUtils.getIdGenerator(fakeConfig, column.getName()).getNextId();
+        }
         List<Long> bigTemplate = fakeConfig.getBigTemplate();
         if (!CollectionUtils.isEmpty(bigTemplate)) {
             return randomFromList(bigTemplate);

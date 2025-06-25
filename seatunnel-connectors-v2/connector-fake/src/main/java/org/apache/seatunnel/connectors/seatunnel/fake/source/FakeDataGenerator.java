@@ -57,8 +57,6 @@ import java.util.List;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
-import static org.apache.seatunnel.api.table.type.SqlType.TIME;
-
 public class FakeDataGenerator {
     private static final String CURRENT_DATE = "CURRENT_DATE";
     private static final String CURRENT_TIME = "CURRENT_TIME";
