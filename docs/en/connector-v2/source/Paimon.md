@@ -13,7 +13,7 @@ Read data from Apache Paimon.
 - [x] [batch](../../concept/connector-v2-features.md)
 - [x] [stream](../../concept/connector-v2-features.md)
 - [ ] [exactly-once](../../concept/connector-v2-features.md)
-- [ ] [column projection](../../concept/connector-v2-features.md)
+- [x] [column projection](../../concept/connector-v2-features.md)
 - [ ] [parallelism](../../concept/connector-v2-features.md)
 - [ ] [support user-defined split](../../concept/connector-v2-features.md)
 
@@ -60,7 +60,8 @@ The file path of `hdfs-site.xml`
 The filter condition of the table read. For example: `select * from st_test where id > 100`. If not specified, all rows are read.
 Currently, where conditions only support <, <=, >, >=, =, !=, or, and,is null, is not null, between...and, in, not in, and others are not supported.
 The Having, Group By, Order By clauses are currently unsupported, because these clauses are not supported by Paimon.
-The projection and limit will be supported in the future.
+you can also project specific columns, for example: select id, name from st_test where id > 100.
+The limit will be supported in the future.
 
 Note: When the field after the where condition is a string or boolean value, its value must be enclosed in single quotes, otherwise an error will be reported. `For example: name='abc' or tag='true'`
 The field data types currently supported by where conditions are as follows:
