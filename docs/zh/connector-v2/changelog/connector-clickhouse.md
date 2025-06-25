@@ -2,6 +2,11 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
+|[Feature][Connector-V2] Support multi-table sink feature for ClickHouse (#9301)|https://github.com/apache/seatunnel/commit/3524895136|2.3.11|
+|[Fix][Connector-V2] Fix the problem that missing options configuration when building ClickHouse Nodes (#9277)|https://github.com/apache/seatunnel/commit/051d19c3a9|2.3.11|
+|[Feature][Transform] Support define sink column type (#9114)|https://github.com/apache/seatunnel/commit/ab7119e507|2.3.11|
+|[Feature][Checkpoint] Add check script for source/sink state class serialVersionUID missing (#9118)|https://github.com/apache/seatunnel/commit/4f5adeb1c7|2.3.11|
+|[Fix][API] Fixed not invoke the `SinkAggregatedCommitter`&#x27;s init method (#9070)|https://github.com/apache/seatunnel/commit/df0d11d632|2.3.11|
 |[Fix] [Clickhouse] Parallelism makes data duplicate (#8916)|https://github.com/apache/seatunnel/commit/45345f2738|2.3.10|
 |[Fix][Connector-V2]Fix Descriptions for CUSTOM_SQL in Connector (#8778)|https://github.com/apache/seatunnel/commit/96b610eb7e|2.3.10|
 |[improve] update clickhouse connector config option (#8755)|https://github.com/apache/seatunnel/commit/b964189b75|2.3.10|

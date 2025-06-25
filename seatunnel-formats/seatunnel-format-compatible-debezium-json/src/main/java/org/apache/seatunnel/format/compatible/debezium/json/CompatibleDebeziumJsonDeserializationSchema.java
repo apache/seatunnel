@@ -19,6 +19,7 @@
 package org.apache.seatunnel.format.compatible.debezium.json;
 
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -60,7 +61,9 @@ public class CompatibleDebeziumJsonDeserializationSchema
         String key = debeziumJsonConverter.serializeKey(record);
         String value = debeziumJsonConverter.serializeValue(record);
         Object[] fields = new Object[] {record.topic(), key, value};
-        return new SeaTunnelRow(fields);
+        SeaTunnelRow seaTunnelRow = new SeaTunnelRow(fields);
+        seaTunnelRow.setTableId(TablePath.DEFAULT.getFullName());
+        return seaTunnelRow;
     }
 
     @Override

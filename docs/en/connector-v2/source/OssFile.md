@@ -203,6 +203,8 @@ If you assign file type to `parquet` `orc`, schema option not required, connecto
 | compress_codec            | string  | no       | none                | Which compress codec the files used.                                                                                                                                                                                                                                                                                                |
 | encoding                  | string  | no       | UTF-8               |
 | null_format               | string  | no       | -                   | Only used when file_format_type is text. null_format to define which strings can be represented as null. e.g: `\N`                                                                                                                                                                                                                  |
+| binary_chunk_size         | int     | no       | 1024                | Only used when file_format_type is binary. The chunk size (in bytes) for reading binary files. Default is 1024 bytes. Larger values may improve performance for large files but use more memory.                                                                                                                                   |
+| binary_complete_file_mode | boolean | no       | false               | Only used when file_format_type is binary. Whether to read the complete file as a single chunk instead of splitting into chunks. When enabled, the entire file content will be read into memory at once. Default is false.                                                                                                          |
 | file_filter_pattern       | string  | no       |                     | Filter pattern, which used for filtering files.                                                                                                                                                                                                                                                                                     |
 | common-options            | config  | no       | -                   | Source plugin common parameters, please refer to [Source Common Options](../source-common-options.md) for details.                                                                                                                                                                                                                  |
 
@@ -220,6 +222,18 @@ The compress codec of files and the details that supported as the following show
 
 Only used when file_format_type is json,text,csv,xml.
 The encoding of the file to read. This param will be parsed by `Charset.forName(encoding)`.
+
+### binary_chunk_size [int]
+
+Only used when file_format_type is binary.
+
+The chunk size (in bytes) for reading binary files. Default is 1024 bytes. Larger values may improve performance for large files but use more memory.
+
+### binary_complete_file_mode [boolean]
+
+Only used when file_format_type is binary.
+
+Whether to read the complete file as a single chunk instead of splitting into chunks. When enabled, the entire file content will be read into memory at once. Default is false.
 
 ### file_filter_pattern [string]
 

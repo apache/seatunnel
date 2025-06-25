@@ -30,11 +30,13 @@ import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.AbstractJdbcCatalog;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.utils.CatalogUtils;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.mysql.MySqlTypeConverter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.mysql.MySqlTypeMapper;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.mysql.MySqlVersion;
 
 import com.mysql.cj.MysqlType;
+import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 
 import java.sql.Connection;
@@ -45,6 +47,7 @@ import java.sql.Statement;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
+import java.util.Properties;
 
 @Slf4j
 public class MySqlCatalog extends AbstractJdbcCatalog {
@@ -60,6 +63,7 @@ public class MySqlCatalog extends AbstractJdbcCatalog {
 
     private MySqlVersion version;
     private MySqlTypeConverter typeConverter;
+    private boolean intTypeNarrowing = JdbcOptions.INT_TYPE_NARROWING.defaultValue();
 
     public MySqlCatalog(
             String catalogName,
@@ -69,7 +73,20 @@ public class MySqlCatalog extends AbstractJdbcCatalog {
             String driverClass) {
         super(catalogName, username, pwd, urlInfo, null, driverClass);
         this.version = resolveVersion();
-        this.typeConverter = new MySqlTypeConverter(version);
+        this.typeConverter = new MySqlTypeConverter(version, intTypeNarrowing);
+    }
+
+    public MySqlCatalog(
+            String catalogName,
+            String username,
+            String pwd,
+            JdbcUrlUtil.UrlInfo urlInfo,
+            String driverClass,
+            boolean intTypeNarrowing) {
+        super(catalogName, username, pwd, urlInfo, null, driverClass);
+        this.intTypeNarrowing = intTypeNarrowing;
+        this.version = resolveVersion();
+        this.typeConverter = new MySqlTypeConverter(version, intTypeNarrowing);
     }
 
     @Override
@@ -206,6 +223,17 @@ public class MySqlCatalog extends AbstractJdbcCatalog {
         Connection defaultConnection = getConnection(defaultUrl);
         return CatalogUtils.getCatalogTable(
                 defaultConnection, sqlQuery, new MySqlTypeMapper(typeConverter));
+    }
+
+    @Override
+    protected @NonNull Properties getConnectionProperties() {
+        Properties info = super.getConnectionProperties();
+        if (!intTypeNarrowing) {
+            // we should not use tinyint(1) as boolean type when intTypeNarrowing is false, so
+            // cannot convert tinyint(1) to bit
+            info.put("tinyInt1isBit", "false");
+        }
+        return info;
     }
 
     @Override

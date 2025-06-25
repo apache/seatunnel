@@ -465,7 +465,7 @@ public class HttpClientProvider implements AutoCloseable {
         headers.forEach(request::addHeader);
     }
 
-    private void addBody(HttpEntityEnclosingRequestBase request, Map<String, Object> body)
+    static void addBody(HttpEntityEnclosingRequestBase request, Map<String, Object> body)
             throws UnsupportedEncodingException {
         if (MapUtils.isEmpty(body)) {
             body = new HashMap<>();
@@ -494,7 +494,6 @@ public class HttpClientProvider implements AutoCloseable {
             }
             StringEntity entity =
                     new StringEntity(JsonUtils.toJsonString(body), ContentType.APPLICATION_JSON);
-            entity.setContentEncoding(new BasicHeader(HTTP.CONTENT_TYPE, APPLICATION_JSON));
             request.setEntity(entity);
         }
     }

@@ -397,8 +397,11 @@ public class SQLTransformTest {
                                 new SeaTunnelRow(new Object[] {Integer.valueOf(1), 3, "false"}));
                     } catch (Exception e) {
                         Assertions.assertEquals(
-                                "ErrorCode:[COMMON-05], ErrorDescription:[Unsupported operation] - Unsupported CAST AS Boolean: 3",
+                                "ErrorCode:[TRANSFORM_COMMON-06], ErrorDescription:[The expression 'cast(`int` AS boolean)' of SQL transform execute failed]",
                                 e.getMessage());
+                        Assertions.assertEquals(
+                                "ErrorCode:[COMMON-05], ErrorDescription:[Unsupported operation] - Unsupported CAST AS Boolean: 3",
+                                e.getCause().getMessage());
                         throw e;
                     }
                 });
@@ -411,8 +414,11 @@ public class SQLTransformTest {
                                 new SeaTunnelRow(new Object[] {Integer.valueOf(1), 0, "false333"}));
                     } catch (Exception e) {
                         Assertions.assertEquals(
-                                "ErrorCode:[COMMON-05], ErrorDescription:[Unsupported operation] - Unsupported CAST AS Boolean: false333",
+                                "ErrorCode:[TRANSFORM_COMMON-06], ErrorDescription:[The expression 'cast(`string` AS boolean)' of SQL transform execute failed]",
                                 e.getMessage());
+                        Assertions.assertEquals(
+                                "ErrorCode:[COMMON-05], ErrorDescription:[Unsupported operation] - Unsupported CAST AS Boolean: false333",
+                                e.getCause().getMessage());
                         throw e;
                     }
                 });
@@ -440,5 +446,56 @@ public class SQLTransformTest {
         Assertions.assertEquals(1, result.get(0).getField(0));
         Assertions.assertEquals(true, result.get(0).getField(1));
         Assertions.assertEquals(false, result.get(0).getField(2));
+    }
+
+    @Test
+    public void testExpressionErrorField() {
+        String tableName = "test";
+        String[] fields = new String[] {"FIELD1", "FIELD2", "FIELD3"};
+        SeaTunnelDataType[] fieldTypes =
+                new SeaTunnelDataType[] {
+                    BasicType.INT_TYPE, BasicType.DOUBLE_TYPE, BasicType.STRING_TYPE
+                };
+        CatalogTable table =
+                CatalogTableUtil.getCatalogTable(
+                        tableName, new SeaTunnelRowType(fields, fieldTypes));
+        String sqlQuery =
+                "select "
+                        + "CAST(`FIELD1` AS STRING) AS FIELD1, "
+                        + "CAST(`FIELD1` AS decimal(22,4)) AS FIELD2, "
+                        + "CAST(`FIELD3` AS decimal(22,0)) AS FIELD3 "
+                        + "from dual";
+
+        ReadonlyConfig config = ReadonlyConfig.fromMap(Collections.singletonMap("query", sqlQuery));
+        SQLTransform sqlTransform = new SQLTransform(config, table);
+        Assertions.assertThrows(
+                TransformException.class,
+                () -> {
+                    try {
+                        sqlTransform.transformRow(
+                                new SeaTunnelRow(new Object[] {1, 123.123, "true"}));
+                    } catch (Exception e) {
+                        Assertions.assertEquals(
+                                "ErrorCode:[TRANSFORM_COMMON-06], ErrorDescription:[The expression 'CAST(`FIELD3` AS decimal (22, 0))' of SQL transform execute failed]",
+                                e.getMessage());
+                        throw e;
+                    }
+                });
+        sqlQuery = "select * from dual where FIELD1/0 > 10";
+        config = ReadonlyConfig.fromMap(Collections.singletonMap("query", sqlQuery));
+        SQLTransform sqlTransform2 = new SQLTransform(config, table);
+        Assertions.assertThrows(
+                TransformException.class,
+                () -> {
+                    try {
+                        sqlTransform2.transformRow(
+                                new SeaTunnelRow(new Object[] {1, 123.123, "true"}));
+                    } catch (Exception e) {
+                        Assertions.assertEquals(
+                                "ErrorCode:[TRANSFORM_COMMON-07], ErrorDescription:[The where statement 'FIELD1 / 0 > 10' of SQL transform execute failed]",
+                                e.getMessage());
+                        throw e;
+                    }
+                });
     }
 }

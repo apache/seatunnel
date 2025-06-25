@@ -2,6 +2,11 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
+|[Bugfix][Starrocks] Fix starrocks batch data exceeds the maximum limit (#9256)|https://github.com/apache/seatunnel/commit/84634a4d1f|2.3.11|
+|[Improve][Starrocks] Catch lable already exception (#9222)|https://github.com/apache/seatunnel/commit/b6fc222c0a|2.3.11|
+|[Feature][Transform] Support define sink column type (#9114)|https://github.com/apache/seatunnel/commit/ab7119e507|2.3.11|
+|[Feature][Checkpoint] Add check script for source/sink state class serialVersionUID missing (#9118)|https://github.com/apache/seatunnel/commit/4f5adeb1c7|2.3.11|
+|[Fix][Connector-V2] Fixed missing timestamp accuracy of starrocks connector (#9096)|https://github.com/apache/seatunnel/commit/02254b9c0e|2.3.11|
 |[Fix][Connector-V2] Fix StarRocksCatalogTest#testCatalog() NPE (#8987)|https://github.com/apache/seatunnel/commit/53f0a9eb52|2.3.10|
 |[Improve][Connector-V2] Random pick the starrocks fe address which can be connected (#8898)|https://github.com/apache/seatunnel/commit/bef76078f9|2.3.10|
 |[Feature][Connector-v2] Support multi starrocks source (#8789)|https://github.com/apache/seatunnel/commit/26b5529aaf|2.3.10|

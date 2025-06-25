@@ -43,7 +43,6 @@ support `Xa transactions`. You can set `is_exactly_once=true` to enable it.
 | database                                  | String  | No       | -                            |
 | table                                     | String  | No       | -                            |
 | primary_keys                              | Array   | No       | -                            |
-| support_upsert_by_query_primary_key_exist | Boolean | No       | false                        |
 | connection_check_timeout_sec              | Int     | No       | 30                           |
 | max_retries                               | Int     | No       | 0                            |
 | batch_size                                | Int     | No       | 1000                         |
@@ -139,11 +138,6 @@ Tip: If the target database has the concept of SCHEMA, the table parameter must 
 ### primary_keys [array]
 
 This option is used to support operations such as `insert`, `delete`, and `update` when automatically generate sql.
-
-### support_upsert_by_query_primary_key_exist [boolean]
-
-Choose to use INSERT sql, UPDATE sql to process update events(INSERT, UPDATE_AFTER) based on query primary key exists. This configuration is only used when database unsupported upsert syntax.
-**Note**: that this method has low performance
 
 ### connection_check_timeout_sec [int]
 
@@ -363,7 +357,6 @@ sink {
         compatible_mode="postgresLow"
         database = "sink_database"
         table = "sink_table"
-        support_upsert_by_query_primary_key_exist = true
         generate_sink_sql = true
         primary_keys = ["key1", "key2", ...]
     }

@@ -2,6 +2,7 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
+|[Fix][Connector-Redis] Redis did not write successfully, but the task did not fail (#9055)|https://github.com/apache/seatunnel/commit/07510ed937|2.3.11|
 |[hotfix][redis] fix npe cause by null host parameter (#8881)|https://github.com/apache/seatunnel/commit/7bd5865165|2.3.10|
 |[Improve][Redis] Optimized Redis connection params (#8841)|https://github.com/apache/seatunnel/commit/e56f06cdf0|2.3.10|
 |[Improve] restruct connector common options (#8634)|https://github.com/apache/seatunnel/commit/f3499a6eeb|2.3.10|

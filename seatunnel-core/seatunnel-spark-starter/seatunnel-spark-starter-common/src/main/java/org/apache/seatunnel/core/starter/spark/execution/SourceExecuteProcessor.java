@@ -92,12 +92,12 @@ public class SourceExecuteProcessor extends SparkAbstractPluginExecuteProcessor<
                                         EnvCommonOptions.PARALLELISM.key(),
                                         EnvCommonOptions.PARALLELISM.defaultValue());
             }
+            envOption.put(EnvCommonOptions.PARALLELISM.key(), String.valueOf(parallelism));
             Dataset<Row> dataset =
                     sparkRuntimeEnvironment
                             .getSparkSession()
                             .read()
                             .format(SeaTunnelSource.class.getSimpleName())
-                            .option(EnvCommonOptions.PARALLELISM.key(), parallelism)
                             .option(
                                     Constants.SOURCE_SERIALIZATION,
                                     SerializationUtils.objectToString(source))

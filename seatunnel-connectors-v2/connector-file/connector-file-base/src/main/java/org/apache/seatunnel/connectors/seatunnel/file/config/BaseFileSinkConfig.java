@@ -115,22 +115,22 @@ public class BaseFileSinkConfig implements DelimiterConfig, Serializable {
             this.filenameExtension = config.getString(FileBaseSinkOptions.FILENAME_EXTENSION.key());
         }
 
-        if (config.hasPath(FileBaseSinkOptions.DATE_FORMAT.key())) {
+        if (config.hasPath(FileBaseSinkOptions.DATE_FORMAT_LEGACY.key())) {
             dateFormat =
                     DateUtils.Formatter.parse(
-                            config.getString(FileBaseSinkOptions.DATE_FORMAT.key()));
+                            config.getString(FileBaseSinkOptions.DATE_FORMAT_LEGACY.key()));
         }
 
-        if (config.hasPath(FileBaseSinkOptions.DATETIME_FORMAT.key())) {
+        if (config.hasPath(FileBaseSinkOptions.DATETIME_FORMAT_LEGACY.key())) {
             datetimeFormat =
                     DateTimeUtils.Formatter.parse(
-                            config.getString(FileBaseSinkOptions.DATETIME_FORMAT.key()));
+                            config.getString(FileBaseSinkOptions.DATETIME_FORMAT_LEGACY.key()));
         }
 
-        if (config.hasPath(FileBaseSinkOptions.TIME_FORMAT.key())) {
+        if (config.hasPath(FileBaseSinkOptions.TIME_FORMAT_LEGACY.key())) {
             timeFormat =
                     TimeUtils.Formatter.parse(
-                            config.getString(FileBaseSinkOptions.TIME_FORMAT.key()));
+                            config.getString(FileBaseSinkOptions.TIME_FORMAT_LEGACY.key()));
         }
 
         if (config.hasPath(FileBaseSinkOptions.ENABLE_HEADER_WRITE.key())) {

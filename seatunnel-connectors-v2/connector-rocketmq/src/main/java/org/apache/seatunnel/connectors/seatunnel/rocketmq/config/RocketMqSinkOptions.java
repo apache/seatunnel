@@ -22,10 +22,12 @@ import org.apache.seatunnel.api.configuration.Options;
 
 import java.util.List;
 
-public class ProducerConfig extends Config {
+public class RocketMqSinkOptions extends RocketMqBaseOptions {
 
     public static final int DEFAULT_MAX_MESSAGE_SIZE = 1024 * 1024 * 4;
     public static final int DEFAULT_SEND_MESSAGE_TIMEOUT_MILLIS = 3000;
+    private static final String DEFAULT_PRODUCER_GROUP = "SeaTunnel-Producer-Group";
+
     public static final Option<String> TOPIC =
             Options.key("topic")
                     .stringType()
@@ -41,7 +43,7 @@ public class ProducerConfig extends Config {
     public static final Option<String> PRODUCER_GROUP =
             Options.key("producer.group")
                     .stringType()
-                    .noDefaultValue()
+                    .defaultValue(DEFAULT_PRODUCER_GROUP)
                     .withDescription("RocketMq producer group id.");
 
     public static final Option<List<String>> PARTITION_KEY_FIELDS =

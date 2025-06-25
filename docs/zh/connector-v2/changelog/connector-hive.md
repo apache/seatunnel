@@ -2,7 +2,10 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
-|[Improve] Refactor file enumerator to prevent duplicate put split (#8989)|https://github.com/apache/seatunnel/commit/fdf1beae9c| dev |
+|[Feature][connector-hive] hive sink connector support overwrite mode #7843 (#7891)|https://github.com/apache/seatunnel/commit/6fafe6f4d3| dev |
+|[Fix][Connector-V2] Fix hive client thread unsafe (#9282)|https://github.com/apache/seatunnel/commit/5dc25897a9|2.3.11|
+|[improve] update file connectors config (#9034)|https://github.com/apache/seatunnel/commit/8041d59dc2|2.3.11|
+|[Improve] Refactor file enumerator to prevent duplicate put split (#8989)|https://github.com/apache/seatunnel/commit/fdf1beae9c|2.3.11|
 |Revert &quot; [improve] update localfile connector config&quot; (#9018)|https://github.com/apache/seatunnel/commit/cdc79e13ad|2.3.10|
 | [improve] update localfile connector config (#8765)|https://github.com/apache/seatunnel/commit/def369a85f|2.3.10|
 |[Improve][connector-hive] Improved hive file allocation algorithm for subtasks (#8876)|https://github.com/apache/seatunnel/commit/89d1878ade|2.3.10|

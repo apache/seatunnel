@@ -76,4 +76,18 @@ public class ElasticsearchSinkOptions extends ElasticsearchBaseOptions {
                             Arrays.asList(DROP_DATA, APPEND_DATA, ERROR_WHEN_DATA_EXISTS))
                     .defaultValue(APPEND_DATA)
                     .withDescription("data_save_mode");
+
+    public static final Option<List<String>> VECTORIZATION_FIELDS =
+            Options.key("vectorization_fields")
+                    .listType(String.class)
+                    .noDefaultValue()
+                    .withDescription(
+                            "List of field names that contain embedding vectors (ByteBuffer)");
+
+    public static final Option<Integer> VECTOR_DIMENSIONS =
+            Options.key("vector_dimensions")
+                    .intType()
+                    .defaultValue(0)
+                    .withDescription(
+                            "Default dimension for vector fields (number of floats in the vector)");
 }

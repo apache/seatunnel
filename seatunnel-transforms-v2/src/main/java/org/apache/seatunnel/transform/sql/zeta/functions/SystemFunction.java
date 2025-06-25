@@ -103,6 +103,10 @@ public class SystemFunction {
             case "VARCHAR":
             case "STRING":
                 return v1.toString();
+            case "TINYINT":
+                return Byte.parseByte(v1.toString());
+            case "SMALLINT":
+                return Short.parseShort(v1.toString());
             case "INT":
             case "INTEGER":
                 return Integer.parseInt(v1.toString());
