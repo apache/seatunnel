@@ -66,10 +66,6 @@ public class JdbcSourceTableConfig implements Serializable {
     @JsonProperty("use_regex")
     private Boolean useRegex;
 
-    public Boolean getUseRegex() {
-        return useRegex != null ? useRegex : false;
-    }
-
     @Tolerate
     public JdbcSourceTableConfig() {}
 

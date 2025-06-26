@@ -85,11 +85,9 @@ public class JdbcCatalogUtils {
                 Map<String, Map<String, String>> unsupportedTable = new LinkedHashMap<>();
                 for (JdbcSourceTableConfig tableConfig : tablesConfig) {
                     try {
-                        boolean isRegexPath = tableConfig.getUseRegex();
-
                         if (StringUtils.isNotEmpty(tableConfig.getTablePath())
                                 && StringUtils.isEmpty(tableConfig.getQuery())
-                                && isRegexPath) {
+                                && tableConfig.getUseRegex()) {
 
                             processRegexTablePath(jdbcCatalog, jdbcDialect, tableConfig, tables);
                         } else {
