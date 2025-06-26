@@ -100,7 +100,9 @@ public class JdbcSourceTableConfig implements Serializable {
                     tableConfig.setUseSelectCount(
                             connectorConfig.get(JdbcSourceOptions.USE_SELECT_COUNT));
                     tableConfig.setSkipAnalyze(connectorConfig.get(JdbcSourceOptions.SKIP_ANALYZE));
-                    tableConfig.setUseRegex(connectorConfig.get(JdbcSourceOptions.USE_REGEX));
+                    if (tableConfig.getUseRegex() == null) {
+                        tableConfig.setUseRegex(connectorConfig.get(JdbcSourceOptions.USE_REGEX));
+                    }
                 });
 
         if (tableList.size() > 1) {
