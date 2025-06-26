@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.paimon.sink;
 
+import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
+
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.sink.SinkWriter;
@@ -297,7 +299,8 @@ public class PaimonSinkWriter
         }
     }
 
-    private boolean waitCompaction() {
+    @VisibleForTesting
+    public boolean waitCompaction() {
         if (JobMode.BATCH.equals(jobContext.getJobMode())) {
             return true;
         }
