@@ -18,6 +18,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.pulsar.source.enumerator.cursor.start;
 
+import org.apache.seatunnel.connectors.seatunnel.pulsar.config.PulsarSourceOptions;
+
 import org.apache.pulsar.client.api.Consumer;
 import org.apache.pulsar.client.api.MessageId;
 import org.apache.pulsar.client.api.PulsarClientException;
@@ -53,8 +55,7 @@ public interface StartCursor extends Serializable {
         return new SubscriptionStartCursor();
     }
 
-    static StartCursor subscription(
-            SubscriptionStartCursor.CursorResetStrategy cursorResetStrategy) {
+    static StartCursor subscription(PulsarSourceOptions.CursorResetStrategy cursorResetStrategy) {
         return new SubscriptionStartCursor(cursorResetStrategy);
     }
 
