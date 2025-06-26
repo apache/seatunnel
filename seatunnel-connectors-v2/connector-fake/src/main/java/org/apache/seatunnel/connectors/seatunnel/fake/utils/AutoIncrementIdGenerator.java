@@ -30,7 +30,7 @@ public class AutoIncrementIdGenerator implements Serializable {
         this.id = new AtomicLong(start);
     }
 
-    public synchronized Long getNextId() {
+    public Long getNextId() {
         return id.getAndIncrement();
     }
 }
