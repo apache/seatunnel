@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.tdengine.source;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
@@ -57,7 +58,12 @@ public class TDengineSourceFactory implements TableSourceFactory {
     @Override
     public <T, SplitT extends SourceSplit, StateT extends Serializable>
             TableSource<T, SplitT, StateT> createSource(TableSourceFactoryContext context) {
-        CatalogTable catalogTable = CatalogTableUtil.buildWithConfig(context.getOptions());
+        CatalogTable catalogTable;
+        if (context.getOptions().getOptional(ConnectorCommonOptions.SCHEMA).isPresent()) {
+            catalogTable = CatalogTableUtil.buildWithConfig(context.getOptions());
+        } else {
+            catalogTable = CatalogTableUtil.buildSimpleTextTable();
+        }
         return () ->
                 (SeaTunnelSource<T, SplitT, StateT>)
                         new TDengineSource(context.getOptions(), catalogTable);
