@@ -30,7 +30,7 @@ public class IdGeneratorUtils {
     private static final Map<String, AutoIncrementIdGenerator> idGenerators =
             new ConcurrentHashMap<>();
 
-    public static synchronized AutoIncrementIdGenerator getIdGenerator(
+    public static AutoIncrementIdGenerator getIdGenerator(
             FakeConfig fakeConfig, String columnName) {
         CatalogTable catalogTable = fakeConfig.getCatalogTable();
         String tableName = catalogTable.getTableId().getTableName();
