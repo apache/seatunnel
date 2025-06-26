@@ -24,6 +24,7 @@ import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.source.SourceReader.Context;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -64,10 +65,12 @@ public class TDengineSource
     private final CatalogTable catalogTable;
 
     @SneakyThrows
-    public TDengineSource(ReadonlyConfig pluginConfig, CatalogTable catalogTable) {
+    public TDengineSource(ReadonlyConfig pluginConfig) {
         this.tdengineSourceConfig = buildSourceConfig(pluginConfig);
         this.stableMetadata = getStableMetadata(tdengineSourceConfig);
-        this.catalogTable = catalogTable;
+        this.catalogTable =
+                CatalogTableUtil.getCatalogTable(
+                        tdengineSourceConfig.getStable(), stableMetadata.getRowType());
     }
 
     @Override
