@@ -421,7 +421,6 @@ public class JdbcCatalogUtils {
         return ReadonlyConfig.fromMap(catalogConfig);
     }
 
-    /** Process table path with regex pattern and add matched tables to the result. */
     private static void processRegexTablePath(
             AbstractJdbcCatalog jdbcCatalog,
             JdbcDialect jdbcDialect,
