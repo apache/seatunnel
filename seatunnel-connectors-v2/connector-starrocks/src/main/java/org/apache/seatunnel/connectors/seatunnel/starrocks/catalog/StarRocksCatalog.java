@@ -56,16 +56,15 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
-import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.stream.IntStream;
 
 import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkArgument;
 
@@ -154,35 +153,70 @@ public class StarRocksCatalog implements Catalog {
             Optional<PrimaryKey> primaryKey =
                     getPrimaryKey(tablePath.getDatabaseName(), tablePath.getTableName());
 
-            PreparedStatement ps =
-                    conn.prepareStatement(
-                            String.format(
-                                    "SELECT * FROM %s WHERE 1 = 0;",
-                                    tablePath.getFullNameWithQuoted()));
+            final String tableSchemaQuery =
+                    "SELECT `COLUMN_NAME`, `DATA_TYPE`, `COLUMN_SIZE`,  "
+                            + "`IS_NULLABLE`, `COLUMN_COMMENT`, `COLUMN_DEFAULT`, `NUMERIC_PRECISION`, `NUMERIC_SCALE` FROM `information_schema`.`COLUMNS` "
+                            + "WHERE `TABLE_SCHEMA`=? AND `TABLE_NAME`=?;";
 
-            ResultSetMetaData tableMetaData = ps.getMetaData();
-
+            PreparedStatement ps = conn.prepareStatement(tableSchemaQuery);
+            ps.setObject(1, tablePath.getDatabaseName());
+            ps.setObject(2, tablePath.getTableName());
             TableSchema.Builder builder = TableSchema.builder();
+            ResultSet resultSet = ps.executeQuery();
+            Iterator<ResultSet> resultIterator =
+                    new Iterator<ResultSet>() {
+                        @Override
+                        public boolean hasNext() {
+                            try {
+                                return !resultSet.isLast();
+                            } catch (SQLException e) {
+                                throw new CatalogException(
+                                        String.format(
+                                                "Failed getting table %s", tablePath.getFullName()),
+                                        e);
+                            }
+                        }
+
+                        @Override
+                        public ResultSet next() {
+                            try {
+                                resultSet.next();
+                            } catch (SQLException e) {
+                                throw new CatalogException(
+                                        String.format(
+                                                "Failed getting table %s", tablePath.getFullName()),
+                                        e);
+                            }
+                            return resultSet;
+                        }
+                    };
+
             buildColumnsWithErrorCheck(
                     tablePath,
                     builder,
-                    IntStream.range(1, tableMetaData.getColumnCount() + 1).iterator(),
-                    i -> {
+                    resultIterator,
+                    columnInfo -> {
                         try {
-                            SeaTunnelDataType<?> type = fromJdbcType(tableMetaData, i);
-                            // TODO add default value and test it
+                            String string1 = columnInfo.getString("COLUMN_NAME");
+                            String isNullable = columnInfo.getString("IS_NULLABLE");
+                            String string = columnInfo.getString("COLUMN_DEFAULT");
+                            int columnSize = columnInfo.getInt("COLUMN_SIZE");
+                            String string2 = columnInfo.getString("COLUMN_COMMENT");
                             return PhysicalColumn.of(
-                                    tableMetaData.getColumnName(i),
-                                    type,
-                                    tableMetaData.getColumnDisplaySize(i),
-                                    tableMetaData.isNullable(i) == ResultSetMetaData.columnNullable,
-                                    null,
-                                    tableMetaData.getColumnLabel(i));
+                                    string1,
+                                    fromJdbcType(columnInfo),
+                                    columnSize,
+                                    isNullable == null || !isNullable.equalsIgnoreCase("NO"),
+                                    string,
+                                    string2);
                         } catch (SQLException e) {
-                            throw new RuntimeException(e);
+                            throw new CatalogException(
+                                    String.format(
+                                            "Failed build column of table %s",
+                                            tablePath.getFullName()),
+                                    e);
                         }
                     });
-
             primaryKey.ifPresent(builder::primaryKey);
 
             TableIdentifier tableIdentifier =
@@ -292,9 +326,9 @@ public class StarRocksCatalog implements Catalog {
     }
 
     /** @see com.mysql.cj.MysqlType */
-    private SeaTunnelDataType<?> fromJdbcType(ResultSetMetaData metadata, int colIndex)
-            throws SQLException {
-        MysqlType starrocksType = MysqlType.getByName(metadata.getColumnTypeName(colIndex));
+    private SeaTunnelDataType<?> fromJdbcType(ResultSet resultSet) throws SQLException {
+        String typeName = resultSet.getString("DATA_TYPE");
+        MysqlType starrocksType = MysqlType.getByName(typeName);
         switch (starrocksType) {
             case NULL:
                 return BasicType.VOID_TYPE;
@@ -347,8 +381,8 @@ public class StarRocksCatalog implements Catalog {
             case BIGINT_UNSIGNED:
             case DECIMAL:
             case DECIMAL_UNSIGNED:
-                int precision = metadata.getPrecision(colIndex);
-                int scale = metadata.getScale(colIndex);
+                int precision = resultSet.getInt("NUMERIC_PRECISION");
+                int scale = resultSet.getInt("NUMERIC_SCALE");
                 return new DecimalType(precision, scale);
             default:
                 throw new StarRocksConnectorException(

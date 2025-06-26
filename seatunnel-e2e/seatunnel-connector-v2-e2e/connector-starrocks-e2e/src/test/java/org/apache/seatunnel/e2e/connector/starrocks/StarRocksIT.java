@@ -20,7 +20,9 @@ package org.apache.seatunnel.e2e.connector.starrocks;
 import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.catalog.StarRocksCatalog;
@@ -66,7 +68,7 @@ import static org.awaitility.Awaitility.given;
 
 @Slf4j
 public class StarRocksIT extends TestSuiteBase implements TestResource {
-    private static final String DOCKER_IMAGE = "d87904488/starrocks-starter:2.2.1";
+    private static final String DOCKER_IMAGE = "starrocks/allin1-ubuntu:3.3-latest";
     private static final String DRIVER_CLASS = "com.mysql.cj.jdbc.Driver";
     private static final String HOST = "starrocks_e2e";
     private static final int SR_DOCKER_PORT = 9030;
@@ -89,28 +91,28 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
                     + "."
                     + SOURCE_TABLE
                     + " (\n"
-                    + "  BIGINT_COL     BIGINT,\n"
+                    + "  BIGINT_COL     BIGINT NOT NULL DEFAULT '100',\n"
                     // add comment for test
-                    + "  LARGEINT_COL   LARGEINT COMMENT '''N''-N',\n"
-                    + "  SMALLINT_COL   SMALLINT COMMENT '\\N\\-N',\n"
-                    + "  TINYINT_COL    TINYINT,\n"
-                    + "  BOOLEAN_COL    BOOLEAN,\n"
-                    + "  DECIMAL_COL    Decimal(12, 1),\n"
-                    + "  DOUBLE_COL     DOUBLE,\n"
-                    + "  FLOAT_COL      FLOAT,\n"
-                    + "  INT_COL        INT,\n"
-                    + "  CHAR_COL       CHAR,\n"
-                    + "  VARCHAR_11_COL VARCHAR(11),\n"
-                    + "  STRING_COL     STRING,\n"
-                    + "  DATETIME_COL   DATETIME,\n"
-                    + "  DATE_COL       DATE\n"
+                    + "  LARGEINT_COL   LARGEINT  DEFAULT '1000000' COMMENT '''N''-N',\n"
+                    + "  SMALLINT_COL   SMALLINT  DEFAULT '1' COMMENT '\\N\\-N',\n"
+                    + "  TINYINT_COL    TINYINT DEFAULT '0',\n"
+                    + "  BOOLEAN_COL    BOOLEAN DEFAULT 'false',\n"
+                    + "  DECIMAL_COL    Decimal(12, 1) DEFAULT '0.0',\n"
+                    + "  DOUBLE_COL     DOUBLE DEFAULT '0.0',\n"
+                    + "  FLOAT_COL      FLOAT DEFAULT '0.0',\n"
+                    + "  INT_COL        INT DEFAULT '0',\n"
+                    + "  CHAR_COL       CHAR DEFAULT 'A',\n"
+                    + "  VARCHAR_11_COL VARCHAR(11) DEFAULT 'default',\n"
+                    + "  STRING_COL     STRING DEFAULT 'default_string',\n"
+                    + "  DATETIME_COL   DATETIME ,\n"
+                    + "  DATE_COL       DATE DEFAULT '2000-01-01'\n"
                     + ")ENGINE=OLAP\n"
                     + "DUPLICATE KEY(`BIGINT_COL`)\n"
                     + "DISTRIBUTED BY HASH(`BIGINT_COL`) BUCKETS 3\n"
                     + "PROPERTIES (\n"
                     + "\"replication_num\" = \"1\",\n"
-                    + "\"in_memory\" = \"false\","
-                    + "\"storage_format\" = \"DEFAULT\""
+                    + "\"in_memory\" = \"false\",\n"
+                    + "\"storage_format\" = \"DEFAULT\"\n"
                     + ")";
 
     private static final String DDL_SOURCE_2 =
@@ -429,10 +431,24 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
         Assertions.assertTrue(starRocksCatalog.listDatabases().contains(tmpDB));
 
         CatalogTable catalogTable = starRocksCatalog.getTable(tablePathStarRocksSource);
+        TableSchema tableSchema = catalogTable.getTableSchema();
+        for (Column column : tableSchema.getColumns()) {
+            String name = column.getName();
+            String defaultValue = column.getDefaultValue().toString();
+            if (name.equals("STRING_COL")) {
+                Assertions.assertEquals("default_string", defaultValue);
+            } else if (name.equals("DATE_COL")) {
+                Assertions.assertEquals("2000-01-01", defaultValue);
+            } else if (name.equals("DECIMAL_COL")) {
+                Assertions.assertEquals("0.0", defaultValue);
+            } else if (name.equals("LARGEINT_COL")) {
+                Assertions.assertEquals("1000000", defaultValue);
+            }
+        }
         catalogTable =
                 CatalogTable.of(
                         catalogTable.getTableId(),
-                        catalogTable.getTableSchema(),
+                        tableSchema,
                         catalogTable.getOptions(),
                         catalogTable.getPartitionKeys(),
                         "test'1'");
