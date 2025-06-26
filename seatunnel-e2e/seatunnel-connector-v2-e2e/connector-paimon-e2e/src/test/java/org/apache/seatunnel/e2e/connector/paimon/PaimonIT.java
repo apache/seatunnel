@@ -25,6 +25,12 @@ import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 import org.apache.seatunnel.e2e.common.util.ContainerUtil;
 
+import org.apache.paimon.catalog.Catalog;
+import org.apache.paimon.catalog.CatalogContext;
+import org.apache.paimon.catalog.CatalogFactory;
+import org.apache.paimon.catalog.Identifier;
+import org.apache.paimon.options.Options;
+
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.Container;
@@ -58,5 +64,17 @@ public class PaimonIT extends TestSuiteBase {
         Container.ExecResult readProjectionResult =
                 container.executeJob("/paimon_projection_to_assert.conf");
         Assertions.assertEquals(0, readProjectionResult.getExitCode());
+        deleteTable();
+    }
+
+    private void deleteTable() {
+        Options options = new Options();
+        options.set("warehouse", "file://" + "/opt/seatunnel_mounts/paimon");
+        try {
+            CatalogFactory.createCatalog(CatalogContext.create(options))
+                    .dropTable(Identifier.create("default", "st_test"), true);
+        } catch (Catalog.TableNotExistException e) {
+            throw new RuntimeException(e);
+        }
     }
 }
