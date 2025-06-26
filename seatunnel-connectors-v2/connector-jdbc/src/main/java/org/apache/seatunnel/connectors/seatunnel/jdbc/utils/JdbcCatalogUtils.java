@@ -88,7 +88,6 @@ public class JdbcCatalogUtils {
                         if (StringUtils.isNotEmpty(tableConfig.getTablePath())
                                 && StringUtils.isEmpty(tableConfig.getQuery())
                                 && tableConfig.getUseRegex()) {
-
                             processRegexTablePath(jdbcCatalog, jdbcDialect, tableConfig, tables);
                         } else {
                             CatalogTable catalogTable =
