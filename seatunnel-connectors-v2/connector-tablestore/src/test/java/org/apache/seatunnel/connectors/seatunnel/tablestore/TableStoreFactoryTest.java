@@ -22,7 +22,7 @@ import org.apache.seatunnel.connectors.seatunnel.tablestore.sink.TableStoreSinkF
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-class TablestoreFactoryTest {
+class TableStoreFactoryTest {
 
     @Test
     void optionRule() {

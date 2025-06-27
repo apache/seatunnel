@@ -52,6 +52,6 @@ public class TableStoreSinkFactory implements TableSinkFactory {
 
     @Override
     public TableSink createSink(TableSinkFactoryContext context) {
-        return TableSinkFactory.super.createSink(context);
+        return () -> new TableStoreSink(context.getOptions(), context.getCatalogTable());
     }
 }
