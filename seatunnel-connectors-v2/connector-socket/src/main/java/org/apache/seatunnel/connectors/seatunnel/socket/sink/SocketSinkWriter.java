@@ -17,24 +17,21 @@
 
 package org.apache.seatunnel.connectors.seatunnel.socket.sink;
 
-import org.apache.seatunnel.api.serialization.SerializationSchema;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
-import org.apache.seatunnel.connectors.seatunnel.socket.config.SinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.socket.config.SocketConfig;
 import org.apache.seatunnel.format.json.JsonSerializationSchema;
 
 import java.io.IOException;
 
 public class SocketSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
     private final SocketClient socketClient;
-    private final SerializationSchema serializationSchema;
-    private final SinkConfig sinkConfig;
 
-    SocketSinkWriter(SinkConfig sinkConfig, SeaTunnelRowType seaTunnelRowType) throws IOException {
-        this.sinkConfig = sinkConfig;
-        this.serializationSchema = new JsonSerializationSchema(seaTunnelRowType);
-        this.socketClient = new SocketClient(sinkConfig, serializationSchema);
+    SocketSinkWriter(SocketConfig socketConfig, SeaTunnelRowType seaTunnelRowType)
+            throws IOException {
+        this.socketClient =
+                new SocketClient(socketConfig, new JsonSerializationSchema(seaTunnelRowType));
         socketClient.open();
     }
 
