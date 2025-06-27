@@ -25,7 +25,7 @@ import lombok.Setter;
 @AllArgsConstructor
 @Getter
 @Setter
-public class TableStoreDBSourceSplit implements SourceSplit {
+public class TableStoreSourceSplit implements SourceSplit {
 
     private static final long serialVersionUID = 6471832674315580956L;
     private Integer splitId;

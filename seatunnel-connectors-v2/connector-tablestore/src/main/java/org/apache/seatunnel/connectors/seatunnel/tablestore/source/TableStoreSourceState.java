@@ -27,9 +27,9 @@ import java.util.Map;
 @Getter
 @Setter
 @AllArgsConstructor
-public class TableStoreDBSourceState implements Serializable {
+public class TableStoreSourceState implements Serializable {
 
     private static final long serialVersionUID = -2942147037830134078L;
     private boolean shouldEnumerate;
-    private Map<Integer, List<TableStoreDBSourceSplit>> pendingSplits;
+    private Map<Integer, List<TableStoreSourceSplit>> pendingSplits;
 }

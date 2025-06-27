@@ -19,7 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.tablestore.sink;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
-import org.apache.seatunnel.connectors.seatunnel.tablestore.config.TablestoreOptions;
+import org.apache.seatunnel.connectors.seatunnel.tablestore.config.TableStoreConfig;
 import org.apache.seatunnel.connectors.seatunnel.tablestore.exception.TablestoreConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.tablestore.exception.TablestoreConnectorException;
 
@@ -34,15 +34,15 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Slf4j
-public class TablestoreSinkClient {
-    private final TablestoreOptions tablestoreOptions;
+public class TableStoreSinkClient {
+    private final TableStoreConfig tableStoreConfig;
     private volatile boolean initialize;
     private volatile Exception flushException;
     private SyncClient syncClient;
     private final List<RowPutChange> batchList;
 
-    public TablestoreSinkClient(TablestoreOptions tablestoreOptions, SeaTunnelRowType typeInfo) {
-        this.tablestoreOptions = tablestoreOptions;
+    public TableStoreSinkClient(TableStoreConfig tableStoreConfig, SeaTunnelRowType typeInfo) {
+        this.tableStoreConfig = tableStoreConfig;
         this.batchList = new ArrayList<>();
     }
 
@@ -52,10 +52,10 @@ public class TablestoreSinkClient {
         }
         syncClient =
                 new SyncClient(
-                        tablestoreOptions.getEndpoint(),
-                        tablestoreOptions.getAccessKeyId(),
-                        tablestoreOptions.getAccessKeySecret(),
-                        tablestoreOptions.getInstanceName());
+                        tableStoreConfig.getEndpoint(),
+                        tableStoreConfig.getAccessKeyId(),
+                        tableStoreConfig.getAccessKeySecret(),
+                        tableStoreConfig.getInstanceName());
 
         initialize = true;
     }
@@ -64,8 +64,8 @@ public class TablestoreSinkClient {
         tryInit();
         checkFlushException();
         batchList.add(rowPutChange);
-        if (tablestoreOptions.getBatchSize() > 0
-                && batchList.size() >= tablestoreOptions.getBatchSize()) {
+        if (tableStoreConfig.getBatchSize() > 0
+                && batchList.size() >= tableStoreConfig.getBatchSize()) {
             flush();
         }
     }
