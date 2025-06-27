@@ -74,11 +74,22 @@
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
             <artifactId>connector-cdc-base</artifactId>
+            <scope>provided</scope>
         </dependency>
 
         <dependency>
             <groupId>io.debezium</groupId>
             <artifactId>debezium-connector-oracle</artifactId>
+            <exclusions>
+                <exclusion>
+                    <groupId>io.debezium</groupId>
+                    <artifactId>debezium-api</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>io.debezium</groupId>
+                    <artifactId>debezium-core</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
