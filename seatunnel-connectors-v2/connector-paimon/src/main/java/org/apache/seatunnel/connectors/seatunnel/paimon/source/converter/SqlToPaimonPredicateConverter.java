@@ -260,7 +260,7 @@ public class SqlToPaimonPredicateConverter {
                 throw new IllegalArgumentException(
                         "Unsupported expression type: "
                                 + expression.getClass().getSimpleName()
-                                + ", only support LikeExpression with 'startWith' pattern ");
+                                + ", only support like pattern matching with prefix");
             }
         } else if (expression instanceof Parenthesis) {
             Parenthesis parenthesis = (Parenthesis) expression;
