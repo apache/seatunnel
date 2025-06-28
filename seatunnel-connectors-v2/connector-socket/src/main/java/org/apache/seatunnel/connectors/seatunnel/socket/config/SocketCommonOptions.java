@@ -20,18 +20,13 @@ package org.apache.seatunnel.connectors.seatunnel.socket.config;
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 
-public class SocketSinkConfigOptions {
-    private static final int DEFAULT_MAX_RETRIES = 3;
+public class SocketCommonOptions {
+
+    public static final String identifier = "Socket";
 
     public static final Option<String> HOST =
             Options.key("host").stringType().noDefaultValue().withDescription("socket host");
 
     public static final Option<Integer> PORT =
             Options.key("port").intType().noDefaultValue().withDescription("socket port");
-
-    public static final Option<Integer> MAX_RETRIES =
-            Options.key("max_retries")
-                    .intType()
-                    .defaultValue(DEFAULT_MAX_RETRIES)
-                    .withDescription("default value is " + DEFAULT_MAX_RETRIES + ", max retries");
 }

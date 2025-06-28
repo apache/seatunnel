@@ -65,6 +65,8 @@ public class MongodbSourceConfig implements SourceConfig {
 
     private final int splitSizeMB;
 
+    private final boolean exactlyOnce;
+
     MongodbSourceConfig(
             String hosts,
             String username,
@@ -80,7 +82,8 @@ public class MongodbSourceConfig implements SourceConfig {
             StopConfig stopOptions,
             int heartbeatIntervalMillis,
             int splitMetaGroupSize,
-            int splitSizeMB) {
+            int splitSizeMB,
+            boolean exactlyOnce) {
         this.hosts = checkNotNull(hosts);
         this.username = username;
         this.password = password;
@@ -98,6 +101,7 @@ public class MongodbSourceConfig implements SourceConfig {
         this.heartbeatIntervalMillis = heartbeatIntervalMillis;
         this.splitMetaGroupSize = splitMetaGroupSize;
         this.splitSizeMB = splitSizeMB;
+        this.exactlyOnce = exactlyOnce;
     }
 
     @Override
@@ -117,6 +121,6 @@ public class MongodbSourceConfig implements SourceConfig {
 
     @Override
     public boolean isExactlyOnce() {
-        return true;
+        return exactlyOnce;
     }
 }

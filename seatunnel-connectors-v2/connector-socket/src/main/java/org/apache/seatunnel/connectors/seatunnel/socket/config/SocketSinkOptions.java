@@ -17,27 +17,16 @@
 
 package org.apache.seatunnel.connectors.seatunnel.socket.config;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.seatunnel.api.configuration.Option;
+import org.apache.seatunnel.api.configuration.Options;
 
-import lombok.Data;
+public class SocketSinkOptions extends SocketCommonOptions {
 
-import java.io.Serializable;
+    private static final int DEFAULT_MAX_RETRIES = 3;
 
-import static org.apache.seatunnel.connectors.seatunnel.socket.config.SocketSinkConfigOptions.HOST;
-import static org.apache.seatunnel.connectors.seatunnel.socket.config.SocketSinkConfigOptions.MAX_RETRIES;
-import static org.apache.seatunnel.connectors.seatunnel.socket.config.SocketSinkConfigOptions.PORT;
-
-@Data
-public class SinkConfig implements Serializable {
-    private String host;
-    private int port;
-    private int maxNumRetries;
-
-    public SinkConfig(Config config) {
-        this.host = config.getString(HOST.key());
-        this.port = config.getInt(PORT.key());
-        if (config.hasPath(MAX_RETRIES.key())) {
-            this.maxNumRetries = config.getInt(MAX_RETRIES.key());
-        }
-    }
+    public static final Option<Integer> MAX_RETRIES =
+            Options.key("max_retries")
+                    .intType()
+                    .defaultValue(DEFAULT_MAX_RETRIES)
+                    .withDescription("default value is " + DEFAULT_MAX_RETRIES + ", max retries");
 }

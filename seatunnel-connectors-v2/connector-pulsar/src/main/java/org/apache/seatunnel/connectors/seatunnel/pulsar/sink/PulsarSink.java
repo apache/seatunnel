@@ -27,7 +27,7 @@ import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.config.PulsarClientConfig;
-import org.apache.seatunnel.connectors.seatunnel.pulsar.config.PulsarConfigUtil;
+import org.apache.seatunnel.connectors.seatunnel.pulsar.config.PulsarSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.state.PulsarAggregatedCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.state.PulsarCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.state.PulsarSinkState;
@@ -35,10 +35,6 @@ import org.apache.seatunnel.connectors.seatunnel.pulsar.state.PulsarSinkState;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
-
-import static org.apache.seatunnel.connectors.seatunnel.pulsar.config.SourceProperties.AUTH_PARAMS;
-import static org.apache.seatunnel.connectors.seatunnel.pulsar.config.SourceProperties.AUTH_PLUGIN_CLASS;
-import static org.apache.seatunnel.connectors.seatunnel.pulsar.config.SourceProperties.CLIENT_SERVICE_URL;
 
 /**
  * Pulsar Sink implementation by using SeaTunnel sink API. This class contains the method to create
@@ -60,9 +56,11 @@ public class PulsarSink
 
         /** client config */
         PulsarClientConfig.Builder clientConfigBuilder =
-                PulsarClientConfig.builder().serviceUrl(readonlyConfig.get(CLIENT_SERVICE_URL));
-        clientConfigBuilder.authPluginClassName(readonlyConfig.get(AUTH_PLUGIN_CLASS));
-        clientConfigBuilder.authParams(readonlyConfig.get(AUTH_PARAMS));
+                PulsarClientConfig.builder()
+                        .serviceUrl(readonlyConfig.get(PulsarSinkOptions.CLIENT_SERVICE_URL));
+        clientConfigBuilder.authPluginClassName(
+                readonlyConfig.get(PulsarSinkOptions.AUTH_PLUGIN_CLASS));
+        clientConfigBuilder.authParams(readonlyConfig.get(PulsarSinkOptions.AUTH_PARAMS));
         this.clientConfig = clientConfigBuilder.build();
     }
 
@@ -97,7 +95,7 @@ public class PulsarSink
 
     @Override
     public String getPluginName() {
-        return PulsarConfigUtil.IDENTIFIER;
+        return PulsarSinkOptions.IDENTIFIER;
     }
 
     @Override

@@ -15,27 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.pulsar.source;
+package org.apache.seatunnel.connectors.seatunnel.socket.config;
 
-import org.apache.seatunnel.api.configuration.util.OptionRule;
-import org.apache.seatunnel.connectors.seatunnel.pulsar.config.PulsarSourceOptions;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Test;
+import lombok.Data;
 
-public class PulsarSourceFactoryTest {
+import java.io.Serializable;
 
-    @Test
-    void factoryIdentifier() {
-        PulsarSourceFactory pulsarSourceFactory = new PulsarSourceFactory();
-        Assertions.assertEquals(
-                PulsarSourceOptions.IDENTIFIER, pulsarSourceFactory.factoryIdentifier());
-    }
+@Data
+public class SocketConfig implements Serializable {
+    private String host;
+    private int port;
+    private int maxNumRetries;
 
-    @Test
-    void optionRule() {
-        PulsarSourceFactory pulsarSourceFactory = new PulsarSourceFactory();
-        OptionRule optionRule = pulsarSourceFactory.optionRule();
-        Assertions.assertNotNull(optionRule);
+    public SocketConfig(ReadonlyConfig config) {
+        this.host = config.get(SocketCommonOptions.HOST);
+        this.port = config.get(SocketCommonOptions.PORT);
+        this.maxNumRetries = config.get(SocketSinkOptions.MAX_RETRIES);
     }
 }
