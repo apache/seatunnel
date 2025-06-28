@@ -24,6 +24,7 @@ import lombok.Data;
 
 @Data
 public abstract class TDengineCommonOptions {
+
     public static final Option<String> URL =
             Options.key("url")
                     .stringType()

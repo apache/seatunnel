@@ -15,22 +15,6 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.tdengine.config;
+package org.apache.seatunnel.connectors.seatunnel.socket.config;
 
-import org.apache.seatunnel.api.configuration.Option;
-import org.apache.seatunnel.api.configuration.Options;
-
-public class TDengineSourceOptions extends TDengineCommonOptions {
-
-    public static final Option<String> LOWER_BOUND =
-            Options.key("lower_bound")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("The lower bound for data query range");
-
-    public static final Option<String> UPPER_BOUND =
-            Options.key("upper_bound")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("The upper bound for data query range");
-}
+public class SocketSourceOptions extends SocketCommonOptions {}

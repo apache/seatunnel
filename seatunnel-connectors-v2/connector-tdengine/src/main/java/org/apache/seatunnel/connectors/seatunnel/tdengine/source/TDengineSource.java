@@ -17,29 +17,24 @@
 
 package org.apache.seatunnel.connectors.seatunnel.tdengine.source;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
-import org.apache.seatunnel.api.common.PrepareFailException;
-import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.source.SourceReader.Context;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.config.CheckConfigUtil;
-import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.connectors.seatunnel.tdengine.config.TDengineSourceConfig;
-import org.apache.seatunnel.connectors.seatunnel.tdengine.exception.TDengineConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.tdengine.state.TDengineSourceState;
 import org.apache.seatunnel.connectors.seatunnel.tdengine.typemapper.TDengineTypeMapper;
 
 import org.apache.commons.lang3.ArrayUtils;
 
-import com.google.auto.service.AutoService;
 import com.taosdata.jdbc.TSDBDriver;
 import lombok.SneakyThrows;
 
@@ -49,14 +44,10 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Properties;
 
-import static org.apache.seatunnel.connectors.seatunnel.tdengine.config.TDengineSourceConfig.ConfigNames.DATABASE;
-import static org.apache.seatunnel.connectors.seatunnel.tdengine.config.TDengineSourceConfig.ConfigNames.PASSWORD;
-import static org.apache.seatunnel.connectors.seatunnel.tdengine.config.TDengineSourceConfig.ConfigNames.STABLE;
-import static org.apache.seatunnel.connectors.seatunnel.tdengine.config.TDengineSourceConfig.ConfigNames.URL;
-import static org.apache.seatunnel.connectors.seatunnel.tdengine.config.TDengineSourceConfig.ConfigNames.USERNAME;
 import static org.apache.seatunnel.connectors.seatunnel.tdengine.config.TDengineSourceConfig.buildSourceConfig;
 import static org.apache.seatunnel.connectors.seatunnel.tdengine.utils.TDengineUtil.checkDriverExist;
 
@@ -66,31 +57,25 @@ import static org.apache.seatunnel.connectors.seatunnel.tdengine.utils.TDengineU
  * <p>TODO: wait for optimization 1. batch -> batch + stream 2. one item of data writing -> a batch
  * of data writing
  */
-@AutoService(SeaTunnelSource.class)
 public class TDengineSource
         implements SeaTunnelSource<SeaTunnelRow, TDengineSourceSplit, TDengineSourceState> {
 
-    private StableMetadata stableMetadata;
-    private TDengineSourceConfig tdengineSourceConfig;
+    private final StableMetadata stableMetadata;
+    private final TDengineSourceConfig tdengineSourceConfig;
+    private final CatalogTable catalogTable;
+
+    @SneakyThrows
+    public TDengineSource(ReadonlyConfig pluginConfig) {
+        this.tdengineSourceConfig = buildSourceConfig(pluginConfig);
+        this.stableMetadata = getStableMetadata(tdengineSourceConfig);
+        this.catalogTable =
+                CatalogTableUtil.getCatalogTable(
+                        tdengineSourceConfig.getStable(), stableMetadata.getRowType());
+    }
 
     @Override
     public String getPluginName() {
         return "TDengine";
-    }
-
-    @SneakyThrows
-    @Override
-    public void prepare(Config pluginConfig) throws PrepareFailException {
-        CheckResult result =
-                CheckConfigUtil.checkAllExists(
-                        pluginConfig, URL, DATABASE, STABLE, USERNAME, PASSWORD);
-        if (!result.isSuccess()) {
-            throw new TDengineConnectorException(
-                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                    "TDengine connection require url/database/stable/username/password. All of these must not be empty.");
-        }
-        tdengineSourceConfig = buildSourceConfig(pluginConfig);
-        stableMetadata = getStableMetadata(tdengineSourceConfig);
     }
 
     @Override
@@ -99,8 +84,8 @@ public class TDengineSource
     }
 
     @Override
-    public SeaTunnelDataType<SeaTunnelRow> getProducedType() {
-        return stableMetadata.getRowType();
+    public List<CatalogTable> getProducedCatalogTables() {
+        return Collections.singletonList(catalogTable);
     }
 
     @Override

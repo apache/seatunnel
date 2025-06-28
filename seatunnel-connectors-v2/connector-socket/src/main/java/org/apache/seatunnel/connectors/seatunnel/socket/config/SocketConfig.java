@@ -15,22 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.tdengine.config;
+package org.apache.seatunnel.connectors.seatunnel.socket.config;
 
-import org.apache.seatunnel.api.configuration.Option;
-import org.apache.seatunnel.api.configuration.Options;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 
-public class TDengineSourceOptions extends TDengineCommonOptions {
+import lombok.Data;
 
-    public static final Option<String> LOWER_BOUND =
-            Options.key("lower_bound")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("The lower bound for data query range");
+import java.io.Serializable;
 
-    public static final Option<String> UPPER_BOUND =
-            Options.key("upper_bound")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("The upper bound for data query range");
+@Data
+public class SocketConfig implements Serializable {
+    private String host;
+    private int port;
+    private int maxNumRetries;
+
+    public SocketConfig(ReadonlyConfig config) {
+        this.host = config.get(SocketCommonOptions.HOST);
+        this.port = config.get(SocketCommonOptions.PORT);
+        this.maxNumRetries = config.get(SocketSinkOptions.MAX_RETRIES);
+    }
 }
