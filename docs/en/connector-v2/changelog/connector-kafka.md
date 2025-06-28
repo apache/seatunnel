@@ -2,6 +2,12 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
+|[Fix][Connecotr-kafka] Fix kafka IllegalArgumentException when offset is -1 (#9376)|https://github.com/apache/seatunnel/commit/142aca7b70| dev |
+|[Feature][Connectors-V2] Add end_timestamp for timstamp start mode (#9318)|https://github.com/apache/seatunnel/commit/68b0504da9|2.3.11|
+|[Bugifx][kafka] Fix kafka enumerator assign split NPE (#9220)|https://github.com/apache/seatunnel/commit/7ca0c0c7e4|2.3.11|
+| [Fix][Connector-V2] Fix kafka database name (#9201)|https://github.com/apache/seatunnel/commit/79d9a937ee|2.3.11|
+|[Feature][Checkpoint] Add check script for source/sink state class serialVersionUID missing (#9118)|https://github.com/apache/seatunnel/commit/4f5adeb1c7|2.3.11|
+|[Fix][Connector-V2] assign size for KafkaSource reader cache queue (#9041)|https://github.com/apache/seatunnel/commit/8a9db476bd|2.3.11|
 |[Feature][Kafka] Support native format read/write kafka record (#8724)|https://github.com/apache/seatunnel/commit/86e2d6fcfa|2.3.10|
 |[improve] update kafka source default schema from content&lt;ROW&lt;content STRING&gt;&gt; to content&lt;STRING&gt; (#8642)|https://github.com/apache/seatunnel/commit/db6e2994d4|2.3.10|
 |[Improve] restruct connector common options (#8634)|https://github.com/apache/seatunnel/commit/f3499a6eeb|2.3.10|

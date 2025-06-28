@@ -17,159 +17,70 @@
 
 package org.apache.seatunnel.connectors.seatunnel.rocketmq.sink;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
-import org.apache.seatunnel.api.common.PrepareFailException;
-import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
-import org.apache.seatunnel.api.sink.SeaTunnelSink;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.config.CheckConfigUtil;
-import org.apache.seatunnel.common.config.CheckResult;
-import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSimpleSink;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 import org.apache.seatunnel.connectors.seatunnel.rocketmq.common.RocketMqBaseConfiguration;
-import org.apache.seatunnel.connectors.seatunnel.rocketmq.common.SchemaFormat;
-import org.apache.seatunnel.connectors.seatunnel.rocketmq.config.ProducerConfig;
-import org.apache.seatunnel.connectors.seatunnel.rocketmq.exception.RocketMqConnectorException;
-
-import com.google.auto.service.AutoService;
+import org.apache.seatunnel.connectors.seatunnel.rocketmq.config.RocketMqSinkOptions;
 
 import java.io.IOException;
 import java.util.Optional;
 
-import static org.apache.seatunnel.connectors.seatunnel.rocketmq.config.Config.ACCESS_KEY;
-import static org.apache.seatunnel.connectors.seatunnel.rocketmq.config.Config.ACL_ENABLED;
-import static org.apache.seatunnel.connectors.seatunnel.rocketmq.config.Config.CONNECTOR_IDENTITY;
-import static org.apache.seatunnel.connectors.seatunnel.rocketmq.config.Config.DEFAULT_FIELD_DELIMITER;
-import static org.apache.seatunnel.connectors.seatunnel.rocketmq.config.Config.FIELD_DELIMITER;
-import static org.apache.seatunnel.connectors.seatunnel.rocketmq.config.Config.FORMAT;
-import static org.apache.seatunnel.connectors.seatunnel.rocketmq.config.Config.NAME_SRV_ADDR;
-import static org.apache.seatunnel.connectors.seatunnel.rocketmq.config.Config.SECRET_KEY;
-
-@AutoService(SeaTunnelSink.class)
 public class RocketMqSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
-    private static final String DEFAULT_PRODUCER_GROUP = "SeaTunnel-Producer-Group";
-    private SeaTunnelRowType seaTunnelRowType;
-    private ProducerMetadata producerMetadata;
 
-    @Override
-    public String getPluginName() {
-        return CONNECTOR_IDENTITY;
-    }
+    private final CatalogTable catalogTable;
+    private final ProducerMetadata producerMetadata;
 
-    @Override
-    public void prepare(Config config) throws PrepareFailException {
-        CheckResult result =
-                CheckConfigUtil.checkAllExists(
-                        config, ProducerConfig.TOPIC.key(), NAME_SRV_ADDR.key());
-        if (!result.isSuccess()) {
-            throw new RocketMqConnectorException(
-                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                    String.format(
-                            "PluginName: %s, PluginType: %s, Message: %s",
-                            getPluginName(), PluginType.SINK, result.getMsg()));
-        }
+    public RocketMqSink(ReadonlyConfig pluginConfig, CatalogTable catalogTable) {
+        this.catalogTable = catalogTable;
         producerMetadata = new ProducerMetadata();
-        producerMetadata.setTopic(config.getString(ProducerConfig.TOPIC.key()));
-        if (config.hasPath(ProducerConfig.TAG.key())) {
-            producerMetadata.setTag(config.getString(ProducerConfig.TAG.key()));
+        producerMetadata.setTopic(pluginConfig.get(RocketMqSinkOptions.TOPIC));
+        if (pluginConfig.getOptional(RocketMqSinkOptions.TAG).isPresent()) {
+            producerMetadata.setTag(pluginConfig.get(RocketMqSinkOptions.TAG));
         }
         RocketMqBaseConfiguration.Builder baseConfigurationBuilder =
                 RocketMqBaseConfiguration.newBuilder()
                         .producer()
-                        .namesrvAddr(config.getString(NAME_SRV_ADDR.key()));
-        // acl config
-        boolean aclEnabled = ACL_ENABLED.defaultValue();
-        if (config.hasPath(ACL_ENABLED.key())) {
-            aclEnabled = config.getBoolean(ACL_ENABLED.key());
-            if (aclEnabled
-                    && (!config.hasPath(ACCESS_KEY.key()) || !config.hasPath(SECRET_KEY.key()))) {
-                throw new RocketMqConnectorException(
-                        SeaTunnelAPIErrorCode.OPTION_VALIDATION_FAILED,
-                        "When ACL_ENABLED "
-                                + "true , ACCESS_KEY and SECRET_KEY must be configured");
-            }
-            if (config.hasPath(ACCESS_KEY.key())) {
-                baseConfigurationBuilder.accessKey(config.getString(ACCESS_KEY.key()));
-            }
-            if (config.hasPath(SECRET_KEY.key())) {
-                baseConfigurationBuilder.secretKey(config.getString(SECRET_KEY.key()));
-            }
+                        .namesrvAddr(pluginConfig.get(RocketMqSinkOptions.NAME_SRV_ADDR));
+        baseConfigurationBuilder.aclEnable(pluginConfig.get(RocketMqSinkOptions.ACL_ENABLED));
+        if (pluginConfig.getOptional(RocketMqSinkOptions.ACCESS_KEY).isPresent()) {
+            baseConfigurationBuilder.accessKey(pluginConfig.get(RocketMqSinkOptions.ACCESS_KEY));
         }
-        baseConfigurationBuilder.aclEnable(aclEnabled);
-
-        // config producer group
-        if (config.hasPath(ProducerConfig.PRODUCER_GROUP.key())) {
-            baseConfigurationBuilder.groupId(config.getString(ProducerConfig.PRODUCER_GROUP.key()));
-        } else {
-            baseConfigurationBuilder.groupId(DEFAULT_PRODUCER_GROUP);
+        if (pluginConfig.getOptional(RocketMqSinkOptions.SECRET_KEY).isPresent()) {
+            baseConfigurationBuilder.secretKey(pluginConfig.get(RocketMqSinkOptions.SECRET_KEY));
         }
-
-        if (config.hasPath(ProducerConfig.MAX_MESSAGE_SIZE.key())) {
-            baseConfigurationBuilder.maxMessageSize(
-                    config.getInt(ProducerConfig.MAX_MESSAGE_SIZE.key()));
-        } else {
-            baseConfigurationBuilder.maxMessageSize(ProducerConfig.MAX_MESSAGE_SIZE.defaultValue());
-        }
-
-        if (config.hasPath(ProducerConfig.SEND_MESSAGE_TIMEOUT_MILLIS.key())) {
-            baseConfigurationBuilder.sendMsgTimeout(
-                    config.getInt(ProducerConfig.SEND_MESSAGE_TIMEOUT_MILLIS.key()));
-        } else {
-            baseConfigurationBuilder.sendMsgTimeout(
-                    ProducerConfig.SEND_MESSAGE_TIMEOUT_MILLIS.defaultValue());
-        }
-
+        baseConfigurationBuilder.groupId(pluginConfig.get(RocketMqSinkOptions.PRODUCER_GROUP));
+        baseConfigurationBuilder.maxMessageSize(
+                pluginConfig.get(RocketMqSinkOptions.MAX_MESSAGE_SIZE));
+        baseConfigurationBuilder.sendMsgTimeout(
+                pluginConfig.get(RocketMqSinkOptions.SEND_MESSAGE_TIMEOUT_MILLIS));
         this.producerMetadata.setConfiguration(baseConfigurationBuilder.build());
-
-        if (config.hasPath(FORMAT.key())) {
-            producerMetadata.setFormat(
-                    SchemaFormat.valueOf(config.getString(FORMAT.key()).toUpperCase()));
-        } else {
-            producerMetadata.setFormat(SchemaFormat.JSON);
-        }
-
-        if (config.hasPath(FIELD_DELIMITER.key())) {
-            producerMetadata.setFieldDelimiter(config.getString(FIELD_DELIMITER.key()));
-        } else {
-            producerMetadata.setFieldDelimiter(DEFAULT_FIELD_DELIMITER);
-        }
-
-        if (config.hasPath(ProducerConfig.PARTITION_KEY_FIELDS.key())) {
+        producerMetadata.setFormat(pluginConfig.get(RocketMqSinkOptions.FORMAT));
+        producerMetadata.setFieldDelimiter(pluginConfig.get(RocketMqSinkOptions.FIELD_DELIMITER));
+        if (pluginConfig.getOptional(RocketMqSinkOptions.PARTITION_KEY_FIELDS).isPresent()) {
             producerMetadata.setPartitionKeyFields(
-                    config.getStringList(ProducerConfig.PARTITION_KEY_FIELDS.key()));
+                    pluginConfig.get(RocketMqSinkOptions.PARTITION_KEY_FIELDS));
         }
-
-        boolean exactlyOnce = ProducerConfig.EXACTLY_ONCE.defaultValue();
-        if (config.hasPath(ProducerConfig.EXACTLY_ONCE.key())) {
-            exactlyOnce = config.getBoolean(ProducerConfig.EXACTLY_ONCE.key());
-        }
-        producerMetadata.setExactlyOnce(exactlyOnce);
-
-        boolean sync = ProducerConfig.SEND_SYNC.defaultValue();
-        if (config.hasPath(ProducerConfig.SEND_SYNC.key())) {
-            sync = config.getBoolean(ProducerConfig.SEND_SYNC.key());
-        }
-        producerMetadata.setSync(sync);
+        producerMetadata.setExactlyOnce(pluginConfig.get(RocketMqSinkOptions.EXACTLY_ONCE));
+        producerMetadata.setSync(pluginConfig.get(RocketMqSinkOptions.SEND_SYNC));
     }
 
     @Override
-    public void setTypeInfo(SeaTunnelRowType seaTunnelRowType) {
-        this.seaTunnelRowType = seaTunnelRowType;
+    public String getPluginName() {
+        return RocketMqSinkOptions.CONNECTOR_IDENTITY;
     }
 
     @Override
     public AbstractSinkWriter<SeaTunnelRow, Void> createWriter(SinkWriter.Context context)
             throws IOException {
-        return new RocketMqSinkWriter(producerMetadata, seaTunnelRowType);
+        return new RocketMqSinkWriter(producerMetadata, catalogTable.getSeaTunnelRowType());
     }
 
     @Override
     public Optional<CatalogTable> getWriteCatalogTable() {
-        return super.getWriteCatalogTable();
+        return Optional.ofNullable(catalogTable);
     }
 }

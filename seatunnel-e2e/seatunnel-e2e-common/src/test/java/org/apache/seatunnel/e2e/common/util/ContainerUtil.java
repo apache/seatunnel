@@ -205,7 +205,21 @@ public final class ContainerUtil {
                 Paths.get(PROJECT_ROOT_PATH, "seatunnel-transforms-v2", "target", transformJar);
         container.withCopyFileToContainer(
                 MountableFile.forHostPath(transformJarPath),
-                Paths.get(seatunnelHomeInContainer, "connectors", transformJar).toString());
+                Paths.get(seatunnelHomeInContainer, "lib", transformJar).toString());
+
+        // copy transform-udf
+        String transformUdfJar = "seatunnel-transforms-v2-udf.jar";
+        Path transformUdfJarPath =
+                Paths.get(
+                        PROJECT_ROOT_PATH,
+                        "seatunnel-e2e",
+                        "seatunnel-transforms-v2-e2e",
+                        "seatunnel-transforms-v2-udf",
+                        "target",
+                        transformUdfJar);
+        container.withCopyFileToContainer(
+                MountableFile.forHostPath(transformUdfJarPath),
+                Paths.get(seatunnelHomeInContainer, "lib", transformUdfJar).toString());
 
         // copy bin
         final String startBinPath = startModulePath + File.separator + "src/main/bin/";

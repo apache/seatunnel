@@ -71,6 +71,8 @@ public class UpdatedDataFieldsTest {
         DecimalType oldType = new DecimalType(20, 9);
         DecimalType biggerRangeType = new DecimalType(30, 10);
         DecimalType smallerRangeType = new DecimalType(10, 3);
+        DecimalType scaleSmallerRangeType = new DecimalType(30, 3);
+        DecimalType integerSmallerRangeType = new DecimalType(21, 15);
         DoubleType doubleType = new DoubleType();
 
         UpdatedDataFields.ConvertAction convertAction = null;
@@ -79,8 +81,12 @@ public class UpdatedDataFieldsTest {
         convertAction = UpdatedDataFields.canConvert(oldType, smallerRangeType);
         Assertions.assertEquals(UpdatedDataFields.ConvertAction.IGNORE, convertAction);
         convertAction = UpdatedDataFields.canConvert(oldType, doubleType);
-
         Assertions.assertEquals(UpdatedDataFields.ConvertAction.EXCEPTION, convertAction);
+
+        convertAction = UpdatedDataFields.canConvert(oldType, scaleSmallerRangeType);
+        Assertions.assertEquals(UpdatedDataFields.ConvertAction.IGNORE, convertAction);
+        convertAction = UpdatedDataFields.canConvert(oldType, integerSmallerRangeType);
+        Assertions.assertEquals(UpdatedDataFields.ConvertAction.IGNORE, convertAction);
     }
 
     @Test

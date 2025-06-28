@@ -105,4 +105,10 @@ public interface JdbcSourceOptions {
                     .booleanType()
                     .defaultValue(false)
                     .withDescription("Skip the analysis of table count");
+
+    Option<Boolean> USE_REGEX =
+            Options.key("use_regex")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription("Use regular expression for table path matching");
 }

@@ -56,6 +56,8 @@
         <opengauss.jdbc.version>5.1.0-og</opengauss.jdbc.version>
         <mariadb.jdbc.version>3.5.1</mariadb.jdbc.version>
         <highgo.version>6.2.3</highgo.version>
+        <presto.version>0.279</presto.version>
+        <trino.version>460</trino.version>
     </properties>
 
     <dependencyManagement>
@@ -230,6 +232,18 @@
                 <scope>provided</scope>
             </dependency>
             <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-jdbc</artifactId>
+                <version>${presto.version}</version>
+                <scope>provided</scope>
+            </dependency>
+            <dependency>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-jdbc</artifactId>
+                <version>${trino.version}</version>
+                <scope>provided</scope>
+            </dependency>
+            <dependency>
                 <groupId>org.duckdb</groupId>
                 <artifactId>duckdb_jdbc</artifactId>
                 <version>1.3.1.0</version>
@@ -357,6 +371,14 @@
         <dependency>
             <groupId>com.highgo</groupId>
             <artifactId>HgdbJdbc</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-jdbc</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-jdbc</artifactId>
         </dependency>
         <dependency>
             <groupId>org.duckdb</groupId>

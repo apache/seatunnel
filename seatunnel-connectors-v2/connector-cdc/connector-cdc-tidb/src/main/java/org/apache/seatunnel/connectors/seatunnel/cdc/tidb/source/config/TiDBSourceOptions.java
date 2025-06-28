@@ -62,7 +62,7 @@ public class TiDBSourceOptions implements Serializable {
                     .withDescription("TiKV cluster's PD address");
 
     public static final Option<Integer> BATCH_SIZE_PER_SCAN =
-            Options.key("batch-size-per-sca ")
+            Options.key("batch-size-per-scan")
                     .intType()
                     .defaultValue(1000)
                     .withDescription("Size per scan");

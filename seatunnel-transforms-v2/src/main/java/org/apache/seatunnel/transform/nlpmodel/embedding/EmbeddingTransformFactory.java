@@ -50,6 +50,14 @@ public class EmbeddingTransformFactory implements TableTransformFactory {
                         EmbeddingTransformConfig.PROCESS_BATCH_SIZE)
                 .conditional(
                         EmbeddingTransformConfig.MODEL_PROVIDER,
+                        ModelProvider.AMAZON,
+                        EmbeddingTransformConfig.API_KEY,
+                        EmbeddingTransformConfig.SECRET_KEY,
+                        EmbeddingTransformConfig.AWS_REGION,
+                        EmbeddingTransformConfig.MODEL,
+                        EmbeddingTransformConfig.DIMENSION)
+                .conditional(
+                        EmbeddingTransformConfig.MODEL_PROVIDER,
                         Lists.newArrayList(ModelProvider.OPENAI, ModelProvider.DOUBAO),
                         EmbeddingTransformConfig.API_KEY)
                 .conditional(

@@ -28,20 +28,10 @@
     <dependencies>
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
-            <artifactId>seatunnel-e2e-common</artifactId>
-            <version>${project.version}</version>
-            <type>test-jar</type>
-            <scope>system</scope>
-            <systemPath>${project.basedir}/../../../../seatunnel-e2e/seatunnel-e2e-common/target/seatunnel-e2e-common-2.3.11-SNAPSHOT-2.12.15-tests.jar</systemPath>
-        </dependency>
-
-        <dependency>
-            <groupId>org.apache.seatunnel</groupId>
             <artifactId>connector-jdbc-e2e-common</artifactId>
             <version>${project.version}</version>
             <type>test-jar</type>
-            <scope>system</scope>
-            <systemPath>${project.basedir}/../connector-jdbc-e2e-common/target/connector-jdbc-e2e-common-2.3.11-SNAPSHOT-2.12.15-tests.jar</systemPath>
+            <scope>test</scope>
         </dependency>
 
         <!-- jdbc containers -->
@@ -119,6 +109,16 @@
         <dependency>
             <groupId>com.highgo</groupId>
             <artifactId>HgdbJdbc</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-jdbc</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-jdbc</artifactId>
             <scope>test</scope>
         </dependency>
         <dependency>

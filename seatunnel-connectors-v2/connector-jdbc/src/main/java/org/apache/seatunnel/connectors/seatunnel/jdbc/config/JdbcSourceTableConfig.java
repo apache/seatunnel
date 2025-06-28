@@ -63,6 +63,9 @@ public class JdbcSourceTableConfig implements Serializable {
     @JsonProperty("skip_analyze")
     private Boolean skipAnalyze;
 
+    @JsonProperty("use_regex")
+    private Boolean useRegex;
+
     @Tolerate
     public JdbcSourceTableConfig() {}
 
@@ -84,6 +87,7 @@ public class JdbcSourceTableConfig implements Serializable {
                             .partitionNumber(connectorConfig.get(JdbcOptions.PARTITION_NUM))
                             .partitionStart(connectorConfig.get(JdbcOptions.PARTITION_LOWER_BOUND))
                             .partitionEnd(connectorConfig.get(JdbcOptions.PARTITION_UPPER_BOUND))
+                            .useRegex(connectorConfig.get(JdbcSourceOptions.USE_REGEX))
                             .build();
             tableList = Collections.singletonList(tableProperty);
         }
@@ -96,6 +100,9 @@ public class JdbcSourceTableConfig implements Serializable {
                     tableConfig.setUseSelectCount(
                             connectorConfig.get(JdbcSourceOptions.USE_SELECT_COUNT));
                     tableConfig.setSkipAnalyze(connectorConfig.get(JdbcSourceOptions.SKIP_ANALYZE));
+                    if (tableConfig.getUseRegex() == null) {
+                        tableConfig.setUseRegex(connectorConfig.get(JdbcSourceOptions.USE_REGEX));
+                    }
                 });
 
         if (tableList.size() > 1) {

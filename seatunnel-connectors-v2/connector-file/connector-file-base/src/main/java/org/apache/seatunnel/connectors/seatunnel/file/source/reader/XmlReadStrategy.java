@@ -282,13 +282,14 @@ public class XmlReadStrategy extends AbstractReadStrategy {
 
         this.dateFormat =
                 getComplexDateConfigValue(
-                        FileBaseSourceOptions.DATE_FORMAT, DateUtils.Formatter::parse);
+                        FileBaseSourceOptions.DATE_FORMAT_LEGACY, DateUtils.Formatter::parse);
         this.timeFormat =
                 getComplexDateConfigValue(
-                        FileBaseSourceOptions.TIME_FORMAT, TimeUtils.Formatter::parse);
+                        FileBaseSourceOptions.TIME_FORMAT_LEGACY, TimeUtils.Formatter::parse);
         this.datetimeFormat =
                 getComplexDateConfigValue(
-                        FileBaseSourceOptions.DATETIME_FORMAT, DateTimeUtils.Formatter::parse);
+                        FileBaseSourceOptions.DATETIME_FORMAT_LEGACY,
+                        DateTimeUtils.Formatter::parse);
         this.encoding =
                 ReadonlyConfig.fromConfig(pluginConfig)
                         .getOptional(FileBaseSourceOptions.ENCODING)

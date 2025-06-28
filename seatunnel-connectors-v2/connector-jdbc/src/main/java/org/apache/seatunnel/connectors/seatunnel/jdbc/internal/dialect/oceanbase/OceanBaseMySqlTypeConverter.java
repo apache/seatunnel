@@ -108,7 +108,7 @@ public class OceanBaseMySqlTypeConverter
 
     @Override
     public String identifier() {
-        return DatabaseIdentifier.OCENABASE;
+        return DatabaseIdentifier.OCEANBASE;
     }
 
     @Override
@@ -308,7 +308,7 @@ public class OceanBaseMySqlTypeConverter
                 break;
             default:
                 throw CommonError.convertToSeaTunnelTypeError(
-                        DatabaseIdentifier.OCENABASE, mysqlDataType, typeDefine.getName());
+                        DatabaseIdentifier.OCEANBASE, mysqlDataType, typeDefine.getName());
         }
         return builder.build();
     }
@@ -525,7 +525,7 @@ public class OceanBaseMySqlTypeConverter
                 break;
             default:
                 throw CommonError.convertToConnectorTypeError(
-                        DatabaseIdentifier.OCENABASE,
+                        DatabaseIdentifier.OCEANBASE,
                         column.getDataType().getSqlType().name(),
                         column.getName());
         }
