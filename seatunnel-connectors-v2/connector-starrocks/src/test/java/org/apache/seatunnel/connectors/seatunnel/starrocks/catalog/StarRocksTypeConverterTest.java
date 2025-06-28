@@ -43,9 +43,9 @@ import static org.apache.seatunnel.connectors.seatunnel.starrocks.datatypes.Star
 import static org.apache.seatunnel.connectors.seatunnel.starrocks.datatypes.StarRocksType.SR_CHAR;
 import static org.apache.seatunnel.connectors.seatunnel.starrocks.datatypes.StarRocksType.SR_DATE;
 import static org.apache.seatunnel.connectors.seatunnel.starrocks.datatypes.StarRocksType.SR_DATETIME;
-import static org.apache.seatunnel.connectors.seatunnel.starrocks.datatypes.StarRocksType.SR_DATETIMEV2_ARRAY;
-import static org.apache.seatunnel.connectors.seatunnel.starrocks.datatypes.StarRocksType.SR_DATEV2_ARRAY;
-import static org.apache.seatunnel.connectors.seatunnel.starrocks.datatypes.StarRocksType.SR_DECIMALV3;
+import static org.apache.seatunnel.connectors.seatunnel.starrocks.datatypes.StarRocksType.SR_DATETIME_ARRAY;
+import static org.apache.seatunnel.connectors.seatunnel.starrocks.datatypes.StarRocksType.SR_DATE_ARRAY;
+import static org.apache.seatunnel.connectors.seatunnel.starrocks.datatypes.StarRocksType.SR_DECIMAL;
 import static org.apache.seatunnel.connectors.seatunnel.starrocks.datatypes.StarRocksType.SR_DOUBLE;
 import static org.apache.seatunnel.connectors.seatunnel.starrocks.datatypes.StarRocksType.SR_DOUBLE_ARRAY;
 import static org.apache.seatunnel.connectors.seatunnel.starrocks.datatypes.StarRocksType.SR_FLOAT;
@@ -255,7 +255,7 @@ public class StarRocksTypeConverterTest {
         BasicTypeDefine<StarRocksType> typeDefine =
                 BasicTypeDefine.<StarRocksType>builder()
                         .name("test")
-                        .columnType("decimalv3")
+                        .columnType("decimal")
                         .dataType("decimal")
                         .precision(9L)
                         .scale(2)
@@ -270,7 +270,7 @@ public class StarRocksTypeConverterTest {
         typeDefine =
                 BasicTypeDefine.<StarRocksType>builder()
                         .name("test")
-                        .columnType("decimalv3(36,2)")
+                        .columnType("decimal(36,2)")
                         .dataType("decimal")
                         .precision(38L)
                         .scale(2)
@@ -465,7 +465,7 @@ public class StarRocksTypeConverterTest {
         typeDefine =
                 BasicTypeDefine.<StarRocksType>builder()
                         .name("test")
-                        .columnType("array<decimalv3(10, 2)>")
+                        .columnType("array<decimal(10, 2)>")
                         .dataType("ARRAY")
                         .build();
         column = converter.convert(typeDefine);
@@ -598,7 +598,7 @@ public class StarRocksTypeConverterTest {
         typeDefine =
                 BasicTypeDefine.<StarRocksType>builder()
                         .name("test")
-                        .columnType("map<string,decimalv3(10, 2)>")
+                        .columnType("map<string,decimal(10, 2)>")
                         .dataType("MAP")
                         .build();
         column = converter.convert(typeDefine);
@@ -610,7 +610,7 @@ public class StarRocksTypeConverterTest {
         typeDefine =
                 BasicTypeDefine.<StarRocksType>builder()
                         .name("test")
-                        .columnType("map<decimalv3(10, 2),date>")
+                        .columnType("map<decimal(10, 2),date>")
                         .dataType("MAP")
                         .build();
         column = converter.convert(typeDefine);
@@ -779,19 +779,19 @@ public class StarRocksTypeConverterTest {
         Assertions.assertEquals(
                 String.format(
                         "%s(%s,%s)",
-                        SR_DECIMALV3,
+                        SR_DECIMAL,
                         StarRocksTypeConverter.MAX_PRECISION,
                         StarRocksTypeConverter.MAX_SCALE),
                 typeDefine.getColumnType());
-        Assertions.assertEquals(SR_DECIMALV3, typeDefine.getDataType());
+        Assertions.assertEquals(SR_DECIMAL, typeDefine.getDataType());
 
         column = PhysicalColumn.builder().name("test").dataType(new DecimalType(10, 2)).build();
 
         typeDefine = converter.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
-        Assertions.assertEquals(SR_DECIMALV3, typeDefine.getDataType());
+        Assertions.assertEquals(SR_DECIMAL, typeDefine.getDataType());
         Assertions.assertEquals(
-                String.format("%s(%s,%s)", SR_DECIMALV3, 10, 2), typeDefine.getColumnType());
+                String.format("%s(%s,%s)", SR_DECIMAL, 10, 2), typeDefine.getColumnType());
 
         column = PhysicalColumn.builder().name("test").dataType(new DecimalType(40, 2)).build();
 
@@ -1098,8 +1098,8 @@ public class StarRocksTypeConverterTest {
 
         typeDefine = converter.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
-        Assertions.assertEquals(SR_DATEV2_ARRAY, typeDefine.getColumnType());
-        Assertions.assertEquals(SR_DATEV2_ARRAY, typeDefine.getDataType());
+        Assertions.assertEquals(SR_DATE_ARRAY, typeDefine.getColumnType());
+        Assertions.assertEquals(SR_DATE_ARRAY, typeDefine.getDataType());
 
         column =
                 PhysicalColumn.builder()
@@ -1109,16 +1109,16 @@ public class StarRocksTypeConverterTest {
 
         typeDefine = converter.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
-        Assertions.assertEquals(SR_DATETIMEV2_ARRAY, typeDefine.getColumnType());
-        Assertions.assertEquals(SR_DATETIMEV2_ARRAY, typeDefine.getDataType());
+        Assertions.assertEquals(SR_DATETIME_ARRAY, typeDefine.getColumnType());
+        Assertions.assertEquals(SR_DATETIME_ARRAY, typeDefine.getDataType());
 
         DecimalArrayType decimalArrayType = new DecimalArrayType(new DecimalType(10, 2));
         column = PhysicalColumn.builder().name("test").dataType(decimalArrayType).build();
 
         typeDefine = converter.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
-        Assertions.assertEquals("ARRAY<DECIMALV3(10, 2)>", typeDefine.getColumnType());
-        Assertions.assertEquals("ARRAY<DECIMALV3>", typeDefine.getDataType());
+        Assertions.assertEquals("ARRAY<DECIMAL(10, 2)>", typeDefine.getColumnType());
+        Assertions.assertEquals("ARRAY<DECIMAL>", typeDefine.getDataType());
 
         decimalArrayType = new DecimalArrayType(new DecimalType(20, 0));
         column =
@@ -1129,8 +1129,8 @@ public class StarRocksTypeConverterTest {
                         .build();
         typeDefine = converter.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
-        Assertions.assertEquals("ARRAY<DECIMALV3(20, 0)>", typeDefine.getColumnType());
-        Assertions.assertEquals("ARRAY<DECIMALV3>", typeDefine.getDataType());
+        Assertions.assertEquals("ARRAY<DECIMAL(20, 0)>", typeDefine.getColumnType());
+        Assertions.assertEquals("ARRAY<DECIMAL>", typeDefine.getDataType());
     }
 
     @Test
@@ -1222,8 +1222,8 @@ public class StarRocksTypeConverterTest {
 
         typeDefine = converter.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
-        Assertions.assertEquals("MAP<DECIMALV3(10,2), STRING>", typeDefine.getColumnType());
-        Assertions.assertEquals("MAP<DECIMALV3(10,2), STRING>", typeDefine.getDataType());
+        Assertions.assertEquals("MAP<DECIMAL(10,2), STRING>", typeDefine.getColumnType());
+        Assertions.assertEquals("MAP<DECIMAL(10,2), STRING>", typeDefine.getDataType());
 
         column =
                 PhysicalColumn.builder()
