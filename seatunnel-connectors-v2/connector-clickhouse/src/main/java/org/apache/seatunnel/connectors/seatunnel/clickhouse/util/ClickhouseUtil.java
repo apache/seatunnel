@@ -18,9 +18,10 @@
 package org.apache.seatunnel.connectors.seatunnel.clickhouse.util;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseBaseOptions;
-import org.apache.seatunnel.connectors.seatunnel.clickhouse.exception.ClickhouseConnectorErrorCode;
-import org.apache.seatunnel.connectors.seatunnel.clickhouse.exception.ClickhouseConnectorException;
 
 import org.apache.commons.collections4.MapUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -28,12 +29,20 @@ import org.apache.commons.lang3.StringUtils;
 import com.clickhouse.client.ClickHouseCredentials;
 import com.clickhouse.client.ClickHouseNode;
 import com.clickhouse.client.ClickHouseProtocol;
+import com.clickhouse.client.ClickHouseRecord;
+import lombok.extern.slf4j.Slf4j;
+import net.sf.jsqlparser.JSQLParserException;
+import net.sf.jsqlparser.parser.CCJSqlParserUtil;
+import net.sf.jsqlparser.statement.Statement;
+import net.sf.jsqlparser.util.TablesNamesFinder;
 
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
+@Slf4j
 public class ClickhouseUtil {
 
     public static List<ClickHouseNode> createNodes(ReadonlyConfig config) {
@@ -84,30 +93,38 @@ public class ClickhouseUtil {
                 .collect(Collectors.toList());
     }
 
-    public static String extractTablePathFromSql(String sql) {
-        String lowerSql = sql.toLowerCase();
-
-        int fromIndex = lowerSql.indexOf(" from ");
-        if (fromIndex == -1) {
-            return null;
+    public static SeaTunnelRow convertToSeaTunnelRow(
+            ClickHouseRecord record, SeaTunnelRowType seaTunnelRowType, String tableId) {
+        Object[] values = new Object[seaTunnelRowType.getFieldNames().length];
+        for (int i = 0; i < record.size(); i++) {
+            if (record.getValue(i) == null || record.getValue(i).isNullOrEmpty()) {
+                values[i] = null;
+            } else {
+                values[i] =
+                        TypeConvertUtil.valueUnwrap(
+                                seaTunnelRowType.getFieldType(i), record.getValue(i));
+            }
         }
+        SeaTunnelRow seaTunnelRow = new SeaTunnelRow(values);
+        seaTunnelRow.setTableId(tableId);
+        return seaTunnelRow;
+    }
 
-        String afterFrom = sql.substring(fromIndex + 6).trim();
+    public static TablePath extractTablePathFromSql(String sql) {
+        try {
+            Statement statement = CCJSqlParserUtil.parse(sql);
 
-        String[] parts = afterFrom.split("[\\s,();]+");
-        if (parts.length == 0) {
-            return null;
+            TablesNamesFinder tablesNamesFinder = new TablesNamesFinder();
+            Set<String> tableNames = tablesNamesFinder.getTables(statement);
+            if (tableNames.size() == 1) {
+                String tableFullName = tableNames.iterator().next();
+                return TablePath.of(tableFullName);
+            }
+
+            return TablePath.DEFAULT;
+        } catch (JSQLParserException e) {
+            log.warn("Failed to parse SQL statement: {}, exception: {}", sql, e);
+            return TablePath.DEFAULT;
         }
-
-        String tableFullNme = parts[0];
-        tableFullNme = tableFullNme.replaceAll("['\"`]", "");
-
-        if (StringUtils.isEmpty(tableFullNme) || !tableFullNme.contains(".")) {
-            throw new ClickhouseConnectorException(
-                    ClickhouseConnectorErrorCode.EXTRACT_TABLE_FROM_SQL_ERROR,
-                    "Extract table path from sql failed, please check your sql.");
-        }
-
-        return tableFullNme;
     }
 }

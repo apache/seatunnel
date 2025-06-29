@@ -20,12 +20,14 @@ package org.apache.seatunnel.connectors.seatunnel.clickhouse.config;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.annotation.JsonProperty;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.util.ClickhouseUtil;
 
 import org.apache.commons.lang3.StringUtils;
 
 import lombok.Builder;
 import lombok.Data;
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.Serializable;
 import java.util.List;
@@ -33,6 +35,7 @@ import java.util.Map;
 
 @Data
 @Builder(builderClassName = "Builder")
+@Slf4j
 public class ClickhouseSourceConfig implements Serializable {
 
     private static final long serialVersionUID = -5139627460951339176L;
@@ -65,6 +68,8 @@ public class ClickhouseSourceConfig implements Serializable {
 
     private boolean isSqlStrategyRead;
 
+    private boolean isSingleParallelRead;
+
     public static ClickhouseSourceConfig of(ReadonlyConfig config) {
         if (!config.getOptional(ClickhouseBaseOptions.TABLE_PATH).isPresent()
                 && !config.getOptional(ClickhouseSourceOptions.SQL).isPresent()) {
@@ -88,12 +93,23 @@ public class ClickhouseSourceConfig implements Serializable {
         return builder.build();
     }
 
-    public String getTableIdentifier() {
+    public TablePath getTableIdentifier() {
         if (StringUtils.isEmpty(tablePath)) {
             // Extract table identifier from SQL
             return ClickhouseUtil.extractTablePathFromSql(sql);
         }
 
-        return tablePath;
+        if (StringUtils.isNotEmpty(tablePath) && StringUtils.isNotEmpty(sql)) {
+            TablePath sqlTablePath = ClickhouseUtil.extractTablePathFromSql(sql);
+
+            if (!sqlTablePath.getFullName().equals(tablePath)) {
+                throw new IllegalArgumentException(
+                        String.format(
+                                "Table path from SQL (%s) does not match the provided table path (%s).",
+                                sqlTablePath.getFullName(), tablePath));
+            }
+        }
+
+        return TablePath.of(tablePath);
     }
 }

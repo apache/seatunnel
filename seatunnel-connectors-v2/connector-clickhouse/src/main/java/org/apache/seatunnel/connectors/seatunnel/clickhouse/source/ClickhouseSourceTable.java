@@ -30,17 +30,16 @@ import java.util.List;
 @Data
 @Builder
 public class ClickhouseSourceTable implements Serializable {
-
-    private static final long serialVersionUID = 1L;
+    private static final long serialVersionUID = -457477523311211973L;
 
     private TablePath tablePath;
     private String originQuery;
     private String filterQuery;
     private Integer partSize;
     private Integer batchSize;
-    private Long execMemLimit;
     private List<String> partitionList;
     private List<Shard> clusterShardList;
     private ClickhouseTable clickhouseTable;
     private boolean isSqlStrategyRead;
+    private boolean isComplexSql;
 }

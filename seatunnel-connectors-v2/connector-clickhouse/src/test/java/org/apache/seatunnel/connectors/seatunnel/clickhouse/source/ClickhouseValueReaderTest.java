@@ -90,6 +90,7 @@ public class ClickhouseValueReaderTest {
                         new ArrayList<>(parts),
                         shard,
                         "",
+                        0,
                         "split-1");
 
         mockProxy = Mockito.mock(ClickhouseProxy.class);

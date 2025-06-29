@@ -30,6 +30,7 @@
     <properties>
         <clickhouse.version>0.3.2-patch11</clickhouse.version>
         <sshd.scp.version>2.7.0</sshd.scp.version>
+        <jsqlparser.version>4.9</jsqlparser.version>
     </properties>
     <dependencies>
         <dependency>
@@ -72,6 +73,12 @@
             <groupId>org.apache.seatunnel</groupId>
             <artifactId>connector-common</artifactId>
             <version>${project.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>com.github.jsqlparser</groupId>
+            <artifactId>jsqlparser</artifactId>
+            <version>${jsqlparser.version}</version>
         </dependency>
 
     </dependencies>

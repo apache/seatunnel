@@ -26,27 +26,28 @@ public class ClickhouseUtilTest {
     @Test
     public void testExtractTablePathFromSqlWithSimpleQuery() {
         String sql1 = "SELECT * FROM my_db.my_table";
-        TablePath result = TablePath.of(ClickhouseUtil.extractTablePathFromSql(sql1));
+        TablePath result = ClickhouseUtil.extractTablePathFromSql(sql1);
         Assertions.assertNotNull(result);
         Assertions.assertEquals("my_db", result.getDatabaseName());
         Assertions.assertEquals("my_table", result.getTableName());
 
         String sql2 = "SELECT id, name FROM my_db.my_table WHERE id > 100";
-        TablePath result2 = TablePath.of(ClickhouseUtil.extractTablePathFromSql(sql2));
+        TablePath result2 = ClickhouseUtil.extractTablePathFromSql(sql2);
         Assertions.assertNotNull(result2);
         Assertions.assertEquals("my_db", result2.getDatabaseName());
         Assertions.assertEquals("my_table", result2.getTableName());
 
         String sql3 = "SELECT t.id, t.name FROM my_db.my_table AS t WHERE t.id > 100";
-        TablePath result3 = TablePath.of(ClickhouseUtil.extractTablePathFromSql(sql3));
+        TablePath result3 = ClickhouseUtil.extractTablePathFromSql(sql3);
         Assertions.assertNotNull(result);
         Assertions.assertEquals("my_db", result3.getDatabaseName());
         Assertions.assertEquals("my_table", result3.getTableName());
 
-        String sql4 = "SELECT * FROM \"my_db\".\"my_table\"";
-        TablePath result4 = TablePath.of(ClickhouseUtil.extractTablePathFromSql(sql4));
+        String sql4 =
+                "SELECT * FROM my_db.my_table global join my_db2.my_table2 ON my_db.my_table.id = my_db2.my_table2.id";
+        TablePath result4 = ClickhouseUtil.extractTablePathFromSql(sql4);
         Assertions.assertNotNull(result);
-        Assertions.assertEquals("my_db", result4.getDatabaseName());
-        Assertions.assertEquals("my_table", result4.getTableName());
+        Assertions.assertEquals("default", result4.getDatabaseName());
+        Assertions.assertEquals("default", result4.getTableName());
     }
 }

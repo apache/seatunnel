@@ -84,7 +84,7 @@ public class ClickhouseSourceFactory implements TableSourceFactory {
                 ClickhouseSourceConfig.of(context.getOptions());
 
         String sql = clickhouseSourceConfig.getSql();
-        TablePath tablePath = TablePath.of(clickhouseSourceConfig.getTableIdentifier());
+        TablePath tablePath = clickhouseSourceConfig.getTableIdentifier();
         List<ClickHouseNode> nodes =
                 ClickhouseUtil.createNodes(
                         clickhouseSourceConfig.getHost(),
@@ -131,14 +131,21 @@ public class ClickhouseSourceFactory implements TableSourceFactory {
                             "",
                             catalogName);
 
+            boolean isComplexSql =
+                    StringUtils.isNotEmpty(sql)
+                            && (tablePath == TablePath.DEFAULT || proxy.isComplexSql(sql));
+
             ClickhouseTable clickhouseTable =
-                    proxy.getClickhouseTable(
-                            proxy.getClickhouseConnection(),
-                            tablePath.getDatabaseName(),
-                            tablePath.getTableName());
+                    isComplexSql
+                            ? null
+                            : proxy.getClickhouseTable(
+                                    proxy.getClickhouseConnection(),
+                                    tablePath.getDatabaseName(),
+                                    tablePath.getTableName());
 
             List<Shard> clusterShardList =
-                    getClusterShardList(clickhouseSourceConfig, nodes, proxy, clickhouseTable);
+                    getClusterShardList(
+                            clickhouseSourceConfig, nodes, proxy, clickhouseTable, isComplexSql);
 
             ClickhouseSourceTable clickhouseSourceTable =
                     ClickhouseSourceTable.builder()
@@ -151,6 +158,7 @@ public class ClickhouseSourceFactory implements TableSourceFactory {
                             .partitionList(clickhouseSourceConfig.getPartitionList())
                             .clusterShardList(clusterShardList)
                             .isSqlStrategyRead(clickhouseSourceConfig.isSqlStrategyRead())
+                            .isComplexSql(isComplexSql)
                             .build();
 
             clickhouseSourceTables.put(tablePath, clickhouseSourceTable);
@@ -187,11 +195,14 @@ public class ClickhouseSourceFactory implements TableSourceFactory {
             ClickhouseSourceConfig clickhouseSourceConfig,
             List<ClickHouseNode> nodes,
             ClickhouseProxy proxy,
-            ClickhouseTable clickhouseTable) {
+            ClickhouseTable clickhouseTable,
+            boolean isComplexSql) {
         String localTableEngine;
         List<Shard> clusterShardList;
 
-        if (clickhouseTable.getDistributedEngine() != null) {
+        if (isComplexSql) {
+            return buildClusterShardFromNodes(nodes);
+        } else if (clickhouseTable.getDistributedEngine() != null) {
             DistributedEngine distributedEngine = clickhouseTable.getDistributedEngine();
             localTableEngine = distributedEngine.getTableEngine();
 
@@ -206,7 +217,7 @@ public class ClickhouseSourceFactory implements TableSourceFactory {
                             nodes.get(0).getOptions());
         } else {
             // if input is local table, generate shard list based on the input nodes
-            clusterShardList = buildClusterShardForLocal(nodes);
+            clusterShardList = buildClusterShardFromNodes(nodes);
             localTableEngine = clickhouseTable.getEngine();
         }
 
@@ -220,7 +231,7 @@ public class ClickhouseSourceFactory implements TableSourceFactory {
         return clusterShardList;
     }
 
-    private List<Shard> buildClusterShardForLocal(List<ClickHouseNode> nodes) {
+    private List<Shard> buildClusterShardFromNodes(List<ClickHouseNode> nodes) {
         List<Shard> shards = new ArrayList<>();
         IntStream.range(0, nodes.size())
                 .forEach(

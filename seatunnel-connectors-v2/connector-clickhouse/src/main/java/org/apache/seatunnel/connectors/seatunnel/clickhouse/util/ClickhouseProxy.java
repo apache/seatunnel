@@ -522,27 +522,17 @@ public class ClickhouseProxy implements AutoCloseable {
             response.stream()
                     .forEach(
                             record -> {
-                                Object[] values =
-                                        new Object[seaTunnelRowType.getFieldNames().length];
-                                for (int i = 0; i < record.size(); i++) {
-                                    if (record.getValue(i) == null
-                                            || record.getValue(i).isNullOrEmpty()) {
-                                        values[i] = null;
-                                    } else {
-                                        values[i] =
-                                                TypeConvertUtil.valueUnwrap(
-                                                        seaTunnelRowType.getFieldType(i),
-                                                        record.getValue(i));
-                                    }
-                                }
-                                SeaTunnelRow seaTunnelRow = new SeaTunnelRow(values);
-                                seaTunnelRow.setTableId(tablePath.getFullName());
+                                SeaTunnelRow seaTunnelRow =
+                                        ClickhouseUtil.convertToSeaTunnelRow(
+                                                record, seaTunnelRowType, tablePath.getFullName());
                                 seaTunnelRowList.add(seaTunnelRow);
                             });
         } catch (ClickHouseException e) {
             throw new ClickhouseConnectorException(
                     ClickhouseConnectorErrorCode.QUERY_DATA_ERROR,
-                    "Query data with part error. sql: " + sql,
+                    String.format(
+                            "Failed to read data from part. sql: %s, message: %s",
+                            sql, e.getMessage()),
                     e);
         }
 
@@ -579,31 +569,62 @@ public class ClickhouseProxy implements AutoCloseable {
             response.stream()
                     .forEach(
                             record -> {
-                                Object[] values =
-                                        new Object[seaTunnelRowType.getFieldNames().length];
-                                for (int i = 0; i < record.size(); i++) {
-                                    if (record.getValue(i) == null
-                                            || record.getValue(i).isNullOrEmpty()) {
-                                        values[i] = null;
-                                    } else {
-                                        values[i] =
-                                                TypeConvertUtil.valueUnwrap(
-                                                        seaTunnelRowType.getFieldType(i),
-                                                        record.getValue(i));
-                                    }
-                                }
-                                SeaTunnelRow seaTunnelRow = new SeaTunnelRow(values);
-                                seaTunnelRow.setTableId(clickhouseTable.getLocalTableIdentifier());
+                                SeaTunnelRow seaTunnelRow =
+                                        ClickhouseUtil.convertToSeaTunnelRow(
+                                                record,
+                                                seaTunnelRowType,
+                                                clickhouseTable.getLocalTableIdentifier());
                                 seaTunnelRowList.add(seaTunnelRow);
                             });
         } catch (ClickHouseException e) {
             throw new ClickhouseConnectorException(
                     ClickhouseConnectorErrorCode.QUERY_DATA_ERROR,
-                    "Query data with sql error. sql: " + sql,
+                    String.format(
+                            "Query data with sql error. sql: %s, message: %s", sql, e.getMessage()),
                     e);
         }
 
         return seaTunnelRowList;
+    }
+
+    public boolean isComplexSql(String sql) {
+        try {
+            String explainSql = "EXPLAIN " + sql;
+
+            try (ClickHouseResponse response =
+                    getClickhouseConnection().query(explainSql).executeAndWait()) {
+                List<String> explainOutput =
+                        response.stream()
+                                .map(record -> record.getValue(0).asString())
+                                .collect(Collectors.toList());
+
+                for (String explainLine : explainOutput) {
+                    // avoid table names that contain the following keywords
+                    if (explainLine.startsWith("ReadFrom")) {
+                        continue;
+                    }
+
+                    if (explainLine.contains("JOIN")
+                            || explainLine.contains("UNION")
+                            || explainLine.contains("GROUP BY")
+                            || explainLine.contains("LIMIT")
+                            || explainLine.contains("Sorting")
+                            || explainLine.contains("Aggregating")
+                            || explainLine.contains("subquery")) {
+
+                        log.info("Complex SQL detected, explain line: {}", explainLine);
+
+                        return true;
+                    }
+                }
+                return false;
+            }
+        } catch (Exception e) {
+            log.warn(
+                    "Failed to analyze SQL complexity using EXPLAIN, fallback to default true. e: {}",
+                    e.getMessage());
+            return true;
+        }
     }
 
     public void close() {

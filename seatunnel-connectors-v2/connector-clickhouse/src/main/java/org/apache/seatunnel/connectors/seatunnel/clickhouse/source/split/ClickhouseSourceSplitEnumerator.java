@@ -20,7 +20,9 @@ package org.apache.seatunnel.connectors.seatunnel.clickhouse.source.split;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
+import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseSourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.clickhouse.exception.ClickhouseConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.exception.ClickhouseConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.source.ClickhouseSourceTable;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.state.ClickhouseSourceState;
@@ -75,7 +77,16 @@ public class ClickhouseSourceSplitEnumerator
     }
 
     @Override
-    public void open() {}
+    public void open() {
+        clickhouseSourceTables.forEach(
+                (tablePath, clickhouseSourceTable) -> {
+                    if (clickhouseSourceTable.isComplexSql() && context.currentParallelism() != 1) {
+                        throw new SeaTunnelRuntimeException(
+                                ClickhouseConnectorErrorCode.COMPLEX_SQL_NOT_SUPPORT_PARALLEL_ERROR,
+                                "Current sql does not support concurrent execution. Please set parallelism = 1");
+                    }
+                });
+    }
 
     @Override
     public void run() throws Exception {
@@ -85,7 +96,6 @@ public class ClickhouseSourceSplitEnumerator
         if (shouldEnumerate) {
             synchronized (stateLock) {
                 if (shouldEnumerate) {
-                    LOG.info("start run split enumerator. shouEnumerate: {}", shouldEnumerate);
                     List<ClickhouseSourceSplit> clickhouseSourceSplits =
                             getClickhouseSourceSplits();
                     addPendingSplit(clickhouseSourceSplits);

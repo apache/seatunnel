@@ -39,7 +39,9 @@ public enum ClickhouseConnectorErrorCode implements SeaTunnelErrorCode {
     TABLE_NOT_FOUND_ERROR("CLICKHOUSE-12", "Table not found in table list of job configuration."),
     BOTH_TABLE_AND_SQL_EMPTY_ERROR("CLICKHOUSE-13", "Both table and sql are empty."),
     EXTRACT_TABLE_FROM_SQL_ERROR(
-            "CLICKHOUSE-14", "Extract table path from sql failed, please check your sql.");
+            "CLICKHOUSE-14", "Extract table path from sql failed, please check your sql."),
+    COMPLEX_SQL_NOT_SUPPORT_PARALLEL_ERROR(
+            "CLICKHOUSE-15", "Complex sql not support parallel read.");
 
     private final String code;
     private final String description;

@@ -249,6 +249,16 @@ public class ClickhouseIT extends TestSuiteBase implements TestResource {
         clearTable(SINK_TABLE);
     }
 
+    @TestTemplate
+    public void testClickhouseWitJoinComplexSql(TestContainer testContainer)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                testContainer.executeJob("/clickhouse_with_join_complex_sql.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+        Assertions.assertEquals(100, countData(SINK_TABLE));
+        clearTable(SINK_TABLE);
+    }
+
     @BeforeAll
     @Override
     public void startUp() throws Exception {

@@ -26,6 +26,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 @Slf4j
@@ -36,6 +37,11 @@ public class SqlStrategySplitter implements Splitter, AutoCloseable, Serializabl
         log.info(
                 "start sql strategy splitter generate splits. table: {}",
                 clickhouseSourceTable.getTablePath());
+
+        if (clickhouseSourceTable.isComplexSql()) {
+            log.info("Complex SQL detected, creating a single split for the query.");
+            return createSingleSplit(clickhouseSourceTable);
+        }
 
         List<ClickhouseSourceSplit> splits = new ArrayList<>();
         ClickhouseTable clickhouseTable = clickhouseSourceTable.getClickhouseTable();
@@ -58,6 +64,7 @@ public class SqlStrategySplitter implements Splitter, AutoCloseable, Serializabl
                                                 new ArrayList<>(),
                                                 shard,
                                                 querySql,
+                                                0,
                                                 createSplitId(
                                                         clickhouseSourceTable.getTablePath(),
                                                         shard,
@@ -83,6 +90,22 @@ public class SqlStrategySplitter implements Splitter, AutoCloseable, Serializabl
         }
 
         return clickhouseSourceTable.getOriginQuery();
+    }
+
+    private List<ClickhouseSourceSplit> createSingleSplit(
+            ClickhouseSourceTable clickhouseSourceTable) {
+        return Collections.singletonList(
+                new ClickhouseSourceSplit(
+                        clickhouseSourceTable.getTablePath(),
+                        clickhouseSourceTable.getTablePath(),
+                        new ArrayList<>(),
+                        clickhouseSourceTable.getClusterShardList().get(0),
+                        clickhouseSourceTable.getOriginQuery(),
+                        0,
+                        createSplitId(
+                                clickhouseSourceTable.getTablePath(),
+                                clickhouseSourceTable.getClusterShardList().get(0),
+                                0)));
     }
 
     @Override
