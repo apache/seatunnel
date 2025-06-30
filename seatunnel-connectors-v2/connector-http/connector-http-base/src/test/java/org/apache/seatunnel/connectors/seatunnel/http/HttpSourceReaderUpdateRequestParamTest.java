@@ -504,4 +504,27 @@ public class HttpSourceReaderUpdateRequestParamTest {
         Assertions.assertEquals("5", filters.get("code"));
         Assertions.assertEquals(10, bodyMap.get("limit"));
     }
+
+    @Test
+    public void testUpdateRequestParamWithHeaderOnlyPageNumberOccurNPE() throws Exception {
+        // Setup test data
+        Map<String, String> headers = new HashMap<>();
+        headers.put("Content-Type", "application/json;utf-8");
+        headers.put("Authorization", "Bearer token-123");
+        headers.put("page", "0");
+        httpParameter.setHeaders(headers);
+
+        PageInfo pageInfo = new PageInfo();
+        pageInfo.setPageField("page");
+        pageInfo.setPageIndex(5L);
+
+        // Call updateRequestParam method directly, update headers with pageInfo
+        httpSourceReader.updateRequestParam(pageInfo, false);
+
+        // Verify the headers were updated correctly, and no occur NPE without cursor pageField
+        Map<String, String> updatedHeaders = httpParameter.getHeaders();
+        Assertions.assertEquals("5", updatedHeaders.get("page"));
+        Assertions.assertEquals("Bearer token-123", updatedHeaders.get("Authorization"));
+        Assertions.assertEquals("application/json;utf-8", updatedHeaders.get("Content-Type"));
+    }
 }
