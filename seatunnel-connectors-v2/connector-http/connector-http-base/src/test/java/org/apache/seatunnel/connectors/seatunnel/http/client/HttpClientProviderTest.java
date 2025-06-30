@@ -75,8 +75,13 @@ class HttpClientProviderTest {
     void addBody() throws Exception {
         HttpPost post = mockRequest;
 
+        Header[] originalHeaders =
+                new Header[] {new BasicHeader(HTTP.CONTENT_TYPE, "application/json;utf-8")};
+        when(mockRequest.getAllHeaders()).thenReturn(originalHeaders);
+        when(mockRequest.getHeaders(HTTP.CONTENT_TYPE)).thenReturn(new Header[0]);
+
         Map<String, Object> body = new HashMap<>();
-        Header[] originalHeaders = post.getAllHeaders();
+        //        Header[] originalHeaders = post.getAllHeaders();
         HttpClientProvider.addBody(post, body);
 
         // ensure the original headers are preserved
