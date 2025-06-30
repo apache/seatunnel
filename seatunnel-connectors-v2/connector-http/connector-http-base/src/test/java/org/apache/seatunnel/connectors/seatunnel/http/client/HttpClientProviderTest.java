@@ -17,15 +17,62 @@
 package org.apache.seatunnel.connectors.seatunnel.http.client;
 
 import org.apache.http.Header;
+import org.apache.http.HttpEntity;
 import org.apache.http.client.methods.HttpPost;
+import org.apache.http.message.BasicHeader;
+import org.apache.http.protocol.HTTP;
 
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
 class HttpClientProviderTest {
+
+    private HttpPost mockRequest;
+
+    @BeforeEach
+    void setUp() {
+        // 创建具体的 HttpEntityEnclosingRequestBase 子类实例（HttpPost）
+        mockRequest = mock(HttpPost.class);
+    }
+
+    @AfterEach
+    void tearDown() {
+        mockRequest = null;
+    }
+
+    @Test
+    void testAddBodyPreservesOriginalHeaders() throws Exception {
+        Header[] originalHeaders =
+                new Header[] {new BasicHeader(HTTP.CONTENT_TYPE, "application/json;utf-8")};
+        when(mockRequest.getAllHeaders()).thenReturn(originalHeaders);
+        when(mockRequest.getHeaders(HTTP.CONTENT_TYPE)).thenReturn(new Header[0]);
+
+        // verify original headers are preserved
+        HttpClientProvider.addBody(mockRequest, Collections.emptyMap());
+
+        verify(mockRequest).setHeader(HTTP.CONTENT_TYPE, "application/json");
+        verify(mockRequest).setEntity(any(HttpEntity.class));
+
+        Header[] currentHeaders =
+                new Header[] {new BasicHeader(HTTP.CONTENT_TYPE, "application/json;utf-8")};
+        when(mockRequest.getAllHeaders()).thenReturn(currentHeaders);
+
+        Header[] resultHeaders = mockRequest.getAllHeaders();
+        Assertions.assertEquals(1, resultHeaders.length);
+        Assertions.assertEquals(HTTP.CONTENT_TYPE, resultHeaders[0].getName());
+        Assertions.assertEquals("application/json;utf-8", resultHeaders[0].getValue());
+    }
 
     @Test
     void addBody() throws Exception {
