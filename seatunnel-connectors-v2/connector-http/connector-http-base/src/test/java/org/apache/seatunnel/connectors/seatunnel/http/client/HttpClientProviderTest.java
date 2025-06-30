@@ -17,7 +17,6 @@
 package org.apache.seatunnel.connectors.seatunnel.http.client;
 
 import org.apache.http.Header;
-import org.apache.http.HttpEntity;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.message.BasicHeader;
 import org.apache.http.protocol.HTTP;
@@ -31,9 +30,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class HttpClientProviderTest {
@@ -61,8 +58,8 @@ class HttpClientProviderTest {
         // verify original headers are preserved
         HttpClientProvider.addBody(mockRequest, Collections.emptyMap());
 
-//        verify(mockRequest).setHeader(HTTP.CONTENT_TYPE, "application/json;utf-8");
-//        verify(mockRequest).setEntity(any(HttpEntity.class));
+        //        verify(mockRequest).setHeader(HTTP.CONTENT_TYPE, "application/json;utf-8");
+        //        verify(mockRequest).setEntity(any(HttpEntity.class));
 
         Header[] currentHeaders =
                 new Header[] {new BasicHeader(HTTP.CONTENT_TYPE, "application/json;utf-8")};
