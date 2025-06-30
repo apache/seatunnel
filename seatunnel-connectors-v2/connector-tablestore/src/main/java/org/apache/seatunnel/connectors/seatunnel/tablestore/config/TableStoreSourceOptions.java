@@ -15,21 +15,6 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.telemetry.metrics.entity;
+package org.apache.seatunnel.connectors.seatunnel.tablestore.config;
 
-import lombok.AllArgsConstructor;
-import lombok.Data;
-
-@Data
-@AllArgsConstructor
-public class JobCounter {
-    private long createdJobCount;
-    private long pendingJobCount;
-    private long scheduledJobCount;
-    private long runningJobCount;
-    private long failingJobCount;
-    private long failedJobCount;
-    private long cancellingJobCount;
-    private long canceledJobCount;
-    private long finishedJobCount;
-}
+public class TableStoreSourceOptions extends TableStoreCommonOptions {}

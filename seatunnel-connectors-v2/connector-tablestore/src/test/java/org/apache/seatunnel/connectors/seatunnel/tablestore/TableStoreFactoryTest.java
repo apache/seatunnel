@@ -14,26 +14,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.seatunnel.connectors.seatunnel.tablestore.source;
 
-import org.apache.seatunnel.api.source.SourceSplit;
+package org.apache.seatunnel.connectors.seatunnel.tablestore;
 
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-import lombok.Setter;
+import org.apache.seatunnel.connectors.seatunnel.tablestore.sink.TableStoreSinkFactory;
 
-@AllArgsConstructor
-@Getter
-@Setter
-public class TableStoreDBSourceSplit implements SourceSplit {
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
-    private static final long serialVersionUID = 6471832674315580956L;
-    private Integer splitId;
-    private String tableName;
-    private String primaryKey;
+class TableStoreFactoryTest {
 
-    @Override
-    public String splitId() {
-        return splitId.toString();
+    @Test
+    void optionRule() {
+        Assertions.assertNotNull((new TableStoreSinkFactory()).optionRule());
     }
 }

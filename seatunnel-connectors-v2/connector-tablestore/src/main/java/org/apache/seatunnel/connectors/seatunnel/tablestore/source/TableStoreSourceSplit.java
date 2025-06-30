@@ -16,20 +16,24 @@
  */
 package org.apache.seatunnel.connectors.seatunnel.tablestore.source;
 
+import org.apache.seatunnel.api.source.SourceSplit;
+
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.Setter;
 
-import java.io.Serializable;
-import java.util.List;
-import java.util.Map;
-
+@AllArgsConstructor
 @Getter
 @Setter
-@AllArgsConstructor
-public class TableStoreDBSourceState implements Serializable {
+public class TableStoreSourceSplit implements SourceSplit {
 
-    private static final long serialVersionUID = -2942147037830134078L;
-    private boolean shouldEnumerate;
-    private Map<Integer, List<TableStoreDBSourceSplit>> pendingSplits;
+    private static final long serialVersionUID = 6471832674315580956L;
+    private Integer splitId;
+    private String tableName;
+    private String primaryKey;
+
+    @Override
+    public String splitId() {
+        return splitId.toString();
+    }
 }

@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.socket.sink;
+package org.apache.seatunnel.connectors.seatunnel.tablestore.sink;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.sink.SinkWriter;
@@ -23,31 +23,31 @@ import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSimpleSink;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
-import org.apache.seatunnel.connectors.seatunnel.socket.config.SocketConfig;
-import org.apache.seatunnel.connectors.seatunnel.socket.config.SocketSinkOptions;
+import org.apache.seatunnel.connectors.seatunnel.tablestore.config.TableStoreConfig;
+import org.apache.seatunnel.connectors.seatunnel.tablestore.config.TableStoreSinkOptions;
 
 import java.io.IOException;
 import java.util.Optional;
 
-public class SocketSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
+public class TableStoreSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
 
-    private final SocketConfig socketConfig;
     private final CatalogTable catalogTable;
+    private final TableStoreConfig tableStoreConfig;
 
-    public SocketSink(ReadonlyConfig pluginConfig, CatalogTable catalogTable) {
-        this.socketConfig = new SocketConfig(pluginConfig);
+    public TableStoreSink(ReadonlyConfig pluginConfig, CatalogTable catalogTable) {
+        this.tableStoreConfig = new TableStoreConfig(pluginConfig);
         this.catalogTable = catalogTable;
     }
 
     @Override
     public String getPluginName() {
-        return SocketSinkOptions.identifier;
+        return TableStoreSinkOptions.identifier;
     }
 
     @Override
     public AbstractSinkWriter<SeaTunnelRow, Void> createWriter(SinkWriter.Context context)
             throws IOException {
-        return new SocketSinkWriter(socketConfig, catalogTable.getSeaTunnelRowType());
+        return new TableStoreWriter(tableStoreConfig, catalogTable.getSeaTunnelRowType());
     }
 
     @Override

@@ -144,10 +144,36 @@ public class JobHistoryService {
                         .collect(Collectors.toList());
         Set<Long> runningJonIds =
                 runningJobStateList.stream().map(JobState::getJobId).collect(Collectors.toSet());
+
+        List<JobState> pendingJobStateList =
+                pendingJobMasterMap.entrySet().stream()
+                        .map(
+                                entry -> {
+                                    Long jobId = entry.getKey();
+                                    JobImmutableInformation jobImmutableInformation =
+                                            entry.getValue()._2.getJobImmutableInformation();
+                                    return new JobState(
+                                            jobId,
+                                            jobImmutableInformation.getJobName(),
+                                            JobStatus.PENDING,
+                                            jobImmutableInformation.getCreateTime(),
+                                            null,
+                                            null,
+                                            null,
+                                            null);
+                                })
+                        .collect(Collectors.toList());
+        Set<Long> pendingJobIds =
+                pendingJobStateList.stream().map(JobState::getJobId).collect(Collectors.toSet());
+
         Stream.concat(
-                        runningJobStateList.stream(),
+                        Stream.concat(runningJobStateList.stream(), pendingJobStateList.stream()),
                         finishedJobStateImap.values().stream()
-                                .filter(jobState -> !runningJonIds.contains(jobState.getJobId())))
+                                .filter(
+                                        jobState ->
+                                                !runningJonIds.contains(jobState.getJobId())
+                                                        && !pendingJobIds.contains(
+                                                                jobState.getJobId())))
                 .forEach(
                         jobState -> {
                             JobStatusData jobStatusData =

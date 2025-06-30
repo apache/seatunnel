@@ -14,22 +14,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-package org.apache.seatunnel.engine.server.telemetry.metrics.entity;
+package org.apache.seatunnel.connectors.seatunnel.tablestore.source;
 
 import lombok.AllArgsConstructor;
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 
-@Data
+import java.io.Serializable;
+import java.util.List;
+import java.util.Map;
+
+@Getter
+@Setter
 @AllArgsConstructor
-public class JobCounter {
-    private long createdJobCount;
-    private long pendingJobCount;
-    private long scheduledJobCount;
-    private long runningJobCount;
-    private long failingJobCount;
-    private long failedJobCount;
-    private long cancellingJobCount;
-    private long canceledJobCount;
-    private long finishedJobCount;
+public class TableStoreSourceState implements Serializable {
+
+    private static final long serialVersionUID = -2942147037830134078L;
+    private boolean shouldEnumerate;
+    private Map<Integer, List<TableStoreSourceSplit>> pendingSplits;
 }

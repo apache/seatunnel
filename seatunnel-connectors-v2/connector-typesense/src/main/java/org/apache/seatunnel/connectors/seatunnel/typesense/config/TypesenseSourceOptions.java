@@ -15,21 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.telemetry.metrics.entity;
+package org.apache.seatunnel.connectors.seatunnel.typesense.config;
 
-import lombok.AllArgsConstructor;
-import lombok.Data;
+import org.apache.seatunnel.api.configuration.Option;
+import org.apache.seatunnel.api.configuration.Options;
 
-@Data
-@AllArgsConstructor
-public class JobCounter {
-    private long createdJobCount;
-    private long pendingJobCount;
-    private long scheduledJobCount;
-    private long runningJobCount;
-    private long failingJobCount;
-    private long failedJobCount;
-    private long cancellingJobCount;
-    private long canceledJobCount;
-    private long finishedJobCount;
+public class TypesenseSourceOptions extends TypesenseBaseOptions {
+
+    public static final Option<String> QUERY =
+            Options.key("query")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("Typesense query param");
+
+    public static final Option<Integer> QUERY_BATCH_SIZE =
+            Options.key("batch_size")
+                    .intType()
+                    .defaultValue(100)
+                    .withDescription("Typesense query batch size");
 }

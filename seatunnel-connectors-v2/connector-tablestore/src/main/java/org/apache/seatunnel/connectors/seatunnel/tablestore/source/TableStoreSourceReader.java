@@ -1,4 +1,3 @@
-package org.apache.seatunnel.connectors.seatunnel.tablestore.source;
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -15,11 +14,14 @@ package org.apache.seatunnel.connectors.seatunnel.tablestore.source;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+package org.apache.seatunnel.connectors.seatunnel.tablestore.source;
+
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.connectors.seatunnel.tablestore.config.TablestoreOptions;
+import org.apache.seatunnel.connectors.seatunnel.tablestore.config.TableStoreConfig;
 
 import com.alicloud.openservices.tablestore.SyncClient;
 import com.alicloud.openservices.tablestore.TunnelClient;
@@ -42,24 +44,23 @@ import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedDeque;
 
 @Slf4j
-public class TableStoreDBSourceReader
-        implements SourceReader<SeaTunnelRow, TableStoreDBSourceSplit> {
+public class TableStoreSourceReader implements SourceReader<SeaTunnelRow, TableStoreSourceSplit> {
 
     protected SourceReader.Context context;
-    protected TablestoreOptions tablestoreOptions;
+    protected TableStoreConfig tableStoreConfig;
     protected SeaTunnelRowType seaTunnelRowType;
-    Queue<TableStoreDBSourceSplit> pendingSplits = new ConcurrentLinkedDeque<>();
+    Queue<TableStoreSourceSplit> pendingSplits = new ConcurrentLinkedDeque<>();
     private SyncClient client;
     private volatile boolean noMoreSplit;
     private TunnelClient tunnelClient;
 
-    public TableStoreDBSourceReader(
+    public TableStoreSourceReader(
             SourceReader.Context context,
-            TablestoreOptions options,
+            TableStoreConfig options,
             SeaTunnelRowType seaTunnelRowType) {
 
         this.context = context;
-        this.tablestoreOptions = options;
+        this.tableStoreConfig = options;
         this.seaTunnelRowType = seaTunnelRowType;
     }
 
@@ -67,16 +68,16 @@ public class TableStoreDBSourceReader
     public void open() throws Exception {
         client =
                 new SyncClient(
-                        tablestoreOptions.getEndpoint(),
-                        tablestoreOptions.getAccessKeyId(),
-                        tablestoreOptions.getAccessKeySecret(),
-                        tablestoreOptions.getInstanceName());
+                        tableStoreConfig.getEndpoint(),
+                        tableStoreConfig.getAccessKeyId(),
+                        tableStoreConfig.getAccessKeySecret(),
+                        tableStoreConfig.getInstanceName());
         tunnelClient =
                 new TunnelClient(
-                        tablestoreOptions.getEndpoint(),
-                        tablestoreOptions.getAccessKeyId(),
-                        tablestoreOptions.getAccessKeySecret(),
-                        tablestoreOptions.getInstanceName());
+                        tableStoreConfig.getEndpoint(),
+                        tableStoreConfig.getAccessKeyId(),
+                        tableStoreConfig.getAccessKeySecret(),
+                        tableStoreConfig.getInstanceName());
     }
 
     @Override
@@ -88,7 +89,7 @@ public class TableStoreDBSourceReader
     @Override
     public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
         synchronized (output.getCheckpointLock()) {
-            TableStoreDBSourceSplit split = pendingSplits.poll();
+            TableStoreSourceSplit split = pendingSplits.poll();
             if (Objects.nonNull(split)) {
                 read(split, output);
             }
@@ -108,7 +109,7 @@ public class TableStoreDBSourceReader
         }
     }
 
-    private void read(TableStoreDBSourceSplit split, Collector<SeaTunnelRow> output) {
+    private void read(TableStoreSourceSplit split, Collector<SeaTunnelRow> output) {
         String tunnelId = getTunel(split);
         TableStoreProcessor processor =
                 new TableStoreProcessor(split.getTableName(), split.getPrimaryKey(), output);
@@ -122,7 +123,7 @@ public class TableStoreDBSourceReader
         }
     }
 
-    public String getTunel(TableStoreDBSourceSplit split) {
+    public String getTunel(TableStoreSourceSplit split) {
         deleteTunel(split);
         String tunnelId = null;
         String tunnelName = split.getTableName() + "_migration2aws_tunnel4" + split.getSplitId();
@@ -142,7 +143,7 @@ public class TableStoreDBSourceReader
         return tunnelId;
     }
 
-    public void deleteTunel(TableStoreDBSourceSplit split) {
+    public void deleteTunel(TableStoreSourceSplit split) {
         String tunnelName = split.getTableName() + "_migration2aws_tunnel4" + split.getSplitId();
         try {
             DeleteTunnelRequest drequest =
@@ -155,12 +156,12 @@ public class TableStoreDBSourceReader
     }
 
     @Override
-    public List<TableStoreDBSourceSplit> snapshotState(long checkpointId) throws Exception {
+    public List<TableStoreSourceSplit> snapshotState(long checkpointId) throws Exception {
         return new ArrayList<>(pendingSplits);
     }
 
     @Override
-    public void addSplits(List<TableStoreDBSourceSplit> splits) {
+    public void addSplits(List<TableStoreSourceSplit> splits) {
         this.pendingSplits.addAll(splits);
     }
 

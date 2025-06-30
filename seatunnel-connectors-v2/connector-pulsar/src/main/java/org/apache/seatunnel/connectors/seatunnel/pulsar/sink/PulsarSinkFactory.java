@@ -22,32 +22,37 @@ import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
-import org.apache.seatunnel.connectors.seatunnel.pulsar.config.PulsarConfigUtil;
+import org.apache.seatunnel.connectors.seatunnel.pulsar.config.PulsarSinkOptions;
 
 import com.google.auto.service.AutoService;
-
-import static org.apache.seatunnel.connectors.seatunnel.pulsar.config.SinkProperties.FIELD_DELIMITER;
-import static org.apache.seatunnel.connectors.seatunnel.pulsar.config.SinkProperties.FORMAT;
-import static org.apache.seatunnel.connectors.seatunnel.pulsar.config.SinkProperties.MESSAGE_ROUTING_MODE;
-import static org.apache.seatunnel.connectors.seatunnel.pulsar.config.SinkProperties.TOPIC;
-import static org.apache.seatunnel.connectors.seatunnel.pulsar.config.SourceProperties.ADMIN_SERVICE_URL;
-import static org.apache.seatunnel.connectors.seatunnel.pulsar.config.SourceProperties.AUTH_PARAMS;
-import static org.apache.seatunnel.connectors.seatunnel.pulsar.config.SourceProperties.AUTH_PLUGIN_CLASS;
-import static org.apache.seatunnel.connectors.seatunnel.pulsar.config.SourceProperties.CLIENT_SERVICE_URL;
 
 @AutoService(Factory.class)
 public class PulsarSinkFactory implements TableSinkFactory {
     @Override
     public String factoryIdentifier() {
-        return PulsarConfigUtil.IDENTIFIER;
+        return PulsarSinkOptions.IDENTIFIER;
     }
 
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(CLIENT_SERVICE_URL, ADMIN_SERVICE_URL, TOPIC)
-                .optional(FORMAT, FIELD_DELIMITER, MESSAGE_ROUTING_MODE)
-                .bundled(AUTH_PLUGIN_CLASS, AUTH_PARAMS)
+                .required(
+                        PulsarSinkOptions.CLIENT_SERVICE_URL,
+                        PulsarSinkOptions.ADMIN_SERVICE_URL,
+                        PulsarSinkOptions.TOPIC)
+                .optional(
+                        PulsarSinkOptions.FORMAT,
+                        PulsarSinkOptions.FIELD_DELIMITER,
+                        PulsarSinkOptions.MESSAGE_ROUTING_MODE,
+                        PulsarSinkOptions.SEMANTICS,
+                        PulsarSinkOptions.TRANSACTION_TIMEOUT,
+                        PulsarSinkOptions.PULSAR_CONFIG,
+                        PulsarSinkOptions.PARTITION_KEY_FIELDS)
+                .conditional(
+                        PulsarSinkOptions.FORMAT,
+                        PulsarSinkOptions.TEXT_FORMAT,
+                        PulsarSinkOptions.FIELD_DELIMITER)
+                .bundled(PulsarSinkOptions.AUTH_PLUGIN_CLASS, PulsarSinkOptions.AUTH_PARAMS)
                 .build();
     }
 

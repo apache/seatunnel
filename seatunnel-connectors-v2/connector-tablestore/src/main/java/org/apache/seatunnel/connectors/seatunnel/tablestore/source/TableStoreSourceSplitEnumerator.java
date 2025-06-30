@@ -17,7 +17,7 @@
 package org.apache.seatunnel.connectors.seatunnel.tablestore.source;
 
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
-import org.apache.seatunnel.connectors.seatunnel.tablestore.config.TablestoreOptions;
+import org.apache.seatunnel.connectors.seatunnel.tablestore.config.TableStoreConfig;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -32,32 +32,31 @@ import java.util.Map;
 import java.util.Set;
 
 @Slf4j
-public class TableStoreDBSourceSplitEnumerator
-        implements SourceSplitEnumerator<TableStoreDBSourceSplit, TableStoreDBSourceState> {
+public class TableStoreSourceSplitEnumerator
+        implements SourceSplitEnumerator<TableStoreSourceSplit, TableStoreSourceState> {
 
-    private final SourceSplitEnumerator.Context<TableStoreDBSourceSplit> enumeratorContext;
-    private final Map<Integer, List<TableStoreDBSourceSplit>> pendingSplits;
-    private final TablestoreOptions tablestoreOptions;
+    private final SourceSplitEnumerator.Context<TableStoreSourceSplit> enumeratorContext;
+    private final Map<Integer, List<TableStoreSourceSplit>> pendingSplits;
+    private final TableStoreConfig tableStoreConfig;
 
     private final Object stateLock = new Object();
     private volatile boolean shouldEnumerate;
 
     /**
      * @param enumeratorContext
-     * @param tablestoreOptions
+     * @param tableStoreConfig
      */
-    public TableStoreDBSourceSplitEnumerator(
-            Context<TableStoreDBSourceSplit> enumeratorContext,
-            TablestoreOptions tablestoreOptions) {
-        this(enumeratorContext, tablestoreOptions, null);
+    public TableStoreSourceSplitEnumerator(
+            Context<TableStoreSourceSplit> enumeratorContext, TableStoreConfig tableStoreConfig) {
+        this(enumeratorContext, tableStoreConfig, null);
     }
 
-    public TableStoreDBSourceSplitEnumerator(
-            Context<TableStoreDBSourceSplit> enumeratorContext,
-            TablestoreOptions tablestoreOptions,
-            TableStoreDBSourceState sourceState) {
+    public TableStoreSourceSplitEnumerator(
+            Context<TableStoreSourceSplit> enumeratorContext,
+            TableStoreConfig tableStoreConfig,
+            TableStoreSourceState sourceState) {
         this.enumeratorContext = enumeratorContext;
-        this.tablestoreOptions = tablestoreOptions;
+        this.tableStoreConfig = tableStoreConfig;
         this.pendingSplits = new HashMap<>();
         this.shouldEnumerate = sourceState == null;
         if (sourceState != null) {
@@ -73,7 +72,7 @@ public class TableStoreDBSourceSplitEnumerator
     public void run() throws Exception {
         Set<Integer> readers = enumeratorContext.registeredReaders();
         if (shouldEnumerate) {
-            Set<TableStoreDBSourceSplit> newSplits = getTableStoreDBSourceSplit();
+            Set<TableStoreSourceSplit> newSplits = getTableStoreDBSourceSplit();
             synchronized (stateLock) {
                 addPendingSplit(newSplits);
                 shouldEnumerate = false;
@@ -84,7 +83,7 @@ public class TableStoreDBSourceSplitEnumerator
 
     private void assignSplit(Set<Integer> readers) {
         for (int reader : readers) {
-            List<TableStoreDBSourceSplit> assignmentForReader = pendingSplits.remove(reader);
+            List<TableStoreSourceSplit> assignmentForReader = pendingSplits.remove(reader);
             if (assignmentForReader != null && !assignmentForReader.isEmpty()) {
                 log.info("Assign splits {} to reader {}", assignmentForReader, reader);
                 try {
@@ -101,22 +100,22 @@ public class TableStoreDBSourceSplitEnumerator
         }
     }
 
-    private Set<TableStoreDBSourceSplit> getTableStoreDBSourceSplit() {
+    private Set<TableStoreSourceSplit> getTableStoreDBSourceSplit() {
 
-        Set<TableStoreDBSourceSplit> allSplit = new HashSet<>();
-        String tables = tablestoreOptions.getTable();
+        Set<TableStoreSourceSplit> allSplit = new HashSet<>();
+        String tables = tableStoreConfig.getTable();
         String[] tableArr = tables.split(",");
         for (int i = 0; i < tableArr.length; i++) {
             allSplit.add(
-                    new TableStoreDBSourceSplit(
-                            i, tableArr[i], tablestoreOptions.getPrimaryKeys().get(i)));
+                    new TableStoreSourceSplit(
+                            i, tableArr[i], tableStoreConfig.getPrimaryKeys().get(i)));
         }
         return allSplit;
     }
 
-    private void addPendingSplit(Collection<TableStoreDBSourceSplit> splits) {
+    private void addPendingSplit(Collection<TableStoreSourceSplit> splits) {
         int readerCount = enumeratorContext.currentParallelism();
-        for (TableStoreDBSourceSplit split : splits) {
+        for (TableStoreSourceSplit split : splits) {
             int ownerReader = split.getSplitId() % readerCount;
             pendingSplits.computeIfAbsent(ownerReader, k -> new ArrayList<>()).add(split);
         }
@@ -129,7 +128,7 @@ public class TableStoreDBSourceSplitEnumerator
     }
 
     @Override
-    public void addSplitsBack(List<TableStoreDBSourceSplit> splits, int subtaskId) {
+    public void addSplitsBack(List<TableStoreSourceSplit> splits, int subtaskId) {
         log.debug("Add back splits {} to tablestore.", splits);
         if (!splits.isEmpty()) {
             addPendingSplit(splits);
@@ -155,9 +154,9 @@ public class TableStoreDBSourceSplitEnumerator
     }
 
     @Override
-    public TableStoreDBSourceState snapshotState(long checkpointId) throws Exception {
+    public TableStoreSourceState snapshotState(long checkpointId) throws Exception {
         synchronized (stateLock) {
-            return new TableStoreDBSourceState(shouldEnumerate, pendingSplits);
+            return new TableStoreSourceState(shouldEnumerate, pendingSplits);
         }
     }
 

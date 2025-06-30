@@ -17,56 +17,15 @@
 
 package org.apache.seatunnel.connectors.seatunnel.pulsar.config;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 
-public class SourceProperties {
+public class PulsarSourceOptions extends PulsarBaseOptions {
 
     private static final Long DEFAULT_TOPIC_DISCOVERY_INTERVAL = -1L;
     private static final Integer DEFAULT_POLL_TIMEOUT = 100;
     private static final Long DEFAULT_POLL_INTERVAL = 50L;
     private static final Integer DEFAULT_POLL_BATCH_SIZE = 500;
-
-    // --------------------------------------------------------------------------------------------
-    // The configuration for ClientConfigurationData part.
-    // --------------------------------------------------------------------------------------------
-
-    public static final Option<String> CLIENT_SERVICE_URL =
-            Options.key("client.service-url")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("Service URL provider for Pulsar service");
-
-    public static final Option<String> AUTH_PLUGIN_CLASS =
-            Options.key("auth.plugin-class")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("Name of the authentication plugin");
-
-    public static final Option<String> AUTH_PARAMS =
-            Options.key("auth.params")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription(
-                            "Parameters for the authentication plugin. For example, key1:val1,key2:val2");
-
-    // --------------------------------------------------------------------------------------------
-    // The configuration for ClientConfigurationData part.
-    // All the configuration listed below should have the pulsar.client prefix.
-    // --------------------------------------------------------------------------------------------
-
-    public static final Option<String> ADMIN_SERVICE_URL =
-            Options.key("admin.service-url")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription(
-                            "The Pulsar service HTTP URL for the admin endpoint. For example, http://my-broker.example.com:8080, or https://my-broker.example.com:8443 for TLS.");
-
-    // --------------------------------------------------------------------------------------------
-    // The configuration for ConsumerConfigurationData part.
-    // --------------------------------------------------------------------------------------------
 
     public static final Option<String> SUBSCRIPTION_NAME =
             Options.key("subscription.name")
@@ -74,30 +33,6 @@ public class SourceProperties {
                     .noDefaultValue()
                     .withDescription(
                             "Specify the subscription name for this consumer. This argument is required when constructing the consumer.");
-
-    // No use parameter
-    public static final String SUBSCRIPTION_TYPE = "subscription.type";
-    public static final String SUBSCRIPTION_MODE = "subscription.mode";
-
-    // --------------------------------------------------------------------------------------------
-    // The configuration for pulsar source part.
-    // --------------------------------------------------------------------------------------------
-
-    public static final Option<Long> TOPIC_DISCOVERY_INTERVAL =
-            Options.key("topic-discovery.interval")
-                    .longType()
-                    .defaultValue(DEFAULT_TOPIC_DISCOVERY_INTERVAL)
-                    .withDescription(
-                            "Default value is "
-                                    + DEFAULT_TOPIC_DISCOVERY_INTERVAL
-                                    + ". The interval (in ms) for the Pulsar source to discover the new topic partitions. A non-positive value disables the topic partition discovery. Note, This option only works if the 'topic-pattern' option is used.");
-
-    public static final Option<String> TOPIC =
-            Options.key("topic")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription(
-                            "Topic name(s) to read data from when the table is used as source. It also supports topic list for source by separating topic by semicolon like 'topic-1;topic-2'. Note, only one of \"topic-pattern\" and \"topic\" can be specified for sources.");
 
     public static final Option<String> TOPIC_PATTERN =
             Options.key("topic-pattern")
@@ -133,16 +68,16 @@ public class SourceProperties {
                                     + DEFAULT_POLL_BATCH_SIZE
                                     + ". The maximum number of records to fetch to wait when polling. A longer time increases throughput but also latency");
 
-    public static final Option<SourceProperties.StartMode> CURSOR_STARTUP_MODE =
+    public static final Option<StartMode> CURSOR_STARTUP_MODE =
             Options.key("cursor.startup.mode")
-                    .enumType(SourceProperties.StartMode.class)
+                    .enumType(StartMode.class)
                     .defaultValue(StartMode.LATEST)
                     .withDescription(
                             "Startup mode for Pulsar consumer, valid values are 'EARLIEST', 'LATEST', 'SUBSCRIPTION', 'TIMESTAMP'.");
 
-    public static final Option<SourceProperties.StartMode> CURSOR_RESET_MODE =
+    public static final Option<CursorResetStrategy> CURSOR_RESET_MODE =
             Options.key("cursor.reset.mode")
-                    .enumType(SourceProperties.StartMode.class)
+                    .enumType(CursorResetStrategy.class)
                     .noDefaultValue()
                     .withDescription(
                             "Cursor reset strategy for Pulsar consumer valid values are 'EARLIEST', 'LATEST'. Note, This option only works if the \"cursor.startup.mode\" option used 'SUBSCRIPTION'.");
@@ -154,12 +89,9 @@ public class SourceProperties {
                     .withDescription(
                             "Start from the specified epoch timestamp (in milliseconds). Note, This option is required when the \"cursor.startup.mode\" option used 'TIMESTAMP'.");
 
-    // No use parameter
-    public static final String CURSOR_STARTUP_ID = "cursor.startup.id";
-
-    public static final Option<SourceProperties.StopMode> CURSOR_STOP_MODE =
+    public static final Option<StopMode> CURSOR_STOP_MODE =
             Options.key("cursor.stop.mode")
-                    .enumType(SourceProperties.StopMode.class)
+                    .enumType(StopMode.class)
                     .defaultValue(StopMode.NEVER)
                     .withDescription(
                             "Stop mode for Pulsar consumer, valid values are 'NEVER', 'LATEST' and 'TIMESTAMP'. Note, When 'NEVER' is specified, it is a real-time job, and other mode are off-line jobs.");
@@ -170,26 +102,14 @@ public class SourceProperties {
                     .noDefaultValue()
                     .withDescription("Stop from the specified epoch timestamp (in milliseconds)");
 
-    public static final Option<Config> SCHEMA =
-            Options.key("schema")
-                    .objectType(Config.class)
-                    .noDefaultValue()
+    public static final Option<Long> TOPIC_DISCOVERY_INTERVAL =
+            Options.key("topic-discovery.interval")
+                    .longType()
+                    .defaultValue(DEFAULT_TOPIC_DISCOVERY_INTERVAL)
                     .withDescription(
-                            "The structure of the data, including field names and field types.");
-
-    public static final Option<String> FORMAT =
-            Options.key("format")
-                    .stringType()
-                    .defaultValue("JSON")
-                    .withDescription(
-                            "Data format. The default format is json. Optional text format. The default field separator is \", \". "
-                                    + "If you customize the delimiter, add the \"field_delimiter\" option.");
-
-    public static final Option<String> FIELD_DELIMITER =
-            Options.key("field_delimiter")
-                    .stringType()
-                    .defaultValue(",")
-                    .withDescription("Customize the field delimiter for data format.");
+                            "Default value is "
+                                    + DEFAULT_TOPIC_DISCOVERY_INTERVAL
+                                    + ". The interval (in ms) for the Pulsar source to discover the new topic partitions. A non-positive value disables the topic partition discovery. Note, This option only works if the 'topic-pattern' option is used.");
 
     /** Startup mode for the pulsar consumer, see {@link #CURSOR_STARTUP_MODE}. */
     public enum StartMode {
@@ -214,5 +134,10 @@ public class SourceProperties {
         /** Stop from user-supplied specific cursors for each partition. */
         SPECIFIC,
         NEVER
+    }
+
+    public enum CursorResetStrategy {
+        LATEST,
+        EARLIEST
     }
 }

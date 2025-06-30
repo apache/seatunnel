@@ -15,21 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.telemetry.metrics.entity;
+package org.apache.seatunnel.connectors.seatunnel.socket.config;
 
-import lombok.AllArgsConstructor;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+
 import lombok.Data;
 
+import java.io.Serializable;
+
 @Data
-@AllArgsConstructor
-public class JobCounter {
-    private long createdJobCount;
-    private long pendingJobCount;
-    private long scheduledJobCount;
-    private long runningJobCount;
-    private long failingJobCount;
-    private long failedJobCount;
-    private long cancellingJobCount;
-    private long canceledJobCount;
-    private long finishedJobCount;
+public class SocketConfig implements Serializable {
+    private String host;
+    private int port;
+    private int maxNumRetries;
+
+    public SocketConfig(ReadonlyConfig config) {
+        this.host = config.get(SocketCommonOptions.HOST);
+        this.port = config.get(SocketCommonOptions.PORT);
+        this.maxNumRetries = config.get(SocketSinkOptions.MAX_RETRIES);
+    }
 }

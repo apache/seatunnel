@@ -15,17 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.tablestore;
+package org.apache.seatunnel.connectors.seatunnel.socket.config;
 
-import org.apache.seatunnel.connectors.seatunnel.tablestore.sink.TablestoreSinkFactory;
+import org.apache.seatunnel.api.configuration.Option;
+import org.apache.seatunnel.api.configuration.Options;
 
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Test;
+public class SocketCommonOptions {
 
-class TablestoreFactoryTest {
+    public static final String identifier = "Socket";
 
-    @Test
-    void optionRule() {
-        Assertions.assertNotNull((new TablestoreSinkFactory()).optionRule());
-    }
+    public static final Option<String> HOST =
+            Options.key("host").stringType().noDefaultValue().withDescription("socket host");
+
+    public static final Option<Integer> PORT =
+            Options.key("port").intType().noDefaultValue().withDescription("socket port");
 }

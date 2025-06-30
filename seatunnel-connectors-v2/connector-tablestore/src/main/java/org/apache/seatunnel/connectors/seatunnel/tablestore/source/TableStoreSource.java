@@ -28,38 +28,38 @@ import org.apache.seatunnel.api.source.SupportParallelism;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.constants.JobMode;
-import org.apache.seatunnel.connectors.seatunnel.tablestore.config.TablestoreOptions;
+import org.apache.seatunnel.connectors.seatunnel.tablestore.config.TableStoreConfig;
+import org.apache.seatunnel.connectors.seatunnel.tablestore.config.TableStoreSourceOptions;
 
 import lombok.extern.slf4j.Slf4j;
 
+import java.util.Collections;
 import java.util.List;
 
 @Slf4j
-public class TableStoreDBSource
-        implements SeaTunnelSource<SeaTunnelRow, TableStoreDBSourceSplit, TableStoreDBSourceState>,
+public class TableStoreSource
+        implements SeaTunnelSource<SeaTunnelRow, TableStoreSourceSplit, TableStoreSourceState>,
                 SupportParallelism,
                 SupportColumnProjection {
 
-    private TablestoreOptions tablestoreOptions;
-    private SeaTunnelRowType typeInfo;
+    private final TableStoreConfig tableStoreConfig;
+    private final CatalogTable catalogTable;
     private JobContext jobContext;
+
+    public TableStoreSource(ReadonlyConfig config) {
+        this.tableStoreConfig = new TableStoreConfig(config);
+        this.catalogTable = CatalogTableUtil.buildWithConfig(config);
+    }
 
     @Override
     public String getPluginName() {
-        return "Tablestore";
+        return TableStoreSourceOptions.identifier;
     }
 
     @Override
     public List<CatalogTable> getProducedCatalogTables() {
-        return SeaTunnelSource.super.getProducedCatalogTables();
-    }
-
-    public TableStoreDBSource(ReadonlyConfig config) {
-        this.tablestoreOptions = TablestoreOptions.of(config);
-        CatalogTableUtil.buildWithConfig(config);
-        this.typeInfo = CatalogTableUtil.buildWithConfig(config).getSeaTunnelRowType();
+        return Collections.singletonList(catalogTable);
     }
 
     @Override
@@ -70,29 +70,28 @@ public class TableStoreDBSource
     }
 
     @Override
-    public SourceReader<SeaTunnelRow, TableStoreDBSourceSplit> createReader(Context readerContext)
+    public SourceReader<SeaTunnelRow, TableStoreSourceSplit> createReader(Context readerContext)
             throws Exception {
-        return new TableStoreDBSourceReader(readerContext, tablestoreOptions, typeInfo);
+        return new TableStoreSourceReader(
+                readerContext, tableStoreConfig, catalogTable.getSeaTunnelRowType());
     }
 
     @Override
-    public SourceSplitEnumerator<TableStoreDBSourceSplit, TableStoreDBSourceState> createEnumerator(
-            org.apache.seatunnel.api.source.SourceSplitEnumerator.Context<TableStoreDBSourceSplit>
+    public SourceSplitEnumerator<TableStoreSourceSplit, TableStoreSourceState> createEnumerator(
+            org.apache.seatunnel.api.source.SourceSplitEnumerator.Context<TableStoreSourceSplit>
                     enumeratorContext)
             throws Exception {
-        return new TableStoreDBSourceSplitEnumerator(enumeratorContext, tablestoreOptions);
+        return new TableStoreSourceSplitEnumerator(enumeratorContext, tableStoreConfig);
     }
 
     @Override
-    public SourceSplitEnumerator<TableStoreDBSourceSplit, TableStoreDBSourceState>
-            restoreEnumerator(
-                    org.apache.seatunnel.api.source.SourceSplitEnumerator.Context<
-                                    TableStoreDBSourceSplit>
-                            enumeratorContext,
-                    TableStoreDBSourceState checkpointState)
-                    throws Exception {
-        return new TableStoreDBSourceSplitEnumerator(
-                enumeratorContext, tablestoreOptions, checkpointState);
+    public SourceSplitEnumerator<TableStoreSourceSplit, TableStoreSourceState> restoreEnumerator(
+            org.apache.seatunnel.api.source.SourceSplitEnumerator.Context<TableStoreSourceSplit>
+                    enumeratorContext,
+            TableStoreSourceState checkpointState)
+            throws Exception {
+        return new TableStoreSourceSplitEnumerator(
+                enumeratorContext, tableStoreConfig, checkpointState);
     }
 
     @Override
