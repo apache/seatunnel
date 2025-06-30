@@ -20,9 +20,28 @@
 
 package org.apache.seatunnel.engine.imap.storage.file.common;
 
+import org.apache.seatunnel.engine.imap.storage.api.exception.IMapStorageException;
+
+import org.apache.hadoop.fs.FSDataInputStream;
+import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.LocatedFileStatus;
+import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.fs.RemoteIterator;
+
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.SequenceInputStream;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.List;
+import java.util.stream.Collectors;
+
 public class WALDataUtils {
 
     public static final int WAL_DATA_METADATA_LENGTH = 12;
+    public static final String FILE_NAME = "wal.txt";
+    public static final String PROGRESSING_SUFFIX = ".progressing";
 
     public static byte[] wrapperBytes(byte[] bytes) {
         byte[] metadata = new byte[WAL_DATA_METADATA_LENGTH];
@@ -49,5 +68,81 @@ public class WALDataUtils {
         encodedValue[1] = (byte) (value >> Byte.SIZE);
         encodedValue[0] = (byte) value;
         return encodedValue;
+    }
+
+    /**
+     * return direct data file names of the specified dir
+     *
+     * @param fs target file system
+     * @param parentPath parent dir
+     * @return file names
+     */
+    public static List<String> getDataFiles(FileSystem fs, Path parentPath, String suffix) {
+        try {
+            if (!fs.exists(parentPath)) {
+                return new ArrayList<>();
+            }
+            RemoteIterator<LocatedFileStatus> fileStatusRemoteIterator =
+                    fs.listFiles(parentPath, false);
+            List<String> fileNames = new ArrayList<>();
+            while (fileStatusRemoteIterator.hasNext()) {
+                LocatedFileStatus fileStatus = fileStatusRemoteIterator.next();
+                if (fileStatus.getPath().getName().endsWith(suffix)) {
+                    fileNames.add(fileStatus.getPath().toString());
+                }
+            }
+            return fileNames;
+        } catch (IOException e) {
+            throw new IMapStorageException(e, "get file names error,path is s%", parentPath);
+        }
+    }
+
+    /** open files by filenames, and compose InputStream in order as SequenceInputStream */
+    public static SequenceInputStream getComposedInputStream(FileSystem fs, List<String> filenames)
+            throws IOException {
+        List<Path> paths = filenames.stream().map(Path::new).collect(Collectors.toList());
+        // get file streams
+        List<FSDataInputStream> streams =
+                paths.stream()
+                        .sorted(Comparator.comparing(Path::getName)) // sort Path by filename asc
+                        .map(
+                                path -> {
+                                    try {
+                                        return fs.open(path);
+                                    } catch (IOException e) {
+                                        throw new IMapStorageException(e);
+                                    }
+                                }) // open files
+                        .collect(Collectors.toList());
+        return new SequenceInputStream(Collections.enumeration(streams));
+    }
+
+    public static byte[] readNextData(SequenceInputStream stream) throws IOException {
+        // read metadata
+        byte[] metadata = new byte[WAL_DATA_METADATA_LENGTH];
+        int readBytes = 0;
+        while (readBytes != WAL_DATA_METADATA_LENGTH) {
+            int read = stream.read(metadata, readBytes, metadata.length - readBytes);
+            if (read == -1) {
+                if (readBytes == 0) return null;
+                throw new IMapStorageException("imap file metadata broken!");
+            }
+            readBytes += read;
+        }
+
+        // read data entry
+        int dataLen = WALDataUtils.byteArrayToInt(metadata);
+        ByteArrayOutputStream out = new ByteArrayOutputStream(dataLen);
+        readBytes = 0;
+        byte[] buffer = new byte[1024];
+        while (readBytes != dataLen) {
+            int len = Math.min(dataLen - readBytes, buffer.length);
+            int read = stream.read(buffer, 0, len);
+            if (read == -1) throw new IMapStorageException("imap file data broken!");
+            readBytes += read;
+            out.write(buffer, 0, read);
+        }
+
+        return out.toByteArray();
     }
 }

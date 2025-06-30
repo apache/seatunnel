@@ -30,8 +30,14 @@ import org.apache.hadoop.fs.Path;
 
 import lombok.extern.slf4j.Slf4j;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.util.Arrays;
+import java.io.SequenceInputStream;
+import java.util.List;
+import java.util.stream.Collectors;
+
+import static org.apache.seatunnel.engine.imap.storage.file.common.WALDataUtils.FILE_NAME;
+import static org.apache.seatunnel.engine.imap.storage.file.common.WALDataUtils.PROGRESSING_SUFFIX;
 
 @Slf4j
 public abstract class CloudWriter implements IFileWriter<IMapFileData> {
@@ -40,6 +46,9 @@ public abstract class CloudWriter implements IFileWriter<IMapFileData> {
     private Serializer serializer;
     // block size,  default 1024*1024
     private long blockSize = 1024 * 1024;
+    private long blockRemaining;
+    private int currentBlock;
+    private FSDataOutputStream out;
 
     @Override
     public void initialize(FileSystem fs, Path parentPath, Serializer serializer)
@@ -59,41 +68,120 @@ public abstract class CloudWriter implements IFileWriter<IMapFileData> {
 
     // TODO Synchronous write, asynchronous write can be added in the future
     @Override
-    public void write(IMapFileData data) throws IOException {
-        byte[] bytes = serializer.serialize(data);
-        this.write(bytes);
+    public synchronized void write(IMapFileData data) throws IOException {
+        List<String> dataFiles = WALDataUtils.getDataFiles(fs, parentPath, FILE_NAME);
+        SequenceInputStream stream = WALDataUtils.getComposedInputStream(fs, dataFiles);
+        // reset block info
+        reset();
+
+        // write data
+        writeEntry(serializer.serialize(data));
+        byte[] bytes;
+        boolean encountered = false;
+        while ((bytes = WALDataUtils.readNextData(stream)) != null) {
+            IMapFileData diskData = serializer.deserialize(bytes, IMapFileData.class);
+
+            if (encountered) writeEntry(serializer.serialize(diskData));
+            else if (isKeyEquals(data, diskData))
+                encountered = true; // if current data is the entry which have be updated
+            else writeEntry(serializer.serialize(diskData));
+        }
+        stream.close();
+        commit(dataFiles);
     }
 
-    private void write(byte[] bytes) {
-        // delete old files, if delete failed, just ignore.
-        try {
-            fs.delete(parentPath, true);
-        } catch (IOException e) {
-            log.warn("Failed to delete old IMap files in S3, cause: {}", e.getMessage(), e);
-        }
+    public void commit(List<String> filenames) throws IOException {
+        // close last file stream
+        out.hsync();
+        out.close();
+        // delete old data file
+        filenames.forEach(
+                filename -> {
+                    try {
+                        fs.delete(new Path(filename), false);
+                    } catch (IOException e) {
+                        throw new IMapStorageException(
+                                e, "delete old imap file failed, cause: %s", e.getMessage());
+                    }
+                });
 
+        // move new data file
+        WALDataUtils.getDataFiles(fs, parentPath, PROGRESSING_SUFFIX).stream()
+                .collect(
+                        Collectors.toMap(
+                                Path::new,
+                                filename -> new Path(filename.replace(PROGRESSING_SUFFIX, ""))))
+                .forEach(
+                        (src, dest) -> {
+                            try {
+                                fs.rename(src, dest);
+                            } catch (IOException e) {
+                                throw new IMapStorageException(
+                                        e, "rename imap file failed, cause: %s", e.getMessage());
+                            }
+                        });
+    }
+
+    public boolean isKeyEquals(IMapFileData left, IMapFileData right) throws IOException {
+        try {
+            Object leftKey =
+                    serializer.deserialize(left.getKey(), Class.forName(left.getKeyClassName()));
+            Object rightKey =
+                    serializer.deserialize(right.getKey(), Class.forName(right.getKeyClassName()));
+            return leftKey.equals(rightKey);
+        } catch (ClassNotFoundException e) {
+            throw new IMapStorageException(
+                    e, "imap data broken, cannot deserialize key, cause: %s", e.getMessage());
+        }
+    }
+
+    /** reset block info and create the first block file */
+    public void reset() throws IOException {
+        this.blockRemaining = blockSize;
+        this.currentBlock = 0;
+        this.out =
+                fs.create(
+                        new Path(parentPath, currentBlock + "_" + FILE_NAME + PROGRESSING_SUFFIX),
+                        true);
+    }
+
+    /** set block info to next block, and create new block file */
+    public void nextBlock() throws IOException {
+        out.hsync();
+        out.close();
+        blockRemaining = blockSize;
+        out =
+                fs.create(
+                        new Path(parentPath, ++currentBlock + "_" + FILE_NAME + PROGRESSING_SUFFIX),
+                        true);
+    }
+
+    private void writeEntry(byte[] bytes) throws IOException {
         // wrap data with metadata
         byte[] data = WALDataUtils.wrapperBytes(bytes);
+        int tobeWritten = data.length;
 
-        // write data into each block
-        long blocks = data.length / blockSize + (data.length % blockSize == 0 ? 0 : 1);
-        for (int i = 0; i < blocks; i++) {
-            Path path = new Path(parentPath, i + "_" + FILE_NAME);
-            // get block data
-            int start = (int) (i * blockSize);
-            int end = (int) Math.min(start + blockSize, data.length);
-            byte[] blockData = Arrays.copyOfRange(data, start, end);
+        // write data
+        ByteArrayInputStream in = new ByteArrayInputStream(data);
+        byte[] buffer = new byte[1024];
+        while (tobeWritten != 0) {
+            int len = (int) Math.min(buffer.length, Math.min(tobeWritten, blockRemaining));
+            int read = in.read(buffer, 0, len);
+            out.write(buffer, 0, read);
 
-            // write to file
-            try (FSDataOutputStream out = fs.create(path, true)) {
-                out.write(blockData);
-                out.hsync();
-            } catch (Exception e) {
-                throw new IMapStorageException(e);
-            }
+            tobeWritten -= read;
+            blockRemaining -= read;
+
+            // rolling to next block
+            if (blockRemaining == 0) nextBlock();
         }
     }
 
     @Override
-    public void close() throws Exception {}
+    public void close() throws Exception {
+        if (out != null) {
+            out.hsync();
+            out.close();
+        }
+    }
 }

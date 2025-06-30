@@ -25,28 +25,24 @@ import org.apache.seatunnel.engine.imap.storage.file.common.WALDataUtils;
 import org.apache.seatunnel.engine.serializer.api.Serializer;
 
 import org.apache.commons.collections.CollectionUtils;
-import org.apache.curator.shaded.com.google.common.io.ByteStreams;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.LocatedFileStatus;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.fs.RemoteIterator;
 
 import java.io.IOException;
 import java.io.SequenceInputStream;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import static org.apache.seatunnel.engine.imap.storage.file.common.WALDataUtils.WAL_DATA_METADATA_LENGTH;
+import static org.apache.seatunnel.engine.imap.storage.file.common.WALDataUtils.FILE_NAME;
 
 public class DefaultReader implements IFileReader<IMapFileData> {
     private static final int DEFAULT_QUERY_LIST_SIZE = 1024;
-    FileSystem fs;
-    Serializer serializer;
+    private FileSystem fs;
+    private Serializer serializer;
 
     @Override
     public String identifier() {
@@ -61,7 +57,7 @@ public class DefaultReader implements IFileReader<IMapFileData> {
 
     @Override
     public List<IMapFileData> readAllData(Path parentPath) throws IOException {
-        List<String> fileNames = getFileNames(parentPath);
+        List<String> fileNames = WALDataUtils.getDataFiles(fs, parentPath, FILE_NAME);
         if (CollectionUtils.isEmpty(fileNames)) {
             return new ArrayList<>();
         }
@@ -71,26 +67,6 @@ public class DefaultReader implements IFileReader<IMapFileData> {
                         .map(filename -> new Path(parentPath, filename))
                         .collect(Collectors.toList());
         return readData(paths);
-    }
-
-    private List<String> getFileNames(Path parentPath) {
-        try {
-            if (!fs.exists(parentPath)) {
-                return new ArrayList<>();
-            }
-            RemoteIterator<LocatedFileStatus> fileStatusRemoteIterator =
-                    fs.listFiles(parentPath, true);
-            List<String> fileNames = new ArrayList<>();
-            while (fileStatusRemoteIterator.hasNext()) {
-                LocatedFileStatus fileStatus = fileStatusRemoteIterator.next();
-                if (fileStatus.getPath().getName().endsWith("wal.txt")) {
-                    fileNames.add(fileStatus.getPath().toString());
-                }
-            }
-            return fileNames;
-        } catch (IOException e) {
-            throw new IMapStorageException(e, "get file names error,path is s%", parentPath);
-        }
     }
 
     public List<IMapFileData> readData(List<Path> paths) throws IOException {
@@ -111,27 +87,13 @@ public class DefaultReader implements IFileReader<IMapFileData> {
                         .collect(Collectors.toList());
 
         // read data
-        byte[] dataWithMetadata;
+        byte[] bytes;
         try (SequenceInputStream in = new SequenceInputStream(Collections.enumeration(streams))) {
-            dataWithMetadata = ByteStreams.toByteArray(in);
+            while ((bytes = WALDataUtils.readNextData(in)) != null) {
+                IMapFileData diskData = serializer.deserialize(bytes, IMapFileData.class);
+                result.add(diskData);
+            }
         }
-
-        // resolve metadata
-        byte[] metadata = Arrays.copyOfRange(dataWithMetadata, 0, WAL_DATA_METADATA_LENGTH);
-        int dataLen = WALDataUtils.byteArrayToInt(metadata);
-        // verify metadata
-        if (dataLen != dataWithMetadata.length - WAL_DATA_METADATA_LENGTH)
-            throw new IMapStorageException("imap files were broken: " + paths);
-
-        // deserialize data
-        IMapFileData fileData =
-                serializer.deserialize(
-                        Arrays.copyOfRange(
-                                dataWithMetadata,
-                                WAL_DATA_METADATA_LENGTH,
-                                dataWithMetadata.length),
-                        IMapFileData.class);
-        result.add(fileData);
 
         return result;
     }
