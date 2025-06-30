@@ -25,6 +25,7 @@ import org.apache.seatunnel.engine.imap.storage.file.common.WALDataUtils;
 import org.apache.seatunnel.engine.serializer.api.Serializer;
 
 import org.apache.commons.collections.CollectionUtils;
+import org.apache.curator.shaded.com.google.common.io.ByteStreams;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.LocatedFileStatus;
@@ -32,8 +33,13 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.RemoteIterator;
 
 import java.io.IOException;
+import java.io.SequenceInputStream;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import static org.apache.seatunnel.engine.imap.storage.file.common.WALDataUtils.WAL_DATA_METADATA_LENGTH;
 
@@ -59,11 +65,12 @@ public class DefaultReader implements IFileReader<IMapFileData> {
         if (CollectionUtils.isEmpty(fileNames)) {
             return new ArrayList<>();
         }
-        List<IMapFileData> result = new ArrayList<>(DEFAULT_QUERY_LIST_SIZE);
-        for (String fileName : fileNames) {
-            result.addAll(readData(new Path(parentPath, fileName)));
-        }
-        return result;
+
+        List<Path> paths =
+                fileNames.stream()
+                        .map(filename -> new Path(parentPath, filename))
+                        .collect(Collectors.toList());
+        return readData(paths);
     }
 
     private List<String> getFileNames(Path parentPath) {
@@ -86,29 +93,46 @@ public class DefaultReader implements IFileReader<IMapFileData> {
         }
     }
 
-    private List<IMapFileData> readData(Path path) throws IOException {
+    public List<IMapFileData> readData(List<Path> paths) throws IOException {
         List<IMapFileData> result = new ArrayList<>(DEFAULT_QUERY_LIST_SIZE);
-        long length = fs.getFileStatus(path).getLen();
-        try (FSDataInputStream in = fs.open(path)) {
-            byte[] datas = new byte[(int) length];
-            in.readFully(datas);
-            int startIndex = 0;
-            while (startIndex + WAL_DATA_METADATA_LENGTH < datas.length) {
 
-                byte[] metadata = new byte[WAL_DATA_METADATA_LENGTH];
-                System.arraycopy(datas, startIndex, metadata, 0, WAL_DATA_METADATA_LENGTH);
-                int dataLength = WALDataUtils.byteArrayToInt(metadata);
-                startIndex += WAL_DATA_METADATA_LENGTH;
-                if (startIndex + dataLength > datas.length) {
-                    break;
-                }
-                byte[] data = new byte[dataLength];
-                System.arraycopy(datas, startIndex, data, 0, data.length);
-                IMapFileData fileData = serializer.deserialize(data, IMapFileData.class);
-                result.add(fileData);
-                startIndex += data.length;
-            }
+        // get file streams
+        List<FSDataInputStream> streams =
+                paths.stream()
+                        .sorted(Comparator.comparing(Path::getName)) // sort Path by filename asc
+                        .map(
+                                path -> {
+                                    try {
+                                        return fs.open(path);
+                                    } catch (IOException e) {
+                                        throw new IMapStorageException(e);
+                                    }
+                                }) // open files
+                        .collect(Collectors.toList());
+
+        // read data
+        byte[] dataWithMetadata;
+        try (SequenceInputStream in = new SequenceInputStream(Collections.enumeration(streams))) {
+            dataWithMetadata = ByteStreams.toByteArray(in);
         }
+
+        // resolve metadata
+        byte[] metadata = Arrays.copyOfRange(dataWithMetadata, 0, WAL_DATA_METADATA_LENGTH);
+        int dataLen = WALDataUtils.byteArrayToInt(metadata);
+        // verify metadata
+        if (dataLen != dataWithMetadata.length - WAL_DATA_METADATA_LENGTH)
+            throw new IMapStorageException("imap files were broken: " + paths);
+
+        // deserialize data
+        IMapFileData fileData =
+                serializer.deserialize(
+                        Arrays.copyOfRange(
+                                dataWithMetadata,
+                                WAL_DATA_METADATA_LENGTH,
+                                dataWithMetadata.length),
+                        IMapFileData.class);
+        result.add(fileData);
+
         return result;
     }
 }

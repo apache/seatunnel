@@ -20,6 +20,7 @@
 
 package org.apache.seatunnel.engine.imap.storage.file.wal.writer;
 
+import org.apache.seatunnel.engine.imap.storage.api.exception.IMapStorageException;
 import org.apache.seatunnel.engine.imap.storage.file.bean.IMapFileData;
 import org.apache.seatunnel.engine.imap.storage.file.common.WALDataUtils;
 import org.apache.seatunnel.engine.serializer.api.Serializer;
@@ -27,17 +28,21 @@ import org.apache.seatunnel.engine.serializer.api.Serializer;
 import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.hdfs.DFSOutputStream;
-import org.apache.hadoop.hdfs.client.HdfsDataOutputStream;
+
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
-import java.util.EnumSet;
+import java.util.Arrays;
 
+@Slf4j
 public class HdfsWriter implements IFileWriter<IMapFileData> {
-
-    private FSDataOutputStream out;
+    // block size,  default 1024*1024
+    private long blockSize = 1024 * 1024;
 
     private Serializer serializer;
+
+    private FileSystem fs;
+    private Path parentPath;
 
     @Override
     public String identifier() {
@@ -47,9 +52,16 @@ public class HdfsWriter implements IFileWriter<IMapFileData> {
     @Override
     public void initialize(FileSystem fs, Path parentPath, Serializer serializer)
             throws IOException {
-        Path path = new Path(parentPath, FILE_NAME);
-        this.out = fs.create(path);
+        this.fs = fs;
         this.serializer = serializer;
+        this.parentPath = parentPath;
+    }
+
+    @Override
+    public void setBlockSize(Long blockSize) {
+        if (blockSize != null && blockSize > DEFAULT_BLOCK_SIZE) {
+            this.blockSize = blockSize;
+        }
     }
 
     @Override
@@ -58,31 +70,36 @@ public class HdfsWriter implements IFileWriter<IMapFileData> {
         this.write(bytes);
     }
 
-    public void flush() throws IOException {
-        // hsync to flag
-        if (out instanceof HdfsDataOutputStream) {
-            ((HdfsDataOutputStream) out)
-                    .hsync(EnumSet.of(HdfsDataOutputStream.SyncFlag.UPDATE_LENGTH));
+    private void write(byte[] bytes) {
+        // delete old files, if delete failed, just ignore.
+        try {
+            fs.delete(parentPath, true);
+        } catch (IOException e) {
+            log.warn("Failed to delete old IMap files in hdfs, cause: {}", e.getMessage(), e);
         }
-        if (out.getWrappedStream() instanceof DFSOutputStream) {
-            ((DFSOutputStream) out.getWrappedStream())
-                    .hsync(EnumSet.of(HdfsDataOutputStream.SyncFlag.UPDATE_LENGTH));
-        } else {
-            out.hsync();
-        }
-        this.out.hflush();
-    }
 
-    private void write(byte[] bytes) throws IOException {
+        // wrap data with metadata
         byte[] data = WALDataUtils.wrapperBytes(bytes);
-        this.out.write(data);
-        this.flush();
+
+        // write data into each block
+        long blocks = data.length / blockSize + (data.length % blockSize == 0 ? 0 : 1);
+        for (int i = 0; i < blocks; i++) {
+            Path path = new Path(parentPath, i + "_" + FILE_NAME);
+            // get block data
+            int start = (int) (i * blockSize);
+            int end = (int) Math.min(start + blockSize, data.length);
+            byte[] blockData = Arrays.copyOfRange(data, start, end);
+
+            // write to file
+            try (FSDataOutputStream out = fs.create(path, true)) {
+                out.write(blockData);
+                out.hsync();
+            } catch (Exception e) {
+                throw new IMapStorageException(e);
+            }
+        }
     }
 
     @Override
-    public void close() throws Exception {
-        if (out != null) {
-            out.close();
-        }
-    }
+    public void close() throws Exception {}
 }

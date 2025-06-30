@@ -24,32 +24,22 @@ import org.apache.seatunnel.engine.imap.storage.file.bean.IMapFileData;
 import org.apache.seatunnel.engine.imap.storage.file.common.WALDataUtils;
 import org.apache.seatunnel.engine.serializer.api.Serializer;
 
-import org.apache.curator.shaded.com.google.common.io.ByteStreams;
-import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 
-import io.netty.buffer.ByteBuf;
-import io.netty.buffer.Unpooled;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
-import java.util.concurrent.atomic.AtomicLong;
+import java.util.Arrays;
 
 @Slf4j
 public abstract class CloudWriter implements IFileWriter<IMapFileData> {
     private FileSystem fs;
     private Path parentPath;
-    private Path path;
     private Serializer serializer;
-
-    private ByteBuf bf = Unpooled.buffer(1024);
-
     // block size,  default 1024*1024
     private long blockSize = 1024 * 1024;
-
-    private AtomicLong index = new AtomicLong(0);
 
     @Override
     public void initialize(FileSystem fs, Path parentPath, Serializer serializer)
@@ -58,12 +48,6 @@ public abstract class CloudWriter implements IFileWriter<IMapFileData> {
         this.fs = fs;
         this.serializer = serializer;
         this.parentPath = parentPath;
-        this.path = createNewPath();
-        if (fs.exists(path)) {
-            try (FSDataInputStream fsDataInputStream = fs.open(path)) {
-                bf.writeBytes(ByteStreams.toByteArray(fsDataInputStream));
-            }
-        }
     }
 
     @Override
@@ -81,43 +65,35 @@ public abstract class CloudWriter implements IFileWriter<IMapFileData> {
     }
 
     private void write(byte[] bytes) {
-        try (FSDataOutputStream out = fs.create(path, true)) {
-            // Write to bytebuffer
-            byte[] data = WALDataUtils.wrapperBytes(bytes);
-            bf.writeBytes(data);
-
-            // Read all bytes
-            byte[] allBytes = new byte[bf.readableBytes()];
-            bf.readBytes(allBytes);
-
-            // write filesystem
-            out.write(allBytes);
-
-            // check and reset
-            checkAndSetNextScheduleRotation(allBytes.length);
-
-        } catch (Exception ex) {
-            throw new IMapStorageException(ex);
+        // delete old files, if delete failed, just ignore.
+        try {
+            fs.delete(parentPath, true);
+        } catch (IOException e) {
+            log.warn("Failed to delete old IMap files in S3, cause: {}", e.getMessage(), e);
         }
-    }
 
-    private void checkAndSetNextScheduleRotation(long allBytes) {
-        if (allBytes > blockSize) {
-            this.path = createNewPath();
-            this.bf.clear();
-        } else {
-            // reset index
-            bf.resetReaderIndex();
+        // wrap data with metadata
+        byte[] data = WALDataUtils.wrapperBytes(bytes);
+
+        // write data into each block
+        long blocks = data.length / blockSize + (data.length % blockSize == 0 ? 0 : 1);
+        for (int i = 0; i < blocks; i++) {
+            Path path = new Path(parentPath, i + "_" + FILE_NAME);
+            // get block data
+            int start = (int) (i * blockSize);
+            int end = (int) Math.min(start + blockSize, data.length);
+            byte[] blockData = Arrays.copyOfRange(data, start, end);
+
+            // write to file
+            try (FSDataOutputStream out = fs.create(path, true)) {
+                out.write(blockData);
+                out.hsync();
+            } catch (Exception e) {
+                throw new IMapStorageException(e);
+            }
         }
-    }
-
-    public Path createNewPath() {
-        return new Path(parentPath, index.incrementAndGet() + "_" + FILE_NAME);
     }
 
     @Override
-    public void close() throws Exception {
-        bf.clear();
-        this.bf = null;
-    }
+    public void close() throws Exception {}
 }

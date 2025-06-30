@@ -76,9 +76,6 @@ public class IMapFileStorage implements IMapStorage {
 
     public String namespace;
 
-    /** virtual region, Randomly generate a region name */
-    public String region;
-
     /**
      * like OSS bucket name It is used to distinguish data storage locations of different business.
      */
@@ -101,13 +98,7 @@ public class IMapFileStorage implements IMapStorage {
 
     private String businessRootPath = null;
 
-    public static final int DEFAULT_ARCHIVE_WAIT_TIME_MILLISECONDS = 1000 * 60;
-
-    public static final int DEFAULT_QUERY_LIST_SIZE = 256;
-
     public static final long DEFAULT_WRITE_DATA_TIMEOUT_MILLISECONDS = 1000 * 60;
-
-    private Configuration conf;
 
     private FileConfiguration fileConfiguration;
 
@@ -133,7 +124,6 @@ public class IMapFileStorage implements IMapStorage {
                                         Map.Entry::getKey, entry -> entry.getValue().toString()));
 
         Configuration hadoopConf = fileConfiguration.buildConfiguration(stringMap);
-        this.conf = hadoopConf;
         this.namespace = (String) configuration.getOrDefault(NAMESPACE_KEY, DEFAULT_IMAP_NAMESPACE);
         this.businessName = (String) configuration.get(BUSINESS_KEY);
 
@@ -144,7 +134,6 @@ public class IMapFileStorage implements IMapStorage {
                                 WRITE_DATA_TIMEOUT_MILLISECONDS_KEY,
                                 DEFAULT_WRITE_DATA_TIMEOUT_MILLISECONDS);
 
-        this.region = String.valueOf(System.nanoTime());
         this.businessRootPath =
                 namespace
                         + DEFAULT_IMAP_FILE_PATH_SPLIT
@@ -163,7 +152,7 @@ public class IMapFileStorage implements IMapStorage {
                 new WALDisruptor(
                         fs,
                         FileConfiguration.valueOf(storageType.toUpperCase()),
-                        businessRootPath + region + DEFAULT_IMAP_FILE_PATH_SPLIT,
+                        businessRootPath,
                         serializer);
     }
 
@@ -221,7 +210,6 @@ public class IMapFileStorage implements IMapStorage {
                     try {
                         IMapFileData data = buildDeleteIMapFileData(key);
                         long requestId = sendToDisruptorQueue(data, WALEventType.APPEND);
-                        walDisruptor.tryAppendPublish(data, requestId);
                         requestMap.put(requestId, data);
                     } catch (IOException e) {
                         log.error("parse to IMapFileData error", e);
@@ -254,10 +242,7 @@ public class IMapFileStorage implements IMapStorage {
 
     @Override
     public void destroy(boolean deleteAllFileFlag) {
-        log.info(
-                "start destroy IMapFileStorage, businessName is {}, cluster name is {}",
-                businessName,
-                region);
+        log.info("start destroy IMapFileStorage, businessName is {}", businessName);
         /**
          * 1. close current disruptor 2. delete all files notice: we can not delete the files in the
          * middle of the write, so some current file may be not deleted
@@ -274,11 +259,7 @@ public class IMapFileStorage implements IMapStorage {
             try {
                 fs.delete(new Path(parentPath), true);
             } catch (IOException e) {
-                log.error(
-                        "destroy IMapFileStorage error,businessName is {}, cluster name is {}",
-                        businessName,
-                        region,
-                        e);
+                log.error("destroy IMapFileStorage error,businessName is {}", businessName, e);
             }
         }
     }
