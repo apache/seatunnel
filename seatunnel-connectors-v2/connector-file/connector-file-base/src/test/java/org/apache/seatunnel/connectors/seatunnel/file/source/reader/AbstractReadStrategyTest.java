@@ -25,23 +25,36 @@ import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.util.Utf8;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.Path;
 import org.apache.parquet.avro.AvroParquetWriter;
 import org.apache.parquet.hadoop.ParquetWriter;
 import org.apache.parquet.hadoop.metadata.CompressionCodecName;
 
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledOnOs;
 import org.junit.jupiter.api.condition.OS;
+import org.mockito.MockedStatic;
 
 import java.io.File;
 import java.io.IOException;
+import java.lang.reflect.Method;
+import java.time.Instant;
+import java.time.LocalDate;
 import java.util.List;
 
 import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.FS_DEFAULT_NAME_DEFAULT;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.when;
 
-public class AbstractReadStrategyTest {
+public static class AbstractReadStrategyTest {
+
+    private AbstractReadStrategy strategy;
+    private Method filterMethod;
 
     @DisabledOnOs(OS.WINDOWS)
     @Test
@@ -129,6 +142,99 @@ public class AbstractReadStrategyTest {
                     Assertions.assertTrue(b);
                 }
             }
+        }
+    }
+
+    @BeforeEach
+    void setUp() throws Exception {
+        strategy = new CsvReadStrategy();
+        filterMethod =
+                AbstractReadStrategy.class.getDeclaredMethod(
+                        "filterFileByModificationDate", FileStatus.class);
+        filterMethod.setAccessible(true); // 允许访问私有方法
+    }
+
+    @AfterEach
+    void tearDown() {
+        strategy = null;
+        filterMethod = null;
+    }
+
+    @Test
+    void testBothStartAndEndWithinRange() throws Exception {
+        try (MockedStatic<LocalDate> localDateMockedStatic = mockStatic(LocalDate.class)) {
+
+            String startDateStr = "2024-01-01";
+            String endDateStr = "2024-12-31";
+            String format = "yyyy-MM-dd";
+
+            strategy.fileModifiedStartDate = startDateStr;
+            strategy.fileModifiedEndDate = endDateStr;
+            strategy.modifiedDateFormat = format;
+
+            long modificationTime = Instant.parse("2024-06-01T00:00:00Z").toEpochMilli();
+
+            FileStatus mockFileStatus = mock(FileStatus.class);
+            when(mockFileStatus.getModificationTime()).thenReturn(modificationTime);
+
+            Boolean result = (Boolean) filterMethod.invoke(strategy, mockFileStatus);
+
+            Assertions.assertTrue(result);
+        }
+    }
+
+    @Test
+    void testOnlyEndDateOutOfRange() throws Exception {
+        try (MockedStatic<LocalDate> localDateMockedStatic = mockStatic(LocalDate.class)) {
+            String endDateStr = "2024-07-01";
+            String format = "yyyy-MM-dd";
+
+            strategy.fileModifiedStartDate = null;
+            strategy.fileModifiedEndDate = endDateStr;
+            strategy.modifiedDateFormat = format;
+
+            long modificationTime = Instant.parse("2024-06-01T00:00:00Z").toEpochMilli();
+
+            FileStatus mockFileStatus = mock(FileStatus.class);
+            when(mockFileStatus.getModificationTime()).thenReturn(modificationTime);
+
+            Boolean result = (Boolean) filterMethod.invoke(strategy, mockFileStatus);
+
+            Assertions.assertTrue(result);
+        }
+    }
+
+    @Test
+    void testNoDateSet() throws Exception {
+        strategy.fileModifiedStartDate = null;
+        strategy.fileModifiedEndDate = null;
+
+        FileStatus mockFileStatus = mock(FileStatus.class);
+        when(mockFileStatus.getModificationTime()).thenReturn(Instant.now().toEpochMilli());
+
+        Boolean result = (Boolean) filterMethod.invoke(strategy, mockFileStatus);
+
+        Assertions.assertTrue(result);
+    }
+
+    @Test
+    void testOnlyStartDateOutOfRange() throws Exception {
+        try (MockedStatic<LocalDate> localDateMockedStatic = mockStatic(LocalDate.class)) {
+            String startDateStr = "2024-04-01";
+            String format = "yyyy-MM-dd";
+
+            strategy.fileModifiedStartDate = startDateStr;
+            strategy.fileModifiedEndDate = null;
+            strategy.modifiedDateFormat = format;
+
+            long modificationTime = Instant.parse("2024-06-01T00:00:00Z").toEpochMilli();
+
+            FileStatus mockFileStatus = mock(FileStatus.class);
+            when(mockFileStatus.getModificationTime()).thenReturn(modificationTime);
+
+            Boolean result = (Boolean) filterMethod.invoke(strategy, mockFileStatus);
+
+            Assertions.assertTrue(result);
         }
     }
 }

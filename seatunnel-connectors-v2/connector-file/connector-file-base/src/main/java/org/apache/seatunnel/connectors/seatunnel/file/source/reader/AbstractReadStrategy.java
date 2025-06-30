@@ -45,8 +45,13 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
+import java.time.temporal.TemporalAccessor;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
@@ -88,6 +93,9 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
             FileBaseSourceOptions.ARCHIVE_COMPRESS_CODEC.defaultValue();
 
     protected Pattern pattern;
+    protected String fileModifiedStartDate;
+    protected String fileModifiedEndDate;
+    protected String modifiedDateFormat;
 
     @Override
     public void init(HadoopConf conf) {
@@ -121,7 +129,9 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
             if (fileStatus.isFile() && filterFileByPattern(fileStatus) && fileStatus.getLen() > 0) {
                 // filter '_SUCCESS' file
                 if (!fileStatus.getPath().getName().equals("_SUCCESS")
-                        && !fileStatus.getPath().getName().startsWith(".")) {
+                        && !fileStatus.getPath().getName().startsWith(".")
+                        && filterFileByModificationDate(fileStatus)) {
+
                     String filePath = fileStatus.getPath().toString();
                     if (!readPartitions.isEmpty()) {
                         for (String readPartition : readPartitions) {
@@ -143,6 +153,50 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
             fileNames.removeIf(fileName -> !fileName.endsWith(filenameExtension));
         }
         return fileNames;
+    }
+
+    private boolean filterFileByModificationDate(FileStatus fileStatus) {
+
+        Instant fileModifiedDate = Instant.ofEpochMilli(fileStatus.getModificationTime());
+
+        DateTimeFormatter formatter =
+                DateTimeFormatter.ofPattern(modifiedDateFormat).withZone(ZoneId.of("GMT+8"));
+
+        Instant startDate = parseDateToInstant(fileModifiedStartDate, formatter);
+        Instant endDate = parseDateToInstant(fileModifiedEndDate, formatter);
+
+        // Both start and end date are set
+        if (startDate != null && endDate != null) {
+            return !fileModifiedDate.isBefore(startDate) && !fileModifiedDate.isAfter(endDate);
+        }
+
+        // Only start date is set
+        if (startDate != null) {
+            return !fileModifiedDate.isBefore(startDate);
+        }
+
+        // Only end date is set
+        if (endDate != null) {
+            return !fileModifiedDate.isAfter(endDate);
+        }
+
+        // Neither start nor end date is set
+        return true;
+    }
+
+    private Instant parseDateToInstant(String dateTime, DateTimeFormatter dateTimeFormatter) {
+        if (dateTime == null || dateTime.isEmpty()) {
+            return null;
+        }
+        try {
+
+            TemporalAccessor temporal = dateTimeFormatter.parse(dateTime);
+
+            return Instant.from(temporal);
+        } catch (DateTimeParseException e) {
+            // no throw exception
+            return null;
+        }
     }
 
     @Override
@@ -179,6 +233,20 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
             String filterPattern =
                     pluginConfig.getString(FileBaseSourceOptions.FILE_FILTER_PATTERN.key());
             this.pattern = Pattern.compile(Matcher.quoteReplacement(filterPattern));
+        }
+        if (pluginConfig.hasPath(FileBaseSourceOptions.FILE_FILTER_MODIFIED_START.key())) {
+            fileModifiedStartDate =
+                    pluginConfig.getString(FileBaseSourceOptions.FILE_FILTER_MODIFIED_START.key());
+        }
+        if (pluginConfig.hasPath(FileBaseSourceOptions.FILE_FILTER_MODIFIED_END.key())) {
+            fileModifiedEndDate =
+                    pluginConfig.getString(FileBaseSourceOptions.FILE_FILTER_MODIFIED_END.key());
+        }
+
+        if (pluginConfig.hasPath(FileBaseSourceOptions.FILE_FILTER_MODIFIED_DATE_FORMAT.key())) {
+            modifiedDateFormat =
+                    pluginConfig.getString(
+                            FileBaseSourceOptions.FILE_FILTER_MODIFIED_DATE_FORMAT.key());
         }
     }
 

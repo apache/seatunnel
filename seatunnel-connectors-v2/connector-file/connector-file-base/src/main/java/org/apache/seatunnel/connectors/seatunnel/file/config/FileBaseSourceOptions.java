@@ -88,4 +88,25 @@ public class FileBaseSourceOptions extends FileBaseOptions {
                     .noDefaultValue()
                     .withDescription(
                             "File pattern. The connector will filter some files base on the pattern.");
+
+    public static final Option<String> FILE_FILTER_MODIFIED_START =
+            Options.key("file_filter_modified_start")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "File modification time. The connector will filter some files base on the last modification start date. the default not filter, modification data format is yyyy-mm-dd");
+
+    public static final Option<String> FILE_FILTER_MODIFIED_END =
+            Options.key("file_filter_modified_end")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "File modification time. The connector will filter some files base on the last modification end date. the default not filter, modification data format is yyyy-mm-dd");
+
+    public static final Option<String> FILE_FILTER_MODIFIED_DATE_FORMAT =
+            Options.key("file_filter_modified_date_format")
+                    .stringType()
+                    .defaultValue("yyyy-MM-dd")
+                    .withDescription(
+                            "File modification time format. This parameter specifies the file's last modification time for filtering, using which time format. If not set, it defaults to the yyyy-MM-dd format, with the time zone defaulting to GMT+8.");
 }
