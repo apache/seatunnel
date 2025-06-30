@@ -42,7 +42,7 @@ class HttpClientProviderTest {
 
     @BeforeEach
     void setUp() {
-        // 创建具体的 HttpEntityEnclosingRequestBase 子类实例（HttpPost）
+
         mockRequest = mock(HttpPost.class);
     }
 
@@ -61,7 +61,7 @@ class HttpClientProviderTest {
         // verify original headers are preserved
         HttpClientProvider.addBody(mockRequest, Collections.emptyMap());
 
-        verify(mockRequest).setHeader(HTTP.CONTENT_TYPE, "application/json");
+        verify(mockRequest).setHeader(HTTP.CONTENT_TYPE, "application/json;utf-8");
         verify(mockRequest).setEntity(any(HttpEntity.class));
 
         Header[] currentHeaders =
