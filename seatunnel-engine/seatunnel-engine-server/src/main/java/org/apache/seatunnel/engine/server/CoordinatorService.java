@@ -966,6 +966,8 @@ public class CoordinatorService {
                         "Job info detail",
                         "createdJobCount",
                         jobCounter.getCreatedJobCount(),
+                        "pendingJobCount",
+                        jobCounter.getPendingJobCount(),
                         "scheduledJobCount",
                         jobCounter.getScheduledJobCount(),
                         "runningJobCount",
@@ -986,6 +988,7 @@ public class CoordinatorService {
         AtomicLong createdJobCount = new AtomicLong();
         AtomicLong scheduledJobCount = new AtomicLong();
         AtomicLong runningJobCount = new AtomicLong();
+        AtomicLong pendingJobCount = new AtomicLong();
         AtomicLong failingJobCount = new AtomicLong();
         AtomicLong failedJobCount = new AtomicLong();
         AtomicLong cancellingJobCount = new AtomicLong();
@@ -1001,6 +1004,9 @@ public class CoordinatorService {
                                 switch (jobStatus) {
                                     case CREATED:
                                         createdJobCount.addAndGet(1);
+                                        break;
+                                    case PENDING:
+                                        pendingJobCount.addAndGet(1);
                                         break;
                                     case SCHEDULED:
                                         scheduledJobCount.addAndGet(1);
@@ -1030,6 +1036,7 @@ public class CoordinatorService {
 
         return new JobCounter(
                 createdJobCount.longValue(),
+                pendingJobCount.longValue(),
                 scheduledJobCount.longValue(),
                 runningJobCount.longValue(),
                 failingJobCount.longValue(),
