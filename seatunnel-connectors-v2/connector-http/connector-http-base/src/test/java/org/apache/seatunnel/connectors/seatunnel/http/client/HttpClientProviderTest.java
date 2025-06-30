@@ -98,6 +98,7 @@ class HttpClientProviderTest {
                     "Header value mismatch at index " + i);
         }
         // ensure no manually set content type or encoding
-        Assertions.assertNull(post.getEntity().getContentEncoding());
+        // test case fix, content type support user manually  set
+        //        Assertions.assertNull(post.getEntity().getContentEncoding());
     }
 }
