@@ -151,7 +151,7 @@ public static class AbstractReadStrategyTest {
         filterMethod =
                 AbstractReadStrategy.class.getDeclaredMethod(
                         "filterFileByModificationDate", FileStatus.class);
-        filterMethod.setAccessible(true); // 允许访问私有方法
+        filterMethod.setAccessible(true);
     }
 
     @AfterEach
