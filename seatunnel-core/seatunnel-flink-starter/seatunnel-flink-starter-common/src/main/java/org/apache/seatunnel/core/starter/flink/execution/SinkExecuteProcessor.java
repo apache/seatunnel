@@ -29,6 +29,7 @@ import org.apache.seatunnel.api.sink.SaveModeHandler;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SupportMultiTableSink;
 import org.apache.seatunnel.api.sink.SupportSaveMode;
+import org.apache.seatunnel.api.sink.SupportSchemaEvolutionSink;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
@@ -122,12 +123,24 @@ public class SinkExecuteProcessor
         DataStreamTableInfo input = upstreamDataStreams.get(upstreamDataStreams.size() - 1);
         Function<PluginIdentifier, SeaTunnelSink> fallbackCreateSink =
                 sinkPluginDiscovery::createPluginInstance;
+
         for (int i = 0; i < plugins.size(); i++) {
             Optional<? extends Factory> factory = plugins.get(i);
             Config sinkConfig = pluginConfigs.get(i);
             DataStreamTableInfo stream =
                     fromSourceTable(sinkConfig, upstreamDataStreams).orElse(input);
             Map<TablePath, SeaTunnelSink> sinks = new HashMap<>();
+
+            // calculate sink parallelism
+            boolean sinkParallelism = sinkConfig.hasPath(EnvCommonOptions.PARALLELISM.key());
+            boolean envParallelism = envConfig.hasPath(EnvCommonOptions.PARALLELISM.key());
+            int parallelism =
+                    sinkParallelism
+                            ? sinkConfig.getInt(EnvCommonOptions.PARALLELISM.key())
+                            : envParallelism
+                                    ? envConfig.getInt(EnvCommonOptions.PARALLELISM.key())
+                                    : 1;
+
             for (CatalogTable catalogTable : stream.getCatalogTables()) {
                 SeaTunnelSink sink =
                         FactoryUtil.createAndPrepareSink(
@@ -139,20 +152,20 @@ public class SinkExecuteProcessor
                                 ((TableSinkFactory) (factory.orElse(null))));
                 sink.setJobContext(jobContext);
                 handleSaveMode(sink);
+
+                // check if sink supports schema evolution
+                if (sink instanceof SupportSchemaEvolutionSink) {
+                    parallelism = 1;
+                    sinkParallelism = true;
+                }
+
                 TableIdentifier tableId = catalogTable.getTableId();
                 sinks.put(tableId.toTablePath(), sink);
             }
             SeaTunnelSink sink =
                     tryGenerateMultiTableSink(
                             sinks, ReadonlyConfig.fromConfig(sinkConfig), classLoader);
-            boolean sinkParallelism = sinkConfig.hasPath(EnvCommonOptions.PARALLELISM.key());
-            boolean envParallelism = envConfig.hasPath(EnvCommonOptions.PARALLELISM.key());
-            int parallelism =
-                    sinkParallelism
-                            ? sinkConfig.getInt(EnvCommonOptions.PARALLELISM.key())
-                            : envParallelism
-                                    ? envConfig.getInt(EnvCommonOptions.PARALLELISM.key())
-                                    : 1;
+
             DataStreamSink<SeaTunnelRow> dataStreamSink =
                     stream.getDataStream()
                             .sinkTo(
