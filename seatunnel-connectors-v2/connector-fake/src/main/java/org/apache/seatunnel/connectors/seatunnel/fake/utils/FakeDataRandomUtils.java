@@ -38,9 +38,11 @@ import java.util.Map;
 
 public class FakeDataRandomUtils {
     private final FakeConfig fakeConfig;
+    private final String jobId;
 
-    public FakeDataRandomUtils(FakeConfig fakeConfig) {
+    public FakeDataRandomUtils(FakeConfig fakeConfig, String jobId) {
         this.fakeConfig = fakeConfig;
+        this.jobId = jobId;
     }
 
     private static <T> T randomFromList(List<T> list) {
@@ -101,7 +103,11 @@ public class FakeDataRandomUtils {
                 throw new IllegalArgumentException(
                         "The auto increment start value is too large, please check your configuration.");
             }
-            return IdGeneratorUtils.getIdGenerator(fakeConfig, column.getName())
+            return IdGeneratorUtils.getIdGenerator(jobId, fakeConfig, column.getName())
+                    .orElseThrow(
+                            () ->
+                                    new IllegalArgumentException(
+                                            "Auto increment is enabled, but no id generator found."))
                     .getNextId()
                     .intValue();
         }
@@ -115,7 +121,12 @@ public class FakeDataRandomUtils {
     public Long randomBigint(Column column) {
         if (fakeConfig.getAutoIncrementEnabled()
                 && IdGeneratorUtils.isPrimaryColumn(fakeConfig, column.getName())) {
-            return IdGeneratorUtils.getIdGenerator(fakeConfig, column.getName()).getNextId();
+            return IdGeneratorUtils.getIdGenerator(jobId, fakeConfig, column.getName())
+                    .orElseThrow(
+                            () ->
+                                    new IllegalArgumentException(
+                                            "Auto increment is enabled, but no id generator found."))
+                    .getNextId();
         }
         List<Long> bigTemplate = fakeConfig.getBigTemplate();
         if (!CollectionUtils.isEmpty(bigTemplate)) {

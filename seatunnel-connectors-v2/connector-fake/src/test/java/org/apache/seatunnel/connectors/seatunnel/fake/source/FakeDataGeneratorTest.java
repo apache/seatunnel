@@ -63,7 +63,7 @@ public class FakeDataGeneratorTest {
         SeaTunnelRowType seaTunnelRowType =
                 CatalogTableUtil.buildWithConfig(testConfig).getSeaTunnelRowType();
         FakeConfig fakeConfig = FakeConfig.buildWithConfig(testConfig);
-        FakeDataGenerator fakeDataGenerator = new FakeDataGenerator(fakeConfig);
+        FakeDataGenerator fakeDataGenerator = new FakeDataGenerator(fakeConfig, null);
         List<SeaTunnelRow> seaTunnelRows =
                 fakeDataGenerator.generateFakedRows(fakeConfig.getRowNum());
         Assertions.assertNotNull(seaTunnelRows);
@@ -118,7 +118,7 @@ public class FakeDataGeneratorTest {
 
         ReadonlyConfig testConfig = getTestConfigFile(conf);
         FakeConfig fakeConfig = FakeConfig.buildWithConfig(testConfig);
-        FakeDataGenerator fakeDataGenerator = new FakeDataGenerator(fakeConfig);
+        FakeDataGenerator fakeDataGenerator = new FakeDataGenerator(fakeConfig, null);
         List<SeaTunnelRow> seaTunnelRows =
                 fakeDataGenerator.generateFakedRows(fakeConfig.getRowNum());
         Assertions.assertIterableEquals(expected, seaTunnelRows);
@@ -129,7 +129,7 @@ public class FakeDataGeneratorTest {
     public void testVectorParse(String conf) throws FileNotFoundException, URISyntaxException {
         ReadonlyConfig testConfig = getTestConfigFile(conf);
         FakeConfig fakeConfig = FakeConfig.buildWithConfig(testConfig);
-        FakeDataGenerator fakeDataGenerator = new FakeDataGenerator(fakeConfig);
+        FakeDataGenerator fakeDataGenerator = new FakeDataGenerator(fakeConfig, null);
         List<SeaTunnelRow> seaTunnelRows =
                 fakeDataGenerator.generateFakedRows(fakeConfig.getRowNum());
         seaTunnelRows.forEach(
@@ -156,7 +156,7 @@ public class FakeDataGeneratorTest {
     public void testColumnDataParse(String conf) throws FileNotFoundException, URISyntaxException {
         ReadonlyConfig testConfig = getTestConfigFile(conf);
         FakeConfig fakeConfig = FakeConfig.buildWithConfig(testConfig);
-        FakeDataGenerator fakeDataGenerator = new FakeDataGenerator(fakeConfig);
+        FakeDataGenerator fakeDataGenerator = new FakeDataGenerator(fakeConfig, null);
         List<SeaTunnelRow> seaTunnelRows =
                 fakeDataGenerator.generateFakedRows(fakeConfig.getRowNum());
         seaTunnelRows.forEach(
@@ -219,7 +219,7 @@ public class FakeDataGeneratorTest {
     public void testDataParse(String conf) throws FileNotFoundException, URISyntaxException {
         ReadonlyConfig testConfig = getTestConfigFile(conf);
         FakeConfig fakeConfig = FakeConfig.buildWithConfig(testConfig);
-        FakeDataGenerator fakeDataGenerator = new FakeDataGenerator(fakeConfig);
+        FakeDataGenerator fakeDataGenerator = new FakeDataGenerator(fakeConfig, null);
         List<SeaTunnelRow> seaTunnelRows =
                 fakeDataGenerator.generateFakedRows(fakeConfig.getRowNum());
         seaTunnelRows.forEach(
@@ -245,7 +245,7 @@ public class FakeDataGeneratorTest {
                     CompletableFuture.supplyAsync(
                             () -> {
                                 FakeDataGenerator fakeDataGenerator =
-                                        new FakeDataGenerator(fakeConfig);
+                                        new FakeDataGenerator(fakeConfig, null);
                                 return fakeDataGenerator.generateFakedRows(fakeConfig.getRowNum());
                             });
             futures.add(uCompletableFuture);
