@@ -37,7 +37,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.apache.seatunnel.engine.imap.storage.file.common.FileConstants.FileInitProperties.WRITE_DATA_TIMEOUT_MILLISECONDS_KEY;
 import static org.awaitility.Awaitility.await;
@@ -76,7 +75,6 @@ public class IMapFileStorageTest {
         String key2Index = "key2";
         String key50Index = "key50";
 
-        AtomicInteger dataSize = new AtomicInteger();
         Long keyValue = 123456789L;
         for (int i = 0; i < 100; i++) {
             String key = "key" + i;
@@ -90,7 +88,6 @@ public class IMapFileStorageTest {
                 STORAGE.store(key2Index, keyValue);
                 keys.add(key2Index);
                 value = keyValue;
-                new Thread(() -> dataSize.set(STORAGE.loadAll().size())).start();
             }
             STORAGE.store(key, value);
             keys.add(key);
@@ -98,9 +95,9 @@ public class IMapFileStorageTest {
             keys.remove(key1Index);
         }
 
-        await().atMost(1, TimeUnit.SECONDS).until(dataSize::get, size -> size > 0);
+        await().atMost(5, TimeUnit.SECONDS);
         Map<Object, Object> loadAllDatas = STORAGE.loadAll();
-        Assertions.assertTrue(dataSize.get() >= 50);
+        Assertions.assertEquals(99, loadAllDatas.size());
         Assertions.assertEquals(keyValue, loadAllDatas.get(key50Index));
         Assertions.assertEquals(keyValue, loadAllDatas.get(key2Index));
         Assertions.assertNull(loadAllDatas.get(key1Index));

@@ -24,6 +24,7 @@ import org.apache.seatunnel.engine.imap.storage.file.bean.IMapFileData;
 import org.apache.seatunnel.engine.imap.storage.file.config.FileConfiguration;
 import org.apache.seatunnel.engine.imap.storage.file.future.RequestFuture;
 import org.apache.seatunnel.engine.imap.storage.file.future.RequestFutureCache;
+import org.apache.seatunnel.engine.serializer.api.Serializer;
 import org.apache.seatunnel.engine.serializer.protobuf.ProtoStuffSerializer;
 
 import org.apache.hadoop.conf.Configuration;
@@ -50,6 +51,7 @@ public class WALDisruptorTest {
     private static FileSystem FS;
 
     private static final Configuration CONF;
+    private static final Serializer SERIALIZER = new ProtoStuffSerializer();
 
     static {
         CONF = new Configuration();
@@ -60,16 +62,15 @@ public class WALDisruptorTest {
     @Test
     void testProducerAndConsumer() throws IOException {
         FS = FileSystem.get(CONF);
-        DISRUPTOR =
-                new WALDisruptor(FS, FileConfiguration.HDFS, FILEPATH, new ProtoStuffSerializer());
+        DISRUPTOR = new WALDisruptor(FS, FileConfiguration.HDFS, FILEPATH, SERIALIZER);
         IMapFileData data;
         for (int i = 0; i < 100; i++) {
             data =
                     IMapFileData.builder()
                             .deleted(false)
-                            .key(("key" + i).getBytes())
+                            .key(SERIALIZER.serialize("key" + i))
                             .keyClassName(String.class.getName())
-                            .value(("value" + i).getBytes())
+                            .value(SERIALIZER.serialize("value" + i))
                             .valueClassName(String.class.getName())
                             .timestamp(System.nanoTime())
                             .build();
