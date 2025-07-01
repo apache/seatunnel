@@ -516,8 +516,6 @@ public class HttpSourceReaderUpdateRequestParamTest {
         Assertions.assertEquals(10, bodyMap.get("limit"));
     }
 
-
-
     @Test
     public void testInternalPollNextWithBodyPlaceholderBatchSize() throws Exception {
         // Setup test data
@@ -542,9 +540,6 @@ public class HttpSourceReaderUpdateRequestParamTest {
         Assertions.assertEquals("5", bodyMap.get("page"));
         Assertions.assertEquals(10, bodyMap.get("limit"));
     }
-
-
-
 
     @Test
     public void testUpdateRequestParamWithHeaderOnlyPageNumberOccurNPE() throws Exception {

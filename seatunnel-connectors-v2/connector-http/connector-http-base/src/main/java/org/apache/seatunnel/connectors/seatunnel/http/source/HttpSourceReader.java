@@ -73,6 +73,10 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
             Configuration.defaultConfiguration().addOptions(DEFAULT_OPTIONS);
     private boolean noMoreElementFlag = true;
     private Optional<PageInfo> pageInfoOptional = Optional.empty();
+    /**
+     * Holds the original request body template for placeholder replacement. This ensures that the
+     * state is not unintentionally mutated during pagination.
+     */
     private String rawBody = null;
 
     public HttpSourceReader(
@@ -336,9 +340,6 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
             if (pageInfoOptional.isPresent()) {
                 noMoreElementFlag = false;
                 PageInfo info = pageInfoOptional.get();
-                if (!Strings.isNullOrEmpty(this.httpParameter.getBody())) {
-                    this.rawBody = this.httpParameter.getBody();
-                }
                 // cursor pagination
                 if (HttpPaginationType.CURSOR.getCode().equals(info.getPageType())) {
                     while (!noMoreElementFlag) {
