@@ -29,6 +29,8 @@ import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 
+import lombok.extern.slf4j.Slf4j;
+
 import java.io.IOException;
 import java.io.SequenceInputStream;
 import java.util.ArrayList;
@@ -39,6 +41,7 @@ import java.util.stream.Collectors;
 
 import static org.apache.seatunnel.engine.imap.storage.file.common.WALDataUtils.FILE_NAME;
 
+@Slf4j
 public class DefaultReader implements IFileReader<IMapFileData> {
     private static final int DEFAULT_QUERY_LIST_SIZE = 1024;
     private FileSystem fs;
@@ -93,6 +96,9 @@ public class DefaultReader implements IFileReader<IMapFileData> {
                 IMapFileData diskData = serializer.deserialize(bytes, IMapFileData.class);
                 result.add(diskData);
             }
+        } catch (IOException e) {
+            log.warn("read next data entry failed, cause: {}", e.getMessage(), e);
+            return result;
         }
 
         return result;
