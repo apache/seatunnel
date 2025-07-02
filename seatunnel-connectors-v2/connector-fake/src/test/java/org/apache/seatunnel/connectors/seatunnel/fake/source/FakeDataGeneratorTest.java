@@ -50,6 +50,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
@@ -234,18 +235,19 @@ public class FakeDataGeneratorTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"fake-auto-increment-id.conf"})
+    @ValueSource(strings = {"fake-auto-increment-id.conf", "fake-auto-increment-id.conf"})
     public void testAutoIncrementId(String conf) throws FileNotFoundException, URISyntaxException {
         ReadonlyConfig testConfig = getTestConfigFile(conf);
         int parallelism = testConfig.getOptional(EnvCommonOptions.PARALLELISM).orElse(1);
         FakeConfig fakeConfig = FakeConfig.buildWithConfig(testConfig);
         List<CompletableFuture<List<SeaTunnelRow>>> futures = new ArrayList<>();
+        String jobId = UUID.randomUUID().toString();
         for (int i = 0; i < parallelism; i++) {
             CompletableFuture<List<SeaTunnelRow>> uCompletableFuture =
                     CompletableFuture.supplyAsync(
                             () -> {
                                 FakeDataGenerator fakeDataGenerator =
-                                        new FakeDataGenerator(fakeConfig, null);
+                                        new FakeDataGenerator(fakeConfig, jobId);
                                 return fakeDataGenerator.generateFakedRows(fakeConfig.getRowNum());
                             });
             futures.add(uCompletableFuture);
