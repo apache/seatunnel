@@ -61,18 +61,6 @@ public class PeekBlockingQueue<E> {
         return queue.take();
     }
 
-    public void release() {
-        lock.lock();
-        try {
-            if (queue.isEmpty()) {
-                return;
-            }
-            notEmpty.signalAll();
-        } finally {
-            lock.unlock();
-        }
-    }
-
     public E peekBlocking() throws InterruptedException {
         lock.lock();
         try {
