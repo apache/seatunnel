@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.shard.Shard;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.file.ClickhouseTable;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.source.ClickhouseSourceTable;
+import org.apache.seatunnel.connectors.seatunnel.clickhouse.util.ClickhouseUtil;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -84,9 +85,9 @@ public class SqlStrategySplitter implements Splitter, AutoCloseable, Serializabl
         if (clickhouseTable.getDistributedEngine() != null) {
             String localTableId = clickhouseTable.getLocalTableIdentifier();
 
-            return clickhouseSourceTable
-                    .getOriginQuery()
-                    .replace(clickhouseTable.getTableIdentifier(), localTableId);
+            String querySql = clickhouseSourceTable.getOriginQuery();
+            return querySql.replace(
+                    ClickhouseUtil.extractTablePathFromSql(querySql).getFullName(), localTableId);
         }
 
         return clickhouseSourceTable.getOriginQuery();

@@ -30,9 +30,6 @@ import org.apache.seatunnel.connectors.seatunnel.clickhouse.exception.Clickhouse
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.shard.Shard;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.file.ClickhouseTable;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.source.ClickhousePart;
-import org.apache.seatunnel.connectors.seatunnel.clickhouse.source.ClickhouseSourceTable;
-
-import org.apache.commons.lang3.StringUtils;
 
 import com.clickhouse.client.ClickHouseClient;
 import com.clickhouse.client.ClickHouseColumn;
@@ -478,45 +475,9 @@ public class ClickhouseProxy implements AutoCloseable {
         }
     }
 
-    public List<SeaTunnelRow> queryDataFromPart(
-            ClickhousePart part,
-            SeaTunnelRowType seaTunnelRowType,
-            ClickhouseSourceTable clickhouseSourceTable,
-            int offset) {
-
-        TablePath tablePath = TablePath.of(part.getDatabase(), part.getTable());
-        ClickhouseTable clickhouseTable = clickhouseSourceTable.getClickhouseTable();
+    public List<SeaTunnelRow> batchFetchRecords(String sql, SeaTunnelRowType seaTunnelRowType) {
         List<SeaTunnelRow> seaTunnelRowList = new ArrayList<>();
-
-        String whereClause = String.format("_part = '%s'", part.getName());
-        if (StringUtils.isNotEmpty(clickhouseSourceTable.getFilterQuery())) {
-            whereClause += " AND (" + clickhouseSourceTable.getFilterQuery() + ")";
-        }
-
-        String orderByClause = "";
-        if (StringUtils.isNotEmpty(clickhouseTable.getSortingKey())) {
-            orderByClause = " ORDER BY " + clickhouseTable.getSortingKey();
-        }
-
-        String sql;
-        if (StringUtils.isNotEmpty(orderByClause)) {
-            sql =
-                    String.format(
-                            "SELECT * FROM %s.%s WHERE %s %s LIMIT %d, %d WITH TIES",
-                            tablePath.getDatabaseName(),
-                            tablePath.getTableName(),
-                            whereClause,
-                            orderByClause,
-                            offset,
-                            clickhouseSourceTable.getBatchSize());
-        } else {
-            sql =
-                    String.format(
-                            "SELECT * FROM %s.%s WHERE %s",
-                            tablePath.getDatabaseName(), tablePath.getTableName(), whereClause);
-        }
-
-        log.debug("run query data part sql: {}", sql);
+        log.debug("run query data sql: {}", sql);
 
         try (ClickHouseResponse response = clickhouseRequest.query(sql).executeAndWait()) {
             response.stream()
@@ -524,56 +485,7 @@ public class ClickhouseProxy implements AutoCloseable {
                             record -> {
                                 SeaTunnelRow seaTunnelRow =
                                         ClickhouseUtil.convertToSeaTunnelRow(
-                                                record, seaTunnelRowType, tablePath.getFullName());
-                                seaTunnelRowList.add(seaTunnelRow);
-                            });
-        } catch (ClickHouseException e) {
-            throw new ClickhouseConnectorException(
-                    ClickhouseConnectorErrorCode.QUERY_DATA_ERROR,
-                    String.format(
-                            "Failed to read data from part. sql: %s, message: %s",
-                            sql, e.getMessage()),
-                    e);
-        }
-
-        return seaTunnelRowList;
-    }
-
-    public List<SeaTunnelRow> queryDataFromSql(
-            String sql,
-            SeaTunnelRowType seaTunnelRowType,
-            ClickhouseTable clickhouseTable,
-            int batchSize,
-            int offset) {
-
-        String orderByClause = "";
-        if (StringUtils.isNotEmpty(clickhouseTable.getSortingKey())) {
-            orderByClause = " ORDER BY " + clickhouseTable.getSortingKey();
-        }
-
-        String executeSql;
-        if (StringUtils.isNotEmpty(orderByClause)) {
-            executeSql =
-                    String.format(
-                            "SELECT * FROM (%s) AS t %s LIMIT %d, %d WITH TIES",
-                            sql, orderByClause, offset, batchSize);
-        } else {
-            executeSql = String.format("SELECT * FROM (%s) AS t", sql);
-        }
-
-        log.debug("run query sql: {}", executeSql);
-        List<SeaTunnelRow> seaTunnelRowList = new ArrayList<>();
-
-        try (ClickHouseResponse response =
-                getClickhouseConnection().query(executeSql).executeAndWait()) {
-            response.stream()
-                    .forEach(
-                            record -> {
-                                SeaTunnelRow seaTunnelRow =
-                                        ClickhouseUtil.convertToSeaTunnelRow(
-                                                record,
-                                                seaTunnelRowType,
-                                                clickhouseTable.getLocalTableIdentifier());
+                                                record, seaTunnelRowType, sql);
                                 seaTunnelRowList.add(seaTunnelRow);
                             });
         } catch (ClickHouseException e) {
@@ -610,6 +522,7 @@ public class ClickhouseProxy implements AutoCloseable {
                             || explainLine.contains("LIMIT")
                             || explainLine.contains("Sorting")
                             || explainLine.contains("Aggregating")
+                            || explainLine.contains("Merging")
                             || explainLine.contains("subquery")) {
 
                         log.info("Complex SQL detected, explain line: {}", explainLine);

@@ -68,8 +68,6 @@ public class ClickhouseSourceConfig implements Serializable {
 
     private boolean isSqlStrategyRead;
 
-    private boolean isSingleParallelRead;
-
     public static ClickhouseSourceConfig of(ReadonlyConfig config) {
         if (!config.getOptional(ClickhouseBaseOptions.TABLE_PATH).isPresent()
                 && !config.getOptional(ClickhouseSourceOptions.SQL).isPresent()) {
@@ -97,17 +95,6 @@ public class ClickhouseSourceConfig implements Serializable {
         if (StringUtils.isEmpty(tablePath)) {
             // Extract table identifier from SQL
             return ClickhouseUtil.extractTablePathFromSql(sql);
-        }
-
-        if (StringUtils.isNotEmpty(tablePath) && StringUtils.isNotEmpty(sql)) {
-            TablePath sqlTablePath = ClickhouseUtil.extractTablePathFromSql(sql);
-
-            if (!sqlTablePath.getFullName().equals(tablePath)) {
-                throw new IllegalArgumentException(
-                        String.format(
-                                "Table path from SQL (%s) does not match the provided table path (%s).",
-                                sqlTablePath.getFullName(), tablePath));
-            }
         }
 
         return TablePath.of(tablePath);

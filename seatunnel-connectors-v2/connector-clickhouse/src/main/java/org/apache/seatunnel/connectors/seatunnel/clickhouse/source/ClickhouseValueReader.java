@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.clickhouse.source;
 
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.exception.ClickhouseConnectorErrorCode;
@@ -28,14 +29,17 @@ import org.apache.seatunnel.connectors.seatunnel.clickhouse.util.ClickhouseUtil;
 import org.apache.commons.lang3.StringUtils;
 
 import com.clickhouse.client.ClickHouseException;
-import com.clickhouse.client.ClickHouseRecord;
 import com.clickhouse.client.ClickHouseResponse;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Iterator;
 import java.util.List;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingDeque;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Collectors;
 
 @Slf4j
 public class ClickhouseValueReader implements Serializable {
@@ -59,19 +63,18 @@ public class ClickhouseValueReader implements Serializable {
         this.rowTypeInfo = seaTunnelRowType;
         this.clickhouseSourceTable = clickhouseSourceTable;
         this.proxy = new ClickhouseProxy(clickhouseSourceSplit.getShard().getNode());
-        if (clickhouseSourceTable.isComplexSql()) {
-            this.streamValueReader =
-                    new StreamValueReader(proxy, clickhouseSourceSplit.getSplitQuery());
-        }
     }
 
     public boolean hasNext() {
-        if (clickhouseSourceTable.isComplexSql()) {
+        if (shouldUseStreamReader()) {
+            if (streamValueReader == null) {
+                streamValueReader = new StreamValueReader();
+            }
             return streamValueReader.hasNext();
         } else if (clickhouseSourceTable.isSqlStrategyRead()) {
-            return sqlStrategyRead();
+            return sqlBatchStrategyRead();
         } else {
-            return partStrategyRead();
+            return partBatchStrategyRead();
         }
     }
 
@@ -84,7 +87,7 @@ public class ClickhouseValueReader implements Serializable {
         return rowBatch;
     }
 
-    private boolean partStrategyRead() {
+    private boolean partBatchStrategyRead() {
         List<ClickhousePart> parts = clickhouseSourceSplit.getParts();
         int partSize = parts.size();
 
@@ -94,26 +97,15 @@ public class ClickhouseValueReader implements Serializable {
 
         ClickhousePart currentPart = parts.get(currentPartIndex);
 
-        if (StringUtils.isEmpty(clickhouseSourceTable.getClickhouseTable().getSortingKey())
-                && currentPart.getOffset() != 0) {
-            log.debug("Sorting key is empty, the part will be only read once.");
-            currentPartIndex++;
-            return currentPartIndex < partSize && partStrategyRead();
-        }
-
         // If current part has been processed, move to the next part
         if (currentPart.isEos()) {
             currentPartIndex++;
-            return currentPartIndex < partSize && partStrategyRead();
+            return currentPartIndex < partSize && partBatchStrategyRead();
         }
 
         try {
-            rowBatch =
-                    proxy.queryDataFromPart(
-                            currentPart,
-                            rowTypeInfo,
-                            clickhouseSourceTable,
-                            currentPart.getOffset());
+            String query = buildPartQuery(currentPart);
+            rowBatch = proxy.batchFetchRecords(query, rowTypeInfo);
 
             log.debug(
                     "SplitId: {}, partName: {} read rowBatch size: {}",
@@ -124,7 +116,7 @@ public class ClickhouseValueReader implements Serializable {
             if (rowBatch.isEmpty()) {
                 currentPart.setEos(true);
                 currentPartIndex++;
-                return currentPartIndex < partSize && partStrategyRead();
+                return currentPartIndex < partSize && partBatchStrategyRead();
             }
 
             // update part offset
@@ -143,24 +135,11 @@ public class ClickhouseValueReader implements Serializable {
         }
     }
 
-    private boolean sqlStrategyRead() {
-        String splitQuery = clickhouseSourceSplit.getSplitQuery();
-
-        if (StringUtils.isEmpty(clickhouseSourceTable.getClickhouseTable().getSortingKey())
-                && clickhouseSourceSplit.getSqlOffset() != 0) {
-            log.debug("Sorting key is empty, the query will be only execute once.");
-            return false;
-        }
+    private boolean sqlBatchStrategyRead() {
+        String query = buildSqlQuery();
 
         try {
-            int batchSize = clickhouseSourceTable.getBatchSize();
-            rowBatch =
-                    proxy.queryDataFromSql(
-                            splitQuery,
-                            rowTypeInfo,
-                            clickhouseSourceTable.getClickhouseTable(),
-                            batchSize,
-                            clickhouseSourceSplit.getSqlOffset());
+            rowBatch = proxy.batchFetchRecords(query, rowTypeInfo);
 
             clickhouseSourceSplit.setSqlOffset(
                     clickhouseSourceSplit.getSqlOffset() + rowBatch.size());
@@ -171,7 +150,7 @@ public class ClickhouseValueReader implements Serializable {
                     ClickhouseConnectorErrorCode.QUERY_DATA_ERROR,
                     String.format(
                             "Failed to read data from sql %s, shard: %s, splitId %s, message: %s",
-                            splitQuery,
+                            query,
                             clickhouseSourceSplit.getShard().getNode(),
                             clickhouseSourceSplit.getSplitId(),
                             e.getMessage()),
@@ -188,43 +167,181 @@ public class ClickhouseValueReader implements Serializable {
         }
     }
 
+    // 判断是否应该使用流式读取器
+    private boolean shouldUseStreamReader() {
+        return clickhouseSourceTable.isComplexSql()
+                || StringUtils.isEmpty(clickhouseSourceTable.getClickhouseTable().getSortingKey());
+    }
+
+    // 构建分区查询SQL
+    private String buildPartQuery(ClickhousePart part) {
+        TablePath tablePath = TablePath.of(part.getDatabase(), part.getTable());
+
+        String whereClause = String.format("_part = '%s'", part.getName());
+        if (StringUtils.isNotEmpty(clickhouseSourceTable.getFilterQuery())) {
+            whereClause += " AND (" + clickhouseSourceTable.getFilterQuery() + ")";
+        }
+
+        String orderByClause = "";
+        if (StringUtils.isNotEmpty(clickhouseSourceTable.getClickhouseTable().getSortingKey())) {
+            orderByClause =
+                    " ORDER BY " + clickhouseSourceTable.getClickhouseTable().getSortingKey();
+        }
+
+        String sql;
+        if (StringUtils.isNotEmpty(orderByClause)) {
+            sql =
+                    String.format(
+                            "SELECT * FROM %s.%s WHERE %s %s LIMIT %d, %d WITH TIES",
+                            tablePath.getDatabaseName(),
+                            tablePath.getTableName(),
+                            whereClause,
+                            orderByClause,
+                            part.getOffset(),
+                            clickhouseSourceTable.getBatchSize());
+        } else {
+            sql =
+                    String.format(
+                            "SELECT * FROM %s.%s WHERE %s",
+                            tablePath.getDatabaseName(), tablePath.getTableName(), whereClause);
+        }
+
+        return sql;
+    }
+
+    private String buildSqlQuery() {
+        String orderByClause = "";
+        if (StringUtils.isNotEmpty(clickhouseSourceTable.getClickhouseTable().getSortingKey())) {
+            orderByClause =
+                    " ORDER BY " + clickhouseSourceTable.getClickhouseTable().getSortingKey();
+        }
+
+        String executeSql;
+        if (StringUtils.isNotEmpty(orderByClause)) {
+            executeSql =
+                    String.format(
+                            "SELECT * FROM (%s) AS t %s LIMIT %d, %d WITH TIES",
+                            clickhouseSourceSplit.getSplitQuery(),
+                            orderByClause,
+                            clickhouseSourceSplit.getSqlOffset(),
+                            clickhouseSourceTable.getBatchSize());
+        } else {
+            executeSql =
+                    String.format("SELECT * FROM (%s) AS t", clickhouseSourceSplit.getSplitQuery());
+        }
+
+        return executeSql;
+    }
+
     private class StreamValueReader implements Serializable {
         private static final long serialVersionUID = -7037116446966849773L;
 
-        private final ClickHouseResponse clickHouseResponse;
+        private final BlockingQueue<SeaTunnelRow> rowQueue;
+        private AtomicBoolean eos = new AtomicBoolean(false);
+        private final List<String> sqlList;
 
-        public StreamValueReader(ClickhouseProxy proxy, String sql) {
-            try {
-                clickHouseResponse = proxy.getClickhouseConnection().query(sql).executeAndWait();
-            } catch (ClickHouseException e) {
-                throw new ClickhouseConnectorException(
-                        ClickhouseConnectorErrorCode.QUERY_DATA_ERROR,
-                        String.format("Failed to execute query: %s", sql),
-                        e);
-            }
+        public StreamValueReader() {
+            this.rowQueue = new LinkedBlockingDeque<>(clickhouseSourceTable.getBatchSize());
+            this.sqlList = buildSqlList();
+            asyncReadThread.start();
+
+            log.info("StreamValueReader start.");
         }
 
+        private final Thread asyncReadThread =
+                new Thread(
+                        new Runnable() {
+                            @Override
+                            public void run() {
+                                String executeSql = "";
+                                try {
+                                    for (String sql : sqlList) {
+                                        executeSql = sql;
+                                        try (ClickHouseResponse response =
+                                                proxy.getClickhouseConnection()
+                                                        .query(sql)
+                                                        .executeAndWait()) {
+                                            response.records()
+                                                    .forEach(
+                                                            record -> {
+                                                                SeaTunnelRow seaTunnelRow =
+                                                                        ClickhouseUtil
+                                                                                .convertToSeaTunnelRow(
+                                                                                        record,
+                                                                                        rowTypeInfo,
+                                                                                        clickhouseSourceTable
+                                                                                                .getTablePath()
+                                                                                                .getFullName());
+                                                                try {
+                                                                    rowQueue.put(seaTunnelRow);
+                                                                } catch (InterruptedException e) {
+                                                                    throw new ClickhouseConnectorException(
+                                                                            ClickhouseConnectorErrorCode
+                                                                                    .ROW_BATCH_GET_FAILED,
+                                                                            e);
+                                                                }
+                                                            });
+                                        }
+                                    }
+                                } catch (ClickHouseException e) {
+                                    throw new ClickhouseConnectorException(
+                                            ClickhouseConnectorErrorCode.QUERY_DATA_ERROR,
+                                            String.format(
+                                                    "Failed to execute query: %s", executeSql),
+                                            e);
+                                } finally {
+                                    eos.set(true);
+                                    log.info("StreamValueReader finished reading data");
+                                }
+                            }
+                        });
+
         public boolean hasNext() {
-            Iterator<ClickHouseRecord> recordIterator = clickHouseResponse.records().iterator();
+            List<SeaTunnelRow> rows = new ArrayList<>();
+            while (!eos.get() || !rowQueue.isEmpty()) {
+                if (!rowQueue.isEmpty()) {
+                    try {
+                        SeaTunnelRow seaTunnelRow = rowQueue.take();
+                        rows.add(seaTunnelRow);
+                        if (rows.size() >= clickhouseSourceTable.getBatchSize()) {
+                            rowBatch = rows;
+                            return true;
+                        }
+                    } catch (InterruptedException e) {
+                        throw new ClickhouseConnectorException(
+                                ClickhouseConnectorErrorCode.ROW_BATCH_GET_FAILED, e);
+                    }
+                } else {
+                    try {
+                        Thread.sleep(10);
+                    } catch (InterruptedException ignored) {
+                    }
+                }
+            }
 
-            if (recordIterator.hasNext()) {
-                SeaTunnelRow seaTunnelRow =
-                        ClickhouseUtil.convertToSeaTunnelRow(
-                                recordIterator.next(),
-                                rowTypeInfo,
-                                clickhouseSourceTable.getTablePath().getFullName());
-
-                rowBatch = Collections.singletonList(seaTunnelRow);
+            if (!rows.isEmpty()) {
+                rowBatch = rows;
                 return true;
             }
 
             return false;
         }
 
-        public void close() {
-            if (clickHouseResponse != null) {
-                clickHouseResponse.close();
+        private List<String> buildSqlList() {
+            if (clickhouseSourceTable.isSqlStrategyRead()) {
+                return Collections.singletonList(clickhouseSourceSplit.getSplitQuery());
+            } else {
+                return clickhouseSourceSplit.getParts().stream()
+                        .map(ClickhouseValueReader.this::buildPartQuery)
+                        .collect(Collectors.toList());
             }
+        }
+
+        public void close() {
+            if (rowQueue != null) {
+                rowQueue.clear();
+            }
+            eos.set(true);
         }
     }
 }

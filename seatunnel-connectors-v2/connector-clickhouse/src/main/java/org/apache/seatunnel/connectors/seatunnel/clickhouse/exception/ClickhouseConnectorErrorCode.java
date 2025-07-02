@@ -41,7 +41,8 @@ public enum ClickhouseConnectorErrorCode implements SeaTunnelErrorCode {
     EXTRACT_TABLE_FROM_SQL_ERROR(
             "CLICKHOUSE-14", "Extract table path from sql failed, please check your sql."),
     COMPLEX_SQL_NOT_SUPPORT_PARALLEL_ERROR(
-            "CLICKHOUSE-15", "Complex sql not support parallel read.");
+            "CLICKHOUSE-15", "Complex sql not support parallel read."),
+    ROW_BATCH_GET_FAILED("CLICKHOUSE-16", "Row batch get error");
 
     private final String code;
     private final String description;
