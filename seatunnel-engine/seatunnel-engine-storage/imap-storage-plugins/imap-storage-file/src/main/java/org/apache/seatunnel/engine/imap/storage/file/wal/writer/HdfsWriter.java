@@ -34,7 +34,12 @@ import lombok.extern.slf4j.Slf4j;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.SequenceInputStream;
+import java.util.AbstractMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static org.apache.seatunnel.engine.imap.storage.file.common.WALDataUtils.FILE_NAME;
@@ -100,32 +105,43 @@ public class HdfsWriter implements IFileWriter<IMapFileData> {
         // close last file stream
         out.hsync();
         out.close();
-        // delete old data file
-        filenames.forEach(
-                filename -> {
+        out = null;
+
+        // collect files need to be moved
+        Map<String, String> fileMap =
+                WALDataUtils.getDataFiles(fs, parentPath, PROGRESSING_SUFFIX).stream()
+                        .collect(
+                                Collectors.toMap(
+                                        Function.identity(),
+                                        filename -> filename.replace(PROGRESSING_SUFFIX, "")));
+
+        filenames.removeIf(filename -> !fileMap.containsKey(filename));
+        Set<Map.Entry<String, String>> entries =
+                filenames.stream()
+                        .map(
+                                filename ->
+                                        new AbstractMap.SimpleEntry<String, String>(null, filename))
+                        .collect(Collectors.toSet());
+
+        entries.addAll(fileMap.entrySet());
+
+        entries.forEach(
+                entry -> {
+                    Optional<Path> src = Optional.ofNullable(entry.getKey()).map(Path::new);
+                    Optional<Path> dest = Optional.ofNullable(entry.getValue()).map(Path::new);
                     try {
-                        fs.delete(new Path(filename), false);
+                        // delete target
+                        if (dest.isPresent()) fs.deleteOnExit(dest.get());
+
+                        // rename new data file
+                        if (src.isPresent()) {
+                            if (fs.exists(src.get()) && dest.isPresent())
+                                fs.rename(src.get(), dest.get());
+                        }
                     } catch (IOException e) {
-                        throw new IMapStorageException(
-                                "delete old imap file failed, cause: " + e.getMessage(), e);
+                        log.warn("move new data file failed, cause: {}", e.getMessage(), e);
                     }
                 });
-
-        // move new data file
-        WALDataUtils.getDataFiles(fs, parentPath, PROGRESSING_SUFFIX).stream()
-                .collect(
-                        Collectors.toMap(
-                                Path::new,
-                                filename -> new Path(filename.replace(PROGRESSING_SUFFIX, ""))))
-                .forEach(
-                        (src, dest) -> {
-                            try {
-                                fs.rename(src, dest);
-                            } catch (IOException e) {
-                                throw new IMapStorageException(
-                                        "rename imap file failed, cause: " + e.getMessage(), e);
-                            }
-                        });
     }
 
     public boolean isKeyEquals(IMapFileData left, IMapFileData right) throws IOException {

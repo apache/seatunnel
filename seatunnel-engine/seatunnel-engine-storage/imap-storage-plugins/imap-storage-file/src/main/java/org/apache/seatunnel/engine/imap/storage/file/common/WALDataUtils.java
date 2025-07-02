@@ -123,10 +123,7 @@ public class WALDataUtils {
         int readBytes = 0;
         while (readBytes != WAL_DATA_METADATA_LENGTH) {
             int read = stream.read(metadata, readBytes, metadata.length - readBytes);
-            if (read == -1) {
-                if (readBytes == 0) return null;
-                throw new IMapStorageException("imap file metadata broken!");
-            }
+            if (read == -1) return null;
             readBytes += read;
         }
 
@@ -138,7 +135,7 @@ public class WALDataUtils {
         while (readBytes != dataLen) {
             int len = Math.min(dataLen - readBytes, buffer.length);
             int read = stream.read(buffer, 0, len);
-            if (read == -1) throw new IMapStorageException("imap file data broken!");
+            if (read == -1) return null;
             readBytes += read;
             out.write(buffer, 0, read);
         }
