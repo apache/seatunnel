@@ -167,13 +167,11 @@ public class ClickhouseValueReader implements Serializable {
         }
     }
 
-    // 判断是否应该使用流式读取器
     private boolean shouldUseStreamReader() {
         return clickhouseSourceTable.isComplexSql()
                 || StringUtils.isEmpty(clickhouseSourceTable.getClickhouseTable().getSortingKey());
     }
 
-    // 构建分区查询SQL
     private String buildPartQuery(ClickhousePart part) {
         TablePath tablePath = TablePath.of(part.getDatabase(), part.getTable());
 
