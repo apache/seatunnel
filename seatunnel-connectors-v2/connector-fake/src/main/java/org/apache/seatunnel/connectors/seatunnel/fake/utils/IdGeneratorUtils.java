@@ -34,7 +34,7 @@ public class IdGeneratorUtils {
     private static final Cache<String, AutoIncrementIdGenerator> idGenerators =
             CacheBuilder.newBuilder()
                     .maximumSize(1000)
-                    .expireAfterWrite(10, TimeUnit.MINUTES)
+                    .expireAfterWrite(30, TimeUnit.MINUTES)
                     .build();
 
     public static synchronized Optional<AutoIncrementIdGenerator> getIdGenerator(
