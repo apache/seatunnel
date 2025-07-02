@@ -34,10 +34,12 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.SequenceInputStream;
 import java.util.AbstractMap;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -54,6 +56,7 @@ public abstract class CloudWriter implements IFileWriter<IMapFileData> {
     private long blockRemaining;
     private int currentBlock;
     private FSDataOutputStream out;
+    private static final Map<Path, ReentrantLock> LOCK_MAP = new HashMap<>();
 
     @Override
     public void initialize(FileSystem fs, Path parentPath, Serializer serializer)
@@ -73,7 +76,17 @@ public abstract class CloudWriter implements IFileWriter<IMapFileData> {
 
     // TODO Synchronous write, asynchronous write can be added in the future
     @Override
-    public synchronized void write(IMapFileData data) throws IOException {
+    public void write(IMapFileData data) throws IOException {
+        ReentrantLock lock = LOCK_MAP.computeIfAbsent(parentPath, path -> new ReentrantLock());
+        try {
+            lock.lock();
+            writeInternal(data);
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    public void writeInternal(IMapFileData data) throws IOException {
         List<String> dataFiles = WALDataUtils.getDataFiles(fs, parentPath, FILE_NAME);
         SequenceInputStream stream = WALDataUtils.getComposedInputStream(fs, dataFiles);
         // reset block info
@@ -125,7 +138,7 @@ public abstract class CloudWriter implements IFileWriter<IMapFileData> {
                     Optional<Path> dest = Optional.ofNullable(entry.getValue()).map(Path::new);
                     try {
                         // delete target
-                        if (dest.isPresent()) fs.deleteOnExit(dest.get());
+                        if (dest.isPresent()) fs.delete(dest.get(), false);
 
                         // rename new data file
                         if (src.isPresent()) {

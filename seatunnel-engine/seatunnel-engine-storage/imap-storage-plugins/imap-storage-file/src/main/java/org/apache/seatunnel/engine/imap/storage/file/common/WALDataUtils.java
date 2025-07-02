@@ -23,10 +23,9 @@ package org.apache.seatunnel.engine.imap.storage.file.common;
 import org.apache.seatunnel.engine.imap.storage.api.exception.IMapStorageException;
 
 import org.apache.hadoop.fs.FSDataInputStream;
+import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.LocatedFileStatus;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.fs.RemoteIterator;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -82,11 +81,10 @@ public class WALDataUtils {
             if (!fs.exists(parentPath)) {
                 return new ArrayList<>();
             }
-            RemoteIterator<LocatedFileStatus> fileStatusRemoteIterator =
-                    fs.listLocatedStatus(parentPath);
+            FileStatus[] fileStatuses = fs.listStatus(parentPath);
+
             List<String> fileNames = new ArrayList<>();
-            while (fileStatusRemoteIterator.hasNext()) {
-                LocatedFileStatus fileStatus = fileStatusRemoteIterator.next();
+            for (FileStatus fileStatus : fileStatuses) {
                 if (fileStatus.isDirectory()) continue;
                 if (fileStatus.getPath().getName().endsWith(suffix)) {
                     fileNames.add(fileStatus.getPath().toString());
