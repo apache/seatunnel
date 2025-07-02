@@ -83,10 +83,11 @@ public class WALDataUtils {
                 return new ArrayList<>();
             }
             RemoteIterator<LocatedFileStatus> fileStatusRemoteIterator =
-                    fs.listFiles(parentPath, false);
+                    fs.listLocatedStatus(parentPath);
             List<String> fileNames = new ArrayList<>();
             while (fileStatusRemoteIterator.hasNext()) {
                 LocatedFileStatus fileStatus = fileStatusRemoteIterator.next();
+                if (fileStatus.isDirectory()) continue;
                 if (fileStatus.getPath().getName().endsWith(suffix)) {
                     fileNames.add(fileStatus.getPath().toString());
                 }
