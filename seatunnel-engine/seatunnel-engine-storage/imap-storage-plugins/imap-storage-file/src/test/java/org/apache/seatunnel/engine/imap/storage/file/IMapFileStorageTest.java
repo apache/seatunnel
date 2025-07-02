@@ -95,7 +95,8 @@ public class IMapFileStorageTest {
             keys.remove(key1Index);
         }
 
-        await().atMost(5, TimeUnit.SECONDS);
+        await().atMost(5, TimeUnit.SECONDS)
+                .untilAsserted(() -> Assertions.assertEquals(99, STORAGE.loadAll().size()));
         Map<Object, Object> loadAllDatas = STORAGE.loadAll();
         Assertions.assertEquals(99, loadAllDatas.size());
         Assertions.assertEquals(keyValue, loadAllDatas.get(key50Index));
