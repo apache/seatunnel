@@ -269,7 +269,7 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
                 }
             }
             map.putAll(updatedMap);
-        } else if (map.containsKey(pageField)) {
+        } else if (pageField != null && map.containsKey(pageField)) {
             // Key-based replacement
             map.put(pageField, pageValue);
         }

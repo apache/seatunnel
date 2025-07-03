@@ -132,6 +132,24 @@ Example values:
 
 Default: `yyyy-MM-dd HH:mm:ss`
 
+### tunnel_endpoint[String]
+Specifies the custom endpoint URL for the MaxCompute Tunnel service.
+
+By default, the endpoint is automatically inferred from the configured region.
+
+This option allows you to override the default behavior and use a custom Tunnel endpoint.
+If not specified, the connector will use the region-based default Tunnel endpoint.
+
+In general, you do **not** need  to set tunnel_endpoint. It is only needed for custom networking, debugging, or local development.
+
+Example values:
+
+- `https://dt.cn-hangzhou.maxcompute.aliyun.com`
+- `https://dt.ap-southeast-1.maxcompute.aliyun.com`
+- `http://maxcompute:8080`
+
+Default: Not set (auto-inferred from region)
+
 ### common options
 
 Sink plugin common parameters, please refer to [Sink Common Options](../sink-common-options.md) for details.

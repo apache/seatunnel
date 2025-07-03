@@ -20,21 +20,16 @@ package org.apache.seatunnel.connectors.seatunnel.tdengine.config;
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 
-import lombok.AllArgsConstructor;
-import lombok.Data;
-
-@Data
-@AllArgsConstructor
 public class TDengineSourceOptions extends TDengineCommonOptions {
 
     public static final Option<String> LOWER_BOUND =
-            Options.key("lowerBound")
+            Options.key("lower_bound")
                     .stringType()
                     .noDefaultValue()
                     .withDescription("The lower bound for data query range");
 
     public static final Option<String> UPPER_BOUND =
-            Options.key("upperBound")
+            Options.key("upper_bound")
                     .stringType()
                     .noDefaultValue()
                     .withDescription("The upper bound for data query range");

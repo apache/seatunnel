@@ -18,70 +18,80 @@
 package org.apache.seatunnel.connectors.seatunnel.pulsar.source;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
-import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
+import org.apache.seatunnel.api.source.SourceSplit;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
+import org.apache.seatunnel.api.table.connector.TableSource;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
-import org.apache.seatunnel.connectors.seatunnel.pulsar.config.PulsarConfigUtil;
-import org.apache.seatunnel.connectors.seatunnel.pulsar.config.SourceProperties;
+import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
+import org.apache.seatunnel.connectors.seatunnel.pulsar.config.PulsarSourceOptions;
 
 import com.google.auto.service.AutoService;
 
-import static org.apache.seatunnel.connectors.seatunnel.pulsar.config.SourceProperties.ADMIN_SERVICE_URL;
-import static org.apache.seatunnel.connectors.seatunnel.pulsar.config.SourceProperties.AUTH_PARAMS;
-import static org.apache.seatunnel.connectors.seatunnel.pulsar.config.SourceProperties.AUTH_PLUGIN_CLASS;
-import static org.apache.seatunnel.connectors.seatunnel.pulsar.config.SourceProperties.CLIENT_SERVICE_URL;
-import static org.apache.seatunnel.connectors.seatunnel.pulsar.config.SourceProperties.CURSOR_RESET_MODE;
-import static org.apache.seatunnel.connectors.seatunnel.pulsar.config.SourceProperties.CURSOR_STARTUP_MODE;
-import static org.apache.seatunnel.connectors.seatunnel.pulsar.config.SourceProperties.CURSOR_STARTUP_TIMESTAMP;
-import static org.apache.seatunnel.connectors.seatunnel.pulsar.config.SourceProperties.CURSOR_STOP_MODE;
-import static org.apache.seatunnel.connectors.seatunnel.pulsar.config.SourceProperties.CURSOR_STOP_TIMESTAMP;
-import static org.apache.seatunnel.connectors.seatunnel.pulsar.config.SourceProperties.POLL_BATCH_SIZE;
-import static org.apache.seatunnel.connectors.seatunnel.pulsar.config.SourceProperties.POLL_INTERVAL;
-import static org.apache.seatunnel.connectors.seatunnel.pulsar.config.SourceProperties.POLL_TIMEOUT;
-import static org.apache.seatunnel.connectors.seatunnel.pulsar.config.SourceProperties.SUBSCRIPTION_NAME;
-import static org.apache.seatunnel.connectors.seatunnel.pulsar.config.SourceProperties.TOPIC;
-import static org.apache.seatunnel.connectors.seatunnel.pulsar.config.SourceProperties.TOPIC_DISCOVERY_INTERVAL;
-import static org.apache.seatunnel.connectors.seatunnel.pulsar.config.SourceProperties.TOPIC_PATTERN;
+import java.io.Serializable;
 
 @AutoService(Factory.class)
 public class PulsarSourceFactory implements TableSourceFactory {
     @Override
     public String factoryIdentifier() {
-        return PulsarConfigUtil.IDENTIFIER;
+        return PulsarSourceOptions.IDENTIFIER;
     }
 
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(SUBSCRIPTION_NAME, CLIENT_SERVICE_URL, ADMIN_SERVICE_URL)
+                .required(
+                        PulsarSourceOptions.SUBSCRIPTION_NAME,
+                        PulsarSourceOptions.CLIENT_SERVICE_URL,
+                        PulsarSourceOptions.ADMIN_SERVICE_URL)
                 .optional(
-                        CURSOR_STARTUP_MODE,
-                        CURSOR_STOP_MODE,
-                        TOPIC_DISCOVERY_INTERVAL,
-                        POLL_TIMEOUT,
-                        POLL_INTERVAL,
-                        POLL_BATCH_SIZE,
-                        ConnectorCommonOptions.SCHEMA)
-                .exclusive(TOPIC, TOPIC_PATTERN)
+                        PulsarSourceOptions.CURSOR_STARTUP_MODE,
+                        PulsarSourceOptions.CURSOR_STOP_MODE,
+                        PulsarSourceOptions.TOPIC_DISCOVERY_INTERVAL,
+                        PulsarSourceOptions.POLL_TIMEOUT,
+                        PulsarSourceOptions.POLL_INTERVAL,
+                        PulsarSourceOptions.POLL_BATCH_SIZE,
+                        PulsarSourceOptions.FORMAT,
+                        PulsarSourceOptions.SCHEMA)
+                .exclusive(PulsarSourceOptions.TOPIC, PulsarSourceOptions.TOPIC_PATTERN)
                 .conditional(
-                        CURSOR_STARTUP_MODE,
-                        SourceProperties.StartMode.TIMESTAMP,
-                        CURSOR_STARTUP_TIMESTAMP)
+                        PulsarSourceOptions.FORMAT,
+                        PulsarSourceOptions.TEXT_FORMAT,
+                        PulsarSourceOptions.FIELD_DELIMITER)
                 .conditional(
-                        CURSOR_STARTUP_MODE,
-                        SourceProperties.StartMode.SUBSCRIPTION,
-                        CURSOR_RESET_MODE)
+                        PulsarSourceOptions.CURSOR_STARTUP_MODE,
+                        PulsarSourceOptions.StartMode.TIMESTAMP,
+                        PulsarSourceOptions.CURSOR_STARTUP_TIMESTAMP)
                 .conditional(
-                        CURSOR_STOP_MODE,
-                        SourceProperties.StopMode.TIMESTAMP,
-                        CURSOR_STOP_TIMESTAMP)
-                .bundled(AUTH_PLUGIN_CLASS, AUTH_PARAMS)
+                        PulsarSourceOptions.CURSOR_STARTUP_MODE,
+                        PulsarSourceOptions.StartMode.SUBSCRIPTION,
+                        PulsarSourceOptions.CURSOR_RESET_MODE)
+                .conditional(
+                        PulsarSourceOptions.CURSOR_STOP_MODE,
+                        PulsarSourceOptions.StopMode.TIMESTAMP,
+                        PulsarSourceOptions.CURSOR_STOP_TIMESTAMP)
+                .bundled(PulsarSourceOptions.AUTH_PLUGIN_CLASS, PulsarSourceOptions.AUTH_PARAMS)
                 .build();
     }
 
     @Override
     public Class<? extends SeaTunnelSource> getSourceClass() {
         return PulsarSource.class;
+    }
+
+    @Override
+    public <T, SplitT extends SourceSplit, StateT extends Serializable>
+            TableSource<T, SplitT, StateT> createSource(TableSourceFactoryContext context) {
+        CatalogTable catalogTable;
+        if (context.getOptions().getOptional(PulsarSourceOptions.SCHEMA).isPresent()) {
+            catalogTable = CatalogTableUtil.buildWithConfig(context.getOptions());
+        } else {
+            catalogTable = CatalogTableUtil.buildSimpleTextTable();
+        }
+        return () ->
+                (SeaTunnelSource<T, SplitT, StateT>)
+                        new PulsarSource(context.getOptions(), catalogTable);
     }
 }

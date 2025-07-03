@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.paimon.config;
 
-import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
 import org.apache.seatunnel.shade.com.google.common.collect.ImmutableList;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
@@ -91,8 +90,7 @@ public class PaimonConfig implements Serializable {
         return propValue;
     }
 
-    @VisibleForTesting
-    public static List<String> stringToList(String value, String regex) {
+    protected static List<String> stringToList(String value, String regex) {
         if (value == null || value.isEmpty()) {
             return ImmutableList.of();
         }

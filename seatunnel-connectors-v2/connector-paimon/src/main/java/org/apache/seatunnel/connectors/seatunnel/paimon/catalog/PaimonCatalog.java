@@ -22,6 +22,7 @@ import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
+import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.catalog.exception.CatalogException;
@@ -271,6 +272,10 @@ public class PaimonCatalog implements Catalog, PaimonTable {
                 });
 
         List<String> partitionKeys = schema.partitionKeys();
+        List<String> primaryKyes = schema.primaryKeys();
+        if (!primaryKyes.isEmpty()) {
+            builder.primaryKey(PrimaryKey.of("pk", primaryKyes));
+        }
 
         return CatalogTable.of(
                 org.apache.seatunnel.api.table.catalog.TableIdentifier.of(
