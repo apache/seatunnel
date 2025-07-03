@@ -124,6 +124,14 @@ class HudiCatalogTest {
 
     @Test
     @Order(8)
+    void testPrecombineField() {
+        CatalogTable table = hudicatalog.getTable(tablePath);
+        CatalogTable templateTable = buildAllTypesTable(tableIdentifier);
+        Assertions.assertEquals(table.toString(), templateTable.toString());
+    }
+
+    @Test
+    @Order(9)
     void dropTable() {
         hudicatalog.dropTable(tablePath, false);
         Assertions.assertFalse(hudicatalog.tableExists(tablePath));
@@ -170,6 +178,7 @@ class HudiCatalogTest {
         options.put("record_key_fields", "id,boolean_col");
         options.put("cdc_enabled", "false");
         options.put("table_type", "MERGE_ON_READ");
+        options.put("precombine_field", "integer_col");
         return CatalogTable.of(
                 tableIdentifier, schema, options, Collections.singletonList("dt_col"), "null");
     }

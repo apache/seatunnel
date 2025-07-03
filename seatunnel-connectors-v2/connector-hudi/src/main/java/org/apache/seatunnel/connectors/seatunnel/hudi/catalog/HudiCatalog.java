@@ -199,6 +199,9 @@ public class HudiCatalog implements Catalog {
                     RECORD_KEY_FIELDS.key(),
                     String.join(",", tableConfig.getRecordKeyFields().get()));
         }
+        if (StringUtils.isNoneBlank(tableConfig.getPreCombineField())) {
+            options.put(PRECOMBINE_FIELD.key(), tableConfig.getPreCombineField());
+        }
         options.put(TABLE_TYPE.key(), tableType.name());
         options.put(CDC_ENABLED.key(), String.valueOf(tableConfig.isCDCEnabled()));
         return CatalogTable.of(
