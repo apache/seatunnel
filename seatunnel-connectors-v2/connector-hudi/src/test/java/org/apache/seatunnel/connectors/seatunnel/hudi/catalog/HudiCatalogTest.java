@@ -60,6 +60,7 @@ class HudiCatalogTest {
 
     @BeforeAll
     static void setUpBeforeClass() throws Exception {
+        System.setProperty("hadoop.home.dir", "./hadoop");
         hudicatalog = new HudiCatalog(CATALOG_NAME, new Configuration(), CATALOG_DIR);
         hudicatalog.open();
     }
