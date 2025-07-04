@@ -67,7 +67,7 @@ import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.Clickh
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseSourceOptions.CLICKHOUSE_BATCH_SIZE;
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseSourceOptions.CLICKHOUSE_FILTER_QUERY;
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseSourceOptions.CLICKHOUSE_PARTITION_LIST;
-import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseSourceOptions.CLICKHOUSE_PART_SIZE;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseSourceOptions.CLICKHOUSE_SPLIT_SIZE;
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseSourceOptions.SQL;
 
 @AutoService(Factory.class)
@@ -153,7 +153,7 @@ public class ClickhouseSourceFactory implements TableSourceFactory {
                             .clickhouseTable(clickhouseTable)
                             .originQuery(sql)
                             .filterQuery(clickhouseSourceConfig.getFilterQuery())
-                            .partSize(clickhouseSourceConfig.getPartSize())
+                            .splitSize(clickhouseSourceConfig.getSplitSize())
                             .batchSize(clickhouseSourceConfig.getBatchSize())
                             .partitionList(clickhouseSourceConfig.getPartitionList())
                             .clusterShardList(clusterShardList)
@@ -253,7 +253,7 @@ public class ClickhouseSourceFactory implements TableSourceFactory {
                         CLICKHOUSE_CONFIG,
                         SERVER_TIME_ZONE,
                         SQL,
-                        CLICKHOUSE_PART_SIZE,
+                        CLICKHOUSE_SPLIT_SIZE,
                         CLICKHOUSE_PARTITION_LIST,
                         CLICKHOUSE_BATCH_SIZE,
                         CLICKHOUSE_FILTER_QUERY)

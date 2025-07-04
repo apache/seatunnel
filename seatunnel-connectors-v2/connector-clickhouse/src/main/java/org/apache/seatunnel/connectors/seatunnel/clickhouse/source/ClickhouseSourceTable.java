@@ -35,7 +35,7 @@ public class ClickhouseSourceTable implements Serializable {
     private TablePath tablePath;
     private String originQuery;
     private String filterQuery;
-    private Integer partSize;
+    private Integer splitSize;
     private Integer batchSize;
     private List<String> partitionList;
     private List<Shard> clusterShardList;

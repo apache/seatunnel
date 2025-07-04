@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.clickhouse.config;
 
-import org.apache.seatunnel.shade.com.fasterxml.jackson.annotation.JsonProperty;
-
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.util.ClickhouseUtil;
@@ -43,29 +41,14 @@ public class ClickhouseSourceConfig implements Serializable {
     private String host;
     private String username;
     private String password;
-
-    @JsonProperty("table_path")
     private String tablePath;
-
-    @JsonProperty("filter_query")
     private String filterQuery;
-
-    @JsonProperty("partition_list")
     private List<String> partitionList;
-
-    @JsonProperty("batch_size")
     private int batchSize;
-
-    @JsonProperty("part_size")
-    private int partSize;
-
+    private int splitSize;
     private String sql;
-
     private Map<String, String> clickhouseConfig;
-
-    @JsonProperty("server_time_zone")
     private String serverTimeZone;
-
     private boolean isSqlStrategyRead;
 
     public static ClickhouseSourceConfig of(ReadonlyConfig config) {
@@ -83,7 +66,7 @@ public class ClickhouseSourceConfig implements Serializable {
         builder.filterQuery(config.get(ClickhouseSourceOptions.CLICKHOUSE_FILTER_QUERY));
         builder.partitionList(config.get(ClickhouseSourceOptions.CLICKHOUSE_PARTITION_LIST));
         builder.batchSize(config.get(ClickhouseSourceOptions.CLICKHOUSE_BATCH_SIZE));
-        builder.partSize(config.get(ClickhouseSourceOptions.CLICKHOUSE_PART_SIZE));
+        builder.splitSize(config.get(ClickhouseSourceOptions.CLICKHOUSE_SPLIT_SIZE));
         builder.sql(config.get(ClickhouseSourceOptions.SQL));
         builder.clickhouseConfig(config.get(ClickhouseBaseOptions.CLICKHOUSE_CONFIG));
         builder.isSqlStrategyRead(config.getOptional(ClickhouseSourceOptions.SQL).isPresent());

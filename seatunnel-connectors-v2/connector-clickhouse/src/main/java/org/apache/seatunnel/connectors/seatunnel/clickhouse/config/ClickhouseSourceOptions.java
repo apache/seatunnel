@@ -24,14 +24,14 @@ import java.util.List;
 
 public class ClickhouseSourceOptions {
 
-    public static final int CLICKHOUSE_PART_SIZE_MIN = 1;
-    public static final int CLICKHOUSE_PART_SIZE_DEFAULT = Integer.MAX_VALUE;
+    public static final int CLICKHOUSE_SPLIT_SIZE_MIN = 1;
+    public static final int CLICKHOUSE_SPLIT_SIZE_DEFAULT = Integer.MAX_VALUE;
     public static final int CLICKHOUSE_BATCH_SIZE_DEFAULT = 1024;
 
-    public static final Option<Integer> CLICKHOUSE_PART_SIZE =
-            Options.key("part_size")
+    public static final Option<Integer> CLICKHOUSE_SPLIT_SIZE =
+            Options.key("split.size")
                     .intType()
-                    .defaultValue(CLICKHOUSE_PART_SIZE_DEFAULT)
+                    .defaultValue(CLICKHOUSE_SPLIT_SIZE_DEFAULT)
                     .withDescription("The number of parts in each splits");
 
     public static final Option<List<String>> CLICKHOUSE_PARTITION_LIST =

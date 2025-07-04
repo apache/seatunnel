@@ -64,7 +64,7 @@ public class PartStrategySplitterTest {
         ClickhouseSourceTable sourceTable =
                 ClickhouseSourceTable.builder()
                         .tablePath(TablePath.of(DATABASE_NAME, TABLE_NAME))
-                        .partSize(5)
+                        .splitSize(5)
                         .build();
 
         int partSize = splitter.partCountLimitForOneSplit(sourceTable);
@@ -74,11 +74,11 @@ public class PartStrategySplitterTest {
         sourceTable =
                 ClickhouseSourceTable.builder()
                         .tablePath(TablePath.of(DATABASE_NAME, TABLE_NAME))
-                        .partSize(0)
+                        .splitSize(0)
                         .build();
 
         partSize = splitter.partCountLimitForOneSplit(sourceTable);
-        Assertions.assertEquals(ClickhouseSourceOptions.CLICKHOUSE_PART_SIZE_MIN, partSize);
+        Assertions.assertEquals(ClickhouseSourceOptions.CLICKHOUSE_SPLIT_SIZE_MIN, partSize);
 
         // The partition size was not set in the test
         sourceTable =
@@ -87,7 +87,7 @@ public class PartStrategySplitterTest {
                         .build();
 
         partSize = splitter.partCountLimitForOneSplit(sourceTable);
-        Assertions.assertEquals(ClickhouseSourceOptions.CLICKHOUSE_PART_SIZE_DEFAULT, partSize);
+        Assertions.assertEquals(ClickhouseSourceOptions.CLICKHOUSE_SPLIT_SIZE_DEFAULT, partSize);
     }
 
     @Test
@@ -107,7 +107,7 @@ public class PartStrategySplitterTest {
         ClickhouseSourceTable sourceTable =
                 ClickhouseSourceTable.builder()
                         .tablePath(TablePath.of(DATABASE_NAME, TABLE_NAME))
-                        .partSize(6)
+                        .splitSize(6)
                         .clickhouseTable(mockTable)
                         .build();
 
@@ -145,7 +145,7 @@ public class PartStrategySplitterTest {
         ClickhouseSourceTable sourceTable =
                 ClickhouseSourceTable.builder()
                         .tablePath(TablePath.of(DATABASE_NAME, TABLE_NAME))
-                        .partSize(5)
+                        .splitSize(5)
                         .clickhouseTable(mockTable)
                         .build();
 
@@ -187,7 +187,7 @@ public class PartStrategySplitterTest {
         ClickhouseSourceTable sourceTable =
                 ClickhouseSourceTable.builder()
                         .tablePath(TablePath.of(DATABASE_NAME, TABLE_NAME))
-                        .partSize(4)
+                        .splitSize(4)
                         .clickhouseTable(mockTable)
                         .build();
 

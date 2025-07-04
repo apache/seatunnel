@@ -138,18 +138,18 @@ public class PartStrategySplitter implements Splitter, AutoCloseable, Serializab
     }
 
     public int partCountLimitForOneSplit(ClickhouseSourceTable clickhouseSourceTable) {
-        int partSize = ClickhouseSourceOptions.CLICKHOUSE_PART_SIZE_DEFAULT;
-        if (clickhouseSourceTable.getPartSize() != null) {
-            partSize = clickhouseSourceTable.getPartSize();
+        int partSize = ClickhouseSourceOptions.CLICKHOUSE_SPLIT_SIZE_DEFAULT;
+        if (clickhouseSourceTable.getSplitSize() != null) {
+            partSize = clickhouseSourceTable.getSplitSize();
         }
 
-        if (partSize < ClickhouseSourceOptions.CLICKHOUSE_PART_SIZE_MIN) {
+        if (partSize < ClickhouseSourceOptions.CLICKHOUSE_SPLIT_SIZE_MIN) {
             log.warn(
                     "part size {} is less than {}, set to default value {}",
                     partSize,
-                    ClickhouseSourceOptions.CLICKHOUSE_PART_SIZE_MIN,
-                    ClickhouseSourceOptions.CLICKHOUSE_PART_SIZE_DEFAULT);
-            partSize = ClickhouseSourceOptions.CLICKHOUSE_PART_SIZE_MIN;
+                    ClickhouseSourceOptions.CLICKHOUSE_SPLIT_SIZE_MIN,
+                    ClickhouseSourceOptions.CLICKHOUSE_SPLIT_SIZE_DEFAULT);
+            partSize = ClickhouseSourceOptions.CLICKHOUSE_SPLIT_SIZE_MIN;
         }
         log.debug("part size is set to {}", partSize);
 
