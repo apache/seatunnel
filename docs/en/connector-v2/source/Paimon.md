@@ -58,7 +58,7 @@ The file path of `hdfs-site.xml`
 ### query [string]
 
 The filter condition of the table read. For example: `select * from st_test where id > 100`. If not specified, all rows are read.
-Currently, where conditions only support <, <=, >, >=, =, !=, or, and,is null, is not null, between...and, in, not in, and others are not supported.
+Currently, where conditions only support <, <=, >, >=, =, !=, or, and,is null, is not null, between...and, in, not in, like(pattern matching with prefix only) ,and others are not supported.
 The Having, Group By, Order By clauses are currently unsupported, because these clauses are not supported by Paimon.
 you can also project specific columns, for example: select id, name from st_test where id > 100.
 The limit will be supported in the future.
@@ -198,7 +198,7 @@ If you want to read the changelog of the Paimon table, first set the `changelog-
 
 ### Note
 
-Currently, batch reads are always the latest snapshot read, so to read full changelog data, you need to use stream reads and start stream reads before writing data to the Piamon table, and to ensure order, the parallelism of the stream read task should be set to 1.
+Currently, batch reads are always the latest snapshot read, so to read full changelog data, you need to use stream reads and start stream reads before writing data to the Paimon table, and to ensure order, the parallelism of the stream read task should be set to 1.
 
 ### Streaming read example
 ```hocon

@@ -248,4 +248,21 @@ public class SqlToPaimonConverterTest {
         int[] expectedProjectionIndex = {4, 7, 0, 12, 2};
         assertArrayEquals(projectionIndex, expectedProjectionIndex);
     }
+
+    @Test
+    public void testConvertSqlWhereToPaimonPredicateWithStartWith() {
+        String query = "SELECT * FROM table WHERE varchar_col like 'te%'";
+
+        PlainSelect plainSelect = convertToPlainSelect(query);
+        Predicate predicate =
+                SqlToPaimonPredicateConverter.convertSqlWhereToPaimonPredicate(
+                        rowType, plainSelect);
+
+        assertNotNull(predicate);
+
+        PredicateBuilder builder = new PredicateBuilder(rowType);
+        Predicate expectedPredicate = PredicateBuilder.or(builder.startsWith(1, "te"));
+
+        assertEquals(expectedPredicate.toString(), predicate.toString());
+    }
 }
