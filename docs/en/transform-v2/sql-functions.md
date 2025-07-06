@@ -1126,3 +1126,13 @@ SELECT * FROM dual
 	LATERAL VIEW OUTER EXPLODE ( age ) AS age
 	LATERAL VIEW OUTER EXPLODE ( ARRAY(1,1) ) AS num
 ```
+### CHINESE_TO_NUM
+
+Used to convert Chinese numerals to Arabic numerals. the largest integer unit supported up to a hundred trillion.
+
+Example:
+```
+SELECT CHINESE_TO_NUM('壹万贰仟叁佰零捌') as price
+SELECT CHINESE_TO_NUM('壹万零叁佰') as price
+SELECT CHINESE_TO_NUM('零') as price
+```

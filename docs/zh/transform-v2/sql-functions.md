@@ -1117,3 +1117,14 @@ SELECT * FROM dual
 	LATERAL VIEW OUTER EXPLODE ( age ) AS age
 	LATERAL VIEW OUTER EXPLODE ( ARRAY(1,1) ) AS num
 ```
+
+### CHINESE_TO_NUM
+
+用于将中文数字转换为阿拉伯数字,最大单位支持到京.
+
+示例：
+```
+SELECT CHINESE_TO_NUM('壹万贰仟叁佰零捌') as price
+SELECT CHINESE_TO_NUM('壹万零叁佰零捌') as price
+SELECT CHINESE_TO_NUM('零') as price
+```
