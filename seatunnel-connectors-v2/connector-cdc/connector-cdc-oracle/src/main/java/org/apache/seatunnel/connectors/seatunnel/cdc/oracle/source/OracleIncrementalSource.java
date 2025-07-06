@@ -40,7 +40,7 @@ import org.apache.seatunnel.connectors.cdc.debezium.row.DebeziumJsonDeserializeS
 import org.apache.seatunnel.connectors.cdc.debezium.row.SeaTunnelRowDebeziumDeserializeSchema;
 import org.apache.seatunnel.connectors.seatunnel.cdc.oracle.config.OracleSourceConfigFactory;
 import org.apache.seatunnel.connectors.seatunnel.cdc.oracle.source.offset.RedoLogOffsetFactory;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.JdbcCatalogOptions;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcCommonOptions;
 
 import org.apache.kafka.connect.data.Struct;
 
@@ -88,7 +88,7 @@ public class OracleIncrementalSource<T> extends IncrementalSource<T, JdbcSourceC
         configFactory.schemaList(config.get(OracleSourceOptions.SCHEMA_NAMES));
         configFactory.useSelectCount(config.get(OracleSourceOptions.USE_SELECT_COUNT));
         configFactory.skipAnalyze(config.get(OracleSourceOptions.SKIP_ANALYZE));
-        configFactory.originUrl(config.get(JdbcCatalogOptions.BASE_URL));
+        configFactory.originUrl(config.get(JdbcCommonOptions.URL));
         return configFactory;
     }
 

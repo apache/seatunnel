@@ -26,7 +26,7 @@ import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.AbstractJdbcCatalog;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.utils.CatalogUtils;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcCommonOptions;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.oracle.OracleTypeConverter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.oracle.OracleTypeMapper;
 
@@ -90,7 +90,7 @@ public class OracleCatalog extends AbstractJdbcCatalog {
                 pwd,
                 urlInfo,
                 defaultSchema,
-                JdbcOptions.DECIMAL_TYPE_NARROWING.defaultValue(),
+                JdbcCommonOptions.DECIMAL_TYPE_NARROWING.defaultValue(),
                 driverClass,
                 false);
     }
