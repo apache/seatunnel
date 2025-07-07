@@ -42,7 +42,11 @@ public class MaxcomputeUtil {
 
     public static TableTunnel getTableTunnel(ReadonlyConfig readonlyConfig) {
         Odps odps = getOdps(readonlyConfig);
-        return new TableTunnel(odps);
+        TableTunnel tableTunnel = new TableTunnel(odps);
+        if (StringUtils.isNotEmpty(readonlyConfig.get(MaxcomputeBaseOptions.TUNNEL_ENDPOINT))) {
+            tableTunnel.setEndpoint(readonlyConfig.get(MaxcomputeBaseOptions.TUNNEL_ENDPOINT));
+        }
+        return tableTunnel;
     }
 
     public static Odps getOdps(ReadonlyConfig readonlyConfig) {
