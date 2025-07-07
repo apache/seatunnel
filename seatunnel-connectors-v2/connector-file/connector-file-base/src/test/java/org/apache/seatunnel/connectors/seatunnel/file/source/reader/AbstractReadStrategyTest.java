@@ -31,30 +31,19 @@ import org.apache.parquet.avro.AvroParquetWriter;
 import org.apache.parquet.hadoop.ParquetWriter;
 import org.apache.parquet.hadoop.metadata.CompressionCodecName;
 
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledOnOs;
 import org.junit.jupiter.api.condition.OS;
-import org.mockito.MockedStatic;
 
 import java.io.File;
 import java.io.IOException;
-import java.lang.reflect.Method;
 import java.time.Instant;
-import java.time.LocalDate;
 import java.util.List;
 
 import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.FS_DEFAULT_NAME_DEFAULT;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.mockStatic;
-import static org.mockito.Mockito.when;
 
 public static class AbstractReadStrategyTest {
-
-    private AbstractReadStrategy strategy;
-    private Method filterMethod;
 
     @DisabledOnOs(OS.WINDOWS)
     @Test
@@ -145,47 +134,28 @@ public static class AbstractReadStrategyTest {
         }
     }
 
-    @BeforeEach
-    void setUp() throws Exception {
-        strategy = new CsvReadStrategy();
-        filterMethod =
-                AbstractReadStrategy.class.getDeclaredMethod(
-                        "filterFileByModificationDate", FileStatus.class);
-        filterMethod.setAccessible(true);
-    }
-
-    @AfterEach
-    void tearDown() {
-        strategy = null;
-        filterMethod = null;
-    }
-
     @Test
     void testBothStartAndEndWithinRange() throws Exception {
-        try (MockedStatic<LocalDate> localDateMockedStatic = mockStatic(LocalDate.class)) {
-
+        try (CsvReadStrategy strategy = new CsvReadStrategy()) {
             String startDateStr = "2024-01-01";
             String endDateStr = "2024-12-31";
             String format = "yyyy-MM-dd";
+            long modificationTime = Instant.parse("2024-06-01T00:00:00Z").toEpochMilli();
 
             strategy.fileModifiedStartDate = startDateStr;
             strategy.fileModifiedEndDate = endDateStr;
             strategy.modifiedDateFormat = format;
-
-            long modificationTime = Instant.parse("2024-06-01T00:00:00Z").toEpochMilli();
-
-            FileStatus mockFileStatus = mock(FileStatus.class);
-            when(mockFileStatus.getModificationTime()).thenReturn(modificationTime);
-
-            Boolean result = (Boolean) filterMethod.invoke(strategy, mockFileStatus);
-
+            FileStatus fileStatus =
+                    new FileStatus(0L, false, 0, 0, modificationTime, 0, null, null, null, null);
+            boolean result = strategy.filterFileByModificationDate(fileStatus);
             Assertions.assertTrue(result);
         }
     }
 
     @Test
     void testOnlyEndDateOutOfRange() throws Exception {
-        try (MockedStatic<LocalDate> localDateMockedStatic = mockStatic(LocalDate.class)) {
+
+        try (CsvReadStrategy strategy = new CsvReadStrategy()) {
             String endDateStr = "2024-07-01";
             String format = "yyyy-MM-dd";
 
@@ -195,31 +165,31 @@ public static class AbstractReadStrategyTest {
 
             long modificationTime = Instant.parse("2024-06-01T00:00:00Z").toEpochMilli();
 
-            FileStatus mockFileStatus = mock(FileStatus.class);
-            when(mockFileStatus.getModificationTime()).thenReturn(modificationTime);
-
-            Boolean result = (Boolean) filterMethod.invoke(strategy, mockFileStatus);
-
+            FileStatus fileStatus =
+                    new FileStatus(0L, false, 0, 0, modificationTime, 0, null, null, null, null);
+            boolean result = strategy.filterFileByModificationDate(fileStatus);
             Assertions.assertTrue(result);
         }
     }
 
     @Test
     void testNoDateSet() throws Exception {
-        strategy.fileModifiedStartDate = null;
-        strategy.fileModifiedEndDate = null;
 
-        FileStatus mockFileStatus = mock(FileStatus.class);
-        when(mockFileStatus.getModificationTime()).thenReturn(Instant.now().toEpochMilli());
-
-        Boolean result = (Boolean) filterMethod.invoke(strategy, mockFileStatus);
-
-        Assertions.assertTrue(result);
+        try (CsvReadStrategy strategy = new CsvReadStrategy()) {
+            strategy.fileModifiedStartDate = null;
+            strategy.fileModifiedEndDate = null;
+            FileStatus fileStatus =
+                    new FileStatus(
+                            0L, false, 0, 0, System.currentTimeMillis(), 0, null, null, null, null);
+            boolean result = strategy.filterFileByModificationDate(fileStatus);
+            Assertions.assertTrue(result);
+        }
     }
 
     @Test
     void testOnlyStartDateOutOfRange() throws Exception {
-        try (MockedStatic<LocalDate> localDateMockedStatic = mockStatic(LocalDate.class)) {
+
+        try (CsvReadStrategy strategy = new CsvReadStrategy()) {
             String startDateStr = "2024-04-01";
             String format = "yyyy-MM-dd";
 
@@ -229,11 +199,9 @@ public static class AbstractReadStrategyTest {
 
             long modificationTime = Instant.parse("2024-06-01T00:00:00Z").toEpochMilli();
 
-            FileStatus mockFileStatus = mock(FileStatus.class);
-            when(mockFileStatus.getModificationTime()).thenReturn(modificationTime);
-
-            Boolean result = (Boolean) filterMethod.invoke(strategy, mockFileStatus);
-
+            FileStatus fileStatus =
+                    new FileStatus(0L, false, 0, 0, modificationTime, 0, null, null, null, null);
+            boolean result = strategy.filterFileByModificationDate(fileStatus);
             Assertions.assertTrue(result);
         }
     }

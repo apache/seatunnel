@@ -155,7 +155,7 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
         return fileNames;
     }
 
-    private boolean filterFileByModificationDate(FileStatus fileStatus) {
+    protected boolean filterFileByModificationDate(FileStatus fileStatus) {
 
         Instant fileModifiedDate = Instant.ofEpochMilli(fileStatus.getModificationTime());
 
