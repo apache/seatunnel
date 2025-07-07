@@ -64,36 +64,36 @@ public class CNToNumber {
     private static HashMap<String, Long> chMap = new HashMap<>();
 
     static {
-        chMap.put(ZERO, 0l);
-        chMap.put(SIMPLE_ONE, 1l);
-        chMap.put(SIMPLE_TWO, 2l);
-        chMap.put(SIMPLE_THREE, 3l);
-        chMap.put(SIMPLE_FOUR, 4l);
-        chMap.put(SIMPLE_FIVE, 5l);
-        chMap.put(SIMPLE_SIX, 6l);
-        chMap.put(SIMPLE_SEVEN, 7l);
-        chMap.put(SIMPLE_EIGHT, 8l);
-        chMap.put(SIMPLE_NINE, 9l);
-        chMap.put(TRADITION_ONE, 1l);
-        chMap.put(TRADITION_TWO, 2l);
-        chMap.put(TRADITION_THREE, 3l);
-        chMap.put(TRADITION_FOUR, 4l);
-        chMap.put(TRADITION_FIVE, 5l);
-        chMap.put(TRADITION_SIX, 6l);
-        chMap.put(TRADITION_SEVEN, 7l);
-        chMap.put(TRADITION_EIGHT, 8l);
-        chMap.put(TRADITION_NINE, 9l);
-        chMap.put(SIMPLE_TEN, 10l);
-        chMap.put(TRADITION_TEN, 10l);
-        chMap.put(SIMPLE_HUNDRED, 100l);
-        chMap.put(TRADITION_HUNDRED, 100l);
-        chMap.put(SIMPLE_THOUSAND, 1000l);
-        chMap.put(TRADITION_THOUSAND, 1000l);
-        chMap.put(SIMPLE_TEN_THOUSAND, 10000l);
-        chMap.put(TRADITION_TEN_THOUSAND, 10000l);
-        chMap.put(HUNDRED_MILLION, 100000000l);
-        chMap.put(HUNDRED_BILLION, 1000000000000l);
-        chMap.put(HUNDRED_TRILLION, 10000000000000000l);
+        chMap.put(ZERO, 0L);
+        chMap.put(SIMPLE_ONE, 1L);
+        chMap.put(SIMPLE_TWO, 2L);
+        chMap.put(SIMPLE_THREE, 3L);
+        chMap.put(SIMPLE_FOUR, 4L);
+        chMap.put(SIMPLE_FIVE, 5L);
+        chMap.put(SIMPLE_SIX, 6L);
+        chMap.put(SIMPLE_SEVEN, 7L);
+        chMap.put(SIMPLE_EIGHT, 8L);
+        chMap.put(SIMPLE_NINE, 9L);
+        chMap.put(TRADITION_ONE, 1L);
+        chMap.put(TRADITION_TWO, 2L);
+        chMap.put(TRADITION_THREE, 3L);
+        chMap.put(TRADITION_FOUR, 4L);
+        chMap.put(TRADITION_FIVE, 5L);
+        chMap.put(TRADITION_SIX, 6L);
+        chMap.put(TRADITION_SEVEN, 7L);
+        chMap.put(TRADITION_EIGHT, 8L);
+        chMap.put(TRADITION_NINE, 9L);
+        chMap.put(SIMPLE_TEN, 10L);
+        chMap.put(TRADITION_TEN, 10L);
+        chMap.put(SIMPLE_HUNDRED, 100L);
+        chMap.put(TRADITION_HUNDRED, 100L);
+        chMap.put(SIMPLE_THOUSAND, 1000L);
+        chMap.put(TRADITION_THOUSAND, 1000L);
+        chMap.put(SIMPLE_TEN_THOUSAND, 10000L);
+        chMap.put(TRADITION_TEN_THOUSAND, 10000L);
+        chMap.put(HUNDRED_MILLION, 100000000L);
+        chMap.put(HUNDRED_BILLION, 1000000000000L);
+        chMap.put(HUNDRED_TRILLION, 10000000000000000L);
     }
 
     /**

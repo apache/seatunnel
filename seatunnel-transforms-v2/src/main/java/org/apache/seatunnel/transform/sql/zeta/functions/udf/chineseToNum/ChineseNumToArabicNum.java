@@ -45,7 +45,7 @@ public class ChineseNumToArabicNum implements ZetaUDF {
     public Object evaluate(List<Object> args) {
         String data = (String) args.get(0);
         if (StringUtils.isBlank(data)) {
-            return data;
+            return null;
         }
         return CNToNumber.convertToArabic(data);
     }
