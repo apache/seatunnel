@@ -125,5 +125,4 @@ public class FileBaseSourceOptions extends FileBaseOptions {
                     .withDescription(
                             "Whether to read the complete file as a single chunk instead of splitting into chunks. "
                                     + "When enabled, the entire file content will be read into memory at once.Only valid when file_format_type is binary.");
-  
 }
