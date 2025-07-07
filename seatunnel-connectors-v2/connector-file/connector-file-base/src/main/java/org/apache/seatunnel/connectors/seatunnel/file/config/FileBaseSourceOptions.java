@@ -94,14 +94,14 @@ public class FileBaseSourceOptions extends FileBaseOptions {
                     .stringType()
                     .noDefaultValue()
                     .withDescription(
-                            "File modification time. The connector will filter some files base on the last modification start date. the default not filter, modification data format is yyyy-mm-dd");
+                            "File modification time filter. The connector will filter some files base on the last modification start time (include start time). the default data format is yyyy-mm-dd, if you not set `file_filter_modified_date_format`");
 
     public static final Option<String> FILE_FILTER_MODIFIED_END =
             Options.key("file_filter_modified_end")
                     .stringType()
                     .noDefaultValue()
                     .withDescription(
-                            "File modification time. The connector will filter some files base on the last modification end date. the default not filter, modification data format is yyyy-mm-dd");
+                            "File modification time filter. The connector will filter some files base on the last modification end time (not include end time). the default data format is yyyy-mm-dd, if you not set `file_filter_modified_date_format`");
 
     public static final Option<String> FILE_FILTER_MODIFIED_DATE_FORMAT =
             Options.key("file_filter_modified_date_format")

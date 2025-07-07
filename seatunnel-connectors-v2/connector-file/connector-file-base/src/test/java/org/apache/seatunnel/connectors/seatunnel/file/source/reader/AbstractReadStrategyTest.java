@@ -38,8 +38,9 @@ import org.junit.jupiter.api.condition.OS;
 
 import java.io.File;
 import java.io.IOException;
-import java.time.Instant;
+import java.text.SimpleDateFormat;
 import java.util.List;
+import java.util.TimeZone;
 
 import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.FS_DEFAULT_NAME_DEFAULT;
 
@@ -140,7 +141,9 @@ public class AbstractReadStrategyTest {
             String startDateStr = "2024-01-01";
             String endDateStr = "2024-12-31";
             String format = "yyyy-MM-dd";
-            long modificationTime = Instant.parse("2024-06-01T00:00:00Z").toEpochMilli();
+            SimpleDateFormat simpleDateFormat = new SimpleDateFormat(format);
+            simpleDateFormat.setTimeZone(TimeZone.getTimeZone("GMT+8"));
+            long modificationTime = simpleDateFormat.parse("2024-06-01").getTime();
 
             strategy.fileModifiedStartDate = startDateStr;
             strategy.fileModifiedEndDate = endDateStr;
@@ -163,7 +166,30 @@ public class AbstractReadStrategyTest {
             strategy.fileModifiedEndDate = endDateStr;
             strategy.modifiedDateFormat = format;
 
-            long modificationTime = Instant.parse("2024-06-01T00:00:00Z").toEpochMilli();
+            SimpleDateFormat simpleDateFormat = new SimpleDateFormat(format);
+            simpleDateFormat.setTimeZone(TimeZone.getTimeZone("GMT+8"));
+            long modificationTime = simpleDateFormat.parse("2024-06-01").getTime();
+
+            FileStatus fileStatus =
+                    new FileStatus(0L, false, 0, 0, modificationTime, 0, null, null, null, null);
+            boolean result = strategy.filterFileByModificationDate(fileStatus);
+            Assertions.assertTrue(result);
+        }
+    }
+
+    @Test
+    void testOnlyEndDateOutOfRangeWithHour() throws Exception {
+
+        try (CsvReadStrategy strategy = new CsvReadStrategy()) {
+            String endDateStr = "2024-07-01 14:00:00";
+            String format = "yyyy-MM-dd HH:mm:ss";
+
+            strategy.fileModifiedStartDate = null;
+            strategy.fileModifiedEndDate = endDateStr;
+            strategy.modifiedDateFormat = format;
+            SimpleDateFormat simpleDateFormat = new SimpleDateFormat(format);
+            simpleDateFormat.setTimeZone(TimeZone.getTimeZone("GMT+8"));
+            long modificationTime = simpleDateFormat.parse("2024-07-01 13:00:00").getTime();
 
             FileStatus fileStatus =
                     new FileStatus(0L, false, 0, 0, modificationTime, 0, null, null, null, null);
@@ -196,8 +222,9 @@ public class AbstractReadStrategyTest {
             strategy.fileModifiedStartDate = startDateStr;
             strategy.fileModifiedEndDate = null;
             strategy.modifiedDateFormat = format;
-
-            long modificationTime = Instant.parse("2024-06-01T00:00:00Z").toEpochMilli();
+            SimpleDateFormat simpleDateFormat = new SimpleDateFormat(format);
+            simpleDateFormat.setTimeZone(TimeZone.getTimeZone("GMT+8"));
+            long modificationTime = simpleDateFormat.parse("2024-06-01").getTime();
 
             FileStatus fileStatus =
                     new FileStatus(0L, false, 0, 0, modificationTime, 0, null, null, null, null);

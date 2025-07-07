@@ -45,19 +45,18 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.math.BigDecimal;
-import java.time.Instant;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.ZoneId;
-import java.time.format.DateTimeFormatter;
-import java.time.format.DateTimeParseException;
-import java.time.temporal.TemporalAccessor;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Date;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.TimeZone;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.zip.ZipEntry;
@@ -158,46 +157,39 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
 
     protected boolean filterFileByModificationDate(FileStatus fileStatus) {
 
-        Instant fileModifiedDate = Instant.ofEpochMilli(fileStatus.getModificationTime());
-
-        DateTimeFormatter formatter =
-                DateTimeFormatter.ofPattern(modifiedDateFormat).withZone(ZoneId.of("GMT+8"));
-
-        Instant startDate = parseDateToInstant(fileModifiedStartDate, formatter);
-        Instant endDate = parseDateToInstant(fileModifiedEndDate, formatter);
+        long fileModifiedTime = fileStatus.getModificationTime();
+        SimpleDateFormat dateFormat = new SimpleDateFormat(modifiedDateFormat);
+        dateFormat.setTimeZone(TimeZone.getTimeZone("GMT+8"));
+        Date startTime;
+        Date endTime;
+        try {
+            startTime = dateFormat.parse(fileModifiedStartDate);
+            endTime = dateFormat.parse(fileModifiedEndDate);
+        } catch (ParseException e) {
+            log.warn(
+                    "Failed to parse file modified date format: {}, please check date format: {}",
+                    modifiedDateFormat,
+                    FileBaseSourceOptions.FILE_FILTER_MODIFIED_DATE_FORMAT);
+            return true;
+        }
 
         // Both start and end date are set
-        if (startDate != null && endDate != null) {
-            return !fileModifiedDate.isBefore(startDate) && !fileModifiedDate.isAfter(endDate);
+        if (startTime != null && endTime != null) {
+            return fileModifiedTime >= startTime.getTime() && fileModifiedTime < endTime.getTime();
         }
 
         // Only start date is set
-        if (startDate != null) {
-            return !fileModifiedDate.isBefore(startDate);
+        if (startTime != null) {
+            return fileModifiedTime >= startTime.getTime();
         }
 
         // Only end date is set
-        if (endDate != null) {
-            return !fileModifiedDate.isAfter(endDate);
+        if (endTime != null) {
+            return fileModifiedTime < endTime.getTime();
         }
 
         // Neither start nor end date is set
         return true;
-    }
-
-    private Instant parseDateToInstant(String dateTime, DateTimeFormatter dateTimeFormatter) {
-        if (dateTime == null || dateTime.isEmpty()) {
-            return null;
-        }
-        try {
-
-            TemporalAccessor temporal = dateTimeFormatter.parse(dateTime);
-
-            return Instant.from(temporal);
-        } catch (DateTimeParseException e) {
-            // no throw exception
-            return null;
-        }
     }
 
     @Override
