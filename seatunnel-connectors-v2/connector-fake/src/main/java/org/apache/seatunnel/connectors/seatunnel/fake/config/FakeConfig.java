@@ -34,7 +34,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+import static org.apache.seatunnel.api.options.EnvCommonOptions.PARALLELISM;
 import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeSourceOptions.ARRAY_SIZE;
+import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeSourceOptions.AUTO_INCREMENT_ENABLED;
+import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeSourceOptions.AUTO_INCREMENT_START;
 import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeSourceOptions.BIGINT_FAKE_MODE;
 import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeSourceOptions.BIGINT_MAX;
 import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeSourceOptions.BIGINT_MIN;
@@ -82,6 +85,9 @@ import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeSourceOp
 @Builder
 @Getter
 public class FakeConfig implements Serializable {
+
+    @Builder.Default private int parallelism = PARALLELISM.defaultValue();
+
     @Builder.Default private int rowNum = ROW_NUM.defaultValue();
 
     @Builder.Default private int splitNum = SPLIT_NUM.defaultValue();
@@ -148,6 +154,10 @@ public class FakeConfig implements Serializable {
     @Builder.Default
     private FakeSourceOptions.FakeMode doubleFakeMode = DOUBLE_FAKE_MODE.defaultValue();
 
+    @Builder.Default private Boolean autoIncrementEnabled = AUTO_INCREMENT_ENABLED.defaultValue();
+
+    @Builder.Default private Long autoIncrementStart = AUTO_INCREMENT_START.defaultValue();
+
     private List<String> stringTemplate;
     private List<Integer> tinyintTemplate;
     private List<Integer> smallintTemplate;
@@ -170,6 +180,7 @@ public class FakeConfig implements Serializable {
 
     public static FakeConfig buildWithConfig(ReadonlyConfig readonlyConfig) {
         FakeConfigBuilder builder = FakeConfig.builder();
+        readonlyConfig.getOptional(PARALLELISM).ifPresent(builder::parallelism);
         builder.rowNum(readonlyConfig.get(ROW_NUM));
         builder.splitNum(readonlyConfig.get(SPLIT_NUM));
         builder.splitReadInterval(readonlyConfig.get(SPLIT_READ_INTERVAL));
@@ -204,6 +215,8 @@ public class FakeConfig implements Serializable {
         readonlyConfig.getOptional(TIME_HOUR_TEMPLATE).ifPresent(builder::timeHourTemplate);
         readonlyConfig.getOptional(TIME_MINUTE_TEMPLATE).ifPresent(builder::timeMinuteTemplate);
         readonlyConfig.getOptional(TIME_SECOND_TEMPLATE).ifPresent(builder::timeSecondTemplate);
+        readonlyConfig.getOptional(AUTO_INCREMENT_ENABLED).ifPresent(builder::autoIncrementEnabled);
+        readonlyConfig.getOptional(AUTO_INCREMENT_START).ifPresent(builder::autoIncrementStart);
 
         readonlyConfig
                 .getOptional(TINYINT_MIN)

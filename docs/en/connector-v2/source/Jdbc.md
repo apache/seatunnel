@@ -56,9 +56,11 @@ supports query SQL and can achieve projection effect.
 | partition_lower_bound                      | Long    | No       | -               | The partition_column min value for scan, if not set SeaTunnel will query database get min value.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | partition_num                              | Int     | No       | job parallelism | Not recommended for use, The correct approach is to control the number of split through `split.size`<br/> **Note:** This parameter takes effect only when using the `query` parameter. It does not take effect when using the `table_path` parameter.                                                                                                                                                                                                                                                                                                                                                                                              |
 | decimal_type_narrowing                     | Boolean | No       | true            | Decimal type narrowing, if true, the decimal type will be narrowed to the int or long type if without loss of precision. Only support for Oracle at now. Please refer to `decimal_type_narrowing` below                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| int_type_narrowing                         | Boolean | No       | true            | Int type narrowing, if true, the tinyint(1) type will be narrowed to the boolean type if without loss of precision. Support for MySQL at now. Please refer to `int_type_narrowing` below                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 | handle_blob_as_string                      | Boolean | No       | false           | If true, BLOB type will be converted to STRING type. **Only supported for Oracle database**. This is useful for handling large BLOB fields in Oracle that exceed the default size limit. When transmitting Oracle's BLOB fields to systems like Doris, setting this to true can make the data transfer more efficient.                                                                                                                                                                                                                                                                                                                             |
 | use_select_count                           | Boolean | No       | false           | Use select count for table count rather then other methods in dynamic chunk split stage. This is currently only available for jdbc-oracle.In this scenario, select count directly is used when it is faster to update statistics using sql from analysis table                                                                                                                                                                                                                                                                                                                                                                                     |
 | skip_analyze                               | Boolean | No       | false           | Skip the analysis of table count in dynamic chunk split stage. This is currently only available for jdbc-oracle.In this scenario, you schedule analysis table sql to update related table statistics periodically or your table data does not change frequently                                                                                                                                                                                                                                                                                                                                                                                    |
+| use_regex                                  | Boolean | No       | false           | Control regular expression matching for table_path. When set to `true`, the table_path will be treated as a regular expression pattern. When set to `false` or not specified, the table_path will be treated as an exact path (no regex matching). |
 | fetch_size                                 | Int     | No       | 0               | For queries that return a large number of objects, you can configure the row fetch size used in the query to improve performance by reducing the number database hits required to satisfy the selection criteria. Zero means use jdbc default value.                                                                                                                                                                                                                                                                                                                                                                                               |
 | properties                                 | Map     | No       | -               | Additional connection configuration parameters,when properties and URL have the same parameters, the priority is determined by the <br/>specific implementation of the driver. For example, in MySQL, properties take precedence over the URL.                                                                                                                                                                                                                                                                                                                                                                                                     |
 | table_path                                 | String  | No       | -               | The path to the full path of table, you can use this configuration instead of `query`. <br/>examples: <br/>`- mysql: "testdb.table1" `<br/>`- oracle: "test_schema.table1" `<br/>`- sqlserver: "testdb.test_schema.table1"` <br/>`- postgresql: "testdb.test_schema.table1"`  <br/>`- iris: "test_schema.table1"`                                                                                                                                                                                                                                                                                                                                  |
@@ -72,6 +74,95 @@ supports query SQL and can achieve projection effect.
 | common-options                             |         | No       | -               | Source plugin common parameters, please refer to [Source Common Options](../source-common-options.md) for details.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | split.string_split_mode                    | String  | No       | sample          | Supports different string splitting algorithms. By default, `sample` is used to determine the split by sampling the string value. You can switch to `charset_based` to enable charset-based string splitting algorithm. When set to `charset_based`, the algorithm assumes characters of partition_column are within ASCII range 32-126, which covers most character-based splitting scenarios.                                                                                                                                                                                                                                                    |
 | split.string_split_mode_collate            | String  | No       | -               | Specifies the collation to use when string_split_mode is set to `charset_based` and the table has a special collation. If not specified, the database's default collation will be used.                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+
+### Table Matching
+
+The JDBC Source connector supports two ways to specify tables:
+
+1. **Exact Table Path**: Use `table_path` to specify a single table with its full path.
+   ```hocon
+   table_path = "testdb.table1"
+   ```
+
+2. **Regular Expression**: Use `table_path` with a regex pattern to match multiple tables.
+   ```hocon
+   table_path = "testdb.table\\d+"  # Matches table1, table2, table3, etc.
+   use_regex = true
+   ```
+
+#### Regular Expression Support for Table Names
+
+The JDBC connector supports using regular expressions to match multiple tables. This feature allows you to process multiple tables with a single source configuration.
+
+#### Configuration
+
+To use regular expression matching for table paths:
+
+1. Set `use_regex = true` to enable regex matching
+2. If `use_regex` is not set or set to `false`, the connector will treat the table_path as an exact path (no regex matching)
+
+#### Regular Expression Syntax Notes
+
+- **Path Separator**: The dot (`.`) is treated as a separator between database, schema, and table names.
+- **Escaped Dots**: If you need to use a dot (`.`) as a wildcard character in your regular expression to match any character, you must escape it with a backslash (`\.`).
+- **Path Format**: For paths like `database.table` or `database.schema.table`, the last unescaped dot separates the table pattern from the database/schema pattern.
+- **Pattern Examples**:
+  - `test.table\\d+` - Matches tables like `table1`, `table2`, etc. in the `test` database
+  - `test.*` - Matches all tables in the `test` database (for whole database synchronization)
+  - `postgres.public.test_db_\.*` - Matches all tables that start with `test_db_` in the `public` schema of the `postgres` database
+
+#### Example
+
+```hocon
+source {
+  Jdbc {
+    url = "jdbc:mysql://localhost:3306/test"
+    driver = "com.mysql.cj.jdbc.Driver"
+    user = "root"
+    password = "password"
+    
+    table_list = [
+      {
+        # Regex matching - match any table in test database
+        table_path = "test.*"
+        use_regex = true
+      },
+      {
+        # Regex matching - match tables with "user" followed by digits
+        table_path = "test.user\\d+"
+        use_regex = true
+      },
+      {
+        # Exact matching - simple table name
+        table_path = "test.config"
+        # use_regex not specified, defaults to false
+      },
+    ]
+  }
+}
+```
+
+#### Multi-table Synchronization
+
+When using either regular expressions, the connector will read data from all matching tables. Each table will be processed independently, and the data will be combined in the output.
+
+Example configuration for multi-table synchronization:
+```hocon
+Jdbc {
+    url = "jdbc:mysql://localhost/test"
+    driver = "com.mysql.cj.jdbc.Driver"
+    user = "root"
+    password = "123456"
+
+    # Using regular expression with explicit configuration
+    table_list = [
+      {
+        table_path = "testdb.table\\d+"
+        use_regex = true
+      }
+    ]
+}
+```
 
 ### decimal_type_narrowing
 
@@ -94,6 +185,24 @@ decimal_type_narrowing = false
 | NUMBER(1, 0)  | Decimal(1, 0)  |
 | NUMBER(6, 0)  | Decimal(6, 0)  |
 | NUMBER(10, 0) | Decimal(10, 0) |
+
+### int_type_narrowing
+
+Int type narrowing, if true, the tinyint(1) type will be narrowed to the boolean type if without loss of precision. Support for MySQL at now.
+
+eg:
+
+int_type_narrowing = true
+
+| MySQL      | SeaTunnel |
+|------------|-----------|
+| TINYINT(1) | Boolean   |
+
+int_type_narrowing = false
+
+| MySQL      | SeaTunnel |
+|------------|-----------|
+| TINYINT(1) | TINYINT   |
 
 ### dialect [string]
 
@@ -163,6 +272,8 @@ there are some reference value for params above.
 | InterSystems IRIS | com.intersystems.jdbc.IRISDriver                    | jdbc:IRIS://localhost:1972/%SYS                                        | https://raw.githubusercontent.com/intersystems-community/iris-driver-distribution/main/JDBC/JDK18/intersystems-jdbc-3.8.4.jar |
 | opengauss         | org.opengauss.Driver                                | jdbc:opengauss://localhost:5432/postgres                               | https://repo1.maven.org/maven2/org/opengauss/opengauss-jdbc/5.1.0-og/opengauss-jdbc-5.1.0-og.jar                              |
 | Highgo            | com.highgo.jdbc.Driver                              | jdbc:highgo://localhost:5866/highgo                                    | https://repo1.maven.org/maven2/com/highgo/HgdbJdbc/6.2.3/HgdbJdbc-6.2.3.jar                                                   |
+| Presto            | com.facebook.presto.jdbc.PrestoDriver               | jdbc:presto://localhost:8080/presto                                    | https://repo1.maven.org/maven2/com/facebook/presto/presto-jdbc/0.279/presto-jdbc-0.279.jar                                    |
+| Trino             | io.trino.jdbc.TrinoDriver                           | jdbc:trino://localhost:8080/trino                                      | https://repo1.maven.org/maven2/io/trino/trino-jdbc/460/trino-jdbc-460.jar                                                     |
 
 ## Example
 
@@ -333,8 +444,13 @@ Jdbc {
         },
         {
           table_path = "testdb.table2"
-          # Use query filetr rows & columns
+          # Use query filter rows & columns
           query = "select id, name from testdb.table2 where id > 100"
+        },
+        {
+          # Using regex to match multiple tables
+          table_path = "testdb.user_table\\d+"
+          use_regex = true
         }
     ]
     #where_condition= "where id > 100"

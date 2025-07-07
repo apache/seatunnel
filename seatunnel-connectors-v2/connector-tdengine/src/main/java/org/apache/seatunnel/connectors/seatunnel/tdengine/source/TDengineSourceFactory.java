@@ -19,18 +19,16 @@ package org.apache.seatunnel.connectors.seatunnel.tdengine.source;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
+import org.apache.seatunnel.api.source.SourceSplit;
+import org.apache.seatunnel.api.table.connector.TableSource;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
+import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
+import org.apache.seatunnel.connectors.seatunnel.tdengine.config.TDengineSourceOptions;
 
 import com.google.auto.service.AutoService;
 
-import static org.apache.seatunnel.connectors.seatunnel.tdengine.config.TDengineSourceOptions.DATABASE;
-import static org.apache.seatunnel.connectors.seatunnel.tdengine.config.TDengineSourceOptions.LOWER_BOUND;
-import static org.apache.seatunnel.connectors.seatunnel.tdengine.config.TDengineSourceOptions.PASSWORD;
-import static org.apache.seatunnel.connectors.seatunnel.tdengine.config.TDengineSourceOptions.STABLE;
-import static org.apache.seatunnel.connectors.seatunnel.tdengine.config.TDengineSourceOptions.UPPER_BOUND;
-import static org.apache.seatunnel.connectors.seatunnel.tdengine.config.TDengineSourceOptions.URL;
-import static org.apache.seatunnel.connectors.seatunnel.tdengine.config.TDengineSourceOptions.USERNAME;
+import java.io.Serializable;
 
 @AutoService(Factory.class)
 public class TDengineSourceFactory implements TableSourceFactory {
@@ -43,8 +41,21 @@ public class TDengineSourceFactory implements TableSourceFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(URL, USERNAME, PASSWORD, DATABASE, STABLE, LOWER_BOUND, UPPER_BOUND)
+                .required(
+                        TDengineSourceOptions.URL,
+                        TDengineSourceOptions.USERNAME,
+                        TDengineSourceOptions.PASSWORD,
+                        TDengineSourceOptions.DATABASE,
+                        TDengineSourceOptions.STABLE,
+                        TDengineSourceOptions.LOWER_BOUND,
+                        TDengineSourceOptions.UPPER_BOUND)
                 .build();
+    }
+
+    @Override
+    public <T, SplitT extends SourceSplit, StateT extends Serializable>
+            TableSource<T, SplitT, StateT> createSource(TableSourceFactoryContext context) {
+        return () -> (SeaTunnelSource<T, SplitT, StateT>) new TDengineSource(context.getOptions());
     }
 
     @Override

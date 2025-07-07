@@ -132,7 +132,7 @@ public class OracleCatalog extends AbstractJdbcCatalog {
     @Override
     protected String getCreateTableSql(
             TablePath tablePath, CatalogTable table, boolean createIndex) {
-        return new OracleCreateTableSqlBuilder(table, createIndex).build(tablePath).get(0);
+        return getCreateTableSqls(tablePath, table, createIndex).get(0);
     }
 
     protected List<String> getCreateTableSqls(

@@ -108,6 +108,13 @@ public interface JdbcOptions {
                     .withDescription(
                             "decimal type narrowing, if true, the decimal type will be narrowed to the int or long type if without loss of precision. Only support for Oracle at now.");
 
+    Option<Boolean> INT_TYPE_NARROWING =
+            Options.key("int_type_narrowing")
+                    .booleanType()
+                    .defaultValue(true)
+                    .withDescription(
+                            "int type narrowing, if true, the tinyint(1) type will be narrowed to the boolean type if without loss of precision. Support for MySQL at now.");
+
     Option<Boolean> HANDLE_BLOB_AS_STRING =
             Options.key("handle_blob_as_string")
                     .booleanType()
@@ -141,12 +148,6 @@ public interface JdbcOptions {
 
     Option<List<String>> PRIMARY_KEYS =
             Options.key("primary_keys").listType().noDefaultValue().withDescription("primary keys");
-
-    Option<Boolean> SUPPORT_UPSERT_BY_QUERY_PRIMARY_KEY_EXIST =
-            Options.key("support_upsert_by_query_primary_key_exist")
-                    .booleanType()
-                    .defaultValue(false)
-                    .withDescription("support upsert by query primary_key exist");
 
     Option<Boolean> ENABLE_UPSERT =
             Options.key("enable_upsert")

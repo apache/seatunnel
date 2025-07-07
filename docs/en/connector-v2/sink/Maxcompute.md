@@ -112,6 +112,44 @@ Option introduction：
 
 When data_save_mode selects CUSTOM_PROCESSING, you should fill in the CUSTOM_SQL parameter. This parameter usually fills in a SQL that can be executed. SQL will be executed before synchronization tasks.
 
+### datetime_format[String]
+
+User-defined format string used to convert LocalDateTime fields to strings.
+
+Use this option when you want to specify a custom datetime format that matches one of the predefined values in DateTimeUtils.Formatter (e.g. yyyy-MM-dd HH:mm:ss, yyyyMMddHHmmss, etc.).
+
+Example values:
+
+- `yyyy-MM-dd HH:mm:ss`
+- `yyyy-MM-dd HH:mm:ss.SSSSSS`
+- `yyyy.MM.dd HH:mm:ss`
+- `yyyy/MM/dd HH:mm:ss`
+- `yyyy/M/d HH:mm`
+- `yyyy-M-d HH:mm`
+- `yyyy/M/d HH:mm:ss`
+- `yyyy-M-d HH:mm:ss`
+- `yyyyMMddHHmmss`
+
+Default: `yyyy-MM-dd HH:mm:ss`
+
+### tunnel_endpoint[String]
+Specifies the custom endpoint URL for the MaxCompute Tunnel service.
+
+By default, the endpoint is automatically inferred from the configured region.
+
+This option allows you to override the default behavior and use a custom Tunnel endpoint.
+If not specified, the connector will use the region-based default Tunnel endpoint.
+
+In general, you do **not** need  to set tunnel_endpoint. It is only needed for custom networking, debugging, or local development.
+
+Example values:
+
+- `https://dt.cn-hangzhou.maxcompute.aliyun.com`
+- `https://dt.ap-southeast-1.maxcompute.aliyun.com`
+- `http://maxcompute:8080`
+
+Default: Not set (auto-inferred from region)
+
 ### common options
 
 Sink plugin common parameters, please refer to [Sink Common Options](../sink-common-options.md) for details.

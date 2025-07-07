@@ -187,6 +187,19 @@
             <scope>provided</scope>
         </dependencySet>
 
+        <!-- ============ SeaTunnel Transforms-v2 Jar============  -->
+        <dependencySet>
+            <useProjectArtifact>false</useProjectArtifact>
+            <useTransitiveDependencies>true</useTransitiveDependencies>
+            <unpack>false</unpack>
+            <includes>
+                <include>org.apache.seatunnel:seatunnel-transforms-v2:jar</include>
+            </includes>
+            <outputFileNameMapping>${artifact.file.name}</outputFileNameMapping>
+            <outputDirectory>/lib</outputDirectory>
+            <scope>provided</scope>
+        </dependencySet>
+
         <!-- ============ Connectors Jars And Transforms V2 Jar ============  -->
         <!-- SeaTunnel connectors for Demo -->
         <dependencySet>
@@ -196,7 +209,6 @@
             <includes>
                 <include>org.apache.seatunnel:connector-fake:jar</include>
                 <include>org.apache.seatunnel:connector-console:jar</include>
-                <include>org.apache.seatunnel:seatunnel-transforms-v2:jar</include>
             </includes>
             <outputDirectory>/connectors</outputDirectory>
             <scope>provided</scope>

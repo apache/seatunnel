@@ -28,6 +28,7 @@ import org.apache.seatunnel.api.source.SupportParallelism;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.connectors.seatunnel.typesense.config.TypesenseBaseOptions;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -53,7 +54,7 @@ public class TypesenseSource
 
     @Override
     public String getPluginName() {
-        return "Typesense";
+        return TypesenseBaseOptions.CONNECTOR_IDENTITY;
     }
 
     @Override

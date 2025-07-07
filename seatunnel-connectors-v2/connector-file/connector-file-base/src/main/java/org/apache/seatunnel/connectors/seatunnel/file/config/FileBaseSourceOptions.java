@@ -109,4 +109,21 @@ public class FileBaseSourceOptions extends FileBaseOptions {
                     .defaultValue("yyyy-MM-dd")
                     .withDescription(
                             "File modification time format. This parameter specifies the file's last modification time for filtering, using which time format. If not set, it defaults to the yyyy-MM-dd format, with the time zone defaulting to GMT+8.");
+
+    public static final Option<Integer> BINARY_CHUNK_SIZE =
+            Options.key("binary_chunk_size")
+                    .intType()
+                    .defaultValue(1024)
+                    .withDescription(
+                            "The chunk size (in bytes) for reading binary files. Default is 1024 bytes. "
+                                    + "Larger values may improve performance for large files but use more memory.Only valid when file_format_type is binary.");
+
+    public static final Option<Boolean> BINARY_COMPLETE_FILE_MODE =
+            Options.key("binary_complete_file_mode")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription(
+                            "Whether to read the complete file as a single chunk instead of splitting into chunks. "
+                                    + "When enabled, the entire file content will be read into memory at once.Only valid when file_format_type is binary.");
+  
 }

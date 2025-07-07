@@ -28,6 +28,8 @@ import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.format.json.JsonSerializationSchema;
 import org.apache.seatunnel.format.json.exception.SeaTunnelJsonFormatException;
 
+import java.nio.charset.Charset;
+
 import static org.apache.seatunnel.api.table.type.BasicType.STRING_TYPE;
 
 public class MaxWellJsonSerializationSchema implements SerializationSchema {
@@ -45,6 +47,11 @@ public class MaxWellJsonSerializationSchema implements SerializationSchema {
 
     public MaxWellJsonSerializationSchema(SeaTunnelRowType rowType) {
         this.jsonSerializer = new JsonSerializationSchema(createJsonRowType(rowType));
+        this.reuse = new SeaTunnelRow(2);
+    }
+
+    public MaxWellJsonSerializationSchema(SeaTunnelRowType rowType, Charset charset) {
+        this.jsonSerializer = new JsonSerializationSchema(createJsonRowType(rowType), charset);
         this.reuse = new SeaTunnelRow(2);
     }
 

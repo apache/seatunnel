@@ -2,6 +2,8 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
+|[Feature][Connector-V2] Make some sink parameters optional for DataHub  (#9229)|https://github.com/apache/seatunnel/commit/7418fae10c|2.3.11|
+|[Feature][Connector-V2] Datahub support multi-table sink (#9212)|https://github.com/apache/seatunnel/commit/7027162dec|2.3.11|
 |[improve] datahub sink options (#8744)|https://github.com/apache/seatunnel/commit/88f35bd705|2.3.10|
 |[Feature][Restapi] Allow metrics information to be associated to logical plan nodes (#7786)|https://github.com/apache/seatunnel/commit/6b7c53d03c|2.3.9|
 |[Improve] Remove use `SeaTunnelSink::getConsumedType` method and mark it as deprecated (#5755)|https://github.com/apache/seatunnel/commit/8de7408100|2.3.4|

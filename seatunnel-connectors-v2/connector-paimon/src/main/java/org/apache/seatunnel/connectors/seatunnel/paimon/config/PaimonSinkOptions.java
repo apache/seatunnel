@@ -40,6 +40,14 @@ public class PaimonSinkOptions extends PaimonBaseOptions {
                     .enumType(DataSaveMode.class)
                     .defaultValue(DataSaveMode.APPEND_DATA)
                     .withDescription("data_save_mode");
+
+    public static final Option<Boolean> NON_PRIMARY_KEY =
+            Options.key("paimon.table.non-primary-key")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription(
+                            "Switch to create table with PK or table without PK, true is table without PK, false is table with PK");
+
     public static final Option<String> PRIMARY_KEYS =
             Options.key("paimon.table.primary-keys")
                     .stringType()

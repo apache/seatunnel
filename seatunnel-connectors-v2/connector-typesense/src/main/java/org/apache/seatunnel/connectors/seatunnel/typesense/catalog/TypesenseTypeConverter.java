@@ -26,6 +26,7 @@ import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.typesense.client.TypesenseType;
+import org.apache.seatunnel.connectors.seatunnel.typesense.config.TypesenseBaseOptions;
 
 import com.google.auto.service.AutoService;
 
@@ -40,7 +41,7 @@ public class TypesenseTypeConverter implements BasicTypeConverter<BasicTypeDefin
 
     @Override
     public String identifier() {
-        return "Typesense";
+        return TypesenseBaseOptions.CONNECTOR_IDENTITY;
     }
 
     @Override

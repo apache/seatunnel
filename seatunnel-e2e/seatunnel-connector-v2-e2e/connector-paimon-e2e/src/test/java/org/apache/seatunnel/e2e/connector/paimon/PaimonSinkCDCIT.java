@@ -486,6 +486,15 @@ public class PaimonSinkCDCIT extends AbstractPaimonIT implements TestResource {
         Container.ExecResult readResult5 =
                 container.executeJob("/paimon_to_assert_with_filter5.conf");
         Assertions.assertEquals(0, readResult5.getExitCode());
+        Container.ExecResult readResult6 =
+                container.executeJob("/paimon_to_assert_with_filter6.conf");
+        Assertions.assertEquals(0, readResult6.getExitCode());
+        Container.ExecResult readResult7 =
+                container.executeJob("/paimon_to_assert_with_filter7.conf");
+        Assertions.assertEquals(0, readResult7.getExitCode());
+        Container.ExecResult readResult8 =
+                container.executeJob("/paimon_to_assert_with_filter8.conf");
+        Assertions.assertEquals(0, readResult8.getExitCode());
     }
 
     @TestTemplate
@@ -527,11 +536,11 @@ public class PaimonSinkCDCIT extends AbstractPaimonIT implements TestResource {
 
     @TestTemplate
     public void testChangelogLookup(TestContainer container) throws Exception {
-        // create Piamon table (changelog-producer=lookup)
+        // create Paimon table (changelog-producer=lookup)
         Container.ExecResult writeResult =
                 container.executeJob("/changelog_fake_cdc_sink_paimon_case1_ddl.conf");
         Assertions.assertEquals(0, writeResult.getExitCode());
-        TimeUnit.SECONDS.sleep(20);
+        TimeUnit.SECONDS.sleep(120);
         String[] jobIds =
                 new String[] {
                     String.valueOf(JobIdGenerator.newJobId()),
@@ -577,7 +586,7 @@ public class PaimonSinkCDCIT extends AbstractPaimonIT implements TestResource {
                             }
                         }));
         // stream job running 30 seconds
-        TimeUnit.SECONDS.sleep(30);
+        TimeUnit.SECONDS.sleep(120);
         // cancel stream job
         container.cancelJob(jobIds[1]);
         container.cancelJob(jobIds[2]);

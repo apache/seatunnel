@@ -21,7 +21,7 @@ Engine Supported
 
 ## Options
 
-|          name           |  type   | required |        default value         |
+| name                    | type    | required |        default value         |
 |-------------------------|---------|----------|------------------------------|
 | hosts                   | array   | yes      | -                            |
 | index                   | string  | yes      | -                            |
@@ -41,7 +41,8 @@ Engine Supported
 | tls_truststore_path     | string  | no       | -                            |
 | tls_truststore_password | string  | no       | -                            |
 | common-options          |         | no       | -                            |
-
+| vectorization_fields    | array   | no       | -                            |
+| vector_dimensions       | int     | no       | -                            |
 ### hosts [array]
 
 `Elasticsearch` cluster http address, the format is `host:port` , allowing multiple hosts to be specified. Such as `["host1:9200", "host2:9200"]`.
@@ -74,6 +75,12 @@ x-pack password
 ### max_retry_count [int]
 
 one bulk request max try size
+
+### vectorization_fields [array]
+fields to embeddings 
+
+### vector_dimensions [int]
+embeddings dimensions
 
 ### max_batch_size [int]
 
@@ -146,6 +153,20 @@ sink {
         hosts = ["localhost:9200"]
         index = "${table_name}"
         schema_save_mode="IGNORE"
+    }
+}
+```
+
+vector-field writing
+
+```conf
+sink {
+    Elasticsearch {
+        hosts = ["localhost:9200"]
+        index = "${table_name}"
+        schema_save_mode="IGNORE"
+        vectorization_fields = ["review_embedding"]  
+        vector_dimensions = 1024 
     }
 }
 ```

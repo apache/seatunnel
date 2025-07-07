@@ -54,10 +54,12 @@ import java.util.Optional;
 public class TextReadStrategy extends AbstractReadStrategy {
     private DeserializationSchema<SeaTunnelRow> deserializationSchema;
     private String fieldDelimiter = FileBaseSourceOptions.FIELD_DELIMITER.defaultValue();
-    private DateUtils.Formatter dateFormat = FileBaseSourceOptions.DATE_FORMAT.defaultValue();
+    private DateUtils.Formatter dateFormat =
+            FileBaseSourceOptions.DATE_FORMAT_LEGACY.defaultValue();
     private DateTimeUtils.Formatter datetimeFormat =
-            FileBaseSourceOptions.DATETIME_FORMAT.defaultValue();
-    private TimeUtils.Formatter timeFormat = FileBaseSourceOptions.TIME_FORMAT.defaultValue();
+            FileBaseSourceOptions.DATETIME_FORMAT_LEGACY.defaultValue();
+    private TimeUtils.Formatter timeFormat =
+            FileBaseSourceOptions.TIME_FORMAT_LEGACY.defaultValue();
     private CompressFormat compressFormat = FileBaseSourceOptions.COMPRESS_CODEC.defaultValue();
     private TextLineSplitor textLineSplitor;
     private int[] indexes;
@@ -223,20 +225,21 @@ public class TextReadStrategy extends AbstractReadStrategy {
     }
 
     private void initFormatter() {
-        if (pluginConfig.hasPath(FileBaseSourceOptions.DATE_FORMAT.key())) {
+        if (pluginConfig.hasPath(FileBaseSourceOptions.DATE_FORMAT_LEGACY.key())) {
             dateFormat =
                     DateUtils.Formatter.parse(
-                            pluginConfig.getString(FileBaseSourceOptions.DATE_FORMAT.key()));
+                            pluginConfig.getString(FileBaseSourceOptions.DATE_FORMAT_LEGACY.key()));
         }
-        if (pluginConfig.hasPath(FileBaseSourceOptions.DATETIME_FORMAT.key())) {
+        if (pluginConfig.hasPath(FileBaseSourceOptions.DATETIME_FORMAT_LEGACY.key())) {
             datetimeFormat =
                     DateTimeUtils.Formatter.parse(
-                            pluginConfig.getString(FileBaseSourceOptions.DATETIME_FORMAT.key()));
+                            pluginConfig.getString(
+                                    FileBaseSourceOptions.DATETIME_FORMAT_LEGACY.key()));
         }
-        if (pluginConfig.hasPath(FileBaseSourceOptions.TIME_FORMAT.key())) {
+        if (pluginConfig.hasPath(FileBaseSourceOptions.TIME_FORMAT_LEGACY.key())) {
             timeFormat =
                     TimeUtils.Formatter.parse(
-                            pluginConfig.getString(FileBaseSourceOptions.TIME_FORMAT.key()));
+                            pluginConfig.getString(FileBaseSourceOptions.TIME_FORMAT_LEGACY.key()));
         }
         if (pluginConfig.hasPath(FileBaseSourceOptions.COMPRESS_CODEC.key())) {
             String compressCodec =
