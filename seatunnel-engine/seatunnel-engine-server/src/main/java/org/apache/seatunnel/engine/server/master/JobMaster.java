@@ -361,6 +361,9 @@ public class JobMaster {
                     Long.parseLong(
                             jobEnv.get(EnvCommonOptions.CHECKPOINT_TIMEOUT.key()).toString()));
         }
+        if (!jobCheckpointConfig.isCheckpointEnable()) {
+            jobCheckpointConfig.setStorage(new CheckpointStorageConfig());
+        }
         return jobCheckpointConfig;
     }
 
