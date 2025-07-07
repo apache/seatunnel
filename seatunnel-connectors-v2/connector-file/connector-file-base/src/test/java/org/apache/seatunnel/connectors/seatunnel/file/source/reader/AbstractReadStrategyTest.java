@@ -43,7 +43,7 @@ import java.util.List;
 
 import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.FS_DEFAULT_NAME_DEFAULT;
 
-public static class AbstractReadStrategyTest {
+public class AbstractReadStrategyTest {
 
     @DisabledOnOs(OS.WINDOWS)
     @Test
