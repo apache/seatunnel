@@ -95,7 +95,8 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
     protected Pattern pattern;
     protected String fileModifiedStartDate;
     protected String fileModifiedEndDate;
-    protected String modifiedDateFormat;
+    protected String modifiedDateFormat =
+            FileBaseSourceOptions.FILE_FILTER_MODIFIED_DATE_FORMAT.defaultValue();
 
     @Override
     public void init(HadoopConf conf) {
