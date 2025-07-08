@@ -32,7 +32,7 @@ import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.core.starter.flowcontrol.FlowControlGate;
 import org.apache.seatunnel.core.starter.flowcontrol.FlowControlStrategy;
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
-import org.apache.seatunnel.engine.server.metrics.TaskMetricsCalcContext;
+import org.apache.seatunnel.engine.server.metrics.ConnectorMetricsCalcContext;
 import org.apache.seatunnel.engine.server.task.flow.OneInputFlowLifeCycle;
 
 import org.apache.commons.collections4.CollectionUtils;
@@ -52,9 +52,7 @@ public class SeaTunnelSourceCollector<T> implements Collector<T> {
 
     private final List<OneInputFlowLifeCycle<Record<?>>> outputs;
 
-    private final MetricsContext metricsContext;
-
-    private final TaskMetricsCalcContext taskMetricsCalcContext;
+    private final ConnectorMetricsCalcContext connectorMetricsCalcContext;
 
     private final AtomicBoolean schemaChangeBeforeCheckpointSignal = new AtomicBoolean(false);
 
@@ -77,14 +75,13 @@ public class SeaTunnelSourceCollector<T> implements Collector<T> {
         this.checkpointLock = checkpointLock;
         this.outputs = outputs;
         this.rowType = rowType;
-        this.metricsContext = metricsContext;
         if (rowType instanceof MultipleRowType) {
             ((MultipleRowType) rowType)
                     .iterator()
                     .forEachRemaining(type -> this.rowTypeMap.put(type.getKey(), type.getValue()));
         }
-        this.taskMetricsCalcContext =
-                new TaskMetricsCalcContext(
+        this.connectorMetricsCalcContext =
+                new ConnectorMetricsCalcContext(
                         metricsContext,
                         PluginType.SOURCE,
                         CollectionUtils.isNotEmpty(tablePaths),
@@ -97,6 +94,8 @@ public class SeaTunnelSourceCollector<T> implements Collector<T> {
         try {
             if (row instanceof SeaTunnelRow) {
                 String tableId = ((SeaTunnelRow) row).getTableId();
+                // init the size of row early with rowType, this way is faster than init the size
+                // without rowType
                 int size;
                 if (rowType instanceof SeaTunnelRowType) {
                     size = ((SeaTunnelRow) row).getBytesSize((SeaTunnelRowType) rowType);
@@ -107,7 +106,7 @@ public class SeaTunnelSourceCollector<T> implements Collector<T> {
                             "Unsupported row type: " + rowType.getClass().getName());
                 }
                 flowControlGate.audit((SeaTunnelRow) row);
-                taskMetricsCalcContext.updateMetrics(row, tableId);
+                connectorMetricsCalcContext.updateMetrics(row, tableId);
             }
             sendRecordToNext(new Record<>(row));
             emptyThisPollNext = false;

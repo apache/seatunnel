@@ -78,6 +78,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
+import static org.apache.seatunnel.api.common.metrics.MetricNames.INTERMEDIATE_QUEUE_SIZE;
 import static org.apache.seatunnel.api.common.metrics.MetricNames.SINK_WRITE_BYTES;
 import static org.apache.seatunnel.api.common.metrics.MetricNames.SINK_WRITE_BYTES_PER_SECONDS;
 import static org.apache.seatunnel.api.common.metrics.MetricNames.SINK_WRITE_COUNT;
@@ -245,7 +246,11 @@ public abstract class BaseService {
         Map<String, Object> metricsMap = new HashMap<>();
         // To add metrics, populate the corresponding array,
         String[] countMetricsNames = {
-            SOURCE_RECEIVED_COUNT, SINK_WRITE_COUNT, SOURCE_RECEIVED_BYTES, SINK_WRITE_BYTES
+            SOURCE_RECEIVED_COUNT,
+            SINK_WRITE_COUNT,
+            SOURCE_RECEIVED_BYTES,
+            SINK_WRITE_BYTES,
+            INTERMEDIATE_QUEUE_SIZE
         };
         String[] rateMetricsNames = {
             SOURCE_RECEIVED_QPS,
