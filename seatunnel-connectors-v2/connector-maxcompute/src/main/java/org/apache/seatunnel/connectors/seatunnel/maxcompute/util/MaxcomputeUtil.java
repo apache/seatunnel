@@ -68,15 +68,17 @@ public class MaxcomputeUtil {
                 PartitionSpec partitionSpec =
                         new PartitionSpec(readonlyConfig.get(MaxcomputeBaseOptions.PARTITION_SPEC));
                 session =
-                        tunnel.createDownloadSession(
-                                readonlyConfig.get(MaxcomputeBaseOptions.PROJECT),
-                                readonlyConfig.get(MaxcomputeBaseOptions.TABLE_NAME),
-                                partitionSpec);
+                        tunnel.buildDownloadSession(
+                                        readonlyConfig.get(MaxcomputeBaseOptions.PROJECT),
+                                        readonlyConfig.get(MaxcomputeBaseOptions.TABLE_NAME))
+                                .setPartitionSpec(partitionSpec)
+                                .build();
             } else {
                 session =
-                        tunnel.createDownloadSession(
-                                readonlyConfig.get(MaxcomputeBaseOptions.PROJECT),
-                                readonlyConfig.get(MaxcomputeBaseOptions.TABLE_NAME));
+                        tunnel.buildDownloadSession(
+                                        readonlyConfig.get(MaxcomputeBaseOptions.PROJECT),
+                                        readonlyConfig.get(MaxcomputeBaseOptions.TABLE_NAME))
+                                .build();
             }
         } catch (Exception e) {
             throw new MaxcomputeConnectorException(
@@ -93,12 +95,15 @@ public class MaxcomputeUtil {
             if (StringUtils.isNotEmpty(partitionSpec)) {
                 PartitionSpec partition = new PartitionSpec(partitionSpec);
                 session =
-                        tunnel.createDownloadSession(
-                                tablePath.getDatabaseName(), tablePath.getTableName(), partition);
+                        tunnel.buildDownloadSession(
+                                        tablePath.getDatabaseName(), tablePath.getTableName())
+                                .setPartitionSpec(partition)
+                                .build();
             } else {
                 session =
-                        tunnel.createDownloadSession(
-                                tablePath.getDatabaseName(), tablePath.getTableName());
+                        tunnel.buildDownloadSession(
+                                        tablePath.getDatabaseName(), tablePath.getTableName())
+                                .build();
             }
         } catch (Exception e) {
             throw new MaxcomputeConnectorException(
