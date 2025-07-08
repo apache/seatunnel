@@ -193,6 +193,7 @@ public class CheckpointStorageTest extends AbstractSeaTunnelServerTest {
                                 CheckpointStorageFactory.class,
                                 checkpointConfig.getStorage().getStorage())
                         .create(checkpointConfig.getStorage().getStoragePluginConfig());
+
         startJob(jobId, BATCH_CONF_WITHOUT_CHECKPOINT_INTERVAL_PATH, false);
         await().atMost(120000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
