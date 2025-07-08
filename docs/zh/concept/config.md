@@ -113,7 +113,7 @@ sink {
     fields = ["name", "age", "card"]
     username = "default"
     password = ""
-    plugin_input = "fake1"
+    plugin_input = "fake"
   }
 }
 ```

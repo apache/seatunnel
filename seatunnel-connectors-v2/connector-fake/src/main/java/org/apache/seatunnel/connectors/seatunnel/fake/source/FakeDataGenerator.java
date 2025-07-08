@@ -57,8 +57,6 @@ import java.util.List;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
-import static org.apache.seatunnel.api.table.type.SqlType.TIME;
-
 public class FakeDataGenerator {
     private static final String CURRENT_DATE = "CURRENT_DATE";
     private static final String CURRENT_TIME = "CURRENT_TIME";
@@ -72,7 +70,7 @@ public class FakeDataGenerator {
     private final FakeDataRandomUtils fakeDataRandomUtils;
     private String tableId;
 
-    public FakeDataGenerator(FakeConfig fakeConfig) {
+    public FakeDataGenerator(FakeConfig fakeConfig, String jobId) {
         this.catalogTable = fakeConfig.getCatalogTable();
         this.tableId = catalogTable.getTableId().toTablePath().toString();
         this.fakeConfig = fakeConfig;
@@ -80,7 +78,7 @@ public class FakeDataGenerator {
                 fakeConfig.getFakeRows() == null
                         ? null
                         : new JsonDeserializationSchema(catalogTable, false, false);
-        this.fakeDataRandomUtils = new FakeDataRandomUtils(fakeConfig);
+        this.fakeDataRandomUtils = new FakeDataRandomUtils(fakeConfig, jobId);
     }
 
     private SeaTunnelRow convertRow(FakeConfig.RowData rowData) {

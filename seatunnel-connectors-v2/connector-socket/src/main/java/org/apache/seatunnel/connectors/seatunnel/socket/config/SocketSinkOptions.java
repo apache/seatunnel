@@ -15,28 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.typesense.config;
+package org.apache.seatunnel.connectors.seatunnel.socket.config;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 
-public class SourceConfig {
+public class SocketSinkOptions extends SocketCommonOptions {
 
-    public static final Option<String> COLLECTION =
-            Options.key("collection")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("Typesense collection name");
+    private static final int DEFAULT_MAX_RETRIES = 3;
 
-    public static final Option<String> QUERY =
-            Options.key("query")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("Typesense query param");
-
-    public static final Option<Integer> QUERY_BATCH_SIZE =
-            Options.key("batch_size")
+    public static final Option<Integer> MAX_RETRIES =
+            Options.key("max_retries")
                     .intType()
-                    .defaultValue(100)
-                    .withDescription("Typesense query batch size");
+                    .defaultValue(DEFAULT_MAX_RETRIES)
+                    .withDescription("default value is " + DEFAULT_MAX_RETRIES + ", max retries");
 }

@@ -20,22 +20,21 @@ package org.apache.seatunnel.connectors.seatunnel.tablestore.sink;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
-import org.apache.seatunnel.connectors.seatunnel.tablestore.config.TablestoreOptions;
+import org.apache.seatunnel.connectors.seatunnel.tablestore.config.TableStoreConfig;
 import org.apache.seatunnel.connectors.seatunnel.tablestore.serialize.DefaultSeaTunnelRowSerializer;
 import org.apache.seatunnel.connectors.seatunnel.tablestore.serialize.SeaTunnelRowSerializer;
 
 import java.io.IOException;
 import java.util.Optional;
 
-public class TablestoreWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
+public class TableStoreWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
 
-    private final TablestoreSinkClient tablestoreSinkClient;
+    private final TableStoreSinkClient tablestoreSinkClient;
     private final SeaTunnelRowSerializer serializer;
 
-    public TablestoreWriter(
-            TablestoreOptions tablestoreOptions, SeaTunnelRowType seaTunnelRowType) {
-        tablestoreSinkClient = new TablestoreSinkClient(tablestoreOptions, seaTunnelRowType);
-        serializer = new DefaultSeaTunnelRowSerializer(seaTunnelRowType, tablestoreOptions);
+    public TableStoreWriter(TableStoreConfig tableStoreConfig, SeaTunnelRowType seaTunnelRowType) {
+        tablestoreSinkClient = new TableStoreSinkClient(tableStoreConfig, seaTunnelRowType);
+        serializer = new DefaultSeaTunnelRowSerializer(seaTunnelRowType, tableStoreConfig);
     }
 
     @Override

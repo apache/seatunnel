@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.utils;
 import org.apache.seatunnel.shade.com.google.common.base.Strings;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
@@ -63,6 +64,7 @@ import java.util.stream.Collectors;
 @Slf4j
 public class JdbcCatalogUtils {
     private static final String DEFAULT_CATALOG_NAME = "jdbc_catalog";
+    private static final String DOT_PLACEHOLDER = "__$DOT$__";
 
     public static Map<TablePath, JdbcSourceTable> getTables(
             JdbcConnectionConfig jdbcConnectionConfig, List<JdbcSourceTableConfig> tablesConfig)
@@ -83,24 +85,33 @@ public class JdbcCatalogUtils {
                 Map<String, Map<String, String>> unsupportedTable = new LinkedHashMap<>();
                 for (JdbcSourceTableConfig tableConfig : tablesConfig) {
                     try {
-                        CatalogTable catalogTable =
-                                getCatalogTable(tableConfig, jdbcCatalog, jdbcDialect);
-                        TablePath tablePath = catalogTable.getTableId().toTablePath();
-                        JdbcSourceTable jdbcSourceTable =
-                                JdbcSourceTable.builder()
-                                        .tablePath(tablePath)
-                                        .query(tableConfig.getQuery())
-                                        .partitionColumn(tableConfig.getPartitionColumn())
-                                        .partitionNumber(tableConfig.getPartitionNumber())
-                                        .partitionStart(tableConfig.getPartitionStart())
-                                        .partitionEnd(tableConfig.getPartitionEnd())
-                                        .useSelectCount(tableConfig.getUseSelectCount())
-                                        .skipAnalyze(tableConfig.getSkipAnalyze())
-                                        .catalogTable(catalogTable)
-                                        .build();
-                        tables.put(tablePath, jdbcSourceTable);
-                        if (log.isDebugEnabled()) {
-                            log.debug("Loaded catalog table : {}, {}", tablePath, jdbcSourceTable);
+                        if (StringUtils.isNotEmpty(tableConfig.getTablePath())
+                                && StringUtils.isEmpty(tableConfig.getQuery())
+                                && tableConfig.getUseRegex()) {
+                            processRegexTablePath(jdbcCatalog, jdbcDialect, tableConfig, tables);
+                        } else {
+                            CatalogTable catalogTable =
+                                    getCatalogTable(tableConfig, jdbcCatalog, jdbcDialect);
+                            TablePath tablePath = catalogTable.getTableId().toTablePath();
+                            JdbcSourceTable jdbcSourceTable =
+                                    JdbcSourceTable.builder()
+                                            .tablePath(tablePath)
+                                            .query(tableConfig.getQuery())
+                                            .partitionColumn(tableConfig.getPartitionColumn())
+                                            .partitionNumber(tableConfig.getPartitionNumber())
+                                            .partitionStart(tableConfig.getPartitionStart())
+                                            .partitionEnd(tableConfig.getPartitionEnd())
+                                            .useSelectCount(tableConfig.getUseSelectCount())
+                                            .skipAnalyze(tableConfig.getSkipAnalyze())
+                                            .catalogTable(catalogTable)
+                                            .build();
+                            tables.put(tablePath, jdbcSourceTable);
+                            if (log.isDebugEnabled()) {
+                                log.debug(
+                                        "Loaded catalog table : {}, {}",
+                                        tablePath,
+                                        jdbcSourceTable);
+                            }
                         }
                     } catch (SeaTunnelRuntimeException e) {
                         if (e.getSeaTunnelErrorCode()
@@ -408,5 +419,89 @@ public class JdbcCatalogUtils {
         catalogConfig.put(JdbcOptions.INT_TYPE_NARROWING.key(), config.isIntTypeNarrowing());
         catalogConfig.put(JdbcOptions.HANDLE_BLOB_AS_STRING.key(), config.isHandleBlobAsString());
         return ReadonlyConfig.fromMap(catalogConfig);
+    }
+
+    private static void processRegexTablePath(
+            AbstractJdbcCatalog jdbcCatalog,
+            JdbcDialect jdbcDialect,
+            JdbcSourceTableConfig tableConfig,
+            Map<TablePath, JdbcSourceTable> result)
+            throws SQLException {
+
+        String tablePath = tableConfig.getTablePath();
+        log.info("Processing table path with regex: {}", tablePath);
+
+        String processedTablePath = tablePath.replace("\\.", DOT_PLACEHOLDER);
+        log.debug("After replacing escaped dots with placeholder: {}", processedTablePath);
+
+        TablePath parsedPath = jdbcDialect.parse(processedTablePath);
+
+        String databasePattern = parsedPath.getDatabaseName();
+        String schemaPattern = parsedPath.getSchemaName();
+        String tableNamePattern = parsedPath.getTableName();
+
+        if (StringUtils.isEmpty(databasePattern)) {
+            databasePattern = ".*";
+        }
+
+        String fullTablePattern;
+        if (StringUtils.isNotEmpty(schemaPattern)) {
+            fullTablePattern =
+                    String.format(
+                            "%s.%s.%s",
+                            databasePattern.replace(DOT_PLACEHOLDER, "."),
+                            schemaPattern.replace(DOT_PLACEHOLDER, "."),
+                            tableNamePattern.replace(DOT_PLACEHOLDER, "."));
+        } else {
+            fullTablePattern =
+                    String.format(
+                            "%s.%s",
+                            databasePattern.replace(DOT_PLACEHOLDER, "."),
+                            tableNamePattern.replace(DOT_PLACEHOLDER, "."));
+        }
+
+        log.info(
+                "Parsed patterns - database: {}, full table pattern: {}",
+                databasePattern,
+                fullTablePattern);
+
+        Map<String, Object> configMap = new HashMap<>();
+        configMap.put(ConnectorCommonOptions.DATABASE_PATTERN.key(), databasePattern);
+        configMap.put(ConnectorCommonOptions.TABLE_PATTERN.key(), fullTablePattern);
+
+        ReadonlyConfig config = ReadonlyConfig.fromMap(configMap);
+
+        try {
+            List<CatalogTable> catalogTables = jdbcCatalog.getTables(config);
+
+            if (catalogTables.isEmpty()) {
+                log.warn("No tables found matching regex pattern: {}", tablePath);
+                return;
+            }
+
+            for (CatalogTable catalogTable : catalogTables) {
+                TablePath path = catalogTable.getTableId().toTablePath();
+
+                JdbcSourceTable jdbcSourceTable =
+                        JdbcSourceTable.builder()
+                                .tablePath(path)
+                                .partitionColumn(tableConfig.getPartitionColumn())
+                                .partitionNumber(tableConfig.getPartitionNumber())
+                                .partitionStart(tableConfig.getPartitionStart())
+                                .partitionEnd(tableConfig.getPartitionEnd())
+                                .useSelectCount(tableConfig.getUseSelectCount())
+                                .skipAnalyze(tableConfig.getSkipAnalyze())
+                                .catalogTable(catalogTable)
+                                .build();
+
+                result.put(path, jdbcSourceTable);
+                log.info("Found table matching regex pattern: {}", path);
+            }
+
+            log.info("Found {} tables matching regex pattern: {}", catalogTables.size(), tablePath);
+        } catch (Exception e) {
+            log.warn("Error processing table path with regex: {}", tablePath, e);
+            throw new SQLException("Failed to process regex table path: " + tablePath, e);
+        }
     }
 }

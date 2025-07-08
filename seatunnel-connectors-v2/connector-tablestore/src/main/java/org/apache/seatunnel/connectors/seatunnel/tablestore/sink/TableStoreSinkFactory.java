@@ -19,38 +19,39 @@ package org.apache.seatunnel.connectors.seatunnel.tablestore.sink;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.options.ConnectorCommonOptions;
+import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
+import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
+import org.apache.seatunnel.connectors.seatunnel.tablestore.config.TableStoreSinkOptions;
 
 import com.google.auto.service.AutoService;
 
-import static org.apache.seatunnel.connectors.seatunnel.tablestore.config.TablestoreConfig.ACCESS_KEY_ID;
-import static org.apache.seatunnel.connectors.seatunnel.tablestore.config.TablestoreConfig.ACCESS_KEY_SECRET;
-import static org.apache.seatunnel.connectors.seatunnel.tablestore.config.TablestoreConfig.BATCH_SIZE;
-import static org.apache.seatunnel.connectors.seatunnel.tablestore.config.TablestoreConfig.END_POINT;
-import static org.apache.seatunnel.connectors.seatunnel.tablestore.config.TablestoreConfig.INSTANCE_NAME;
-import static org.apache.seatunnel.connectors.seatunnel.tablestore.config.TablestoreConfig.PRIMARY_KEYS;
-import static org.apache.seatunnel.connectors.seatunnel.tablestore.config.TablestoreConfig.TABLE;
-
 @AutoService(Factory.class)
-public class TablestoreSinkFactory implements TableSinkFactory {
+public class TableStoreSinkFactory implements TableSinkFactory {
+
     @Override
     public String factoryIdentifier() {
-        return "Tablestore";
+        return TableStoreSinkOptions.identifier;
     }
 
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
                 .required(
-                        END_POINT,
-                        TABLE,
-                        INSTANCE_NAME,
-                        ACCESS_KEY_ID,
-                        ACCESS_KEY_SECRET,
-                        PRIMARY_KEYS,
+                        TableStoreSinkOptions.END_POINT,
+                        TableStoreSinkOptions.TABLE,
+                        TableStoreSinkOptions.INSTANCE_NAME,
+                        TableStoreSinkOptions.ACCESS_KEY_ID,
+                        TableStoreSinkOptions.ACCESS_KEY_SECRET,
+                        TableStoreSinkOptions.PRIMARY_KEYS,
                         ConnectorCommonOptions.SCHEMA)
-                .optional(BATCH_SIZE)
+                .optional(TableStoreSinkOptions.BATCH_SIZE)
                 .build();
+    }
+
+    @Override
+    public TableSink createSink(TableSinkFactoryContext context) {
+        return () -> new TableStoreSink(context.getOptions(), context.getCatalogTable());
     }
 }

@@ -22,7 +22,9 @@ import org.apache.seatunnel.api.configuration.Options;
 
 import java.util.List;
 
-public class TypesenseConnectionConfig {
+public class TypesenseBaseOptions {
+
+    public static final String CONNECTOR_IDENTITY = "Typesense";
 
     public static final Option<List<String>> HOSTS =
             Options.key("hosts")
@@ -42,4 +44,10 @@ public class TypesenseConnectionConfig {
                     .stringType()
                     .defaultValue("http")
                     .withDescription("Default is http , for Typesense Cloud use https");
+
+    public static final Option<String> COLLECTION =
+            Options.key("collection")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("Typesense collection name");
 }

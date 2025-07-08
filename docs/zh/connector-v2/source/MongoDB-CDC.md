@@ -107,22 +107,23 @@ db.createUser(
 
 ## 源配置项
 
-| Name                               | 类型   | 必须 | 默认值 | 描述                                                                                                                                                                                                                                                |
-|------------------------------------|--------|----------|---------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| hosts                              | String | 是      | -       | MongoDB服务器的主机名和端口对的逗号分隔列表。如 `localhost:27017,localhost:27018`                                                                                                                                                           |
-| username                           | String | 否       | -       | 连接到MongoDB时要使用的数据库用户的名称。                                                                                                                                                                                                |
-| password                           | String | 否       | -       | 连接到MongoDB时使用的密码。                                                                                                                                                                                                              |
-| database                           | List   | 是      | -       | 要监视更改的数据库的名称。如果未设置，则将捕获所有数据库。该数据库还支持正则表达式，以监视与正则表达式匹配的多个数据库。例如db1、db2。                                                    |
-| collection                         | List   | 是      | -       | 要监视更改的数据库中集合的名称。如果未设置，则将捕获所有集合。该集合还支持正则表达式来监视与完全限定的集合标识符匹配的多个集合。例如db1.coll1、db2.coll2。 |
-| schema                             |        | 否       | -       | 数据的结构，包括字段名和字段类型，使用单表cdc。                                                                                                                                                                                    |
-| tables_configs                     |        | 否       | -       | 数据的结构，包括字段名和字段类型，使用多表cdc。                                                                                                                                                                                    |
-| connection.options                 | String | 否       | -       | 与号分隔了MongoDB的连接选项。如。 `replicaSet=test&connectTimeoutMS=300000`.                                                                                                                                                         |
-| batch.size                         | Long   | 否       | 1024    | 批量大小。                                                                                                                                                                                                                                       |
-| poll.max.batch.size                | Enum   | 否       | 1024    | 轮询新数据时，单个批中包含的更改流文档的最大数量。                                                                                                                                                                          |
-| poll.await.time.ms                 | Long   | 否       | 1000    | 在检查更改流上的新结果之前等待的时间量。                                                                                                                                                                                          |
-| heartbeat.interval.ms              | String | 否       | 0       | 发送心跳消息之间的时间长度（毫秒）。使用0禁用。                                                                                                                                                                                   |
-| incremental.snapshot.chunk.size.mb | Long   | 否       | 64      | 增量快照的块大小（mb）。                                                                                                                                                                                                                   |
-| common-options                     |        | 否       | -       | 源插件常用参数，请参考 [Source Common Options](../source-common-options.md)                                                                                                                                                        |
+| Name                               | 类型   | 必须 | 默认值 | 描述                                                                                    |
+|------------------------------------|--------|----------|-------|---------------------------------------------------------------------------------------|
+| hosts                              | String | 是      | -     | MongoDB服务器的主机名和端口对的逗号分隔列表。如 `localhost:27017,localhost:27018`                         |
+| username                           | String | 否       | -     | 连接到MongoDB时要使用的数据库用户的名称。                                                              |
+| password                           | String | 否       | -     | 连接到MongoDB时使用的密码。                                                                     |
+| database                           | List   | 是      | -     | 要监视更改的数据库的名称。如果未设置，则将捕获所有数据库。该数据库还支持正则表达式，以监视与正则表达式匹配的多个数据库。例如db1、db2。                |
+| collection                         | List   | 是      | -     | 要监视更改的数据库中集合的名称。如果未设置，则将捕获所有集合。该集合还支持正则表达式来监视与完全限定的集合标识符匹配的多个集合。例如db1.coll1、db2.coll2。 |
+| schema                             |        | 否       | -     | 数据的结构，包括字段名和字段类型，使用单表cdc。                                                             |
+| tables_configs                     |        | 否       | -     | 数据的结构，包括字段名和字段类型，使用多表cdc。                                                             |
+| connection.options                 | String | 否       | -     | 与号分隔了MongoDB的连接选项。如。 `replicaSet=test&connectTimeoutMS=300000`.                       |
+| batch.size                         | Long   | 否       | 1024  | 批量大小。                                                                                 |
+| poll.max.batch.size                | Enum   | 否       | 1024  | 轮询新数据时，单个批中包含的更改流文档的最大数量。                                                             |
+| poll.await.time.ms                 | Long   | 否       | 1000  | 在检查更改流上的新结果之前等待的时间量。                                                                  |
+| heartbeat.interval.ms              | String | 否       | 0     | 发送心跳消息之间的时间长度（毫秒）。使用0禁用。                                                              |
+| incremental.snapshot.chunk.size.mb | Long   | 否       | 64    | 增量快照的块大小（mb）。                                                                         |
+| exactly_once                       | Boolean| 否       | false | 启用精确一次语义，若开启在大表快照阶段恢复时会有内存溢出风险。                                                       |
+| common-options                     |        | 否       | -     | 源插件常用参数，请参考 [Source Common Options](../source-common-options.md)                      |
 
 ### 提示
 

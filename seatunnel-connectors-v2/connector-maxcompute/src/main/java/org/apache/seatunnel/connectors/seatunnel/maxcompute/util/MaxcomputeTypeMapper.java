@@ -30,7 +30,6 @@ import org.apache.seatunnel.connectors.seatunnel.maxcompute.exception.Maxcompute
 import com.aliyun.odps.Column;
 import com.aliyun.odps.Table;
 import com.aliyun.odps.TableSchema;
-import com.aliyun.odps.data.ArrayRecord;
 import com.aliyun.odps.data.Binary;
 import com.aliyun.odps.data.Char;
 import com.aliyun.odps.data.Record;
@@ -69,11 +68,11 @@ public class MaxcomputeTypeMapper implements Serializable {
     }
 
     public static Record getMaxcomputeRowData(
+            Record record,
             SeaTunnelRow seaTunnelRow,
             TableSchema tableSchema,
             SeaTunnelRowType rowType,
             FormatterContext formatterContext) {
-        ArrayRecord arrayRecord = new ArrayRecord(tableSchema);
         for (int i = 0; i < seaTunnelRow.getFields().length; i++) {
             String fieldName = rowType.getFieldName(i);
             if (!tableSchema.containsColumn(fieldName)) {
@@ -85,12 +84,12 @@ public class MaxcomputeTypeMapper implements Serializable {
             }
             Column column = tableSchema.getColumn(fieldName);
 
-            arrayRecord.set(
+            record.set(
                     tableSchema.getColumnIndex(fieldName),
                     resolveObject2Maxcompute(
                             seaTunnelRow.getField(i), column.getTypeInfo(), formatterContext));
         }
-        return arrayRecord;
+        return record;
     }
 
     public static SeaTunnelRowType getSeaTunnelRowType(ReadonlyConfig config) {
