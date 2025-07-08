@@ -6,7 +6,7 @@ import ChangeLog from '../changelog/connector-iceberg.md';
 
 ## Iceberg 版本支持
 
-- 1.4.2
+- 1.6.1
 
 ## 引擎支持
 

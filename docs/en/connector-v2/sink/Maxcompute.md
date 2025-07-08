@@ -140,7 +140,7 @@ By default, the endpoint is automatically inferred from the configured region.
 This option allows you to override the default behavior and use a custom Tunnel endpoint.
 If not specified, the connector will use the region-based default Tunnel endpoint.
 
-In general, you do **not** need  to set tunnel_endpoint. It is only needed for custom networking, debugging, or local development.
+In general, you do **not** need to set tunnel_endpoint. It is only needed for custom networking, debugging, or local development.
 
 Example values:
 
