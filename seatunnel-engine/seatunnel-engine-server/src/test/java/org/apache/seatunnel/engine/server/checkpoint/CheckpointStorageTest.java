@@ -181,7 +181,7 @@ public class CheckpointStorageTest extends AbstractSeaTunnelServerTest {
     }
 
     @Test
-    public void testBatchJobWithOutCheckpoint() throws CheckpointStorageException {
+    public void testBatchJobResetCheckpointStorage() throws CheckpointStorageException {
         long jobId = System.currentTimeMillis();
         CheckpointConfig checkpointConfig =
                 server.getSeaTunnelConfig().getEngineConfig().getCheckpointConfig();
