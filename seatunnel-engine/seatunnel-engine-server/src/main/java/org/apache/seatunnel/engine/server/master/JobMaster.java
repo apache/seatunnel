@@ -345,7 +345,6 @@ public class JobMaster {
                 defaultCheckpointConfig.getStorage().getStoragePluginConfig());
         jobCheckpointStorageConfig.setMaxRetainedCheckpoints(
                 defaultCheckpointConfig.getStorage().getMaxRetainedCheckpoints());
-        jobCheckpointConfig.setStorage(jobCheckpointStorageConfig);
 
         if (jobEnv.containsKey(EnvCommonOptions.CHECKPOINT_INTERVAL.key())) {
             jobCheckpointConfig.setCheckpointInterval(
@@ -354,15 +353,16 @@ public class JobMaster {
         } else if (jobConfig.getJobContext().getJobMode() == BATCH) {
             LOGGER.info(
                     "in batch mode, the 'checkpoint.interval' configuration of env is missing, so checkpoint will be disabled");
+            // Reset the storage configuration to ensure no checkpoint storage is used when checkpointing is disabled.
+            jobCheckpointStorageConfig = new CheckpointStorageConfig();
             jobCheckpointConfig.setCheckpointEnable(false);
         }
+        jobCheckpointConfig.setStorage(jobCheckpointStorageConfig);
+
         if (jobEnv.containsKey(EnvCommonOptions.CHECKPOINT_TIMEOUT.key())) {
             jobCheckpointConfig.setCheckpointTimeout(
                     Long.parseLong(
                             jobEnv.get(EnvCommonOptions.CHECKPOINT_TIMEOUT.key()).toString()));
-        }
-        if (!jobCheckpointConfig.isCheckpointEnable()) {
-            jobCheckpointConfig.setStorage(new CheckpointStorageConfig());
         }
         return jobCheckpointConfig;
     }

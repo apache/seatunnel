@@ -45,6 +45,8 @@ public class CheckpointStorageTest extends AbstractSeaTunnelServerTest {
     public static String BATCH_CONF_PATH = "batch_fakesource_to_file.conf";
     public static String BATCH_CONF_WITH_CHECKPOINT_PATH =
             "batch_fakesource_to_file_with_checkpoint.conf";
+    public static String BATCH_CONF_WITHOUT_CHECKPOINT_PATH =
+            "batch_fake_to_without_checkpoint.conf";
 
     public static String STREAM_CONF_WITH_CHECKPOINT_PATH =
             "stream_fake_to_console_with_checkpoint.conf";
@@ -173,6 +175,31 @@ public class CheckpointStorageTest extends AbstractSeaTunnelServerTest {
                                 Assertions.assertEquals(
                                         server.getCoordinatorService().getJobStatus(jobId),
                                         JobStatus.CANCELED));
+        List<PipelineState> allCheckpoints =
+                checkpointStorage.getAllCheckpoints(String.valueOf(jobId));
+        Assertions.assertEquals(0, allCheckpoints.size());
+    }
+
+    @Test
+    public void testBatchJobWithOutCheckpoint() throws CheckpointStorageException {
+        long jobId = System.currentTimeMillis();
+        CheckpointConfig checkpointConfig =
+                server.getSeaTunnelConfig().getEngineConfig().getCheckpointConfig();
+        server.getSeaTunnelConfig().getEngineConfig().setCheckpointConfig(checkpointConfig);
+
+        CheckpointStorage checkpointStorage =
+                FactoryUtil.discoverFactory(
+                                Thread.currentThread().getContextClassLoader(),
+                                CheckpointStorageFactory.class,
+                                checkpointConfig.getStorage().getStorage())
+                        .create(checkpointConfig.getStorage().getStoragePluginConfig());
+        startJob(jobId, BATCH_CONF_WITHOUT_CHECKPOINT_PATH, false);
+        await().atMost(120000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        server.getCoordinatorService().getJobStatus(jobId),
+                                        JobStatus.FINISHED));
         List<PipelineState> allCheckpoints =
                 checkpointStorage.getAllCheckpoints(String.valueOf(jobId));
         Assertions.assertEquals(0, allCheckpoints.size());
