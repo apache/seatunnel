@@ -158,7 +158,15 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
     protected boolean filterFileByModificationDate(FileStatus fileStatus) {
 
         long fileModifiedTime = fileStatus.getModificationTime();
-        SimpleDateFormat dateFormat = new SimpleDateFormat(modifiedDateFormat);
+        SimpleDateFormat dateFormat;
+        if (modifiedDateFormat != null) {
+            dateFormat = new SimpleDateFormat(modifiedDateFormat);
+        } else {
+            dateFormat =
+                    new SimpleDateFormat(
+                            FileBaseSourceOptions.FILE_FILTER_MODIFIED_DATE_FORMAT.defaultValue());
+        }
+
         dateFormat.setTimeZone(TimeZone.getTimeZone("GMT+8"));
         Date startTime;
         Date endTime;
