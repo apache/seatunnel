@@ -39,6 +39,17 @@ When using `ROUTE_TO_TABLE` mode, DataValidator automatically creates an error t
 | validation_errors | STRING | JSON array of validation error details containing all failed fields and error information |
 | create_time | TIMESTAMP | Creation time of the validation error |
 
+**Complete Error Table Record Example**:
+```json
+{
+  "source_table_id": "users_table",
+  "source_table_path": "database.users",
+  "original_data": "{\"id\": 123, \"name\": null, \"age\": 200, \"email\": \"invalid-email\"}",
+  "validation_errors": "[{\"field_name\": \"name\", \"error_message\": \"Field 'name' cannot be null\"}, {\"field_name\": \"age\", \"error_message\": \"Field 'age' value 200 is not within range [0, 150]\"}, {\"field_name\": \"email\", \"error_message\": \"Field 'email' does not match pattern '^[\\\\w-\\\\.]+@([\\\\w-]+\\\\.)+[\\\\w-]{2,4}$'\"}]",
+  "create_time": "2024-01-15T10:30:45"
+}
+```
+
 **Data Routing Mechanism**:
 - Data that passes validation maintains the original schema and is routed to the main output table
 - Data that fails validation is converted to the error table schema format above and routed to the specified error table

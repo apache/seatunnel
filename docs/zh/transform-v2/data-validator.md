@@ -39,6 +39,17 @@ DataValidator 转换插件根据配置的规则验证字段值，并基于指定
 | validation_errors | STRING | 验证错误详情的JSON数组，包含所有验证失败的字段和错误信息 |
 | create_time | TIMESTAMP | 验证错误的创建时间 |
 
+**完整错误表记录示例**：
+```json
+{
+  "source_table_id": "users_table",
+  "source_table_path": "database.users",
+  "original_data": "{\"id\": 123, \"name\": null, \"age\": 200, \"email\": \"invalid-email\"}",
+  "validation_errors": "[{\"field_name\": \"name\", \"error_message\": \"Field 'name' cannot be null\"}, {\"field_name\": \"age\", \"error_message\": \"Field 'age' value 200 is not within range [0, 150]\"}, {\"field_name\": \"email\", \"error_message\": \"Field 'email' does not match pattern '^[\\\\w-\\\\.]+@([\\\\w-]+\\\\.)+[\\\\w-]{2,4}$'\"}]",
+  "create_time": "2024-01-15T10:30:45"
+}
+```
+
 **数据路由机制**：
 - 验证通过的数据会保持原始schema并路由到主输出表
 - 验证失败的数据会被转换为上述错误表schema格式并路由到指定的错误表
