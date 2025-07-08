@@ -199,12 +199,26 @@ public class CoordinatorServiceTest {
             throw new RuntimeException(e);
         }
 
+        Assertions.assertTrue(
+                Thread.getAllStackTraces().keySet().stream()
+                        .anyMatch(
+                                thread ->
+                                        thread.getName().startsWith("pending-job-schedule-runner")),
+                "There should be some pending-job-schedule-runner thread after submit job");
+
         coordinatorService.clearCoordinatorService();
 
         // because runningJobMasterMap is empty and we have no JobHistoryServer, so return
         // UNKNOWABLE.
         Assertions.assertTrue(JobStatus.UNKNOWABLE.equals(coordinatorService.getJobStatus(jobId)));
         coordinatorServiceTest.shutdown();
+
+        Assertions.assertFalse(
+                Thread.getAllStackTraces().keySet().stream()
+                        .anyMatch(
+                                thread ->
+                                        thread.getName().startsWith("pending-job-schedule-runner")),
+                "There should not be any pending-job-schedule-runner thread after clear coordinator service");
     }
 
     @Test
