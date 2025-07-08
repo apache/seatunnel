@@ -292,7 +292,8 @@ public class ClickhouseValueReader implements Serializable {
                                     log.info("StreamValueReader finished reading data");
                                 }
                             }
-                        });
+                        },
+                        "clickhouse-stream-reader-" + clickhouseSourceSplit.getSplitId());
 
         public boolean hasNext() {
             List<SeaTunnelRow> rows = new ArrayList<>();
