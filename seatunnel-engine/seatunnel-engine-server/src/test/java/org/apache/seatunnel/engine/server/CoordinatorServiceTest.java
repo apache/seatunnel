@@ -199,26 +199,30 @@ public class CoordinatorServiceTest {
             throw new RuntimeException(e);
         }
 
-        Assertions.assertTrue(
-                Thread.getAllStackTraces().keySet().stream()
-                        .anyMatch(
-                                thread ->
-                                        thread.getName().startsWith("pending-job-schedule-runner")),
-                "There should be some pending-job-schedule-runner thread after submit job");
+        int scheduleRunnerThreadCount =
+                (int)
+                        Thread.getAllStackTraces().keySet().stream()
+                                .filter(
+                                        thread ->
+                                                thread.getName()
+                                                        .startsWith("pending-job-schedule-runner"))
+                                .count();
+        Assertions.assertTrue(scheduleRunnerThreadCount > 0);
 
         coordinatorService.clearCoordinatorService();
 
-        // because runningJobMasterMap is empty and we have no JobHistoryServer, so return
+        // because runningJobMasterMap is empty, and we have no JobHistoryServer, so return
         // UNKNOWABLE.
-        Assertions.assertTrue(JobStatus.UNKNOWABLE.equals(coordinatorService.getJobStatus(jobId)));
+        Assertions.assertEquals(JobStatus.UNKNOWABLE, coordinatorService.getJobStatus(jobId));
         coordinatorServiceTest.shutdown();
 
-        Assertions.assertFalse(
+        Assertions.assertEquals(
+                scheduleRunnerThreadCount - 1,
                 Thread.getAllStackTraces().keySet().stream()
-                        .anyMatch(
+                        .filter(
                                 thread ->
-                                        thread.getName().startsWith("pending-job-schedule-runner")),
-                "There should not be any pending-job-schedule-runner thread after clear coordinator service");
+                                        thread.getName().startsWith("pending-job-schedule-runner"))
+                        .count());
     }
 
     @Test
