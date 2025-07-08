@@ -58,7 +58,8 @@ public class TestDataValidatorIT extends TestSuiteBase {
         // Check for specific validation rule failure (NOT_NULL for name field)
         Assertions.assertTrue(
                 stderr.contains("name") || stderr.contains("NOT_NULL") || stderr.contains("null"),
-                "stderr should contain reference to name field validation failure, but was: " + stderr);
+                "stderr should contain reference to name field validation failure, but was: "
+                        + stderr);
     }
 
     @TestTemplate
