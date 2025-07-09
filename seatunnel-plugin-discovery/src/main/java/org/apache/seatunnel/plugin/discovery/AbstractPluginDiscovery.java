@@ -441,8 +441,7 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
                 pluginJarPaths = Collections.singletonList(targetPluginFiles[0].toURI().toURL());
             } else {
                 pluginJarPaths =
-                        selectPluginJar(targetPluginFiles, pluginJarPrefix, pluginName, type)
-                                .get();
+                        selectPluginJar(targetPluginFiles, pluginJarPrefix, pluginName, type).get();
             }
         } catch (MalformedURLException e) {
             throw new RuntimeException(e);
