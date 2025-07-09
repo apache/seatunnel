@@ -71,6 +71,7 @@ public class MaxcomputeUtil {
                         tunnel.buildDownloadSession(
                                         readonlyConfig.get(MaxcomputeBaseOptions.PROJECT),
                                         readonlyConfig.get(MaxcomputeBaseOptions.TABLE_NAME))
+                                .setSchemaName(tunnel.getConfig().getOdps().getCurrentSchema())
                                 .setPartitionSpec(partitionSpec)
                                 .build();
             } else {
@@ -78,6 +79,7 @@ public class MaxcomputeUtil {
                         tunnel.buildDownloadSession(
                                         readonlyConfig.get(MaxcomputeBaseOptions.PROJECT),
                                         readonlyConfig.get(MaxcomputeBaseOptions.TABLE_NAME))
+                                .setSchemaName(tunnel.getConfig().getOdps().getCurrentSchema())
                                 .build();
             }
         } catch (Exception e) {
@@ -97,12 +99,14 @@ public class MaxcomputeUtil {
                 session =
                         tunnel.buildDownloadSession(
                                         tablePath.getDatabaseName(), tablePath.getTableName())
+                                .setSchemaName(tunnel.getConfig().getOdps().getCurrentSchema())
                                 .setPartitionSpec(partition)
                                 .build();
             } else {
                 session =
                         tunnel.buildDownloadSession(
                                         tablePath.getDatabaseName(), tablePath.getTableName())
+                                .setSchemaName(tunnel.getConfig().getOdps().getCurrentSchema())
                                 .build();
             }
         } catch (Exception e) {
