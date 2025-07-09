@@ -354,7 +354,8 @@ public class JobMaster {
             LOGGER.info(
                     "in batch mode, the 'checkpoint.interval' configuration of env is missing, so checkpoint will be disabled");
             jobCheckpointConfig.setCheckpointEnable(false);
-            // Reset the storage configuration to ensure no checkpoint storage is used when checkpointing is disabled.
+            // Reset the storage configuration to ensure no checkpoint storage is used when
+            // checkpointing is disabled.
             jobCheckpointStorageConfig = new CheckpointStorageConfig();
         }
         jobCheckpointConfig.setStorage(jobCheckpointStorageConfig);
