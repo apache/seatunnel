@@ -31,6 +31,7 @@ import com.aliyun.odps.Table;
 import com.aliyun.odps.account.Account;
 import com.aliyun.odps.account.AliyunAccount;
 import com.aliyun.odps.tunnel.TableTunnel;
+import com.aliyun.odps.tunnel.TunnelException;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
@@ -68,19 +69,18 @@ public class MaxcomputeUtil {
                 PartitionSpec partitionSpec =
                         new PartitionSpec(readonlyConfig.get(MaxcomputeBaseOptions.PARTITION_SPEC));
                 session =
-                        tunnel.buildDownloadSession(
-                                        readonlyConfig.get(MaxcomputeBaseOptions.PROJECT),
-                                        readonlyConfig.get(MaxcomputeBaseOptions.TABLE_NAME))
-                                .setSchemaName(tunnel.getConfig().getOdps().getCurrentSchema())
-                                .setPartitionSpec(partitionSpec)
-                                .build();
+                        buildDownloadSession(
+                                tunnel,
+                                readonlyConfig.get(MaxcomputeBaseOptions.PROJECT),
+                                readonlyConfig.get(MaxcomputeBaseOptions.TABLE_NAME),
+                                partitionSpec);
             } else {
                 session =
-                        tunnel.buildDownloadSession(
-                                        readonlyConfig.get(MaxcomputeBaseOptions.PROJECT),
-                                        readonlyConfig.get(MaxcomputeBaseOptions.TABLE_NAME))
-                                .setSchemaName(tunnel.getConfig().getOdps().getCurrentSchema())
-                                .build();
+                        buildDownloadSession(
+                                tunnel,
+                                readonlyConfig.get(MaxcomputeBaseOptions.PROJECT),
+                                readonlyConfig.get(MaxcomputeBaseOptions.TABLE_NAME),
+                                null);
             }
         } catch (Exception e) {
             throw new MaxcomputeConnectorException(
@@ -97,17 +97,18 @@ public class MaxcomputeUtil {
             if (StringUtils.isNotEmpty(partitionSpec)) {
                 PartitionSpec partition = new PartitionSpec(partitionSpec);
                 session =
-                        tunnel.buildDownloadSession(
-                                        tablePath.getDatabaseName(), tablePath.getTableName())
-                                .setSchemaName(tunnel.getConfig().getOdps().getCurrentSchema())
-                                .setPartitionSpec(partition)
-                                .build();
+                        buildDownloadSession(
+                                tunnel,
+                                tablePath.getDatabaseName(),
+                                tablePath.getTableName(),
+                                partition);
             } else {
                 session =
-                        tunnel.buildDownloadSession(
-                                        tablePath.getDatabaseName(), tablePath.getTableName())
-                                .setSchemaName(tunnel.getConfig().getOdps().getCurrentSchema())
-                                .build();
+                        buildDownloadSession(
+                                tunnel,
+                                tablePath.getDatabaseName(),
+                                tablePath.getTableName(),
+                                null);
             }
         } catch (Exception e) {
             throw new MaxcomputeConnectorException(
@@ -129,5 +130,14 @@ public class MaxcomputeUtil {
                             projectName, tableName, ex.getMessage()),
                     ex);
         }
+    }
+
+    private static TableTunnel.DownloadSession buildDownloadSession(
+            TableTunnel tunnel, String projectName, String tableName, PartitionSpec partitionSpec)
+            throws TunnelException {
+        return tunnel.buildDownloadSession(projectName, tableName)
+                .setSchemaName(tunnel.getConfig().getOdps().getCurrentSchema())
+                .setPartitionSpec(partitionSpec)
+                .build();
     }
 }
