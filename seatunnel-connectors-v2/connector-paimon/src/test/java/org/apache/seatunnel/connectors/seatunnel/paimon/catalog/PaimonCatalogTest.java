@@ -238,7 +238,7 @@ public class PaimonCatalogTest {
                         new ArrayList<>(),
                         "test table");
         Assertions.assertThrows(
-                PaimonConnectorException.class,
+                RuntimeException.class,
                 () -> {
                     try {
                         paimonCatalog.createTable(

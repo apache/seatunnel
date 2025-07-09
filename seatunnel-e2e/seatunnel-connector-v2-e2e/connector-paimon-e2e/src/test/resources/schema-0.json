@@ -71,5 +71,7 @@
   "highestFieldId" : 14,
   "partitionKeys" : [ ],
   "primaryKeys" : [ ],
-  "options" : { }
+  "options" : {
+    "bucket": -1
+  }
 }

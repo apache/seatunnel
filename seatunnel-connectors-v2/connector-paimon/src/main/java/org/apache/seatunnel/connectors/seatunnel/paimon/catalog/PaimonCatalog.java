@@ -39,6 +39,7 @@ import org.apache.seatunnel.connectors.seatunnel.paimon.exception.PaimonConnecto
 import org.apache.seatunnel.connectors.seatunnel.paimon.sink.PaimonSink;
 import org.apache.seatunnel.connectors.seatunnel.paimon.utils.SchemaUtil;
 
+import org.apache.paimon.catalog.Database;
 import org.apache.paimon.catalog.Identifier;
 import org.apache.paimon.schema.Schema;
 import org.apache.paimon.schema.SchemaChange;
@@ -52,6 +53,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -104,7 +106,12 @@ public class PaimonCatalog implements Catalog, PaimonTable {
 
     @Override
     public boolean databaseExists(String databaseName) throws CatalogException {
-        return catalog.databaseExists(databaseName);
+        try {
+            Database database = catalog.getDatabase(databaseName);
+            return Objects.nonNull(database);
+        } catch (org.apache.paimon.catalog.Catalog.DatabaseNotExistException e) {
+            return false;
+        }
     }
 
     @Override
@@ -124,7 +131,12 @@ public class PaimonCatalog implements Catalog, PaimonTable {
 
     @Override
     public boolean tableExists(TablePath tablePath) throws CatalogException {
-        return catalog.tableExists(toIdentifier(tablePath));
+        try {
+            Table database = catalog.getTable(toIdentifier(tablePath));
+            return Objects.nonNull(database);
+        } catch (org.apache.paimon.catalog.Catalog.TableNotExistException e) {
+            return false;
+        }
     }
 
     @Override
@@ -219,7 +231,14 @@ public class PaimonCatalog implements Catalog, PaimonTable {
         Schema.Builder builder = Schema.newBuilder();
         schema.fields()
                 .forEach(field -> builder.column(field.name(), field.type(), field.description()));
-        builder.options(schema.options());
+        Map<String, String> map = new HashMap<>();
+        schema.options()
+                .forEach(
+                        (x, y) -> {
+                            map.put(x, y);
+                        });
+        map.remove("path");
+        builder.options(map);
         builder.primaryKey(schema.primaryKeys());
         builder.partitionKeys(schema.partitionKeys());
         builder.comment(schema.comment());

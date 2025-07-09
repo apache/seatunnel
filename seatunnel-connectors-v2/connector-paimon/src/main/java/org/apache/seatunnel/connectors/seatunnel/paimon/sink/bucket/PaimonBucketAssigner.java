@@ -52,7 +52,8 @@ public class PaimonBucketAssigner {
         long dynamicBucketTargetRowNum =
                 ((FileStoreTable) table).coreOptions().dynamicBucketTargetRowNum();
         this.simpleHashBucketAssigner =
-                new SimpleHashBucketAssigner(numAssigners, assignId, dynamicBucketTargetRowNum);
+                new SimpleHashBucketAssigner(
+                        numAssigners, assignId, dynamicBucketTargetRowNum, 1000);
         loadBucketIndex(fileStoreTable, numAssigners, assignId);
     }
 
