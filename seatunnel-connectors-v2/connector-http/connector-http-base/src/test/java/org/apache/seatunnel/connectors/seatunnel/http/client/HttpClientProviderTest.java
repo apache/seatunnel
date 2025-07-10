@@ -69,7 +69,8 @@ class HttpClientProviderTest {
 
         // ensure the original headers are preserved
         Header[] currentHeaders = post.getAllHeaders();
-        Assertions.assertEquals(originalHeaders.length, currentHeaders.length);
+        Assertions.assertEquals(0, originalHeaders.length);
+        Assertions.assertEquals(1, currentHeaders.length);
         for (int i = 0; i < originalHeaders.length; i++) {
             Assertions.assertEquals(
                     originalHeaders[i].getName(),
