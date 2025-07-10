@@ -77,4 +77,10 @@ public class MaxcomputeBaseOptions implements Serializable {
                     .intType()
                     .defaultValue(10000)
                     .withDescription("Number of rows per split. default: 10000");
+
+    public static final Option<String> TUNNEL_ENDPOINT =
+            Options.key("tunnel_endpoint")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("Tunnel endpoint, e.g. http://maxcompute:8080");
 }
