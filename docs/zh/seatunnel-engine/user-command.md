@@ -51,6 +51,7 @@ Usage: seatunnel.sh [options]
                                     ',' as separator, when inside "", ',' are 
                                     treated as normal characters instead of 
                                     delimiters. (default: [])
+    --print-job-event               Print job events during execution.
 
 ```
 

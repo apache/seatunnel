@@ -36,6 +36,7 @@ Usage: seatunnel.sh [options]
     -r, --restore                   Restore with savepoint by jobId.
     -s, --savepoint                 Savepoint the job by jobId.
     -i, --variable                  Variable substitution, such as -i city=beijing, or -i date=20190318. We use ',' as a separator. When inside "", ',' are treated as normal characters instead of delimiters. (default: []).
+    --print-job-event               Print job events during execution.
 
 ```
 

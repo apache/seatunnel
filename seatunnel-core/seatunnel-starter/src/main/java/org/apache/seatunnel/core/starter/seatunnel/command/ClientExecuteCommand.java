@@ -240,7 +240,9 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
             throw new CommandExecuteException("SeaTunnel job executed failed", e);
         } finally {
 
-            printEvent(jobId);
+            if (clientCommandArgs.isPrintJobEvent()) {
+                printEvent(jobId);
+            }
 
             if (jobMetricsSummary != null) {
                 // print job statistics information when job finished

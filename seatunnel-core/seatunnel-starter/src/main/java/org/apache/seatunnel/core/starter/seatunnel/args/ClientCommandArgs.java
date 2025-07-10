@@ -105,6 +105,11 @@ public class ClientCommandArgs extends AbstractCommandArgs {
             description = "Close client the task will also be closed")
     private boolean closeJob = true;
 
+    @Parameter(
+            names = {"--print-job-event"},
+            description = "Print job events during execution")
+    private boolean printJobEvent = false;
+
     @Override
     public Command<?> buildCommand() {
         Common.setDeployMode(getDeployMode());
