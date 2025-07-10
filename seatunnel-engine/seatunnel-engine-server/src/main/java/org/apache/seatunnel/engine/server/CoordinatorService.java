@@ -230,6 +230,8 @@ public class CoordinatorService {
                     while (true) {
                         try {
                             pendingJobSchedule();
+                        } catch (InterruptedException interrupted) {
+                            throw new RuntimeException(interrupted);
                         } catch (Throwable e) {
                             logger.severe("Error in pending job schedule thread", e);
                             try {
