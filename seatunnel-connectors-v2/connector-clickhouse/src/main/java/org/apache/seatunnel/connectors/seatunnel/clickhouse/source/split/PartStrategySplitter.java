@@ -41,7 +41,8 @@ public class PartStrategySplitter implements Splitter, AutoCloseable, Serializab
 
     private static final long serialVersionUID = 1284356772463422708L;
 
-    public List<ClickhouseSourceSplit> generateSplits(ClickhouseSourceTable clickhouseSourceTable) {
+    public List<ClickhouseSourceSplit> generateSplits(
+            ClickhouseSourceTable clickhouseSourceTable, List<Shard> clusterShardList) {
         log.info(
                 "start part strategy splitter generate splits. table: {}",
                 clickhouseSourceTable.getTablePath());
@@ -49,21 +50,19 @@ public class PartStrategySplitter implements Splitter, AutoCloseable, Serializab
         ClickhouseTable clickhouseTable = clickhouseSourceTable.getClickhouseTable();
         Map<Shard, List<ClickhousePart>> shardToParts = new HashMap<>();
 
-        clickhouseSourceTable
-                .getClusterShardList()
-                .forEach(
-                        shard -> {
-                            try (ClickhouseProxy proxy = new ClickhouseProxy(shard.getNode())) {
-                                List<ClickhousePart> partList =
-                                        proxy.getPartList(
-                                                clickhouseTable.getLocalDatabase(),
-                                                clickhouseTable.getLocalTableName(),
-                                                shard,
-                                                clickhouseSourceTable.getPartitionList());
+        clusterShardList.forEach(
+                shard -> {
+                    try (ClickhouseProxy proxy = new ClickhouseProxy(shard.getNode())) {
+                        List<ClickhousePart> partList =
+                                proxy.getPartList(
+                                        clickhouseTable.getLocalDatabase(),
+                                        clickhouseTable.getLocalTableName(),
+                                        shard,
+                                        clickhouseSourceTable.getPartitionList());
 
-                                shardToParts.put(shard, partList);
-                            }
-                        });
+                        shardToParts.put(shard, partList);
+                    }
+                });
 
         // generate splits
         return partMapToSplits(clickhouseSourceTable, shardToParts);

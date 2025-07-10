@@ -34,14 +34,15 @@ import java.util.List;
 public class SqlStrategySplitter implements Splitter, AutoCloseable, Serializable {
     private static final long serialVersionUID = -6512116577805882794L;
 
-    public List<ClickhouseSourceSplit> generateSplits(ClickhouseSourceTable clickhouseSourceTable) {
+    public List<ClickhouseSourceSplit> generateSplits(
+            ClickhouseSourceTable clickhouseSourceTable, List<Shard> clusterShardList) {
         log.info(
                 "start sql strategy splitter generate splits. table: {}",
                 clickhouseSourceTable.getTablePath());
 
         if (clickhouseSourceTable.isComplexSql()) {
             log.info("Complex SQL detected, creating a single split for the query.");
-            return createSingleSplit(clickhouseSourceTable);
+            return createSingleSplit(clickhouseSourceTable, clusterShardList);
         }
 
         List<ClickhouseSourceSplit> splits = new ArrayList<>();
@@ -50,26 +51,24 @@ public class SqlStrategySplitter implements Splitter, AutoCloseable, Serializabl
         String querySql = rewriteQueryForLocalTable(clickhouseSourceTable, clickhouseTable);
 
         // parallelism reading based on input sql, creating splits for each shard
-        clickhouseSourceTable
-                .getClusterShardList()
-                .forEach(
-                        shard ->
-                                splits.add(
-                                        new ClickhouseSourceSplit(
-                                                TablePath.of(
-                                                        clickhouseTable.getLocalDatabase(),
-                                                        clickhouseTable.getLocalTableName()),
-                                                TablePath.of(
-                                                        clickhouseTable.getDatabase(),
-                                                        clickhouseTable.getTableName()),
-                                                new ArrayList<>(),
+        clusterShardList.forEach(
+                shard ->
+                        splits.add(
+                                new ClickhouseSourceSplit(
+                                        TablePath.of(
+                                                clickhouseTable.getLocalDatabase(),
+                                                clickhouseTable.getLocalTableName()),
+                                        TablePath.of(
+                                                clickhouseTable.getDatabase(),
+                                                clickhouseTable.getTableName()),
+                                        new ArrayList<>(),
+                                        shard,
+                                        querySql,
+                                        0,
+                                        createSplitId(
+                                                clickhouseSourceTable.getTablePath(),
                                                 shard,
-                                                querySql,
-                                                0,
-                                                createSplitId(
-                                                        clickhouseSourceTable.getTablePath(),
-                                                        shard,
-                                                        splits.size()))));
+                                                splits.size()))));
 
         log.info("generate splits size: {}", splits.size());
         return splits;
@@ -94,19 +93,17 @@ public class SqlStrategySplitter implements Splitter, AutoCloseable, Serializabl
     }
 
     private List<ClickhouseSourceSplit> createSingleSplit(
-            ClickhouseSourceTable clickhouseSourceTable) {
+            ClickhouseSourceTable clickhouseSourceTable, List<Shard> clusterShardList) {
         return Collections.singletonList(
                 new ClickhouseSourceSplit(
                         clickhouseSourceTable.getTablePath(),
                         clickhouseSourceTable.getTablePath(),
                         new ArrayList<>(),
-                        clickhouseSourceTable.getClusterShardList().get(0),
+                        clusterShardList.get(0),
                         clickhouseSourceTable.getOriginQuery(),
                         0,
                         createSplitId(
-                                clickhouseSourceTable.getTablePath(),
-                                clickhouseSourceTable.getClusterShardList().get(0),
-                                0)));
+                                clickhouseSourceTable.getTablePath(), clusterShardList.get(0), 0)));
     }
 
     @Override

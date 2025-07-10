@@ -83,7 +83,7 @@ public class ClickhouseSource
     public SourceSplitEnumerator<ClickhouseSourceSplit, ClickhouseSourceState> createEnumerator(
             SourceSplitEnumerator.Context<ClickhouseSourceSplit> enumeratorContext) {
         return new ClickhouseSourceSplitEnumerator(
-                enumeratorContext, clickhouseSourceConfig, clickhouseSourceTables);
+                enumeratorContext, clickhouseSourceConfig, clickhouseSourceTables, servers);
     }
 
     @Override
@@ -91,6 +91,10 @@ public class ClickhouseSource
             SourceSplitEnumerator.Context<ClickhouseSourceSplit> enumeratorContext,
             ClickhouseSourceState checkpointState) {
         return new ClickhouseSourceSplitEnumerator(
-                enumeratorContext, clickhouseSourceConfig, clickhouseSourceTables, checkpointState);
+                enumeratorContext,
+                clickhouseSourceConfig,
+                clickhouseSourceTables,
+                servers,
+                checkpointState);
     }
 }

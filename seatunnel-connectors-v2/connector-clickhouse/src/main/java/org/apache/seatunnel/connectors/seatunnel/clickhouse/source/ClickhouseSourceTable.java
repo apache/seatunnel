@@ -18,7 +18,6 @@
 package org.apache.seatunnel.connectors.seatunnel.clickhouse.source;
 
 import org.apache.seatunnel.api.table.catalog.TablePath;
-import org.apache.seatunnel.connectors.seatunnel.clickhouse.shard.Shard;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.file.ClickhouseTable;
 
 import lombok.Builder;
@@ -38,7 +37,6 @@ public class ClickhouseSourceTable implements Serializable {
     private Integer splitSize;
     private Integer batchSize;
     private List<String> partitionList;
-    private List<Shard> clusterShardList;
     private ClickhouseTable clickhouseTable;
     private boolean isSqlStrategyRead;
     private boolean isComplexSql;

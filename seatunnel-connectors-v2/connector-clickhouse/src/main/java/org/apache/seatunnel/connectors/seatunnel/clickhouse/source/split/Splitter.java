@@ -26,7 +26,8 @@ import java.util.List;
 
 public interface Splitter {
 
-    List<ClickhouseSourceSplit> generateSplits(ClickhouseSourceTable clickhouseSourceTable);
+    List<ClickhouseSourceSplit> generateSplits(
+            ClickhouseSourceTable clickhouseSourceTable, List<Shard> clusterShardList);
 
     String createSplitId(TablePath tablePath, Shard shard, int index);
 

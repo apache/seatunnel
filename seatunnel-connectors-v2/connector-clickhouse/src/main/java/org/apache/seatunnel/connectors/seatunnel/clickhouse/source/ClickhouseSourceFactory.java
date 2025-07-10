@@ -32,13 +32,10 @@ import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseSourceConfig;
-import org.apache.seatunnel.connectors.seatunnel.clickhouse.exception.ClickhouseConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.exception.ClickhouseConnectorException;
-import org.apache.seatunnel.connectors.seatunnel.clickhouse.shard.Shard;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.file.ClickhouseTable;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.util.ClickhouseProxy;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.util.ClickhouseUtil;
-import org.apache.seatunnel.connectors.seatunnel.clickhouse.util.DistributedEngine;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.util.TypeConvertUtil;
 
 import org.apache.commons.lang3.StringUtils;
@@ -50,13 +47,11 @@ import com.clickhouse.client.ClickHouseResponse;
 import com.google.auto.service.AutoService;
 
 import java.io.Serializable;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
-import java.util.stream.IntStream;
 
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseBaseOptions.CLICKHOUSE_CONFIG;
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseBaseOptions.HOST;
@@ -143,10 +138,6 @@ public class ClickhouseSourceFactory implements TableSourceFactory {
                                     tablePath.getDatabaseName(),
                                     tablePath.getTableName());
 
-            List<Shard> clusterShardList =
-                    getClusterShardList(
-                            clickhouseSourceConfig, nodes, proxy, clickhouseTable, isComplexSql);
-
             ClickhouseSourceTable clickhouseSourceTable =
                     ClickhouseSourceTable.builder()
                             .tablePath(tablePath)
@@ -156,7 +147,6 @@ public class ClickhouseSourceFactory implements TableSourceFactory {
                             .splitSize(clickhouseSourceConfig.getSplitSize())
                             .batchSize(clickhouseSourceConfig.getBatchSize())
                             .partitionList(clickhouseSourceConfig.getPartitionList())
-                            .clusterShardList(clusterShardList)
                             .isSqlStrategyRead(clickhouseSourceConfig.isSqlStrategyRead())
                             .isComplexSql(isComplexSql)
                             .build();
@@ -189,59 +179,6 @@ public class ClickhouseSourceFactory implements TableSourceFactory {
         }
 
         return String.format("SELECT * FROM %s.%s LIMIT 1", database, table);
-    }
-
-    private List<Shard> getClusterShardList(
-            ClickhouseSourceConfig clickhouseSourceConfig,
-            List<ClickHouseNode> nodes,
-            ClickhouseProxy proxy,
-            ClickhouseTable clickhouseTable,
-            boolean isComplexSql) {
-        String localTableEngine;
-        List<Shard> clusterShardList;
-
-        if (isComplexSql) {
-            return buildClusterShardFromNodes(nodes);
-        } else if (clickhouseTable.getDistributedEngine() != null) {
-            DistributedEngine distributedEngine = clickhouseTable.getDistributedEngine();
-            localTableEngine = distributedEngine.getTableEngine();
-
-            clusterShardList =
-                    proxy.getClusterShardList(
-                            proxy.getClickhouseConnection(),
-                            distributedEngine.getClusterName(),
-                            distributedEngine.getDatabase(),
-                            nodes.get(0).getPort(),
-                            clickhouseSourceConfig.getUsername(),
-                            clickhouseSourceConfig.getPassword(),
-                            nodes.get(0).getOptions());
-        } else {
-            // if input is local table, generate shard list based on the input nodes
-            clusterShardList = buildClusterShardFromNodes(nodes);
-            localTableEngine = clickhouseTable.getEngine();
-        }
-
-        if (StringUtils.isEmpty(clickhouseSourceConfig.getSql())
-                && !localTableEngine.contains("MergeTree")) {
-            throw new ClickhouseConnectorException(
-                    ClickhouseConnectorErrorCode.QUERY_TABLE_NOT_SUPPORT_NON_MERGE_TREE_TABLE,
-                    "Query table mode not support non-MergeTree local table. Please specify sql in configuration");
-        }
-
-        return clusterShardList;
-    }
-
-    private List<Shard> buildClusterShardFromNodes(List<ClickHouseNode> nodes) {
-        List<Shard> shards = new ArrayList<>();
-        IntStream.range(0, nodes.size())
-                .forEach(
-                        i -> {
-                            ClickHouseNode node = nodes.get(i);
-                            Shard shard = new Shard(i, 1, node);
-                            shards.add(shard);
-                        });
-
-        return shards;
     }
 
     @Override

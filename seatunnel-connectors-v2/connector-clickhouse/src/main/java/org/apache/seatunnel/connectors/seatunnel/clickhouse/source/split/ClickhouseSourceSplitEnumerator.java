@@ -21,12 +21,21 @@ import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseSourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.clickhouse.exception.ClickhouseConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.exception.ClickhouseConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.clickhouse.shard.Shard;
+import org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.file.ClickhouseTable;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.source.ClickhouseSourceTable;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.state.ClickhouseSourceState;
+import org.apache.seatunnel.connectors.seatunnel.clickhouse.util.ClickhouseProxy;
+import org.apache.seatunnel.connectors.seatunnel.clickhouse.util.DistributedEngine;
+
+import org.apache.commons.lang3.StringUtils;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import com.clickhouse.client.ClickHouseNode;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -36,6 +45,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ThreadLocalRandom;
+import java.util.stream.IntStream;
 
 public class ClickhouseSourceSplitEnumerator
         implements SourceSplitEnumerator<ClickhouseSourceSplit, ClickhouseSourceState> {
@@ -48,23 +59,27 @@ public class ClickhouseSourceSplitEnumerator
     private final Map<Integer, List<ClickhouseSourceSplit>> pendingSplit;
     private final Splitter splitter;
     private final Context<ClickhouseSourceSplit> context;
+    private final List<ClickHouseNode> nodes;
     private final Object stateLock = new Object();
 
     public ClickhouseSourceSplitEnumerator(
             Context<ClickhouseSourceSplit> context,
             ClickhouseSourceConfig clickhouseSourceConfig,
-            Map<TablePath, ClickhouseSourceTable> clickhouseSourceTables) {
-        this(context, clickhouseSourceConfig, clickhouseSourceTables, null);
+            Map<TablePath, ClickhouseSourceTable> clickhouseSourceTables,
+            List<ClickHouseNode> nodes) {
+        this(context, clickhouseSourceConfig, clickhouseSourceTables, nodes, null);
     }
 
     public ClickhouseSourceSplitEnumerator(
             Context<ClickhouseSourceSplit> context,
             ClickhouseSourceConfig clickhouseSourceConfig,
             Map<TablePath, ClickhouseSourceTable> clickhouseSourceTables,
+            List<ClickHouseNode> nodes,
             ClickhouseSourceState sourceState) {
         this.context = context;
         this.clickhouseSourceConfig = clickhouseSourceConfig;
         this.clickhouseSourceTables = clickhouseSourceTables;
+        this.nodes = nodes;
         this.splitter = Splitter.createSplitter(clickhouseSourceConfig);
         this.pendingSplit = new ConcurrentHashMap<>();
         this.shouldEnumerate = (sourceState == null);
@@ -156,8 +171,9 @@ public class ClickhouseSourceSplitEnumerator
     private List<ClickhouseSourceSplit> getClickhouseSourceSplits() {
         List<ClickhouseSourceSplit> splits = new ArrayList<>();
         for (ClickhouseSourceTable clickhouseSourceTable : clickhouseSourceTables.values()) {
+            List<Shard> clusterShardList = getClusterShardList(clickhouseSourceTable);
             List<ClickhouseSourceSplit> sourceSplits =
-                    splitter.generateSplits(clickhouseSourceTable);
+                    splitter.generateSplits(clickhouseSourceTable, clusterShardList);
             splits.addAll(sourceSplits);
         }
 
@@ -192,5 +208,59 @@ public class ClickhouseSourceSplitEnumerator
 
     private static int getSplitOwner(String tp, int numReaders) {
         return (tp.hashCode() & Integer.MAX_VALUE) % numReaders;
+    }
+
+    private List<Shard> getClusterShardList(ClickhouseSourceTable clickhouseSourceTable) {
+
+        ClickhouseTable clickhouseTable = clickhouseSourceTable.getClickhouseTable();
+        ClickHouseNode currentNode = nodes.get(ThreadLocalRandom.current().nextInt(nodes.size()));
+
+        try (ClickhouseProxy proxy = new ClickhouseProxy(currentNode)) {
+            String localTableEngine;
+            List<Shard> clusterShardList;
+
+            if (clickhouseSourceTable.isComplexSql()) {
+                return buildClusterShardFromNodes(nodes);
+            } else if (clickhouseTable.getDistributedEngine() != null) {
+                DistributedEngine distributedEngine = clickhouseTable.getDistributedEngine();
+                localTableEngine = distributedEngine.getTableEngine();
+
+                clusterShardList =
+                        proxy.getClusterShardList(
+                                proxy.getClickhouseConnection(),
+                                distributedEngine.getClusterName(),
+                                distributedEngine.getDatabase(),
+                                nodes.get(0).getPort(),
+                                clickhouseSourceConfig.getUsername(),
+                                clickhouseSourceConfig.getPassword(),
+                                nodes.get(0).getOptions());
+            } else {
+                // if input is local table, generate shard list based on the input nodes
+                clusterShardList = buildClusterShardFromNodes(nodes);
+                localTableEngine = clickhouseTable.getEngine();
+            }
+
+            if (StringUtils.isEmpty(clickhouseSourceConfig.getSql())
+                    && !localTableEngine.contains("MergeTree")) {
+                throw new ClickhouseConnectorException(
+                        ClickhouseConnectorErrorCode.QUERY_TABLE_NOT_SUPPORT_NON_MERGE_TREE_TABLE,
+                        "Query table mode not support non-MergeTree local table. Please specify sql parameter in configuration");
+            }
+
+            return clusterShardList;
+        }
+    }
+
+    private List<Shard> buildClusterShardFromNodes(List<ClickHouseNode> nodes) {
+        List<Shard> shards = new ArrayList<>();
+        IntStream.range(0, nodes.size())
+                .forEach(
+                        i -> {
+                            ClickHouseNode node = nodes.get(i);
+                            Shard shard = new Shard(i, 1, node);
+                            shards.add(shard);
+                        });
+
+        return shards;
     }
 }
