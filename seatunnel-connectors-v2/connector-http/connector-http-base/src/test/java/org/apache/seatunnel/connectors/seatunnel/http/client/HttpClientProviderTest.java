@@ -26,10 +26,10 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -49,26 +49,31 @@ class HttpClientProviderTest {
     }
 
     @Test
-    void testAddBodyPreservesOriginalHeaders() throws Exception {
-        Header[] originalHeaders =
-                new Header[] {new BasicHeader(HTTP.CONTENT_TYPE, "application/json;utf-8")};
-        when(mockRequest.getAllHeaders()).thenReturn(originalHeaders);
-        when(mockRequest.getHeaders(HTTP.CONTENT_TYPE)).thenReturn(new Header[0]);
+    void testAddDefaultJsonContentTypeWhenNotPresent() throws Exception {
+        Map<String, Object> body = new HashMap<>();
+        body.put("key", "value");
 
-        // verify original headers are preserved
-        HttpClientProvider.addBody(mockRequest, Collections.emptyMap());
+        HttpClientProvider.addBody(mockRequest, body);
 
-        //        verify(mockRequest).setHeader(HTTP.CONTENT_TYPE, "application/json;utf-8");
-        //        verify(mockRequest).setEntity(any(HttpEntity.class));
+        // case 1: user not define content-type, use default content type
+        assertNotNull(mockRequest.getFirstHeader("Content-Type"));
+        Assertions.assertEquals(
+                "application/json", mockRequest.getFirstHeader("Content-Type").getValue());
+    }
 
-        Header[] currentHeaders =
-                new Header[] {new BasicHeader(HTTP.CONTENT_TYPE, "application/json;utf-8")};
-        when(mockRequest.getAllHeaders()).thenReturn(currentHeaders);
+    @Test
+    void testPreserveExistingContentType() throws Exception {
+        mockRequest.addHeader(new BasicHeader("Content-Type", "text/plain"));
 
-        Header[] resultHeaders = mockRequest.getAllHeaders();
-        Assertions.assertEquals(1, resultHeaders.length);
-        Assertions.assertEquals(HTTP.CONTENT_TYPE, resultHeaders[0].getName());
-        Assertions.assertEquals("application/json;utf-8", resultHeaders[0].getValue());
+        Map<String, Object> body = new HashMap<>();
+        body.put("key", "value");
+
+        HttpClientProvider.addBody(mockRequest, body);
+
+        // case 2: if user define content-type, set it
+        assertNotNull(mockRequest.getFirstHeader("Content-Type"));
+        Assertions.assertEquals(
+                "text/plain", mockRequest.getFirstHeader("Content-Type").getValue());
     }
 
     @Test
