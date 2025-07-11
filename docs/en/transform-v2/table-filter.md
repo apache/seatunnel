@@ -1,4 +1,4 @@
-# TableMerge
+# TableFilter
 
 > TableFilter transform plugin
 

@@ -221,7 +221,8 @@ const sidebars = {
                 "seatunnel-engine/logging",
                 "seatunnel-engine/telemetry",
                 "seatunnel-engine/web-ui",
-                "seatunnel-engine/slot-allocation-strategy"
+                "seatunnel-engine/slot-allocation-strategy",
+                "seatunnel-engine/tuning-guide"
             ]
         },
         {

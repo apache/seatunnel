@@ -199,12 +199,30 @@ public class CoordinatorServiceTest {
             throw new RuntimeException(e);
         }
 
+        int scheduleRunnerThreadCount =
+                (int)
+                        Thread.getAllStackTraces().keySet().stream()
+                                .filter(
+                                        thread ->
+                                                thread.getName()
+                                                        .startsWith("pending-job-schedule-runner"))
+                                .count();
+        Assertions.assertTrue(scheduleRunnerThreadCount > 0);
+
         coordinatorService.clearCoordinatorService();
 
-        // because runningJobMasterMap is empty and we have no JobHistoryServer, so return
+        // because runningJobMasterMap is empty, and we have no JobHistoryServer, so return
         // UNKNOWABLE.
-        Assertions.assertTrue(JobStatus.UNKNOWABLE.equals(coordinatorService.getJobStatus(jobId)));
+        Assertions.assertEquals(JobStatus.UNKNOWABLE, coordinatorService.getJobStatus(jobId));
         coordinatorServiceTest.shutdown();
+
+        Assertions.assertEquals(
+                scheduleRunnerThreadCount - 1,
+                Thread.getAllStackTraces().keySet().stream()
+                        .filter(
+                                thread ->
+                                        thread.getName().startsWith("pending-job-schedule-runner"))
+                        .count());
     }
 
     @Test

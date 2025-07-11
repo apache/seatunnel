@@ -15,23 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.socket.config;
+package org.apache.seatunnel.connectors.seatunnel.tablestore.config;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 
-public class SocketSinkConfigOptions {
-    private static final int DEFAULT_MAX_RETRIES = 3;
+public class TableStoreSinkOptions extends TableStoreCommonOptions {
 
-    public static final Option<String> HOST =
-            Options.key("host").stringType().noDefaultValue().withDescription("socket host");
-
-    public static final Option<Integer> PORT =
-            Options.key("port").intType().noDefaultValue().withDescription("socket port");
-
-    public static final Option<Integer> MAX_RETRIES =
-            Options.key("max_retries")
+    public static final Option<Integer> BATCH_SIZE =
+            Options.key("batch_size")
                     .intType()
-                    .defaultValue(DEFAULT_MAX_RETRIES)
-                    .withDescription("default value is " + DEFAULT_MAX_RETRIES + ", max retries");
+                    .defaultValue(25)
+                    .withDescription(" Tablestore batch_size");
 }

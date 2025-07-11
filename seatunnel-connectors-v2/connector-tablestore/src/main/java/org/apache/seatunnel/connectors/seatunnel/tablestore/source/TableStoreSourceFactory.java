@@ -23,30 +23,30 @@ import org.apache.seatunnel.api.table.connector.TableSource;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
-import org.apache.seatunnel.connectors.seatunnel.tablestore.config.TablestoreConfig;
+import org.apache.seatunnel.connectors.seatunnel.tablestore.config.TableStoreSourceOptions;
 
 import com.google.auto.service.AutoService;
 
 import java.io.Serializable;
 
 @AutoService(Factory.class)
-public class TableStoreDbSourceFactory implements TableSourceFactory {
+public class TableStoreSourceFactory implements TableSourceFactory {
 
     @Override
     public String factoryIdentifier() {
-        return "Tablestore";
+        return TableStoreSourceOptions.identifier;
     }
 
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
                 .required(
-                        TablestoreConfig.END_POINT,
-                        TablestoreConfig.INSTANCE_NAME,
-                        TablestoreConfig.ACCESS_KEY_ID,
-                        TablestoreConfig.ACCESS_KEY_SECRET,
-                        TablestoreConfig.TABLE,
-                        TablestoreConfig.PRIMARY_KEYS)
+                        TableStoreSourceOptions.END_POINT,
+                        TableStoreSourceOptions.INSTANCE_NAME,
+                        TableStoreSourceOptions.ACCESS_KEY_ID,
+                        TableStoreSourceOptions.ACCESS_KEY_SECRET,
+                        TableStoreSourceOptions.TABLE,
+                        TableStoreSourceOptions.PRIMARY_KEYS)
                 .build();
     }
 
@@ -54,11 +54,11 @@ public class TableStoreDbSourceFactory implements TableSourceFactory {
     public <T, SplitT extends SourceSplit, StateT extends Serializable>
             TableSource<T, SplitT, StateT> createSource(TableSourceFactoryContext context) {
         return () ->
-                (SeaTunnelSource<T, SplitT, StateT>) new TableStoreDBSource(context.getOptions());
+                (SeaTunnelSource<T, SplitT, StateT>) new TableStoreSource(context.getOptions());
     }
 
     @Override
     public Class<? extends SeaTunnelSource> getSourceClass() {
-        return TableStoreDBSource.class;
+        return TableStoreSource.class;
     }
 }

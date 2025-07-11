@@ -18,6 +18,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.pulsar.source.enumerator.cursor.start;
 
+import org.apache.seatunnel.connectors.seatunnel.pulsar.config.PulsarSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.exception.PulsarConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.exception.PulsarConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.source.enumerator.topic.TopicPartition;
@@ -31,13 +32,13 @@ import org.apache.pulsar.client.api.PulsarClientException;
 public class SubscriptionStartCursor implements StartCursor {
     private static final long serialVersionUID = 1L;
 
-    private final CursorResetStrategy cursorResetStrategy;
+    private final PulsarSourceOptions.CursorResetStrategy cursorResetStrategy;
 
     public SubscriptionStartCursor() {
-        this.cursorResetStrategy = CursorResetStrategy.LATEST;
+        this.cursorResetStrategy = PulsarSourceOptions.CursorResetStrategy.LATEST;
     }
 
-    public SubscriptionStartCursor(CursorResetStrategy cursorResetStrategy) {
+    public SubscriptionStartCursor(PulsarSourceOptions.CursorResetStrategy cursorResetStrategy) {
         this.cursorResetStrategy = cursorResetStrategy;
     }
 
@@ -55,7 +56,7 @@ public class SubscriptionStartCursor implements StartCursor {
                     .createSubscription(
                             partition.getFullTopicName(),
                             subscription,
-                            CursorResetStrategy.EARLIEST == cursorResetStrategy
+                            PulsarSourceOptions.CursorResetStrategy.EARLIEST == cursorResetStrategy
                                     ? MessageId.earliest
                                     : MessageId.latest);
         } catch (PulsarAdminException e) {
@@ -67,10 +68,5 @@ public class SubscriptionStartCursor implements StartCursor {
     @Override
     public void seekPosition(Consumer<?> consumer) throws PulsarClientException {
         // nothing
-    }
-
-    public enum CursorResetStrategy {
-        LATEST,
-        EARLIEST
     }
 }

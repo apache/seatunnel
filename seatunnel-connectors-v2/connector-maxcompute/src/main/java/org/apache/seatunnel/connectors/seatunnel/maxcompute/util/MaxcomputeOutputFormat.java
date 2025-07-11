@@ -109,17 +109,8 @@ public class MaxcomputeOutputFormat {
         }
     }
 
-    private TableTunnel getTableTunnel(String tunnelEndpoint) {
-        TableTunnel tableTunnel = MaxcomputeUtil.getTableTunnel(readonlyConfig);
-        if (tunnelEndpoint != null && !tunnelEndpoint.trim().isEmpty()) {
-            tableTunnel.setEndpoint(tunnelEndpoint);
-        }
-        return tableTunnel;
-    }
-
     private void initializeUpsertSession() throws TunnelException, IOException {
-        TableTunnel tunnel =
-                getTableTunnel(readonlyConfig.get(MaxcomputeSinkOptions.TUNNEL_ENDPOINT));
+        TableTunnel tunnel = MaxcomputeUtil.getTableTunnel(readonlyConfig);
         if (readonlyConfig.getOptional(MaxcomputeSinkOptions.PARTITION_SPEC).isPresent()) {
             PartitionSpec partitionSpec =
                     new PartitionSpec(readonlyConfig.get(MaxcomputeSinkOptions.PARTITION_SPEC));

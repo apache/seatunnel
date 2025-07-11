@@ -299,6 +299,18 @@ public class FakeSourceOptions {
                     .defaultValue(FakeMode.RANGE)
                     .withDescription("The fake mode of generating double data");
 
+    public static final Option<Boolean> AUTO_INCREMENT_ENABLED =
+            Options.key("auto.increment.enabled")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription("Enable auto increment ID generation");
+
+    public static final Option<Long> AUTO_INCREMENT_START =
+            Options.key("auto.increment.start")
+                    .longType()
+                    .defaultValue(1L)
+                    .withDescription("Starting value for auto increment ID");
+
     public enum FakeMode {
         RANGE,
         TEMPLATE;

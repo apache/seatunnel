@@ -30,7 +30,7 @@
     <name>SeaTunnel : Connectors V2 : Iceberg</name>
 
     <properties>
-        <iceberg.version>1.4.2</iceberg.version>
+        <iceberg.version>1.6.1</iceberg.version>
         <parquet-avro.version>1.13.1</parquet-avro.version>
         <avro.version>1.11.3</avro.version>
         <hive.version>2.3.9</hive.version>
