@@ -162,6 +162,9 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
         if (modifiedDateFormat != null) {
             dateFormat = new SimpleDateFormat(modifiedDateFormat);
         } else {
+            log.info(
+                    "File modified date format is not set, using default format: {}",
+                    FileBaseSourceOptions.FILE_FILTER_MODIFIED_DATE_FORMAT.defaultValue());
             dateFormat =
                     new SimpleDateFormat(
                             FileBaseSourceOptions.FILE_FILTER_MODIFIED_DATE_FORMAT.defaultValue());
