@@ -18,31 +18,20 @@
 package org.apache.seatunnel.connectors.seatunnel.rabbitmq.source;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
-import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
+import org.apache.seatunnel.api.source.SourceSplit;
+import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
+import org.apache.seatunnel.api.table.connector.TableSource;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
+import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
+import org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqConfig;
+import org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqSinkOptions;
+import org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqSourceOptions;
 
 import com.google.auto.service.AutoService;
 
-import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqConfig.AUTOMATIC_RECOVERY_ENABLED;
-import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqConfig.CONNECTION_TIMEOUT;
-import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqConfig.DELIVERY_TIMEOUT;
-import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqConfig.EXCHANGE;
-import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqConfig.HOST;
-import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqConfig.NETWORK_RECOVERY_INTERVAL;
-import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqConfig.PASSWORD;
-import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqConfig.PORT;
-import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqConfig.PREFETCH_COUNT;
-import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqConfig.QUEUE_NAME;
-import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqConfig.REQUESTED_CHANNEL_MAX;
-import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqConfig.REQUESTED_FRAME_MAX;
-import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqConfig.REQUESTED_HEARTBEAT;
-import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqConfig.ROUTING_KEY;
-import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqConfig.TOPOLOGY_RECOVERY_ENABLED;
-import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqConfig.URL;
-import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqConfig.USERNAME;
-import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqConfig.VIRTUAL_HOST;
+import java.io.Serializable;
 
 @AutoService(Factory.class)
 public class RabbitmqSourceFactory implements TableSourceFactory {
@@ -54,22 +43,41 @@ public class RabbitmqSourceFactory implements TableSourceFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(HOST, PORT, VIRTUAL_HOST, QUEUE_NAME, ConnectorCommonOptions.SCHEMA)
-                .bundled(USERNAME, PASSWORD)
+                .required(
+                        RabbitmqSourceOptions.HOST,
+                        RabbitmqSourceOptions.PORT,
+                        RabbitmqSourceOptions.VIRTUAL_HOST,
+                        RabbitmqSourceOptions.QUEUE_NAME,
+                        RabbitmqSourceOptions.SCHEMA)
+                .bundled(RabbitmqSourceOptions.USERNAME, RabbitmqSourceOptions.PASSWORD)
                 .optional(
-                        URL,
-                        ROUTING_KEY,
-                        EXCHANGE,
-                        NETWORK_RECOVERY_INTERVAL,
-                        TOPOLOGY_RECOVERY_ENABLED,
-                        AUTOMATIC_RECOVERY_ENABLED,
-                        CONNECTION_TIMEOUT,
-                        REQUESTED_CHANNEL_MAX,
-                        REQUESTED_FRAME_MAX,
-                        REQUESTED_HEARTBEAT,
-                        PREFETCH_COUNT,
-                        DELIVERY_TIMEOUT)
+                        RabbitmqSourceOptions.URL,
+                        RabbitmqSourceOptions.ROUTING_KEY,
+                        RabbitmqSourceOptions.EXCHANGE,
+                        RabbitmqSourceOptions.NETWORK_RECOVERY_INTERVAL,
+                        RabbitmqSourceOptions.TOPOLOGY_RECOVERY_ENABLED,
+                        RabbitmqSourceOptions.AUTOMATIC_RECOVERY_ENABLED,
+                        RabbitmqSourceOptions.CONNECTION_TIMEOUT,
+                        RabbitmqSinkOptions.FOR_E2E_TESTING,
+                        RabbitmqSinkOptions.DURABLE,
+                        RabbitmqSinkOptions.EXCLUSIVE,
+                        RabbitmqSinkOptions.AUTO_DELETE,
+                        RabbitmqSourceOptions.REQUESTED_CHANNEL_MAX,
+                        RabbitmqSourceOptions.REQUESTED_FRAME_MAX,
+                        RabbitmqSourceOptions.REQUESTED_HEARTBEAT,
+                        RabbitmqSourceOptions.PREFETCH_COUNT,
+                        RabbitmqSourceOptions.DELIVERY_TIMEOUT)
                 .build();
+    }
+
+    @Override
+    public <T, SplitT extends SourceSplit, StateT extends Serializable>
+            TableSource<T, SplitT, StateT> createSource(TableSourceFactoryContext context) {
+        return () ->
+                (SeaTunnelSource<T, SplitT, StateT>)
+                        new RabbitmqSource(
+                                new RabbitmqConfig(context.getOptions()),
+                                CatalogTableUtil.buildWithConfig(context.getOptions()));
     }
 
     @Override

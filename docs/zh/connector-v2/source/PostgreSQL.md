@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-jdbc.md';
+
 # PostgreSQL
 
 > JDBC PostgreSQL 源连接器
@@ -88,6 +90,7 @@
 | partition_num                                | Int         | 否   | 作业并行性      | 分区数量，仅支持正整数。默认值为作业并行性                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | fetch_size                                   | Int         | 否   | 0               | 对于返回大量对象的查询，您可以配置<br/> 用于查询的行抓取大小，以通过减少所需的数据库访问次数来提高性能。<br/> 0 表示使用 JDBC 默认值。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | properties                                   | Map        | 否   | -               | 其他连接配置参数，当属性和 URL 具有相同参数时，<br/> 优先级由驱动程序的具体实现决定。在 MySQL 中，属性优先于 URL。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| use_regex                                    | Boolean    | 否  | false           | 控制表路径的正则表达式匹配。当设置为true时，table_path 将被视为正则表达式模式。当设置为false或未指定时，table_path 将被视为精确路径（不进行正则匹配）。                                                                                                                         |
 | table_path                                   | String        | 否   | -               | 表的完整路径，您可以使用此配置替代 `query`。<br/> 示例：<br/> mysql: "testdb.table1" <br/> oracle: "test_schema.table1" <br/> sqlserver: "testdb.test_schema.table1" <br/> postgresql: "testdb.test_schema.table1"                                                                                                                                                                                                                                                                                                                                                         |
 | table_list                                   | Array         | 否   | -               | 要读取的表列表，您可以使用此配置替代 `table_path` 示例：```[{ table_path = "testdb.table1"}, {table_path = "testdb.table2", query = "select * id, name from testdb.table2"}]```                                                                                                                                                                                                                                                                                                                                                                                               |
 | where_condition                              | String        | 否   | -               | 所有表/查询的通用行过滤条件，必须以 `where` 开头。 例如 `where id > 100`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
@@ -163,7 +166,7 @@ JDBC 源连接器支持从表中并行读取数据。SeaTunnel 将使用某些�
 
 ## 任务示例
 
-### 简单示例：
+### 简单示例
 
 > 此示例查询您测试 "database" 中 type_bin 为 'table' 的 16 条数据，并以单并行方式查询其所有字段。您还可以指定要查询的字段，以便最终输出到控制台。
 
@@ -245,7 +248,7 @@ sink {
 }
 ```
 
-### 并行边界：
+### 并行的同时指定边界
 
 > 在查询中指定上下边界内的数据更为高效。根据您配置的上下边界读取数据源将更为高效。
 
@@ -268,7 +271,7 @@ source{
 }
 ```
 
-### 多表读取：
+### 多表读取
 
 ***配置 `table_list` 将启用自动拆分，您可以配置 `split.*` 来调整拆分策略***
 
@@ -305,3 +308,6 @@ sink {
 }
 ```
 
+## 变更日志
+
+<ChangeLog />

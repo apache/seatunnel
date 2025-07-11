@@ -23,6 +23,7 @@ import org.apache.paimon.types.DoubleType;
 import org.apache.paimon.types.FloatType;
 import org.apache.paimon.types.IntType;
 import org.apache.paimon.types.SmallIntType;
+import org.apache.paimon.types.TimeType;
 import org.apache.paimon.types.TimestampType;
 import org.apache.paimon.types.VarCharType;
 
@@ -70,6 +71,8 @@ public class UpdatedDataFieldsTest {
         DecimalType oldType = new DecimalType(20, 9);
         DecimalType biggerRangeType = new DecimalType(30, 10);
         DecimalType smallerRangeType = new DecimalType(10, 3);
+        DecimalType scaleSmallerRangeType = new DecimalType(30, 3);
+        DecimalType integerSmallerRangeType = new DecimalType(21, 15);
         DoubleType doubleType = new DoubleType();
 
         UpdatedDataFields.ConvertAction convertAction = null;
@@ -78,8 +81,12 @@ public class UpdatedDataFieldsTest {
         convertAction = UpdatedDataFields.canConvert(oldType, smallerRangeType);
         Assertions.assertEquals(UpdatedDataFields.ConvertAction.IGNORE, convertAction);
         convertAction = UpdatedDataFields.canConvert(oldType, doubleType);
-
         Assertions.assertEquals(UpdatedDataFields.ConvertAction.EXCEPTION, convertAction);
+
+        convertAction = UpdatedDataFields.canConvert(oldType, scaleSmallerRangeType);
+        Assertions.assertEquals(UpdatedDataFields.ConvertAction.IGNORE, convertAction);
+        convertAction = UpdatedDataFields.canConvert(oldType, integerSmallerRangeType);
+        Assertions.assertEquals(UpdatedDataFields.ConvertAction.IGNORE, convertAction);
     }
 
     @Test
@@ -87,6 +94,23 @@ public class UpdatedDataFieldsTest {
         TimestampType oldType = new TimestampType(true, 3);
         TimestampType biggerLengthTimestamp = new TimestampType(true, 5);
         TimestampType smallerLengthTimestamp = new TimestampType(true, 2);
+        VarCharType varCharType = new VarCharType();
+
+        UpdatedDataFields.ConvertAction convertAction;
+        convertAction = UpdatedDataFields.canConvert(oldType, biggerLengthTimestamp);
+        Assertions.assertEquals(UpdatedDataFields.ConvertAction.CONVERT, convertAction);
+        convertAction = UpdatedDataFields.canConvert(oldType, smallerLengthTimestamp);
+        Assertions.assertEquals(UpdatedDataFields.ConvertAction.IGNORE, convertAction);
+        convertAction = UpdatedDataFields.canConvert(oldType, varCharType);
+
+        Assertions.assertEquals(UpdatedDataFields.ConvertAction.EXCEPTION, convertAction);
+    }
+
+    @Test
+    public void testCanConvertTime() {
+        TimeType oldType = new TimeType(true, 3);
+        TimeType biggerLengthTimestamp = new TimeType(true, 5);
+        TimeType smallerLengthTimestamp = new TimeType(true, 2);
         VarCharType varCharType = new VarCharType();
 
         UpdatedDataFields.ConvertAction convertAction;

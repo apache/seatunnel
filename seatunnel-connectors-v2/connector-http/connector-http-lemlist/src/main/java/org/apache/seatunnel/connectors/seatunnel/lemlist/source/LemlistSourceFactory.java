@@ -24,7 +24,7 @@ import org.apache.seatunnel.api.table.connector.TableSource;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.connectors.seatunnel.http.source.HttpSourceFactory;
-import org.apache.seatunnel.connectors.seatunnel.lemlist.source.config.LemlistSourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.lemlist.source.config.LemlistSourceOptions;
 
 import com.google.auto.service.AutoService;
 
@@ -40,13 +40,11 @@ public class LemlistSourceFactory extends HttpSourceFactory {
     @Override
     public <T, SplitT extends SourceSplit, StateT extends Serializable>
             TableSource<T, SplitT, StateT> createSource(TableSourceFactoryContext context) {
-        return () ->
-                (SeaTunnelSource<T, SplitT, StateT>)
-                        new LemlistSource(context.getOptions().toConfig());
+        return () -> (SeaTunnelSource<T, SplitT, StateT>) new LemlistSource(context.getOptions());
     }
 
     @Override
     public OptionRule optionRule() {
-        return getHttpBuilder().required(LemlistSourceConfig.PASSWORD).build();
+        return getHttpBuilder().required(LemlistSourceOptions.PASSWORD).build();
     }
 }

@@ -22,7 +22,7 @@ FieldRename transform plugin for rename field name.
 ```
 env {
     parallelism = 1
-    job.mode = "BATCH"
+    job.mode = "STREAMING"
 }
 
 source {
@@ -78,7 +78,7 @@ sink {
 ```
 env {
     parallelism = 1
-    job.mode = "BATCH"
+    job.mode = "STREAMING"
 }
 
 source {

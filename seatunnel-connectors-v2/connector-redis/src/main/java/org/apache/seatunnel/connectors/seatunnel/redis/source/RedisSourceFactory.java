@@ -48,11 +48,7 @@ public class RedisSourceFactory implements TableSourceFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(
-                        RedisBaseOptions.HOST,
-                        RedisBaseOptions.PORT,
-                        RedisBaseOptions.KEY_PATTERN,
-                        RedisBaseOptions.DATA_TYPE)
+                .required(RedisBaseOptions.KEY_PATTERN, RedisBaseOptions.DATA_TYPE)
                 .optional(
                         RedisBaseOptions.MODE,
                         RedisSourceOptions.HASH_KEY_PARSE_MODE,
@@ -63,6 +59,11 @@ public class RedisSourceFactory implements TableSourceFactory {
                         RedisBaseOptions.MODE,
                         RedisBaseOptions.RedisMode.CLUSTER,
                         RedisBaseOptions.NODES)
+                .conditional(
+                        RedisBaseOptions.MODE,
+                        RedisBaseOptions.RedisMode.SINGLE,
+                        RedisBaseOptions.HOST,
+                        RedisBaseOptions.PORT)
                 .bundled(RedisBaseOptions.FORMAT, SinkConnectorCommonOptions.SCHEMA)
                 .build();
     }

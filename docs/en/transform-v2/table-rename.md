@@ -22,7 +22,7 @@ TableRename transform plugin for rename table name.
 ```
 env {
     parallelism = 1
-    job.mode = "BATCH"
+    job.mode = "STREAMING"
 }
 
 source {
@@ -78,7 +78,7 @@ sink {
 ```
 env {
     parallelism = 1
-    job.mode = "BATCH"
+    job.mode = "STREAMING"
 }
 
 source {

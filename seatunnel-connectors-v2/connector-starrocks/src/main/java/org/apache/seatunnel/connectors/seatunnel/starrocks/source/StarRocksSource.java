@@ -25,14 +25,14 @@ import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.config.SourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.config.StarRocksBaseOptions;
+import org.apache.seatunnel.connectors.seatunnel.starrocks.config.StarRocksSourceTableConfig;
 
-import java.util.Collections;
 import java.util.List;
+import java.util.stream.Collectors;
 
 public class StarRocksSource
         implements SeaTunnelSource<SeaTunnelRow, StarRocksSourceSplit, StarRocksSourceState> {
 
-    private CatalogTable catalogTable;
     private SourceConfig sourceConfig;
 
     @Override
@@ -40,9 +40,8 @@ public class StarRocksSource
         return StarRocksBaseOptions.CONNECTOR_IDENTITY;
     }
 
-    public StarRocksSource(SourceConfig sourceConfig, CatalogTable catalogTable) {
+    public StarRocksSource(SourceConfig sourceConfig) {
         this.sourceConfig = sourceConfig;
-        this.catalogTable = catalogTable;
     }
 
     @Override
@@ -52,13 +51,14 @@ public class StarRocksSource
 
     @Override
     public List<CatalogTable> getProducedCatalogTables() {
-        return Collections.singletonList(catalogTable);
+        return sourceConfig.getTableConfigList().stream()
+                .map(StarRocksSourceTableConfig::getCatalogTable)
+                .collect(Collectors.toList());
     }
 
     @Override
     public SourceReader createReader(SourceReader.Context readerContext) {
-        return new StarRocksSourceReader(
-                readerContext, catalogTable.getSeaTunnelRowType(), sourceConfig);
+        return new StarRocksSourceReader(readerContext, sourceConfig);
     }
 
     @Override
@@ -67,15 +67,11 @@ public class StarRocksSource
             StarRocksSourceState checkpointState)
             throws Exception {
         return new StartRocksSourceSplitEnumerator(
-                enumeratorContext,
-                sourceConfig,
-                catalogTable.getSeaTunnelRowType(),
-                checkpointState);
+                enumeratorContext, sourceConfig, checkpointState);
     }
 
     @Override
     public SourceSplitEnumerator createEnumerator(SourceSplitEnumerator.Context enumeratorContext) {
-        return new StartRocksSourceSplitEnumerator(
-                enumeratorContext, sourceConfig, catalogTable.getSeaTunnelRowType());
+        return new StartRocksSourceSplitEnumerator(enumeratorContext, sourceConfig);
     }
 }

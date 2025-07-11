@@ -30,6 +30,7 @@ import java.util.Set;
 @Setter
 @AllArgsConstructor
 public class RabbitmqSplit implements SourceSplit {
+    private static final long serialVersionUID = -678845022239224163L;
     private List<Long> deliveryTags;
     private Set<String> correlationIds;
 

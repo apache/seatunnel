@@ -146,9 +146,20 @@ public class RocketMqSourceReader implements SourceReader<SeaTunnelRow, RocketMq
                                                                 .collect(Collectors.toList());
                                                 long lastOffset = -1;
                                                 for (MessageExt record : messages) {
-                                                    deserializationSchema.deserialize(
-                                                            record.getBody(), output);
-                                                    lastOffset = record.getQueueOffset();
+                                                    // Check if the tags are specified and match the
+                                                    // record's tag
+                                                    boolean shouldProcess =
+                                                            metadata.getTags() == null
+                                                                    || metadata.getTags().isEmpty()
+                                                                    || metadata.getTags()
+                                                                            .contains(
+                                                                                    record
+                                                                                            .getTags());
+                                                    if (shouldProcess) {
+                                                        deserializationSchema.deserialize(
+                                                                record.getBody(), output);
+                                                        lastOffset = record.getQueueOffset();
+                                                    }
                                                     if (Boundedness.BOUNDED.equals(
                                                                     context.getBoundedness())
                                                             && record.getQueueOffset()

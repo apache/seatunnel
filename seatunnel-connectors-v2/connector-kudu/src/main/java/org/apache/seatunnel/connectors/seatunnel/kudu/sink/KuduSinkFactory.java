@@ -26,6 +26,7 @@ import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
 import org.apache.seatunnel.connectors.seatunnel.kudu.config.KuduSinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.kudu.config.KuduSinkOptions;
 
 import com.google.auto.service.AutoService;
 
@@ -38,6 +39,7 @@ import static org.apache.kudu.client.SessionConfiguration.FlushMode.MANUAL_FLUSH
 
 @AutoService(Factory.class)
 public class KuduSinkFactory implements TableSinkFactory {
+
     @Override
     public String factoryIdentifier() {
         return "Kudu";
@@ -46,31 +48,31 @@ public class KuduSinkFactory implements TableSinkFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(KuduSinkConfig.MASTER)
-                .optional(KuduSinkConfig.TABLE_NAME)
-                .optional(KuduSinkConfig.WORKER_COUNT)
-                .optional(KuduSinkConfig.OPERATION_TIMEOUT)
-                .optional(KuduSinkConfig.ADMIN_OPERATION_TIMEOUT)
-                .optional(KuduSinkConfig.SAVE_MODE)
-                .optional(KuduSinkConfig.FLUSH_MODE)
-                .optional(KuduSinkConfig.IGNORE_NOT_FOUND)
-                .optional(KuduSinkConfig.IGNORE_DUPLICATE)
-                .optional(KuduSinkConfig.ENABLE_KERBEROS)
-                .optional(KuduSinkConfig.KERBEROS_KRB5_CONF)
+                .required(KuduSinkOptions.MASTER)
+                .optional(KuduSinkOptions.TABLE_NAME)
+                .optional(KuduSinkOptions.WORKER_COUNT)
+                .optional(KuduSinkOptions.OPERATION_TIMEOUT)
+                .optional(KuduSinkOptions.ADMIN_OPERATION_TIMEOUT)
+                .optional(KuduSinkOptions.SAVE_MODE)
+                .optional(KuduSinkOptions.FLUSH_MODE)
+                .optional(KuduSinkOptions.IGNORE_NOT_FOUND)
+                .optional(KuduSinkOptions.IGNORE_DUPLICATE)
+                .optional(KuduSinkOptions.ENABLE_KERBEROS)
+                .optional(KuduSinkOptions.KERBEROS_KRB5_CONF)
                 .optional(SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA)
                 .conditional(
-                        KuduSinkConfig.FLUSH_MODE,
+                        KuduSinkOptions.FLUSH_MODE,
                         Arrays.asList(AUTO_FLUSH_BACKGROUND.name(), MANUAL_FLUSH.name()),
-                        KuduSinkConfig.BATCH_SIZE)
+                        KuduSinkOptions.BATCH_SIZE)
                 .conditional(
-                        KuduSinkConfig.FLUSH_MODE,
+                        KuduSinkOptions.FLUSH_MODE,
                         AUTO_FLUSH_BACKGROUND.name(),
-                        KuduSinkConfig.BUFFER_FLUSH_INTERVAL)
+                        KuduSinkOptions.BUFFER_FLUSH_INTERVAL)
                 .conditional(
-                        KuduSinkConfig.ENABLE_KERBEROS,
+                        KuduSinkOptions.ENABLE_KERBEROS,
                         true,
-                        KuduSinkConfig.KERBEROS_PRINCIPAL,
-                        KuduSinkConfig.KERBEROS_KEYTAB)
+                        KuduSinkOptions.KERBEROS_PRINCIPAL,
+                        KuduSinkOptions.KERBEROS_KEYTAB)
                 .build();
     }
 
@@ -78,10 +80,10 @@ public class KuduSinkFactory implements TableSinkFactory {
     public TableSink createSink(TableSinkFactoryContext context) {
         ReadonlyConfig config = context.getOptions();
         CatalogTable catalogTable = context.getCatalogTable();
-        if (!config.getOptional(KuduSinkConfig.TABLE_NAME).isPresent()) {
+        if (!config.getOptional(KuduSinkOptions.TABLE_NAME).isPresent()) {
             Map<String, String> map = config.toMap();
             map.put(
-                    KuduSinkConfig.TABLE_NAME.key(),
+                    KuduSinkOptions.TABLE_NAME.key(),
                     catalogTable.getTableId().toTablePath().getFullName());
             config = ReadonlyConfig.fromMap(new HashMap<>(map));
         }

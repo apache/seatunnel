@@ -41,6 +41,7 @@ public class OracleSourceConfigFactory extends JdbcSourceConfigFactory {
     public static final String SCHEMA_CHANGE_KEY = "include.schema.changes";
     public static final String LOG_MINING_STRATEGY_KEY = "log.mining.strategy";
     public static final String LOG_MINING_STRATEGY_DEFAULT = "online_catalog";
+    public static final String LOG_MINING_READONLY_KEY = "log.mining.read.only";
 
     private List<String> schemaList;
 
@@ -106,6 +107,7 @@ public class OracleSourceConfigFactory extends JdbcSourceConfigFactory {
         props.setProperty("connect.timeout.ms", String.valueOf(connectTimeoutMillis));
         // disable tombstones
         props.setProperty("tombstones.on.delete", String.valueOf(false));
+        props.setProperty(LOG_MINING_READONLY_KEY, "true");
 
         if (originUrl != null) {
             props.setProperty("database.url", originUrl);

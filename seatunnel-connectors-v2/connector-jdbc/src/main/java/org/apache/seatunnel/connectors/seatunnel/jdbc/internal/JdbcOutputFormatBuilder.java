@@ -18,7 +18,6 @@
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal;
 
 import org.apache.seatunnel.api.table.catalog.Column;
-import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSinkConfig;
@@ -61,11 +60,7 @@ public class JdbcOutputFormatBuilder {
         JdbcOutputFormat.StatementExecutorFactory statementExecutorFactory;
 
         final String database = jdbcSinkConfig.getDatabase();
-        final String table =
-                dialect.extractTableName(
-                        TablePath.of(
-                                jdbcSinkConfig.getDatabase() + "." + jdbcSinkConfig.getTable()));
-
+        final String table = jdbcSinkConfig.getTable();
         final List<String> primaryKeys = jdbcSinkConfig.getPrimaryKeys();
         if (jdbcSinkConfig.isUseCopyStatement()) {
             statementExecutorFactory =

@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-clickhouse.md';
+
 # ClickhouseFile
 
 > Clickhouse file sink connector
@@ -141,12 +143,6 @@ ClickhouseFile {
 
 ## Changelog
 
-### 2.2.0-beta 2022-09-26
+<ChangeLog />
 
-- Support write data to ClickHouse File and move to ClickHouse data dir
-
-### Next version
-
-- [BugFix] Fix generated data part name conflict and improve file commit logic [3416](https://github.com/apache/seatunnel/pull/3416)
-- [Feature] Support compatible_mode compatible with lower version Clickhouse  [3416](https://github.com/apache/seatunnel/pull/3416)
 

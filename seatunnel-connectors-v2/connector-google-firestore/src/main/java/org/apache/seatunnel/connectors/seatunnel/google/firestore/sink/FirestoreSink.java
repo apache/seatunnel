@@ -17,37 +17,26 @@
 
 package org.apache.seatunnel.connectors.seatunnel.google.firestore.sink;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
-import org.apache.seatunnel.api.common.PrepareFailException;
-import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
-import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.config.CheckConfigUtil;
-import org.apache.seatunnel.common.config.CheckResult;
-import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSimpleSink;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 import org.apache.seatunnel.connectors.seatunnel.google.firestore.config.FirestoreParameters;
-import org.apache.seatunnel.connectors.seatunnel.google.firestore.exception.FirestoreConnectorException;
-
-import com.google.auto.service.AutoService;
 
 import java.io.IOException;
 import java.util.Optional;
 
-import static org.apache.seatunnel.connectors.seatunnel.google.firestore.config.FirestoreConfig.COLLECTION;
-import static org.apache.seatunnel.connectors.seatunnel.google.firestore.config.FirestoreConfig.PROJECT_ID;
-
-@AutoService(SeaTunnelSink.class)
 public class FirestoreSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
 
-    private SeaTunnelRowType rowType;
+    private final CatalogTable catalogTable;
 
-    private FirestoreParameters firestoreParameters;
+    private final FirestoreParameters firestoreParameters;
+
+    public FirestoreSink(CatalogTable catalogTable, FirestoreParameters firestoreParameters) {
+        this.catalogTable = catalogTable;
+        this.firestoreParameters = firestoreParameters;
+    }
 
     @Override
     public String getPluginName() {
@@ -55,32 +44,13 @@ public class FirestoreSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
     }
 
     @Override
-    public void prepare(Config pluginConfig) throws PrepareFailException {
-        CheckResult result =
-                CheckConfigUtil.checkAllExists(pluginConfig, PROJECT_ID.key(), COLLECTION.key());
-        if (!result.isSuccess()) {
-            throw new FirestoreConnectorException(
-                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                    String.format(
-                            "PluginName: %s, PluginType: %s, Message: %s",
-                            getPluginName(), PluginType.SINK, result.getMsg()));
-        }
-        this.firestoreParameters = new FirestoreParameters().buildWithConfig(pluginConfig);
-    }
-
-    @Override
-    public void setTypeInfo(SeaTunnelRowType seaTunnelRowType) {
-        this.rowType = seaTunnelRowType;
-    }
-
-    @Override
     public AbstractSinkWriter<SeaTunnelRow, Void> createWriter(SinkWriter.Context context)
             throws IOException {
-        return new FirestoreSinkWriter(rowType, firestoreParameters);
+        return new FirestoreSinkWriter(catalogTable.getSeaTunnelRowType(), firestoreParameters);
     }
 
     @Override
     public Optional<CatalogTable> getWriteCatalogTable() {
-        return super.getWriteCatalogTable();
+        return Optional.ofNullable(catalogTable);
     }
 }

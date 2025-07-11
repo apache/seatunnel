@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-activemq.md';
+
 # Activemq
 
 > Activemq 接收器连接器
@@ -117,7 +119,5 @@ sink {
 
 ## 变更日志
 
-### 下一个版本
-
-- 添加Activemq源连接器
+<ChangeLog />
 

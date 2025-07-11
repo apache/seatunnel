@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-prometheus.md';
+
 # Prometheus
 
 > Prometheus sink connector
@@ -97,7 +99,4 @@ sink {
 
 ## Changelog
 
-### 2.3.8-beta 2024-08-22
-
-- Add Http Sink Connector
-
+<ChangeLog />

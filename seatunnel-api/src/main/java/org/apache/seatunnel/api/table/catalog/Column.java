@@ -82,6 +82,12 @@ public abstract class Column implements Serializable {
      */
     protected final String sourceType;
 
+    /**
+     * The data type used to store the target database, typically specified in transform or sink
+     * scenarios.
+     */
+    protected String sinkType;
+
     /** your options * */
     protected final Map<String, Object> options;
 

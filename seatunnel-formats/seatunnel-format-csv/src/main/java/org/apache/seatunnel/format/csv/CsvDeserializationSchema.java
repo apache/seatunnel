@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.format.csv;
 
-import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.ArrayType;
@@ -41,6 +40,7 @@ import org.apache.commons.lang3.StringUtils;
 import lombok.NonNull;
 
 import java.io.IOException;
+import java.io.Serializable;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
@@ -58,7 +58,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
 
-public class CsvDeserializationSchema implements DeserializationSchema<SeaTunnelRow> {
+public class CsvDeserializationSchema implements Serializable {
     private final SeaTunnelRowType seaTunnelRowType;
     private final String[] separators;
     private final String encoding;
@@ -169,13 +169,17 @@ public class CsvDeserializationSchema implements DeserializationSchema<SeaTunnel
         }
     }
 
-    @Override
-    public SeaTunnelRow deserialize(byte[] message) throws IOException {
+    protected SeaTunnelRow deserialize(byte[] message) throws IOException {
         if (message == null || message.length == 0) {
             return null;
         }
         String content = new String(message, EncodingUtils.tryParseCharset(encoding));
         Map<Integer, String> splitsMap = splitLineBySeaTunnelRowType(content, seaTunnelRowType, 0);
+        SeaTunnelRow seaTunnelRow = getSeaTunnelRow(splitsMap);
+        return seaTunnelRow;
+    }
+
+    public SeaTunnelRow getSeaTunnelRow(Map<Integer, String> splitsMap) {
         Object[] objects = new Object[seaTunnelRowType.getTotalFields()];
         for (int i = 0; i < objects.length; i++) {
             String fieldValue = splitsMap.get(i);
@@ -201,12 +205,11 @@ public class CsvDeserializationSchema implements DeserializationSchema<SeaTunnel
         return seaTunnelRow;
     }
 
-    @Override
     public SeaTunnelDataType<SeaTunnelRow> getProducedType() {
         return seaTunnelRowType;
     }
 
-    public Map<Integer, String> splitLineBySeaTunnelRowType(
+    protected Map<Integer, String> splitLineBySeaTunnelRowType(
             String line, SeaTunnelRowType seaTunnelRowType, int level) {
         String[] splits = processor.splitLine(line, separators[level]);
         LinkedHashMap<Integer, String> splitsMap = new LinkedHashMap<>();

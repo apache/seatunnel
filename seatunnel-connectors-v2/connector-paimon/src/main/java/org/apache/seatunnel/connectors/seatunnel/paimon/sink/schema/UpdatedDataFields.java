@@ -43,6 +43,9 @@ public class UpdatedDataFields {
     private static final List<DataTypeRoot> TIMESTAMP_TYPES =
             Arrays.asList(DataTypeRoot.TIMESTAMP_WITHOUT_TIME_ZONE);
 
+    private static final List<DataTypeRoot> TIME_TYPES =
+            Arrays.asList(DataTypeRoot.TIME_WITHOUT_TIME_ZONE);
+
     public static ConvertAction canConvert(DataType oldType, DataType newType) {
         if (oldType.equalsIgnoreNullable(newType)) {
             return ConvertAction.CONVERT;
@@ -79,14 +82,25 @@ public class UpdatedDataFields {
         oldIdx = DECIMAL_TYPES.indexOf(oldType.getTypeRoot());
         newIdx = DECIMAL_TYPES.indexOf(newType.getTypeRoot());
         if (oldIdx >= 0 && newIdx >= 0) {
-            return DataTypeChecks.getPrecision(newType) <= DataTypeChecks.getPrecision(oldType)
-                            && DataTypeChecks.getScale(newType) <= DataTypeChecks.getScale(oldType)
+            int oldScale = DataTypeChecks.getScale(oldType);
+            int newScale = DataTypeChecks.getScale(newType);
+            return (DataTypeChecks.getPrecision(newType) - newScale)
+                                    < (DataTypeChecks.getPrecision(oldType) - oldScale)
+                            || newScale < oldScale
                     ? ConvertAction.IGNORE
                     : ConvertAction.CONVERT;
         }
 
         oldIdx = TIMESTAMP_TYPES.indexOf(oldType.getTypeRoot());
         newIdx = TIMESTAMP_TYPES.indexOf(newType.getTypeRoot());
+        if (oldIdx >= 0 && newIdx >= 0) {
+            return DataTypeChecks.getPrecision(oldType) <= DataTypeChecks.getPrecision(newType)
+                    ? ConvertAction.CONVERT
+                    : ConvertAction.IGNORE;
+        }
+
+        oldIdx = TIME_TYPES.indexOf(oldType.getTypeRoot());
+        newIdx = TIME_TYPES.indexOf(newType.getTypeRoot());
         if (oldIdx >= 0 && newIdx >= 0) {
             return DataTypeChecks.getPrecision(oldType) <= DataTypeChecks.getPrecision(newType)
                     ? ConvertAction.CONVERT

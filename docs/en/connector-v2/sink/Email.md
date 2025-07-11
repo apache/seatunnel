@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-email.md';
+
 # Email
 
 > Email sink connector
@@ -86,7 +88,5 @@ Sink plugin common parameters, please refer to [Sink Common Options](../sink-com
 
 ## Changelog
 
-### 2.2.0-beta 2022-09-26
-
-- Add Email Sink Connector
+<ChangeLog />
 

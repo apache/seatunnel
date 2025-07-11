@@ -24,10 +24,16 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.testcontainers.containers.Container;
 
+import lombok.extern.slf4j.Slf4j;
+
 import java.io.IOException;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 
 import static org.apache.seatunnel.e2e.common.util.ContainerUtil.PROJECT_ROOT_PATH;
+import static org.testcontainers.shaded.org.awaitility.Awaitility.given;
 
+@Slf4j
 public class JobClientJobProxyIT extends SeaTunnelEngineContainer {
 
     @Override
@@ -71,6 +77,44 @@ public class JobClientJobProxyIT extends SeaTunnelEngineContainer {
         Assertions.assertEquals(0, execResult.getExitCode());
         Assertions.assertFalse(
                 server.getLogs().contains("wrong target release operation with job"));
+    }
+
+    @Test
+    public void testNoExceptionLogWhenCancelJob() throws IOException, InterruptedException {
+        String jobId = String.valueOf(System.currentTimeMillis());
+        CompletableFuture.runAsync(
+                () -> {
+                    try {
+                        executeJob(
+                                "/stream_fakesource_to_inmemory_pending_row_in_queue.conf", jobId);
+                    } catch (Exception e) {
+                        log.error("Commit task exception :" + e.getMessage());
+                        throw new RuntimeException();
+                    }
+                });
+
+        given().pollDelay(10, TimeUnit.SECONDS)
+                .await()
+                .pollDelay(5000L, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> {
+                            Assertions.assertEquals("RUNNING", this.getJobStatus(jobId));
+                        });
+
+        String logBeforeCancel = this.getServerLogs();
+        cancelJob(jobId);
+        given().pollDelay(10, TimeUnit.SECONDS)
+                .await()
+                .pollDelay(5000L, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> {
+                            Assertions.assertEquals("CANCELED", this.getJobStatus(jobId));
+                        });
+        String logAfterCancel = this.getServerLogs().substring(logBeforeCancel.length());
+        // in TaskExecutionService.BlockingWorker::run catch Throwable
+        Assertions.assertFalse(logAfterCancel.contains("Exception in"), logAfterCancel);
+        Assertions.assertEquals(
+                4, StringUtils.countMatches(logAfterCancel, "Interrupted task"), logAfterCancel);
     }
 
     @Test

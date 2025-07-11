@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-file-hadoop.md';
+
 # HdfsFile
 
 > HDFS File Sink Connector
@@ -48,8 +50,9 @@ Output data to hdfs file
 | file_name_expression                  | string  | no       | "${transactionId}"                         | Only used when `custom_filename` is `true`.`file_name_expression` describes the file expression which will be created into the `path`. We can add the variable `${now}` or `${uuid}` in the `file_name_expression`, like `test_${uuid}_${now}`,`${now}` represents the current time, and its format can be defined by specifying the option `filename_time_format`.Please note that, If `is_enable_transaction` is `true`, we will auto add `${transactionId}_` in the head of the file. |
 | filename_time_format                  | string  | no       | "yyyy.MM.dd"                               | Only used when `custom_filename` is `true`.When the format in the `file_name_expression` parameter is `xxxx-${now}` , `filename_time_format` can specify the time format of the path, and the default value is `yyyy.MM.dd` . The commonly used time formats are listed as follows:[y:Year,M:Month,d:Day of month,H:Hour in day (0-23),m:Minute in hour,s:Second in minute]                                                                                                              |
 | file_format_type                      | string  | no       | "csv"                                      | We supported as the following file types:`text` `csv` `parquet` `orc` `json` `excel` `xml` `binary`.Please note that, The final file name will end with the file_format's suffix, the suffix of the text file is `txt`.                                                                                                                                                                                                                                                                  |
+| filename_extension                    | string  | no       | -                                          | Override the default file name extensions with custom file name extensions. E.g. `.xml`, `.json`, `dat`, `.customtype`                                                                                                                                                                                                                                                                                                                                                                   |
 | field_delimiter                       | string  | no       | '\001'                                     | Only used when file_format is text,The separator between columns in a row of data. Only needed by `text` file format.                                                                                                                                                                                                                                                                                                                                                                    |
-| row_delimiter                         | string  | no       | "\n"                                       | Only used when file_format is text,The separator between rows in a file. Only needed by `text` file format.                                                                                                                                                                                                                                                                                                                                                                              |
+| row_delimiter                         | string  | no       | "\n"                                       | Only used when file_format is text,The separator between rows in a file. Only needed by `text`, `csv` and `json` file format.                                                                                                                                                                                                                                                                                                                                                             |
 | have_partition                        | boolean | no       | false                                      | Whether you need processing partitions.                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | partition_by                          | array   | no       | -                                          | Only used then have_partition is true,Partition data based on selected fields.                                                                                                                                                                                                                                                                                                                                                                                                           |
 | partition_dir_expression              | string  | no       | "${k0}=${v0}/${k1}=${v1}/.../${kn}=${vn}/" | Only used then have_partition is true,If the `partition_by` is specified, we will generate the corresponding partition directory based on the partition information, and the final file will be placed in the partition directory. Default `partition_dir_expression` is `${k0}=${v0}/${k1}=${v1}/.../${kn}=${vn}/`. `k0` is the first partition field and `v0` is the value of the first partition field.                                                                               |
@@ -83,7 +86,7 @@ Output data to hdfs file
 
 ## Task Example
 
-### Simple:
+### Simple
 
 > This example defines a SeaTunnel synchronization task that automatically generates data through FakeSource and sends it to Hdfs.
 
@@ -222,3 +225,6 @@ HdfsFile {
 }
 ```
 
+## Changelog
+
+<ChangeLog />

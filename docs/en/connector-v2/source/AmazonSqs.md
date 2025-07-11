@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-amazonsqs.md';
+
 # AmazonSqs
 
 > AmazonSqs source connector
@@ -77,5 +79,5 @@ sink {
 
 ## Changelog
 
-### next version
+<ChangeLog />
 

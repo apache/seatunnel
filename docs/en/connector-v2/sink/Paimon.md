@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-paimon.md';
+
 # Paimon
 
 > Paimon sink connector
@@ -31,21 +33,23 @@ libfb303-xxx.jar
 
 ## Options
 
-|            name             | type   | required | default value                | Description                                                                                                                                                      |
-|-----------------------------|--------|----------|------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| warehouse                   | String | Yes      | -                            | Paimon warehouse path                                                                                                                                            |
-| catalog_type                | String | No       | filesystem                   | Catalog type of Paimon, support filesystem and hive                                                                                                              |
-| catalog_uri                 | String | No       | -                            | Catalog uri of Paimon, only needed when catalog_type is hive                                                                                                     |
-| database                    | String | Yes      | -                            | The database you want to access                                                                                                                                  |
-| table                       | String | Yes      | -                            | The table you want to access                                                                                                                                     |
-| hdfs_site_path              | String | No       | -                            | The path of hdfs-site.xml                                                                                                                                        |
-| schema_save_mode            | Enum   | No       | CREATE_SCHEMA_WHEN_NOT_EXIST | The schema save mode                                                                                                                                             |
-| data_save_mode              | Enum   | No       | APPEND_DATA                  | The data save mode                                                                                                                                               |
-| paimon.table.primary-keys   | String | No       | -                            | Default comma-separated list of columns (primary key) that identify a row in tables.(Notice: The partition field needs to be included in the primary key fields) |
-| paimon.table.partition-keys | String | No       | -                            | Default comma-separated list of partition fields to use when creating tables.                                                                                    |
-| paimon.table.write-props    | Map    | No       | -                            | Properties passed through to paimon table initialization, [reference](https://paimon.apache.org/docs/master/maintenance/configurations/#coreoptions).            |
-| paimon.hadoop.conf          | Map    | No       | -                            | Properties in hadoop conf                                                                                                                                        |
-| paimon.hadoop.conf-path     | String | No       | -                            | The specified loading path for the 'core-site.xml', 'hdfs-site.xml', 'hive-site.xml' files                                                                       |
+| name                         | type    | required | default value                | Description                                                                                                                                                      |
+|------------------------------|---------|----------|------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| warehouse                    | String  | Yes      | -                            | Paimon warehouse path                                                                                                                                            |
+| catalog_type                 | String  | No       | filesystem                   | Catalog type of Paimon, support filesystem and hive                                                                                                              |
+| catalog_uri                  | String  | No       | -                            | Catalog uri of Paimon, only needed when catalog_type is hive                                                                                                     |
+| database                     | String  | Yes      | -                            | The database you want to access                                                                                                                                  |
+| table                        | String  | Yes      | -                            | The table you want to access                                                                                                                                     |
+| hdfs_site_path               | String  | No       | -                            | The path of hdfs-site.xml                                                                                                                                        |
+| schema_save_mode             | Enum    | No       | CREATE_SCHEMA_WHEN_NOT_EXIST | The schema save mode                                                                                                                                             |
+| data_save_mode               | Enum    | No       | APPEND_DATA                  | The data save mode                                                                                                                                               |
+| paimon.table.primary-keys    | String  | No       | -                            | Default comma-separated list of columns (primary key) that identify a row in tables.(Notice: The partition field needs to be included in the primary key fields) |
+| paimon.table.partition-keys  | String  | No       | -                            | Default comma-separated list of partition fields to use when creating tables.                                                                                    |
+| paimon.table.write-props     | Map     | No       | -                            | Properties passed through to paimon table initialization, [reference](https://paimon.apache.org/docs/master/maintenance/configurations/#coreoptions).            |
+| paimon.hadoop.conf           | Map     | No       | -                            | Properties in hadoop conf                                                                                                                                        |
+| paimon.hadoop.conf-path      | String  | No       | -                            | The specified loading path for the 'core-site.xml', 'hdfs-site.xml', 'hive-site.xml' files                                                                       |
+| paimon.table.non-primary-key | Boolean | false    | -                            | Switch to create `table with PK` or `table without PK`. true : `table without PK`, false : `table with PK`                                                       |
+
 
 ## Checkpoint in batch mode
 
@@ -232,6 +236,49 @@ sink {
     database="seatunnel"
     table="role"
     paimon.hadoop.conf = {
+      fs.defaultFS = "hdfs://nameservice1"
+      dfs.nameservices = "nameservice1"
+      dfs.ha.namenodes.nameservice1 = "nn1,nn2"
+      dfs.namenode.rpc-address.nameservice1.nn1 = "hadoop03:8020"
+      dfs.namenode.rpc-address.nameservice1.nn2 = "hadoop04:8020"
+      dfs.client.failover.proxy.provider.nameservice1 = "org.apache.hadoop.hdfs.server.namenode.ha.ConfiguredFailoverProxyProvider"
+      dfs.client.use.datanode.hostname = "true"
+      security.kerberos.login.principal = "your-kerberos-principal"
+      security.kerberos.login.keytab = "your-kerberos-keytab-path"
+    }
+  }
+}
+```
+
+### Single table(Specify hadoop HA config with hadoop_user_name) 
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 5000
+}
+
+source {
+  Mysql-CDC {
+    base-url = "jdbc:mysql://127.0.0.1:3306/seatunnel"
+    username = "root"
+    password = "******"
+    table-names = ["seatunnel.role"]
+  }
+}
+
+transform {
+}
+
+sink {
+  Paimon {
+    catalog_name="seatunnel_test"
+    warehouse="hdfs:///tmp/seatunnel/paimon/hadoop-sink/"
+    database="seatunnel"
+    table="role"
+    paimon.hadoop.conf = {
+      hadoop_user_name = "hdfs"
       fs.defaultFS = "hdfs://nameservice1"
       dfs.nameservices = "nameservice1"
       dfs.ha.namenodes.nameservice1 = "nn1,nn2"
@@ -515,3 +562,6 @@ sink {
 }
 ```
 
+## Changelog
+
+<ChangeLog />

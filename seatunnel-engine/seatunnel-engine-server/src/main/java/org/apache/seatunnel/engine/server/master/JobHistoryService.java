@@ -150,10 +150,36 @@ public class JobHistoryService {
                         .collect(Collectors.toList());
         Set<Long> runningJonIds =
                 runningJobStateList.stream().map(JobState::getJobId).collect(Collectors.toSet());
+
+        List<JobState> pendingJobStateList =
+                pendingJobMasterMap.entrySet().stream()
+                        .map(
+                                entry -> {
+                                    Long jobId = entry.getKey();
+                                    JobImmutableInformation jobImmutableInformation =
+                                            entry.getValue()._2.getJobImmutableInformation();
+                                    return new JobState(
+                                            jobId,
+                                            jobImmutableInformation.getJobName(),
+                                            JobStatus.PENDING,
+                                            jobImmutableInformation.getCreateTime(),
+                                            null,
+                                            null,
+                                            null,
+                                            null);
+                                })
+                        .collect(Collectors.toList());
+        Set<Long> pendingJobIds =
+                pendingJobStateList.stream().map(JobState::getJobId).collect(Collectors.toSet());
+
         Stream.concat(
-                        runningJobStateList.stream(),
+                        Stream.concat(runningJobStateList.stream(), pendingJobStateList.stream()),
                         finishedJobStateImap.values().stream()
-                                .filter(jobState -> !runningJonIds.contains(jobState.getJobId())))
+                                .filter(
+                                        jobState ->
+                                                !runningJonIds.contains(jobState.getJobId())
+                                                        && !pendingJobIds.contains(
+                                                                jobState.getJobId())))
                 .forEach(
                         jobState -> {
                             JobStatusData jobStatusData =
@@ -162,6 +188,7 @@ public class JobHistoryService {
                                             jobState.getJobName(),
                                             jobState.getJobStatus(),
                                             jobState.getSubmitTime(),
+                                            jobState.getStartTime(),
                                             jobState.getFinishTime());
                             status.add(jobStatusData);
                         });
@@ -179,6 +206,7 @@ public class JobHistoryService {
                     jobImmutableInformation.getJobName(),
                     JobStatus.PENDING,
                     jobImmutableInformation.getCreateTime(),
+                    null,
                     null,
                     null,
                     null);
@@ -216,6 +244,7 @@ public class JobHistoryService {
 
     public void storeFinishedJobState(JobMaster jobMaster) {
         JobState jobState = toJobStateMapper(jobMaster, false);
+        jobState.setStartTime(jobMaster.getStateTimestamp(JobStatus.SCHEDULED));
         jobState.setFinishTime(System.currentTimeMillis());
         jobState.setErrorMessage(jobMaster.getErrorMessage());
         finishedJobStateImap.put(jobState.jobId, jobState, finishedJobExpireTime, TimeUnit.MINUTES);
@@ -283,8 +312,16 @@ public class JobHistoryService {
         JobStatus jobStatus = (JobStatus) runningJobStateIMap.get(jobId);
         String jobName = jobMaster.getJobImmutableInformation().getJobName();
         long submitTime = jobMaster.getJobImmutableInformation().getCreateTime();
+        Long startTime = jobMaster.getStateTimestamp(JobStatus.SCHEDULED);
         return new JobState(
-                jobId, jobName, jobStatus, submitTime, null, pipelineStateMapperMap, null);
+                jobId,
+                jobName,
+                jobStatus,
+                submitTime,
+                startTime,
+                null,
+                pipelineStateMapperMap,
+                null);
     }
 
     public void storeJobInfo(long jobId, JobDAGInfo jobInfo) {
@@ -299,6 +336,7 @@ public class JobHistoryService {
         private String jobName;
         private JobStatus jobStatus;
         private long submitTime;
+        private Long startTime;
         private Long finishTime;
         private Map<PipelineLocation, PipelineStateData> pipelineStateMapperMap;
         private String errorMessage;

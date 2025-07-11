@@ -24,6 +24,7 @@ import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.util.ContainerUtil;
 
+import org.testcontainers.containers.BindMode;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
@@ -60,6 +61,8 @@ public abstract class AbstractTestFlinkContainer extends AbstractTestContainer {
 
     protected static final String DEFAULT_DOCKER_IMAGE = "flink:1.13.6-scala_2.11";
 
+    protected static final String MOUNTS_PATH = "/opt/seatunnel_mounts";
+
     protected GenericContainer<?> jobManager;
     protected GenericContainer<?> taskManager;
 
@@ -85,7 +88,8 @@ public abstract class AbstractTestFlinkContainer extends AbstractTestContainer {
                         .waitingFor(
                                 new LogMessageWaitStrategy()
                                         .withRegEx(".*Starting the resource manager.*")
-                                        .withStartupTimeout(Duration.ofMinutes(2)));
+                                        .withStartupTimeout(Duration.ofMinutes(2)))
+                        .withFileSystemBind(MOUNTS_PATH, MOUNTS_PATH, BindMode.READ_WRITE);
         copySeaTunnelStarterToContainer(jobManager);
         copySeaTunnelStarterLoggingToContainer(jobManager);
 
@@ -106,7 +110,8 @@ public abstract class AbstractTestFlinkContainer extends AbstractTestContainer {
                                 new LogMessageWaitStrategy()
                                         .withRegEx(
                                                 ".*Successful registration at resource manager.*")
-                                        .withStartupTimeout(Duration.ofMinutes(2)));
+                                        .withStartupTimeout(Duration.ofMinutes(2)))
+                        .withFileSystemBind(MOUNTS_PATH, MOUNTS_PATH, BindMode.READ_WRITE);
 
         Startables.deepStart(Stream.of(jobManager)).join();
         Startables.deepStart(Stream.of(taskManager)).join();

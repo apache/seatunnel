@@ -19,11 +19,11 @@ package org.apache.seatunnel.transform.metadata;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
-import org.apache.seatunnel.transform.nlpmodel.ModelTransformConfig;
 
+import java.io.Serializable;
 import java.util.Map;
 
-public class MetadataTransformConfig extends ModelTransformConfig {
+public class MetadataTransformConfig implements Serializable {
 
     public static final String PLUGIN_NAME = "Metadata";
 

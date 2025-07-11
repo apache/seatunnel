@@ -27,6 +27,7 @@ import java.util.Map;
 @AllArgsConstructor
 @Getter
 public class ElasticsearchSourceState implements Serializable {
+    private static final long serialVersionUID = 3883532547289760508L;
     private boolean shouldEnumerate;
     private Map<Integer, List<ElasticsearchSourceSplit>> pendingSplit;
 }

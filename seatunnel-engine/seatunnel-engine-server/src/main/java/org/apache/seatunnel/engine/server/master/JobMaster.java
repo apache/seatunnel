@@ -85,7 +85,6 @@ import com.hazelcast.core.OperationTimeoutException;
 import com.hazelcast.flakeidgen.FlakeIdGenerator;
 import com.hazelcast.internal.serialization.Data;
 import com.hazelcast.jet.datamodel.Tuple2;
-import com.hazelcast.jet.impl.execution.init.CustomClassLoadedObject;
 import com.hazelcast.logging.ILogger;
 import com.hazelcast.logging.Logger;
 import com.hazelcast.map.IMap;
@@ -93,6 +92,7 @@ import com.hazelcast.spi.impl.NodeEngine;
 import lombok.Getter;
 import lombok.NonNull;
 
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -238,19 +238,27 @@ public class JobMaster {
                         jobImmutableInformation.getJobId(),
                         jobImmutableInformation.getPluginJarsUrls()));
         ClassLoader appClassLoader = Thread.currentThread().getContextClassLoader();
-        ClassLoader classLoader =
-                seaTunnelServer
-                        .getClassLoaderService()
-                        .getClassLoader(
-                                jobImmutableInformation.getJobId(),
-                                jobImmutableInformation.getPluginJarsUrls());
+
+        List<Set<URL>> logicalVertexJarsList = jobImmutableInformation.getLogicalVertexJarsList();
+        List<ClassLoader> logicalVertexClassLoaders = new ArrayList<>();
+        for (Set<URL> urls : logicalVertexJarsList) {
+            logicalVertexClassLoaders.add(
+                    seaTunnelServer
+                            .getClassLoaderService()
+                            .getClassLoader(jobImmutableInformation.getJobId(), urls));
+        }
         logicalDag =
-                CustomClassLoadedObject.deserializeWithCustomClassLoader(
+                DAGUtils.restoreLogicalDag(
+                        jobImmutableInformation,
                         nodeEngine.getSerializationService(),
-                        classLoader,
-                        jobImmutableInformation.getLogicalDag());
+                        logicalVertexClassLoaders);
+
+        Map<Long, ClassLoader> logicalVertexIdClassLoaderMap = new HashMap<>();
+        int i = 0;
+        for (Long id : logicalDag.getLogicalVertexMap().keySet()) {
+            logicalVertexIdClassLoaderMap.put(id, logicalVertexClassLoaders.get(i++));
+        }
         try {
-            Thread.currentThread().setContextClassLoader(classLoader);
             if (!restart
                     && !logicalDag.isStartWithSavePoint()
                     && ReadonlyConfig.fromMap(logicalDag.getJobConfig().getEnvOptions())
@@ -259,8 +267,17 @@ public class JobMaster {
                 logicalDag.getLogicalVertexMap().values().stream()
                         .map(LogicalVertex::getAction)
                         .filter(action -> action instanceof SinkAction)
-                        .map(sink -> ((SinkAction<?, ?, ?, ?>) sink).getSink())
-                        .forEach(JobMaster::handleSaveMode);
+                        .forEach(
+                                sink -> {
+                                    Thread.currentThread()
+                                            .setContextClassLoader(
+                                                    logicalVertexIdClassLoaderMap.get(
+                                                            sink.getId()));
+                                    JobMaster.handleSaveMode(
+                                            ((SinkAction<?, ?, ?, ?>) sink).getSink(),
+                                            logicalDag.isStartWithSavePoint());
+                                });
+                Thread.currentThread().setContextClassLoader(appClassLoader);
             }
 
             final Tuple2<PhysicalPlan, Map<Integer, CheckpointPlan>> planTuple =
@@ -270,6 +287,7 @@ public class JobMaster {
                             jobImmutableInformation,
                             initializationTimestamp,
                             executorService,
+                            seaTunnelServer.getClassLoaderService(),
                             flakeIdGenerator,
                             runningJobStateIMap,
                             runningJobStateTimestampsIMap,
@@ -281,11 +299,11 @@ public class JobMaster {
         } finally {
             // revert to app class loader, it may be changed by PlanUtils.fromLogicalDAG
             Thread.currentThread().setContextClassLoader(appClassLoader);
-            seaTunnelServer
-                    .getClassLoaderService()
-                    .releaseClassLoader(
-                            jobImmutableInformation.getJobId(),
-                            jobImmutableInformation.getPluginJarsUrls());
+            for (Set<URL> urls : logicalVertexJarsList) {
+                seaTunnelServer
+                        .getClassLoaderService()
+                        .releaseClassLoader(jobImmutableInformation.getJobId(), urls);
+            }
         }
         Exception initException = null;
         try {
@@ -542,14 +560,18 @@ public class JobMaster {
         }
     }
 
-    public static void handleSaveMode(SeaTunnelSink sink) {
+    public static void handleSaveMode(SeaTunnelSink sink, boolean isStartWithSavePoint) {
         if (sink instanceof SupportSaveMode) {
             Optional<SaveModeHandler> saveModeHandler =
                     ((SupportSaveMode) sink).getSaveModeHandler();
             if (saveModeHandler.isPresent()) {
                 try (SaveModeHandler handler = saveModeHandler.get()) {
                     handler.open();
-                    new SaveModeExecuteWrapper(handler).execute();
+                    if (!isStartWithSavePoint) {
+                        new SaveModeExecuteWrapper(handler).execute();
+                    } else {
+                        handler.handleSchemaSaveModeWithRestore();
+                    }
                 } catch (Exception e) {
                     throw new SeaTunnelRuntimeException(HANDLE_SAVE_MODE_FAILED, e);
                 }
@@ -557,7 +579,7 @@ public class JobMaster {
         } else if (sink instanceof MultiTableSink) {
             Map<TablePath, SeaTunnelSink> sinks = ((MultiTableSink) sink).getSinks();
             for (SeaTunnelSink seaTunnelSink : sinks.values()) {
-                handleSaveMode(seaTunnelSink);
+                handleSaveMode(seaTunnelSink, isStartWithSavePoint);
             }
         }
     }
@@ -758,6 +780,10 @@ public class JobMaster {
 
     public JobImmutableInformation getJobImmutableInformation() {
         return jobImmutableInformation;
+    }
+
+    public Long getStateTimestamp(@NonNull JobStatus jobStatus) {
+        return physicalPlan.getStateTimestamp(jobStatus);
     }
 
     public JobStatus getJobStatus() {

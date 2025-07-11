@@ -17,8 +17,13 @@
 
 package org.apache.seatunnel.connectors.seatunnel.http.client;
 
+import org.apache.seatunnel.shade.com.google.common.base.Strings;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
+
+import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.connectors.seatunnel.http.config.HttpParameter;
 
+import org.apache.commons.collections4.MapUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.apache.http.HttpStatus;
@@ -62,11 +67,13 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 @Slf4j
 public class HttpClientProvider implements AutoCloseable {
     private static final String ENCODING = "UTF-8";
     private static final String APPLICATION_JSON = "application/json";
+    private static final String APPLICATION_FORM = "application/x-www-form-urlencoded";
     private static final int INITIAL_CAPACITY = 16;
     private RequestConfig requestConfig;
     private final CloseableHttpClient httpClient;
@@ -115,12 +122,39 @@ public class HttpClientProvider implements AutoCloseable {
             String method,
             Map<String, String> headers,
             Map<String, String> params,
-            String body)
+            String body,
+            boolean keepParamsAsForm)
             throws Exception {
+        Map<String, Object> bodyMap = new HashMap<>();
+        // If body is set but bodyMap is not, convert body to bodyMap
+        if (!Strings.isNullOrEmpty(body)) {
+            bodyMap =
+                    ConfigFactory.parseString(body).entrySet().stream()
+                            .collect(
+                                    Collectors.toMap(
+                                            Map.Entry::getKey,
+                                            entry -> entry.getValue().unwrapped(),
+                                            (v1, v2) -> v2));
+        }
+
         // convert method option to uppercase
         method = method.toUpperCase(Locale.ROOT);
+        // Keep the original post  logic
+        if (HttpPost.METHOD_NAME.equals(method) && keepParamsAsForm) {
+            // Compatible with old versions
+            if (MapUtils.isNotEmpty(params)) {
+                headers = MapUtils.isEmpty(headers) ? new HashMap<>() : headers;
+                headers.putIfAbsent(HTTP.CONTENT_TYPE, APPLICATION_FORM);
+            }
+            if (MapUtils.isEmpty(bodyMap)) {
+                bodyMap = new HashMap<>();
+            }
+            bodyMap.putAll(params);
+            return doPost(url, headers, Collections.emptyMap(), bodyMap);
+        }
         if (HttpPost.METHOD_NAME.equals(method)) {
-            return doPost(url, headers, params, body);
+            // Create access address
+            return doPost(url, headers, params, bodyMap);
         }
         if (HttpGet.METHOD_NAME.equals(method)) {
             return doGet(url, headers, params);
@@ -292,7 +326,6 @@ public class HttpClientProvider implements AutoCloseable {
     /**
      * Send a post request with request headers , request parameters and request body
      *
-     * @param url request address
      * @param headers request header map
      * @param params request parameter map
      * @param body request body
@@ -300,16 +333,19 @@ public class HttpClientProvider implements AutoCloseable {
      * @throws Exception information
      */
     public HttpResponse doPost(
-            String url, Map<String, String> headers, Map<String, String> params, String body)
+            String url,
+            Map<String, String> headers,
+            Map<String, String> params,
+            Map<String, Object> body)
             throws Exception {
-        // create a new http get
-        HttpPost httpPost = new HttpPost(url);
+        URIBuilder uriBuilder = new URIBuilder(url);
+        // add parameter to uri
+        addParameters(uriBuilder, params);
+        HttpPost httpPost = new HttpPost(uriBuilder.build());
         // set default request config
         httpPost.setConfig(requestConfig);
         // set request header
         addHeaders(httpPost, headers);
-        // set request params
-        addParameters(httpPost, params);
         // add body in request
         addBody(httpPost, body);
         // return http response
@@ -427,6 +463,36 @@ public class HttpClientProvider implements AutoCloseable {
             return;
         }
         headers.forEach(request::addHeader);
+    }
+
+    static void addBody(HttpEntityEnclosingRequestBase request, Map<String, Object> body)
+            throws UnsupportedEncodingException {
+        if (MapUtils.isEmpty(body)) {
+            body = new HashMap<>();
+        }
+        boolean isFormSubmit =
+                request.getHeaders(HTTP.CONTENT_TYPE) != null
+                        && request.getHeaders(HTTP.CONTENT_TYPE).length > 0
+                        && APPLICATION_FORM.equalsIgnoreCase(
+                                request.getHeaders(HTTP.CONTENT_TYPE)[0].getValue());
+        if (isFormSubmit) {
+            if (MapUtils.isNotEmpty(body)) {
+                List<NameValuePair> parameters = new ArrayList<>();
+                Set<Map.Entry<String, Object>> entrySet = body.entrySet();
+                for (Map.Entry<String, Object> e : entrySet) {
+                    String name = e.getKey();
+                    String value = e.getValue().toString();
+                    NameValuePair pair = new BasicNameValuePair(name, value);
+                    parameters.add(pair);
+                }
+                // Set to the request's http object
+                request.setEntity(new UrlEncodedFormEntity(parameters, ENCODING));
+            }
+        } else {
+            StringEntity entity =
+                    new StringEntity(JsonUtils.toJsonString(body), ContentType.APPLICATION_JSON);
+            request.setEntity(entity);
+        }
     }
 
     private boolean checkAlreadyHaveContentType(HttpEntityEnclosingRequestBase request) {

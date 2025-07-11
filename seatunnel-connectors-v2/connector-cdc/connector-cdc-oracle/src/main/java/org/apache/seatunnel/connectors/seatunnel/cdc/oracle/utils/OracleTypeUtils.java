@@ -69,6 +69,6 @@ public class OracleTypeUtils {
             builder.scale(column.length());
         }
 
-        return new OracleTypeConverter(false).convert(builder.build());
+        return new OracleTypeConverter(false, false).convert(builder.build());
     }
 }

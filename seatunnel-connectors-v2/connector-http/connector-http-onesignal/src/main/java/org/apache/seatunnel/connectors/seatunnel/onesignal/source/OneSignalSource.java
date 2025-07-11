@@ -17,20 +17,13 @@
 
 package org.apache.seatunnel.connectors.seatunnel.onesignal.source;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
-import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.common.config.CheckConfigUtil;
-import org.apache.seatunnel.common.config.CheckResult;
-import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitReader;
 import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
 import org.apache.seatunnel.connectors.seatunnel.http.source.HttpSource;
 import org.apache.seatunnel.connectors.seatunnel.http.source.HttpSourceReader;
-import org.apache.seatunnel.connectors.seatunnel.onesignal.source.config.OneSignalSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.onesignal.source.config.OneSignalSourceParameter;
-import org.apache.seatunnel.connectors.seatunnel.onesignal.source.config.exception.OneSignalConnectorException;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -39,20 +32,8 @@ public class OneSignalSource extends HttpSource {
     private final OneSignalSourceParameter oneSignalSourceParameter =
             new OneSignalSourceParameter();
 
-    protected OneSignalSource(Config pluginConfig) {
+    protected OneSignalSource(ReadonlyConfig pluginConfig) {
         super(pluginConfig);
-        CheckResult result =
-                CheckConfigUtil.checkAllExists(
-                        pluginConfig,
-                        OneSignalSourceConfig.URL.key(),
-                        OneSignalSourceConfig.PASSWORD.key());
-        if (!result.isSuccess()) {
-            throw new OneSignalConnectorException(
-                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                    String.format(
-                            "PluginName: %s, PluginType: %s, Message: %s",
-                            getPluginName(), PluginType.SOURCE, result.getMsg()));
-        }
         oneSignalSourceParameter.buildWithConfig(pluginConfig);
     }
 

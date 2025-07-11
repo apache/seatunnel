@@ -28,6 +28,7 @@ import java.io.Serializable;
 @AllArgsConstructor
 public class PulsarSinkState implements Serializable {
 
+    private static final long serialVersionUID = -1507893469255968322L;
     /** The transaction id. */
     private final TxnID txnID;
 }

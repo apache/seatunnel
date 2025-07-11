@@ -116,7 +116,12 @@ public final class ExceptionUtil {
 
     /** javac hack for unchecking the checked exception. */
     @SuppressWarnings("unchecked")
-    public static <T extends Exception> void sneakyThrow(Throwable t) throws T {
+    public static <T extends Throwable> void sneakyThrow(Throwable t) throws T {
+        throw (T) t;
+    }
+
+    @SuppressWarnings("unchecked")
+    public static <T extends Exception> void sneakyThrow(Exception t) throws T {
         throw (T) t;
     }
 

@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-influxdb.md';
+
 # InfluxDB
 
 > InfluxDB sink connector
@@ -136,7 +138,4 @@ sink {
 
 ## Changelog
 
-### next version
-
-- Add InfluxDB Sink Connector
-
+<ChangeLog />

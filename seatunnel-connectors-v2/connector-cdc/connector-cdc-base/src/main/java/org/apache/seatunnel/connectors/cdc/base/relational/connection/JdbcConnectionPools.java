@@ -17,12 +17,12 @@
 
 package org.apache.seatunnel.connectors.cdc.base.relational.connection;
 
+import org.apache.seatunnel.shade.com.zaxxer.hikari.HikariDataSource;
+
 import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfig;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import com.zaxxer.hikari.HikariDataSource;
 
 import java.util.HashMap;
 import java.util.Map;

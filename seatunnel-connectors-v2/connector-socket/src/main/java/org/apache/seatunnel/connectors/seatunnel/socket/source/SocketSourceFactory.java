@@ -19,24 +19,35 @@ package org.apache.seatunnel.connectors.seatunnel.socket.source;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
+import org.apache.seatunnel.api.source.SourceSplit;
+import org.apache.seatunnel.api.table.connector.TableSource;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
+import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
+import org.apache.seatunnel.connectors.seatunnel.socket.config.SocketSourceOptions;
 
 import com.google.auto.service.AutoService;
 
-import static org.apache.seatunnel.connectors.seatunnel.socket.config.SocketSinkConfigOptions.HOST;
-import static org.apache.seatunnel.connectors.seatunnel.socket.config.SocketSinkConfigOptions.PORT;
+import java.io.Serializable;
 
 @AutoService(Factory.class)
 public class SocketSourceFactory implements TableSourceFactory {
     @Override
     public String factoryIdentifier() {
-        return "Socket";
+        return SocketSourceOptions.identifier;
     }
 
     @Override
     public OptionRule optionRule() {
-        return OptionRule.builder().required(HOST, PORT).build();
+        return OptionRule.builder()
+                .required(SocketSourceOptions.HOST, SocketSourceOptions.PORT)
+                .build();
+    }
+
+    @Override
+    public <T, SplitT extends SourceSplit, StateT extends Serializable>
+            TableSource<T, SplitT, StateT> createSource(TableSourceFactoryContext context) {
+        return () -> (SeaTunnelSource<T, SplitT, StateT>) new SocketSource(context.getOptions());
     }
 
     @Override

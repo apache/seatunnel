@@ -141,7 +141,8 @@ public class PaimonStreamReadIT extends PaimonSinkCDCIT {
                                         row.getDecimal(10, 30, 8),
                                         row.getString(11),
                                         row.getInt(12),
-                                        row.getTimestamp(13, 6));
+                                        row.getTimestamp(13, 6),
+                                        row.getInt(14));
                         result.add(paimonRecordWithFullType);
                     });
         } catch (IOException e) {

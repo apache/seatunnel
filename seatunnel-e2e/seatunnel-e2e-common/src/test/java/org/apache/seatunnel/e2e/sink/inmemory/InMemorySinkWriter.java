@@ -79,6 +79,14 @@ public class InMemorySinkWriter
 
     @Override
     public void write(SeaTunnelRow element) throws IOException {
+        if (config.get(InMemorySinkFactory.WRITER_SLEEP)) {
+            try {
+                Thread.sleep(999999999L);
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+        }
+
         if (config.get(InMemorySinkFactory.THROW_OUT_OF_MEMORY)) {
             throw new OutOfMemoryError();
         }

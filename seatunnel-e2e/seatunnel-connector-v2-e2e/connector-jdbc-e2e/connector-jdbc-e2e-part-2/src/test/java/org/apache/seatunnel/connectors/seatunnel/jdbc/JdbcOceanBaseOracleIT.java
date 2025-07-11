@@ -213,7 +213,8 @@ public class JdbcOceanBaseOracleIT extends JdbcOceanBaseITBase {
                         USERNAME,
                         PASSWORD,
                         JdbcUrlUtil.getUrlInfo(jdbcCase.getJdbcUrl().replace(HOST, HOSTNAME)),
-                        SCHEMA);
+                        SCHEMA,
+                        null);
         catalog.open();
     }
 

@@ -186,7 +186,8 @@ public class CheckpointEnableIT extends TestSuiteBase {
 
         // check sink file is right
         AtomicReference<Boolean> checkSinkFile = new AtomicReference<>(false);
-        await().atMost(300000, TimeUnit.MILLISECONDS)
+        // the default checkpoint interval is 300s, so we need to wait for 300+60s
+        await().atMost(360000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () -> {
                             Container.ExecResult disableSinkFileExecResult =

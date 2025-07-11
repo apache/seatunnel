@@ -17,62 +17,37 @@
 
 package org.apache.seatunnel.connectors.seatunnel.neo4j.source;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
-import org.apache.seatunnel.api.common.PrepareFailException;
-import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
-import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.source.Boundedness;
-import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SupportColumnProjection;
-import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.config.CheckConfigUtil;
-import org.apache.seatunnel.common.config.CheckResult;
-import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitReader;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitSource;
 import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
-import org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jSourceQueryInfo;
-import org.apache.seatunnel.connectors.seatunnel.neo4j.exception.Neo4jConnectorException;
 
-import com.google.auto.service.AutoService;
+import java.util.Collections;
+import java.util.List;
 
-import static org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jSourceConfig.PLUGIN_NAME;
+import static org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jSourceOptions.PLUGIN_NAME;
 
-@AutoService(SeaTunnelSource.class)
 public class Neo4jSource extends AbstractSingleSplitSource<SeaTunnelRow>
         implements SupportColumnProjection {
 
-    private Neo4jSourceQueryInfo neo4jSourceQueryInfo;
-    private SeaTunnelRowType rowType;
+    private final CatalogTable catalogTable;
+    private final Neo4jSourceQueryInfo neo4jSourceQueryInfo;
+    private final SeaTunnelRowType rowType;
+
+    public Neo4jSource(CatalogTable catalogTable, Neo4jSourceQueryInfo neo4jSourceQueryInfo) {
+        this.catalogTable = catalogTable;
+        this.neo4jSourceQueryInfo = neo4jSourceQueryInfo;
+        this.rowType = catalogTable.getSeaTunnelRowType();
+    }
 
     @Override
     public String getPluginName() {
         return PLUGIN_NAME;
-    }
-
-    @Override
-    public void prepare(Config pluginConfig) throws PrepareFailException {
-
-        final CheckResult configCheck =
-                CheckConfigUtil.checkAllExists(pluginConfig, ConnectorCommonOptions.SCHEMA.key());
-
-        if (!configCheck.isSuccess()) {
-            throw new Neo4jConnectorException(
-                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                    String.format(
-                            "PluginName: %s, PluginType: %s, Message: %s",
-                            Neo4jSourceConfig.PLUGIN_NAME,
-                            PluginType.SOURCE,
-                            configCheck.getMsg()));
-        }
-
-        this.neo4jSourceQueryInfo = new Neo4jSourceQueryInfo(pluginConfig);
-        this.rowType = CatalogTableUtil.buildWithConfig(pluginConfig).getSeaTunnelRowType();
     }
 
     @Override
@@ -81,8 +56,8 @@ public class Neo4jSource extends AbstractSingleSplitSource<SeaTunnelRow>
     }
 
     @Override
-    public SeaTunnelDataType<SeaTunnelRow> getProducedType() {
-        return this.rowType;
+    public List<CatalogTable> getProducedCatalogTables() {
+        return Collections.singletonList(catalogTable);
     }
 
     @Override

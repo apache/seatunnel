@@ -29,6 +29,7 @@ import java.io.Serializable;
 @ToString
 @EqualsAndHashCode
 public class SelectDBSinkState implements Serializable {
+    private static final long serialVersionUID = 227253344211548924L;
     String labelPrefix;
 
     long checkpointId;

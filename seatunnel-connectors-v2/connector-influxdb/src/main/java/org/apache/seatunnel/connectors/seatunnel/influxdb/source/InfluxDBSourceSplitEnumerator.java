@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.influxdb.source;
 
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
+import org.apache.seatunnel.connectors.seatunnel.influxdb.config.InfluxDBSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.influxdb.config.SourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.influxdb.exception.InfluxdbConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.influxdb.state.InfluxDBSourceState;
@@ -35,8 +36,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-
-import static org.apache.seatunnel.connectors.seatunnel.influxdb.config.SourceConfig.SQL_WHERE;
 
 @Slf4j
 public class InfluxDBSourceSplitEnumerator
@@ -119,7 +118,8 @@ public class InfluxDBSourceSplitEnumerator
         Set<InfluxDBSourceSplit> influxDBSourceSplits = new HashSet<>();
         // no need numPartitions, use one partition
         if (config.getPartitionNum() == 0) {
-            influxDBSourceSplits.add(new InfluxDBSourceSplit(SourceConfig.DEFAULT_PARTITIONS, sql));
+            influxDBSourceSplits.add(
+                    new InfluxDBSourceSplit(String.valueOf(SourceConfig.DEFAULT_PARTITIONS), sql));
             return influxDBSourceSplits;
         }
         // calculate numRange base on (lowerBound upperBound partitionNum)
@@ -127,7 +127,7 @@ public class InfluxDBSourceSplitEnumerator
                 genSplitNumRange(
                         config.getLowerBound(), config.getUpperBound(), config.getPartitionNum());
 
-        String[] sqls = sql.split(SQL_WHERE.key());
+        String[] sqls = sql.split(InfluxDBSourceOptions.SQL_WHERE.key());
         if (sqls.length > 2) {
             throw new InfluxdbConnectorException(
                     CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,

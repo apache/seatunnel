@@ -17,37 +17,23 @@
 
 package org.apache.seatunnel.connectors.seatunnel.persistiq.source;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
-import org.apache.seatunnel.api.common.PrepareFailException;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.common.config.CheckConfigUtil;
-import org.apache.seatunnel.common.config.CheckResult;
-import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitReader;
 import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
 import org.apache.seatunnel.connectors.seatunnel.http.source.HttpSource;
 import org.apache.seatunnel.connectors.seatunnel.http.source.HttpSourceReader;
-import org.apache.seatunnel.connectors.seatunnel.persistiq.source.config.PersistiqSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.persistiq.source.config.PersistiqSourceParameter;
 
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 public class PersistiqSource extends HttpSource {
-    private final PersistiqSourceParameter persistiqSourceParameter =
-            new PersistiqSourceParameter();
+    private final PersistiqSourceParameter persistiqSourceParameter;
 
-    public PersistiqSource(Config pluginConfig) {
+    public PersistiqSource(ReadonlyConfig pluginConfig) {
         super(pluginConfig);
-        CheckResult result =
-                CheckConfigUtil.checkAllExists(
-                        pluginConfig,
-                        PersistiqSourceConfig.URL.key(),
-                        PersistiqSourceConfig.PASSWORD.key());
-        if (!result.isSuccess()) {
-            throw new PrepareFailException(getPluginName(), PluginType.SOURCE, result.getMsg());
-        }
+        this.persistiqSourceParameter = new PersistiqSourceParameter();
         persistiqSourceParameter.buildWithConfig(pluginConfig);
     }
 

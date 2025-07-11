@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-http-wechat.md';
+
 # Enterprise WeChat
 
 > Enterprise WeChat sink connector
@@ -65,11 +67,6 @@ WeChat {
 
 ## Changelog
 
-### 2.2.0-beta 2022-09-26
+<ChangeLog />
 
-- Add Enterprise-WeChat Sink Connector
-
-### 2.3.0-beta 2022-10-20
-
-- [BugFix] Fix Enterprise-WeChat Sink data serialization ([2856](https://github.com/apache/seatunnel/pull/2856))
 

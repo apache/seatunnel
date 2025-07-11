@@ -78,9 +78,8 @@ public class KafkaSource
     @Override
     public SourceReader<SeaTunnelRow, KafkaSourceSplit> createReader(
             SourceReader.Context readerContext) {
-
         BlockingQueue<RecordsWithSplitIds<ConsumerRecord<byte[], byte[]>>> elementsQueue =
-                new LinkedBlockingQueue<>();
+                new LinkedBlockingQueue<>(kafkaSourceConfig.getReaderCacheQueueSize());
 
         Supplier<KafkaPartitionSplitReader> kafkaPartitionSplitReaderSupplier =
                 () -> new KafkaPartitionSplitReader(kafkaSourceConfig, readerContext);

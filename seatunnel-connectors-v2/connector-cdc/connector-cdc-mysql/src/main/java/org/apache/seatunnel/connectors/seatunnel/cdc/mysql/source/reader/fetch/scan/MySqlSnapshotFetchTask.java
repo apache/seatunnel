@@ -23,6 +23,7 @@ import org.apache.seatunnel.connectors.cdc.base.source.split.IncrementalSplit;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SnapshotSplit;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SourceSplitBase;
 import org.apache.seatunnel.connectors.cdc.base.source.split.wartermark.WatermarkKind;
+import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.config.MySqlSourceConfigFactory;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source.reader.fetch.MySqlSourceFetchTaskContext;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source.reader.fetch.binlog.MySqlBinlogFetchTask;
 
@@ -152,6 +153,7 @@ public class MySqlSnapshotFetchTask implements FetchTask<SourceSplitBase> {
                 context.getSourceConfig()
                         .getDbzConfiguration()
                         .edit()
+                        .with(MySqlSourceConfigFactory.SCHEMA_CHANGE_KEY, "false")
                         .with("table.include.list", split.getTableId().toString())
                         // Disable heartbeat event in snapshot split fetcher
                         .with(Heartbeat.HEARTBEAT_INTERVAL, 0)

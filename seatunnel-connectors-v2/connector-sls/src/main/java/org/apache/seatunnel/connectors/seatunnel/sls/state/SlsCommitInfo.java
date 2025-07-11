@@ -26,5 +26,6 @@ import java.io.Serializable;
 @AllArgsConstructor
 public class SlsCommitInfo implements Serializable {
 
+    private static final long serialVersionUID = 6658731481803361412L;
     private final String data;
 }

@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-cdc-mongodb.md';
+
 # MongoDB CDC
 
 > MongoDB CDC source connector
@@ -120,9 +122,10 @@ For specific types in MongoDB, we use Extended JSON format to map them to Seatun
 | poll.await.time.ms                 | Long   | No       | 1000    | The amount of time to wait before checking for new results on the change stream.                                                                                                                                                                                            |
 | heartbeat.interval.ms              | String | No       | 0       | The length of time in milliseconds between sending heartbeat messages. Use 0 to disable.                                                                                                                                                                                    |
 | incremental.snapshot.chunk.size.mb | Long   | No       | 64      | The chunk size mb of incremental snapshot.                                                                                                                                                                                                                                  |
+| exactly_once                       | Boolean| No       | false   | Enable exactly once semantic. Enabling this may cause an out-of-memory risk during the large table snapshot stage in recovery.                                                                                                                                              |
 | common-options                     |        | No       | -       | Source plugin common parameters, please refer to [Source Common Options](../source-common-options.md) for details.                                                                                                                                                          |
 
-### Tips:
+### Tips
 
 > 1.If the collection changes at a slow pace, it is strongly recommended to set an appropriate value greater than 0 for the heartbeat.interval.ms parameter. When we recover a Seatunnel job from a checkpoint or savepoint, the heartbeat events can push the resumeToken forward to avoid its expiration.<br/>
 > 2.MongoDB has a limit of 16MB for a single document. Change documents include additional information, so even if the original document is not larger than 15MB, the change document may exceed the 16MB limit, resulting in the termination of the Change Stream operation.<br/>
@@ -329,3 +332,7 @@ sink {
    }
 }
 ```
+
+## Changelog
+
+<ChangeLog />

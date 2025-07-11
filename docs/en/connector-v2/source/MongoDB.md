@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-mongodb.md';
+
 # MongoDB
 
 > MongoDB Source Connector
@@ -448,11 +450,5 @@ Use the data samples synchronized with modified parameters, such as the followin
 
 ## Changelog
 
-### 2.2.0-beta 2022-09-26
-
-- Add MongoDB Source Connector
-
-### Next Version
-
-- [Feature]Refactor mongodb source connector([4620](https://github.com/apache/seatunnel/pull/4620))
+<ChangeLog />
 

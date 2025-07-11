@@ -24,6 +24,7 @@ import org.apache.seatunnel.connectors.seatunnel.starrocks.client.HttpHelper;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.client.source.model.QueryPartition;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.client.source.model.QueryPlan;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.config.SourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.starrocks.config.StarRocksSourceTableConfig;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.exception.StarRocksConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.exception.StarRocksConnectorException;
 
@@ -34,42 +35,45 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Slf4j
 public class StarRocksQueryPlanReadClient {
     private RetryUtils.RetryMaterial retryMaterial;
     private SourceConfig sourceConfig;
-    private SeaTunnelRowType seaTunnelRowType;
     private final HttpHelper httpHelper = new HttpHelper();
+    private final Map<String, StarRocksSourceTableConfig> tables;
 
     private static final long DEFAULT_SLEEP_TIME_MS = 1000L;
 
-    public StarRocksQueryPlanReadClient(
-            SourceConfig sourceConfig, SeaTunnelRowType seaTunnelRowType) {
+    public StarRocksQueryPlanReadClient(SourceConfig sourceConfig) {
         this.sourceConfig = sourceConfig;
-        this.seaTunnelRowType = seaTunnelRowType;
         this.retryMaterial =
                 new RetryUtils.RetryMaterial(
                         sourceConfig.getMaxRetries(),
                         true,
                         exception -> true,
                         DEFAULT_SLEEP_TIME_MS);
+
+        this.tables =
+                sourceConfig.getTableConfigList().stream()
+                        .collect(
+                                Collectors.toMap(
+                                        StarRocksSourceTableConfig::getTable, Function.identity()));
     }
 
-    public List<QueryPartition> findPartitions() {
-        List<String> nodeUrls = sourceConfig.getNodeUrls();
-        QueryPlan queryPlan = getQueryPlan(genQuerySql(), nodeUrls);
+    public List<QueryPartition> findPartitions(String table) {
+        QueryPlan queryPlan = getQueryPlan(genQuerySql(table), table);
         Map<String, List<Long>> be2Tablets = selectBeForTablet(queryPlan);
         return tabletsMapToPartition(
-                be2Tablets,
-                queryPlan.getQueryPlan(),
-                sourceConfig.getDatabase(),
-                sourceConfig.getTable());
+                be2Tablets, queryPlan.getQueryPlan(), sourceConfig.getDatabase(), table);
     }
 
     private List<QueryPartition> tabletsMapToPartition(
@@ -134,8 +138,11 @@ public class StarRocksQueryPlanReadClient {
         return beXTablets;
     }
 
-    private QueryPlan getQueryPlan(String querySQL, List<String> nodeUrls) {
+    private QueryPlan getQueryPlan(String querySQL, String table) {
 
+        List<String> nodeUrls = sourceConfig.getNodeUrls();
+        // shuffle nodeUrls to ensure support for both random selection and high availability
+        Collections.shuffle(nodeUrls);
         Map<String, Object> bodyMap = new HashMap<>();
         bodyMap.put("sql", querySQL);
         String body = JsonUtils.toJsonString(bodyMap);
@@ -147,7 +154,7 @@ public class StarRocksQueryPlanReadClient {
                             .append("/api/")
                             .append(sourceConfig.getDatabase())
                             .append("/")
-                            .append(sourceConfig.getTable())
+                            .append(table)
                             .append("/_query_plan")
                             .toString();
             try {
@@ -183,15 +190,17 @@ public class StarRocksQueryPlanReadClient {
         return headerMap;
     }
 
-    private String genQuerySql() {
+    private String genQuerySql(String table) {
+
+        StarRocksSourceTableConfig starRocksSourceTableConfig = tables.get(table);
+        SeaTunnelRowType seaTunnelRowType =
+                starRocksSourceTableConfig.getCatalogTable().getSeaTunnelRowType();
         String columns =
                 seaTunnelRowType.getFieldNames().length != 0
                         ? String.join(",", seaTunnelRowType.getFieldNames())
                         : "*";
-        String filter =
-                sourceConfig.getScanFilter().isEmpty()
-                        ? ""
-                        : " where " + sourceConfig.getScanFilter();
+        String scanFilter = starRocksSourceTableConfig.getScanFilter();
+        String filter = scanFilter.isEmpty() ? "" : " where " + scanFilter;
 
         String sql =
                 "select "
@@ -202,7 +211,7 @@ public class StarRocksQueryPlanReadClient {
                         + "`"
                         + "."
                         + "`"
-                        + sourceConfig.getTable()
+                        + table
                         + "`"
                         + filter;
         log.debug("Generate query sql '{}'.", sql);

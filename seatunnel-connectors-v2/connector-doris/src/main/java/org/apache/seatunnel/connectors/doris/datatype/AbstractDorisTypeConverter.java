@@ -31,7 +31,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.util.Locale;
 
-import static org.apache.seatunnel.connectors.doris.config.DorisOptions.IDENTIFIER;
+import static org.apache.seatunnel.connectors.doris.config.DorisBaseOptions.IDENTIFIER;
 
 @Slf4j
 public abstract class AbstractDorisTypeConverter implements TypeConverter<BasicTypeDefine> {
@@ -94,10 +94,12 @@ public abstract class AbstractDorisTypeConverter implements TypeConverter<BasicT
     public static final long MAX_STRING_LENGTH = 2147483643;
 
     protected PhysicalColumn.PhysicalColumnBuilder getPhysicalColumnBuilder(
-            BasicTypeDefine typeDefine) {
+            BasicTypeDefine typeDefine, boolean caseSensitive) {
+        String columnName =
+                caseSensitive ? typeDefine.getName() : typeDefine.getName().toLowerCase();
         PhysicalColumn.PhysicalColumnBuilder builder =
                 PhysicalColumn.builder()
-                        .name(typeDefine.getName())
+                        .name(columnName)
                         .sourceType(typeDefine.getColumnType())
                         .nullable(typeDefine.isNullable())
                         .defaultValue(typeDefine.getDefaultValue())

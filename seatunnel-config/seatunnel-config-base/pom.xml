@@ -92,6 +92,9 @@
                                 <exclude>com/typesafe/config/impl/ConfigImpl$LoaderCache.class</exclude>
                                 <exclude>com/typesafe/config/impl/ConfigImpl$LoaderCacheHolder.class</exclude>
                                 <exclude>com/typesafe/config/impl/ConfigImpl$SystemPropertiesHolder.class</exclude>
+                                <exclude>com/typesafe/config/impl/Tokenizer.class</exclude>
+                                <exclude>com/typesafe/config/impl/Tokenizer$TokenIterator.class</exclude>
+                                <exclude>com/typesafe/config/impl/Tokenizer$ProblemException.class</exclude>
                             </excludes>
                         </filter>
                     </filters>

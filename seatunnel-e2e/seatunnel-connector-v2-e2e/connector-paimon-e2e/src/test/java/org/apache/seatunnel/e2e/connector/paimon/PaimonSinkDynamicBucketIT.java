@@ -130,6 +130,18 @@ public class PaimonSinkDynamicBucketIT extends TestSuiteBase implements TestReso
         Container.ExecResult readProjectionResult =
                 container.executeJob("/paimon_projection_to_assert.conf");
         Assertions.assertEquals(0, readProjectionResult.getExitCode());
+        deleteTable();
+    }
+
+    private void deleteTable() {
+        Options options = new Options();
+        options.set("warehouse", "file://" + "/opt/seatunnel_mounts/paimon");
+        try {
+            CatalogFactory.createCatalog(CatalogContext.create(options))
+                    .dropTable(Identifier.create("default", "st_test"), true);
+        } catch (Catalog.TableNotExistException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     @TestTemplate
@@ -481,7 +493,8 @@ public class PaimonSinkDynamicBucketIT extends TestSuiteBase implements TestReso
                                         row.getDecimal(10, 30, 8),
                                         row.getString(11),
                                         row.getInt(12),
-                                        row.getTimestamp(13, 6));
+                                        row.getTimestamp(13, 6),
+                                        row.getInt(14));
                         result.add(paimonRecordWithFullType);
                     });
         } catch (IOException e) {
