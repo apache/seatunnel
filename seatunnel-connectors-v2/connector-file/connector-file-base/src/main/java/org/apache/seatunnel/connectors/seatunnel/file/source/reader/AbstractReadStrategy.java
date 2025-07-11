@@ -94,8 +94,7 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
     protected Pattern pattern;
     protected String fileModifiedStartDate;
     protected String fileModifiedEndDate;
-    protected String modifiedDateFormat =
-            FileBaseSourceOptions.FILE_FILTER_MODIFIED_DATE_FORMAT.defaultValue();
+    protected String modifiedDateFormat;
 
     @Override
     public void init(HadoopConf conf) {
@@ -130,7 +129,8 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
                 // filter '_SUCCESS' file
                 if (!fileStatus.getPath().getName().equals("_SUCCESS")
                         && !fileStatus.getPath().getName().startsWith(".")
-                        && filterFileByModificationDate(fileStatus)) {
+                //                        && filterFileByModificationDate(fileStatus)
+                ) {
 
                     String filePath = fileStatus.getPath().toString();
                     if (!readPartitions.isEmpty()) {
