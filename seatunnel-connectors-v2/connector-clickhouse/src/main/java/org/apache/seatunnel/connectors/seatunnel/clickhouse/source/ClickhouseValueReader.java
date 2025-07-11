@@ -98,7 +98,7 @@ public class ClickhouseValueReader implements Serializable {
         ClickhousePart currentPart = parts.get(currentPartIndex);
 
         // If current part has been processed, move to the next part
-        if (currentPart.isEos()) {
+        if (currentPart.isEndOfPart()) {
             currentPartIndex++;
             return currentPartIndex < partSize && partBatchStrategyRead();
         }
@@ -114,7 +114,7 @@ public class ClickhouseValueReader implements Serializable {
                     rowBatch.size());
 
             if (rowBatch.isEmpty()) {
-                currentPart.setEos(true);
+                currentPart.setEndOfPart(true);
                 currentPartIndex++;
                 return currentPartIndex < partSize && partBatchStrategyRead();
             }

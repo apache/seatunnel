@@ -31,9 +31,10 @@ public class ClickhousePart implements Serializable, Comparable<ClickhousePart> 
     private final String database;
     private final String table;
     private final Shard shard;
-
     private int offset = 0;
-    private boolean eos = false;
+
+    /** Flag indicating whether all data from this part has been completely read. */
+    private boolean isEndOfPart = false;
 
     public ClickhousePart(String name, String database, String table, Shard shard) {
         this.name = name;
@@ -58,12 +59,12 @@ public class ClickhousePart implements Serializable, Comparable<ClickhousePart> 
         return name;
     }
 
-    public boolean isEos() {
-        return eos;
+    public boolean isEndOfPart() {
+        return isEndOfPart;
     }
 
-    public void setEos(boolean eos) {
-        this.eos = eos;
+    public void setEndOfPart(boolean endOfPart) {
+        this.isEndOfPart = endOfPart;
     }
 
     public void setOffset(int offset) {
@@ -115,8 +116,8 @@ public class ClickhousePart implements Serializable, Comparable<ClickhousePart> 
                 + shard
                 + ", offset="
                 + offset
-                + ", eos="
-                + eos
+                + ", isEndOfPart="
+                + isEndOfPart
                 + '}';
     }
 }

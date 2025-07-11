@@ -125,10 +125,10 @@ public class ClickhouseValueReaderTest {
         Assertions.assertEquals(BATCH_SIZE, result.size());
         Assertions.assertEquals(0, reader.currentPartIndex);
 
-        // Make sure the offset has been updated but the part has not been marked as eos
+        // Make sure the offset has been updated but the part has not been marked as end of part
         List<ClickhousePart> parts = new ArrayList<>(split.getParts());
         Assertions.assertEquals(BATCH_SIZE, parts.get(0).getOffset());
-        Assertions.assertFalse(parts.get(0).isEos());
+        Assertions.assertFalse(parts.get(0).isEndOfPart());
     }
 
     @Test
@@ -163,10 +163,10 @@ public class ClickhouseValueReaderTest {
         List<SeaTunnelRow> result = reader.next();
         Assertions.assertEquals(0, result.size());
 
-        // Make sure that part is marked as eos
+        // Make sure that part is marked as end of part
         List<ClickhousePart> parts = new ArrayList<>(split.getParts());
-        Assertions.assertTrue(parts.get(0).isEos());
-        Assertions.assertTrue(parts.get(0).isEos());
+        Assertions.assertTrue(parts.get(0).isEndOfPart());
+        Assertions.assertTrue(parts.get(0).isEndOfPart());
 
         Assertions.assertEquals(2, reader.currentPartIndex);
     }
@@ -200,7 +200,7 @@ public class ClickhouseValueReaderTest {
 
         // Second part - Some Batches
         Assertions.assertTrue(reader.hasNext());
-        Assertions.assertTrue(parts.get(0).isEos());
+        Assertions.assertTrue(parts.get(0).isEndOfPart());
 
         List<SeaTunnelRow> result2 = reader.next();
         Assertions.assertEquals(partialSize, result2.size());
@@ -208,7 +208,7 @@ public class ClickhouseValueReaderTest {
 
         // All parts have been processed. hasNext should return false
         Assertions.assertFalse(reader.hasNext());
-        Assertions.assertTrue(parts.get(1).isEos());
+        Assertions.assertTrue(parts.get(1).isEndOfPart());
     }
 
     @Test
