@@ -36,7 +36,7 @@ import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-/** Doris type converter for version 2.x */
+/** SelectDB type converter for version 3.x and above */
 @Slf4j
 @AutoService(TypeConverter.class)
 public class SelectDBTypeConverterV2 extends AbstractSelectDBTypeConverter {

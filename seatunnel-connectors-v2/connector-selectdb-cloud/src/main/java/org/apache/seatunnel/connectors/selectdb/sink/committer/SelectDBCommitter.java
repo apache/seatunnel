@@ -24,13 +24,11 @@ import org.apache.seatunnel.api.sink.SinkCommitter;
 import org.apache.seatunnel.connectors.selectdb.config.SelectDBSinkConfig;
 import org.apache.seatunnel.connectors.selectdb.exception.SelectDBConnectorErrorCode;
 import org.apache.seatunnel.connectors.selectdb.exception.SelectDBConnectorException;
-import org.apache.seatunnel.connectors.selectdb.rest.CopySQLUtil;
 import org.apache.seatunnel.connectors.selectdb.sink.HttpPutBuilder;
 import org.apache.seatunnel.connectors.selectdb.sink.LoadStatus;
 import org.apache.seatunnel.connectors.selectdb.util.HttpUtil;
 import org.apache.seatunnel.connectors.selectdb.util.ResponseUtil;
 
-import org.apache.commons.lang3.StringUtils;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.util.EntityUtils;
@@ -78,16 +76,7 @@ public class SelectDBCommitter implements SinkCommitter<SelectDBCommitInfo> {
     }
 
     private void commitTransaction(SelectDBCommitInfo commitInfo) throws IOException {
-        String hostPort = commitInfo.getHostPort();
-
-        if (StringUtils.isBlank(selectDBSinkConfig.getTableIdentifier())) {
-            String clusterName = commitInfo.getClusterName();
-            String copySQL = commitInfo.getCopySQL();
-            log.info("commit to cluster {} with copy sql: {}", clusterName, copySQL);
-            CopySQLUtil.copyFileToDatabase(selectDBSinkConfig, clusterName, copySQL, hostPort);
-        } else {
-            streamLoadCommitTransaction(commitInfo);
-        }
+        streamLoadCommitTransaction(commitInfo);
     }
 
     private void streamLoadCommitTransaction(SelectDBCommitInfo commitInfo) throws IOException {

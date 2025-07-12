@@ -15,27 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.selectdb.sink.committer;
+package org.apache.seatunnel.connectors.selectdb.datatype;
 
-import lombok.EqualsAndHashCode;
-import lombok.Getter;
-import lombok.Setter;
-import lombok.ToString;
+import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
+import org.apache.seatunnel.api.table.converter.TypeConverter;
 
-import java.io.Serializable;
+import lombok.NonNull;
+import lombok.extern.slf4j.Slf4j;
 
-@Setter
-@Getter
-@ToString
-@EqualsAndHashCode
-public class SelectDBCommitInfo implements Serializable {
-    private final String hostPort;
-    private final String db;
-    private final long txbID;
+import java.util.Locale;
 
-    public SelectDBCommitInfo(String hostPort, String db, long txbID) {
-        this.hostPort = hostPort;
-        this.db = db;
-        this.txbID = txbID;
+@Slf4j
+public class SelectDBTypeConverterFactory {
+    public static TypeConverter<BasicTypeDefine> getTypeConverter(@NonNull String selectDBVersion) {
+        if (selectDBVersion
+                .toLowerCase(Locale.ROOT)
+                .startsWith("Select Core version selectdb-2.")) {
+            return SelectDBTypeConverterV1.INSTANCE;
+        } else {
+            return SelectDBTypeConverterV2.INSTANCE;
+        }
     }
 }
