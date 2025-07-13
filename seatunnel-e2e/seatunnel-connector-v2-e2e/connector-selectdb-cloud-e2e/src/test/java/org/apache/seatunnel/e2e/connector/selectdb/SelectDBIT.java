@@ -20,8 +20,11 @@ package org.apache.seatunnel.e2e.connector.selectdb;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.common.utils.JsonUtils;
+import org.apache.seatunnel.connectors.selectdb.util.SelectDBCatalogUtil;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
+import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
+import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 
 import org.junit.jupiter.api.AfterAll;
@@ -56,20 +59,14 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
-/**
- * @Title: SelectDBIT @Author: baolin.guo @Date: 2025/1/24
- *
- * @description:
- */
 @Slf4j
+@DisabledOnContainer(
+        value = {},
+        type = {EngineType.SPARK, EngineType.FLINK},
+        disabledReason =
+                "Currently SPARK do not support cdc. In addition, currently only the zeta engine supports schema evolution for pr https://github.com/apache/seatunnel/pull/5125.")
+
 public class SelectDBIT extends AbstractSelectDBIT {
-
-    public static final String TABLE_SCHEMA_QUERY =
-            "SELECT * "
-                    + "FROM information_schema.columns "
-                    + "WHERE TABLE_CATALOG = 'internal' AND TABLE_SCHEMA = ? AND TABLE_NAME = ? "
-                    + "ORDER BY ORDINAL_POSITION";
-
     private static final String UNIQUE_TABLE = "selectdb_e2e_unique_table";
     private static final String DUPLICATE_TABLE = "selectdb_duplicate_table";
     private static final String sourceDB = "e2e_source";
@@ -217,7 +214,8 @@ public class SelectDBIT extends AbstractSelectDBIT {
         try {
             assertHasData(sourceDB, DUPLICATE_TABLE);
 
-            try (PreparedStatement ps = conn.prepareStatement(TABLE_SCHEMA_QUERY)) {
+            try (PreparedStatement ps =
+                    conn.prepareStatement(SelectDBCatalogUtil.TABLE_SCHEMA_QUERY)) {
                 ps.setString(1, sinkDB);
                 ps.setString(2, DUPLICATE_TABLE);
                 try (ResultSet resultSet = ps.executeQuery()) {
@@ -247,12 +245,14 @@ public class SelectDBIT extends AbstractSelectDBIT {
             assertHasData(sourceDB, UNIQUE_TABLE);
             assertHasData(sinkDB, UNIQUE_TABLE);
 
-            PreparedStatement sourcePre = conn.prepareStatement(TABLE_SCHEMA_QUERY);
+            PreparedStatement sourcePre =
+                    conn.prepareStatement(SelectDBCatalogUtil.TABLE_SCHEMA_QUERY);
             sourcePre.setString(1, sourceDB);
             sourcePre.setString(2, UNIQUE_TABLE);
             ResultSet sourceResultSet = sourcePre.executeQuery();
 
-            PreparedStatement sinkPre = conn.prepareStatement(TABLE_SCHEMA_QUERY);
+            PreparedStatement sinkPre =
+                    conn.prepareStatement(SelectDBCatalogUtil.TABLE_SCHEMA_QUERY);
             sinkPre.setString(1, sinkDB);
             sinkPre.setString(2, UNIQUE_TABLE);
             ResultSet sinkResultSet = sinkPre.executeQuery();
