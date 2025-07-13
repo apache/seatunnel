@@ -25,6 +25,7 @@ import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
+import org.apache.seatunnel.connectors.seatunnel.influxdb.config.InfluxDBSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.influxdb.config.SinkConfig;
 
 import com.google.auto.service.AutoService;
@@ -32,18 +33,6 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.util.HashMap;
 import java.util.Map;
-
-import static org.apache.seatunnel.connectors.seatunnel.influxdb.config.InfluxDBConfig.CONNECT_TIMEOUT_MS;
-import static org.apache.seatunnel.connectors.seatunnel.influxdb.config.InfluxDBConfig.DATABASES;
-import static org.apache.seatunnel.connectors.seatunnel.influxdb.config.InfluxDBConfig.PASSWORD;
-import static org.apache.seatunnel.connectors.seatunnel.influxdb.config.InfluxDBConfig.URL;
-import static org.apache.seatunnel.connectors.seatunnel.influxdb.config.InfluxDBConfig.USERNAME;
-import static org.apache.seatunnel.connectors.seatunnel.influxdb.config.SinkConfig.BATCH_SIZE;
-import static org.apache.seatunnel.connectors.seatunnel.influxdb.config.SinkConfig.KEY_MEASUREMENT;
-import static org.apache.seatunnel.connectors.seatunnel.influxdb.config.SinkConfig.KEY_TAGS;
-import static org.apache.seatunnel.connectors.seatunnel.influxdb.config.SinkConfig.KEY_TIME;
-import static org.apache.seatunnel.connectors.seatunnel.influxdb.config.SinkConfig.MAX_RETRIES;
-import static org.apache.seatunnel.connectors.seatunnel.influxdb.config.SinkConfig.RETRY_BACKOFF_MULTIPLIER_MS;
 
 @AutoService(Factory.class)
 @Slf4j
@@ -57,16 +46,21 @@ public class InfluxDBSinkFactory implements TableSinkFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(URL, DATABASES)
-                .bundled(USERNAME, PASSWORD)
+                .required(InfluxDBSinkOptions.URL, InfluxDBSinkOptions.DATABASES)
+                .bundled(InfluxDBSinkOptions.USERNAME, InfluxDBSinkOptions.PASSWORD)
                 .optional(
-                        CONNECT_TIMEOUT_MS,
-                        KEY_MEASUREMENT,
-                        KEY_TAGS,
-                        KEY_TIME,
-                        BATCH_SIZE,
-                        MAX_RETRIES,
-                        RETRY_BACKOFF_MULTIPLIER_MS,
+                        InfluxDBSinkOptions.CONNECT_TIMEOUT_MS,
+                        InfluxDBSinkOptions.KEY_MEASUREMENT,
+                        InfluxDBSinkOptions.KEY_TAGS,
+                        InfluxDBSinkOptions.KEY_TIME,
+                        InfluxDBSinkOptions.BATCH_SIZE,
+                        InfluxDBSinkOptions.MAX_RETRIES,
+                        InfluxDBSinkOptions.WRITE_TIMEOUT,
+                        InfluxDBSinkOptions.RETRY_BACKOFF_MULTIPLIER_MS,
+                        InfluxDBSinkOptions.MAX_RETRY_BACKOFF_MS,
+                        InfluxDBSinkOptions.RETENTION_POLICY,
+                        InfluxDBSinkOptions.QUERY_TIMEOUT_SEC,
+                        InfluxDBSinkOptions.EPOCH,
                         SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA)
                 .build();
     }
@@ -75,12 +69,14 @@ public class InfluxDBSinkFactory implements TableSinkFactory {
     public TableSink createSink(TableSinkFactoryContext context) {
         ReadonlyConfig config = context.getOptions();
         CatalogTable catalogTable = context.getCatalogTable();
-        if (!config.getOptional(KEY_MEASUREMENT).isPresent()) {
+        if (!config.getOptional(InfluxDBSinkOptions.KEY_MEASUREMENT).isPresent()) {
             Map<String, String> map = config.toMap();
-            map.put(KEY_MEASUREMENT.key(), catalogTable.getTableId().toTablePath().getFullName());
+            map.put(
+                    InfluxDBSinkOptions.KEY_MEASUREMENT.key(),
+                    catalogTable.getTableId().toTablePath().getFullName());
             config = ReadonlyConfig.fromMap(new HashMap<>(map));
         }
-        SinkConfig sinkConfig = new SinkConfig(config.toConfig());
+        SinkConfig sinkConfig = new SinkConfig(config);
         return () -> new InfluxDBSink(sinkConfig, catalogTable);
     }
 }

@@ -27,7 +27,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
-import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfigOptions;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 
 import com.alibaba.excel.enums.CellDataTypeEnum;
@@ -172,8 +172,7 @@ public class ExcelCellUtils implements Serializable {
 
     private Object parseRow(String fieldValue, SeaTunnelDataType<?> fieldType) {
         String delimiter =
-                ReadonlyConfig.fromConfig(pluginConfig)
-                        .get(BaseSourceConfigOptions.FIELD_DELIMITER);
+                ReadonlyConfig.fromConfig(pluginConfig).get(FileBaseSourceOptions.FIELD_DELIMITER);
         String[] context = fieldValue.split(delimiter);
         SeaTunnelRowType ft = (SeaTunnelRowType) fieldType;
         int length = context.length;

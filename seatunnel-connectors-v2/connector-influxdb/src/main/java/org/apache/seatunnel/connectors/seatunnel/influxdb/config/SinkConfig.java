@@ -17,10 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.influxdb.config;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
-import org.apache.seatunnel.api.configuration.Option;
-import org.apache.seatunnel.api.configuration.Options;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 
 import lombok.Getter;
 import lombok.Setter;
@@ -32,104 +29,42 @@ import java.util.List;
 @Getter
 @ToString
 public class SinkConfig extends InfluxDBConfig {
-    public SinkConfig(Config config) {
+
+    public SinkConfig(ReadonlyConfig config) {
         super(config);
         loadConfig(config);
     }
-
-    public static final Option<String> KEY_TIME =
-            Options.key("key_time")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("the influxdb server key time");
-
-    public static final Option<List<String>> KEY_TAGS =
-            Options.key("key_tags")
-                    .listType()
-                    .noDefaultValue()
-                    .withDescription("the influxdb server key tags");
-
-    public static final Option<String> KEY_MEASUREMENT =
-            Options.key("measurement")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("the influxdb server measurement");
-
-    public static final Option<Integer> BATCH_SIZE =
-            Options.key("batch_size")
-                    .intType()
-                    .defaultValue(1024)
-                    .withDescription("batch size of the influxdb client");
-
-    public static final Option<Integer> MAX_RETRIES =
-            Options.key("max_retries")
-                    .intType()
-                    .noDefaultValue()
-                    .withDescription("max retries of the influxdb client");
-
-    public static final Option<Integer> WRITE_TIMEOUT =
-            Options.key("write_timeout")
-                    .intType()
-                    .defaultValue(5)
-                    .withDescription("the influxdb client write data timeout");
-
-    public static final Option<Integer> RETRY_BACKOFF_MULTIPLIER_MS =
-            Options.key("retry_backoff_multiplier_ms")
-                    .intType()
-                    .noDefaultValue()
-                    .withDescription("the influxdb client retry backoff multiplier ms");
-
-    public static final Option<Integer> MAX_RETRY_BACKOFF_MS =
-            Options.key("max_retry_backoff_ms")
-                    .intType()
-                    .noDefaultValue()
-                    .withDescription("the influxdb client max retry backoff ms");
-
-    public static final Option<String> RETENTION_POLICY =
-            Options.key("rp")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("the influxdb client retention policy");
 
     private static final TimePrecision DEFAULT_TIME_PRECISION = TimePrecision.NS;
 
     private String rp;
     private String measurement;
-    private int writeTimeout = WRITE_TIMEOUT.defaultValue();
+    private int writeTimeout;
     private String keyTime;
     private List<String> keyTags;
-    private int batchSize = BATCH_SIZE.defaultValue();
+    private int batchSize;
     private int maxRetries;
     private int retryBackoffMultiplierMs;
     private int maxRetryBackoffMs;
     private TimePrecision precision = DEFAULT_TIME_PRECISION;
 
-    public void loadConfig(Config config) {
-
-        if (config.hasPath(KEY_TIME.key())) {
-            setKeyTime(config.getString(KEY_TIME.key()));
+    public void loadConfig(ReadonlyConfig config) {
+        setKeyTime(config.get(InfluxDBSinkOptions.KEY_TIME));
+        setKeyTags(config.get(InfluxDBSinkOptions.KEY_TAGS));
+        setBatchSize(config.get(InfluxDBSinkOptions.BATCH_SIZE));
+        if (config.getOptional(InfluxDBSinkOptions.MAX_RETRIES).isPresent()) {
+            setMaxRetries(config.get(InfluxDBSinkOptions.MAX_RETRIES));
         }
-        if (config.hasPath(KEY_TAGS.key())) {
-            setKeyTags(config.getStringList(KEY_TAGS.key()));
+        if (config.getOptional(InfluxDBSinkOptions.RETRY_BACKOFF_MULTIPLIER_MS).isPresent()) {
+            setRetryBackoffMultiplierMs(
+                    config.get(InfluxDBSinkOptions.RETRY_BACKOFF_MULTIPLIER_MS));
         }
-        if (config.hasPath(MAX_RETRIES.key())) {
-            setMaxRetries(config.getInt(MAX_RETRIES.key()));
+        if (config.getOptional(InfluxDBSinkOptions.MAX_RETRY_BACKOFF_MS).isPresent()) {
+            setMaxRetryBackoffMs(config.get(InfluxDBSinkOptions.MAX_RETRY_BACKOFF_MS));
         }
-        if (config.hasPath(RETRY_BACKOFF_MULTIPLIER_MS.key())) {
-            setRetryBackoffMultiplierMs(config.getInt(RETRY_BACKOFF_MULTIPLIER_MS.key()));
-        }
-        if (config.hasPath(MAX_RETRY_BACKOFF_MS.key())) {
-            setMaxRetryBackoffMs(config.getInt(MAX_RETRY_BACKOFF_MS.key()));
-        }
-        if (config.hasPath(WRITE_TIMEOUT.key())) {
-            setWriteTimeout(config.getInt(WRITE_TIMEOUT.key()));
-        }
-        if (config.hasPath(RETENTION_POLICY.key())) {
-            setRp(config.getString(RETENTION_POLICY.key()));
-        }
-        if (config.hasPath(EPOCH.key())) {
-            setPrecision(TimePrecision.getPrecision(config.getString(EPOCH.key())));
-        }
-        setMeasurement(config.getString(KEY_MEASUREMENT.key()));
+        setWriteTimeout(config.get(InfluxDBSinkOptions.WRITE_TIMEOUT));
+        setRp(config.get(InfluxDBSinkOptions.RETENTION_POLICY));
+        setPrecision(TimePrecision.getPrecision(config.get(InfluxDBSinkOptions.EPOCH)));
+        setMeasurement(config.get(InfluxDBSinkOptions.KEY_MEASUREMENT));
     }
 }

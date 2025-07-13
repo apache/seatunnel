@@ -20,7 +20,7 @@ package org.apache.seatunnel.engine.e2e;
 import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.config.DeployMode;
 import org.apache.seatunnel.common.utils.FileUtils;
-import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSinkOptions;
 import org.apache.seatunnel.engine.client.SeaTunnelClient;
 import org.apache.seatunnel.engine.client.job.ClientJobExecutionEnvironment;
 import org.apache.seatunnel.engine.client.job.ClientJobProxy;
@@ -151,7 +151,7 @@ public class TextHeaderIT {
             for (File targetFile : file.listFiles()) {
                 String[] texts =
                         FileUtils.readFileToStr(targetFile.toPath())
-                                .split(BaseSinkConfig.ROW_DELIMITER.defaultValue());
+                                .split(FileBaseSinkOptions.ROW_DELIMITER.defaultValue());
                 if (headerWrite.equals("true")) {
                     Assertions.assertEquals(headerContent, texts[0]);
                 } else {

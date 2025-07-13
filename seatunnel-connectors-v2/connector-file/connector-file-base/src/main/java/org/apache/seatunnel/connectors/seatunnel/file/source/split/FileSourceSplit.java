@@ -21,6 +21,8 @@ import org.apache.seatunnel.api.source.SourceSplit;
 
 import lombok.Getter;
 
+import java.util.Objects;
+
 public class FileSourceSplit implements SourceSplit {
     private static final long serialVersionUID = 1L;
 
@@ -45,5 +47,22 @@ public class FileSourceSplit implements SourceSplit {
             return filePath;
         }
         return tableId + "_" + filePath;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        FileSourceSplit that = (FileSourceSplit) o;
+        return Objects.equals(tableId, that.tableId) && Objects.equals(filePath, that.filePath);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(tableId, filePath);
     }
 }

@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-email.md';
+
 # Email
 
 > Email 数据接收器
@@ -88,7 +90,4 @@ Sink插件常用参数，请参考 [Sink常用选项](../sink-common-options.md)
 
 ## 变更日志
 
-### 2.2.0-beta 2022-09-26
-
-- 添加 Email 接收器连接器
-
+<ChangeLog />

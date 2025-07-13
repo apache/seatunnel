@@ -56,6 +56,9 @@ public class InMemorySaveModeHandler implements SaveModeHandler {
     }
 
     @Override
+    public void handleSchemaSaveModeWithRestore() {}
+
+    @Override
     public SchemaSaveMode getSchemaSaveMode() {
         return SchemaSaveMode.CREATE_SCHEMA_WHEN_NOT_EXIST;
     }

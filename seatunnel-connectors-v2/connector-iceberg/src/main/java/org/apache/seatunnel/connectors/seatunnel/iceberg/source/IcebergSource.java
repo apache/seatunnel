@@ -29,7 +29,7 @@ import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.IcebergCatalogLoader;
-import org.apache.seatunnel.connectors.seatunnel.iceberg.config.SourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.source.enumerator.IcebergBatchSplitEnumerator;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.source.enumerator.IcebergSplitEnumeratorState;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.source.enumerator.IcebergStreamSplitEnumerator;
@@ -58,12 +58,12 @@ public class IcebergSource
 
     private static final long serialVersionUID = 4343414808223919870L;
 
-    private final SourceConfig sourceConfig;
+    private final IcebergSourceConfig sourceConfig;
     private final Map<TablePath, CatalogTable> catalogTables;
     private final Map<TablePath, Pair<Schema, Schema>> tableSchemaProjections;
     private JobContext jobContext;
 
-    public IcebergSource(SourceConfig config, List<CatalogTable> catalogTables) {
+    public IcebergSource(IcebergSourceConfig config, List<CatalogTable> catalogTables) {
         this.sourceConfig = config;
         this.catalogTables =
                 catalogTables.stream()
@@ -83,7 +83,7 @@ public class IcebergSource
 
     @SneakyThrows
     private Map<TablePath, Pair<Schema, Schema>> loadIcebergSchemaProjections(
-            SourceConfig config, Map<TablePath, CatalogTable> tables) {
+            IcebergSourceConfig config, Map<TablePath, CatalogTable> tables) {
         IcebergCatalogLoader catalogFactory = new IcebergCatalogLoader(config);
         Catalog catalog = catalogFactory.loadCatalog();
 

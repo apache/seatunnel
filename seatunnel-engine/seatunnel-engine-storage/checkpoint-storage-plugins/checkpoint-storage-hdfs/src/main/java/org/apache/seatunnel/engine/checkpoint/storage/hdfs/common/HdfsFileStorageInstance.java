@@ -30,7 +30,7 @@ public class HdfsFileStorageInstance {
         throw new IllegalStateException("Utility class");
     }
 
-    private static HdfsStorage HDFS_STORAGE;
+    private static volatile HdfsStorage HDFS_STORAGE;
     private static final Object LOCK = new Object();
 
     public static boolean isFsNull() {

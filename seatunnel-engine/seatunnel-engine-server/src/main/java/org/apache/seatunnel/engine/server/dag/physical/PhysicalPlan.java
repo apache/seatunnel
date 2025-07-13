@@ -199,7 +199,13 @@ public class PhysicalPlan {
             return;
         }
 
-        updateJobState(JobStatus.CANCELING);
+        if (runningJobStateIMap.get(jobId) == JobStatus.PENDING) {
+            // The pending task needs to be directly set to 'cancelled' status because it has not
+            // started running yet
+            updateJobState(JobStatus.CANCELED);
+        } else {
+            updateJobState(JobStatus.CANCELING);
+        }
     }
 
     public void savepointJob() {
@@ -223,6 +229,11 @@ public class PhysicalPlan {
         Long[] stateTimestamps = runningJobStateTimestampsIMap.get(jobId);
         stateTimestamps[targetState.ordinal()] = System.currentTimeMillis();
         runningJobStateTimestampsIMap.set(jobId, stateTimestamps);
+    }
+
+    public synchronized Long getStateTimestamp(@NonNull JobStatus jobStatus) {
+        Long[] stateTimestamps = runningJobStateTimestampsIMap.get(jobId);
+        return stateTimestamps[jobStatus.ordinal()];
     }
 
     public synchronized void updateJobState(@NonNull JobStatus targetState) {
@@ -293,6 +304,7 @@ public class PhysicalPlan {
     public void startJob() {
         isRunning = true;
         log.info("{} state process is start", getJobFullName());
+        updateJobState(JobStatus.SCHEDULED);
         stateProcess();
     }
 

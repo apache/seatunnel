@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.kudu.config;
 
-import org.apache.seatunnel.api.configuration.Option;
-import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 
 import org.apache.kudu.client.SessionConfiguration;
@@ -31,46 +29,6 @@ import java.util.Locale;
 @Getter
 @ToString
 public class KuduSinkConfig extends CommonConfig {
-
-    public static final Option<SaveMode> SAVE_MODE =
-            Options.key("save_mode")
-                    .enumType(SaveMode.class)
-                    .defaultValue(SaveMode.APPEND)
-                    .withDescription("Storage mode,append is now supported");
-
-    public static final Option<String> FLUSH_MODE =
-            Options.key("session_flush_mode")
-                    .stringType()
-                    .defaultValue(SessionConfiguration.FlushMode.AUTO_FLUSH_SYNC.name())
-                    .withDescription("Kudu flush mode. Default AUTO_FLUSH_SYNC");
-
-    public static final Option<Integer> BATCH_SIZE =
-            Options.key("batch_size")
-                    .intType()
-                    .defaultValue(1024)
-                    .withDescription(
-                            "the flush max size (includes all append, upsert and delete records), over this number"
-                                    + " of records, will flush data. The default value is 100.");
-
-    public static final Option<Integer> BUFFER_FLUSH_INTERVAL =
-            Options.key("buffer_flush_interval")
-                    .intType()
-                    .defaultValue(10000)
-                    .withDescription(
-                            "the flush interval mills, over this time, asynchronous threads will flush data. The "
-                                    + "default value is 1s.");
-
-    public static final Option<Boolean> IGNORE_NOT_FOUND =
-            Options.key("ignore_not_found")
-                    .booleanType()
-                    .defaultValue(false)
-                    .withDescription("if true, ignore all not found rows");
-
-    public static final Option<Boolean> IGNORE_DUPLICATE =
-            Options.key("ignore_not_duplicate")
-                    .booleanType()
-                    .defaultValue(false)
-                    .withDescription("if true, ignore all dulicate rows");
 
     private SaveMode saveMode;
 
@@ -101,13 +59,13 @@ public class KuduSinkConfig extends CommonConfig {
 
     public KuduSinkConfig(ReadonlyConfig config) {
         super(config);
-        this.table = config.get(TABLE_NAME);
-        this.saveMode = config.get(SAVE_MODE);
-        this.flushMode = fromStrFlushMode(config.get(FLUSH_MODE));
-        this.maxBufferSize = config.get(BATCH_SIZE);
-        this.flushInterval = config.get(BUFFER_FLUSH_INTERVAL);
-        this.ignoreNotFound = config.get(IGNORE_NOT_FOUND);
-        this.ignoreDuplicate = config.get(IGNORE_DUPLICATE);
+        this.table = config.get(KuduSinkOptions.TABLE_NAME);
+        this.saveMode = config.get(KuduSinkOptions.SAVE_MODE);
+        this.flushMode = fromStrFlushMode(config.get(KuduSinkOptions.FLUSH_MODE));
+        this.maxBufferSize = config.get(KuduSinkOptions.BATCH_SIZE);
+        this.flushInterval = config.get(KuduSinkOptions.BUFFER_FLUSH_INTERVAL);
+        this.ignoreNotFound = config.get(KuduSinkOptions.IGNORE_NOT_FOUND);
+        this.ignoreDuplicate = config.get(KuduSinkOptions.IGNORE_DUPLICATE);
     }
 
     private SessionConfiguration.FlushMode fromStrFlushMode(String flushMode) {

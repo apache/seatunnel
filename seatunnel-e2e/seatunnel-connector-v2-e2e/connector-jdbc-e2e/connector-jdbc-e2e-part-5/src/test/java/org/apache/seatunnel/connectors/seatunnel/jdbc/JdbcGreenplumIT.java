@@ -85,6 +85,7 @@ public class JdbcGreenplumIT extends AbstractJdbcIT {
                 .insertSql(insertSql)
                 .testData(testDataSet)
                 .tablePathFullName(GREENPLUM_SOURCE)
+                .useSaveModeCreateTable(false)
                 .build();
     }
 

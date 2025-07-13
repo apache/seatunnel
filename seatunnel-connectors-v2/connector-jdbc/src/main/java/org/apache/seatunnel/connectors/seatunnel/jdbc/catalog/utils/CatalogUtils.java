@@ -101,6 +101,21 @@ public class CatalogUtils {
         return getFieldIde(identifier, fieldIde);
     }
 
+    public static Optional<String> getTableComment(DatabaseMetaData metaData, TablePath tablePath)
+            throws SQLException {
+        try (ResultSet rs =
+                metaData.getTables(
+                        tablePath.getDatabaseName(),
+                        tablePath.getSchemaName(),
+                        tablePath.getTableName(),
+                        new String[] {"TABLE"})) {
+            if (rs.next()) {
+                return Optional.ofNullable(rs.getString("REMARKS"));
+            }
+        }
+        return Optional.empty();
+    }
+
     public static Optional<PrimaryKey> getPrimaryKey(DatabaseMetaData metaData, TablePath tablePath)
             throws SQLException {
         // According to the Javadoc of java.sql.DatabaseMetaData#getPrimaryKeys,

@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-s3-redshift.md';
+
 # S3Redshift
 
 >S3Redshift的作用是将数据写入S3，然后使用Redshift的COPY命令将数据从S3导入Redshift。
@@ -269,5 +271,4 @@ Sink插件常用参数，请参考[Sink Common Options]（../sink-common-options
 
 ## 变更日志
 
-### 2.3.0-beta 2022-10-20
-
+<ChangeLog />

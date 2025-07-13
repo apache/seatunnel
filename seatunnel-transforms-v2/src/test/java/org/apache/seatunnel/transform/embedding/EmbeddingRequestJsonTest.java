@@ -22,6 +22,7 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 
+import org.apache.seatunnel.transform.nlpmodel.embedding.remote.amazon.BedrockModel;
 import org.apache.seatunnel.transform.nlpmodel.embedding.remote.custom.CustomModel;
 import org.apache.seatunnel.transform.nlpmodel.embedding.remote.doubao.DoubaoModel;
 import org.apache.seatunnel.transform.nlpmodel.embedding.remote.openai.OpenAIModel;
@@ -32,6 +33,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
+import java.net.URISyntaxException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -159,5 +161,80 @@ public class EmbeddingRequestJsonTest {
                         new TypeReference<List<List<Double>>>() {});
         Assertions.assertEquals(2, lists.size());
         Assertions.assertEquals(2560, lists.get(0).size());
+    }
+
+    @Test
+    void testBedrockTitanRequestJson() throws IOException, URISyntaxException {
+        BedrockModel model =
+                new BedrockModel(
+                        "apikey",
+                        "secret_key",
+                        "us-east-1",
+                        "http://bedrock.us-east-1.amazonaws.com",
+                        "amazon.titan-embed-text-v1",
+                        1536,
+                        10);
+
+        ObjectNode singleNode =
+                model.createRequestForSingleInput(
+                        "Determine whether someone is Chinese or American by their name");
+        Assertions.assertEquals(
+                "{\"inputText\":\"Determine whether someone is Chinese or American by their name\"}",
+                OBJECT_MAPPER.writeValueAsString(singleNode));
+
+        ObjectNode batchNode =
+                model.createRequestForBatchInput(
+                        new Object[] {"First text for embedding", "Second text for embedding"});
+        Assertions.assertEquals(
+                "{\"inputTexts\":[\"First text for embedding\",\"Second text for embedding\"]}",
+                OBJECT_MAPPER.writeValueAsString(batchNode));
+
+        model.close();
+    }
+
+    @Test
+    void testBedrockCohereRequestJson() throws IOException, URISyntaxException {
+        BedrockModel defaultModel =
+                new BedrockModel(
+                        "api_key",
+                        "secret_key",
+                        "us-east-1",
+                        "http://bedrock.us-east-1.amazonaws.com",
+                        "cohere.embed-english-v3",
+                        1024,
+                        10);
+
+        ObjectNode defaultNode =
+                defaultModel.createRequestForSingleInput(
+                        "Determine whether someone is Chinese or American by their name");
+        Assertions.assertEquals(
+                "{\"texts\":[\"Determine whether someone is Chinese or American by their name\"],\"input_type\":\"search_document\"}",
+                OBJECT_MAPPER.writeValueAsString(defaultNode));
+        defaultModel.close();
+        BedrockModel customModel =
+                new BedrockModel(
+                        "api_key",
+                        "secret_key",
+                        "us-east-1",
+                        "cohere.embed-english-v3",
+                        "http://bedrock.us-east-1.amazonaws.com",
+                        1024,
+                        10,
+                        "search_query");
+
+        ObjectNode singleNode =
+                customModel.createRequestForSingleInput(
+                        "Determine whether someone is Chinese or American by their name");
+        Assertions.assertEquals(
+                "{\"texts\":[\"Determine whether someone is Chinese or American by their name\"],\"input_type\":\"search_query\"}",
+                OBJECT_MAPPER.writeValueAsString(singleNode));
+        ObjectNode batchNode =
+                customModel.createRequestForBatchInput(
+                        new Object[] {"First text for embedding", "Second text for embedding"});
+        Assertions.assertEquals(
+                "{\"texts\":[\"First text for embedding\",\"Second text for embedding\"],\"input_type\":\"search_query\"}",
+                OBJECT_MAPPER.writeValueAsString(batchNode));
+
+        customModel.close();
     }
 }

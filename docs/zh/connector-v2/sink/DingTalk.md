@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-dingtalk.md';
+
 # 钉钉
 
 > 钉钉 数据接收器
@@ -47,9 +49,6 @@ sink {
 }
 ```
 
-## 更新日志
+## 变更日志
 
-### 2.2.0-beta 2022-09-26
-
-- 添加钉钉接收器
-
+<ChangeLog />

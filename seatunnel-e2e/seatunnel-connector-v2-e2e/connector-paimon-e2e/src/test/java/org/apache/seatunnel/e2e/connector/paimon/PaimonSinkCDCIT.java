@@ -69,8 +69,6 @@ public class PaimonSinkCDCIT extends AbstractPaimonIT implements TestResource {
     public void startUp() throws Exception {
         this.isWindows =
                 System.getProperties().getProperty("os.name").toUpperCase().contains("WINDOWS");
-        CATALOG_ROOT_DIR_WIN = CATALOG_ROOT_DIR_WIN + System.getProperty("user.name") + "/tmp/";
-        CATALOG_DIR_WIN = CATALOG_ROOT_DIR_WIN + NAMESPACE + "/";
     }
 
     @AfterAll
@@ -150,7 +148,7 @@ public class PaimonSinkCDCIT extends AbstractPaimonIT implements TestResource {
                 errResult
                         .getStderr()
                         .contains(
-                                "[Paimon: The source filed with schema 'name INT', except filed schema of sink is '`name` INT'; but the filed in sink table which actual schema is '`name` STRING'. Please check schema of sink table.]"));
+                                "['Paimon': The source field with schema 'name INT', expected field schema of sink is '`name` INT'; whose actual schema in the sink table is '`name` STRING'. Please check schema of sink table.]"));
     }
 
     @TestTemplate
@@ -485,6 +483,18 @@ public class PaimonSinkCDCIT extends AbstractPaimonIT implements TestResource {
         Container.ExecResult readResult4 =
                 container.executeJob("/paimon_to_assert_with_filter4.conf");
         Assertions.assertEquals(0, readResult4.getExitCode());
+        Container.ExecResult readResult5 =
+                container.executeJob("/paimon_to_assert_with_filter5.conf");
+        Assertions.assertEquals(0, readResult5.getExitCode());
+        Container.ExecResult readResult6 =
+                container.executeJob("/paimon_to_assert_with_filter6.conf");
+        Assertions.assertEquals(0, readResult6.getExitCode());
+        Container.ExecResult readResult7 =
+                container.executeJob("/paimon_to_assert_with_filter7.conf");
+        Assertions.assertEquals(0, readResult7.getExitCode());
+        Container.ExecResult readResult8 =
+                container.executeJob("/paimon_to_assert_with_filter8.conf");
+        Assertions.assertEquals(0, readResult8.getExitCode());
     }
 
     @TestTemplate
@@ -526,11 +536,11 @@ public class PaimonSinkCDCIT extends AbstractPaimonIT implements TestResource {
 
     @TestTemplate
     public void testChangelogLookup(TestContainer container) throws Exception {
-        // create Piamon table (changelog-producer=lookup)
+        // create Paimon table (changelog-producer=lookup)
         Container.ExecResult writeResult =
                 container.executeJob("/changelog_fake_cdc_sink_paimon_case1_ddl.conf");
         Assertions.assertEquals(0, writeResult.getExitCode());
-        TimeUnit.SECONDS.sleep(20);
+        TimeUnit.SECONDS.sleep(120);
         String[] jobIds =
                 new String[] {
                     String.valueOf(JobIdGenerator.newJobId()),
@@ -576,7 +586,7 @@ public class PaimonSinkCDCIT extends AbstractPaimonIT implements TestResource {
                             }
                         }));
         // stream job running 30 seconds
-        TimeUnit.SECONDS.sleep(30);
+        TimeUnit.SECONDS.sleep(120);
         // cancel stream job
         container.cancelJob(jobIds[1]);
         container.cancelJob(jobIds[2]);

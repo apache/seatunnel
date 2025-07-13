@@ -56,6 +56,21 @@ public final class JdbcFieldTypeUtils {
     }
 
     public static String getString(ResultSet resultSet, int columnIndex) throws SQLException {
+        Object obj = resultSet.getObject(columnIndex);
+        if (obj == null) {
+            return null;
+        }
+
+        // Add special handling for the BLOB data type.
+        if (obj instanceof java.sql.Blob) {
+            java.sql.Blob blob = (java.sql.Blob) obj;
+            try {
+                byte[] bytes = blob.getBytes(1, (int) blob.length());
+                return new String(bytes, java.nio.charset.StandardCharsets.UTF_8);
+            } finally {
+                blob.free();
+            }
+        }
         return resultSet.getString(columnIndex);
     }
 

@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.paimon.config;
 
-import org.apache.seatunnel.api.configuration.Option;
-import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 
 import lombok.Getter;
@@ -26,16 +24,10 @@ import lombok.Getter;
 @Getter
 public class PaimonSourceConfig extends PaimonConfig {
 
-    public static final Option<String> QUERY_SQL =
-            Options.key("query")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("The query of paimon source");
-
     private String query;
 
     public PaimonSourceConfig(ReadonlyConfig readonlyConfig) {
         super(readonlyConfig);
-        this.query = readonlyConfig.get(QUERY_SQL);
+        this.query = readonlyConfig.get(PaimonSourceOptions.QUERY_SQL);
     }
 }

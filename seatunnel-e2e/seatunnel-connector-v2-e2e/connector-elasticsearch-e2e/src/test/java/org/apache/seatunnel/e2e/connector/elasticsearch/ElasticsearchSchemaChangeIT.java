@@ -192,9 +192,30 @@ public class ElasticsearchSchemaChangeIT extends TestSuiteBase implements TestRe
                                     this.container.execInContainer(
                                             "bash",
                                             "-c",
-                                            "curl -k -u elastic:elasticsearch https://localhost:9200/schema_change_index/_count");
-                            Assertions.assertTrue(
-                                    indexCountResult.getStdout().contains("\"count\":18"));
+                                            "curl -k -u elastic:elasticsearch -H \"Content-Type:application/json\" -d '{ \"from\": 0, \"size\": 10000, \"query\": { \"match_all\": {}}}' https://localhost:9200/schema_change_index/_search");
+                            log.info("indexCountResult: {}", indexCountResult.getStdout());
+                            ObjectNode jsonNode =
+                                    JsonUtils.parseObject(indexCountResult.getStdout());
+                            JsonNode hits = jsonNode.get("hits");
+                            long totalCount = hits.get("total").get("value").asLong();
+                            Assertions.assertEquals(18L, totalCount);
+
+                            hits.get("hits")
+                                    .forEach(
+                                            hit -> {
+                                                JsonNode source = hit.get("_source");
+                                                int id = source.get("id").asInt();
+                                                if (id >= 119 && id <= 127) {
+                                                    Assertions.assertTrue(
+                                                            source.has("add_column1"));
+                                                    Assertions.assertFalse(
+                                                            source.get("add_column1").isNull());
+                                                    Assertions.assertTrue(
+                                                            source.has("add_column2"));
+                                                    Assertions.assertFalse(
+                                                            source.get("add_column2").isNull());
+                                                }
+                                            });
                         });
     }
 

@@ -21,6 +21,7 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.options.EnvCommonOptions;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.BasicType;
@@ -45,9 +46,13 @@ import java.nio.file.Paths;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 
 public class FakeDataGeneratorTest {
 
@@ -59,7 +64,7 @@ public class FakeDataGeneratorTest {
         SeaTunnelRowType seaTunnelRowType =
                 CatalogTableUtil.buildWithConfig(testConfig).getSeaTunnelRowType();
         FakeConfig fakeConfig = FakeConfig.buildWithConfig(testConfig);
-        FakeDataGenerator fakeDataGenerator = new FakeDataGenerator(fakeConfig);
+        FakeDataGenerator fakeDataGenerator = new FakeDataGenerator(fakeConfig, null);
         List<SeaTunnelRow> seaTunnelRows =
                 fakeDataGenerator.generateFakedRows(fakeConfig.getRowNum());
         Assertions.assertNotNull(seaTunnelRows);
@@ -114,7 +119,7 @@ public class FakeDataGeneratorTest {
 
         ReadonlyConfig testConfig = getTestConfigFile(conf);
         FakeConfig fakeConfig = FakeConfig.buildWithConfig(testConfig);
-        FakeDataGenerator fakeDataGenerator = new FakeDataGenerator(fakeConfig);
+        FakeDataGenerator fakeDataGenerator = new FakeDataGenerator(fakeConfig, null);
         List<SeaTunnelRow> seaTunnelRows =
                 fakeDataGenerator.generateFakedRows(fakeConfig.getRowNum());
         Assertions.assertIterableEquals(expected, seaTunnelRows);
@@ -125,7 +130,7 @@ public class FakeDataGeneratorTest {
     public void testVectorParse(String conf) throws FileNotFoundException, URISyntaxException {
         ReadonlyConfig testConfig = getTestConfigFile(conf);
         FakeConfig fakeConfig = FakeConfig.buildWithConfig(testConfig);
-        FakeDataGenerator fakeDataGenerator = new FakeDataGenerator(fakeConfig);
+        FakeDataGenerator fakeDataGenerator = new FakeDataGenerator(fakeConfig, null);
         List<SeaTunnelRow> seaTunnelRows =
                 fakeDataGenerator.generateFakedRows(fakeConfig.getRowNum());
         seaTunnelRows.forEach(
@@ -152,7 +157,7 @@ public class FakeDataGeneratorTest {
     public void testColumnDataParse(String conf) throws FileNotFoundException, URISyntaxException {
         ReadonlyConfig testConfig = getTestConfigFile(conf);
         FakeConfig fakeConfig = FakeConfig.buildWithConfig(testConfig);
-        FakeDataGenerator fakeDataGenerator = new FakeDataGenerator(fakeConfig);
+        FakeDataGenerator fakeDataGenerator = new FakeDataGenerator(fakeConfig, null);
         List<SeaTunnelRow> seaTunnelRows =
                 fakeDataGenerator.generateFakedRows(fakeConfig.getRowNum());
         seaTunnelRows.forEach(
@@ -215,7 +220,7 @@ public class FakeDataGeneratorTest {
     public void testDataParse(String conf) throws FileNotFoundException, URISyntaxException {
         ReadonlyConfig testConfig = getTestConfigFile(conf);
         FakeConfig fakeConfig = FakeConfig.buildWithConfig(testConfig);
-        FakeDataGenerator fakeDataGenerator = new FakeDataGenerator(fakeConfig);
+        FakeDataGenerator fakeDataGenerator = new FakeDataGenerator(fakeConfig, null);
         List<SeaTunnelRow> seaTunnelRows =
                 fakeDataGenerator.generateFakedRows(fakeConfig.getRowNum());
         seaTunnelRows.forEach(
@@ -227,6 +232,41 @@ public class FakeDataGeneratorTest {
                     Assertions.assertInstanceOf(LocalTime.class, seaTunnelRow.getField(4));
                     Assertions.assertInstanceOf(LocalDate.class, seaTunnelRow.getField(5));
                 });
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"fake-auto-increment-id.conf", "fake-auto-increment-id.conf"})
+    public void testAutoIncrementId(String conf) throws FileNotFoundException, URISyntaxException {
+        ReadonlyConfig testConfig = getTestConfigFile(conf);
+        int parallelism = testConfig.getOptional(EnvCommonOptions.PARALLELISM).orElse(1);
+        FakeConfig fakeConfig = FakeConfig.buildWithConfig(testConfig);
+        List<CompletableFuture<List<SeaTunnelRow>>> futures = new ArrayList<>();
+        String jobId = UUID.randomUUID().toString();
+        for (int i = 0; i < parallelism; i++) {
+            CompletableFuture<List<SeaTunnelRow>> uCompletableFuture =
+                    CompletableFuture.supplyAsync(
+                            () -> {
+                                FakeDataGenerator fakeDataGenerator =
+                                        new FakeDataGenerator(fakeConfig, jobId);
+                                return fakeDataGenerator.generateFakedRows(fakeConfig.getRowNum());
+                            });
+            futures.add(uCompletableFuture);
+        }
+        CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]));
+        List<SeaTunnelRow> seaTunnelRows =
+                futures.stream()
+                        .map(CompletableFuture::join)
+                        .flatMap(List::stream)
+                        .collect(Collectors.toList());
+        List<Integer> ids =
+                seaTunnelRows.stream()
+                        .map(seaTunnelRow -> (int) seaTunnelRow.getField(0))
+                        .distinct()
+                        .sorted(Integer::compareTo)
+                        .collect(Collectors.toList());
+        Assertions.assertEquals(200, ids.size());
+        ids.stream().min(Integer::compareTo).ifPresent(min -> Assertions.assertEquals(100, min));
+        ids.stream().max(Integer::compareTo).ifPresent(max -> Assertions.assertEquals(299, max));
     }
 
     private ReadonlyConfig getTestConfigFile(String configFile)

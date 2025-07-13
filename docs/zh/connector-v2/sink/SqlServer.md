@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-jdbc.md';
+
 # SQLServer
 
 > JDBC SQLServer Sink 连接器
@@ -73,7 +75,6 @@
 | database                          | String  | 否       | -       | 使用此 `database` 和 `table-name` 自动生成 SQL 并接收上游输入数据写入数据库。此选项与 `query` 互斥，且优先级更高。                                                                                   |
 | table                             | String  | 否       | -       | 使用 `database` 和此 `table-name` 自动生成 SQL 并接收上游输入数据写入数据库。此选项与 `query` 互斥，且优先级更高。                                                                                   |
 | primary_keys                      | Array    | 否       | -       | 此选项用于在自动生成 SQL 时支持 `insert`、`delete` 和 `update` 等操作。                                                                                                                              |
-| support_upsert_by_query_primary_key_exist | Boolean  | 否       | false   | 选择使用 INSERT SQL、UPDATE SQL 来处理更新事件（INSERT, UPDATE_AFTER），基于查询主键是否存在。此配置仅在数据库不支持 upsert 语法时使用。**注意**：此方法性能较低。                                   |
 | connection_check_timeout_sec      | Int    | 否       | 30      | 用于验证连接完成的数据库操作的等待时间（秒）。                                                                                                                                                       |
 | max_retries                       | Int    | 否       | 0       | 提交失败（executeBatch）的重试次数。                                                                                                                                                                 |
 | batch_size                        | Int    | 否       | 1000    | 对于批量写入，当缓冲的记录数达到 `batch_size` 或时间达到 `checkpoint.interval` 时，数据将被刷新到数据库中。                                                                                           |
@@ -92,7 +93,7 @@
 
 ## 任务示例
 
-### 简单示例：
+### 简单示例
 
 > 这是一个读取 SQL Server 数据并直接插入到另一个表的示例
 
@@ -174,3 +175,7 @@ Jdbc {
 # 如果想了解更多关于如何配置 SeaTunnel 的信息，并查看完整的接收器插件列表，
 # 请访问 https://seatunnel.apache.org/docs/connector-v2/sink/Jdbc
 ```
+
+## 变更日志
+
+<ChangeLog />

@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-slack.md';
+
 # Slack
 
 > Slack 接收器连接器
@@ -34,7 +36,7 @@
 
 ## 任务示例
 
-### 简单示例:
+### 简单示例
 
 ```hocon
 sink {
@@ -48,7 +50,4 @@ sink {
 
 ## 变更日志
 
-### 新版本
-
-- 添加 Slack 接收器连接器
-
+<ChangeLog />

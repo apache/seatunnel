@@ -32,6 +32,7 @@ import java.util.Map;
 import static org.apache.seatunnel.api.options.ConnectorCommonOptions.DATABASE_NAME;
 import static org.apache.seatunnel.api.options.ConnectorCommonOptions.SCHEMA_NAME;
 import static org.apache.seatunnel.api.options.ConnectorCommonOptions.TABLE_NAME;
+import static org.apache.seatunnel.api.options.table.TableIdentifierOptions.TABLE;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaSourceOptions.DEBEZIUM_RECORD_TABLE_FILTER;
 
 public class KafkaSourceConfigTest {
@@ -70,5 +71,35 @@ public class KafkaSourceConfigTest {
                 ((DebeziumJsonDeserializationSchemaDispatcher) deserializationSchema)
                         .getTableDeserializationMap()
                         .get(TablePath.of("test.test.test")));
+    }
+
+    @Test
+    void testDeserializationWithSchema() {
+        Map<String, Object> schemaFields = new HashMap<>();
+        schemaFields.put("id", "int");
+        schemaFields.put("name", "string");
+        schemaFields.put("description", "string");
+        schemaFields.put("weight", "string");
+
+        Map<String, Object> schema = new HashMap<>();
+        schema.put("fields", schemaFields);
+        schema.put(TABLE.key(), "db1.table1");
+
+        Map<String, Object> configMap = new HashMap<>();
+        configMap.put("bootstrap.servers", "localhost:9092");
+        configMap.put("group.id", "test");
+        configMap.put("topic", "test");
+        configMap.put("schema", schema);
+        configMap.put("format", "text");
+
+        KafkaSourceConfig sourceConfig = new KafkaSourceConfig(ReadonlyConfig.fromMap(configMap));
+
+        DeserializationSchema<SeaTunnelRow> deserializationSchema =
+                sourceConfig
+                        .getMapMetadata()
+                        .get(TablePath.of("db1.table1"))
+                        .getDeserializationSchema();
+
+        Assertions.assertNotNull(deserializationSchema);
     }
 }

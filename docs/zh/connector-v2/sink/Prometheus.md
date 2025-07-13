@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-prometheus.md';
+
 # Prometheus
 
 > Prometheus 数据接收器
@@ -93,9 +95,6 @@ sink {
 }
 ```
 
-## Changelog
+## 变更日志
 
-### 2.3.8-beta 2024-08-22
-
-- 添加prometheus接收连接器
-
+<ChangeLog />

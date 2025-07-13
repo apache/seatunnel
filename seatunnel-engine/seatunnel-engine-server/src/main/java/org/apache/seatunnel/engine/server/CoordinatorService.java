@@ -156,7 +156,7 @@ public class CoordinatorService {
      * key: job id; <br>
      * value: job master;
      */
-    private final Map<Long, Tuple2<PendingSourceState, JobMaster>> pendingJobMasterMap =
+    protected final Map<Long, Tuple2<PendingSourceState, JobMaster>> pendingJobMasterMap =
             new ConcurrentHashMap<>();
 
     /**
@@ -230,10 +230,16 @@ public class CoordinatorService {
                     while (true) {
                         try {
                             pendingJobSchedule();
-                        } catch (InterruptedException e) {
-                            throw new RuntimeException(e);
-                        } finally {
-                            pendingJob.release();
+                        } catch (InterruptedException interrupted) {
+                            throw new RuntimeException(interrupted);
+                        } catch (Throwable e) {
+                            logger.severe("Error in pending job schedule thread", e);
+                            try {
+                                Thread.sleep(3000L);
+                            } catch (InterruptedException ex) {
+                                logger.severe("Pending job schedule thread interrupted", ex);
+                                Thread.currentThread().interrupt();
+                            }
                         }
                     }
                 };
@@ -248,11 +254,18 @@ public class CoordinatorService {
             Thread.sleep(3000);
             return;
         }
+
+        Long jobId = jobMaster.getJobId();
+
+        if (!pendingJobMasterMap.containsKey(jobId)) {
+            logger.fine(String.format("Job ID : %s already cancelled", jobId));
+            queueRemove(jobMaster);
+            return;
+        }
+
         logger.fine(
                 String.format(
                         "Start pending job schedule, pendingJob Size : %s", pendingJob.size()));
-
-        Long jobId = jobMaster.getJobId();
 
         logger.fine(
                 String.format(
@@ -744,6 +757,11 @@ public class CoordinatorService {
             future.complete(null);
             return new PassiveCompletableFuture<>(future);
         } else {
+            // Cancel pending tasks
+            if (pendingJobMasterMap.containsKey(jobId)) {
+                pendingJobMasterMap.remove(jobId);
+                logger.fine(String.format("Cancel pending tasks : %s", jobId));
+            }
             return new PassiveCompletableFuture<>(
                     CompletableFuture.supplyAsync(
                             () -> {
@@ -954,6 +972,8 @@ public class CoordinatorService {
                         "Job info detail",
                         "createdJobCount",
                         jobCounter.getCreatedJobCount(),
+                        "pendingJobCount",
+                        jobCounter.getPendingJobCount(),
                         "scheduledJobCount",
                         jobCounter.getScheduledJobCount(),
                         "runningJobCount",
@@ -974,6 +994,7 @@ public class CoordinatorService {
         AtomicLong createdJobCount = new AtomicLong();
         AtomicLong scheduledJobCount = new AtomicLong();
         AtomicLong runningJobCount = new AtomicLong();
+        AtomicLong pendingJobCount = new AtomicLong();
         AtomicLong failingJobCount = new AtomicLong();
         AtomicLong failedJobCount = new AtomicLong();
         AtomicLong cancellingJobCount = new AtomicLong();
@@ -989,6 +1010,9 @@ public class CoordinatorService {
                                 switch (jobStatus) {
                                     case CREATED:
                                         createdJobCount.addAndGet(1);
+                                        break;
+                                    case PENDING:
+                                        pendingJobCount.addAndGet(1);
                                         break;
                                     case SCHEDULED:
                                         scheduledJobCount.addAndGet(1);
@@ -1018,6 +1042,7 @@ public class CoordinatorService {
 
         return new JobCounter(
                 createdJobCount.longValue(),
+                pendingJobCount.longValue(),
                 scheduledJobCount.longValue(),
                 runningJobCount.longValue(),
                 failingJobCount.longValue(),

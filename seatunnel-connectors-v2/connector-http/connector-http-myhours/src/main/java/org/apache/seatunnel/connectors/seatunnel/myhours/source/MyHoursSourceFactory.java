@@ -24,7 +24,7 @@ import org.apache.seatunnel.api.table.connector.TableSource;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.connectors.seatunnel.http.source.HttpSourceFactory;
-import org.apache.seatunnel.connectors.seatunnel.myhours.source.config.MyHoursSourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.myhours.source.config.MyHoursSourceOptions;
 
 import com.google.auto.service.AutoService;
 
@@ -40,16 +40,14 @@ public class MyHoursSourceFactory extends HttpSourceFactory {
     @Override
     public <T, SplitT extends SourceSplit, StateT extends Serializable>
             TableSource<T, SplitT, StateT> createSource(TableSourceFactoryContext context) {
-        return () ->
-                (SeaTunnelSource<T, SplitT, StateT>)
-                        new MyHoursSource(context.getOptions().toConfig());
+        return () -> (SeaTunnelSource<T, SplitT, StateT>) new MyHoursSource(context.getOptions());
     }
 
     @Override
     public OptionRule optionRule() {
         return getHttpBuilder()
-                .required(MyHoursSourceConfig.EMAIL)
-                .required(MyHoursSourceConfig.PASSWORD)
+                .required(MyHoursSourceOptions.EMAIL)
+                .required(MyHoursSourceOptions.PASSWORD)
                 .build();
     }
 }

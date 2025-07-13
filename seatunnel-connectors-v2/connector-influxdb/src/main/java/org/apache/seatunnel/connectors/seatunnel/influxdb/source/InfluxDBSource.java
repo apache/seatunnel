@@ -17,25 +17,14 @@
 
 package org.apache.seatunnel.connectors.seatunnel.influxdb.source;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
-import org.apache.seatunnel.api.common.PrepareFailException;
-import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
-import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.api.source.SupportColumnProjection;
 import org.apache.seatunnel.api.source.SupportParallelism;
-import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.config.CheckConfigUtil;
-import org.apache.seatunnel.common.config.CheckResult;
-import org.apache.seatunnel.common.constants.PluginType;
-import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.connectors.seatunnel.influxdb.client.InfluxDBClient;
 import org.apache.seatunnel.connectors.seatunnel.influxdb.config.SourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.influxdb.exception.InfluxdbConnectorErrorCode;
@@ -46,59 +35,35 @@ import org.influxdb.InfluxDB;
 import org.influxdb.dto.Query;
 import org.influxdb.dto.QueryResult;
 
-import com.google.auto.service.AutoService;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
-import static org.apache.seatunnel.connectors.seatunnel.influxdb.config.SourceConfig.SQL;
-
 @Slf4j
-@AutoService(SeaTunnelSource.class)
 public class InfluxDBSource
         implements SeaTunnelSource<SeaTunnelRow, InfluxDBSourceSplit, InfluxDBSourceState>,
                 SupportParallelism,
                 SupportColumnProjection {
-    private SeaTunnelRowType typeInfo;
-    private SourceConfig sourceConfig;
 
-    private List<Integer> columnsIndexList;
+    private final CatalogTable catalogTable;
+    private final SourceConfig sourceConfig;
 
     private static final String QUERY_LIMIT = " limit 1";
+
+    public InfluxDBSource(CatalogTable catalogTable, SourceConfig sourceConfig) {
+        this.catalogTable = catalogTable;
+        this.sourceConfig = sourceConfig;
+    }
 
     @Override
     public String getPluginName() {
         return "InfluxDB";
-    }
-
-    @Override
-    public void prepare(Config config) throws PrepareFailException {
-        CheckResult result =
-                CheckConfigUtil.checkAllExists(
-                        config, SQL.key(), ConnectorCommonOptions.SCHEMA.key());
-        if (!result.isSuccess()) {
-            throw new InfluxdbConnectorException(
-                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                    String.format(
-                            "PluginName: %s, PluginType: %s, Message: %s",
-                            getPluginName(), PluginType.SOURCE, result.getMsg()));
-        }
-        try {
-            this.sourceConfig = SourceConfig.loadConfig(config);
-            this.typeInfo = CatalogTableUtil.buildWithConfig(config).getSeaTunnelRowType();
-            this.columnsIndexList = initColumnsIndex(InfluxDBClient.getInfluxDB(sourceConfig));
-        } catch (Exception e) {
-            throw new InfluxdbConnectorException(
-                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                    String.format(
-                            "PluginName: %s, PluginType: %s, Message: %s",
-                            getPluginName(), PluginType.SOURCE, ExceptionUtils.getMessage(e)));
-        }
     }
 
     @Override
@@ -107,13 +72,10 @@ public class InfluxDBSource
     }
 
     @Override
-    public SeaTunnelDataType<SeaTunnelRow> getProducedType() {
-        return typeInfo;
-    }
-
-    @Override
     public SourceReader createReader(SourceReader.Context readerContext) throws Exception {
-        return new InfluxdbSourceReader(sourceConfig, readerContext, typeInfo, columnsIndexList);
+        List<Integer> columnsIndexList = initColumnsIndex(InfluxDBClient.getInfluxDB(sourceConfig));
+        return new InfluxdbSourceReader(
+                sourceConfig, readerContext, catalogTable.getSeaTunnelRowType(), columnsIndexList);
     }
 
     @Override
@@ -128,6 +90,11 @@ public class InfluxDBSource
             InfluxDBSourceState checkpointState)
             throws Exception {
         return new InfluxDBSourceSplitEnumerator(enumeratorContext, checkpointState, sourceConfig);
+    }
+
+    @Override
+    public List<CatalogTable> getProducedCatalogTables() {
+        return Collections.singletonList(catalogTable);
     }
 
     private List<Integer> initColumnsIndex(InfluxDB influxdb) {
@@ -148,7 +115,7 @@ public class InfluxDBSource
             List<QueryResult.Series> serieList = queryResult.getResults().get(0).getSeries();
             List<String> fieldNames = new ArrayList<>(serieList.get(0).getColumns());
 
-            return Arrays.stream(typeInfo.getFieldNames())
+            return Arrays.stream(catalogTable.getSeaTunnelRowType().getFieldNames())
                     .map(fieldNames::indexOf)
                     .collect(Collectors.toList());
         } catch (Exception e) {

@@ -17,11 +17,10 @@
 
 package org.apache.seatunnel.connectors.seatunnel.easysearch.source;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.connectors.seatunnel.easysearch.client.EasysearchClient;
-import org.apache.seatunnel.connectors.seatunnel.easysearch.config.SourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.easysearch.config.EasysearchSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.easysearch.dto.source.IndexDocsCount;
 import org.apache.seatunnel.connectors.seatunnel.easysearch.dto.source.SourceIndexInfo;
 import org.apache.seatunnel.connectors.seatunnel.easysearch.exception.EasysearchConnectorException;
@@ -47,7 +46,7 @@ public class EasysearchSourceSplitEnumerator
 
     private final Object stateLock = new Object();
     private final SourceSplitEnumerator.Context<EasysearchSourceSplit> context;
-    private final Config pluginConfig;
+    private final ReadonlyConfig pluginConfig;
     private final Map<Integer, List<EasysearchSourceSplit>> pendingSplit;
     private final List<String> source;
     private EasysearchClient ezsClient;
@@ -55,7 +54,7 @@ public class EasysearchSourceSplitEnumerator
 
     public EasysearchSourceSplitEnumerator(
             SourceSplitEnumerator.Context<EasysearchSourceSplit> context,
-            Config pluginConfig,
+            ReadonlyConfig pluginConfig,
             List<String> source) {
         this(context, null, pluginConfig, source);
     }
@@ -63,7 +62,7 @@ public class EasysearchSourceSplitEnumerator
     public EasysearchSourceSplitEnumerator(
             SourceSplitEnumerator.Context<EasysearchSourceSplit> context,
             EasysearchSourceState sourceState,
-            Config pluginConfig,
+            ReadonlyConfig pluginConfig,
             List<String> source) {
         this.context = context;
         this.pluginConfig = pluginConfig;
@@ -136,21 +135,13 @@ public class EasysearchSourceSplitEnumerator
 
     private List<EasysearchSourceSplit> getEasysearchSplit() {
         List<EasysearchSourceSplit> splits = new ArrayList<>();
-        String scrollTime = SourceConfig.SCROLL_TIME.defaultValue();
-        if (pluginConfig.hasPath(SourceConfig.SCROLL_TIME.key())) {
-            scrollTime = pluginConfig.getString(SourceConfig.SCROLL_TIME.key());
-        }
-        int scrollSize = SourceConfig.SCROLL_SIZE.defaultValue();
-        if (pluginConfig.hasPath(SourceConfig.SCROLL_SIZE.key())) {
-            scrollSize = pluginConfig.getInt(SourceConfig.SCROLL_SIZE.key());
-        }
-        Map query = SourceConfig.QUERY.defaultValue();
-        if (pluginConfig.hasPath(SourceConfig.QUERY.key())) {
-            query = (Map) pluginConfig.getAnyRef(SourceConfig.QUERY.key());
-        }
+        String scrollTime = pluginConfig.get(EasysearchSourceOptions.SCROLL_TIME);
+
+        int scrollSize = pluginConfig.get(EasysearchSourceOptions.SCROLL_SIZE);
+        Map query = pluginConfig.get(EasysearchSourceOptions.QUERY);
 
         List<IndexDocsCount> indexDocsCounts =
-                ezsClient.getIndexDocsCount(pluginConfig.getString(SourceConfig.INDEX.key()));
+                ezsClient.getIndexDocsCount(pluginConfig.get(EasysearchSourceOptions.INDEX));
         indexDocsCounts =
                 indexDocsCounts.stream()
                         .filter(x -> x.getDocsCount() != null && x.getDocsCount() > 0)

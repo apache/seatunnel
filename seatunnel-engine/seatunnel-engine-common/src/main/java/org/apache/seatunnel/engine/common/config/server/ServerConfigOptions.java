@@ -193,6 +193,48 @@ public class ServerConfigOptions {
                         .defaultValue(false)
                         .withDescription("Whether to enable the http server.");
 
+        public static final Option<Boolean> ENABLE_HTTPS =
+                Options.key("enable-https")
+                        .booleanType()
+                        .defaultValue(false)
+                        .withDescription("Whether to enable the https server.");
+
+        public static final Option<Integer> HTTPS_PORT =
+                Options.key("port")
+                        .intType()
+                        .defaultValue(8443)
+                        .withDescription("The port of the https server.");
+
+        public static final Option<String> KEY_STORE_PATH =
+                Options.key("key-store-path")
+                        .stringType()
+                        .noDefaultValue()
+                        .withDescription("The key store path of the https server.");
+
+        public static final Option<String> KEY_STORE_PASSWORD =
+                Options.key("key-store-password")
+                        .stringType()
+                        .noDefaultValue()
+                        .withDescription("The key store password of the https server.");
+
+        public static final Option<String> KEY_MANAGER_PASSWORD =
+                Options.key("key-manager-password")
+                        .stringType()
+                        .noDefaultValue()
+                        .withDescription("The key manager password of the https server.");
+
+        public static final Option<String> TRUST_STORE_PATH =
+                Options.key("trust-store-path")
+                        .stringType()
+                        .noDefaultValue()
+                        .withDescription("The trust store path of the https server.");
+
+        public static final Option<String> TRUST_STORE_PASSWORD =
+                Options.key("trust-store-password")
+                        .stringType()
+                        .noDefaultValue()
+                        .withDescription("The trust store password of the https server.");
+
         public static final Option<String> CONTEXT_PATH =
                 Options.key("context-path")
                         .stringType()
@@ -212,6 +254,24 @@ public class ServerConfigOptions {
                         .defaultValue(100)
                         .withDescription(
                                 "The port range of the http server. If enable-dynamic-port is true, We will use the unused port in the range");
+
+        public static final Option<Boolean> ENABLE_BASIC_AUTH =
+                Options.key("enable-basic-auth")
+                        .booleanType()
+                        .defaultValue(false)
+                        .withDescription("Whether to enable basic authentication for the web UI.");
+
+        public static final Option<String> BASIC_AUTH_USERNAME =
+                Options.key("basic-auth-username")
+                        .stringType()
+                        .defaultValue("admin")
+                        .withDescription("The username for basic authentication.");
+
+        public static final Option<String> BASIC_AUTH_PASSWORD =
+                Options.key("basic-auth-password")
+                        .stringType()
+                        .defaultValue("admin")
+                        .withDescription("The password for basic authentication.");
 
         public static final Option<HttpConfig> HTTP =
                 Options.key("http")

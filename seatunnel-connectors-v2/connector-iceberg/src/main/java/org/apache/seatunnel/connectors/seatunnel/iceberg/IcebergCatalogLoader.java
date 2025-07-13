@@ -21,7 +21,7 @@ import org.apache.seatunnel.shade.com.google.common.collect.ImmutableList;
 
 import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.common.utils.SeaTunnelException;
-import org.apache.seatunnel.connectors.seatunnel.iceberg.config.CommonConfig;
+import org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergCommonConfig;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.exception.IcebergConnectorException;
 
 import org.apache.commons.lang3.StringUtils;
@@ -49,9 +49,9 @@ public class IcebergCatalogLoader implements Serializable {
     private static final long serialVersionUID = -6003040601422350869L;
     private static final List<String> HADOOP_CONF_FILES =
             ImmutableList.of("core-site.xml", "hdfs-site.xml", "hive-site.xml");
-    private final CommonConfig config;
+    private final IcebergCommonConfig config;
 
-    public IcebergCatalogLoader(CommonConfig config) {
+    public IcebergCatalogLoader(IcebergCommonConfig config) {
         this.config = config;
     }
 
@@ -63,7 +63,7 @@ public class IcebergCatalogLoader implements Serializable {
     }
 
     /** Loading Hadoop configuration through reflection */
-    public Object loadHadoopConfig(CommonConfig config) {
+    public Object loadHadoopConfig(IcebergCommonConfig config) {
         Class<?> configClass =
                 DynClasses.builder()
                         .impl("org.apache.hadoop.hdfs.HdfsConfiguration")

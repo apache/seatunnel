@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-jdbc.md';
+
 # SQL Server
 
 > JDBC SQL Server Source Connector
@@ -81,6 +83,7 @@ Read external data source data through JDBC.
 | partition_num                              | Int    | No       | job parallelism | The number of partition count, only support positive integer. default value is job parallelism                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | fetch_size                                 | Int    | No       | 0               | For queries that return a large number of objects,you can configure<br/> the row fetch size used in the query toimprove performance by<br/> reducing the number database hits required to satisfy the selection criteria.<br/> Zero means use jdbc default value.                                                                                                                                                                                                                                                                                                                                                    |
 | properties                                 | Map    | No       | -               | Additional connection configuration parameters,when properties and URL have the same parameters, the priority is determined by the <br/>specific implementation of the driver. For example, in MySQL, properties take precedence over the URL.                                                                                                                                                                                                                                                                                                                                                                       |
+| use_regex                                  | Boolean| No       | false           | Control regular expression matching for table_path. When set to `true`, the table_path will be treated as a regular expression pattern. When set to `false` or not specified, the table_path will be treated as an exact path (no regex matching).                                                                                                                                                                                                                                                                                                                                                                   |
 | table_path                                 | String | No       | -               | The path to the full path of table, you can use this configuration instead of `query`. <br/>examples: <br/>mysql: "testdb.table1" <br/>oracle: "test_schema.table1" <br/>sqlserver: "testdb.test_schema.table1" <br/>postgresql: "testdb.test_schema.table1"                                                                                                                                                                                                                                                                                                                                                         |
 | table_list                                 | Array  | No       | -               | The list of tables to be read, you can use this configuration instead of `table_path` example: ```[{ table_path = "testdb.table1"}, {table_path = "testdb.table2", query = "select * id, name from testdb.table2"}]```                                                                                                                                                                                                                                                                                                                                                                                               |
 | where_condition                            | String | No       | -               | Common row filter conditions for all tables/queries, must start with `where`. for example `where id > 100`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
@@ -157,7 +160,7 @@ How many splits do we need to split into, only support positive integer. default
 
 ## Task Example
 
-### Simple:
+### Simple
 
 > Simple single task to read the data table
 
@@ -187,7 +190,7 @@ sink {
 }
 ```
 
-### Parallel:
+### Parallel
 
 > Read your query table in parallel with the shard field you configured and the shard data You can do this if you want to read the whole table
 
@@ -223,7 +226,7 @@ sink {
 
 ```
 
-### Fragmented Parallel Read Simple:
+### Fragmented Parallel Read Simple
 
 > It is a shard that reads data in parallel fast
 
@@ -264,3 +267,6 @@ sink {
 }
 ```
 
+## Changelog
+
+<ChangeLog />

@@ -31,6 +31,7 @@ public class ContentFormatUtil {
         int maxJobNameLength = 8;
         int maxJobStatusLength = 10;
         int maxSubmitTimeLength = 23;
+        int maxStartTimeLength = 23;
         int maxFinishTimeLength = 23;
 
         for (JobStatusData jobStatusData : jobStatusDataList) {
@@ -54,6 +55,8 @@ public class ContentFormatUtil {
                         + "s%-"
                         + (maxSubmitTimeLength + 2)
                         + "s%-"
+                        + (maxStartTimeLength + 2)
+                        + "s%-"
                         + (maxFinishTimeLength + 2)
                         + "s";
         String header =
@@ -63,6 +66,7 @@ public class ContentFormatUtil {
                         "Job Name",
                         "Job Status",
                         "Submit Time",
+                        "Start Time",
                         "Finished Time");
         String separator =
                 String.format(
@@ -71,6 +75,7 @@ public class ContentFormatUtil {
                         StringUtils.repeat("-", maxJobNameLength),
                         StringUtils.repeat("-", maxJobStatusLength),
                         StringUtils.repeat("-", maxSubmitTimeLength),
+                        StringUtils.repeat("-", maxStartTimeLength),
                         StringUtils.repeat("-", maxFinishTimeLength));
 
         StringBuilder sb = new StringBuilder();
@@ -84,6 +89,15 @@ public class ContentFormatUtil {
                     String.format(
                             "%-" + maxSubmitTimeLength + "s",
                             new Timestamp(jobStatusData.getSubmitTime()));
+            String startTime = "";
+            if (jobStatusData.getStartTime() != null) {
+                startTime =
+                        String.format(
+                                "%-" + maxStartTimeLength + "s",
+                                new Timestamp(jobStatusData.getStartTime()));
+            } else {
+                startTime = "                       ";
+            }
             String finishTime = "";
             if (jobStatusData.getFinishTime() != null) {
                 finishTime =
@@ -98,6 +112,8 @@ public class ContentFormatUtil {
                     .append(jobStatus)
                     .append("  ")
                     .append(submitTime)
+                    .append("  ")
+                    .append(startTime)
                     .append("  ")
                     .append(finishTime)
                     .append("\n");

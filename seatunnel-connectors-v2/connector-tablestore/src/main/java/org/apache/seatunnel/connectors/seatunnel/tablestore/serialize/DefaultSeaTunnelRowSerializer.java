@@ -21,7 +21,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
-import org.apache.seatunnel.connectors.seatunnel.tablestore.config.TablestoreOptions;
+import org.apache.seatunnel.connectors.seatunnel.tablestore.config.TableStoreConfig;
 import org.apache.seatunnel.connectors.seatunnel.tablestore.exception.TablestoreConnectorException;
 
 import com.alicloud.openservices.tablestore.model.Column;
@@ -42,12 +42,12 @@ import java.util.List;
 public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer {
 
     private final SeaTunnelRowType seaTunnelRowType;
-    private final TablestoreOptions tablestoreOptions;
+    private final TableStoreConfig tableStoreConfig;
 
     public DefaultSeaTunnelRowSerializer(
-            SeaTunnelRowType seaTunnelRowType, TablestoreOptions tablestoreOptions) {
+            SeaTunnelRowType seaTunnelRowType, TableStoreConfig tableStoreConfig) {
         this.seaTunnelRowType = seaTunnelRowType;
-        this.tablestoreOptions = tablestoreOptions;
+        this.tableStoreConfig = tableStoreConfig;
     }
 
     @Override
@@ -56,15 +56,14 @@ public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer {
         PrimaryKeyBuilder primaryKeyBuilder = PrimaryKeyBuilder.createPrimaryKeyBuilder();
         List<Column> columns =
                 new ArrayList<>(
-                        seaTunnelRow.getFields().length
-                                - tablestoreOptions.getPrimaryKeys().size());
+                        seaTunnelRow.getFields().length - tableStoreConfig.getPrimaryKeys().size());
         Arrays.stream(seaTunnelRowType.getFieldNames())
                 .forEach(
                         fieldName -> {
                             Object field =
                                     seaTunnelRow.getField(seaTunnelRowType.indexOf(fieldName));
                             int index = seaTunnelRowType.indexOf(fieldName);
-                            if (tablestoreOptions.getPrimaryKeys().contains(fieldName)) {
+                            if (tableStoreConfig.getPrimaryKeys().contains(fieldName)) {
                                 primaryKeyBuilder.addPrimaryKeyColumn(
                                         this.convertPrimaryKeyColumn(
                                                 fieldName,
@@ -81,7 +80,7 @@ public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer {
                             }
                         });
         RowPutChange rowPutChange =
-                new RowPutChange(tablestoreOptions.getTable(), primaryKeyBuilder.build());
+                new RowPutChange(tableStoreConfig.getTable(), primaryKeyBuilder.build());
         rowPutChange.setCondition(new Condition(RowExistenceExpectation.IGNORE));
         columns.forEach(rowPutChange::addColumn);
 

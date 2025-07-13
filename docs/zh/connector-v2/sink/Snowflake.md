@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-jdbc.md';
+
 # Snowflake
 
 > JDBC Snowflake Sink连接器
@@ -58,7 +60,6 @@
 | database                                  | String  | 否   | -      | 使用此`database`和`table-name`自动生成SQL并接收上游输入数据写入数据库。<br/>此选项与`query`互斥，且具有更高的优先级。                                                                               |
 | table                                     | String  | 否   | -      | 使用`database`和此`table-name`自动生成SQL并接收上游输入数据写入数据库。<br/>此选项与`query`互斥，且具有更高的优先级。                                                                               |
 | primary_keys                              | Array    | 否   | -      | 此选项用于在自动生成SQL时支持`insert`、`delete`和`update`等操作。                                                                                                                                    |
-| support_upsert_by_query_primary_key_exist | Boolean  | 否   | false  | 选择使用INSERT SQL、UPDATE SQL来处理更新事件（INSERT, UPDATE_AFTER），基于查询主键是否存在。此配置仅在数据库不支持upsert语法时使用。**注意**：此方法性能较低。                                       |
 | connection_check_timeout_sec              | Int    | 否   | 30     | 用于验证连接的操作的等待时间（秒）。                                                                                                                                                                 |
 | max_retries                               | Int    | 否   | 0      | 提交失败（executeBatch）的重试次数                                                                                                                                                                   |
 | batch_size                                | Int    | 否   | 1000   | 对于批处理写入，当缓冲的记录数达到`batch_size`或时间达到`checkpoint.interval`时，<br/>数据将被刷新到数据库中                                                                                         |
@@ -75,7 +76,7 @@
 
 ## 任务示例
 
-### 简单示例：
+### 简单示例
 
 > 此示例定义了一个SeaTunnel同步任务，通过FakeSource自动生成数据并发送到JDBC Sink。FakeSource总共生成16行数据（row.num=16），每行有两个字段，name（字符串类型）和age（int类型）。最终目标表`test_table`中也将有16行数据。在运行此作业之前，您需要在Snowflake数据库中创建数据库`test`和表`test_table`。如果您尚未安装和部署SeaTunnel，请按照[安装SeaTunnel](../../start-v2/locally/deployment.md)中的说明进行安装和部署。然后按照[使用SeaTunnel Engine快速入门](../../start-v2/locally/quick-start-seatunnel-engine.md)中的说明运行此作业。
 
@@ -140,3 +141,7 @@ sink {
   }
 }
 ```
+
+## 变更日志
+
+<ChangeLog />

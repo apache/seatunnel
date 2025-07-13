@@ -91,8 +91,7 @@ public class SelectDBSink
     @Override
     public SinkWriter<SeaTunnelRow, SelectDBCommitInfo, SelectDBSinkState> restoreWriter(
             SinkWriter.Context context, List<SelectDBSinkState> states) throws IOException {
-        return new SelectDBSinkWriter(
-                context, states, catalogTable, selectDBSinkConfig, jobId);
+        return new SelectDBSinkWriter(context, states, catalogTable, selectDBSinkConfig, jobId);
     }
 
     @Override

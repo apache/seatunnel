@@ -37,6 +37,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.io.Serializable;
 import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.sql.Date;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
@@ -55,6 +56,9 @@ import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.ch
 
 @Slf4j
 public class DynamicChunkSplitter extends ChunkSplitter {
+
+    private final boolean useCharsetBasedStringSplitter =
+            StringSplitMode.CHARSET_BASED.equals(config.getStringSplitMode());
 
     public DynamicChunkSplitter(JdbcSourceConfig config) {
         super(config);
@@ -124,13 +128,107 @@ public class DynamicChunkSplitter extends ChunkSplitter {
             case DECIMAL:
             case DOUBLE:
             case FLOAT:
-            case STRING:
                 return evenlyColumnSplitChunks(table, splitColumnName, min, max, chunkSize);
+            case STRING:
+                if (useCharsetBasedStringSplitter) {
+                    return charsetBasedColumnSplitChunks(
+                            table, splitColumnName, min, max, chunkSize);
+                } else {
+                    return evenlyColumnSplitChunks(table, splitColumnName, min, max, chunkSize);
+                }
             case DATE:
                 return dateColumnSplitChunks(table, splitColumnName, min, max, chunkSize);
             default:
                 throw CommonError.unsupportedDataType(
                         "JDBC", splitColumnType.getSqlType().toString(), splitColumnName);
+        }
+    }
+
+    private List<ChunkRange> charsetBasedColumnSplitChunks(
+            JdbcSourceTable table,
+            String splitColumnName,
+            Object objectMin,
+            Object objectMax,
+            int chunkSize)
+            throws Exception {
+        boolean paddingAtEnd = true;
+        boolean isCaseInsensitive = false;
+        String collationSequence =
+                jdbcDialect.getCollationSequence(
+                        getOrEstablishConnection(), config.getStringSplitModeCollate());
+        if (collationSequence.matches(".*[aA][Aa].*")) {
+            isCaseInsensitive = true;
+            collationSequence = filterOutUppercase(collationSequence);
+        }
+        int radix = collationSequence.length() + 1;
+        String minStr = objectMin.toString();
+        String maxStr = objectMax.toString();
+        int maxLength = Math.max(minStr.length(), maxStr.length());
+        BigInteger min =
+                CollationBasedSplitter.encodeStringToNumericRange(
+                        minStr,
+                        maxLength,
+                        paddingAtEnd,
+                        isCaseInsensitive,
+                        collationSequence,
+                        radix);
+        BigInteger max =
+                CollationBasedSplitter.encodeStringToNumericRange(
+                        maxStr,
+                        maxLength,
+                        paddingAtEnd,
+                        isCaseInsensitive,
+                        collationSequence,
+                        radix);
+        TablePath tablePath = table.getTablePath();
+        double distributionFactorUpper = config.getSplitEvenDistributionFactorUpperBound();
+        double distributionFactorLower = config.getSplitEvenDistributionFactorLowerBound();
+        int sampleShardingThreshold = config.getSplitSampleShardingThreshold();
+        log.info(
+                "Splitting table {} into chunks, split column: {}, min: {}, max: {}, chunk size: {}, "
+                        + "distribution factor upper: {}, distribution factor lower: {}, sample sharding threshold: {}",
+                tablePath,
+                splitColumnName,
+                min,
+                max,
+                chunkSize,
+                distributionFactorUpper,
+                distributionFactorLower,
+                sampleShardingThreshold);
+
+        long approximateRowCnt = queryApproximateRowCnt(table);
+
+        double distributionFactor =
+                calculateDistributionFactor(tablePath, min, max, approximateRowCnt);
+
+        boolean dataIsEvenlyDistributed =
+                ObjectUtils.doubleCompare(distributionFactor, distributionFactorLower) >= 0
+                        && ObjectUtils.doubleCompare(distributionFactor, distributionFactorUpper)
+                                <= 0;
+
+        if (dataIsEvenlyDistributed) {
+            // the minimum dynamic chunk size is at least 1
+            final int dynamicChunkSize = Math.max((int) (distributionFactor * chunkSize), 1);
+            return splitStringEvenlySizedChunks(
+                    tablePath,
+                    min,
+                    max,
+                    approximateRowCnt,
+                    chunkSize,
+                    dynamicChunkSize,
+                    maxLength,
+                    radix,
+                    collationSequence);
+        } else {
+            return getChunkRangesWithUnevenlyData(
+                    table,
+                    splitColumnName,
+                    min,
+                    max,
+                    chunkSize,
+                    tablePath,
+                    sampleShardingThreshold,
+                    approximateRowCnt);
         }
     }
 
@@ -169,42 +267,63 @@ public class DynamicChunkSplitter extends ChunkSplitter {
             return splitEvenlySizedChunks(
                     tablePath, min, max, approximateRowCnt, chunkSize, dynamicChunkSize);
         } else {
-            int shardCount = (int) (approximateRowCnt / chunkSize);
-            int inverseSamplingRate = config.getSplitInverseSamplingRate();
-            if (sampleShardingThreshold < shardCount) {
-                // It is necessary to ensure that the number of data rows sampled by the
-                // sampling rate is greater than the number of shards.
-                // Otherwise, if the sampling rate is too low, it may result in an insufficient
-                // number of data rows for the shards, leading to an inadequate number of
-                // shards.
-                // Therefore, inverseSamplingRate should be less than chunkSize
-                if (inverseSamplingRate > chunkSize) {
-                    log.warn(
-                            "The inverseSamplingRate is {}, which is greater than chunkSize {}, so we set inverseSamplingRate to chunkSize",
-                            inverseSamplingRate,
-                            chunkSize);
-                    inverseSamplingRate = chunkSize;
-                }
-                log.info(
-                        "Use sampling sharding for table {}, the sampling rate is {}",
-                        tablePath,
-                        inverseSamplingRate);
-                Object[] sample =
-                        jdbcDialect.sampleDataFromColumn(
-                                getOrEstablishConnection(),
-                                table,
-                                splitColumnName,
-                                inverseSamplingRate,
-                                config.getFetchSize());
-                log.info(
-                        "Sample data from table {} end, the sample size is {}",
-                        tablePath,
-                        sample.length);
-                return efficientShardingThroughSampling(
-                        tablePath, sample, approximateRowCnt, shardCount);
-            }
-            return splitUnevenlySizedChunks(table, splitColumnName, min, max, chunkSize);
+            return getChunkRangesWithUnevenlyData(
+                    table,
+                    splitColumnName,
+                    min,
+                    max,
+                    chunkSize,
+                    tablePath,
+                    sampleShardingThreshold,
+                    approximateRowCnt);
         }
+    }
+
+    private List<ChunkRange> getChunkRangesWithUnevenlyData(
+            JdbcSourceTable table,
+            String splitColumnName,
+            Object min,
+            Object max,
+            int chunkSize,
+            TablePath tablePath,
+            int sampleShardingThreshold,
+            long approximateRowCnt)
+            throws Exception {
+        int shardCount = (int) (approximateRowCnt / chunkSize);
+        int inverseSamplingRate = config.getSplitInverseSamplingRate();
+        if (sampleShardingThreshold < shardCount) {
+            // It is necessary to ensure that the number of data rows sampled by the
+            // sampling rate is greater than the number of shards.
+            // Otherwise, if the sampling rate is too low, it may result in an insufficient
+            // number of data rows for the shards, leading to an inadequate number of
+            // shards.
+            // Therefore, inverseSamplingRate should be less than chunkSize
+            if (inverseSamplingRate > chunkSize) {
+                log.warn(
+                        "The inverseSamplingRate is {}, which is greater than chunkSize {}, so we set inverseSamplingRate to chunkSize",
+                        inverseSamplingRate,
+                        chunkSize);
+                inverseSamplingRate = chunkSize;
+            }
+            log.info(
+                    "Use sampling sharding for table {}, the sampling rate is {}",
+                    tablePath,
+                    inverseSamplingRate);
+            Object[] sample =
+                    jdbcDialect.sampleDataFromColumn(
+                            getOrEstablishConnection(),
+                            table,
+                            splitColumnName,
+                            inverseSamplingRate,
+                            config.getFetchSize());
+            log.info(
+                    "Sample data from table {} end, the sample size is {}",
+                    tablePath,
+                    sample.length);
+            return efficientShardingThroughSampling(
+                    tablePath, sample, approximateRowCnt, shardCount);
+        }
+        return splitUnevenlySizedChunks(table, splitColumnName, min, max, chunkSize);
     }
 
     private Long queryApproximateRowCnt(JdbcSourceTable table) throws SQLException {
@@ -236,6 +355,68 @@ public class DynamicChunkSplitter extends ChunkSplitter {
                 max,
                 approximateRowCnt);
         return distributionFactor;
+    }
+
+    private List<ChunkRange> splitStringEvenlySizedChunks(
+            TablePath tablePath,
+            Object min,
+            Object max,
+            long approximateRowCnt,
+            int chunkSize,
+            int dynamicChunkSize,
+            int maxLength,
+            int radix,
+            String collationSequence) {
+        log.info(
+                "Use evenly-sized chunk optimization for table {}, the approximate row count is {}, the chunk size is {}, the dynamic chunk size is {}",
+                tablePath,
+                approximateRowCnt,
+                chunkSize,
+                dynamicChunkSize);
+        if (approximateRowCnt <= chunkSize) {
+            // there is no more than one chunk, return full table as a chunk
+            return Collections.singletonList(ChunkRange.all());
+        }
+
+        final List<ChunkRange> splits = new ArrayList<>();
+        Object chunkStart = null;
+        Object chunkEnd = ObjectUtils.plus(min, dynamicChunkSize);
+        while (ObjectUtils.compare(chunkEnd, max) <= 0) {
+            splits.add(
+                    ChunkRange.of(
+                            chunkStart == null
+                                    ? null
+                                    : CollationBasedSplitter.decodeNumericRangeToString(
+                                            chunkStart.toString(),
+                                            maxLength,
+                                            radix,
+                                            collationSequence),
+                            chunkEnd == null
+                                    ? null
+                                    : CollationBasedSplitter.decodeNumericRangeToString(
+                                            chunkEnd.toString(),
+                                            maxLength,
+                                            radix,
+                                            collationSequence)));
+            chunkStart = chunkEnd;
+            try {
+                chunkEnd = ObjectUtils.plus(chunkEnd, dynamicChunkSize);
+            } catch (ArithmeticException e) {
+                // Stop chunk split to avoid dead loop when number overflows.
+                break;
+            }
+        }
+        // add the ending split
+        if (chunkStart != null) {
+            splits.add(
+                    ChunkRange.of(
+                            CollationBasedSplitter.decodeNumericRangeToString(
+                                    chunkStart.toString(), maxLength, radix, collationSequence),
+                            null));
+        } else {
+            splits.add(ChunkRange.of(null, null));
+        }
+        return splits;
     }
 
     private List<ChunkRange> splitEvenlySizedChunks(

@@ -17,18 +17,17 @@
 
 package org.apache.seatunnel.connectors.seatunnel.lemlist.source.config;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.connectors.seatunnel.http.config.HttpParameter;
 
 import java.util.HashMap;
 
 public class LemlistSourceParameter extends HttpParameter {
-    public void buildWithConfig(Config pluginConfig, String accessToken) {
+    public void buildWithConfig(ReadonlyConfig pluginConfig, String accessToken) {
         super.buildWithConfig(pluginConfig);
         // put authorization in headers
         this.headers = this.getHeaders() == null ? new HashMap<>() : this.getHeaders();
-        this.headers.put(LemlistSourceConfig.AUTHORIZATION, accessToken);
+        this.headers.put(LemlistSourceOptions.AUTHORIZATION, accessToken);
         this.setHeaders(this.headers);
     }
 }

@@ -24,7 +24,8 @@ import org.apache.seatunnel.api.table.connector.TableSource;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.connectors.seatunnel.http.source.HttpSourceFactory;
-import org.apache.seatunnel.connectors.seatunnel.prometheus.config.PrometheusSourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.prometheus.config.PrometheusQueryType;
+import org.apache.seatunnel.connectors.seatunnel.prometheus.config.PrometheusSourceOptions;
 
 import com.google.auto.service.AutoService;
 
@@ -41,13 +42,22 @@ public class PrometheusSourceFactory extends HttpSourceFactory {
     public <T, SplitT extends SourceSplit, StateT extends Serializable>
             TableSource<T, SplitT, StateT> createSource(TableSourceFactoryContext context) {
         return () ->
-                (SeaTunnelSource<T, SplitT, StateT>)
-                        new PrometheusSource(context.getOptions().toConfig());
+                (SeaTunnelSource<T, SplitT, StateT>) new PrometheusSource(context.getOptions());
     }
 
     @Override
     public OptionRule optionRule() {
 
-        return getHttpBuilder().required(PrometheusSourceConfig.QUERY).build();
+        return getHttpBuilder()
+                .required(PrometheusSourceOptions.QUERY)
+                .optional(PrometheusSourceOptions.QUERY_TYPE)
+                .conditional(
+                        PrometheusSourceOptions.QUERY_TYPE,
+                        PrometheusQueryType.Range,
+                        PrometheusSourceOptions.START,
+                        PrometheusSourceOptions.END,
+                        PrometheusSourceOptions.STEP)
+                .optional(PrometheusSourceOptions.TIME, PrometheusSourceOptions.TIMEOUT)
+                .build();
     }
 }

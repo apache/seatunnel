@@ -21,7 +21,7 @@ import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 
 import java.io.Serializable;
 
-import static org.apache.seatunnel.connectors.seatunnel.config.Web3jConfig.URL;
+import static org.apache.seatunnel.connectors.seatunnel.config.Web3jSourceOptions.URL;
 
 public class Web3jSourceParameter implements Serializable {
     private final String url;

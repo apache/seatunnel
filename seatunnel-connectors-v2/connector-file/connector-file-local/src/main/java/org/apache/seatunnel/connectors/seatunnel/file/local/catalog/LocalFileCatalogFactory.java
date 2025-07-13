@@ -22,7 +22,7 @@ import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.factory.CatalogFactory;
 import org.apache.seatunnel.api.table.factory.Factory;
-import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfigOptions;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
 import org.apache.seatunnel.connectors.seatunnel.file.hadoop.HadoopFileSystemProxy;
 import org.apache.seatunnel.connectors.seatunnel.file.local.config.LocalFileHadoopConf;
@@ -36,9 +36,7 @@ public class LocalFileCatalogFactory implements CatalogFactory {
         HadoopFileSystemProxy fileSystemUtils =
                 new HadoopFileSystemProxy(new LocalFileHadoopConf());
         return new LocalFileCatalog(
-                fileSystemUtils,
-                options.get(BaseSourceConfigOptions.FILE_PATH),
-                factoryIdentifier());
+                fileSystemUtils, options.get(FileBaseSourceOptions.FILE_PATH), factoryIdentifier());
     }
 
     @Override

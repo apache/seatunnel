@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-tdengine.md';
+
 # TDengine
 
 > TDengine 数据接收器
@@ -69,3 +71,6 @@ sink {
 }
 ```
 
+## 变更日志
+
+<ChangeLog />

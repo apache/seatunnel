@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-file-obs.md';
+
 # ObsFile
 
 > Obs file source connector
@@ -345,7 +347,5 @@ schema {
 
 ## Changelog
 
-### next version
-
-- Add Obs File Source Connector
+<ChangeLog />
 

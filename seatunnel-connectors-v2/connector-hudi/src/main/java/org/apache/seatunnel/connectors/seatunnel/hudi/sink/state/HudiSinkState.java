@@ -26,6 +26,7 @@ import java.io.Serializable;
 @AllArgsConstructor
 public class HudiSinkState implements Serializable {
 
+    private static final long serialVersionUID = 1531078306940645042L;
     private long checkpointId;
 
     private HudiCommitInfo hudiCommitInfo;

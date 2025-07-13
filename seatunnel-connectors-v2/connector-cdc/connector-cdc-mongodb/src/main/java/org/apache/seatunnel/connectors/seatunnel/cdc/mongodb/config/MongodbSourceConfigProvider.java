@@ -29,6 +29,7 @@ import java.util.Objects;
 
 import static org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.BATCH_SIZE;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.EXACTLY_ONCE;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.HEARTBEAT_INTERVAL_MILLIS;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.INCREMENTAL_SNAPSHOT_CHUNK_SIZE_MB;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.POLL_AWAIT_TIME_MILLIS;
@@ -58,6 +59,7 @@ public class MongodbSourceConfigProvider {
         private StopConfig stopOptions;
         private int heartbeatIntervalMillis = HEARTBEAT_INTERVAL_MILLIS.defaultValue();
         private int splitMetaGroupSize = 2;
+        private boolean exactlyOnce = EXACTLY_ONCE.defaultValue();
         private int splitSizeMB = INCREMENTAL_SNAPSHOT_CHUNK_SIZE_MB.defaultValue();
 
         public Builder hosts(String hosts) {
@@ -87,6 +89,11 @@ public class MongodbSourceConfigProvider {
 
         public Builder collectionList(List<String> collections) {
             this.collectionList = collections;
+            return this;
+        }
+
+        public Builder exactlyOnce(boolean exactlyOnce) {
+            this.exactlyOnce = exactlyOnce;
             return this;
         }
 
@@ -169,7 +176,8 @@ public class MongodbSourceConfigProvider {
                     stopOptions,
                     heartbeatIntervalMillis,
                     splitMetaGroupSize,
-                    splitSizeMB);
+                    splitSizeMB,
+                    exactlyOnce);
         }
     }
 }

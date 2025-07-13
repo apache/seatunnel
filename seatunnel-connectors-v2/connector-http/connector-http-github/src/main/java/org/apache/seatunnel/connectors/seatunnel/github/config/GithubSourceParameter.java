@@ -17,38 +17,31 @@
 
 package org.apache.seatunnel.connectors.seatunnel.github.config;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.connectors.seatunnel.http.config.HttpParameter;
 
 import java.util.HashMap;
 import java.util.Optional;
-import java.util.function.Predicate;
-import java.util.stream.Stream;
 
 public class GithubSourceParameter extends HttpParameter {
 
     @Override
-    public void buildWithConfig(Config pluginConfig) {
+    public void buildWithConfig(ReadonlyConfig pluginConfig) {
         super.buildWithConfig(pluginConfig);
         headers = Optional.ofNullable(getHeaders()).orElse(new HashMap<>());
 
         // Extract the access token parameter and add it to the http OAuth
         // header when it exists.
-        Stream.of(pluginConfig.hasPath(GithubSourceConfig.ACCESS_TOKEN.key()))
-                .filter(Predicate.isEqual(true))
-                .map(e -> pluginConfig.getString(GithubSourceConfig.ACCESS_TOKEN.key()))
-                .filter(accessToken -> !accessToken.isEmpty())
-                .forEach(
-                        accessToken ->
-                                headers.put(
-                                        GithubSourceConfig.AUTHORIZATION_KEY,
-                                        formatOauthToken(accessToken)));
+        if (pluginConfig.getOptional(GithubSourceOptions.ACCESS_TOKEN).isPresent()) {
+            String oauthToken =
+                    formatOauthToken(pluginConfig.get(GithubSourceOptions.ACCESS_TOKEN));
+            headers.put(GithubSourceOptions.AUTHORIZATION_KEY, oauthToken);
+        }
         setHeaders(headers);
     }
 
     // Format the access token into oauth2 format.
     private String formatOauthToken(String accessToken) {
-        return GithubSourceConfig.BEARER_KEY + " " + accessToken;
+        return GithubSourceOptions.BEARER_KEY + " " + accessToken;
     }
 }

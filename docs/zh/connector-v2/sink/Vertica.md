@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-jdbc.md';
+
 # Vertica
 
 > JDBC Vertica Sink 连接器
@@ -72,7 +74,6 @@
 | database                          | String  | 否       | -       | 使用此 `database` 和 `table-name` 自动生成 SQL 并接收上游输入数据写入数据库。此选项与 `query` 互斥，且优先级更高。                                                                                   |
 | table                             | String  | 否       | -       | 使用 `database` 和此 `table-name` 自动生成 SQL 并接收上游输入数据写入数据库。此选项与 `query` 互斥，且优先级更高。                                                                                   |
 | primary_keys                      | Array    | 否       | -       | 此选项用于在自动生成 SQL 时支持 `insert`、`delete` 和 `update` 等操作。                                                                                                                              |
-| support_upsert_by_query_primary_key_exist | Boolean  | 否       | false   | 选择使用 INSERT SQL、UPDATE SQL 来处理更新事件（INSERT, UPDATE_AFTER），基于查询主键是否存在。此配置仅在数据库不支持 upsert 语法时使用。**注意**：此方法性能较低。                                   |
 | connection_check_timeout_sec      | Int    | 否       | 30      | 用于验证连接完成的数据库操作的等待时间（秒）。                                                                                                                                                       |
 | max_retries                       | Int    | 否       | 0       | 提交失败（executeBatch）的重试次数。                                                                                                                                                                 |
 | batch_size                        | Int    | 否       | 1000    | 对于批量写入，当缓冲的记录数达到 `batch_size` 或时间达到 `checkpoint.interval` 时，数据将被刷新到数据库中。                                                                                           |
@@ -92,7 +93,7 @@
 
 ## 任务示例
 
-### 简单示例：
+### 简单示例
 
 > 此示例定义了一个 SeaTunnel 同步任务，通过 FakeSource 自动生成数据并发送到 JDBC Sink。FakeSource 总共生成 16 行数据（row.num=16），每行有两个字段，name（字符串类型）和 age（int 类型）。最终目标表 test_table 中也将有 16 行数据。在运行此任务之前，您需要在 Vertica 中创建数据库 test 和表 test_table。如果您尚未安装和部署 SeaTunnel，请按照 [安装 SeaTunnel](../../start-v2/locally/deployment.md) 中的说明进行安装和部署。然后按照 [使用 SeaTunnel Engine 快速开始](../../start-v2/locally/quick-start-seatunnel-engine.md) 中的说明运行此任务。
 
@@ -157,7 +158,7 @@ sink {
 }
 ```
 
-### 精确一次：
+### 精确一次
 
 > 对于精确写入场景，我们保证精确一次语义。
 
@@ -175,3 +176,7 @@ sink {
     }
 }
 ```
+
+## 变更日志
+
+<ChangeLog />

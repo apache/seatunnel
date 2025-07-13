@@ -36,6 +36,7 @@
         <module>seatunnel-jetty9-9.4.56</module>
         <module>seatunnel-hadoop-aws</module>
         <module>seatunnel-arrow</module>
+        <module>seatunnel-hikari</module>
     </modules>
 
     <build>

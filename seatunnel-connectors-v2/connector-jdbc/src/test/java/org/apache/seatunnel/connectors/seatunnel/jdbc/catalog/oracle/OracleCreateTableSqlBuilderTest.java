@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.oracle;
 import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.ConstraintKey;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.PrimaryKey;
@@ -29,6 +30,7 @@ import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -37,6 +39,10 @@ import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
+
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 public class OracleCreateTableSqlBuilderTest {
 
@@ -106,7 +112,8 @@ public class OracleCreateTableSqlBuilderTest {
 
         OracleCreateTableSqlBuilder oracleCreateTableSqlBuilder =
                 new OracleCreateTableSqlBuilder(catalogTable, true);
-        String createTableSql = oracleCreateTableSqlBuilder.build(tablePath).get(0);
+        List<String> sqls = oracleCreateTableSqlBuilder.build(tablePath);
+        String createTableSql = sqls.get(0);
         // create table sql is change; The old unit tests are no longer applicable
         String expect =
                 "CREATE TABLE \"test_table\" (\n"
@@ -126,6 +133,8 @@ public class OracleCreateTableSqlBuilderTest {
         CONSOLE.println(replacedStr2);
         Assertions.assertEquals(replacedStr2, replacedStr1);
 
+        Assertions.assertEquals("COMMENT ON TABLE \"test_table\" IS 'User table'", sqls.get(1));
+
         // skip index
         OracleCreateTableSqlBuilder oracleCreateTableSqlBuilderSkipIndex =
                 new OracleCreateTableSqlBuilder(catalogTable, false);
@@ -142,5 +151,20 @@ public class OracleCreateTableSqlBuilderTest {
                         + ")";
         CONSOLE.println(expectSkipIndex);
         Assertions.assertEquals(expectSkipIndex, createTableSqlSkipIndex);
+    }
+
+    @Test
+    public void testColumnSinkType() {
+        OracleCreateTableSqlBuilder sqlBuilder = mock(OracleCreateTableSqlBuilder.class);
+
+        Column column = mock(Column.class);
+        when(column.getSinkType()).thenReturn("VARCHAR(10)");
+        when(column.getDataType()).thenReturn((SeaTunnelDataType) BasicType.INT_TYPE);
+        when(column.getName()).thenReturn("col1");
+        when(sqlBuilder.buildColumnSql(column)).thenCallRealMethod();
+
+        String result = sqlBuilder.buildColumnSql(column);
+
+        Assertions.assertEquals("\"col1\" VARCHAR(10) NOT NULL", result);
     }
 }

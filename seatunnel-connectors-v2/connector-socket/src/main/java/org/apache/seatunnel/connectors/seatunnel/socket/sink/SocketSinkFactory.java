@@ -18,24 +18,31 @@
 package org.apache.seatunnel.connectors.seatunnel.socket.sink;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
+import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
+import org.apache.seatunnel.connectors.seatunnel.socket.config.SocketSinkOptions;
 
 import com.google.auto.service.AutoService;
-
-import static org.apache.seatunnel.connectors.seatunnel.socket.config.SocketSinkConfigOptions.HOST;
-import static org.apache.seatunnel.connectors.seatunnel.socket.config.SocketSinkConfigOptions.MAX_RETRIES;
-import static org.apache.seatunnel.connectors.seatunnel.socket.config.SocketSinkConfigOptions.PORT;
 
 @AutoService(Factory.class)
 public class SocketSinkFactory implements TableSinkFactory {
     @Override
     public String factoryIdentifier() {
-        return "Socket";
+        return SocketSinkOptions.identifier;
     }
 
     @Override
     public OptionRule optionRule() {
-        return OptionRule.builder().required(HOST, PORT).optional(MAX_RETRIES).build();
+        return OptionRule.builder()
+                .required(SocketSinkOptions.HOST, SocketSinkOptions.PORT)
+                .optional(SocketSinkOptions.MAX_RETRIES)
+                .build();
+    }
+
+    @Override
+    public TableSink createSink(TableSinkFactoryContext context) {
+        return () -> new SocketSink(context.getOptions(), context.getCatalogTable());
     }
 }

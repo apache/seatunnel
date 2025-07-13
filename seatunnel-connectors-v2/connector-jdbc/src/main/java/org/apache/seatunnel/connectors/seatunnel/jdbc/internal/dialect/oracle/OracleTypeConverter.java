@@ -27,6 +27,7 @@ import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.connectors.seatunnel.common.source.TypeDefineUtils;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 
 import com.google.auto.service.AutoService;
@@ -70,6 +71,7 @@ public class OracleTypeConverter implements TypeConverter<BasicTypeDefine> {
     public static final String ORACLE_BLOB = "BLOB";
     public static final String ORACLE_RAW = "RAW";
     public static final String ORACLE_LONG_RAW = "LONG RAW";
+    public static final String ORACLE_BFILE = "BFILE";
 
     public static final int MAX_PRECISION = 38;
     public static final int DEFAULT_PRECISION = MAX_PRECISION;
@@ -87,13 +89,19 @@ public class OracleTypeConverter implements TypeConverter<BasicTypeDefine> {
     public static final OracleTypeConverter INSTANCE = new OracleTypeConverter();
 
     private final boolean decimalTypeNarrowing;
+    private final boolean handleBlobAsString;
 
     public OracleTypeConverter() {
-        this(true);
+        this(true, JdbcOptions.HANDLE_BLOB_AS_STRING.defaultValue());
     }
 
     public OracleTypeConverter(boolean decimalTypeNarrowing) {
+        this(decimalTypeNarrowing, JdbcOptions.HANDLE_BLOB_AS_STRING.defaultValue());
+    }
+
+    public OracleTypeConverter(boolean decimalTypeNarrowing, boolean handleBlobAsString) {
         this.decimalTypeNarrowing = decimalTypeNarrowing;
+        this.handleBlobAsString = handleBlobAsString;
     }
 
     @Override
@@ -112,6 +120,7 @@ public class OracleTypeConverter implements TypeConverter<BasicTypeDefine> {
                         .comment(typeDefine.getComment());
 
         String oracleType = typeDefine.getDataType().toUpperCase();
+
         switch (oracleType) {
             case ORACLE_INTEGER:
                 builder.dataType(new DecimalType(DEFAULT_PRECISION, 0));
@@ -202,8 +211,16 @@ public class OracleTypeConverter implements TypeConverter<BasicTypeDefine> {
                 builder.columnLength(BYTES_4GB - 1);
                 break;
             case ORACLE_BLOB:
+                if (handleBlobAsString) {
+                    builder.dataType(BasicType.STRING_TYPE);
+                    builder.columnLength(BYTES_4GB - 1);
+                } else {
+                    builder.dataType(PrimitiveByteArrayType.INSTANCE);
+                    builder.columnLength(BYTES_4GB - 1);
+                }
+                break;
+            case ORACLE_BFILE:
                 builder.dataType(PrimitiveByteArrayType.INSTANCE);
-                // The maximum length of the column is 4GB-1
                 builder.columnLength(BYTES_4GB - 1);
                 break;
             case ORACLE_RAW:

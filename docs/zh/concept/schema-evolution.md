@@ -23,6 +23,7 @@
 [Jdbc-Oracle](https://github.com/apache/seatunnel/blob/dev/docs/zh/connector-v2/sink/Jdbc.md)
 [Jdbc-Postgres](https://github.com/apache/seatunnel/blob/dev/docs/zh/connector-v2/sink/Jdbc.md)
 [Jdbc-Dameng](https://github.com/apache/seatunnel/blob/dev/docs/zh/connector-v2/sink/Jdbc.md)
+[Jdbc-SqlServer](https://github.com/apache/seatunnel/blob/dev/docs/en/connector-v2/sink/Jdbc.md)
 [StarRocks](https://github.com/apache/seatunnel/blob/dev/docs/zh/connector-v2/sink/StarRocks.md)
 [Doris](https://github.com/apache/seatunnel/blob/dev/docs/zh/connector-v2/sink/Doris.md)
 [Paimon](https://github.com/apache/seatunnel/blob/dev/docs/zh/connector-v2/sink/Paimon.md#模式演变)
@@ -327,6 +328,46 @@ sink {
     generate_sink_sql = true
     database = "DAMENG"
     table = "SYSDBA.sink_table_with_schema_change"
+    primary_keys = ["id"]
+
+    # Validate ddl update for sink writer multi replica
+    multi_table_sink_replica = 2
+  }
+}
+```
+
+### Mysql-CDC -> Jdbc-SqlServer
+```hocon
+env {
+  # You can set engine configuration here
+  parallelism = 5
+  job.mode = "STREAMING"
+  checkpoint.interval = 5000
+  read_limit.bytes_per_second=7000000
+  read_limit.rows_per_second=400
+}
+
+source {
+  MySQL-CDC {
+    server-id = 5652-5657
+    username = "st_user_source"
+    password = "mysqlpw"
+    table-names = ["shop.products"]
+    base-url = "jdbc:mysql://mysql_cdc_e2e:3306/shop"
+
+    schema-changes.enabled = true
+  }
+}
+
+sink {
+  jdbc {
+    url = "jdbc:sqlserver://e2e_sqlserver:1433"
+    driver = "com.microsoft.sqlserver.jdbc.SQLServerDriver"
+    user = "sa"
+    password = "paanssy1234$"
+    generate_sink_sql = true
+    database = master
+    table = "dbo.sink_table_with_schema_change"
     primary_keys = ["id"]
 
     # Validate ddl update for sink writer multi replica

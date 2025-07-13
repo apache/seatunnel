@@ -40,7 +40,7 @@ docker run --rm -it -v /tmp/job/:/config apache/seatunnel:<version_tag> ./bin/se
 ```shell
 cd seatunnel
 # Use already sett maven profile
-mvn -B clean install -Dmaven.test.skip=true -Dmaven.javadoc.skip=true -Dlicense.skipAddThirdParty=true -D"docker.build.skip"=false -D"docker.verify.skip"=false -D"docker.push.skip"=true -D"docker.tag"=2.3.10 -Dmaven.deploy.skip -D"skip.spotless"=true --no-snapshot-updates -Pdocker,seatunnel
+mvn -B clean install -Dmaven.test.skip=true -Dmaven.javadoc.skip=true -Dlicense.skipAddThirdParty=true -D"docker.build.skip"=false -D"docker.verify.skip"=false -D"docker.push.skip"=true -D"docker.tag"=2.3.12 -Dmaven.deploy.skip -D"skip.spotless"=true --no-snapshot-updates -Pdocker,seatunnel
 
 # Check the docker image
 docker images | grep apache/seatunnel
@@ -53,10 +53,10 @@ mvn clean package -DskipTests -Dskip.spotless=true
 
 # Build docker image
 cd seatunnel-dist
-docker build -f src/main/docker/Dockerfile --build-arg VERSION=2.3.10 -t apache/seatunnel:2.3.10 .
+docker build -f src/main/docker/Dockerfile --build-arg VERSION=2.3.12 -t apache/seatunnel:2.3.12 .
 
 # If you build from dev branch, you should add SNAPSHOT suffix to the version
-docker build -f src/main/docker/Dockerfile --build-arg VERSION=2.3.10-SNAPSHOT -t apache/seatunnel:2.3.10-SNAPSHOT .
+docker build -f src/main/docker/Dockerfile --build-arg VERSION=2.3.12-SNAPSHOT -t apache/seatunnel:2.3.12-SNAPSHOT .
 
 # Check the docker image
 docker images | grep apache/seatunnel

@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-druid.md';
+
 # Druid
 
 > Druid 接收器连接器
@@ -77,7 +79,4 @@ sink {
 
 ## 变更日志
 
-### 下一个版本
-
-- 添加 Druid 接收器连接器
-
+<ChangeLog />

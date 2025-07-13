@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-neo4j.md';
+
 # Neo4j
 
 > Neo4j 写连接器
@@ -132,13 +134,6 @@ sink {
 }
 ```
 
-## Changelog
+## 变更日志
 
-### 2.2.0-beta 2022-09-26
-
-- 添加 Neo4j 写连接器
-
-### issue ##4835
-
-- 写连接器支持批量写入
-
+<ChangeLog />

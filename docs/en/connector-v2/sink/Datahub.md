@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-datahub.md';
+
 # DataHub
 
 > DataHub sink connector
@@ -19,8 +21,8 @@ A sink plugin which use send message to DataHub
 | accessKey      | string | yes      | -             |
 | project        | string | yes      | -             |
 | topic          | string | yes      | -             |
-| timeout        | int    | yes      | -             |
-| retryTimes     | int    | yes      | -             |
+| timeout        | int    | no       | 3000          |
+| retryTimes     | int    | no       | 3             |
 | common-options |        | no       | -             |
 
 ### endpoint [string]
@@ -73,7 +75,5 @@ sink {
 
 ## Changelog
 
-### 2.2.0-beta 2022-09-26
-
-- Add DataHub Sink Connector
+<ChangeLog />
 

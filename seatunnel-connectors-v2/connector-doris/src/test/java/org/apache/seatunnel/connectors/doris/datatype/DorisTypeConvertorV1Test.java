@@ -873,4 +873,48 @@ public class DorisTypeConvertorV1Test {
         Assertions.assertEquals("ARRAY<DECIMALV3(20, 0)>", typeDefine.getColumnType());
         Assertions.assertEquals("ARRAY<DECIMALV3>", typeDefine.getDataType());
     }
+
+    @Test
+    public void testCaseSensitiveDefault() {
+        BasicTypeDefine<Object> typeDefine =
+                BasicTypeDefine.builder()
+                        .name("Test_Column")
+                        .columnType("varchar(255)")
+                        .dataType("varchar")
+                        .build();
+
+        Column column = DorisTypeConverterV1.INSTANCE.convert(typeDefine);
+        Assertions.assertEquals("Test_Column", column.getName());
+    }
+
+    @Test
+    public void testCaseSensitiveFalse() {
+        BasicTypeDefine<Object> typeDefine =
+                BasicTypeDefine.builder()
+                        .name("Test_Column")
+                        .columnType("varchar(255)")
+                        .dataType("varchar")
+                        .build();
+
+        Column column = DorisTypeConverterV1.INSTANCE.convert(typeDefine, false);
+        Assertions.assertEquals("test_column", column.getName());
+    }
+
+    @Test
+    public void testCaseSensitiveWithMixedCaseTypes() {
+        BasicTypeDefine<Object> typeDefine =
+                BasicTypeDefine.builder()
+                        .name("mixed_case_column")
+                        .columnType("VarChar(255)")
+                        .dataType("VARCHAR")
+                        .build();
+
+        Column columnSensitive = DorisTypeConverterV1.INSTANCE.convert(typeDefine, true);
+        Assertions.assertEquals("mixed_case_column", columnSensitive.getName());
+        Assertions.assertEquals(BasicType.STRING_TYPE, columnSensitive.getDataType());
+
+        Column columnInsensitive = DorisTypeConverterV1.INSTANCE.convert(typeDefine, false);
+        Assertions.assertEquals("mixed_case_column", columnInsensitive.getName());
+        Assertions.assertEquals(BasicType.STRING_TYPE, columnInsensitive.getDataType());
+    }
 }

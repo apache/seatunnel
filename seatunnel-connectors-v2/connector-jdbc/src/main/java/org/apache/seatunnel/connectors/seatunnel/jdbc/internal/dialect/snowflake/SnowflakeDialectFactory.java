@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.snowflake;
 
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectFactory;
 
@@ -25,6 +26,11 @@ import com.google.auto.service.AutoService;
 /** Factory for {@link SnowflakeDialect}. */
 @AutoService(JdbcDialectFactory.class)
 public class SnowflakeDialectFactory implements JdbcDialectFactory {
+    @Override
+    public String dialectFactoryName() {
+        return DatabaseIdentifier.SNOWFLAKE;
+    }
+
     @Override
     public boolean acceptsURL(String url) {
         return url.startsWith("jdbc:snowflake:");

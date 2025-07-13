@@ -33,7 +33,7 @@ import org.apache.seatunnel.api.table.catalog.exception.DatabaseNotExistExceptio
 import org.apache.seatunnel.api.table.catalog.exception.TableAlreadyExistException;
 import org.apache.seatunnel.api.table.catalog.exception.TableNotExistException;
 import org.apache.seatunnel.api.table.type.CommonOptions;
-import org.apache.seatunnel.connectors.seatunnel.milvus.config.MilvusSinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.milvus.config.MilvusSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.milvus.exception.MilvusConnectionErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.milvus.exception.MilvusConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.milvus.utils.sink.MilvusSinkConverter;
@@ -71,7 +71,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
-import static org.apache.seatunnel.connectors.seatunnel.milvus.config.MilvusSinkConfig.CREATE_INDEX;
+import static org.apache.seatunnel.connectors.seatunnel.milvus.config.MilvusSinkOptions.CREATE_INDEX;
 import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkNotNull;
 
 @Slf4j
@@ -91,8 +91,8 @@ public class MilvusCatalog implements Catalog {
     public void open() throws CatalogException {
         ConnectParam connectParam =
                 ConnectParam.newBuilder()
-                        .withUri(config.get(MilvusSinkConfig.URL))
-                        .withToken(config.get(MilvusSinkConfig.TOKEN))
+                        .withUri(config.get(MilvusSinkOptions.URL))
+                        .withToken(config.get(MilvusSinkOptions.TOKEN))
                         .build();
         try {
             this.client = new MilvusServiceClient(connectParam);
@@ -242,9 +242,9 @@ public class MilvusCatalog implements Catalog {
             String partitionKeyField =
                     existPartitionKeyField ? options.get(MilvusOptions.PARTITION_KEY_FIELD) : null;
             // if options set, will overwrite aut read
-            if (StringUtils.isNotEmpty(config.get(MilvusSinkConfig.PARTITION_KEY))) {
+            if (StringUtils.isNotEmpty(config.get(MilvusSinkOptions.PARTITION_KEY))) {
                 existPartitionKeyField = true;
-                partitionKeyField = config.get(MilvusSinkConfig.PARTITION_KEY);
+                partitionKeyField = config.get(MilvusSinkOptions.PARTITION_KEY);
             }
 
             TableSchema tableSchema = catalogTable.getTableSchema();
@@ -261,21 +261,21 @@ public class MilvusCatalog implements Catalog {
                                 column,
                                 tableSchema.getPrimaryKey(),
                                 partitionKeyField,
-                                config.get(MilvusSinkConfig.ENABLE_AUTO_ID));
+                                config.get(MilvusSinkOptions.ENABLE_AUTO_ID));
                 fieldTypes.add(fieldType);
             }
 
             Boolean enableDynamicField =
                     (options.containsKey(MilvusOptions.ENABLE_DYNAMIC_FIELD))
                             ? Boolean.valueOf(options.get(MilvusOptions.ENABLE_DYNAMIC_FIELD))
-                            : config.get(MilvusSinkConfig.ENABLE_DYNAMIC_FIELD);
+                            : config.get(MilvusSinkOptions.ENABLE_DYNAMIC_FIELD);
             String collectionDescription = "";
-            if (config.get(MilvusSinkConfig.COLLECTION_DESCRIPTION) != null
-                    && config.get(MilvusSinkConfig.COLLECTION_DESCRIPTION)
+            if (config.get(MilvusSinkOptions.COLLECTION_DESCRIPTION) != null
+                    && config.get(MilvusSinkOptions.COLLECTION_DESCRIPTION)
                             .containsKey(tablePath.getTableName())) {
                 // use description from config first
                 collectionDescription =
-                        config.get(MilvusSinkConfig.COLLECTION_DESCRIPTION)
+                        config.get(MilvusSinkOptions.COLLECTION_DESCRIPTION)
                                 .get(tablePath.getTableName());
             } else if (null != catalogTable.getComment()) {
                 collectionDescription = catalogTable.getComment();

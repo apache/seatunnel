@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-web3j.md';
+
 # Web3j
 
 > Web3j source connector
@@ -57,5 +59,4 @@ Then you will get the following data:
 
 ## Changelog
 
-- Add Web3j Source Connector
-
+<ChangeLog />

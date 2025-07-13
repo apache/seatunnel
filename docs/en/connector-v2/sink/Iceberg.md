@@ -1,10 +1,12 @@
+import ChangeLog from '../changelog/connector-iceberg.md';
+
 # Apache Iceberg
 
 > Apache Iceberg sink connector
 
 ## Support Iceberg Version
 
-- 1.4.2
+- 1.6.1
 
 ## Support Those Engines
 
@@ -81,7 +83,7 @@ libfb303-xxx.jar
 
 ## Task Example
 
-### Simple:
+### Simple
 
 ```hocon
 env {
@@ -126,53 +128,80 @@ sink {
 }
 ```
 
-### Hive Catalog:
+### Hive Catalog
 
 ```hocon
 sink {
   Iceberg {
-    catalog_name="seatunnel_test"
-    iceberg.catalog.config={
+    catalog_name = "seatunnel_test"
+    iceberg.catalog.config = {
       type = "hive"
       uri = "thrift://localhost:9083"
-      warehouse = "hdfs://your_cluster//tmp/seatunnel/iceberg/"
+      warehouse = "hdfs://your_cluster/tmp/seatunnel/iceberg/"
     }
-    namespace="seatunnel_namespace"
-    table="iceberg_sink_table"
-    iceberg.table.write-props={
-      write.format.default="parquet"
-      write.target-file-size-bytes=536870912
+    namespace = "seatunnel_namespace"
+    table = "iceberg_sink_table"
+    iceberg.table.write-props = {
+      write.format.default = "parquet"
+      write.target-file-size-bytes = 536870912
     }
-    iceberg.table.primary-keys="id"
-    iceberg.table.partition-keys="f_datetime"
-    iceberg.table.upsert-mode-enabled=true
-    iceberg.table.schema-evolution-enabled=true
-    case_sensitive=true
+    iceberg.table.primary-keys = "id"
+    iceberg.table.partition-keys = "f_datetime"
+    iceberg.table.upsert-mode-enabled = true
+    iceberg.table.schema-evolution-enabled = true
+    case_sensitive = true
   }
 }
 ```
 
-### Hadoop catalog:
+### Hadoop Catalog
 
 ```hocon
 sink {
   Iceberg {
-    catalog_name="seatunnel_test"
-    iceberg.catalog.config={
+    catalog_name = "seatunnel_test"
+    iceberg.catalog.config = {
       type = "hadoop"
       warehouse = "hdfs://your_cluster/tmp/seatunnel/iceberg/"
     }
-    namespace="seatunnel_namespace"
-    table="iceberg_sink_table"
-    iceberg.table.write-props={
-      write.format.default="parquet"
-      write.target-file-size-bytes=536870912
+    namespace = "seatunnel_namespace"
+    table = "iceberg_sink_table"
+    iceberg.table.write-props = {
+      write.format.default = "parquet"
+      write.target-file-size-bytes = 536870912
     }
-    iceberg.table.primary-keys="id"
-    iceberg.table.partition-keys="f_datetime"
-    iceberg.table.upsert-mode-enabled=true
-    iceberg.table.schema-evolution-enabled=true
-    case_sensitive=true
+    iceberg.table.primary-keys = "id"
+    iceberg.table.partition-keys = "f_datetime"
+    iceberg.table.upsert-mode-enabled = true
+    iceberg.table.schema-evolution-enabled = true
+    case_sensitive = true
+  }
+}
+```
+
+### Glue Catalog
+
+```hocon
+sink {
+  Iceberg {
+    catalog_name = "seatunnel_test"
+    iceberg.catalog.config = {
+      warehouse     = "s3://your-bucket/warehouse/"
+      catalog-impl  = "org.apache.iceberg.aws.glue.GlueCatalog"
+      io-impl       = "org.apache.iceberg.aws.s3.S3FileIO"
+      client.region = "your-region"
+    }
+    namespace = "seatunnel_namespace"
+    table     = "iceberg_sink_table"
+    iceberg.table.write-props = {
+      write.format.default = "parquet"
+      write.target-file-size-bytes = 536870912
+    }
+    iceberg.table.primary-keys = "id"
+    iceberg.table.partition-keys = "f_datetime"
+    iceberg.table.upsert-mode-enabled = true
+    iceberg.table.schema-evolution-enabled = true
+    case_sensitive = true
   }
 }
 
@@ -251,9 +280,4 @@ sink {
 
 ## Changelog
 
-### 2.3.4-SNAPSHOT 2024-01-18
-
-- Add Iceberg Sink Connector
-
-### next version
-
+<ChangeLog />

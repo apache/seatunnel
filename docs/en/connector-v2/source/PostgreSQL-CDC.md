@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-cdc-postgres.md';
+
 # PostgreSQL CDC
 
 > PostgreSQL CDC source connector
@@ -190,7 +192,4 @@ source {
 
 ## Changelog
 
-- Add PostgreSQL CDC Source Connector
-
-### next version
-
+<ChangeLog />

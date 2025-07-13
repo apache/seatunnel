@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-amazondynamodb.md';
+
 # AmazonDynamoDB
 
 > Amazon DynamoDB sink connector
@@ -30,11 +32,11 @@ The URL to write to Amazon DynamoDB.
 
 The region of Amazon DynamoDB.
 
-### accessKeyId [string]
+### access_key_id [string]
 
 The access id of Amazon DynamoDB.
 
-### secretAccessKey [string]
+### secret_access_key [string]
 
 The access secret of Amazon DynamoDB.
 
@@ -52,15 +54,14 @@ Sink plugin common parameters, please refer to [Sink Common Options](../sink-com
 Amazondynamodb {
     url = "http://127.0.0.1:8000"
     region = "us-east-1"
-    accessKeyId = "dummy-key"
-    secretAccessKey = "dummy-secret"
+    access_key_id = "dummy-key"
+    secret_access_key = "dummy-secret"
     table = "TableName"
   }
 ```
 
 ## Changelog
 
-### next version
+<ChangeLog />
 
-- Add Amazon DynamoDB Sink Connector
 

@@ -23,7 +23,7 @@ import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.table.connector.TableSource;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
-import org.apache.seatunnel.connectors.seatunnel.github.config.GithubSourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.github.config.GithubSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.http.source.HttpSourceFactory;
 
 import com.google.auto.service.AutoService;
@@ -41,13 +41,11 @@ public class GithubSourceFactory extends HttpSourceFactory {
     @Override
     public <T, SplitT extends SourceSplit, StateT extends Serializable>
             TableSource<T, SplitT, StateT> createSource(TableSourceFactoryContext context) {
-        return () ->
-                (SeaTunnelSource<T, SplitT, StateT>)
-                        new GithubSource(context.getOptions().toConfig());
+        return () -> (SeaTunnelSource<T, SplitT, StateT>) new GithubSource(context.getOptions());
     }
 
     @Override
     public OptionRule optionRule() {
-        return getHttpBuilder().required(GithubSourceConfig.ACCESS_TOKEN).build();
+        return getHttpBuilder().required(GithubSourceOptions.ACCESS_TOKEN).build();
     }
 }

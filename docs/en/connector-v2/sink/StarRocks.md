@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-starrocks.md';
+
 # StarRocks
 
 > StarRocks sink connector
@@ -163,7 +165,7 @@ The supported formats include CSV and JSON
 
 ## Task Example
 
-### Simple:
+### Simple
 
 > The following example describes writing multiple data types to StarRocks, and users need to create corresponding tables downstream
 
@@ -389,9 +391,5 @@ sink {
 
 ## Changelog
 
-### next version
-
-- Add StarRocks Sink Connector
-- [Improve] Change Connector Custom Config Prefix To Map [3719](https://github.com/apache/seatunnel/pull/3719)
-- [Feature] Support write cdc changelog event(INSERT/UPDATE/DELETE) [3865](https://github.com/apache/seatunnel/pull/3865)
+<ChangeLog />
 

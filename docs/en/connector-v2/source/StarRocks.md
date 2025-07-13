@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-starrocks.md';
+
 # StarRocks
 
 > StarRocks source connector
@@ -244,6 +246,4 @@ source {
 
 ## Changelog
 
-### next version
-
-- Add StarRocks Source Connector
+<ChangeLog />

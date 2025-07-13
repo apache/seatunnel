@@ -373,8 +373,8 @@ public class PreviewActionTest {
                         + "CREATE TABLE [testddatabase].[testtable] ( \n"
                         + "\t[test] NVARCHAR(MAX) NULL\n"
                         + ");\n"
-                        + "EXEC testddatabase.sys.sp_addextendedproperty 'MS_Description', N'comment', 'schema', N'null', 'table', N'testtable';\n"
-                        + "EXEC testddatabase.sys.sp_addextendedproperty 'MS_Description', N'', 'schema', N'null', 'table', N'testtable', 'column', N'test';\n"
+                        + "EXEC [testddatabase].sys.sp_addextendedproperty 'MS_Description', N'comment', 'schema', N'null', 'table', N'testtable';\n"
+                        + "EXEC [testddatabase].sys.sp_addextendedproperty 'MS_Description', N'', 'schema', N'null', 'table', N'testtable', 'column', N'test';\n"
                         + "\n"
                         + "END",
                 Optional.of(CATALOG_TABLE));
