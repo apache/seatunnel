@@ -24,6 +24,7 @@ Used to read data from Redis.
 | host                | string | yes when mode=single  | -             |
 | port                | int    | no                    | 6379          |
 | keys                | string | yes                   | -             |
+| read_key_enabled    | boolean| no                    | false         |
 | batch_size          | int    | yes                   | 10            |
 | data_type           | string | yes                   | -             |
 | user                | string | no                    | -             |
@@ -113,6 +114,14 @@ each kv that in hash key it will be treated as a row and send it to upstream.
 ### keys [string]
 
 keys pattern
+
+### read_key_enabled [boolean]
+
+This option determines whether the Redis source connector includes the Redis key in each output record when reading data.
+
+When set to `true`, both the key and its associated value are included in the record.
+
+By default (`false`), only the value is read and included.
 
 ### batch_size [int]
 

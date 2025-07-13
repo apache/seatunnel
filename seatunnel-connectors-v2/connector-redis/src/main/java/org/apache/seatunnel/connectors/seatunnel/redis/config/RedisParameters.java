@@ -55,6 +55,7 @@ public class RedisParameters implements Serializable {
     private RedisDataType redisDataType;
     private RedisBaseOptions.RedisMode mode;
     private RedisSourceOptions.HashKeyParseMode hashKeyParseMode;
+    private Boolean readKeyEnabled;
     private List<String> redisNodes = Collections.emptyList();
     private long expire = RedisSinkOptions.EXPIRE.defaultValue();
     private int batchSize = RedisBaseOptions.BATCH_SIZE.defaultValue();
@@ -74,6 +75,8 @@ public class RedisParameters implements Serializable {
         this.dbNum = config.get(RedisBaseOptions.DB_NUM);
         // set hash key mode
         this.hashKeyParseMode = config.get(RedisSourceOptions.HASH_KEY_PARSE_MODE);
+        // set read with key
+        this.readKeyEnabled = config.get(RedisSourceOptions.READ_KEY_ENABLED);
         // set expire
         this.expire = config.get(RedisSinkOptions.EXPIRE);
         // set auth

@@ -32,4 +32,11 @@ public class RedisSourceOptions extends RedisBaseOptions {
                     .defaultValue(HashKeyParseMode.ALL)
                     .withDescription(
                             "hash key parse mode, support all or kv, default value is all");
+
+    public static final Option<Boolean> READ_KEY_ENABLED =
+            Options.key("read_key_enabled")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription(
+                            "If set to true, the source connector reads Redis values along with their keys.");
 }
