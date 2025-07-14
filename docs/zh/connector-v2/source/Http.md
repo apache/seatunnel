@@ -292,8 +292,8 @@ Http {
 
 这里是一个示例：
 
-- 测试数据可以在此链接找到 [mockserver-config.json](../../../../seatunnel-e2e/seatunnel-connector-v2-e2e/connector-http-e2e/src/test/resources/mockserver-config.json)
-- 任务配置请参考此链接 [http_contentjson_to_assert.conf](../../../../seatunnel-e2e/seatunnel-connector-v2-e2e/connector-http-e2e/src/test/resources/http_contentjson_to_assert.conf)。
+- 测试数据可以在此链接找到 [mockserver-config.json](seatunnel-e2e/seatunnel-connector-v2-e2e/connector-http-e2e/src/test/resources/mockserver-config.json)
+- 任务配置请参考此链接 [http_contentjson_to_assert.conf](seatunnel-e2e/seatunnel-connector-v2-e2e/connector-http-e2e/src/test/resources/http_contentjson_to_assert.conf)。
 
 ### json_field
 
@@ -353,8 +353,8 @@ source {
 }
 ```
 
-- 测试数据可以在此链接找到 [mockserver-config.json](../../../../seatunnel-e2e/seatunnel-connector-v2-e2e/connector-http-e2e/src/test/resources/mockserver-config.json)
-- 任务配置请参考此链接 [http_jsonpath_to_assert.conf](../../../../seatunnel-e2e/seatunnel-connector-v2-e2e/connector-http-e2e/src/test/resources/http_jsonpath_to_assert.conf)。
+- 测试数据可以在此链接找到 [mockserver-config.json](seatunnel-e2e/seatunnel-connector-v2-e2e/connector-http-e2e/src/test/resources/mockserver-config.json)
+- 任务配置请参考此链接 [http_jsonpath_to_assert.conf](seatunnel-e2e/seatunnel-connector-v2-e2e/connector-http-e2e/src/test/resources/http_jsonpath_to_assert.conf)。
 
 ### pageing
 当前支持的分页类型是 `PageNumber` 和 `Cursor`。

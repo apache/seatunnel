@@ -52,4 +52,4 @@ jobs:
             work on this pull request.
           remove-pr-stale-when-updated: true
           remove-issue-stale-when-updated: true
-          labels-to-add-when-unstale: 'waiting for review'
+          operations-per-run: 1000

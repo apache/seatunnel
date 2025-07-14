@@ -128,7 +128,10 @@ public abstract class IncrementalSource<T, C extends SourceConfig>
                 readonlyConfig.get(JdbcSourceOptions.FORMAT))) {
             return Collections.singletonList(
                     CatalogTableUtil.getCatalogTable(
-                            "default.default",
+                            "schema",
+                            "default",
+                            "default",
+                            "default",
                             CompatibleDebeziumJsonDeserializationSchema.DEBEZIUM_DATA_ROW_TYPE));
         }
         return catalogTables;
