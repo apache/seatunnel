@@ -162,7 +162,7 @@ public class MultipleTableJobConfigParser {
         this.seaTunnelJobConfig = ConfigBuilder.of(Paths.get(jobDefineFilePath), variables);
         this.envOptions = ReadonlyConfig.fromConfig(seaTunnelJobConfig.getConfig("env"));
         this.pipelineCheckpoints = pipelineCheckpoints;
-        // validate env option
+        // validate env options
         ConfigValidator.of(this.envOptions).validate(new EnvOptionRule().optionRule());
     }
 
@@ -180,7 +180,7 @@ public class MultipleTableJobConfigParser {
         this.seaTunnelJobConfig = seaTunnelJobConfig;
         this.envOptions = ReadonlyConfig.fromConfig(seaTunnelJobConfig.getConfig("env"));
         this.pipelineCheckpoints = pipelineCheckpoints;
-        // validate env option
+        // validate env options
         ConfigValidator.of(this.envOptions).validate(new EnvOptionRule().optionRule());
     }
 
