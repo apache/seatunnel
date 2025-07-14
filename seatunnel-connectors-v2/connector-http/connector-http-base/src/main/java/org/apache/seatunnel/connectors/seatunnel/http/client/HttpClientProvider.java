@@ -17,7 +17,10 @@
 
 package org.apache.seatunnel.connectors.seatunnel.http.client;
 
-import org.apache.seatunnel.shade.com.google.common.base.Strings;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.base.Strings;
+import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
 import org.apache.seatunnel.common.utils.JsonUtils;
@@ -128,15 +131,16 @@ public class HttpClientProvider implements AutoCloseable {
         Map<String, Object> bodyMap = new HashMap<>();
         // If body is set but bodyMap is not, convert body to bodyMap
         if (!Strings.isNullOrEmpty(body)) {
-            bodyMap =
-                    ConfigFactory.parseString(body).entrySet().stream()
-                            .collect(
-                                    Collectors.toMap(
-                                            Map.Entry::getKey,
-                                            entry -> entry.getValue().unwrapped(),
-                                            (v1, v2) -> v2));
+            try {
+                ObjectMapper objectMapper = new ObjectMapper();
+                TypeReference<Map<String, Object>> typeReference =
+                        new TypeReference<Map<String, Object>>() {};
+                bodyMap = objectMapper.readValue(body, typeReference);
+            } catch (Exception e) {
+                log.error("body formatting exception, body:[{}]", body);
+                throw new SeaTunnelException(e.getMessage());
+            }
         }
-
         // convert method option to uppercase
         method = method.toUpperCase(Locale.ROOT);
         // Keep the original post  logic
