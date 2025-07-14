@@ -25,6 +25,7 @@ import org.apache.seatunnel.common.utils.ReflectionUtils;
 import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.core.starter.execution.PluginExecuteProcessor;
 
+import java.lang.reflect.Method;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.util.List;
@@ -36,17 +37,34 @@ import static org.apache.seatunnel.api.options.ConnectorCommonOptions.PLUGIN_INP
 public abstract class FlinkAbstractPluginExecuteProcessor<T>
         implements PluginExecuteProcessor<DataStreamTableInfo, FlinkRuntimeEnvironment> {
 
-    protected static final BiConsumer<ClassLoader, URL> ADD_URL_TO_CLASSLOADER =
-            (classLoader, url) -> {
+    protected static final BiConsumer<ClassLoader, List<URL>> ADD_URL_TO_CLASSLOADER =
+            (classLoader, urls) -> {
                 if (classLoader.getClass().getName().endsWith("SafetyNetWrapperClassLoader")) {
                     URLClassLoader c =
                             (URLClassLoader) ReflectionUtils.getField(classLoader, "inner").get();
-                    ReflectionUtils.invoke(c, "addURL", url);
+                    urls.forEach(url -> ReflectionUtils.invoke(c, "addURL", url));
                 } else if (classLoader instanceof URLClassLoader) {
-                    ReflectionUtils.invoke(classLoader, "addURL", url);
+                    urls.forEach(url -> ReflectionUtils.invoke(classLoader, "addURL", url));
                 } else {
-                    throw new RuntimeException(
-                            "Unsupported classloader: " + classLoader.getClass().getName());
+                    try {
+                        // In Java 8, AppClassLoader is a subclass of URLClassLoader, so classLoader
+                        // instanceof URLClassLoader will return true. However, in Java 11, due to
+                        // the introduction of the modular system, AppClassLoader is no longer a
+                        // subclass of URLClassLoader, and this check will return false. To be
+                        // compatible with both Java 8 and Java 11, we can use reflection to
+                        // dynamically call the addURL method of URLClassLoader.
+                        Optional<Method> method =
+                                ReflectionUtils.getDeclaredMethod(
+                                        URLClassLoader.class, "addURL", URL.class);
+                        if (method.isPresent()) {
+                            for (URL url : urls) {
+                                method.get().invoke(classLoader, url);
+                            }
+                        }
+                    } catch (Exception e) {
+                        throw new RuntimeException(
+                                "Unsupported classloader: " + classLoader.getClass().getName(), e);
+                    }
                 }
             };
 
