@@ -83,7 +83,8 @@ public class JdbcDb2IT extends AbstractJdbcIT {
                     + "    C_VARCHAR          VARCHAR(255),\n"
                     + "    C_BINARY           BINARY(1),\n"
                     + "    C_VARBINARY        VARBINARY(2048),\n"
-                    + "    C_DATE             DATE\n"
+                    + "    C_DATE             DATE,\n"
+                    + "    \"c_int_2\"             INTEGER\n"
                     + ");\n";
 
     @Override
@@ -143,6 +144,7 @@ public class JdbcDb2IT extends AbstractJdbcIT {
             "C_BINARY",
             "C_VARBINARY",
             "C_DATE",
+            "c_int_2"
         };
 
         List<SeaTunnelRow> rows = new ArrayList<>();

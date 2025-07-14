@@ -23,6 +23,8 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDiale
 
 import com.google.auto.service.AutoService;
 
+import javax.annotation.Nonnull;
+
 /** Factory for {@link DB2Dialect}. */
 @AutoService(JdbcDialectFactory.class)
 public class DB2DialectFactory implements JdbcDialectFactory {
@@ -40,5 +42,10 @@ public class DB2DialectFactory implements JdbcDialectFactory {
     @Override
     public JdbcDialect create() {
         return new DB2Dialect();
+    }
+
+    @Override
+    public JdbcDialect create(@Nonnull String compatibleMode, String fieldIde) {
+        return new DB2Dialect(fieldIde);
     }
 }

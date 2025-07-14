@@ -21,12 +21,21 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.JdbcRow
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectTypeMapper;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.dialectenum.FieldIdeEnum;
 
 import java.util.Arrays;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
 public class DB2Dialect implements JdbcDialect {
+
+    protected String fieldIde = FieldIdeEnum.ORIGINAL.getValue();
+
+    public DB2Dialect() {}
+
+    public DB2Dialect(String fieldIde) {
+        this.fieldIde = fieldIde;
+    }
 
     @Override
     public String dialectName() {
@@ -41,6 +50,27 @@ public class DB2Dialect implements JdbcDialect {
     @Override
     public JdbcDialectTypeMapper getJdbcDialectTypeMapper() {
         return new DB2TypeMapper();
+    }
+
+    @Override
+    public String quoteIdentifier(String identifier) {
+        if (identifier.contains(".")) {
+            String[] parts = identifier.split("\\.");
+            StringBuilder sb = new StringBuilder();
+            for (int i = 0; i < parts.length - 1; i++) {
+                sb.append("\"").append(parts[i]).append("\"").append(".");
+            }
+            return sb.append("\"")
+                    .append(getFieldIde(parts[parts.length - 1], fieldIde))
+                    .append("\"")
+                    .toString();
+        }
+        return "\"" + getFieldIde(identifier, fieldIde) + "\"";
+    }
+
+    @Override
+    public String tableIdentifier(String database, String tableName) {
+        return quoteIdentifier(tableName);
     }
 
     @Override
