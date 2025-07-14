@@ -207,8 +207,6 @@ public class AbstractReadStrategyTest {
             FileStatus fileStatus =
                     new FileStatus(
                             0L, false, 0, 0, System.currentTimeMillis(), 0, null, null, null, null);
-            Assertions.assertNotNull(fileStatus);
-            Assertions.assertNotNull(strategy);
             boolean result = strategy.filterFileByModificationDate(fileStatus);
             Assertions.assertTrue(result);
         }

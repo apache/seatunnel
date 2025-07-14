@@ -94,7 +94,8 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
     protected Pattern pattern;
     protected String fileModifiedStartDate;
     protected String fileModifiedEndDate;
-    protected String modifiedDateFormat;
+    protected String modifiedDateFormat =
+            FileBaseSourceOptions.FILE_FILTER_MODIFIED_DATE_FORMAT.defaultValue();
 
     @Override
     public void init(HadoopConf conf) {
@@ -158,24 +159,19 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
     protected boolean filterFileByModificationDate(FileStatus fileStatus) {
 
         long fileModifiedTime = fileStatus.getModificationTime();
-        SimpleDateFormat dateFormat;
-        if (modifiedDateFormat != null) {
-            dateFormat = new SimpleDateFormat(modifiedDateFormat);
-        } else {
-            log.info(
-                    "File modified date format is not set, using default format: {}",
-                    FileBaseSourceOptions.FILE_FILTER_MODIFIED_DATE_FORMAT.defaultValue());
-            dateFormat =
-                    new SimpleDateFormat(
-                            FileBaseSourceOptions.FILE_FILTER_MODIFIED_DATE_FORMAT.defaultValue());
-        }
-
+        SimpleDateFormat dateFormat = new SimpleDateFormat(modifiedDateFormat);
         dateFormat.setTimeZone(TimeZone.getTimeZone("GMT+8"));
-        Date startTime;
-        Date endTime;
+        Date startTime = null;
+        Date endTime = null;
         try {
-            startTime = dateFormat.parse(fileModifiedStartDate);
-            endTime = dateFormat.parse(fileModifiedEndDate);
+            if (fileModifiedStartDate != null) {
+                startTime = dateFormat.parse(fileModifiedStartDate);
+            }
+
+            if (fileModifiedEndDate != null) {
+                endTime = dateFormat.parse(fileModifiedEndDate);
+            }
+
         } catch (ParseException e) {
             log.warn(
                     "Failed to parse file modified date format: {}, please check date format: {}",
