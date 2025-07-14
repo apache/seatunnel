@@ -17,6 +17,9 @@
 
 package org.apache.seatunnel.connectors.seatunnel.redis.source;
 
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode;
+
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -84,16 +87,30 @@ public class KeyedRecordReader extends RedisRecordReader {
 
     private void pollValueToNext(String key, String value, Collector<SeaTunnelRow> output)
             throws IOException {
-        KeyValueRecord keyValueRecord = new KeyValueRecord(key, value);
+        JsonNode node = JsonUtils.toJsonNode(value);
+        if (node.isTextual()) {
+            node = JsonUtils.parseObject(node.textValue());
+        }
+
+        ObjectNode objectNode;
+        if (node.isObject()) {
+            objectNode = (ObjectNode) node;
+        } else {
+            objectNode = JsonUtils.createObjectNode();
+            objectNode.put("key", key);
+            objectNode.set("value", node);
+        }
+
+        if (!objectNode.has("key")) {
+            objectNode.put("key", key);
+        }
+
+        String json = objectNode.toString();
 
         if (deserializationSchema == null) {
-            SeaTunnelRow seaTunnelRow =
-                    new SeaTunnelRow(new Object[] {JsonUtils.toJsonString(keyValueRecord)});
-            output.collect(seaTunnelRow);
-
+            output.collect(new SeaTunnelRow(new Object[] {json}));
         } else {
-            deserializationSchema.deserialize(
-                    JsonUtils.toJsonString(keyValueRecord).getBytes(), output);
+            deserializationSchema.deserialize(json.getBytes(), output);
         }
     }
 }

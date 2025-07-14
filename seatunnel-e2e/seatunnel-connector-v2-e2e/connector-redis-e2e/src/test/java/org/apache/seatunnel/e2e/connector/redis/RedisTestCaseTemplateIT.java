@@ -461,6 +461,22 @@ public abstract class RedisTestCaseTemplateIT extends TestSuiteBase implements T
     }
 
     @TestTemplate
+    public void testCustomKeyWriteRedisWithKey(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                container.executeJob("/scan-redis-to-redis-with-key.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+
+        for (int i = 0; i < 100; i++) {
+            log.info("result = {}", jedis.get("redis-key-check:" + "key_test" + i));
+            Assertions.assertTrue(jedis.exists("redis-key-check:" + "key_test" + i));
+        }
+        for (int i = 0; i < 100; i++) {
+            jedis.del("redis-key-check:" + i);
+        }
+    }
+
+    @TestTemplate
     public void testMultipletableRedisSink(TestContainer container)
             throws IOException, InterruptedException {
         Container.ExecResult execResult =

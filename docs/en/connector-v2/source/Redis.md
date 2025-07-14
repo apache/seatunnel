@@ -123,6 +123,19 @@ When set to `true`, both the key and its associated value are included in the re
 
 By default (`false`), only the value is read and included.
 
+Note: When `read_key_enabled = true`, the schema configuration must explicitly include the key field to correctly map the deserialized data.
+
+Example :
+```json
+schema {
+  fields {
+      key = string
+      value = string
+  }
+}
+```
+
+
 ### batch_size [int]
 
 indicates the number of keys to attempt to return per iteration,default 10
