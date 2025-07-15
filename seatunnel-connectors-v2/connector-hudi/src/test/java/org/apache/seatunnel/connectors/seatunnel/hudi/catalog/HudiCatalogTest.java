@@ -27,7 +27,6 @@ import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.FileSystem;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
@@ -47,7 +46,7 @@ import static org.apache.seatunnel.api.table.type.LocalTimeType.LOCAL_DATE_TYPE;
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 class HudiCatalogTest {
     private static final String CATALOG_NAME = "seatunnel";
-    private static final String CATALOG_DIR = "/tmp/seatunnel/hudi";
+    private static final String CATALOG_DIR = "file:///tmp/seatunnel/hudi";
 
     private static HudiCatalog hudicatalog;
 
@@ -61,9 +60,7 @@ class HudiCatalogTest {
 
     @BeforeAll
     static void setUpBeforeClass() throws Exception {
-        Configuration configuration = new Configuration();
-        configuration.set(FileSystem.FS_DEFAULT_NAME_KEY, FileSystem.DEFAULT_FS);
-        hudicatalog = new HudiCatalog(CATALOG_NAME, configuration, CATALOG_DIR);
+        hudicatalog = new HudiCatalog(CATALOG_NAME, new Configuration(), CATALOG_DIR);
         hudicatalog.open();
     }
 
