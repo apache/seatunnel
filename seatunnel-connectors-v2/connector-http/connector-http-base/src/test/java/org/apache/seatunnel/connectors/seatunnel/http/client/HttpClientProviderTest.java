@@ -34,7 +34,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class HttpClientProviderTest {
 
     private static final String TEST_URL = "http://example.com/test";
-    private static final String TEST_BAD_URL = "http://localhost/test/webhook";
+    private static final String TEST_BAD_URL = "http://test123:8080/test/webhook";
 
     @Test
     void testAddDefaultJsonContentTypeWhenNotPresent() throws Exception {
@@ -121,7 +121,7 @@ class HttpClientProviderTest {
         try (HttpClientProvider httpClientProvider = new HttpClientProvider(httpParameter)) {
             // Ignore
         } catch (Exception e) {
-            assertTrue(e instanceof org.apache.http.conn.HttpHostConnectException);
+            assertTrue(e instanceof java.net.UnknownHostException);
         }
     }
 }
