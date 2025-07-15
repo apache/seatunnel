@@ -17,11 +17,13 @@
 
 package org.apache.seatunnel.connectors.seatunnel.redis.source;
 
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode;
 
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.connectors.seatunnel.redis.client.RedisClient;
 import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisParameters;
@@ -86,18 +88,30 @@ public class KeyedRecordReader extends RedisRecordReader {
 
     private void pollValueToNext(String key, String value, Collector<SeaTunnelRow> output)
             throws IOException {
+        JsonNode node = JsonUtils.toJsonNode(value);
+        if (node.isTextual()) {
+            try {
+                node = JsonUtils.parseObject(node.textValue());
+            } catch (Exception e) {
+                // do nothing
+            }
+        }
+
         ObjectNode objectNode;
-        try {
-            objectNode = JsonUtils.parseObject(value);
-        } catch (Exception e) {
+        if (node instanceof ObjectNode) {
+            objectNode = (ObjectNode) node;
+        } else {
             objectNode = JsonUtils.createObjectNode();
-            objectNode.set("value", JsonUtils.toJsonNode(value));
+            objectNode.set("value", node);
         }
         objectNode.put("key", key);
 
         String json = objectNode.toString();
         if (deserializationSchema == null) {
-            output.collect(new SeaTunnelRow(new Object[] {json}));
+            throw CommonError.illegalArgument(
+                    "deserializationSchema is null",
+                    "Redis source requires a deserialization schema to parse the JSON record with key: "
+                            + key);
         } else {
             deserializationSchema.deserialize(json.getBytes(), output);
         }
