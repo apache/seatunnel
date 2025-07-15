@@ -126,7 +126,7 @@ By default (`false`), only the value is read and included.
 Note: When `read_key_enabled = true`, the schema configuration must explicitly include the key field to correctly map the deserialized data.
 
 Example :
-```json
+```hocon
 schema {
   fields {
       key = string
