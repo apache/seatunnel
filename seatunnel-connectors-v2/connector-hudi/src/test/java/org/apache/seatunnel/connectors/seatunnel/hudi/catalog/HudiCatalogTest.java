@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.hudi.catalog;
 
+import org.apache.hadoop.fs.FileSystem;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
@@ -60,7 +61,9 @@ class HudiCatalogTest {
 
     @BeforeAll
     static void setUpBeforeClass() throws Exception {
-        hudicatalog = new HudiCatalog(CATALOG_NAME, new Configuration(), CATALOG_DIR);
+        Configuration configuration = new Configuration();
+        configuration.set(FileSystem.FS_DEFAULT_NAME_KEY, FileSystem.DEFAULT_FS);
+        hudicatalog = new HudiCatalog(CATALOG_NAME, configuration, CATALOG_DIR);
         hudicatalog.open();
     }
 
