@@ -16,6 +16,8 @@
  */
 package org.apache.seatunnel.connectors.seatunnel.http.client;
 
+import org.apache.seatunnel.connectors.seatunnel.http.config.HttpParameter;
+
 import org.apache.http.Header;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.message.BasicHeader;
@@ -27,8 +29,12 @@ import java.util.HashMap;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class HttpClientProviderTest {
+
+    private static final String TEST_URL = "http://example.com/test";
+    private static final String TEST_BAD_URL = "http://localhost/test/webhook";
 
     @Test
     void testAddDefaultJsonContentTypeWhenNotPresent() throws Exception {
@@ -83,5 +89,39 @@ class HttpClientProviderTest {
         }
         // ensure no manually set content type or encoding
         Assertions.assertNull(post.getEntity().getContentEncoding());
+    }
+
+    @Test
+    void testCheckBadInterfaceUrlAccessibility() {
+        // Setting HTTP Parameters
+        HttpParameter httpParameter = new HttpParameter();
+        httpParameter.setUrl(TEST_URL);
+        Map<String, String> headers = new HashMap<>();
+        headers.put("Content-Type", "application/json");
+        httpParameter.setHeaders(headers);
+
+        // The test interface does not exist, but the domain name is normal URL.
+        try (HttpClientProvider httpClientProvider = new HttpClientProvider(httpParameter)) {
+            // Ignore
+        } catch (Exception e) {
+            assertTrue(e instanceof java.net.ConnectException);
+        }
+    }
+
+    @Test
+    void testCheckBadUrlAccessibility() {
+        // Setting HTTP Parameters
+        HttpParameter httpParameter = new HttpParameter();
+        httpParameter.setUrl(TEST_BAD_URL);
+        Map<String, String> headers = new HashMap<>();
+        headers.put("Content-Type", "application/json");
+        httpParameter.setHeaders(headers);
+
+        // Test the scenario where the target URL does not exist
+        try (HttpClientProvider httpClientProvider = new HttpClientProvider(httpParameter)) {
+            // Ignore
+        } catch (Exception e) {
+            assertTrue(e instanceof org.apache.http.conn.HttpHostConnectException);
+        }
     }
 }

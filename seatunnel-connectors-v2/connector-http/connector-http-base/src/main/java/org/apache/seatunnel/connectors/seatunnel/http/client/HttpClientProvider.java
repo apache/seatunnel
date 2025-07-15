@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.http.client;
 
+import lombok.SneakyThrows;
+import org.apache.http.client.methods.*;
 import org.apache.seatunnel.shade.com.google.common.base.Strings;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
@@ -30,13 +32,6 @@ import org.apache.http.HttpStatus;
 import org.apache.http.NameValuePair;
 import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.entity.UrlEncodedFormEntity;
-import org.apache.http.client.methods.CloseableHttpResponse;
-import org.apache.http.client.methods.HttpDelete;
-import org.apache.http.client.methods.HttpEntityEnclosingRequestBase;
-import org.apache.http.client.methods.HttpGet;
-import org.apache.http.client.methods.HttpPost;
-import org.apache.http.client.methods.HttpPut;
-import org.apache.http.client.methods.HttpRequestBase;
 import org.apache.http.client.utils.URIBuilder;
 import org.apache.http.entity.ByteArrayEntity;
 import org.apache.http.entity.ContentType;
@@ -58,6 +53,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
+import java.net.ConnectException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -87,6 +83,8 @@ public class HttpClientProvider implements AutoCloseable {
                         .setConnectTimeout(httpParameter.getConnectTimeoutMs())
                         .setSocketTimeout(httpParameter.getSocketTimeoutMs())
                         .build();
+        // verify that the provided URL is reachable
+        this.checkUrlAccessibility(httpParameter);
     }
 
     private Retryer<CloseableHttpResponse> buildRetryer(HttpParameter httpParameter) {
@@ -526,6 +524,26 @@ public class HttpClientProvider implements AutoCloseable {
     public void close() throws IOException {
         if (Objects.nonNull(httpClient)) {
             httpClient.close();
+        }
+    }
+
+    /**
+     * Check if the url is available by sending a simple HEAD request.
+     *
+     * @param httpParameter the http parameter
+     */
+    @SneakyThrows
+    public void checkUrlAccessibility(HttpParameter httpParameter) {
+        HttpHead request = new HttpHead(httpParameter.getUrl());
+        Map<String, String> headers = httpParameter.getHeaders();
+        if (Objects.nonNull(headers)) {
+            headers.forEach(request::addHeader);
+        }
+        CloseableHttpResponse response = httpClient.execute(request);
+        int statusCode = response.getStatusLine().getStatusCode();
+        if (!(statusCode >= HttpStatus.SC_OK && statusCode < HttpStatus.SC_MULTIPLE_CHOICES)) {
+            log.warn("Failed to connect to host: {}", httpParameter.getUrl());
+            throw new ConnectException("URL is not accessible. status code: " + statusCode);
         }
     }
 }
