@@ -21,12 +21,15 @@ import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.exception.ClickhouseConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.exception.ClickhouseConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.shard.Shard;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.file.ClickhouseTable;
+import org.apache.seatunnel.connectors.seatunnel.clickhouse.source.ClickhousePart;
 
 import com.clickhouse.client.ClickHouseClient;
 import com.clickhouse.client.ClickHouseColumn;
@@ -45,6 +48,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.StringJoiner;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
@@ -52,10 +56,11 @@ import java.util.stream.StreamSupport;
 
 @Slf4j
 @SuppressWarnings("magicnumber")
-public class ClickhouseProxy {
+public class ClickhouseProxy implements AutoCloseable {
 
     private final ClickHouseRequest<?> clickhouseRequest;
     private final ClickHouseClient client;
+    private final ClickHouseNode node;
 
     private final Map<Shard, ClickHouseClient> shardToDataSource = new ConcurrentHashMap<>(16);
 
@@ -63,6 +68,7 @@ public class ClickhouseProxy {
         this.client = ClickHouseClient.newInstance(node.getProtocol());
         this.clickhouseRequest =
                 client.connect(node).format(ClickHouseFormat.RowBinaryWithNamesAndTypes);
+        this.node = node;
     }
 
     public ClickHouseRequest<?> getClickhouseConnection() {
@@ -100,10 +106,11 @@ public class ClickhouseProxy {
 
                 String localTableSQL =
                         String.format(
-                                "select engine,create_table_query from system.tables where database = '%s' and name = '%s'",
+                                "select engine,create_table_query,sorting_key from system.tables where database = '%s' and name = '%s'",
                                 localDatabase, localTable);
                 String localTableDDL;
                 String localTableEngine;
+                String sortingKey;
                 try (ClickHouseResponse localTableResponse =
                         clickhouseRequest.query(localTableSQL).executeAndWait()) {
                     List<ClickHouseRecord> localTableRecords =
@@ -116,10 +123,16 @@ public class ClickhouseProxy {
                     localTableEngine = localTableRecords.get(0).getValue(0).asString();
                     localTableDDL = localTableRecords.get(0).getValue(1).asString();
                     localTableDDL = localizationEngine(localTableEngine, localTableDDL);
+                    sortingKey = localTableRecords.get(0).getValue(2).asString();
                 }
 
                 return new DistributedEngine(
-                        clusterName, localDatabase, localTable, localTableEngine, localTableDDL);
+                        clusterName,
+                        localDatabase,
+                        localTable,
+                        localTableEngine,
+                        localTableDDL,
+                        sortingKey);
             }
             throw new ClickhouseConnectorException(
                     SeaTunnelAPIErrorCode.TABLE_NOT_EXISTED,
@@ -260,6 +273,7 @@ public class ClickhouseProxy {
                 distributedEngine =
                         getClickhouseDistributedTable(clickhouseRequest, database, table);
                 createTableDDL = distributedEngine.getTableDDL();
+                sortingKey = distributedEngine.getSortingKey();
             }
             return new ClickhouseTable(
                     database,
@@ -427,6 +441,103 @@ public class ClickhouseProxy {
 
     public void dropDatabase(String database, boolean ignoreIfNotExists) {
         executeSql(ClickhouseCatalogUtil.INSTANCE.getDropDatabaseSql(database, ignoreIfNotExists));
+    }
+
+    public List<ClickhousePart> getPartList(
+            String database, String table, Shard shard, List<String> partitionList) {
+
+        String sql =
+                String.format(
+                        "select name from system.parts where database = '%s' and table = '%s'",
+                        database, table);
+
+        if (partitionList != null && !partitionList.isEmpty()) {
+            StringJoiner joiner = new StringJoiner("', '", "('", "')");
+            partitionList.forEach(joiner::add);
+
+            sql += " and partition in " + joiner.toString();
+        }
+
+        sql += " group by name";
+
+        log.debug("get part sql: {}", sql);
+
+        try (ClickHouseResponse response = clickhouseRequest.query(sql).executeAndWait()) {
+            Iterable<ClickHouseRecord> records = response.records();
+            return StreamSupport.stream(records.spliterator(), false)
+                    .map(r -> new ClickhousePart(r.getValue(0).asString(), database, table, shard))
+                    .collect(Collectors.toList());
+        } catch (ClickHouseException e) {
+            throw new ClickhouseConnectorException(
+                    ClickhouseConnectorErrorCode.GET_PART_ERROR,
+                    "Cannot get part name from system.parts",
+                    e);
+        }
+    }
+
+    public List<SeaTunnelRow> batchFetchRecords(String sql, SeaTunnelRowType seaTunnelRowType) {
+        List<SeaTunnelRow> seaTunnelRowList = new ArrayList<>();
+        log.debug("run query data sql: {}", sql);
+
+        try (ClickHouseResponse response = clickhouseRequest.query(sql).executeAndWait()) {
+            response.stream()
+                    .forEach(
+                            record -> {
+                                SeaTunnelRow seaTunnelRow =
+                                        ClickhouseUtil.convertToSeaTunnelRow(
+                                                record, seaTunnelRowType, sql);
+                                seaTunnelRowList.add(seaTunnelRow);
+                            });
+        } catch (ClickHouseException e) {
+            throw new ClickhouseConnectorException(
+                    ClickhouseConnectorErrorCode.QUERY_DATA_ERROR,
+                    String.format(
+                            "Query data with sql error. sql: %s, message: %s", sql, e.getMessage()),
+                    e);
+        }
+
+        return seaTunnelRowList;
+    }
+
+    public boolean isComplexSql(String sql) {
+        try {
+            String explainSql = "EXPLAIN " + sql;
+
+            try (ClickHouseResponse response =
+                    getClickhouseConnection().query(explainSql).executeAndWait()) {
+                List<String> explainOutput =
+                        response.stream()
+                                .map(record -> record.getValue(0).asString())
+                                .collect(Collectors.toList());
+
+                for (String explainLine : explainOutput) {
+                    // avoid table names that contain the following keywords
+                    if (explainLine.startsWith("ReadFrom")) {
+                        continue;
+                    }
+
+                    if (explainLine.contains("JOIN")
+                            || explainLine.contains("UNION")
+                            || explainLine.contains("GROUP BY")
+                            || explainLine.contains("LIMIT")
+                            || explainLine.contains("Sorting")
+                            || explainLine.contains("Aggregating")
+                            || explainLine.contains("Merging")
+                            || explainLine.contains("subquery")) {
+
+                        log.info("Complex SQL detected, explain line: {}", explainLine);
+
+                        return true;
+                    }
+                }
+                return false;
+            }
+        } catch (Exception e) {
+            log.warn(
+                    "Failed to analyze SQL complexity using EXPLAIN, fallback to default true. e: {}",
+                    e.getMessage());
+            return true;
+        }
     }
 
     public void close() {
