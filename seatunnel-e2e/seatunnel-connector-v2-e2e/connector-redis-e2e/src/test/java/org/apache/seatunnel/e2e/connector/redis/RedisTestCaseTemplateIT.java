@@ -468,7 +468,6 @@ public abstract class RedisTestCaseTemplateIT extends TestSuiteBase implements T
         Assertions.assertEquals(0, execResult.getExitCode());
 
         for (int i = 0; i < 100; i++) {
-            log.info("result = {}", jedis.get("redis-key-check:" + "key_test" + i));
             Assertions.assertTrue(jedis.exists("redis-key-check:" + "key_test" + i));
         }
         for (int i = 0; i < 100; i++) {
