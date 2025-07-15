@@ -39,4 +39,12 @@ public class RedisSourceOptions extends RedisBaseOptions {
                     .defaultValue(false)
                     .withDescription(
                             "If set to true, the source connector reads Redis values along with their keys.");
+
+    public static final Option<String> SINGLE_FIELD_NAME =
+            Options.key("single_field_name")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "Specifies the field name to be used in the output row when reading single-value types "
+                                    + "(e.g., string, list, zset).");
 }

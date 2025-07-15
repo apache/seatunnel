@@ -17,9 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.redis.source;
 
-import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
-import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode;
-
+import lombok.extern.slf4j.Slf4j;
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -27,8 +25,8 @@ import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.connectors.seatunnel.redis.client.RedisClient;
 import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisParameters;
-
-import lombok.extern.slf4j.Slf4j;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode;
 
 import java.io.IOException;
 import java.util.List;
@@ -102,7 +100,7 @@ public class KeyedRecordReader extends RedisRecordReader {
             objectNode = (ObjectNode) node;
         } else {
             objectNode = JsonUtils.createObjectNode();
-            objectNode.set("value", node);
+            setValueInNode(objectNode, node);
         }
         objectNode.put("key", key);
 
@@ -114,6 +112,17 @@ public class KeyedRecordReader extends RedisRecordReader {
                             + key);
         } else {
             deserializationSchema.deserialize(json.getBytes(), output);
+        }
+    }
+
+    private void setValueInNode(ObjectNode objectNode, JsonNode node) {
+        String singleFieldName = redisParameters.getSingleFieldName();
+        if (singleFieldName != null) {
+            objectNode.set(singleFieldName, node);
+        } else {
+            throw CommonError.illegalArgument(
+                    "singleFieldName is null",
+                    "You must specify 'single_field_name' when using a single value with key-enabled schema.");
         }
     }
 }

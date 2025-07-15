@@ -35,6 +35,7 @@ Used to read data from Redis.
 | nodes               | list   | yes when mode=cluster | -             |
 | schema              | config | yes when format=json  | -             |
 | format              | string | no                    | json          |
+| single_field_name   | string | no                    | -             |
 | common-options      |        | no                    | -             |
 
 ### host [string]
@@ -122,6 +123,8 @@ This option determines whether the Redis source connector includes the Redis key
 When set to `true`, both the key and its associated value are included in the record.
 
 By default (`false`), only the value is read and included.
+
+If you are using a single-value Redis data type (such as `string`, `int`, etc.) with `read_key_enabled = true`, you must also specify `single_field_name` to map the value to a schema column.
 
 Note: When `read_key_enabled = true`, the schema configuration must explicitly include the key field to correctly map the deserialized data.
 
@@ -245,6 +248,26 @@ connector will generate data as the following:
 #### fields [config]
 
 the schema fields of redis data
+
+### single_field_name [string]
+
+Specifies the field name for Redis values when `read_key_enabled = true` and the value is a single primitive (e.g., string, int).
+
+This name is used in the schema to map the value field.
+
+**Note:** This option has no effect when reading complex Redis data types such as hashes or objects that can be directly mapped to a schema.
+
+Example :
+```hocon
+read_key_enabled = true
+single_field_name = value
+schema {
+  fields {
+    key = string
+    value = string
+  }
+}
+```
 
 ### common options
 
