@@ -26,18 +26,32 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.condition.DisabledOnOs;
-import org.junit.jupiter.api.condition.OS;
 
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Map;
 
-@DisabledOnOs(OS.WINDOWS)
 public class AbstractPluginDiscoveryTest {
 
     private String originSeatunnelHome = null;
     private DeployMode originMode = null;
-    private static final String seatunnelHome =
-            AbstractPluginDiscoveryTest.class.getResource("/home").getPath();
+    private static final String seatunnelHome;
+
+    static {
+        String rootModuleDir = "seatunnel-plugin-discovery";
+        Path path = Paths.get(System.getProperty("user.dir"));
+        while (!path.endsWith(Paths.get(rootModuleDir))) {
+            path = path.getParent();
+        }
+        seatunnelHome =
+                Paths.get(
+                                path.getParent().toString(),
+                                rootModuleDir,
+                                "target",
+                                "test-classes",
+                                "home")
+                        .toString();
+    }
 
     @BeforeEach
     public void before() {

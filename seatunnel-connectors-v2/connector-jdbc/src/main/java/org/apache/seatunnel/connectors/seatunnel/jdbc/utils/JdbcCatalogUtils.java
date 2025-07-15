@@ -25,6 +25,7 @@ import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.ConstraintKey;
+import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
@@ -319,13 +320,48 @@ public class JdbcCatalogUtils {
                         tableOfPath.getTableId().getDatabaseName(),
                         tableOfPath.getTableId().getSchemaName(),
                         tableOfPath.getTableId().getTableName());
+        List<Column> columnsWithComment =
+                tableSchemaOfQuery.getColumns().stream()
+                        .map(
+                                column -> {
+                                    return columnsOfPath.containsKey(column.getName())
+                                                    && columnsOfPath
+                                                            .get(column.getName())
+                                                            .getDataType()
+                                                            .getSqlType()
+                                                            .equals(
+                                                                    columnsOfQuery
+                                                                            .get(column.getName())
+                                                                            .getDataType()
+                                                                            .getSqlType())
+                                            ? PhysicalColumn.of(
+                                                    column.getName(),
+                                                    column.getDataType(),
+                                                    column.getColumnLength() == null
+                                                            ? null
+                                                            : Math.toIntExact(
+                                                                    column.getColumnLength()),
+                                                    column.isNullable(),
+                                                    column.getDefaultValue(),
+                                                    columnsOfPath
+                                                            .get(column.getName())
+                                                            .getComment(),
+                                                    column.getSourceType(),
+                                                    column.isUnsigned(),
+                                                    column.isZeroFill(),
+                                                    column.getBitLen(),
+                                                    column.getOptions(),
+                                                    column.getLongColumnLength())
+                                            : column;
+                                })
+                        .collect(Collectors.toList());
         CatalogTable mergedCatalogTable =
                 CatalogTable.of(
                         tableIdentifier,
                         TableSchema.builder()
                                 .primaryKey(primaryKeyOfMerge)
                                 .constraintKey(constraintKeysOfMerge)
-                                .columns(tableSchemaOfQuery.getColumns())
+                                .columns(columnsWithComment)
                                 .build(),
                         tableOfPath.getOptions(),
                         partitionKeysOfMerge,
