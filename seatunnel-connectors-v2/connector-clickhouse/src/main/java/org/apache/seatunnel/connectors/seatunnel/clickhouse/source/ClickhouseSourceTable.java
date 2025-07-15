@@ -15,22 +15,29 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.clickhouse.util;
+package org.apache.seatunnel.connectors.seatunnel.clickhouse.source;
 
-import lombok.AllArgsConstructor;
-import lombok.Getter;
+import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.file.ClickhouseTable;
+
+import lombok.Builder;
+import lombok.Data;
 
 import java.io.Serializable;
+import java.util.List;
 
-@AllArgsConstructor
-@Getter
-public class DistributedEngine implements Serializable {
+@Data
+@Builder
+public class ClickhouseSourceTable implements Serializable {
+    private static final long serialVersionUID = -457477523311211973L;
 
-    private static final long serialVersionUID = -1L;
-    private String clusterName;
-    private String database;
-    private String table;
-    private String tableEngine;
-    private String tableDDL;
-    private String sortingKey;
+    private TablePath tablePath;
+    private String originQuery;
+    private String filterQuery;
+    private Integer splitSize;
+    private Integer batchSize;
+    private List<String> partitionList;
+    private ClickhouseTable clickhouseTable;
+    private boolean isSqlStrategyRead;
+    private boolean isComplexSql;
 }
