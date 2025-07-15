@@ -170,6 +170,7 @@ public class JdbcDb2IT extends AbstractJdbcIT {
                                 "f".getBytes(),
                                 "test".getBytes(),
                                 Date.valueOf(LocalDate.now()),
+                                i,
                             });
             rows.add(row);
         }
