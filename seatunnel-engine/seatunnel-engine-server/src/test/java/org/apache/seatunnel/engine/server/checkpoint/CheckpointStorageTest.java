@@ -27,14 +27,18 @@ import org.apache.seatunnel.engine.common.utils.FactoryUtil;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.core.job.JobStatus;
 import org.apache.seatunnel.engine.server.AbstractSeaTunnelServerTest;
+import org.apache.seatunnel.engine.server.CheckpointService;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledOnOs;
 import org.junit.jupiter.api.condition.OS;
 
+import java.lang.reflect.Field;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.awaitility.Awaitility.await;
 
@@ -181,28 +185,102 @@ public class CheckpointStorageTest extends AbstractSeaTunnelServerTest {
     }
 
     @Test
-    public void testBatchJobResetCheckpointStorage() throws CheckpointStorageException {
+    public void testBatchJobResetCheckpointStorage()
+            throws CheckpointStorageException, NoSuchFieldException, IllegalAccessException {
         long jobId = System.currentTimeMillis();
         CheckpointConfig checkpointConfig =
                 server.getSeaTunnelConfig().getEngineConfig().getCheckpointConfig();
         server.getSeaTunnelConfig().getEngineConfig().setCheckpointConfig(checkpointConfig);
 
+        // access checkpoint storage counter
+        AtomicInteger accessCnt = new AtomicInteger(0);
         CheckpointStorage checkpointStorage =
-                FactoryUtil.discoverFactory(
-                                Thread.currentThread().getContextClassLoader(),
-                                CheckpointStorageFactory.class,
-                                checkpointConfig.getStorage().getStorage())
-                        .create(checkpointConfig.getStorage().getStoragePluginConfig());
+                new CheckpointStorage() {
+                    @Override
+                    public String storeCheckPoint(PipelineState pipelineState)
+                            throws CheckpointStorageException {
+                        accessCnt.incrementAndGet();
+                        return "";
+                    }
+
+                    @Override
+                    public void asyncStoreCheckPoint(PipelineState pipelineState)
+                            throws CheckpointStorageException {
+                        accessCnt.incrementAndGet();
+                    }
+
+                    @Override
+                    public List<PipelineState> getAllCheckpoints(String s)
+                            throws CheckpointStorageException {
+                        accessCnt.incrementAndGet();
+                        return Collections.emptyList();
+                    }
+
+                    @Override
+                    public List<PipelineState> getLatestCheckpoint(String s)
+                            throws CheckpointStorageException {
+                        accessCnt.incrementAndGet();
+                        return Collections.emptyList();
+                    }
+
+                    @Override
+                    public PipelineState getLatestCheckpointByJobIdAndPipelineId(
+                            String s, String s1) throws CheckpointStorageException {
+                        accessCnt.incrementAndGet();
+                        return null;
+                    }
+
+                    @Override
+                    public List<PipelineState> getCheckpointsByJobIdAndPipelineId(
+                            String s, String s1) throws CheckpointStorageException {
+                        accessCnt.incrementAndGet();
+                        return Collections.emptyList();
+                    }
+
+                    @Override
+                    public void deleteCheckpoint(String s) {
+                        accessCnt.incrementAndGet();
+                    }
+
+                    @Override
+                    public PipelineState getCheckpoint(String s, String s1, String s2)
+                            throws CheckpointStorageException {
+                        accessCnt.incrementAndGet();
+                        return null;
+                    }
+
+                    @Override
+                    public void deleteCheckpoint(String s, String s1, String s2)
+                            throws CheckpointStorageException {
+                        accessCnt.incrementAndGet();
+                    }
+
+                    @Override
+                    public void deleteCheckpoint(String s, String s1, List<String> list)
+                            throws CheckpointStorageException {
+                        accessCnt.incrementAndGet();
+                    }
+                };
+
+        // replace the checkpoint storage reused by the system
+        CheckpointService checkpointService = server.getCheckpointService();
+        Field checkpointStorageField =
+                checkpointService.getClass().getDeclaredField("checkpointStorage");
+        checkpointStorageField.setAccessible(true);
+        checkpointStorageField.set(checkpointService, checkpointStorage);
 
         startJob(jobId, BATCH_CONF_WITHOUT_CHECKPOINT_INTERVAL_PATH, false);
+
         await().atMost(120000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () ->
                                 Assertions.assertEquals(
                                         server.getCoordinatorService().getJobStatus(jobId),
                                         JobStatus.FINISHED));
+
         List<PipelineState> allCheckpoints =
                 checkpointStorage.getAllCheckpoints(String.valueOf(jobId));
         Assertions.assertEquals(0, allCheckpoints.size());
+        Assertions.assertEquals(1, accessCnt.get());
     }
 }
