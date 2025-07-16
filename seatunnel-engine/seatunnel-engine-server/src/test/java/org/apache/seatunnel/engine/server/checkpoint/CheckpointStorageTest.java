@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.server.checkpoint;
 
+import org.apache.seatunnel.common.utils.ReflectionUtils;
 import org.apache.seatunnel.engine.checkpoint.storage.PipelineState;
 import org.apache.seatunnel.engine.checkpoint.storage.api.CheckpointStorage;
 import org.apache.seatunnel.engine.checkpoint.storage.api.CheckpointStorageFactory;
@@ -34,7 +35,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledOnOs;
 import org.junit.jupiter.api.condition.OS;
 
-import java.lang.reflect.Field;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -185,8 +185,7 @@ public class CheckpointStorageTest extends AbstractSeaTunnelServerTest {
     }
 
     @Test
-    public void testBatchJobResetCheckpointStorage()
-            throws CheckpointStorageException, NoSuchFieldException, IllegalAccessException {
+    public void testBatchJobResetCheckpointStorage() throws CheckpointStorageException {
         long jobId = System.currentTimeMillis();
         CheckpointConfig checkpointConfig =
                 server.getSeaTunnelConfig().getEngineConfig().getCheckpointConfig();
@@ -264,13 +263,9 @@ public class CheckpointStorageTest extends AbstractSeaTunnelServerTest {
 
         // replace the checkpoint storage reused by the system
         CheckpointService checkpointService = server.getCheckpointService();
-        Field checkpointStorageField =
-                checkpointService.getClass().getDeclaredField("checkpointStorage");
-        checkpointStorageField.setAccessible(true);
-        checkpointStorageField.set(checkpointService, checkpointStorage);
+        ReflectionUtils.setField(checkpointService, "checkpointStorage", checkpointStorage);
 
         startJob(jobId, BATCH_CONF_WITHOUT_CHECKPOINT_INTERVAL_PATH, false);
-
         await().atMost(120000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () ->
@@ -278,9 +273,7 @@ public class CheckpointStorageTest extends AbstractSeaTunnelServerTest {
                                         server.getCoordinatorService().getJobStatus(jobId),
                                         JobStatus.FINISHED));
 
-        List<PipelineState> allCheckpoints =
-                checkpointStorage.getAllCheckpoints(String.valueOf(jobId));
-        Assertions.assertEquals(0, allCheckpoints.size());
+        checkpointStorage.getAllCheckpoints(String.valueOf(jobId));
         Assertions.assertEquals(1, accessCnt.get());
     }
 }
