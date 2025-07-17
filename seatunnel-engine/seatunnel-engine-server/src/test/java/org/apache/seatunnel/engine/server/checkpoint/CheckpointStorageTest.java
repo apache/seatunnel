@@ -20,11 +20,9 @@ package org.apache.seatunnel.engine.server.checkpoint;
 import org.apache.seatunnel.common.utils.ReflectionUtils;
 import org.apache.seatunnel.engine.checkpoint.storage.PipelineState;
 import org.apache.seatunnel.engine.checkpoint.storage.api.CheckpointStorage;
-import org.apache.seatunnel.engine.checkpoint.storage.api.CheckpointStorageFactory;
 import org.apache.seatunnel.engine.checkpoint.storage.exception.CheckpointStorageException;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.config.server.CheckpointConfig;
-import org.apache.seatunnel.engine.common.utils.FactoryUtil;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.core.job.JobStatus;
 import org.apache.seatunnel.engine.server.AbstractSeaTunnelServerTest;
@@ -70,15 +68,8 @@ public class CheckpointStorageTest extends AbstractSeaTunnelServerTest {
     public void testGenerateFileWhenSavepoint()
             throws CheckpointStorageException, InterruptedException {
         long jobId = System.currentTimeMillis();
-        CheckpointConfig checkpointConfig =
-                server.getSeaTunnelConfig().getEngineConfig().getCheckpointConfig();
 
-        CheckpointStorage checkpointStorage =
-                FactoryUtil.discoverFactory(
-                                Thread.currentThread().getContextClassLoader(),
-                                CheckpointStorageFactory.class,
-                                checkpointConfig.getStorage().getStorage())
-                        .create(checkpointConfig.getStorage().getStoragePluginConfig());
+        CheckpointStorage checkpointStorage = server.getCheckpointService().getCheckpointStorage();
         startJob(jobId, STREAM_CONF_PATH, false);
         await().atMost(120000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
@@ -104,15 +95,8 @@ public class CheckpointStorageTest extends AbstractSeaTunnelServerTest {
     @Test
     public void testBatchJob() throws CheckpointStorageException {
         long jobId = System.currentTimeMillis();
-        CheckpointConfig checkpointConfig =
-                server.getSeaTunnelConfig().getEngineConfig().getCheckpointConfig();
 
-        CheckpointStorage checkpointStorage =
-                FactoryUtil.discoverFactory(
-                                Thread.currentThread().getContextClassLoader(),
-                                CheckpointStorageFactory.class,
-                                checkpointConfig.getStorage().getStorage())
-                        .create(checkpointConfig.getStorage().getStoragePluginConfig());
+        CheckpointStorage checkpointStorage = server.getCheckpointService().getCheckpointStorage();
         startJob(jobId, BATCH_CONF_PATH, false);
         await().atMost(120000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
@@ -132,12 +116,7 @@ public class CheckpointStorageTest extends AbstractSeaTunnelServerTest {
                 server.getSeaTunnelConfig().getEngineConfig().getCheckpointConfig();
         server.getSeaTunnelConfig().getEngineConfig().setCheckpointConfig(checkpointConfig);
 
-        CheckpointStorage checkpointStorage =
-                FactoryUtil.discoverFactory(
-                                Thread.currentThread().getContextClassLoader(),
-                                CheckpointStorageFactory.class,
-                                checkpointConfig.getStorage().getStorage())
-                        .create(checkpointConfig.getStorage().getStoragePluginConfig());
+        CheckpointStorage checkpointStorage = server.getCheckpointService().getCheckpointStorage();
         startJob(jobId, BATCH_CONF_WITH_CHECKPOINT_PATH, false);
         await().atMost(120000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
@@ -157,12 +136,7 @@ public class CheckpointStorageTest extends AbstractSeaTunnelServerTest {
                 server.getSeaTunnelConfig().getEngineConfig().getCheckpointConfig();
         server.getSeaTunnelConfig().getEngineConfig().setCheckpointConfig(checkpointConfig);
 
-        CheckpointStorage checkpointStorage =
-                FactoryUtil.discoverFactory(
-                                Thread.currentThread().getContextClassLoader(),
-                                CheckpointStorageFactory.class,
-                                checkpointConfig.getStorage().getStorage())
-                        .create(checkpointConfig.getStorage().getStoragePluginConfig());
+        CheckpointStorage checkpointStorage = server.getCheckpointService().getCheckpointStorage();
         startJob(jobId, STREAM_CONF_WITH_CHECKPOINT_PATH, false);
         await().atMost(120000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
