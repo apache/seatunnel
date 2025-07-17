@@ -95,6 +95,8 @@ public class PostgresTypeConverter implements TypeConverter<BasicTypeDefine> {
     private static final String PG_GEOMETRY = "geometry";
     private static final String PG_GEOGRAPHY = "geography";
     public static final String PG_DATE = "date";
+    public static final String PG_INTERVAL = "interval";
+
     // time without time zone <=> time
     public static final String PG_TIME = "time";
     // time with time zone <=> timetz
@@ -225,6 +227,7 @@ public class PostgresTypeConverter implements TypeConverter<BasicTypeDefine> {
             case PG_GEOMETRY:
             case PG_GEOGRAPHY:
             case PG_INET:
+            case PG_INTERVAL:
                 builder.dataType(BasicType.STRING_TYPE);
                 builder.sourceType(pgDataType);
                 break;
