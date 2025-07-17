@@ -90,10 +90,13 @@ public class KeyedRecordReader extends RedisRecordReader {
             throws IOException {
         JsonNode node = JsonUtils.toJsonNode(value);
         if (node.isTextual()) {
-            try {
-                node = JsonUtils.parseObject(node.textValue());
-            } catch (Exception e) {
-                // do nothing
+            String text = node.textValue();
+            if (looksLikeJson(text)) {
+                try {
+                    node = JsonUtils.parseObject(text);
+                } catch (Exception e) {
+                    // do nothing
+                }
             }
         }
 
@@ -115,6 +118,12 @@ public class KeyedRecordReader extends RedisRecordReader {
         } else {
             deserializationSchema.deserialize(json.getBytes(), output);
         }
+    }
+
+    private boolean looksLikeJson(String text) {
+        return text != null
+                && ((text.startsWith("{") && text.endsWith("}"))
+                        || (text.startsWith("[") && text.endsWith("]")));
     }
 
     private void setValueInNode(ObjectNode objectNode, JsonNode node) {

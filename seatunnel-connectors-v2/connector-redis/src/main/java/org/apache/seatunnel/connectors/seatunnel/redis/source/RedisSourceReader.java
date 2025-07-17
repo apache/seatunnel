@@ -90,12 +90,13 @@ public class RedisSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
     private void pollNext(List<String> keys, RedisDataType dataType, Collector<SeaTunnelRow> output)
             throws IOException {
         RedisRecordReader redisRecordReader;
-        if (redisParameters.getReadKeyEnabled()) {
+        if (Boolean.TRUE.equals(redisParameters.getReadKeyEnabled())) {
             redisRecordReader =
                     new KeyedRecordReader(redisParameters, deserializationSchema, redisClient);
-        } else
+        } else {
             redisRecordReader =
                     new UnKeyedRecordReader(redisParameters, deserializationSchema, redisClient);
+        }
 
         if (CollectionUtils.isEmpty(keys)) {
             return;
