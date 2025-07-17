@@ -132,7 +132,7 @@ public class PaimonStreamReadIT extends PaimonSinkCDCIT {
                                         intArray,
                                         row.getString(2),
                                         row.getBoolean(3),
-                                        row.getShort(4),
+                                        row.getByte(4),
                                         row.getShort(5),
                                         row.getInt(6),
                                         row.getLong(7),
