@@ -117,7 +117,8 @@ public class ClickhouseValueReaderTest {
     public void testHasNextWithFullBatch() {
         List<SeaTunnelRow> mockRows = createMockRows(BATCH_SIZE);
 
-        when(mockProxy.batchFetchRecords(any(), eq(rowType))).thenReturn(mockRows);
+        when(mockProxy.batchFetchRecords(any(), eq(sourceTable.getTablePath()), eq(rowType)))
+                .thenReturn(mockRows);
 
         Assertions.assertTrue(reader.hasNext());
 
@@ -137,7 +138,8 @@ public class ClickhouseValueReaderTest {
         int partialSize = BATCH_SIZE - 2;
         List<SeaTunnelRow> mockRows = createMockRows(partialSize);
 
-        when(mockProxy.batchFetchRecords(any(), eq(rowType))).thenReturn(mockRows);
+        when(mockProxy.batchFetchRecords(any(), eq(sourceTable.getTablePath()), eq(rowType)))
+                .thenReturn(mockRows);
 
         Assertions.assertTrue(reader.hasNext());
 
@@ -156,7 +158,8 @@ public class ClickhouseValueReaderTest {
         // create empty test data
         List<SeaTunnelRow> mockRows = new ArrayList<>();
 
-        when(mockProxy.batchFetchRecords(any(), eq(rowType))).thenReturn(mockRows);
+        when(mockProxy.batchFetchRecords(any(), eq(sourceTable.getTablePath()), eq(rowType)))
+                .thenReturn(mockRows);
 
         Assertions.assertFalse(reader.hasNext());
 
@@ -181,7 +184,7 @@ public class ClickhouseValueReaderTest {
         List<ClickhousePart> parts = split.getParts();
 
         // Return different data for different parts
-        when(mockProxy.batchFetchRecords(any(), eq(rowType)))
+        when(mockProxy.batchFetchRecords(any(), eq(sourceTable.getTablePath()), eq(rowType)))
                 .thenAnswer(
                         invocation -> {
                             ClickhousePart part = parts.get(reader.currentPartIndex);
@@ -264,7 +267,7 @@ public class ClickhouseValueReaderTest {
         List<SeaTunnelRow> secondBatch = createMockRows(5);
         List<SeaTunnelRow> emptyBatch = new ArrayList<>();
 
-        when(mockProxy.batchFetchRecords(any(), eq(rowType)))
+        when(mockProxy.batchFetchRecords(any(), eq(sourceTable.getTablePath()), eq(rowType)))
                 .thenAnswer(
                         x ->
                                 split.getSqlOffset() == 0
@@ -283,7 +286,8 @@ public class ClickhouseValueReaderTest {
 
         Assertions.assertFalse(reader.hasNext());
 
-        Mockito.verify(mockProxy, Mockito.times(3)).batchFetchRecords(any(), any());
+        Mockito.verify(mockProxy, Mockito.times(3))
+                .batchFetchRecords(any(), eq(sourceTable.getTablePath()), any());
     }
 
     private void initStreamValueReaderMock() throws ClickHouseException {
