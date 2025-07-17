@@ -35,6 +35,8 @@ import org.junit.jupiter.api.MethodOrderer;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestMethodOrder;
+import org.junit.jupiter.api.condition.DisabledOnOs;
+import org.junit.jupiter.api.condition.OS;
 
 import java.util.Collections;
 import java.util.HashMap;
@@ -44,9 +46,10 @@ import static org.apache.seatunnel.api.table.type.LocalTimeType.LOCAL_DATE_TIME_
 import static org.apache.seatunnel.api.table.type.LocalTimeType.LOCAL_DATE_TYPE;
 
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
+@DisabledOnOs(OS.WINDOWS)
 class HudiCatalogTest {
     private static final String CATALOG_NAME = "seatunnel";
-    private static final String CATALOG_DIR = "file:///tmp/seatunnel/hudi";
+    private static final String CATALOG_DIR = "/tmp/seatunnel/hudi";
 
     private static HudiCatalog hudicatalog;
 
