@@ -27,18 +27,11 @@ import java.util.stream.Collectors;
 /** Represent a physical table schema. */
 @EqualsAndHashCode(callSuper = true)
 @Data
-public final class TableSchema extends AbstractSchema {
+public final class MetadataSchema extends AbstractSchema {
     private static final long serialVersionUID = 1L;
 
-    private final PrimaryKey primaryKey;
-
-    private final List<ConstraintKey> constraintKeys;
-
-    public TableSchema(
-            List<Column> columns, PrimaryKey primaryKey, List<ConstraintKey> constraintKeys) {
+    public MetadataSchema(List<Column> columns) {
         super(columns);
-        this.primaryKey = primaryKey;
-        this.constraintKeys = constraintKeys;
     }
 
     public static Builder builder() {
@@ -47,10 +40,6 @@ public final class TableSchema extends AbstractSchema {
 
     public static final class Builder {
         private final List<Column> columns = new ArrayList<>();
-
-        private PrimaryKey primaryKey;
-
-        private final List<ConstraintKey> constraintKeys = new ArrayList<>();
 
         public Builder columns(List<Column> columns) {
             this.columns.addAll(columns);
@@ -62,34 +51,13 @@ public final class TableSchema extends AbstractSchema {
             return this;
         }
 
-        public Builder primaryKey(PrimaryKey primaryKey) {
-            this.primaryKey = primaryKey;
-            return this;
-        }
-
-        public Builder constraintKey(ConstraintKey constraintKey) {
-            this.constraintKeys.add(constraintKey);
-            return this;
-        }
-
-        public Builder constraintKey(List<ConstraintKey> constraintKeys) {
-            this.constraintKeys.addAll(constraintKeys);
-            return this;
-        }
-
-        public TableSchema build() {
-            return new TableSchema(columns, primaryKey, constraintKeys);
+        public MetadataSchema build() {
+            return new MetadataSchema(columns);
         }
     }
 
-    public TableSchema copy() {
+    public MetadataSchema copy() {
         List<Column> copyColumns = columns.stream().map(Column::copy).collect(Collectors.toList());
-        List<ConstraintKey> copyConstraintKeys =
-                constraintKeys.stream().map(ConstraintKey::copy).collect(Collectors.toList());
-        return TableSchema.builder()
-                .constraintKey(copyConstraintKeys)
-                .columns(copyColumns)
-                .primaryKey(primaryKey == null ? null : primaryKey.copy())
-                .build();
+        return MetadataSchema.builder().columns(copyColumns).build();
     }
 }

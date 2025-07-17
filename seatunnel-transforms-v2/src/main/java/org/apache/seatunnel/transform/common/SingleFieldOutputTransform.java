@@ -117,6 +117,7 @@ public abstract class SingleFieldOutputTransform extends AbstractCatalogSupportM
                             SeaTunnelRow outputRow = new SeaTunnelRow(outputFieldValues);
                             outputRow.setTableId(inputRow.getTableId());
                             outputRow.setRowKind(inputRow.getRowKind());
+                            outputRow.setOptions(inputRow.getOptions());
                             return outputRow;
                         }
                     };

@@ -17,7 +17,7 @@ Metadata transform plugin for adding metadata fields to data
 | Partition |  string  | Contains the partition field of the corresponding number table of the row, multiple using `,` join |
 
 ### note
-    `Delay` `Partition` only worked on cdc series connectors for now , except TiDB-CDC
+    `Delay` `EventTime` only worked on cdc series connectors for now , except TiDB-CDC
 
 ## Options
 
