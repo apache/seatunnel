@@ -23,9 +23,8 @@ import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisParameters;
 import org.apache.seatunnel.format.json.JsonDeserializationSchema;
 
 public class KeyValueMergerFactory {
-    private KeyValueMergerFactory(){
-    }
-    
+    private KeyValueMergerFactory() {}
+
     public static KeyValueMerger createMerger(
             DeserializationSchema<?> schema, RedisParameters redisParameters) {
         if (schema == null) {

@@ -19,25 +19,25 @@ Used to read data from Redis.
 
 ## Options
 
-| name                | type   | required              | default value |
-|---------------------| ------ |-----------------------| ------------- |
-| host                | string | yes when mode=single  | -             |
-| port                | int    | no                    | 6379          |
-| keys                | string | yes                   | -             |
-| read_key_enabled    | boolean| no                    | false         |
-| key_field_name      | string | no                    | key           |
-| batch_size          | int    | yes                   | 10            |
-| data_type           | string | yes                   | -             |
-| user                | string | no                    | -             |
-| auth                | string | no                    | -             |
-| db_num              | int    | no                    | 0             |
-| mode                | string | no                    | single        |
-| hash_key_parse_mode | string | no                    | all           |
-| nodes               | list   | yes when mode=cluster | -             |
-| schema              | config | yes when format=json  | -             |
-| format              | string | no                    | json          |
-| single_field_name   | string | no                    | -             |
-| common-options      |        | no                    | -             |
+| name                | type   | required               | default value |
+|---------------------| ------ |------------------------| ------------- |
+| host                | string | yes when mode=single   | -             |
+| port                | int    | no                     | 6379          |
+| keys                | string | yes                    | -             |
+| read_key_enabled    | boolean| no                     | false         |
+| key_field_name      | string | no                     | key           |
+| batch_size          | int    | yes                    | 10            |
+| data_type           | string | yes                    | -             |
+| user                | string | no                     | -             |
+| auth                | string | no                     | -             |
+| db_num              | int    | no                     | 0             |
+| mode                | string | no                     | single        |
+| hash_key_parse_mode | string | no                     | all           |
+| nodes               | list   | yes when mode=cluster  | -             |
+| schema              | config | yes when format=json   | -             |
+| format              | string | no                     | json          |
+| single_field_name   | string | yes when data_type=key | -             |
+| common-options      |        | no                     | -             |
 
 ### host [string]
 
