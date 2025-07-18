@@ -21,7 +21,7 @@
 CREATE DATABASE IF NOT EXISTS `shop`;
 use shop;
 
-alter table products change add_column2 add_column int default 1 not null;
+alter table products change add_column2 add_column int default 1 ;
 delete from products where id < 155;
 insert into products
 values (155,"scooter","Small 2-wheel scooter",3.14,1),

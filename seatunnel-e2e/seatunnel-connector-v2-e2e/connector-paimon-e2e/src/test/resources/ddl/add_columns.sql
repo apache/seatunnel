@@ -33,7 +33,7 @@ VALUES (110,"scooter","Small 2-wheel scooter",3.14),
 update products set name = 'dailai' where id = 101;
 delete from products where id = 102;
 
-alter table products ADD COLUMN add_column1 varchar(64) not null default 'yy',ADD COLUMN add_column2 int not null default 1;
+alter table products ADD COLUMN add_column1 varchar(64)  default 'yy',ADD COLUMN add_column2 int  default 1;
 
 update products set name = 'dailai' where id = 110;
 insert into products
@@ -48,8 +48,8 @@ values (119,"scooter","Small 2-wheel scooter",3.14,'xx',1),
        (127,"spare tire","24 inch spare tire",22.2,'xx',9);
 delete from products where id = 118;
 
-alter table products ADD COLUMN add_column3 float not null default 1.1;
-alter table products ADD COLUMN add_column4 timestamp not null default current_timestamp();
+alter table products ADD COLUMN add_column3 float  default 1.1;
+alter table products ADD COLUMN add_column4 timestamp  default current_timestamp();
 
 delete from products where id = 113;
 insert into products
@@ -64,7 +64,7 @@ values (128,"scooter","Small 2-wheel scooter",3.14,'xx',1,1.1,'2023-02-02 09:09:
        (136,"spare tire","24 inch spare tire",22.2,'xx',9,1.9,'2023-02-02 09:09:09');
 update products set name = 'dailai' where id = 135;
 
-alter table products ADD COLUMN add_column6 varchar(64) not null default 'ff' after id;
+alter table products ADD COLUMN add_column6 varchar(64)  default 'ff' after id;
 delete from products where id = 115;
 insert into products
 values (173,'tt',"scooter","Small 2-wheel scooter",3.14,'xx',1,1.1,'2023-02-02 09:09:09'),
@@ -78,5 +78,5 @@ values (173,'tt',"scooter","Small 2-wheel scooter",3.14,'xx',1,1.1,'2023-02-02 0
        (181,'tt',"spare tire","24 inch spare tire",22.2,'xx',9,1.9,'2023-02-02 09:09:09');
 
 -- add column for irrelevant table
-ALTER TABLE products_on_hand ADD COLUMN add_column5 varchar(64) not null default 'yy';
+ALTER TABLE products_on_hand ADD COLUMN add_column5 varchar(64)  default 'yy';
 

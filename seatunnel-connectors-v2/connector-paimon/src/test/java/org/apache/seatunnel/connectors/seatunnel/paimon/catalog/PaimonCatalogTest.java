@@ -249,7 +249,7 @@ public class PaimonCatalogTest {
                                         .contains(
                                                 PaimonConnectorErrorCode
                                                         .WRITE_PROPS_BUCKET_KEY_ERROR
-                                                        .getCode()));
+                                                        .getDescription()));
                         throw e;
                     }
                 });
