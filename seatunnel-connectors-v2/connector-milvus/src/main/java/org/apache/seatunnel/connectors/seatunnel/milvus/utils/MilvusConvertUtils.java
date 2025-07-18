@@ -221,6 +221,7 @@ public class MilvusConvertUtils {
                 options,
                 new ArrayList<>(),
                 schema.getDescription(),
+                tableId.getCatalogName(),
                 metadataBuilder.build());
     }
 

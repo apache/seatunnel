@@ -97,23 +97,6 @@ public final class CatalogTable implements Serializable {
             Map<String, String> options,
             List<String> partitionKeys,
             String comment,
-            MetadataSchema metadata) {
-        return new CatalogTable(
-                tableId,
-                tableSchema,
-                options,
-                partitionKeys,
-                comment,
-                tableId.getCatalogName(),
-                metadata);
-    }
-
-    public static CatalogTable of(
-            TableIdentifier tableId,
-            TableSchema tableSchema,
-            Map<String, String> options,
-            List<String> partitionKeys,
-            String comment,
             String catalogName,
             MetadataSchema metadata) {
         return new CatalogTable(
