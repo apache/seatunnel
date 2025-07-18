@@ -166,72 +166,72 @@ public class CheckpointStorageTest extends AbstractSeaTunnelServerTest {
         server.getSeaTunnelConfig().getEngineConfig().setCheckpointConfig(checkpointConfig);
 
         // access checkpoint storage counter
-        AtomicInteger accessCnt = new AtomicInteger(0);
+        AtomicInteger accessCounter = new AtomicInteger(0);
         CheckpointStorage checkpointStorage =
                 new CheckpointStorage() {
                     @Override
                     public String storeCheckPoint(PipelineState pipelineState)
                             throws CheckpointStorageException {
-                        accessCnt.incrementAndGet();
+                        accessCounter.incrementAndGet();
                         return "";
                     }
 
                     @Override
                     public void asyncStoreCheckPoint(PipelineState pipelineState)
                             throws CheckpointStorageException {
-                        accessCnt.incrementAndGet();
+                        accessCounter.incrementAndGet();
                     }
 
                     @Override
                     public List<PipelineState> getAllCheckpoints(String s)
                             throws CheckpointStorageException {
-                        accessCnt.incrementAndGet();
+                        accessCounter.incrementAndGet();
                         return Collections.emptyList();
                     }
 
                     @Override
                     public List<PipelineState> getLatestCheckpoint(String s)
                             throws CheckpointStorageException {
-                        accessCnt.incrementAndGet();
+                        accessCounter.incrementAndGet();
                         return Collections.emptyList();
                     }
 
                     @Override
                     public PipelineState getLatestCheckpointByJobIdAndPipelineId(
                             String s, String s1) throws CheckpointStorageException {
-                        accessCnt.incrementAndGet();
+                        accessCounter.incrementAndGet();
                         return null;
                     }
 
                     @Override
                     public List<PipelineState> getCheckpointsByJobIdAndPipelineId(
                             String s, String s1) throws CheckpointStorageException {
-                        accessCnt.incrementAndGet();
+                        accessCounter.incrementAndGet();
                         return Collections.emptyList();
                     }
 
                     @Override
                     public void deleteCheckpoint(String s) {
-                        accessCnt.incrementAndGet();
+                        accessCounter.incrementAndGet();
                     }
 
                     @Override
                     public PipelineState getCheckpoint(String s, String s1, String s2)
                             throws CheckpointStorageException {
-                        accessCnt.incrementAndGet();
+                        accessCounter.incrementAndGet();
                         return null;
                     }
 
                     @Override
                     public void deleteCheckpoint(String s, String s1, String s2)
                             throws CheckpointStorageException {
-                        accessCnt.incrementAndGet();
+                        accessCounter.incrementAndGet();
                     }
 
                     @Override
                     public void deleteCheckpoint(String s, String s1, List<String> list)
                             throws CheckpointStorageException {
-                        accessCnt.incrementAndGet();
+                        accessCounter.incrementAndGet();
                     }
                 };
 
@@ -248,6 +248,6 @@ public class CheckpointStorageTest extends AbstractSeaTunnelServerTest {
                                         JobStatus.FINISHED));
 
         checkpointStorage.getAllCheckpoints(String.valueOf(jobId));
-        Assertions.assertEquals(1, accessCnt.get());
+        Assertions.assertEquals(1, accessCounter.get());
     }
 }
