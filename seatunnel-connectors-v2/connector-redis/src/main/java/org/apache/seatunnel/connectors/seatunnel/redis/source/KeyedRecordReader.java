@@ -95,7 +95,9 @@ public class KeyedRecordReader extends RedisRecordReader {
                 try {
                     node = JsonUtils.parseObject(text);
                 } catch (Exception e) {
-                    // do nothing
+                    log.debug(
+                            "Looks like JSON, but failed to parse JSON object from text value: {}",
+                            node.textValue());
                 }
             }
         }
