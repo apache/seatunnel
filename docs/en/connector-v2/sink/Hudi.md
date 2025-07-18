@@ -76,7 +76,7 @@ Note: When this configuration corresponds to a single table, you can flatten the
 
 ### precombine_field [string]
 
-`precombine_field` The precombine field of hudi table.its are used in preCombining before actual write. 
+`precombine_field` The precombine field of hudi table, its are used in preCombining before actual write. 
 
 ### index_type [string]
 
