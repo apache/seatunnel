@@ -20,11 +20,12 @@ Used to read data from Redis.
 ## Options
 
 | name                | type   | required              | default value |
-| ------------------- | ------ |-----------------------| ------------- |
+|---------------------| ------ |-----------------------| ------------- |
 | host                | string | yes when mode=single  | -             |
 | port                | int    | no                    | 6379          |
 | keys                | string | yes                   | -             |
 | read_key_enabled    | boolean| no                    | false         |
+| key_field_name      | string | no                    | key           |
 | batch_size          | int    | yes                   | 10            |
 | data_type           | string | yes                   | -             |
 | user                | string | no                    | -             |
@@ -138,6 +139,13 @@ schema {
 }
 ```
 
+### key_field_name [string]
+
+Specifies the field name to store the Redis key in the output record  when `read_key_enabled = true`.
+
+If not set, the default field name `key` will be used.
+
+This field is useful when the default `key` field name conflicts with existing schema fields, or if a more descriptive name is preferred.
 
 ### batch_size [int]
 

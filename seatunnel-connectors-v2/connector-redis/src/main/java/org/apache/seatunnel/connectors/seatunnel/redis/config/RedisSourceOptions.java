@@ -47,4 +47,10 @@ public class RedisSourceOptions extends RedisBaseOptions {
                     .withDescription(
                             "Specifies the field name to be used in the output row when reading single-value types "
                                     + "(e.g., string, list, zset).");
+
+    public static final Option<String> KEY_FIELD_NAME =
+            Options.key("key_field_name")
+                    .stringType()
+                    .defaultValue("key")
+                    .withDescription("The value of key you want to write to redis.");
 }

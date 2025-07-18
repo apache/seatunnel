@@ -57,6 +57,7 @@ public class RedisParameters implements Serializable {
     private RedisSourceOptions.HashKeyParseMode hashKeyParseMode;
     private Boolean readKeyEnabled;
     private String singleFieldName;
+    private String keyFieldName;
     private List<String> redisNodes = Collections.emptyList();
     private long expire = RedisSinkOptions.EXPIRE.defaultValue();
     private int batchSize = RedisBaseOptions.BATCH_SIZE.defaultValue();
@@ -82,6 +83,8 @@ public class RedisParameters implements Serializable {
         if (config.getOptional(RedisSourceOptions.SINGLE_FIELD_NAME).isPresent()) {
             this.singleFieldName = config.get(RedisSourceOptions.SINGLE_FIELD_NAME);
         }
+        // set key name
+        this.keyFieldName = config.get(RedisSourceOptions.KEY_FIELD_NAME);
         // set expire
         this.expire = config.get(RedisSinkOptions.EXPIRE);
         // set auth

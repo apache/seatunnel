@@ -88,6 +88,20 @@ public class KeyedRecordReader extends RedisRecordReader {
 
     private void pollValueToNext(String key, String value, Collector<SeaTunnelRow> output)
             throws IOException {
+        ObjectNode objectNode = getObjectNode(key, value);
+
+        String json = objectNode.toString();
+        if (deserializationSchema == null) {
+            throw CommonError.illegalArgument(
+                    "deserializationSchema is null",
+                    "Redis source requires a deserialization schema to parse the JSON record with key: "
+                            + key);
+        } else {
+            deserializationSchema.deserialize(json.getBytes(), output);
+        }
+    }
+
+    private ObjectNode getObjectNode(String key, String value) {
         JsonNode node = JsonUtils.toJsonNode(value);
         if (node.isTextual()) {
             String text = node.textValue();
@@ -109,17 +123,8 @@ public class KeyedRecordReader extends RedisRecordReader {
             objectNode = JsonUtils.createObjectNode();
             setValueInNode(objectNode, node);
         }
-        objectNode.put("key", key);
-
-        String json = objectNode.toString();
-        if (deserializationSchema == null) {
-            throw CommonError.illegalArgument(
-                    "deserializationSchema is null",
-                    "Redis source requires a deserialization schema to parse the JSON record with key: "
-                            + key);
-        } else {
-            deserializationSchema.deserialize(json.getBytes(), output);
-        }
+        objectNode.put(redisParameters.getKeyFieldName(), key);
+        return objectNode;
     }
 
     private boolean looksLikeJson(String text) {

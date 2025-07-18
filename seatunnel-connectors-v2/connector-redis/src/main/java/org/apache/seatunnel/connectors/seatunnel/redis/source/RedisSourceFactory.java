@@ -56,7 +56,8 @@ public class RedisSourceFactory implements TableSourceFactory {
                         RedisBaseOptions.USER,
                         RedisBaseOptions.KEY,
                         RedisSourceOptions.READ_KEY_ENABLED,
-                        RedisSourceOptions.SINGLE_FIELD_NAME)
+                        RedisSourceOptions.SINGLE_FIELD_NAME,
+                        RedisSourceOptions.KEY_FIELD_NAME)
                 .conditional(
                         RedisBaseOptions.MODE,
                         RedisBaseOptions.RedisMode.CLUSTER,
