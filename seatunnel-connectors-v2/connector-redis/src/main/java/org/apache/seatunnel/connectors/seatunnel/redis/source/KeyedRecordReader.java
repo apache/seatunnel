@@ -17,16 +17,13 @@
 
 package org.apache.seatunnel.connectors.seatunnel.redis.source;
 
-import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
-import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode;
-
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.exception.CommonError;
-import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.connectors.seatunnel.redis.client.RedisClient;
 import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisParameters;
+import org.apache.seatunnel.connectors.seatunnel.redis.util.KeyValueMerger;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -37,11 +34,15 @@ import java.util.Set;
 @Slf4j
 public class KeyedRecordReader extends RedisRecordReader {
 
+    private final KeyValueMerger keyValueMerger;
+
     public KeyedRecordReader(
             RedisParameters redisParameters,
             DeserializationSchema<SeaTunnelRow> deserializationSchema,
-            RedisClient redisClient) {
+            RedisClient redisClient,
+            KeyValueMerger keyValueMerger) {
         super(redisParameters, deserializationSchema, redisClient);
+        this.keyValueMerger = keyValueMerger;
     }
 
     @Override
@@ -88,59 +89,14 @@ public class KeyedRecordReader extends RedisRecordReader {
 
     private void pollValueToNext(String key, String value, Collector<SeaTunnelRow> output)
             throws IOException {
-        ObjectNode objectNode = getObjectNode(key, value);
-
-        String json = objectNode.toString();
         if (deserializationSchema == null) {
             throw CommonError.illegalArgument(
                     "deserializationSchema is null",
-                    "Redis source requires a deserialization schema to parse the JSON record with key: "
+                    "Redis source requires a deserialization schema to parse the record with key: "
                             + key);
         } else {
-            deserializationSchema.deserialize(json.getBytes(), output);
-        }
-    }
-
-    private ObjectNode getObjectNode(String key, String value) {
-        JsonNode node = JsonUtils.toJsonNode(value);
-        if (node.isTextual()) {
-            String text = node.textValue();
-            if (looksLikeJson(text)) {
-                try {
-                    node = JsonUtils.parseObject(text);
-                } catch (Exception e) {
-                    log.debug(
-                            "Looks like JSON, but failed to parse JSON object from text value: {}",
-                            node.textValue());
-                }
-            }
-        }
-
-        ObjectNode objectNode;
-        if (node instanceof ObjectNode) {
-            objectNode = (ObjectNode) node;
-        } else {
-            objectNode = JsonUtils.createObjectNode();
-            setValueInNode(objectNode, node);
-        }
-        objectNode.put(redisParameters.getKeyFieldName(), key);
-        return objectNode;
-    }
-
-    private boolean looksLikeJson(String text) {
-        return text != null
-                && ((text.startsWith("{") && text.endsWith("}"))
-                        || (text.startsWith("[") && text.endsWith("]")));
-    }
-
-    private void setValueInNode(ObjectNode objectNode, JsonNode node) {
-        String singleFieldName = redisParameters.getSingleFieldName();
-        if (singleFieldName != null) {
-            objectNode.set(singleFieldName, node);
-        } else {
-            throw CommonError.illegalArgument(
-                    "singleFieldName is null",
-                    "You must specify 'single_field_name' when using a single value with key-enabled schema.");
+            String parsed = keyValueMerger.parseWithKey(key, value);
+            deserializationSchema.deserialize(parsed.getBytes(), output);
         }
     }
 }

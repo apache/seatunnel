@@ -27,6 +27,7 @@ import org.apache.seatunnel.connectors.seatunnel.redis.client.RedisClient;
 import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisDataType;
 import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisParameters;
 import org.apache.seatunnel.connectors.seatunnel.redis.exception.RedisConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.redis.util.KeyValueMergerFactory;
 
 import org.apache.commons.collections4.CollectionUtils;
 
@@ -92,7 +93,12 @@ public class RedisSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
         RedisRecordReader redisRecordReader;
         if (Boolean.TRUE.equals(redisParameters.getReadKeyEnabled())) {
             redisRecordReader =
-                    new KeyedRecordReader(redisParameters, deserializationSchema, redisClient);
+                    new KeyedRecordReader(
+                            redisParameters,
+                            deserializationSchema,
+                            redisClient,
+                            KeyValueMergerFactory.createMerger(
+                                    deserializationSchema, redisParameters));
         } else {
             redisRecordReader =
                     new UnKeyedRecordReader(redisParameters, deserializationSchema, redisClient);
