@@ -49,8 +49,8 @@ import java.time.LocalTime;
 import java.util.Locale;
 import java.util.Optional;
 
-import static com.teradata.jdbc.jdbc_4.ifsupport.EscapeConstants.INTERVAL;
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.psql.PostgresTypeConverter.PG_INET;
+import static org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.psql.PostgresTypeConverter.PG_INTERVAL;
 
 public class PostgresJdbcRowConverter extends AbstractJdbcRowConverter {
 
@@ -190,9 +190,9 @@ public class PostgresJdbcRowConverter extends AbstractJdbcRowConverter {
                             inetObject.setType(PG_INET);
                             inetObject.setValue(String.valueOf(row.getField(fieldIndex)));
                             statement.setObject(statementIndex, inetObject);
-                        } else if (INTERVAL.equalsIgnoreCase(sourceType)) {
+                        } else if (PG_INTERVAL.equalsIgnoreCase(sourceType)) {
                             PGobject inetObject = new PGobject();
-                            inetObject.setType(INTERVAL);
+                            inetObject.setType(PG_INTERVAL);
                             inetObject.setValue(String.valueOf(row.getField(fieldIndex)));
                             statement.setObject(statementIndex, inetObject);
                         } else {
