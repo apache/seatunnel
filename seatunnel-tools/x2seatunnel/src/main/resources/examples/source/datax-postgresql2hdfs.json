@@ -1,0 +1,40 @@
+{
+  "job": {
+    "setting": {
+      "speed": {
+        "channel": 1
+      }
+    },
+    "content": [
+      {
+        "reader": {
+          "name": "postgresqlreader",
+          "parameter": {
+            "username": "postgres",
+            "password": "postgres123",
+            "connection": [
+              {
+                "jdbcUrl": ["jdbc:postgresql://localhost:5432/analytics"],
+                "table": ["user_behavior"]
+              }
+            ],
+            "column": ["user_id", "action", "timestamp", "ip_address", "user_agent"],
+            "splitPk": "user_id"
+          }
+        },
+        "writer": {
+          "name": "hdfswriter",
+          "parameter": {
+            "defaultFS": "hdfs://localhost:9000",
+            "path": "/analytics/user_behavior",
+            "fileName": "behavior_export",
+            "fileType": "text",
+            "fieldDelimiter": ",",
+            "writeMode": "overwrite",
+            "compress": "gzip"
+          }
+        }
+      }
+    ]
+  }
+}

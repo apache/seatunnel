@@ -1,0 +1,75 @@
+{
+  "job": {
+    "setting": {
+      "speed": {
+        "channel": 4
+      }
+    },
+    "content": [
+      {
+        "reader": {
+          "name": "sqlserverreader",
+          "parameter": {
+            "username": "sa",
+            "password": "Password123",
+            "column": [
+              "OrderID",
+              "CustomerID",
+              "OrderDate",
+              "TotalAmount",
+              "Status"
+            ],
+            "connection": [
+              {
+                "table": [
+                  "Orders"
+                ],
+                "jdbcUrl": [
+                  "jdbc:sqlserver://localhost:1433;DatabaseName=SalesDB;encrypt=false"
+                ]
+              }
+            ],
+            "fetchSize": 1500,
+            "where": "TotalAmount > 1000",
+            "splitPk": "OrderID"
+          }
+        },
+        "writer": {
+          "name": "hdfswriter",
+          "parameter": {
+            "defaultFS": "hdfs://localhost:9000",
+            "fileType": "text",
+            "path": "/user/seatunnel/output/sqlserver_data",
+            "fileName": "orders",
+            "column": [
+              {
+                "name": "OrderID",
+                "type": "bigint"
+              },
+              {
+                "name": "CustomerID",
+                "type": "string"
+              },
+              {
+                "name": "OrderDate",
+                "type": "date"
+              },
+              {
+                "name": "TotalAmount",
+                "type": "decimal"
+              },
+              {
+                "name": "Status",
+                "type": "string"
+              }
+            ],
+            "writeMode": "overwrite",
+            "fieldDelimiter": "\t",
+            "compress": "snappy",
+            "encoding": "UTF-8"
+          }
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,75 @@
+{
+  "job": {
+    "setting": {
+      "speed": {
+        "channel": 2
+      }
+    },
+    "content": [
+      {
+        "reader": {
+          "name": "postgresqlreader",
+          "parameter": {
+            "username": "postgres",
+            "password": "password",
+            "column": [
+              "id",
+              "product_name",
+              "price",
+              "category",
+              "created_date"
+            ],
+            "connection": [
+              {
+                "table": [
+                  "products"
+                ],
+                "jdbcUrl": [
+                  "jdbc:postgresql://localhost:5432/ecommerce?useSSL=false"
+                ]
+              }
+            ],
+            "fetchSize": 2000,
+            "where": "price > 100",
+            "splitPk": "id"
+          }
+        },
+        "writer": {
+          "name": "hdfswriter",
+          "parameter": {
+            "defaultFS": "hdfs://localhost:9000",
+            "fileType": "text",
+            "path": "/user/seatunnel/output/postgresql_data",
+            "fileName": "products",
+            "column": [
+              {
+                "name": "id",
+                "type": "bigint"
+              },
+              {
+                "name": "product_name",
+                "type": "string"
+              },
+              {
+                "name": "price",
+                "type": "decimal"
+              },
+              {
+                "name": "category",
+                "type": "string"
+              },
+              {
+                "name": "created_date",
+                "type": "date"
+              }
+            ],
+            "writeMode": "overwrite",
+            "fieldDelimiter": ",",
+            "compress": "gzip",
+            "encoding": "UTF-8"
+          }
+        }
+      }
+    ]
+  }
+}

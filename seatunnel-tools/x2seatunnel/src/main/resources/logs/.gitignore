@@ -1,0 +1,10 @@
+# Git ignore file for X2SeaTunnel
+# Ignore log files but keep the logs directory structure
+logs/*.log
+logs/*.log.*
+logs/*.gz
+!logs/.gitkeep
+
+# Ignore Maven build artifacts
+target/
+dependency-reduced-pom.xml

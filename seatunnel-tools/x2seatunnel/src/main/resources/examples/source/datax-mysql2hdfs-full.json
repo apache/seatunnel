@@ -1,0 +1,75 @@
+{
+  "job": {
+    "setting": {
+      "speed": {
+        "channel": 3
+      }
+    },
+    "content": [
+      {
+        "reader": {
+          "name": "mysqlreader",
+          "parameter": {
+            "username": "root",
+            "password": "password",
+            "column": [
+              "id",
+              "name",
+              "age",
+              "email",
+              "created_at"
+            ],
+            "splitPk": "id",
+            "connection": [
+              {
+                "table": [
+                  "user_info"
+                ],
+                "jdbcUrl": [
+                  "jdbc:mysql://localhost:3306/test_db?useSSL=false&serverTimezone=UTC"
+                ]
+              }
+            ],
+            "fetchSize": 1000,
+            "where": "age > 18"
+          }
+        },
+        "writer": {
+          "name": "hdfswriter",
+          "parameter": {
+            "defaultFS": "hdfs://localhost:9000",
+            "fileType": "text",
+            "path": "/user/seatunnel/output/mysql_data",
+            "fileName": "user_info",
+            "column": [
+              {
+                "name": "id",
+                "type": "bigint"
+              },
+              {
+                "name": "name",
+                "type": "string"
+              },
+              {
+                "name": "age",
+                "type": "int"
+              },
+              {
+                "name": "email",
+                "type": "string"
+              },
+              {
+                "name": "created_at",
+                "type": "timestamp"
+              }
+            ],
+            "writeMode": "append",
+            "fieldDelimiter": "\t",
+            "compress": "none",
+            "encoding": "UTF-8"
+          }
+        }
+      }
+    ]
+  }
+}

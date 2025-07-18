@@ -1,0 +1,40 @@
+{
+  "job": {
+    "setting": {
+      "speed": {
+        "channel": 2
+      }
+    },
+    "content": [
+      {
+        "reader": {
+          "name": "mysqlreader",
+          "parameter": {
+            "username": "root",
+            "password": "123456",
+            "connection": [
+              {
+                "jdbcUrl": ["jdbc:mysql://localhost:3306/warehouse"],
+                "table": ["products"]
+              }
+            ],
+            "column": ["id", "name", "category", "price", "stock", "updated_time"],
+            "splitPk": "id"
+          }
+        },
+        "writer": {
+          "name": "hivewriter",
+          "parameter": {
+            "metastoreUris": "thrift://localhost:9083",
+            "database": "warehouse",
+            "fileName": "products_export",
+            "path": "/user/hive/warehouse/warehouse.db/products_export",
+            "fileType": "orc",
+            "compress": "snappy",
+            "writeMode": "append"
+          }
+        }
+      }
+    ]
+  }
+}

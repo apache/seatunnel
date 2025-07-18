@@ -1,0 +1,179 @@
+# X2SeaTunnel 模板映射配置
+# 定义DataX连接器类型到SeaTunnel模板文件的映射关系
+# 创建时间: 2025年7月9日
+# 版本: 1.0
+
+# DataX连接器映射配置
+datax:
+  # DataX Reader到Source模板的映射
+  source_mappings:
+    # 数据库类Reader - 统一JDBC模板策略（所有JDBC数据库使用同一模板）
+    "mysqlreader": "datax/sources/jdbc-source.conf"           # 统一JDBC模板
+    "postgresqlreader": "datax/sources/jdbc-source.conf"      # 统一JDBC模板
+    "oraclereader": "datax/sources/jdbc-source.conf"          # 统一JDBC模板  
+    "sqlserverreader": "datax/sources/jdbc-source.conf"       # 统一JDBC模板
+    "clickhousereader": "datax/sources/jdbc-source.conf"      # 统一JDBC模板
+    "db2reader": "datax/sources/jdbc-source.conf"             # 统一JDBC模板
+    "sybasereader": "datax/sources/jdbc-source.conf"          # 统一JDBC模板
+    
+    # 文件类Reader
+    "txtfilereader": "datax/sources/localfile-source.conf"
+    "hdfsreader": "datax/sources/hdfs-source.conf"
+    "ftpreader": "datax/sources/ftp-source.conf"
+    
+    # 流式Reader
+    "streamreader": "datax/sources/stream-source.conf"
+    
+    # NoSQL Reader
+    "mongodbReader": "datax/sources/mongodb-source.conf"
+    "hbasereader": "datax/sources/hbase-source.conf"
+    
+  # DataX Writer到Sink模板的映射  
+  sink_mappings:
+    # 数据库类Writer
+    "mysqlwriter": "datax/sinks/jdbc-sink.conf"
+    "postgresqlwriter": "datax/sinks/jdbc-sink.conf"
+    "oraclewriter": "datax/sinks/jdbc-sink.conf"
+    "sqlserverwriter": "datax/sinks/jdbc-sink.conf"
+    
+    # 文件类Writer
+    "txtfilewriter": "datax/sinks/localfile-sink.conf"
+    "hdfswriter": "datax/sinks/hdfs-sink.conf"
+    "ftpwriter": "datax/sinks/ftp-sink.conf"
+    
+    # 大数据Writer
+    "hivewriter": "datax/sinks/hive-sink.conf"
+    "clickhousewriter": "datax/sinks/clickhouse-sink.conf"
+    "doriswriter": "datax/sinks/doris-sink.conf"
+    "elasticsearchwriter": "datax/sinks/elasticsearch-sink.conf"
+    
+    # NoSQL Writer
+    "mongodbwriter": "datax/sinks/mongodb-sink.conf"
+    "hbasewriter": "datax/sinks/hbase-sink.conf"
+    
+  # 预定义组合模板映射（优先级更高）
+  combination_mappings:
+    # MySQL相关组合
+    "mysqlreader->hdfswriter": "datax/mysql-to-hdfs.conf"
+    "mysqlreader->hivewriter": "datax/mysql-to-hive.conf"
+    "mysqlreader->txtfilewriter": "datax/mysql-to-localfile.conf"
+    
+    # PostgreSQL相关组合
+    "postgresqlreader->hivewriter": "datax/postgresql-to-hive.conf"
+    "postgresqlreader->hdfswriter": "datax/postgresql-to-hdfs.conf"
+    
+    # HDFS相关组合
+    "hdfsreader->mysqlwriter": "datax/hdfs-to-mysql.conf"
+    "hdfsreader->hivewriter": "datax/hdfs-to-hive.conf"
+    
+  # 环境配置映射
+  env_mappings:
+    # 根据任务类型选择环境配置
+    "batch": "datax/env/batch-env.conf"
+    "streaming": "datax/env/streaming-env.conf"
+    "realtime": "datax/env/realtime-env.conf"
+    
+  # 默认模板配置
+  defaults:
+    source_template: "datax/sources/jdbc-source.conf"
+    sink_template: "datax/sinks/localfile-sink.conf"
+    env_template: "datax/env/batch-env.conf"
+    fallback_template: "common/any-to-hive.conf"
+
+# 字段映射转换器配置
+transformers:
+  # JDBC驱动映射
+  jdbc_driver_mapper:
+    "mysql": "com.mysql.cj.jdbc.Driver"
+    "postgresql": "org.postgresql.Driver" 
+    "oracle": "oracle.jdbc.driver.OracleDriver"
+    "sqlserver": "com.microsoft.sqlserver.jdbc.SQLServerDriver"
+    "clickhouse": "com.clickhouse.jdbc.ClickHouseDriver"
+    "db2": "com.ibm.db2.jcc.DB2Driver"
+    "sybase": "com.sybase.jdbc4.jdbc.SybDriver"
+    
+  # 数据库端口映射
+  default_port_mapper:
+    "mysql": "3306"
+    "postgresql": "5432"
+    "oracle": "1521"
+    "sqlserver": "1433"
+    "clickhouse": "8123"
+    "db2": "50000"
+    "sybase": "5000"
+    
+  # 数据库特定配置
+  jdbc_properties_mapper:
+    "mysql": "useSSL=false&characterEncoding=utf8&serverTimezone=GMT%2B8"
+    "postgresql": "stringtype=unspecified&prepareThreshold=0"
+    "oracle": "oracle.net.CONNECT_TIMEOUT=60000"
+    "sqlserver": "encrypt=false&trustServerCertificate=true"
+    
+  # 文件格式映射
+  file_type_mapper:
+    "txt": "text"
+    "csv": "csv"
+    "json": "json"
+    "orc": "orc"
+    "parquet": "parquet"
+    "avro": "avro"
+    
+  # 压缩格式映射
+  compress_mapper:
+    "gzip": "gzip"
+    "bzip2": "bzip2"
+    "snappy": "snappy"
+    "lzo": "lzo"
+    "lz4": "lz4"
+    "zstd": "zstd"
+    
+  # 写入模式映射
+  write_mode_mapper:
+    "append": "append"
+    "overwrite": "overwrite"
+    "truncate": "overwrite"
+    "insert": "append"
+    "replace": "overwrite"
+    
+  # 是否启用压缩映射
+  enable_compress_mapper:
+    "": "false"
+    "none": "false"
+    "gzip": "true"
+    "bzip2": "true"
+    "snappy": "true"
+    "lzo": "true"
+    "lz4": "true"
+    "zstd": "true"
+    
+  # SQL构建器 - 根据DataX配置智能生成SQL
+  sql_builder:
+    # 这个转换器会调用Java代码来动态构建SQL
+    # 输入：DataX配置的原始值（为空时触发）
+    # 输出：根据table、column、where构建的SQL
+    "": "@dynamic_sql_builder"
+
+# 模板选择策略配置
+selection_strategy:
+  # 优先级顺序：combination_mappings > source_mappings + sink_mappings > defaults
+  priority_order:
+    - "combination_mappings"
+    - "component_mappings" 
+    - "defaults"
+    
+  # 是否启用回退到通用模板
+  enable_fallback: true
+  
+  # 严格模式：如果没有匹配的模板则报错
+  strict_mode: false
+  
+  # 模板验证：检查模板文件是否存在
+  validate_template_exists: true
+
+# 配置文件版本和兼容性
+metadata:
+  version: "1.0"
+  compatible_versions: ["1.0"]
+  created_at: "2025-07-09"
+  updated_at: "2025-07-09"
+  description: "DataX to SeaTunnel template mapping configuration"

@@ -1,0 +1,75 @@
+{
+  "job": {
+    "setting": {
+      "speed": {
+        "channel": 2
+      }
+    },
+    "content": [
+      {
+        "reader": {
+          "name": "oraclereader",
+          "parameter": {
+            "username": "scott",
+            "password": "tiger",
+            "column": [
+              "EMP_ID",
+              "EMP_NAME",
+              "DEPARTMENT",
+              "SALARY",
+              "HIRE_DATE"
+            ],
+            "connection": [
+              {
+                "table": [
+                  "EMPLOYEES"
+                ],
+                "jdbcUrl": [
+                  "jdbc:oracle:thin:@localhost:1521:orcl"
+                ]
+              }
+            ],
+            "fetchSize": 500,
+            "where": "SALARY > 5000",
+            "splitPk": "EMP_ID"
+          }
+        },
+        "writer": {
+          "name": "hdfswriter",
+          "parameter": {
+            "defaultFS": "hdfs://localhost:9000",
+            "fileType": "text",
+            "path": "/user/seatunnel/output/oracle_data",
+            "fileName": "employees",
+            "column": [
+              {
+                "name": "EMP_ID",
+                "type": "bigint"
+              },
+              {
+                "name": "EMP_NAME",
+                "type": "string"
+              },
+              {
+                "name": "DEPARTMENT",
+                "type": "string"
+              },
+              {
+                "name": "SALARY",
+                "type": "decimal"
+              },
+              {
+                "name": "HIRE_DATE",
+                "type": "date"
+              }
+            ],
+            "writeMode": "append",
+            "fieldDelimiter": "|",
+            "compress": "none",
+            "encoding": "UTF-8"
+          }
+        }
+      }
+    ]
+  }
+}

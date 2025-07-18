@@ -1,0 +1,40 @@
+{
+  "job": {
+    "setting": {
+      "speed": {
+        "channel": 3
+      }
+    },
+    "content": [
+      {
+        "reader": {
+          "name": "mysqlreader",
+          "parameter": {
+            "username": "root",
+            "password": "1234567",
+            "connection": [
+              {
+                "jdbcUrl": ["jdbc:mysql://localhost:3306/testdb"],
+                "table": ["users"]
+              }
+            ],
+            "column": ["id", "name", "age", "email", "create_time"],
+            "splitPk": "id"
+          }
+        },
+        "writer": {
+          "name": "hdfswriter",
+          "parameter": {
+            "defaultFS": "hdfs://localhost:9000",
+            "path": "/data/users",
+            "fileName": "users_export",
+            "fileType": "text",
+            "fieldDelimiter": "\t",
+            "writeMode": "append",
+            "compress": "gzip"
+          }
+        }
+      }
+    ]
+  }
+}

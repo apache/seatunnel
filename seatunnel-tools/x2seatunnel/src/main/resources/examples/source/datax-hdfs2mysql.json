@@ -1,0 +1,38 @@
+{
+  "job": {
+    "setting": {
+      "speed": {
+        "channel": 4
+      }
+    },
+    "content": [
+      {
+        "reader": {
+          "name": "hdfsreader",
+          "parameter": {
+            "defaultFS": "hdfs://localhost:9000",
+            "path": "/data/logs/*.txt",
+            "fileType": "text",
+            "fieldDelimiter": "\t",
+            "column": ["timestamp", "level", "service", "message"]
+          }
+        },
+        "writer": {
+          "name": "mysqlwriter",
+          "parameter": {
+            "username": "root",
+            "password": "123456",
+            "connection": [
+              {
+                "jdbcUrl": "jdbc:mysql://localhost:3306/logs",
+                "table": ["system_logs"]
+              }
+            ],
+            "column": ["log_time", "log_level", "service_name", "log_message"],
+            "writeMode": "insert"
+          }
+        }
+      }
+    ]
+  }
+}

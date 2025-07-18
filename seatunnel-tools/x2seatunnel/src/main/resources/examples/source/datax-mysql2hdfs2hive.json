@@ -1,0 +1,94 @@
+{
+  "job": {
+    "setting": {
+      "speed": {
+        "channel": 3
+      },
+      "errorLimit": {
+        "record": 0,
+        "percentage": 0.02
+      }
+    },
+    "content": [
+      {
+        "reader": {
+          "name": "mysqlreader",
+          "parameter": {
+            "username": " ==",
+            "password": "a+ ==",
+            "column": [
+              "`id`",
+              "`mainid`",
+              "`detail_signdate`",
+              "`detail_scheduletime`",
+              "`detail_attestatus`",
+              "`detail_signtime`",
+              "`detail_signtype`"
+            ],
+            "where": "",
+            "splitPk": "",
+            "connection": [
+              {
+                "table": [
+                  "formtable_main_41_dt1"
+                ],
+                "jdbcUrl": [
+                  "jdbc:mysql://10.0.0.0:3306/ecology?useUnicode=true&characterEncoding=UTF-8&useSSL=false"
+                ]
+              }
+            ]
+          }
+        },
+        "writer": {
+          "name": "hdfswriter",
+          "parameter": {
+            "defaultFS": "hdfs://nameservice1",
+            "fileType": "PAR",
+            "compress": "SNAPPY",
+            "path": "/user/hive/warehouse/ecology_ods.db/ods_formtable_main/${partition}",
+            "fileName": "ods_formtable_main",
+            "writeMode": "append",
+            "fieldDelimiter": "|",
+            "hadoopConfig": {
+              "dfs.nameservices": "nameservice1",
+              "dfs.ha.namenodes.nameservice1": "namenode1,namenode2",
+              "dfs.namenode.rpc-address.nameservice1.namenode1": "bi-prod-cdh-0001:8020",
+              "dfs.namenode.rpc-address.nameservice1.namenode2": "bi-prod-cdh-0002:8020",
+              "dfs.client.failover.proxy.provider.nameservice1": "org.apache.hadoop.hdfs.server.namenode.ha.ConfiguredFailoverProxyProvider"
+            },
+            "column": [
+              {
+                "name": "id",
+                "type": "int"
+              },
+              {
+                "name": "mainid",
+                "type": "int"
+              },
+              {
+                "name": "detail_signdate",
+                "type": "string"
+              },
+              {
+                "name": "detail_scheduletime",
+                "type": "string"
+              },
+              {
+                "name": "detail_attestatus",
+                "type": "string"
+              },
+              {
+                "name": "detail_signtime",
+                "type": "string"
+              },
+              {
+                "name": "detail_signtype",
+                "type": "int"
+              }
+            ]
+          }
+        }
+      }
+    ]
+  }
+}
