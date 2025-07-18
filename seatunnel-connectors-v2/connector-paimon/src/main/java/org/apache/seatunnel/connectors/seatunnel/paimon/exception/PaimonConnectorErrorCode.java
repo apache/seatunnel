@@ -29,7 +29,9 @@ public enum PaimonConnectorErrorCode implements SeaTunnelErrorCode {
     LOAD_CATALOG("PAIMON-06", "Load catalog failed"),
     GET_FILED_FAILED("PAIMON-07", "Get field failed"),
     UNSUPPORTED_PRIMARY_DATATYPE("PAIMON-08", "Paimon primary key datatype is unsupported"),
-    WRITE_PROPS_BUCKET_KEY_ERROR("PAIMON-09", "ErrorCode:[API-03], ErrorDescription:[Catalog initialize failed] - An unexpected error occurred"),
+    WRITE_PROPS_BUCKET_KEY_ERROR(
+            "PAIMON-09",
+            "ErrorCode:[API-03], ErrorDescription:[Catalog initialize failed] - An unexpected error occurred"),
     NON_PRIMARY_KEY_CHECK_ERROR(
             "PAIMON-10", "Primary keys should be empty when nonPrimaryKey is true"),
     DECIMAL_PRECISION_INCOMPATIBLE("PAIMON-11", "decimal type precision is incompatible. ");
