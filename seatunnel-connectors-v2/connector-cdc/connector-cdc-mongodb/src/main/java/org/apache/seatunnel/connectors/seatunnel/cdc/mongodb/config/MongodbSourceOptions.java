@@ -234,6 +234,12 @@ public class MongodbSourceOptions extends SourceOptions {
                             "The amount of time to wait before checking for new results on the change stream."
                                     + "Defaults: 1000.");
 
+    public static final Option<Boolean> EXACTLY_ONCE =
+            Options.key("exactly_once")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription("Enable exactly once semantic.");
+
     public static final Option<Integer> HEARTBEAT_INTERVAL_MILLIS =
             Options.key("heartbeat.interval.ms")
                     .intType()

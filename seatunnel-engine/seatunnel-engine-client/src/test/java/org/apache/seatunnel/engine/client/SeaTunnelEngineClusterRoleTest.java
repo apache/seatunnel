@@ -222,6 +222,9 @@ public class SeaTunnelEngineClusterRoleTest {
                             () ->
                                     Assertions.assertEquals(
                                             clientJobProxy.getJobStatus(), JobStatus.PENDING));
+            String status = seaTunnelClient.listJobStatus();
+            status.contains("PENDING");
+
             // start two worker nodes
             SeaTunnelServerStarter.createWorkerHazelcastInstance(seaTunnelConfig);
             SeaTunnelServerStarter.createWorkerHazelcastInstance(seaTunnelConfig);
@@ -284,6 +287,8 @@ public class SeaTunnelEngineClusterRoleTest {
                             () ->
                                     Assertions.assertEquals(
                                             clientJobProxy.getJobStatus(), JobStatus.PENDING));
+            String status = seaTunnelClient.listJobStatus();
+            status.contains("PENDING");
 
             // Cancel the job in the pending state
             seaTunnelClient.getJobClient().cancelJob(clientJobProxy.getJobId());

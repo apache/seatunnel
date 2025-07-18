@@ -20,6 +20,8 @@ package org.apache.seatunnel.connectors.seatunnel.paimon.config;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.sink.DataSaveMode;
 import org.apache.seatunnel.api.sink.SchemaSaveMode;
+import org.apache.seatunnel.connectors.seatunnel.paimon.exception.PaimonConnectorErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.paimon.exception.PaimonConnectorException;
 
 import org.apache.paimon.CoreOptions;
 
@@ -38,6 +40,7 @@ public class PaimonSinkConfig extends PaimonConfig {
     private final DataSaveMode dataSaveMode;
     private final CoreOptions.ChangelogProducer changelogProducer;
     private final String changelogTmpPath;
+    private final Boolean nonPrimaryKey;
     private final List<String> primaryKeys;
     private final List<String> partitionKeys;
     private final Map<String, String> writeProps;
@@ -46,7 +49,18 @@ public class PaimonSinkConfig extends PaimonConfig {
         super(readonlyConfig);
         this.schemaSaveMode = readonlyConfig.get(PaimonSinkOptions.SCHEMA_SAVE_MODE);
         this.dataSaveMode = readonlyConfig.get(PaimonSinkOptions.DATA_SAVE_MODE);
+        this.nonPrimaryKey = readonlyConfig.get(PaimonSinkOptions.NON_PRIMARY_KEY);
         this.primaryKeys = stringToList(readonlyConfig.get(PaimonSinkOptions.PRIMARY_KEYS), ",");
+        if (this.nonPrimaryKey && !this.primaryKeys.isEmpty()) {
+            String message =
+                    String.format(
+                            " `%s` will is empty when `%s`is true, but is %s",
+                            PaimonSinkOptions.PRIMARY_KEYS.key(),
+                            PaimonSinkOptions.NON_PRIMARY_KEY.key(),
+                            this.primaryKeys);
+            throw new PaimonConnectorException(
+                    PaimonConnectorErrorCode.NON_PRIMARY_KEY_CHECK_ERROR, message);
+        }
         this.partitionKeys =
                 stringToList(readonlyConfig.get(PaimonSinkOptions.PARTITION_KEYS), ",");
         this.writeProps = readonlyConfig.get(PaimonSinkOptions.WRITE_PROPS);

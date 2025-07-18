@@ -168,10 +168,8 @@ public class FlinkExecution implements TaskExecution {
                                     }
                                 })
                         .collect(Collectors.toList());
-        jarDependencies.forEach(
-                url ->
-                        FlinkAbstractPluginExecuteProcessor.ADD_URL_TO_CLASSLOADER.accept(
-                                Thread.currentThread().getContextClassLoader(), url));
+        FlinkAbstractPluginExecuteProcessor.ADD_URL_TO_CLASSLOADER.accept(
+                Thread.currentThread().getContextClassLoader(), jarDependencies);
         jarPaths.addAll(jarDependencies);
     }
 

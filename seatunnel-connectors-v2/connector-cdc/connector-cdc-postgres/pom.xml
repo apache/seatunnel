@@ -59,6 +59,7 @@
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
             <artifactId>connector-cdc-base</artifactId>
+            <scope>provided</scope>
         </dependency>
 
         <dependency>
@@ -68,6 +69,14 @@
                 <exclusion>
                     <groupId>org.postgresql</groupId>
                     <artifactId>postgresql</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>io.debezium</groupId>
+                    <artifactId>debezium-core</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>io.debezium</groupId>
+                    <artifactId>debezium-api</artifactId>
                 </exclusion>
             </exclusions>
         </dependency>

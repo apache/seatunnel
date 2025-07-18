@@ -48,8 +48,9 @@ public class FakeSourceReader implements SourceReader<SeaTunnelRow, FakeSourceSp
     private volatile long latestTimestamp = 0;
 
     public FakeSourceReader(
-            SourceReader.Context context,
-            MultipleTableFakeSourceConfig multipleTableFakeSourceConfig) {
+            Context context,
+            MultipleTableFakeSourceConfig multipleTableFakeSourceConfig,
+            String jobId) {
         this.context = context;
         this.multipleTableFakeSourceConfig = multipleTableFakeSourceConfig;
         this.fakeDataGeneratorMap =
@@ -62,7 +63,7 @@ public class FakeSourceReader implements SourceReader<SeaTunnelRow, FakeSourceSp
                                                         .getTableId()
                                                         .toTablePath()
                                                         .toString(),
-                                        FakeDataGenerator::new));
+                                        fakeConfig -> new FakeDataGenerator(fakeConfig, jobId)));
         this.minSplitReadInterval =
                 multipleTableFakeSourceConfig.getFakeConfigs().stream()
                         .map(FakeConfig::getSplitReadInterval)
