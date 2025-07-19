@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.redis.source;
 
+import com.google.auto.service.AutoService;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.options.SinkConnectorCommonOptions;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
@@ -26,10 +27,7 @@ import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisBaseOptions;
-import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisDataType;
 import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisSourceOptions;
-
-import com.google.auto.service.AutoService;
 
 import java.io.Serializable;
 
@@ -68,10 +66,6 @@ public class RedisSourceFactory implements TableSourceFactory {
                         RedisBaseOptions.RedisMode.SINGLE,
                         RedisBaseOptions.HOST,
                         RedisBaseOptions.PORT)
-                .conditional(
-                        RedisBaseOptions.DATA_TYPE,
-                        RedisDataType.KEY,
-                        RedisSourceOptions.SINGLE_FIELD_NAME)
                 .bundled(RedisBaseOptions.FORMAT, SinkConnectorCommonOptions.SCHEMA)
                 .build();
     }
