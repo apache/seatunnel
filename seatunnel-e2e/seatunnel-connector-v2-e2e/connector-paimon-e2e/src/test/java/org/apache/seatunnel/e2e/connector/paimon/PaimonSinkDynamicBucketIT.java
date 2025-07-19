@@ -17,21 +17,13 @@
 
 package org.apache.seatunnel.e2e.connector.paimon;
 
-import org.apache.seatunnel.api.configuration.ReadonlyConfig;
-import org.apache.seatunnel.common.utils.SeaTunnelException;
-import org.apache.seatunnel.connectors.seatunnel.paimon.catalog.PaimonCatalogLoader;
-import org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonSinkConfig;
-import org.apache.seatunnel.e2e.common.TestResource;
-import org.apache.seatunnel.e2e.common.TestSuiteBase;
-import org.apache.seatunnel.e2e.common.container.EngineType;
-import org.apache.seatunnel.e2e.common.container.TestContainer;
-import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
-
+import lombok.extern.slf4j.Slf4j;
 import org.apache.paimon.catalog.Catalog;
 import org.apache.paimon.catalog.CatalogContext;
 import org.apache.paimon.catalog.CatalogFactory;
 import org.apache.paimon.catalog.Identifier;
 import org.apache.paimon.crosspartition.IndexBootstrap;
+import org.apache.paimon.data.GenericRow;
 import org.apache.paimon.data.InternalArray;
 import org.apache.paimon.data.InternalMap;
 import org.apache.paimon.data.InternalRow;
@@ -41,29 +33,51 @@ import org.apache.paimon.table.FileStoreTable;
 import org.apache.paimon.table.Table;
 import org.apache.paimon.table.sink.RowPartitionKeyExtractor;
 import org.apache.paimon.table.source.ReadBuilder;
+import org.apache.paimon.table.source.Split;
 import org.apache.paimon.table.source.TableRead;
 import org.apache.paimon.table.source.TableScan;
 import org.apache.paimon.types.DataField;
+import org.apache.paimon.types.DataType;
+import org.apache.paimon.types.RowType;
 import org.apache.paimon.types.TimestampType;
-
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.common.utils.SeaTunnelException;
+import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.testutils.MySqlContainer;
+import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.testutils.MySqlVersion;
+import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.testutils.UniqueDatabase;
+import org.apache.seatunnel.connectors.seatunnel.paimon.catalog.PaimonCatalogLoader;
+import org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonSinkConfig;
+import org.apache.seatunnel.e2e.common.TestResource;
+import org.apache.seatunnel.e2e.common.TestSuiteBase;
+import org.apache.seatunnel.e2e.common.container.EngineType;
+import org.apache.seatunnel.e2e.common.container.TestContainer;
+import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.Container;
-
-import lombok.extern.slf4j.Slf4j;
+import org.testcontainers.containers.output.Slf4jLogConsumer;
+import org.testcontainers.lifecycle.Startables;
+import org.testcontainers.utility.DockerLoggerFactory;
 
 import java.io.IOException;
+import java.sql.Connection;
+import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
 import static org.apache.seatunnel.e2e.common.container.AbstractTestContainer.HOST_VOLUME_MOUNT_PATH;
 import static org.awaitility.Awaitility.given;
@@ -81,7 +95,37 @@ public class PaimonSinkDynamicBucketIT extends TestSuiteBase implements TestReso
 
     private Map<String, Object> PAIMON_SINK_PROPERTIES;
 
-    @BeforeEach
+    private static final String MYSQL_DATABASE = "bucket";
+    private static final String SOURCE_TABLE = "test_dynamic_bucket";
+
+    private static final String MYSQL_HOST = "mysql_e2e";
+    private static final String MYSQL_USER_NAME = "mysqluser";
+    private static final String MYSQL_USER_PASSWORD = "mysqlpw";
+
+    private static final MySqlContainer MYSQL_CONTAINER = createMySqlContainer(MySqlVersion.V8_0);
+
+    private final UniqueDatabase bucketDatabase =
+            new UniqueDatabase(
+                    MYSQL_CONTAINER, MYSQL_DATABASE, "mysqluser", "mysqlpw", MYSQL_DATABASE);
+
+    private static MySqlContainer createMySqlContainer(MySqlVersion version) {
+        return new MySqlContainer(version)
+                .withConfigurationOverride("docker/server-gtids/my.cnf")
+                .withSetupSQL("docker/setup.sql")
+                .withNetwork(NETWORK)
+                .withNetworkAliases(MYSQL_HOST)
+                .withDatabaseName(MYSQL_DATABASE)
+                .withUsername(MYSQL_USER_NAME)
+                .withPassword(MYSQL_USER_PASSWORD)
+                .withLogConsumer(
+                        new Slf4jLogConsumer(DockerLoggerFactory.getLogger("mysql-docker-image")));
+    }
+
+    private String driverUrl() {
+        return "https://repo1.maven.org/maven2/com/mysql/mysql-connector-j/8.0.32/mysql-connector-j-8.0.32.jar";
+    }
+
+    @BeforeAll
     @Override
     public void startUp() throws Exception {
         this.isWindows =
@@ -102,11 +146,20 @@ public class PaimonSinkDynamicBucketIT extends TestSuiteBase implements TestReso
         paimonHadoopConf.put("dfs.client.use.datanode.hostname", "true");
         map.put("paimon.hadoop.conf", paimonHadoopConf);
         this.PAIMON_SINK_PROPERTIES = map;
+        log.info("The second stage: Starting Mysql containers...");
+        Startables.deepStart(Stream.of(MYSQL_CONTAINER)).join();
+        log.info("Mysql Containers are started");
+        bucketDatabase.createAndInitialize();
+        log.info("Mysql ddl execution is complete");
     }
 
     @AfterEach
     @Override
-    public void tearDown() throws Exception {}
+    public void tearDown() throws Exception {
+        if (MYSQL_CONTAINER != null) {
+            MYSQL_CONTAINER.close();
+        }
+    }
 
     @TestTemplate
     public void testWriteAndReadPaimon(TestContainer container)
@@ -119,6 +172,93 @@ public class PaimonSinkDynamicBucketIT extends TestSuiteBase implements TestReso
         Container.ExecResult readProjectionResult =
                 container.executeJob("/paimon_projection_to_assert.conf");
         Assertions.assertEquals(0, readProjectionResult.getExitCode());
+    }
+
+    @TestTemplate
+    public void testWriteForDifferentParallelism(TestContainer container)
+            throws IOException, InterruptedException, SQLException {
+        // parallelism = 3
+        Container.ExecResult textWriteResult1 =
+                container.executeJob("/mysql_jdbc_to_dynamic_bucket_paimon_case1.conf");
+        Assertions.assertEquals(0, textWriteResult1.getExitCode());
+        try (Connection jdbcConnection = bucketDatabase.getJdbcConnection();
+                Statement statement = jdbcConnection.createStatement()) {
+            statement.executeUpdate(
+                    "update bucket.test_dynamic_bucket set version = '2' where id <= 102");
+            statement.executeUpdate(
+                    "update bucket.test_dynamic_bucket set version = '3' where id = 105");
+            statement.executeUpdate(
+                    "update bucket.test_dynamic_bucket set version = '4' where id = 109");
+        }
+        // parallelism = 1
+        Container.ExecResult textWriteResult2 =
+                container.executeJob("/mysql_jdbc_to_dynamic_bucket_paimon_case2.conf");
+        Assertions.assertEquals(0, textWriteResult2.getExitCode());
+        List<String> parallelism_1 = vertifyData(container);
+
+        // parallelism = 2
+        Container.ExecResult textWriteResult3 =
+                container.executeJob("/mysql_jdbc_to_dynamic_bucket_paimon_case3.conf");
+        Assertions.assertEquals(0, textWriteResult3.getExitCode());
+
+        List<String> parallelism_2 = vertifyData(container);
+        Assertions.assertEquals(parallelism_1, parallelism_2);
+    }
+
+    private List<String> vertifyData(TestContainer container) {
+        List<InternalRow> actual = new ArrayList<>();
+        given().ignoreExceptions()
+                .await()
+                .atLeast(100L, TimeUnit.MILLISECONDS)
+                .atMost(30L, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () -> {
+                            FileStoreTable table =
+                                    (FileStoreTable) getTable("mysql_to_paimon", SOURCE_TABLE);
+                            RowType rowType = table.rowType();
+                            String[] fields = new String[] {"id", "version"};
+                            int[] projection = getProjection(fields, rowType);
+                            DataType[] projectionDataTypes =
+                                    getProjectionFieldTypes(fields, rowType);
+                            ReadBuilder readBuilder =
+                                    table.newReadBuilder().withProjection(projection);
+                            List<Split> splits = readBuilder.newScan().plan().splits();
+
+                            try (RecordReader<InternalRow> reader =
+                                    readBuilder.newRead().executeFilter().createReader(splits)) {
+
+                                reader.forEachRemaining(
+                                        row -> {
+                                            GenericRow binaryRow =
+                                                    new GenericRow(projectionDataTypes.length);
+                                            for (int i = 0; i < projectionDataTypes.length; i++) {
+                                                DataType type = projectionDataTypes[i];
+                                                binaryRow.setField(
+                                                        i,
+                                                        InternalRow.createFieldGetter(type, i)
+                                                                .getFieldOrNull(row));
+                                            }
+                                            actual.add(binaryRow);
+                                        });
+                            }
+                            Assertions.assertEquals(10, actual.size());
+                        });
+        return actual.stream().map(Object::toString).collect(Collectors.toList());
+    }
+
+    private static DataType[] getProjectionFieldTypes(String[] projection, RowType rowType) {
+        List<String> fieldNames = rowType.getFieldNames();
+        Map<String, Integer> collect =
+                IntStream.range(0, fieldNames.size())
+                        .boxed()
+                        .collect(Collectors.toMap(fieldNames::get, Function.identity()));
+        return Arrays.stream(projection)
+                .map(field -> rowType.getTypeAt(collect.get(field)))
+                .toArray(DataType[]::new);
+    }
+
+    private int[] getProjection(String[] projection, RowType rowType) {
+        return Arrays.stream(projection).mapToInt(rowType::getFieldIndex).toArray();
     }
 
     @TestTemplate
@@ -227,8 +367,11 @@ public class PaimonSinkDynamicBucketIT extends TestSuiteBase implements TestReso
     public void testCDCParallelismBucketCount(TestContainer container)
             throws IOException, InterruptedException {
         Container.ExecResult textWriteResult =
-                container.executeJob("/fake_to_dynamic_bucket_paimon_case4.conf");
+                container.executeJob("/fake_to_dynamic_bucket_paimon_case8.conf");
         Assertions.assertEquals(0, textWriteResult.getExitCode());
+        Container.ExecResult textWriteResult1 =
+                container.executeJob("/fake_to_dynamic_bucket_paimon_case4.conf");
+        Assertions.assertEquals(0, textWriteResult1.getExitCode());
         given().ignoreExceptions()
                 .await()
                 .atLeast(100L, TimeUnit.MILLISECONDS)
@@ -258,7 +401,7 @@ public class PaimonSinkDynamicBucketIT extends TestSuiteBase implements TestReso
                                                             Map.Entry::getValue,
                                                             HashMap::new,
                                                             Collectors.counting()));
-                            Assertions.assertEquals(4, bucketCountMap.size());
+                            Assertions.assertEquals(2, bucketCountMap.size());
                             Assertions.assertEquals(5, bucketCountMap.get(0));
                         });
     }
@@ -392,7 +535,7 @@ public class PaimonSinkDynamicBucketIT extends TestSuiteBase implements TestReso
                                         intArray,
                                         row.getString(2),
                                         row.getBoolean(3),
-                                        row.getShort(4),
+                                        row.getByte(4),
                                         row.getShort(5),
                                         row.getInt(6),
                                         row.getLong(7),
