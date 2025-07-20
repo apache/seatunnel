@@ -31,6 +31,8 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.Abstrac
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.utils.JdbcFieldTypeUtils;
 
+import org.apache.commons.lang3.math.NumberUtils;
+
 import org.postgresql.util.PGobject;
 
 import javax.annotation.Nullable;
@@ -193,7 +195,14 @@ public class PostgresJdbcRowConverter extends AbstractJdbcRowConverter {
                         } else if (PG_INTERVAL.equalsIgnoreCase(sourceType)) {
                             PGobject inetObject = new PGobject();
                             inetObject.setType(PG_INTERVAL);
-                            inetObject.setValue(String.valueOf(row.getField(fieldIndex)));
+                            // Postgres interval types are converted to microseconds (long type) in
+                            // Debezium, so if it is an number, it is given microseconds by default.
+                            String intervalVal = String.valueOf(row.getField(fieldIndex));
+                            String formattedInterval =
+                                    NumberUtils.isCreatable(intervalVal)
+                                            ? intervalVal + " microseconds"
+                                            : intervalVal;
+                            inetObject.setValue(formattedInterval);
                             statement.setObject(statementIndex, inetObject);
                         } else {
                             statement.setString(statementIndex, (String) row.getField(fieldIndex));
