@@ -139,6 +139,14 @@ public class IcebergSinkIT extends TestSuiteBase {
                         });
     }
 
+    @TestTemplate
+    public void testORCFileFormatWrite(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult textWriteResult =
+                container.executeJob("/iceberg/fake_to_orc_iceberg.conf");
+        Assertions.assertEquals(0, textWriteResult.getExitCode());
+    }
+
     private List<Record> loadIcebergTable() {
         List<Record> results = new ArrayList<>();
         Map<String, Object> configs = new HashMap<>();
