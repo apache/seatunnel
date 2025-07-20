@@ -107,4 +107,22 @@ public class EnvCommonOptions {
                     .mapType()
                     .noDefaultValue()
                     .withDescription("Define the worker where the job runs by tag");
+
+    public static Option<Bool> METALAKE_ENABLED =
+            Options.key("metalake_enabled")
+                    .boolType()
+                    .defaultValue(false)
+                    .withDescription("Whether to enable metalake");
+
+    public static Option<String> METALAKE_TYPE =
+            Options.key("metalake_type")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("Type of metalake implementation");
+
+    public static Option<Bool> METALAKE_URL =
+            Options.key("metalake_url")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("Metalake service URL, format: http://host:port/api/metalakes/{metalake_name}/catalogs/{catalog_name}");
 }
