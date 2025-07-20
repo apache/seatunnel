@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.redis.source;
 
-import com.google.auto.service.AutoService;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.options.SinkConnectorCommonOptions;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
@@ -28,6 +27,8 @@ import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisBaseOptions;
 import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisSourceOptions;
+
+import com.google.auto.service.AutoService;
 
 import java.io.Serializable;
 
