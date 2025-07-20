@@ -69,6 +69,7 @@ public class ClickhouseSourceConfig implements Serializable {
         builder.splitSize(config.get(ClickhouseSourceOptions.CLICKHOUSE_SPLIT_SIZE));
         builder.sql(config.get(ClickhouseSourceOptions.SQL));
         builder.clickhouseConfig(config.get(ClickhouseBaseOptions.CLICKHOUSE_CONFIG));
+        builder.serverTimeZone(config.get(ClickhouseBaseOptions.SERVER_TIME_ZONE));
         builder.isSqlStrategyRead(config.getOptional(ClickhouseSourceOptions.SQL).isPresent());
 
         return builder.build();
