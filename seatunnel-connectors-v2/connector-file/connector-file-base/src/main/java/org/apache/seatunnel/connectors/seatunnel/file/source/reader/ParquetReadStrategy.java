@@ -58,6 +58,8 @@ import org.apache.parquet.schema.Type;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.nio.ByteBuffer;
 import java.sql.Timestamp;
 import java.time.Instant;
@@ -70,6 +72,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
+
+import static org.apache.seatunnel.api.table.type.TypeUtil.canConvert;
 
 @Slf4j
 public class ParquetReadStrategy extends AbstractReadStrategy {
@@ -185,14 +189,31 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
                                         resolveObject(value, valueType)));
                 return dataMap;
             case BOOLEAN:
+                return Boolean.parseBoolean(field.toString());
             case INT:
+                return Integer.parseInt(field.toString());
             case BIGINT:
+                return Long.parseLong(field.toString());
             case FLOAT:
+                return Float.parseFloat(field.toString());
             case DOUBLE:
+                return Double.parseDouble(field.toString());
             case DECIMAL:
+                if (field instanceof Float || field instanceof Double) {
+                    DecimalType decimalType = (DecimalType) fieldType;
+                    return new BigDecimal(field.toString())
+                            .setScale(decimalType.getScale(), RoundingMode.HALF_UP);
+                }
+                return field;
             case DATE:
                 return field;
             case STRING:
+                if (field instanceof ByteBuffer) {
+                    ByteBuffer buffer = (ByteBuffer) field;
+                    byte[] bytes = new byte[buffer.remaining()];
+                    buffer.get(bytes, 0, bytes.length);
+                    return new String(bytes);
+                }
                 return field.toString();
             case TINYINT:
                 return Byte.parseByte(field.toString());
@@ -238,12 +259,18 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
 
     @Override
     public SeaTunnelRowType getSeaTunnelRowTypeInfo(String path) throws FileConnectorException {
-        return getSeaTunnelRowTypeInfo(TablePath.DEFAULT, path);
+        return getSeaTunnelRowTypeInfoWithUserConfigRowType(path, null);
     }
 
     @Override
     public SeaTunnelRowType getSeaTunnelRowTypeInfo(TablePath tablePath, String path)
             throws FileConnectorException {
+        return getSeaTunnelRowTypeInfoWithUserConfigRowType(path, null);
+    }
+
+    @Override
+    public SeaTunnelRowType getSeaTunnelRowTypeInfoWithUserConfigRowType(
+            String path, SeaTunnelRowType configRowType) throws FileConnectorException {
         ParquetMetadata metadata;
         try (ParquetFileReader reader =
                 hadoopFileSystemProxy.doWithHadoopAuth(
@@ -259,6 +286,7 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
             throw new FileConnectorException(
                     CommonErrorCodeDeprecated.READER_OPERATION_FAILED, errorMsg, e);
         }
+
         FileMetaData fileMetaData = metadata.getFileMetaData();
         MessageType originalSchema = fileMetaData.getSchema();
         if (readColumns.isEmpty()) {
@@ -270,62 +298,66 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
         SeaTunnelDataType<?>[] types = new SeaTunnelDataType[readColumns.size()];
         indexes = new int[readColumns.size()];
         buildColumnsWithErrorCheck(
-                tablePath,
+                TablePath.DEFAULT,
                 IntStream.range(0, readColumns.size()).iterator(),
                 i -> {
                     fields[i] = readColumns.get(i);
                     Type type = originalSchema.getType(fields[i]);
                     int fieldIndex = originalSchema.getFieldIndex(fields[i]);
                     indexes[i] = fieldIndex;
-                    types[i] = parquetType2SeaTunnelType(type, fields[i]);
+                    SeaTunnelDataType<?> configDataType =
+                            getConfigFieldType(configRowType, fields[i]);
+                    types[i] = parquetType2SeaTunnelType(type, configDataType, fields[i]);
                 });
+
         seaTunnelRowType = new SeaTunnelRowType(fields, types);
         seaTunnelRowTypeWithPartition = mergePartitionTypes(path, seaTunnelRowType);
         return getActualSeaTunnelRowTypeInfo();
     }
 
-    private SeaTunnelDataType<?> parquetType2SeaTunnelType(Type type, String name) {
+    private SeaTunnelDataType<?> parquetType2SeaTunnelType(
+            Type type, SeaTunnelDataType<?> configType, String name) {
         if (type.isPrimitive()) {
             switch (type.asPrimitiveType().getPrimitiveTypeName()) {
                 case INT32:
                     OriginalType originalType = type.asPrimitiveType().getOriginalType();
                     if (originalType == null) {
-                        return BasicType.INT_TYPE;
+                        return getFinalType(BasicType.INT_TYPE, configType);
                     }
                     switch (type.asPrimitiveType().getOriginalType()) {
                         case INT_8:
-                            return BasicType.BYTE_TYPE;
+                            return getFinalType(BasicType.BYTE_TYPE, configType);
                         case INT_16:
-                            return BasicType.SHORT_TYPE;
+                            return getFinalType(BasicType.SHORT_TYPE, configType);
                         case INT_32:
-                            return BasicType.INT_TYPE;
+                            return getFinalType(BasicType.INT_TYPE, configType);
                         case DATE:
-                            return LocalTimeType.LOCAL_DATE_TYPE;
+                            return getFinalType(LocalTimeType.LOCAL_DATE_TYPE, configType);
                         default:
                             throw CommonError.convertToSeaTunnelTypeError(
                                     PARQUET, type.toString(), name);
                     }
                 case INT64:
                     if (type.asPrimitiveType().getOriginalType() == OriginalType.TIMESTAMP_MILLIS) {
-                        return LocalTimeType.LOCAL_DATE_TIME_TYPE;
+                        return getFinalType(LocalTimeType.LOCAL_DATE_TIME_TYPE, configType);
                     }
-                    return BasicType.LONG_TYPE;
+                    return getFinalType(BasicType.LONG_TYPE, configType);
                 case INT96:
-                    return LocalTimeType.LOCAL_DATE_TIME_TYPE;
+                    return getFinalType(LocalTimeType.LOCAL_DATE_TIME_TYPE, configType);
                 case BINARY:
                     if (type.asPrimitiveType().getOriginalType() == null) {
-                        return PrimitiveByteArrayType.INSTANCE;
+                        return getFinalType(PrimitiveByteArrayType.INSTANCE, configType);
                     }
-                    return BasicType.STRING_TYPE;
+                    return getFinalType(BasicType.STRING_TYPE, configType);
                 case FLOAT:
-                    return BasicType.FLOAT_TYPE;
+                    return getFinalType(BasicType.FLOAT_TYPE, configType);
                 case DOUBLE:
-                    return BasicType.DOUBLE_TYPE;
+                    return getFinalType(BasicType.DOUBLE_TYPE, configType);
                 case BOOLEAN:
-                    return BasicType.BOOLEAN_TYPE;
+                    return getFinalType(BasicType.BOOLEAN_TYPE, configType);
                 case FIXED_LEN_BYTE_ARRAY:
                     if (type.getLogicalTypeAnnotation() == null) {
-                        return LocalTimeType.LOCAL_DATE_TIME_TYPE;
+                        return getFinalType(LocalTimeType.LOCAL_DATE_TIME_TYPE, configType);
                     }
                     String typeInfo =
                             type.getLogicalTypeAnnotation()
@@ -336,7 +368,8 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
                     String[] splits = typeInfo.split(",");
                     int precision = Integer.parseInt(splits[0]);
                     int scale = Integer.parseInt(splits[1]);
-                    return new DecimalType(precision, scale);
+                    DecimalType decimalType = new DecimalType(precision, scale);
+                    return getFinalType(decimalType, configType);
                 default:
                     throw CommonError.convertToSeaTunnelTypeError("Parquet", type.toString(), name);
             }
@@ -350,8 +383,15 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
                 SeaTunnelDataType<?>[] seaTunnelDataTypes = new SeaTunnelDataType<?>[fields.size()];
                 for (int i = 0; i < fields.size(); i++) {
                     Type fieldType = fields.get(i);
+                    SeaTunnelDataType<?> configDataType = null;
+                    if (configType instanceof SeaTunnelRowType) {
+                        SeaTunnelRowType configRowType = (SeaTunnelRowType) configType;
+                        if (configRowType.getFieldTypes().length > i) {
+                            configDataType = configRowType.getFieldType(i);
+                        }
+                    }
                     SeaTunnelDataType<?> seaTunnelDataType =
-                            parquetType2SeaTunnelType(fields.get(i), name);
+                            parquetType2SeaTunnelType(fields.get(i), configDataType, name);
                     fieldNames[i] = fieldType.getName();
                     seaTunnelDataTypes[i] = seaTunnelDataType;
                 }
@@ -360,11 +400,24 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
                 switch (logicalTypeAnnotation.toOriginalType()) {
                     case MAP:
                         GroupType groupType = type.asGroupType().getType(0).asGroupType();
-                        SeaTunnelDataType<?> keyType =
-                                parquetType2SeaTunnelType(groupType.getType(0), name);
-                        SeaTunnelDataType<?> valueType =
-                                parquetType2SeaTunnelType(groupType.getType(1), name);
-                        return new MapType<>(keyType, valueType);
+                        if (configType instanceof MapType) {
+                            SeaTunnelDataType<?> keyDataType =
+                                    ((MapType<?, ?>) configType).getKeyType();
+                            SeaTunnelDataType<?> valueDataType =
+                                    ((MapType<?, ?>) configType).getValueType();
+                            keyDataType =
+                                    parquetType2SeaTunnelType(
+                                            groupType.getType(0), keyDataType, name);
+                            valueDataType =
+                                    parquetType2SeaTunnelType(
+                                            groupType.getType(1), valueDataType, name);
+
+                            return new MapType<>(keyDataType, valueDataType);
+                        } else {
+                            return new MapType<>(
+                                    parquetType2SeaTunnelType(groupType.getType(0), null, name),
+                                    parquetType2SeaTunnelType(groupType.getType(1), null, name));
+                        }
                     case LIST:
                         Type elementType;
                         try {
@@ -373,7 +426,13 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
                             elementType = type.asGroupType().getType(0);
                         }
                         SeaTunnelDataType<?> fieldType =
-                                parquetType2SeaTunnelType(elementType, name);
+                                parquetType2SeaTunnelType(elementType, null, name);
+                        if (configType instanceof ArrayType) {
+                            SeaTunnelDataType<?> seaTunnelDataType =
+                                    ((ArrayType) configType).getElementType();
+                            fieldType =
+                                    parquetType2SeaTunnelType(elementType, seaTunnelDataType, name);
+                        }
                         switch (fieldType.getSqlType()) {
                             case STRING:
                                 return ArrayType.STRING_ARRAY_TYPE;
@@ -419,5 +478,25 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
             String errorMsg = String.format("Check parquet file [%s] failed", path);
             throw new FileConnectorException(FileConnectorErrorCode.FILE_TYPE_INVALID, errorMsg);
         }
+    }
+
+    private SeaTunnelDataType<?> getFinalType(
+            SeaTunnelDataType<?> fileType, SeaTunnelDataType<?> configType) {
+        if (configType == null) {
+            return fileType;
+        }
+        return canConvert(fileType, configType) ? configType : fileType;
+    }
+
+    private SeaTunnelDataType<?> getConfigFieldType(
+            SeaTunnelRowType configRowType, String fieldName) {
+
+        if (configRowType == null) {
+            return null;
+        }
+
+        int fieldIndex = Arrays.asList(configRowType.getFieldNames()).indexOf(fieldName);
+
+        return fieldIndex == -1 ? null : configRowType.getFieldType(fieldIndex);
     }
 }
