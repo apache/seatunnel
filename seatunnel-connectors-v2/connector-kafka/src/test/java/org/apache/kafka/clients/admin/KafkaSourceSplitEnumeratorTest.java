@@ -21,6 +21,7 @@ import org.apache.seatunnel.connectors.seatunnel.kafka.source.KafkaSourceSplit;
 import org.apache.seatunnel.connectors.seatunnel.kafka.source.KafkaSourceSplitEnumerator;
 
 import org.apache.kafka.common.KafkaFuture;
+import org.apache.kafka.common.Node;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.TopicPartitionInfo;
 
@@ -28,6 +29,8 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
+
+import com.google.common.collect.Lists;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -41,7 +44,8 @@ class KafkaSourceSplitEnumeratorTest {
 
     AdminClient adminClient = Mockito.mock(KafkaAdminClient.class);
     // prepare
-    TopicPartition partition = new TopicPartition("test", 0);
+    TopicPartition partition0 = new TopicPartition("test", 0);
+    TopicPartition partition2 = new TopicPartition("test", 2);
 
     @BeforeEach
     void init() {
@@ -54,31 +58,42 @@ class KafkaSourceSplitEnumeratorTest {
                                         KafkaFuture<ListOffsetsResult.ListOffsetsResultInfo>>() {
                                     {
                                         put(
-                                                partition,
+                                                partition0,
+                                                KafkaFuture.completedFuture(
+                                                        new ListOffsetsResult.ListOffsetsResultInfo(
+                                                                0, 0, Optional.of(0))));
+                                        put(
+                                                partition2,
                                                 KafkaFuture.completedFuture(
                                                         new ListOffsetsResult.ListOffsetsResultInfo(
                                                                 0, 0, Optional.of(0))));
                                     }
                                 }));
+
+        List<TopicPartitionInfo> mockTopicPartition = Lists.newArrayList();
+        TopicPartitionInfo topicPartitionWithLeader =
+                new TopicPartitionInfo(
+                        0,
+                        new Node(1, "127.0.0.1", 9092),
+                        Collections.emptyList(),
+                        Collections.emptyList());
+        TopicPartitionInfo topicPartitionInfoNoLeader =
+                new TopicPartitionInfo(2, null, Collections.emptyList(), Collections.emptyList());
+        mockTopicPartition.add(topicPartitionWithLeader);
+        mockTopicPartition.add(topicPartitionInfoNoLeader);
+
         Mockito.when(adminClient.describeTopics(Mockito.any(java.util.Collection.class)))
                 .thenReturn(
                         DescribeTopicsResult.ofTopicNames(
                                 new HashMap<String, KafkaFuture<TopicDescription>>() {
                                     {
                                         put(
-                                                partition.topic(),
+                                                partition0.topic(),
                                                 KafkaFuture.completedFuture(
                                                         new TopicDescription(
-                                                                partition.topic(),
+                                                                partition0.topic(),
                                                                 false,
-                                                                Collections.singletonList(
-                                                                        new TopicPartitionInfo(
-                                                                                0,
-                                                                                null,
-                                                                                Collections
-                                                                                        .emptyList(),
-                                                                                Collections
-                                                                                        .emptyList())))));
+                                                                mockTopicPartition)));
                                     }
                                 }));
     }
@@ -89,17 +104,17 @@ class KafkaSourceSplitEnumeratorTest {
         Map<TopicPartition, KafkaSourceSplit> assignedSplit =
                 new HashMap<TopicPartition, KafkaSourceSplit>() {
                     {
-                        put(partition, new KafkaSourceSplit(null, partition));
+                        put(partition0, new KafkaSourceSplit(null, partition0));
                     }
                 };
         Map<TopicPartition, KafkaSourceSplit> pendingSplit = new HashMap<>();
-        List<KafkaSourceSplit> splits = Arrays.asList(new KafkaSourceSplit(null, partition));
+        List<KafkaSourceSplit> splits = Arrays.asList(new KafkaSourceSplit(null, partition0));
         KafkaSourceSplitEnumerator enumerator =
                 new KafkaSourceSplitEnumerator(adminClient, pendingSplit, assignedSplit);
         enumerator.addSplitsBack(splits, 1);
         Assertions.assertTrue(pendingSplit.size() == splits.size());
-        Assertions.assertNull(assignedSplit.get(partition));
-        Assertions.assertTrue(pendingSplit.get(partition).getEndOffset() == 0);
+        Assertions.assertNull(assignedSplit.get(partition0));
+        Assertions.assertTrue(pendingSplit.get(partition0).getEndOffset() == 0);
     }
 
     @Test
@@ -108,18 +123,18 @@ class KafkaSourceSplitEnumeratorTest {
         Map<TopicPartition, KafkaSourceSplit> assignedSplit =
                 new HashMap<TopicPartition, KafkaSourceSplit>() {
                     {
-                        put(partition, new KafkaSourceSplit(null, partition));
+                        put(partition0, new KafkaSourceSplit(null, partition0));
                     }
                 };
         Map<TopicPartition, KafkaSourceSplit> pendingSplit = new HashMap<>();
         List<KafkaSourceSplit> splits =
-                Collections.singletonList(new KafkaSourceSplit(null, partition));
+                Collections.singletonList(new KafkaSourceSplit(null, partition0));
         KafkaSourceSplitEnumerator enumerator =
                 new KafkaSourceSplitEnumerator(adminClient, pendingSplit, assignedSplit, true);
         enumerator.addSplitsBack(splits, 1);
         Assertions.assertEquals(pendingSplit.size(), splits.size());
-        Assertions.assertNull(assignedSplit.get(partition));
-        Assertions.assertTrue(pendingSplit.get(partition).getEndOffset() == Long.MAX_VALUE);
+        Assertions.assertNull(assignedSplit.get(partition0));
+        Assertions.assertTrue(pendingSplit.get(partition0).getEndOffset() == Long.MAX_VALUE);
     }
 
     @Test
@@ -129,13 +144,29 @@ class KafkaSourceSplitEnumeratorTest {
                 new HashMap<TopicPartition, KafkaSourceSplit>();
         Map<TopicPartition, KafkaSourceSplit> pendingSplit = new HashMap<>();
         List<KafkaSourceSplit> splits =
-                Collections.singletonList(new KafkaSourceSplit(null, partition));
+                Collections.singletonList(new KafkaSourceSplit(null, partition0));
         KafkaSourceSplitEnumerator enumerator =
                 new KafkaSourceSplitEnumerator(adminClient, pendingSplit, assignedSplit, true);
         enumerator.fetchPendingPartitionSplit();
         Assertions.assertEquals(pendingSplit.size(), splits.size());
-        Assertions.assertNotNull(pendingSplit.get(partition));
-        Assertions.assertTrue(pendingSplit.get(partition).getEndOffset() == Long.MAX_VALUE);
+        Assertions.assertNotNull(pendingSplit.get(partition0));
+        Assertions.assertTrue(pendingSplit.get(partition0).getEndOffset() == Long.MAX_VALUE);
+    }
+
+    @Test
+    void addBatchSplits() throws ExecutionException, InterruptedException {
+        // test
+        Map<TopicPartition, KafkaSourceSplit> assignedSplit =
+                new HashMap<TopicPartition, KafkaSourceSplit>();
+        Map<TopicPartition, KafkaSourceSplit> pendingSplit = new HashMap<>();
+        KafkaSourceSplit kafkaSourceSplit0 = new KafkaSourceSplit(null, partition0);
+        KafkaSourceSplit kafkaSourceSplit2 = new KafkaSourceSplit(null, partition2);
+        List<KafkaSourceSplit> splits = Lists.newArrayList(kafkaSourceSplit0, kafkaSourceSplit2);
+        KafkaSourceSplitEnumerator enumerator =
+                new KafkaSourceSplitEnumerator(adminClient, pendingSplit, assignedSplit, false);
+        enumerator.fetchPendingPartitionSplit();
+        Assertions.assertEquals(pendingSplit.size(), splits.size());
+        Assertions.assertNotNull(pendingSplit.get(partition0));
     }
 
     @Test
@@ -144,13 +175,15 @@ class KafkaSourceSplitEnumeratorTest {
         Map<TopicPartition, KafkaSourceSplit> assignedSplit =
                 new HashMap<TopicPartition, KafkaSourceSplit>();
         Map<TopicPartition, KafkaSourceSplit> pendingSplit = new HashMap<>();
-        List<KafkaSourceSplit> splits =
-                Collections.singletonList(new KafkaSourceSplit(null, partition));
+
+        KafkaSourceSplit kafkaSourceSplit0 = new KafkaSourceSplit(null, partition0);
+        KafkaSourceSplit kafkaSourceSplit2 = new KafkaSourceSplit(null, partition2);
+        List<KafkaSourceSplit> splits = Lists.newArrayList(kafkaSourceSplit0, kafkaSourceSplit2);
         KafkaSourceSplitEnumerator enumerator =
                 new KafkaSourceSplitEnumerator(adminClient, pendingSplit, assignedSplit, false);
         enumerator.fetchPendingPartitionSplit();
         Assertions.assertEquals(pendingSplit.size(), splits.size());
-        Assertions.assertNotNull(pendingSplit.get(partition));
-        Assertions.assertTrue(pendingSplit.get(partition).getEndOffset() == 0);
+        Assertions.assertNotNull(pendingSplit.get(partition0));
+        Assertions.assertTrue(pendingSplit.get(partition0).getEndOffset() == 0);
     }
 }
