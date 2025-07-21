@@ -444,6 +444,10 @@ sink {
 
 只有在主键表并指定bucket = -1时才会生效
 
+> 注意: 
+> - 目前只支持普通动态桶模式(主键包含所以分区字段)。
+> - 在集群环境下运行时`parallelism`必须为`1`, 否则可能存在数据重复问题。
+
 #### 核心参数：[参考官网](https://paimon.apache.org/docs/master/primary-key-table/data-distribution/#dynamic-bucket)
 
 |               名称               |  类型  | 是否必须 |   默认值    |        描述        |

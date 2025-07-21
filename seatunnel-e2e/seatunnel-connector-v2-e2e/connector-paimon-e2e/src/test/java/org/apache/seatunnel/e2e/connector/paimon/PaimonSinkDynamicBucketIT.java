@@ -194,18 +194,18 @@ public class PaimonSinkDynamicBucketIT extends TestSuiteBase implements TestReso
         Container.ExecResult textWriteResult2 =
                 container.executeJob("/mysql_jdbc_to_dynamic_bucket_paimon_case2.conf");
         Assertions.assertEquals(0, textWriteResult2.getExitCode());
-        List<String> parallelism_1 = vertifyData(container);
+        List<String> parallelism_1 = verifyData(container);
 
         // parallelism = 2
         Container.ExecResult textWriteResult3 =
                 container.executeJob("/mysql_jdbc_to_dynamic_bucket_paimon_case3.conf");
         Assertions.assertEquals(0, textWriteResult3.getExitCode());
 
-        List<String> parallelism_2 = vertifyData(container);
+        List<String> parallelism_2 = verifyData(container);
         Assertions.assertEquals(parallelism_1, parallelism_2);
     }
 
-    private List<String> vertifyData(TestContainer container) {
+    private List<String> verifyData(TestContainer container) {
         List<InternalRow> actual = new ArrayList<>();
         given().ignoreExceptions()
                 .await()

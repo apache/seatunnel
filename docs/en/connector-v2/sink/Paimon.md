@@ -448,6 +448,10 @@ sink {
 
 Single dynamic bucket table with write props of paimon，operates on the primary key table and bucket is -1.
 
+> Notes:
+> - Currently only the ordinary dynamic bucket mode is supported (the primary key must include all partition fields).
+> - When running in a cluster environment, `parallelism` must be set to `1`; otherwise, data duplication may occur.
+
 #### core options
 
 Please [reference](https://paimon.apache.org/docs/master/primary-key-table/data-distribution/#dynamic-bucket)

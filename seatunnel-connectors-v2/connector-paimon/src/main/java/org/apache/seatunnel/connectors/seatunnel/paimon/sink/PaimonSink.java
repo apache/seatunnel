@@ -43,14 +43,11 @@ import org.apache.seatunnel.connectors.seatunnel.paimon.sink.state.PaimonSinkSta
 
 import org.apache.paimon.table.Table;
 
-import lombok.extern.slf4j.Slf4j;
-
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
-@Slf4j
 public class PaimonSink
         implements SeaTunnelSink<
                         SeaTunnelRow,

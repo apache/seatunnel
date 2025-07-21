@@ -156,7 +156,7 @@ public class PaimonSinkWriter
         // this time.
         if (BucketMode.GLOBAL_DYNAMIC == bucketMode) {
             throw new UnsupportedOperationException(
-                    "Cross Partitions Upsert Dynamic Bucket Mode is not sopported.");
+                    "Cross Partitions Upsert Dynamic Bucket Mode is not supported.");
         }
         this.dynamicBucket = BucketMode.DYNAMIC == bucketMode;
         int bucket = ((FileStoreTable) paimonTable).coreOptions().bucket();
