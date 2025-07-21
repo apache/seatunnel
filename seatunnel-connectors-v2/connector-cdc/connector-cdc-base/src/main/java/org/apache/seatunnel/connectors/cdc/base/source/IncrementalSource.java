@@ -100,8 +100,8 @@ public abstract class IncrementalSource<T, C extends SourceConfig>
     protected DebeziumDeserializationSchema<T> deserializationSchema;
 
     protected IncrementalSource(ReadonlyConfig options, List<CatalogTable> catalogTables) {
-        this.catalogTables = updateCatalogTableMetadata(catalogTables);
         this.readonlyConfig = options;
+        this.catalogTables = updateCatalogTableMetadata(catalogTables);
         this.startupConfig = getStartupConfig(readonlyConfig);
         this.stopConfig = getStopConfig(readonlyConfig);
         this.stopMode = stopConfig.getStopMode();

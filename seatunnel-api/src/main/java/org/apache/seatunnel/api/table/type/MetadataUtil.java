@@ -21,7 +21,6 @@ import org.apache.seatunnel.api.table.catalog.TablePath;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 import java.util.stream.Stream;
 
 import static org.apache.seatunnel.api.table.type.CommonOptions.DELAY;
