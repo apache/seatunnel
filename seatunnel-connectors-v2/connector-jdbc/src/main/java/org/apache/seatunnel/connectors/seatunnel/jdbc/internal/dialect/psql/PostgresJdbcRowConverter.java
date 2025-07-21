@@ -45,6 +45,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Time;
 import java.sql.Timestamp;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -195,14 +196,14 @@ public class PostgresJdbcRowConverter extends AbstractJdbcRowConverter {
                         } else if (PG_INTERVAL.equalsIgnoreCase(sourceType)) {
                             PGobject inetObject = new PGobject();
                             inetObject.setType(PG_INTERVAL);
-                            // Postgres interval types are converted to microseconds (long type) in
-                            // Debezium, so if it is an number, it is given microseconds by default.
                             String intervalVal = String.valueOf(row.getField(fieldIndex));
-                            String formattedInterval =
-                                    NumberUtils.isCreatable(intervalVal)
-                                            ? intervalVal + " microseconds"
-                                            : intervalVal;
-                            inetObject.setValue(formattedInterval);
+                            if (NumberUtils.isCreatable(intervalVal)) {
+                                // postgres interval types are converted to microseconds (long) in
+                                // Debezium, so if it is a number,
+                                // it is formatted as a postgres interval value.
+                                intervalVal = microsecondsToIntervalFormatVal(intervalVal);
+                            }
+                            inetObject.setValue(intervalVal);
                             statement.setObject(statementIndex, inetObject);
                         } else {
                             statement.setString(statementIndex, (String) row.getField(fieldIndex));
@@ -284,5 +285,22 @@ public class PostgresJdbcRowConverter extends AbstractJdbcRowConverter {
             }
         }
         return statement;
+    }
+
+    public String microsecondsToIntervalFormatVal(String intervalVal) {
+        Duration duration = Duration.ofNanos(Long.parseLong(intervalVal) * 1000);
+        int days = (int) duration.toDays();
+        duration = duration.minusDays(days);
+        int hours = (int) duration.toHours();
+        duration = duration.minusHours(hours);
+        int minutes = (int) duration.toMinutes();
+        duration = duration.minusMinutes(minutes);
+        int seconds = (int) duration.getSeconds();
+        StringBuilder sb = new StringBuilder();
+        if (days > 0) sb.append(days).append(" days ");
+        if (hours > 0) sb.append(hours).append(" hours ");
+        if (minutes > 0) sb.append(minutes).append(" minutes ");
+        if (seconds > 0) sb.append(seconds).append(" seconds");
+        return sb.toString().trim();
     }
 }

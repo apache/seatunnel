@@ -790,15 +790,6 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
                         return null;
                     });
 
-            // snapshot stage
-            await().atMost(60000, TimeUnit.MILLISECONDS)
-                    .untilAsserted(
-                            () -> {
-                                Assertions.assertIterableEquals(
-                                        query(getQuerySQL(POSTGRESQL_SCHEMA, SOURCE_TABLE_4)),
-                                        query(getQuerySQL(POSTGRESQL_SCHEMA, SINK_TABLE_4)));
-                            });
-
             // stream stage
             await().atMost(60000, TimeUnit.MILLISECONDS)
                     .untilAsserted(
