@@ -58,10 +58,7 @@ import net.sf.jsqlparser.expression.operators.relational.LikeExpression;
 import net.sf.jsqlparser.expression.operators.relational.NotEqualsTo;
 import net.sf.jsqlparser.schema.Column;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Iterator;
-import java.util.List;
+import java.util.*;
 import java.util.stream.Collectors;
 
 public class ZetaSQLType {
@@ -84,6 +81,12 @@ public class ZetaSQLType {
     public static final String DATE = "DATE";
     public static final String TIME = "TIME";
     public static final String BOOLEAN = "BOOLEAN";
+
+    public static final List<SqlType> DATETIME_CAST_TYPES = Arrays.asList(SqlType.TIMESTAMP, SqlType.TIMESTAMP_TZ, SqlType.BIGINT);
+    public static final List<SqlType> DATE_CAST_TYPES = Arrays.asList(SqlType.TIMESTAMP, SqlType.TIMESTAMP_TZ, SqlType.DATE, SqlType.INT);
+    public static final List<SqlType> TIME_CAST_TYPES = Arrays.asList(SqlType.TIMESTAMP, SqlType.TIMESTAMP_TZ, SqlType.TIME, SqlType.INT);
+    public static final List<SqlType> BOOLEAN_CAST_TYPES = Arrays.asList(SqlType.BOOLEAN, SqlType.STRING, SqlType.BIGINT, SqlType.INT, SqlType.SMALLINT, SqlType.TINYINT, SqlType.FLOAT, SqlType.DOUBLE, SqlType.BYTES);
+
 
     private final SeaTunnelRowType inputRowType;
 
@@ -329,6 +332,10 @@ public class ZetaSQLType {
     }
 
     private SeaTunnelDataType<?> getCastType(CastExpression castExpression) {
+        Expression leftExpression = castExpression.getLeftExpression();
+        // from
+        SqlType sqlType = getExpressionType(leftExpression).getSqlType();
+        // to
         String dataType = castExpression.getColDataType().getDataType();
         switch (dataType.toUpperCase()) {
             case DECIMAL:
@@ -343,6 +350,10 @@ public class ZetaSQLType {
                 return BasicType.SHORT_TYPE;
             case INT:
             case INTEGER:
+                if (sqlType.equals(SqlType.TIMESTAMP) || sqlType.equals(SqlType.TIMESTAMP_TZ)) {
+                    throw new TransformException(CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
+                            String.format("Unsupported CAST FROM type: %s AS type: %s", sqlType.name().toLowerCase(), dataType));
+                }
                 return BasicType.INT_TYPE;
             case BIGINT:
             case LONG:
@@ -358,12 +369,28 @@ public class ZetaSQLType {
                 return BasicType.FLOAT_TYPE;
             case TIMESTAMP:
             case DATETIME:
+                if (!DATETIME_CAST_TYPES.contains(sqlType)) {
+                    throw new TransformException(CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
+                            String.format("Unsupported CAST FROM type: %s AS type: %s", sqlType.name().toLowerCase(), dataType));
+                }
                 return LocalTimeType.LOCAL_DATE_TIME_TYPE;
             case DATE:
+                if (!DATE_CAST_TYPES.contains(sqlType)) {
+                    throw new TransformException(CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
+                            String.format("Unsupported CAST FROM type: %s AS type: %s", sqlType.name().toLowerCase(), dataType));
+                }
                 return LocalTimeType.LOCAL_DATE_TYPE;
             case TIME:
+                if (!TIME_CAST_TYPES.contains(sqlType)) {
+                    throw new TransformException(CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
+                            String.format("Unsupported CAST FROM type: %s AS type: %s", sqlType.name().toLowerCase(), dataType));
+                }
                 return LocalTimeType.LOCAL_TIME_TYPE;
             case BOOLEAN:
+                if (!BOOLEAN_CAST_TYPES.contains(sqlType)) {
+                    throw new TransformException(CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
+                            String.format("Unsupported CAST FROM type: %s AS type: %s", sqlType.name().toLowerCase(), dataType));
+                }
                 return BasicType.BOOLEAN_TYPE;
             default:
                 throw new TransformException(
