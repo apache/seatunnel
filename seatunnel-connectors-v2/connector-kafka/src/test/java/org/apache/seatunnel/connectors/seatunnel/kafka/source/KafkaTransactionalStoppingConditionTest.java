@@ -44,20 +44,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.when;
 
-/**
- * Test class demonstrating the fix for transactional message stopping condition.
- *
- * <p>This test validates the core logic change from using last record offset to using consumer
- * position for determining when to stop reading.
- *
- * <p>IMPORTANT NOTE ABOUT CONTROL MESSAGE SIMULATION: MockConsumer cannot directly add control
- * messages because they are invisible to consumers. Instead, we simulate the EFFECT of control
- * messages by: 1. Adding only visible records with MockConsumer.addRecord() 2. Using
- * mockConsumer.seek() to simulate position advancement caused by control messages 3. Testing the
- * stopping condition logic with the simulated position
- *
- * <p>See docs/testing-control-messages.md for detailed explanation.
- */
+/** Test class demonstrating the fix for transactional message stopping condition. */
 public class KafkaTransactionalStoppingConditionTest {
 
     private static final String TOPIC = "test-topic";
