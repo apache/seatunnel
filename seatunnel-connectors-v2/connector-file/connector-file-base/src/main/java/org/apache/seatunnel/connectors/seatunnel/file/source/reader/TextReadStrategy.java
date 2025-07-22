@@ -75,7 +75,7 @@ public class TextReadStrategy extends AbstractReadStrategy {
         private int skipCount;
         private final long skipHeaderNumber;
         private final LineProcessor lineProcessor;
-        private final boolean useReadLine; // 是否可以使用readline优化
+        private final boolean useReadLine;
 
         public StreamLineSplitter(
                 String delimiter, long skipHeaderNumber, LineProcessor lineProcessor) {
