@@ -58,11 +58,11 @@ import net.sf.jsqlparser.expression.operators.relational.LikeExpression;
 import net.sf.jsqlparser.expression.operators.relational.NotEqualsTo;
 import net.sf.jsqlparser.schema.Column;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
-import java.util.ArrayList;
 import java.util.stream.Collectors;
 
 public class ZetaSQLType {
@@ -407,7 +407,8 @@ public class ZetaSQLType {
                 return LocalTimeType.LOCAL_DATE_TYPE;
             case TIME:
                 if (!TIME_CAST_TYPES.contains(sqlType)) {
-                    throw new TransformException(CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
+                    throw new TransformException(
+                            CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
                             String.format(
                                     "Unsupported CAST FROM type: %s AS type: %s",
                                     sqlType.name(), dataType));
