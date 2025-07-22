@@ -13,7 +13,7 @@ import ChangeLog from '../changelog/connector-kafka.md';
 ## 主要特性
 
 - [x] [精确一次](../../concept/connector-v2-features.md)
-- [ ] [cdc](../../concept/connector-v2-features.md)
+- [x] [cdc](../../concept/connector-v2-features.md)
 
 > 默认情况下，我们将使用 2pc 来保证消息只发送一次到kafka
 

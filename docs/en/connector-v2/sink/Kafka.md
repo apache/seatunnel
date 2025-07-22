@@ -13,7 +13,7 @@ import ChangeLog from '../changelog/connector-kafka.md';
 ## Key Features
 
 - [x] [exactly-once](../../concept/connector-v2-features.md)
-- [ ] [cdc](../../concept/connector-v2-features.md)
+- [x] [cdc](../../concept/connector-v2-features.md)
 
 > By default, we will use 2pc to guarantee the message is sent to kafka exactly once.
 
