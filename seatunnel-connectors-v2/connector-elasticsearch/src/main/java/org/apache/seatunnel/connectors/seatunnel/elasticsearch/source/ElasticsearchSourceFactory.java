@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.elasticsearch.source;
 
+import com.google.auto.service.AutoService;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceSplit;
@@ -25,10 +26,12 @@ import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 
-import com.google.auto.service.AutoService;
-
 import java.io.Serializable;
 
+import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.ElasticsearchBaseOptions.API_KEY;
+import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.ElasticsearchBaseOptions.API_KEY_ENCODED;
+import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.ElasticsearchBaseOptions.API_KEY_ID;
+import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.ElasticsearchBaseOptions.AUTH_TYPE;
 import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.ElasticsearchBaseOptions.HOSTS;
 import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.ElasticsearchBaseOptions.INDEX;
 import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.ElasticsearchBaseOptions.PASSWORD;
@@ -76,13 +79,17 @@ public class ElasticsearchSourceFactory implements TableSourceFactory {
                         TLS_KEY_STORE_PATH,
                         TLS_KEY_STORE_PASSWORD,
                         TLS_TRUST_STORE_PATH,
-                        TLS_TRUST_STORE_PASSWORD)
+                        TLS_TRUST_STORE_PASSWORD,
+                        AUTH_TYPE,
+                        API_KEY_ID,
+                        API_KEY,
+                        API_KEY_ENCODED)
                 .build();
     }
 
     @Override
     public <T, SplitT extends SourceSplit, StateT extends Serializable>
-            TableSource<T, SplitT, StateT> createSource(TableSourceFactoryContext context) {
+    TableSource<T, SplitT, StateT> createSource(TableSourceFactoryContext context) {
         return () ->
                 (SeaTunnelSource<T, SplitT, StateT>) new ElasticsearchSource(context.getOptions());
     }

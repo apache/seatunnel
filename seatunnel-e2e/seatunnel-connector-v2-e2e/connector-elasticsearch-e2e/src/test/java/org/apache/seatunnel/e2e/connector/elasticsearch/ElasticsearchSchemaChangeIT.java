@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.e2e.connector.elasticsearch;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.seatunnel.shade.com.google.common.collect.Lists;
@@ -49,6 +50,8 @@ import org.testcontainers.utility.DockerLoggerFactory;
 import lombok.extern.slf4j.Slf4j;
 
 import java.time.Duration;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
@@ -83,9 +86,9 @@ public class ElasticsearchSchemaChangeIT extends TestSuiteBase implements TestRe
     public void startUp() throws Exception {
         container =
                 new ElasticsearchContainer(
-                                DockerImageName.parse("elasticsearch:8.9.0")
-                                        .asCompatibleSubstituteFor(
-                                                "docker.elastic.co/elasticsearch/elasticsearch"))
+                        DockerImageName.parse("elasticsearch:8.9.0")
+                                .asCompatibleSubstituteFor(
+                                        "docker.elastic.co/elasticsearch/elasticsearch"))
                         .withNetwork(NETWORK)
                         .withEnv("cluster.routing.allocation.disk.threshold_enabled", "false")
                         .withNetworkAliases("elasticsearch")
@@ -97,17 +100,16 @@ public class ElasticsearchSchemaChangeIT extends TestSuiteBase implements TestRe
                                         DockerLoggerFactory.getLogger("elasticsearch:8.9.0")));
         Startables.deepStart(Stream.of(container)).join();
         log.info("Elasticsearch container started");
-        esRestClient =
-                EsRestClient.createInstance(
-                        Lists.newArrayList("https://" + container.getHttpHostAddress()),
-                        Optional.of("elastic"),
-                        Optional.of("elasticsearch"),
-                        false,
-                        false,
-                        Optional.empty(),
-                        Optional.empty(),
-                        Optional.empty(),
-                        Optional.empty());
+        // Create configuration for EsRestClient
+        Map<String, Object> configMap = new HashMap<>();
+        configMap.put("hosts", Lists.newArrayList("https://" + container.getHttpHostAddress()));
+        configMap.put("username", "elastic");
+        configMap.put("password", "elasticsearch");
+        configMap.put("tls_verify_certificate", false);
+        configMap.put("tls_verify_hostname", false);
+
+        ReadonlyConfig config = ReadonlyConfig.fromMap(configMap);
+        esRestClient = EsRestClient.createInstance(config);
 
         Startables.deepStart(Stream.of(MYSQL_CONTAINER)).join();
         shopDatabase.createAndInitialize();
