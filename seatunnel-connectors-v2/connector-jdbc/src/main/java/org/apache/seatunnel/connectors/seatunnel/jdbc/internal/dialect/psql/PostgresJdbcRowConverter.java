@@ -194,8 +194,8 @@ public class PostgresJdbcRowConverter extends AbstractJdbcRowConverter {
                             inetObject.setValue(String.valueOf(row.getField(fieldIndex)));
                             statement.setObject(statementIndex, inetObject);
                         } else if (PG_INTERVAL.equalsIgnoreCase(sourceType)) {
-                            PGobject inetObject = new PGobject();
-                            inetObject.setType(PG_INTERVAL);
+                            PGobject intervalObject = new PGobject();
+                            intervalObject.setType(PG_INTERVAL);
                             String intervalVal = String.valueOf(row.getField(fieldIndex));
                             if (NumberUtils.isCreatable(intervalVal)) {
                                 // postgres interval types are converted to microseconds (long) in
@@ -203,8 +203,8 @@ public class PostgresJdbcRowConverter extends AbstractJdbcRowConverter {
                                 // it is formatted as a postgres interval value.
                                 intervalVal = microsecondsToIntervalFormatVal(intervalVal);
                             }
-                            inetObject.setValue(intervalVal);
-                            statement.setObject(statementIndex, inetObject);
+                            intervalObject.setValue(intervalVal);
+                            statement.setObject(statementIndex, intervalObject);
                         } else {
                             statement.setString(statementIndex, (String) row.getField(fieldIndex));
                         }
