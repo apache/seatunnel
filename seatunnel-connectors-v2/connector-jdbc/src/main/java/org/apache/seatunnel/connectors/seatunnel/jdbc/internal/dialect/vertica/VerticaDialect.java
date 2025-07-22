@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.vertica;
 
+import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.JdbcRowConverter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
@@ -53,16 +54,35 @@ public class VerticaDialect implements JdbcDialect {
     @Override
     public Optional<String> getUpsertStatement(
             String database, String tableName, String[] fieldNames, String[] uniqueKeyFields) {
+        return Optional.empty();
+    }
+
+    @Override
+    public Optional<String> getUpsertStatementByTableSchema(
+            String database, String tableName, TableSchema tableSchema, String[] uniqueKeyFields) {
+        String[] fieldNames = tableSchema.getFieldNames();
         List<String> nonUniqueKeyFields =
                 Arrays.stream(fieldNames)
                         .filter(fieldName -> !Arrays.asList(uniqueKeyFields).contains(fieldName))
                         .collect(Collectors.toList());
         String valuesBinding =
-                Arrays.stream(fieldNames)
-                        .map(fieldName -> ":" + fieldName + " " + quoteIdentifier(fieldName))
+                tableSchema.getColumns().stream()
+                        .map(
+                                column -> {
+                                    String fieldName = column.getName();
+                                    String sourceType = column.getSourceType();
+                                    return "CAST("
+                                            + ":"
+                                            + fieldName
+                                            + " AS "
+                                            + sourceType
+                                            + ")"
+                                            + " AS "
+                                            + quoteIdentifier(fieldName);
+                                })
                         .collect(Collectors.joining(", "));
 
-        String usingClause = String.format("SELECT %s FROM DUAL", valuesBinding);
+        String usingClause = String.format("SELECT %s ", valuesBinding);
         String onConditions =
                 Arrays.stream(uniqueKeyFields)
                         .map(
@@ -77,7 +97,7 @@ public class VerticaDialect implements JdbcDialect {
                         .map(
                                 fieldName ->
                                         String.format(
-                                                "TARGET.%s=SOURCE.%s",
+                                                "%s=SOURCE.%s",
                                                 quoteIdentifier(fieldName),
                                                 quoteIdentifier(fieldName)))
                         .collect(Collectors.joining(", "));
