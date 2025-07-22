@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.server.task.group;
 
+import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.engine.server.execution.Task;
 import org.apache.seatunnel.engine.server.execution.TaskGroupDefaultImpl;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
@@ -30,5 +31,6 @@ public abstract class AbstractTaskGroupWithIntermediateQueue extends TaskGroupDe
         super(taskGroupLocation, taskGroupName, tasks);
     }
 
-    public abstract AbstractIntermediateQueue<?> getQueueCache(long id);
+    public abstract AbstractIntermediateQueue<?> getQueueCache(
+            long id, MetricsContext metricsContext);
 }
