@@ -58,7 +58,11 @@ import net.sf.jsqlparser.expression.operators.relational.LikeExpression;
 import net.sf.jsqlparser.expression.operators.relational.NotEqualsTo;
 import net.sf.jsqlparser.schema.Column;
 
-import java.util.*;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Iterator;
+import java.util.List;
+import java.util.ArrayList;
 import java.util.stream.Collectors;
 
 public class ZetaSQLType {
@@ -99,7 +103,6 @@ public class ZetaSQLType {
                     SqlType.FLOAT,
                     SqlType.DOUBLE,
                     SqlType.BYTES);
-
 
     private final SeaTunnelRowType inputRowType;
 
@@ -365,7 +368,9 @@ public class ZetaSQLType {
             case INTEGER:
                 if (sqlType.equals(SqlType.TIMESTAMP) || sqlType.equals(SqlType.TIMESTAMP_TZ)) {
                     throw new TransformException(CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
-                            String.format("Unsupported CAST FROM type: %s AS type: %s", sqlType.name().toLowerCase(), dataType));
+                            String.format(
+                                    "Unsupported CAST FROM type: %s AS type: %s",
+                                    sqlType.name().toLowerCase(), dataType));
                 }
                 return BasicType.INT_TYPE;
             case BIGINT:
