@@ -93,8 +93,7 @@ public class ElasticsearchBaseOptions implements Serializable {
             Options.key("auth_type")
                     .stringType()
                     .defaultValue("basic")
-                    .withDescription(
-                            "Authentication type. Supported values: basic, api_key");
+                    .withDescription("Authentication type. Supported values: basic, api_key");
 
     // API Key authentication options
     public static final Option<String> API_KEY_ID =
@@ -114,5 +113,4 @@ public class ElasticsearchBaseOptions implements Serializable {
                     .stringType()
                     .noDefaultValue()
                     .withDescription("Base64 encoded Elasticsearch API key (id:key format)");
-
 }

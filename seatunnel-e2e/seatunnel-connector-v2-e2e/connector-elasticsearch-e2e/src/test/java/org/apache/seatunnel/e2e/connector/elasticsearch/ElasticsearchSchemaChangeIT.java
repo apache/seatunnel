@@ -17,11 +17,11 @@
 
 package org.apache.seatunnel.e2e.connector.elasticsearch;
 
-import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.testutils.MySqlContainer;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.testutils.MySqlVersion;
@@ -53,7 +53,6 @@ import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
@@ -86,9 +85,9 @@ public class ElasticsearchSchemaChangeIT extends TestSuiteBase implements TestRe
     public void startUp() throws Exception {
         container =
                 new ElasticsearchContainer(
-                        DockerImageName.parse("elasticsearch:8.9.0")
-                                .asCompatibleSubstituteFor(
-                                        "docker.elastic.co/elasticsearch/elasticsearch"))
+                                DockerImageName.parse("elasticsearch:8.9.0")
+                                        .asCompatibleSubstituteFor(
+                                                "docker.elastic.co/elasticsearch/elasticsearch"))
                         .withNetwork(NETWORK)
                         .withEnv("cluster.routing.allocation.disk.threshold_enabled", "false")
                         .withNetworkAliases("elasticsearch")
