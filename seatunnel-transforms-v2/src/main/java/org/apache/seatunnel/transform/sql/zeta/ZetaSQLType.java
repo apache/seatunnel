@@ -82,10 +82,23 @@ public class ZetaSQLType {
     public static final String TIME = "TIME";
     public static final String BOOLEAN = "BOOLEAN";
 
-    public static final List<SqlType> DATETIME_CAST_TYPES = Arrays.asList(SqlType.TIMESTAMP, SqlType.TIMESTAMP_TZ, SqlType.BIGINT);
-    public static final List<SqlType> DATE_CAST_TYPES = Arrays.asList(SqlType.TIMESTAMP, SqlType.TIMESTAMP_TZ, SqlType.DATE, SqlType.INT);
-    public static final List<SqlType> TIME_CAST_TYPES = Arrays.asList(SqlType.TIMESTAMP, SqlType.TIMESTAMP_TZ, SqlType.TIME, SqlType.INT);
-    public static final List<SqlType> BOOLEAN_CAST_TYPES = Arrays.asList(SqlType.BOOLEAN, SqlType.STRING, SqlType.BIGINT, SqlType.INT, SqlType.SMALLINT, SqlType.TINYINT, SqlType.FLOAT, SqlType.DOUBLE, SqlType.BYTES);
+    public static final List<SqlType> DATETIME_CAST_TYPES =
+            Arrays.asList(SqlType.TIMESTAMP, SqlType.TIMESTAMP_TZ, SqlType.BIGINT);
+    public static final List<SqlType> DATE_CAST_TYPES =
+            Arrays.asList(SqlType.TIMESTAMP, SqlType.TIMESTAMP_TZ, SqlType.DATE, SqlType.INT);
+    public static final List<SqlType> TIME_CAST_TYPES =
+            Arrays.asList(SqlType.TIMESTAMP, SqlType.TIMESTAMP_TZ, SqlType.TIME, SqlType.INT);
+    public static final List<SqlType> BOOLEAN_CAST_TYPES =
+            Arrays.asList(
+                    SqlType.BOOLEAN,
+                    SqlType.STRING,
+                    SqlType.BIGINT,
+                    SqlType.INT,
+                    SqlType.SMALLINT,
+                    SqlType.TINYINT,
+                    SqlType.FLOAT,
+                    SqlType.DOUBLE,
+                    SqlType.BYTES);
 
 
     private final SeaTunnelRowType inputRowType;
@@ -371,25 +384,33 @@ public class ZetaSQLType {
             case DATETIME:
                 if (!DATETIME_CAST_TYPES.contains(sqlType)) {
                     throw new TransformException(CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
-                            String.format("Unsupported CAST FROM type: %s AS type: %s", sqlType.name().toLowerCase(), dataType));
+                            String.format(
+                                    "Unsupported CAST FROM type: %s AS type: %s",
+                                    sqlType.name().toLowerCase(), dataType));
                 }
                 return LocalTimeType.LOCAL_DATE_TIME_TYPE;
             case DATE:
                 if (!DATE_CAST_TYPES.contains(sqlType)) {
                     throw new TransformException(CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
-                            String.format("Unsupported CAST FROM type: %s AS type: %s", sqlType.name().toLowerCase(), dataType));
+                            String.format(
+                                    "Unsupported CAST FROM type: %s AS type: %s",
+                                    sqlType.name().toLowerCase(), dataType));
                 }
                 return LocalTimeType.LOCAL_DATE_TYPE;
             case TIME:
                 if (!TIME_CAST_TYPES.contains(sqlType)) {
                     throw new TransformException(CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
-                            String.format("Unsupported CAST FROM type: %s AS type: %s", sqlType.name().toLowerCase(), dataType));
+                            String.format(
+                                    "Unsupported CAST FROM type: %s AS type: %s",
+                                    sqlType.name().toLowerCase(), dataType));
                 }
                 return LocalTimeType.LOCAL_TIME_TYPE;
             case BOOLEAN:
                 if (!BOOLEAN_CAST_TYPES.contains(sqlType)) {
                     throw new TransformException(CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
-                            String.format("Unsupported CAST FROM type: %s AS type: %s", sqlType.name().toLowerCase(), dataType));
+                            String.format(
+                                    "Unsupported CAST FROM type: %s AS type: %s",
+                                    sqlType.name().toLowerCase(), dataType));
                 }
                 return BasicType.BOOLEAN_TYPE;
             default:
