@@ -58,7 +58,7 @@ source {
         username = "root"
         password = "zdyk_Dev@2024"
         table-names = ["source.user"]
-        base-url = "jdbc:mysql://172.16.17.123:3306/source"
+        url = "jdbc:mysql://172.16.17.123:3306/source"
     }
 }
 

@@ -45,7 +45,7 @@ public class IrisCatalogFactory implements CatalogFactory {
         String urlWithDatabase = options.get(JdbcCommonOptions.URL);
         Preconditions.checkArgument(
                 StringUtils.isNoneBlank(urlWithDatabase),
-                "Miss config <base-url>! Please check your config.");
+                "Miss config <url>! Please check your config.");
         JdbcUrlUtil.UrlInfo urlInfo = JdbcUrlUtil.getUrlInfo(urlWithDatabase);
         return new IrisCatalog(
                 catalogName,
