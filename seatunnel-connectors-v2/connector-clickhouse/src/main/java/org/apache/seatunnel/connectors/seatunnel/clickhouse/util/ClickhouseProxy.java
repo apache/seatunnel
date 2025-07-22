@@ -475,7 +475,8 @@ public class ClickhouseProxy implements AutoCloseable {
         }
     }
 
-    public List<SeaTunnelRow> batchFetchRecords(String sql, SeaTunnelRowType seaTunnelRowType) {
+    public List<SeaTunnelRow> batchFetchRecords(
+            String sql, TablePath tablePath, SeaTunnelRowType seaTunnelRowType) {
         List<SeaTunnelRow> seaTunnelRowList = new ArrayList<>();
         log.debug("run query data sql: {}", sql);
 
@@ -485,7 +486,7 @@ public class ClickhouseProxy implements AutoCloseable {
                             record -> {
                                 SeaTunnelRow seaTunnelRow =
                                         ClickhouseUtil.convertToSeaTunnelRow(
-                                                record, seaTunnelRowType, sql);
+                                                record, seaTunnelRowType, tablePath.getFullName());
                                 seaTunnelRowList.add(seaTunnelRow);
                             });
         } catch (ClickHouseException e) {

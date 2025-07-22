@@ -105,7 +105,9 @@ public class ClickhouseValueReader implements Serializable {
 
         try {
             String query = buildPartQuery(currentPart);
-            rowBatch = proxy.batchFetchRecords(query, rowTypeInfo);
+            rowBatch =
+                    proxy.batchFetchRecords(
+                            query, clickhouseSourceTable.getTablePath(), rowTypeInfo);
 
             log.debug(
                     "SplitId: {}, partName: {} read rowBatch size: {}",
@@ -139,7 +141,9 @@ public class ClickhouseValueReader implements Serializable {
         String query = buildSqlQuery();
 
         try {
-            rowBatch = proxy.batchFetchRecords(query, rowTypeInfo);
+            rowBatch =
+                    proxy.batchFetchRecords(
+                            query, clickhouseSourceTable.getTablePath(), rowTypeInfo);
 
             clickhouseSourceSplit.setSqlOffset(
                     clickhouseSourceSplit.getSqlOffset() + rowBatch.size());
