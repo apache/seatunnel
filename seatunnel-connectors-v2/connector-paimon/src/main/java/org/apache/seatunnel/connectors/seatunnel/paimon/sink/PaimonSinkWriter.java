@@ -99,6 +99,8 @@ public class PaimonSinkWriter
 
     private final boolean dynamicBucket;
 
+    private final PaimonBucketAssignerFactory paimonBucketAssignerFactory;
+
     private final PaimonCatalog paimonCatalog;
 
     private final TablePath paimonTablePath;
@@ -114,6 +116,8 @@ public class PaimonSinkWriter
 
     private final int parallelism;
 
+    private final int taskIndex;
+
     private final Set<PaimonBucketAssigner> bucketAssigners = new HashSet<>();
 
     public PaimonSinkWriter(
@@ -123,7 +127,8 @@ public class PaimonSinkWriter
             Table paimonTable,
             JobContext jobContext,
             PaimonSinkConfig paimonSinkConfig,
-            PaimonHadoopConfiguration paimonHadoopConfiguration) {
+            PaimonHadoopConfiguration paimonHadoopConfiguration,
+            PaimonBucketAssignerFactory paimonBucketAssignerFactory) {
         this.sourceTableSchema = catalogTable.getTableSchema();
         this.seaTunnelRowType = this.sourceTableSchema.toPhysicalRowDataType();
         this.jobContext = jobContext;
@@ -142,7 +147,9 @@ public class PaimonSinkWriter
                 new RowAssignerChannelComputer(
                         paimonFileStoretable.schema(), context.getNumberOfParallelSubtasks());
         rowAssignerChannelComputer.setup(context.getNumberOfParallelSubtasks());
+        this.paimonBucketAssignerFactory = paimonBucketAssignerFactory;
         this.parallelism = context.getNumberOfParallelSubtasks();
+        this.taskIndex = context.getIndexOfSubtask();
         this.paimonSinkConfig = paimonSinkConfig;
         this.sinkPaimonTableSchema = this.paimonFileStoretable.schema();
         this.newTableWrite();
@@ -163,6 +170,9 @@ public class PaimonSinkWriter
         if (bucket == -1 && BucketMode.UNAWARE == bucketMode) {
             log.warn("Append only table currently do not support dynamic bucket");
         }
+        if (dynamicBucket) {
+            paimonBucketAssignerFactory.init(paimonTablePath, paimonFileStoretable, parallelism);
+        }
         PaimonSecurityContext.shouldEnableKerberos(paimonHadoopConfiguration);
     }
 
@@ -174,7 +184,8 @@ public class PaimonSinkWriter
             List<PaimonSinkState> states,
             JobContext jobContext,
             PaimonSinkConfig paimonSinkConfig,
-            PaimonHadoopConfiguration paimonHadoopConfiguration) {
+            PaimonHadoopConfiguration paimonHadoopConfiguration,
+            PaimonBucketAssignerFactory paimonBucketAssignerFactory) {
         this(
                 context,
                 readonlyConfig,
@@ -182,7 +193,8 @@ public class PaimonSinkWriter
                 paimonFileStoretable,
                 jobContext,
                 paimonSinkConfig,
-                paimonHadoopConfiguration);
+                paimonHadoopConfiguration,
+                paimonBucketAssignerFactory);
         if (Objects.isNull(states) || states.isEmpty()) {
             return;
         }
@@ -219,10 +231,8 @@ public class PaimonSinkWriter
                             // hash code of the primary key must be consistent with the task
                             // sequence number.
                             PaimonBucketAssigner bucketAssigner =
-                                    PaimonBucketAssignerFactory.getBucketAssigner(
+                                    paimonBucketAssignerFactory.getBucketAssigner(
                                             paimonTablePath,
-                                            paimonFileStoretable,
-                                            parallelism,
                                             rowAssignerChannelComputer.channel(rowData));
                             // When multiple threads call assigner.assign() simultaneously, they can
                             // corrupt the internal hash map structure, leading to the
@@ -317,6 +327,7 @@ public class PaimonSinkWriter
             tableWriteClose(this.tableWrite);
         } finally {
             committables.clear();
+            paimonBucketAssignerFactory.clear(paimonTablePath, taskIndex);
             if (Objects.nonNull(paimonCatalog)) {
                 paimonCatalog.close();
             }

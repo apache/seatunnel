@@ -21,28 +21,46 @@ import org.apache.seatunnel.api.table.catalog.TablePath;
 
 import org.apache.paimon.table.Table;
 
+import java.io.Serializable;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-public class PaimonBucketAssignerFactory {
-    private static final ConcurrentHashMap<TablePath, Map<Integer, PaimonBucketAssigner>>
+public class PaimonBucketAssignerFactory implements Serializable {
+
+    private static final long serialVersionUID = 1L;
+    private final ConcurrentHashMap<TablePath, Map<Integer, PaimonBucketAssigner>>
             BUCKET_ASSIGNER_MAP = new ConcurrentHashMap<>();
 
-    public static PaimonBucketAssigner getBucketAssigner(
-            final TablePath tableId,
-            final Table table,
-            final int numAssigners,
-            final int assignId) {
-        return BUCKET_ASSIGNER_MAP
-                .computeIfAbsent(
-                        tableId,
-                        t -> {
-                            Map<Integer, PaimonBucketAssigner> map = new ConcurrentHashMap<>();
-                            for (int i = 0; i < numAssigners; i++) {
-                                map.put(i, new PaimonBucketAssigner(table, numAssigners, i));
-                            }
-                            return map;
-                        })
-                .get(assignId);
+    public PaimonBucketAssignerFactory() {}
+
+    public void init(final TablePath tableId, final Table table, final int numAssigners) {
+        BUCKET_ASSIGNER_MAP.computeIfAbsent(
+                tableId,
+                t -> {
+                    Map<Integer, PaimonBucketAssigner> map = new ConcurrentHashMap<>();
+                    for (int i = 0; i < numAssigners; i++) {
+                        map.put(i, new PaimonBucketAssigner(table, numAssigners, i));
+                    }
+                    return map;
+                });
+    }
+
+    public PaimonBucketAssigner getBucketAssigner(final TablePath tableId, final int assignId) {
+        return BUCKET_ASSIGNER_MAP.get(tableId).get(assignId);
+    }
+
+    public void clear(final TablePath tableId, final int assignId) {
+        if (BUCKET_ASSIGNER_MAP.containsKey(tableId)) {
+            Map<Integer, PaimonBucketAssigner> paimonBucketAssignerMap =
+                    BUCKET_ASSIGNER_MAP.get(tableId);
+            boolean isRunning =
+                    paimonBucketAssignerMap.values().stream()
+                            .anyMatch(PaimonBucketAssigner::isRunning);
+            if (!isRunning) {
+                BUCKET_ASSIGNER_MAP.remove(tableId);
+            } else {
+                paimonBucketAssignerMap.get(assignId).finish();
+            }
+        }
     }
 }

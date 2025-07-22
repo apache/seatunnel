@@ -24,6 +24,8 @@ import org.apache.paimon.table.Table;
 
 public class PaimonBucketAssigner {
 
+    private boolean isRunning;
+
     private final FixedBucketRowKeyExtractor extractor;
 
     private final HashBucketAssigner hashBucketAssigner;
@@ -41,6 +43,7 @@ public class PaimonBucketAssigner {
                         numAssigners,
                         assignId,
                         dynamicBucketTargetRowNum);
+        this.isRunning = true;
     }
 
     public int assign(InternalRow rowData) {
@@ -51,5 +54,13 @@ public class PaimonBucketAssigner {
 
     public void prepareCommit(long commitIdentifier) {
         hashBucketAssigner.prepareCommit(commitIdentifier);
+    }
+
+    public void finish() {
+        this.isRunning = false;
+    }
+
+    public boolean isRunning() {
+        return isRunning;
     }
 }

@@ -36,6 +36,7 @@ import org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonHadoopConfi
 import org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.paimon.handler.PaimonSaveModeHandler;
 import org.apache.seatunnel.connectors.seatunnel.paimon.security.PaimonSecurityContext;
+import org.apache.seatunnel.connectors.seatunnel.paimon.sink.bucket.PaimonBucketAssignerFactory;
 import org.apache.seatunnel.connectors.seatunnel.paimon.sink.commit.PaimonAggregatedCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.paimon.sink.commit.PaimonAggregatedCommitter;
 import org.apache.seatunnel.connectors.seatunnel.paimon.sink.commit.PaimonCommitInfo;
@@ -75,11 +76,14 @@ public class PaimonSink
 
     private final PaimonHadoopConfiguration paimonHadoopConfiguration;
 
+    private final PaimonBucketAssignerFactory paimonBucketAssignerFactory;
+
     public PaimonSink(ReadonlyConfig readonlyConfig, CatalogTable catalogTable) {
         this.readonlyConfig = readonlyConfig;
         this.paimonSinkConfig = new PaimonSinkConfig(readonlyConfig);
         this.catalogTable = catalogTable;
         this.paimonHadoopConfiguration = PaimonSecurityContext.loadHadoopConfig(paimonSinkConfig);
+        this.paimonBucketAssignerFactory = new PaimonBucketAssignerFactory();
     }
 
     @Override
@@ -96,7 +100,8 @@ public class PaimonSink
                 paimonTable,
                 jobContext,
                 paimonSinkConfig,
-                paimonHadoopConfiguration);
+                paimonHadoopConfiguration,
+                paimonBucketAssignerFactory);
     }
 
     @Override
@@ -113,10 +118,10 @@ public class PaimonSink
                 readonlyConfig,
                 catalogTable,
                 paimonTable,
-                states,
                 jobContext,
                 paimonSinkConfig,
-                paimonHadoopConfiguration);
+                paimonHadoopConfiguration,
+                paimonBucketAssignerFactory);
     }
 
     @Override

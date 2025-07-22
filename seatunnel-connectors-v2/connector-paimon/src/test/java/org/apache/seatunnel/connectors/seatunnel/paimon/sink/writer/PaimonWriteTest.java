@@ -37,6 +37,7 @@ import org.apache.seatunnel.connectors.seatunnel.paimon.catalog.PaimonCatalog;
 import org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonHadoopConfiguration;
 import org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.paimon.sink.PaimonSinkWriter;
+import org.apache.seatunnel.connectors.seatunnel.paimon.sink.bucket.PaimonBucketAssignerFactory;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
@@ -238,7 +239,8 @@ public class PaimonWriteTest {
                         paimonCatalog.getPaimonTable(tablePath),
                         jobContext,
                         new PaimonSinkConfig(readonlyConfig),
-                        new PaimonHadoopConfiguration());
+                        new PaimonHadoopConfiguration(),
+                        new PaimonBucketAssignerFactory());
         Assertions.assertFalse(paimonSinkWriter.waitCompaction());
 
         jobContext.setJobMode(JobMode.BATCH);
@@ -250,7 +252,8 @@ public class PaimonWriteTest {
                         paimonCatalog.getPaimonTable(tablePath),
                         jobContext,
                         new PaimonSinkConfig(readonlyConfig),
-                        new PaimonHadoopConfiguration());
+                        new PaimonHadoopConfiguration(),
+                        new PaimonBucketAssignerFactory());
         Assertions.assertTrue(paimonSinkWriter.waitCompaction());
 
         Map<String, Object> properties = new HashMap<>();
@@ -270,7 +273,8 @@ public class PaimonWriteTest {
                         paimonCatalog.getPaimonTable(tablePath),
                         jobContext,
                         new PaimonSinkConfig(readonlyConfig),
-                        new PaimonHadoopConfiguration());
+                        new PaimonHadoopConfiguration(),
+                        new PaimonBucketAssignerFactory());
         Assertions.assertTrue(paimonSinkWriter.waitCompaction());
 
         writeProps.put("changelog-producer", "full-compaction");
@@ -283,7 +287,8 @@ public class PaimonWriteTest {
                         paimonCatalog.getPaimonTable(tablePath),
                         jobContext,
                         new PaimonSinkConfig(readonlyConfig),
-                        new PaimonHadoopConfiguration());
+                        new PaimonHadoopConfiguration(),
+                        new PaimonBucketAssignerFactory());
         Assertions.assertTrue(paimonSinkWriter.waitCompaction());
     }
 
