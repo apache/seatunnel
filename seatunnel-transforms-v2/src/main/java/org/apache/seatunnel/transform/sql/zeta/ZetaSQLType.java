@@ -367,10 +367,11 @@ public class ZetaSQLType {
             case INT:
             case INTEGER:
                 if (sqlType.equals(SqlType.TIMESTAMP) || sqlType.equals(SqlType.TIMESTAMP_TZ)) {
-                    throw new TransformException(CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
+                    throw new TransformException(
+                            CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
                             String.format(
                                     "Unsupported CAST FROM type: %s AS type: %s",
-                                    sqlType.name().toLowerCase(), dataType));
+                                    sqlType.name(), dataType));
                 }
                 return BasicType.INT_TYPE;
             case BIGINT:
@@ -388,18 +389,20 @@ public class ZetaSQLType {
             case TIMESTAMP:
             case DATETIME:
                 if (!DATETIME_CAST_TYPES.contains(sqlType)) {
-                    throw new TransformException(CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
+                    throw new TransformException(
+                            CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
                             String.format(
                                     "Unsupported CAST FROM type: %s AS type: %s",
-                                    sqlType.name().toLowerCase(), dataType));
+                                    sqlType.name(), dataType));
                 }
                 return LocalTimeType.LOCAL_DATE_TIME_TYPE;
             case DATE:
                 if (!DATE_CAST_TYPES.contains(sqlType)) {
-                    throw new TransformException(CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
+                    throw new TransformException(
+                            CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
                             String.format(
                                     "Unsupported CAST FROM type: %s AS type: %s",
-                                    sqlType.name().toLowerCase(), dataType));
+                                    sqlType.name(), dataType));
                 }
                 return LocalTimeType.LOCAL_DATE_TYPE;
             case TIME:
@@ -407,15 +410,16 @@ public class ZetaSQLType {
                     throw new TransformException(CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
                             String.format(
                                     "Unsupported CAST FROM type: %s AS type: %s",
-                                    sqlType.name().toLowerCase(), dataType));
+                                    sqlType.name(), dataType));
                 }
                 return LocalTimeType.LOCAL_TIME_TYPE;
             case BOOLEAN:
                 if (!BOOLEAN_CAST_TYPES.contains(sqlType)) {
-                    throw new TransformException(CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
+                    throw new TransformException(
+                            CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
                             String.format(
                                     "Unsupported CAST FROM type: %s AS type: %s",
-                                    sqlType.name().toLowerCase(), dataType));
+                                    sqlType.name(), dataType));
                 }
                 return BasicType.BOOLEAN_TYPE;
             default:
