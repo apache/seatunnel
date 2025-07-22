@@ -17,32 +17,37 @@
 
 package org.apache.seatunnel.connectors.seatunnel.clickhouse.util;
 
-import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang3.StringUtils;
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.catalog.ClickhouseTypeConverter;
 import org.apache.seatunnel.connectors.seatunnel.common.util.CatalogUtil;
 
+import org.apache.commons.lang3.StringUtils;
+
 import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkNotNull;
 
-@Slf4j
 public class ClickhouseCatalogUtil extends CatalogUtil {
 
     public static final ClickhouseCatalogUtil INSTANCE = new ClickhouseCatalogUtil();
 
     public String columnToConnectorType(Column column) {
         checkNotNull(column, "The column is required.");
-        String result =   String.format(
+        String columnType;
+        if (column.getSinkType() != null) {
+            columnType = column.getSinkType();
+        } else {
+            columnType = column.isNullable() ? "Nullable("+ ClickhouseTypeConverter.INSTANCE.reconvert(column).getColumnType() + ")":
+                    ClickhouseTypeConverter.INSTANCE.reconvert(column).getColumnType();
+        }
+        return String.format(
                 "`%s` %s %s",
                 column.getName(),
-                column.isNullable() ? "Nullable("+ ClickhouseTypeConverter.INSTANCE.reconvert(column).getColumnType() + ")":
-                ClickhouseTypeConverter.INSTANCE.reconvert(column).getColumnType(),
+                columnType,
                 StringUtils.isEmpty(column.getComment())
                         ? ""
-                        : "COMMENT '" + column.getComment() + "'");
-        log.info("clickhouse.column: {} ", result);
-        return result;
+                        : "COMMENT '"
+                        + column.getComment().replace("'", "''").replace("\\", "\\\\")
+                        + "'");
     }
 
     public String getDropTableSql(TablePath tablePath, boolean ignoreIfNotExists) {
