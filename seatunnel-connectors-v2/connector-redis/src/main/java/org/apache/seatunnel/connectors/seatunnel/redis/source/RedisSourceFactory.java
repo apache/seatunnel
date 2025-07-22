@@ -67,6 +67,12 @@ public class RedisSourceFactory implements TableSourceFactory {
                         RedisBaseOptions.RedisMode.SINGLE,
                         RedisBaseOptions.HOST,
                         RedisBaseOptions.PORT)
+                .conditional(
+                        RedisSourceOptions.READ_KEY_ENABLED,
+                        true,
+                        RedisSourceOptions.SINGLE_FIELD_NAME,
+                        RedisSourceOptions.KEY_FIELD_NAME
+                )
                 .bundled(RedisBaseOptions.FORMAT, SinkConnectorCommonOptions.SCHEMA)
                 .build();
     }

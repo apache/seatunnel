@@ -19,25 +19,25 @@ Used to read data from Redis.
 
 ## Options
 
-| name                | type   | required               | default value |
-|---------------------| ------ |------------------------| ------------- |
-| host                | string | yes when mode=single   | -             |
-| port                | int    | no                     | 6379          |
-| keys                | string | yes                    | -             |
-| read_key_enabled    | boolean| no                     | false         |
-| key_field_name      | string | no                     | key           |
-| batch_size          | int    | yes                    | 10            |
-| data_type           | string | yes                    | -             |
-| user                | string | no                     | -             |
-| auth                | string | no                     | -             |
-| db_num              | int    | no                     | 0             |
-| mode                | string | no                     | single        |
-| hash_key_parse_mode | string | no                     | all           |
-| nodes               | list   | yes when mode=cluster  | -             |
-| schema              | config | yes when format=json   | -             |
-| format              | string | no                     | json          |
-| single_field_name   | string | yes when data_type=key | -             |
-| common-options      |        | no                     | -             |
+| name                | type   | required                       | default value |
+|---------------------| ------ |--------------------------------| ------------- |
+| host                | string | yes when mode=single           | -             |
+| port                | int    | no                             | 6379          |
+| keys                | string | yes                            | -             |
+| read_key_enabled    | boolean| no                             | false         |
+| key_field_name      | string | yes when read_key_enabled=true | key           |
+| batch_size          | int    | yes                            | 10            |
+| data_type           | string | yes                            | -             |
+| user                | string | no                             | -             |
+| auth                | string | no                             | -             |
+| db_num              | int    | no                             | 0             |
+| mode                | string | no                             | single        |
+| hash_key_parse_mode | string | no                             | all           |
+| nodes               | list   | yes when mode=cluster          | -             |
+| schema              | config | yes when format=json           | -             |
+| format              | string | no                             | json          |
+| single_field_name   | string | yes when read_key_enabled=true | -             |
+| common-options      |        | no                             | -             |
 
 ### host [string]
 
@@ -125,7 +125,8 @@ When set to `true`, both the key and its associated value are included in the re
 
 By default (`false`), only the value is read and included.
 
-If you are using a single-value Redis data type (such as `string`, `int`, etc.) with `read_key_enabled = true`, you must also specify `single_field_name` to map the value to a schema column.
+If you are using a single-value Redis data type (such as `string`, `int`, etc.) with `read_key_enabled = true`, 
+you must also specify `single_field_name` to map the value to a schema column, and `key_field_name` to map the Redis key.
 
 Note: When `read_key_enabled = true`, the schema configuration must explicitly include the key field to correctly map the deserialized data.
 
@@ -259,7 +260,7 @@ the schema fields of redis data
 
 ### single_field_name [string]
 
-Specifies the field name for Redis values when `read_key_enabled = true` and the value is a single primitive (e.g., string, int).
+Specifies the field name for Redis values when `read_key_enabled = true` and the value is a single primitive (e.g., `string`, `int`).
 
 This name is used in the schema to map the value field.
 
