@@ -110,7 +110,7 @@ public class VerticaDialectTest {
                 doUpdateSql,
                 " MERGE INTO test_database.\"test_table\" TARGET USING (SELECT CAST(:id AS BIGINT) AS \"id\", CAST(:name AS VARCHAR) AS \"name\", CAST(:age AS INT) AS \"age\", CAST(:createTime AS TIME) AS \"createTime\" ) SOURCE ON (TARGET.\"id\"=SOURCE.\"id\")  WHEN MATCHED THEN UPDATE SET \"name\"=SOURCE.\"name\", \"age\"=SOURCE.\"age\", \"createTime\"=SOURCE.\"createTime\" WHEN NOT MATCHED THEN INSERT (\"id\", \"name\", \"age\", \"createTime\") VALUES (SOURCE.\"id\", SOURCE.\"name\", SOURCE.\"age\", SOURCE.\"createTime\")");
 
-        String doNothingSql =
+        String upsertCreateTimeSQL =
                 dialect.getUpsertStatementByTableSchema(
                                 dataBaseName, tableName, tableSchema, doNothingKeyFields)
                         .orElseThrow(
@@ -118,7 +118,7 @@ public class VerticaDialectTest {
                                         new AssertionError(
                                                 "Expected doNothingSql String to be present"));
         Assertions.assertEquals(
-                doNothingSql,
+                upsertCreateTimeSQL,
                 " MERGE INTO test_database.\"test_table\" TARGET USING (SELECT CAST(:id AS BIGINT) AS \"id\", CAST(:name AS VARCHAR) AS \"name\", CAST(:age AS INT) AS \"age\", CAST(:createTime AS TIME) AS \"createTime\" ) SOURCE ON (TARGET.\"id\"=SOURCE.\"id\" AND TARGET.\"name\"=SOURCE.\"name\" AND TARGET.\"age\"=SOURCE.\"age\")  WHEN MATCHED THEN UPDATE SET \"createTime\"=SOURCE.\"createTime\" WHEN NOT MATCHED THEN INSERT (\"id\", \"name\", \"age\", \"createTime\") VALUES (SOURCE.\"id\", SOURCE.\"name\", SOURCE.\"age\", SOURCE.\"createTime\")");
     }
 }
