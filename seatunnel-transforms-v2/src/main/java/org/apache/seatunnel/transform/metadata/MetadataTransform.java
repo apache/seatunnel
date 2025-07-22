@@ -22,6 +22,7 @@ import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTestin
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
+import org.apache.seatunnel.api.table.catalog.MetadataColumn;
 import org.apache.seatunnel.api.table.catalog.MetadataSchema;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.type.BasicType;
@@ -126,7 +127,12 @@ public class MetadataTransform extends MultipleFieldOutputTransform {
                     break;
                 default:
                     if (metadataSchema.contains(metadataFieldName)) {
-                        column = metadataSchema.getColumn(metadataFieldName);
+                        column =
+                                ((MetadataColumn)
+                                                metadataSchema
+                                                        .getColumn(metadataFieldName)
+                                                        .rename(mappingFieldName))
+                                        .toPhysicalColumn();
                     } else {
                         throw TransformCommonError.cannotFindMetadataFieldError(
                                 getPluginName(), mappingFieldName);

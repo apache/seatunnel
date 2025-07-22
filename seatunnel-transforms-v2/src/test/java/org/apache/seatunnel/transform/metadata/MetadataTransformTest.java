@@ -26,6 +26,7 @@ import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.CommonOptions;
 import org.apache.seatunnel.api.table.type.MetadataUtil;
@@ -41,6 +42,7 @@ import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -62,7 +64,6 @@ public class MetadataTransformTest {
                         CommonOptions.EVENT_TIME.getName(),
                         BasicType.LONG_TYPE,
                         (Long) null,
-                        null,
                         true,
                         null,
                         null));
@@ -71,16 +72,14 @@ public class MetadataTransformTest {
                         CommonOptions.DELAY.getName(),
                         BasicType.LONG_TYPE,
                         (Long) null,
-                        null,
                         true,
                         null,
                         null));
         metadata.add(
                 MetadataColumn.of(
                         CommonOptions.PARTITION.getName(),
-                        BasicType.STRING_TYPE,
+                        ArrayType.STRING_ARRAY_TYPE,
                         (Long) null,
-                        null,
                         true,
                         null,
                         null));
@@ -145,7 +144,7 @@ public class MetadataTransformTest {
 
     @Test
     void testMetadataTransform() {
-        Map<String, String> metadataMapping = new HashMap<>();
+        Map<String, String> metadataMapping = new LinkedHashMap<>();
         metadataMapping.put("Database", "database");
         metadataMapping.put("Table", "table");
         metadataMapping.put("Partition", "partition");
@@ -157,6 +156,25 @@ public class MetadataTransformTest {
         MetadataTransform transform =
                 new MetadataTransform(ReadonlyConfig.fromMap(config), catalogTable);
         transform.initRowContainerGenerator();
+
+        Column[] columns = transform.getOutputColumns();
+        Assertions.assertEquals("database", columns[0].getName());
+        Assertions.assertEquals("table", columns[1].getName());
+        Assertions.assertEquals("partition", columns[2].getName());
+        Assertions.assertEquals("rowKind", columns[3].getName());
+        Assertions.assertEquals("ts_ms", columns[4].getName());
+        Assertions.assertEquals("delay", columns[5].getName());
+
+        Assertions.assertEquals(BasicType.STRING_TYPE, columns[0].getDataType());
+        Assertions.assertEquals(BasicType.STRING_TYPE, columns[1].getDataType());
+        Assertions.assertEquals(ArrayType.STRING_ARRAY_TYPE, columns[2].getDataType());
+        Assertions.assertEquals(BasicType.STRING_TYPE, columns[3].getDataType());
+        Assertions.assertEquals(BasicType.LONG_TYPE, columns[4].getDataType());
+        Assertions.assertEquals(BasicType.LONG_TYPE, columns[5].getDataType());
+
+        Assertions.assertInstanceOf(PhysicalColumn.class, columns[0]);
+        Assertions.assertInstanceOf(PhysicalColumn.class, columns[5]);
+
         SeaTunnelRow outputRow = transform.map(inputRow);
         Assertions.assertEquals(values.length + 6, outputRow.getArity());
         Assertions.assertEquals("default.default.default", outputRow.getTableId());
@@ -166,12 +184,12 @@ public class MetadataTransformTest {
         Assertions.assertEquals(896657703886127105L, outputRow.getField(2));
         Assertions.assertEquals(3.1415916, outputRow.getField(3));
         Assertions.assertEquals(3.14, outputRow.getField(4));
-        Assertions.assertArrayEquals(
-                new String[] {"key1", "key2"}, (String[]) outputRow.getField(5));
+        Assertions.assertEquals("default", outputRow.getField(5));
         Assertions.assertEquals("default", outputRow.getField(6));
-        Assertions.assertEquals(eventTime, outputRow.getField(7));
+        Assertions.assertArrayEquals(
+                new String[] {"key1", "key2"}, (String[]) outputRow.getField(7));
         Assertions.assertEquals("+I", outputRow.getField(8));
-        Assertions.assertEquals("default", outputRow.getField(9));
+        Assertions.assertEquals(eventTime, outputRow.getField(9));
         Assertions.assertEquals(150L, outputRow.getField(10));
     }
 }

@@ -141,7 +141,6 @@ public abstract class IncrementalSource<T, C extends SourceConfig>
                         CommonOptions.EVENT_TIME.getName(),
                         BasicType.LONG_TYPE,
                         (Long) null,
-                        null,
                         true,
                         null,
                         null));
@@ -150,7 +149,6 @@ public abstract class IncrementalSource<T, C extends SourceConfig>
                         CommonOptions.DELAY.getName(),
                         BasicType.LONG_TYPE,
                         (Long) null,
-                        null,
                         true,
                         null,
                         null));
