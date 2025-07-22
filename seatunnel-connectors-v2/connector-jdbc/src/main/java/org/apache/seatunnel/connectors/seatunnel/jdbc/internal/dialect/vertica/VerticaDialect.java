@@ -65,7 +65,7 @@ public class VerticaDialect implements JdbcDialect {
                 Arrays.stream(fieldNames)
                         .filter(fieldName -> !Arrays.asList(uniqueKeyFields).contains(fieldName))
                         .collect(Collectors.toList());
-        // vertica jdbc currently needs to display the specified type to execute
+        // Vertica JDBC currently requires explicitly specifying the data type
         String valuesBinding =
                 tableSchema.getColumns().stream()
                         .map(
