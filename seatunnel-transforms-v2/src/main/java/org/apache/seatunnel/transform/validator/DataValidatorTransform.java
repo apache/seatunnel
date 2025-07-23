@@ -32,7 +32,6 @@ import org.apache.seatunnel.transform.common.AbstractCatalogSupportMapTransform;
 import org.apache.seatunnel.transform.common.ErrorHandleWay;
 import org.apache.seatunnel.transform.common.TransformCommonOptions;
 import org.apache.seatunnel.transform.exception.TransformCommonError;
-import org.apache.seatunnel.transform.exception.TransformException;
 import org.apache.seatunnel.transform.validator.ValidationResultHandler.ValidationProcessResult;
 
 import lombok.extern.slf4j.Slf4j;
@@ -68,9 +67,15 @@ public class DataValidatorTransform extends AbstractCatalogSupportMapTransform {
                 readonlyConfig
                         .getOptional(TransformCommonOptions.ROW_ERROR_HANDLE_WAY_OPTION)
                         .orElse(ErrorHandleWay.FAIL);
-        // For ROUTE_TO_TABLE mode, use row_error_handle_way.error_table, otherwise fallback to error_table
-        this.errorTable = readonlyConfig.getOptional("row_error_handle_way.error_table")
-                .orElse(readonlyConfig.getOptional(TransformCommonOptions.ERROR_TABLE_OPTION).orElse(null));
+        // For ROUTE_TO_TABLE mode, use row_error_handle_way.error_table, otherwise fallback to
+        // error_table
+        this.errorTable =
+                readonlyConfig
+                        .getOptional("row_error_handle_way.error_table")
+                        .orElse(
+                                readonlyConfig
+                                        .getOptional(TransformCommonOptions.ERROR_TABLE_OPTION)
+                                        .orElse(null));
         this.resultHandler = new ValidationResultHandler();
         this.fieldValidators = initializeFieldValidators();
     }
@@ -114,7 +119,8 @@ public class DataValidatorTransform extends AbstractCatalogSupportMapTransform {
                     String.join("; ", processResult.getErrorMessages()));
 
             if (errorHandleWay == ErrorHandleWay.FAIL) {
-                String message = "Validation failed: " + String.join("; ", processResult.getErrorMessages());
+                String message =
+                        "Validation failed: " + String.join("; ", processResult.getErrorMessages());
                 throw TransformCommonError.validationFailed(message);
             } else if (errorHandleWay == ErrorHandleWay.SKIP) {
                 return null; // Skip this row
