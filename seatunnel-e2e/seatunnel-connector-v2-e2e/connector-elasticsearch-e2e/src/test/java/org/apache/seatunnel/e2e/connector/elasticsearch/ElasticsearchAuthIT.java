@@ -545,15 +545,23 @@ public class ElasticsearchAuthIT extends TestSuiteBase implements TestResource {
         // Setup test data
         setupAuthTestData();
 
-        // Create temporary config file with real API key values
+        // Create temporary config file with real API key values in resources directory
         String configContent = createApiKeyConfigContent();
-        java.nio.file.Path tempConfigFile =
-                java.nio.file.Files.createTempFile("elasticsearch_auth_apikey_", ".conf");
-        java.nio.file.Files.write(tempConfigFile, configContent.getBytes(StandardCharsets.UTF_8));
+        java.io.File resourcesDir = new java.io.File("src/test/resources/elasticsearch");
+        if (!resourcesDir.exists()) {
+            resourcesDir.mkdirs();
+        }
+
+        java.io.File tempConfigFile =
+                new java.io.File(resourcesDir, "elasticsearch_auth_apikey_temp.conf");
+        try (java.io.FileWriter writer = new java.io.FileWriter(tempConfigFile)) {
+            writer.write(configContent);
+        }
 
         try {
-            // Execute SeaTunnel job with API key auth
-            Container.ExecResult execResult = container.executeJob(tempConfigFile.toString());
+            // Execute SeaTunnel job with API key auth using relative path
+            Container.ExecResult execResult =
+                    container.executeJob("/elasticsearch/elasticsearch_auth_apikey_temp.conf");
             Assertions.assertEquals(
                     0, execResult.getExitCode(), "Job should complete successfully");
 
@@ -569,7 +577,9 @@ public class ElasticsearchAuthIT extends TestSuiteBase implements TestResource {
 
         } finally {
             // Clean up temporary file
-            java.nio.file.Files.deleteIfExists(tempConfigFile);
+            if (tempConfigFile.exists()) {
+                tempConfigFile.delete();
+            }
         }
     }
 
