@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.engine.server.rest.servlet;
 
+import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
+
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 
@@ -47,26 +49,26 @@ public class BaseServlet extends HttpServlet {
 
     protected void writeJson(HttpServletResponse resp, Object obj) throws IOException {
         resp.setCharacterEncoding(StandardCharsets.UTF_8.name());
-        resp.setContentType("application/json");
+        resp.setContentType("application/json; charset=UTF-8");
         resp.getWriter().write(new Gson().toJson(obj));
     }
 
     protected void writeJson(HttpServletResponse resp, JsonArray jsonArray) throws IOException {
         resp.setCharacterEncoding(StandardCharsets.UTF_8.name());
-        resp.setContentType("application/json");
+        resp.setContentType("application/json; charset=UTF-8");
         resp.getWriter().write(jsonArray.toString());
     }
 
     protected void writeJson(HttpServletResponse resp, JsonObject jsonObject) throws IOException {
         resp.setCharacterEncoding(StandardCharsets.UTF_8.name());
-        resp.setContentType("application/json");
+        resp.setContentType("application/json; charset=UTF-8");
         resp.getWriter().write(jsonObject.toString());
     }
 
     protected void writeJson(HttpServletResponse resp, JsonArray jsonArray, int statusCode)
             throws IOException {
         resp.setCharacterEncoding(StandardCharsets.UTF_8.name());
-        resp.setContentType("application/json");
+        resp.setContentType("application/json; charset=UTF-8");
         resp.setStatus(statusCode);
         resp.getWriter().write(jsonArray.toString());
     }
@@ -74,7 +76,7 @@ public class BaseServlet extends HttpServlet {
     protected void writeJson(HttpServletResponse resp, JsonObject jsonObject, int statusCode)
             throws IOException {
         resp.setCharacterEncoding(StandardCharsets.UTF_8.name());
-        resp.setContentType("application/json");
+        resp.setContentType("application/json; charset=UTF-8");
         resp.setStatus(statusCode);
         resp.getWriter().write(jsonObject.toString());
     }
@@ -82,18 +84,19 @@ public class BaseServlet extends HttpServlet {
     protected void writeJson(HttpServletResponse resp, Object obj, int statusCode)
             throws IOException {
         resp.setCharacterEncoding(StandardCharsets.UTF_8.name());
-        resp.setContentType("application/json");
+        resp.setContentType("application/json; charset=UTF-8");
         resp.setStatus(statusCode);
         resp.getWriter().write(new Gson().toJson(obj));
     }
 
     protected void write(HttpServletResponse resp, Object obj) throws IOException {
         resp.setCharacterEncoding(StandardCharsets.UTF_8.name());
-        resp.setContentType("text/plain");
+        resp.setContentType("text/plain; charset=UTF-8");
         resp.getWriter().write(obj.toString());
     }
 
     protected void writeHtml(HttpServletResponse resp, Object obj) throws IOException {
+        resp.setCharacterEncoding(StandardCharsets.UTF_8.name());
         resp.setContentType("text/html; charset=UTF-8");
         resp.getWriter().write(obj.toString());
     }
@@ -151,5 +154,37 @@ public class BaseServlet extends HttpServlet {
             }
         }
         return reqParameterMap;
+    }
+
+    @VisibleForTesting
+    public void writeJsonForTest(HttpServletResponse resp, Object obj, String type)
+            throws IOException {
+        switch (type) {
+            case "1":
+                writeJson(resp, obj);
+                break;
+            case "2":
+                writeJson(resp, (JsonArray) obj);
+                break;
+            case "3":
+                writeJson(resp, (JsonObject) obj);
+                break;
+            case "4":
+                writeJson(resp, (JsonArray) obj, 200);
+                break;
+            case "5":
+                writeJson(resp, (JsonObject) obj, 200);
+                break;
+            case "6":
+                writeJson(resp, obj, 200);
+                break;
+            case "7":
+                write(resp, obj);
+                break;
+            case "8":
+                writeHtml(resp, obj);
+                break;
+            default:
+        }
     }
 }
