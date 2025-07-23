@@ -71,7 +71,7 @@ public class DataValidatorTransform extends AbstractCatalogSupportMapTransform {
         // error_table
         this.errorTable =
                 readonlyConfig
-                        .getOptional("row_error_handle_way.error_table")
+                        .getOptional(TransformCommonOptions.ERROR_TABLE_OPTION)
                         .orElse(
                                 readonlyConfig
                                         .getOptional(TransformCommonOptions.ERROR_TABLE_OPTION)
