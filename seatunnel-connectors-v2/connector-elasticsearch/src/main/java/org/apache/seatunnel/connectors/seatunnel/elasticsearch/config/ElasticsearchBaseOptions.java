@@ -97,19 +97,19 @@ public class ElasticsearchBaseOptions implements Serializable {
 
     // API Key authentication options
     public static final Option<String> API_KEY_ID =
-            Options.key("api_key_id")
+            Options.key("auth.api_key_id")
                     .stringType()
                     .noDefaultValue()
                     .withDescription("Elasticsearch API key ID for authentication");
 
     public static final Option<String> API_KEY =
-            Options.key("api_key")
+            Options.key("auth.api_key")
                     .stringType()
                     .noDefaultValue()
                     .withDescription("Elasticsearch API key secret for authentication");
 
     public static final Option<String> API_KEY_ENCODED =
-            Options.key("api_key_encoded")
+            Options.key("auth.api_key_encoded")
                     .stringType()
                     .noDefaultValue()
                     .withDescription("Base64 encoded Elasticsearch API key (id:key format)");

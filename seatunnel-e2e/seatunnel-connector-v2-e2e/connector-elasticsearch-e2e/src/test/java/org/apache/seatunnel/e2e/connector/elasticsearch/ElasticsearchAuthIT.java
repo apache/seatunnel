@@ -28,6 +28,7 @@ import org.apache.seatunnel.connectors.seatunnel.elasticsearch.client.auth.Authe
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.BulkResponse;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
+import org.apache.seatunnel.e2e.common.container.TestContainer;
 
 import org.apache.http.HttpResponse;
 import org.apache.http.client.methods.HttpGet;
@@ -44,6 +45,8 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestTemplate;
+import org.testcontainers.containers.Container;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.elasticsearch.ElasticsearchContainer;
 import org.testcontainers.lifecycle.Startables;
@@ -358,8 +361,8 @@ public class ElasticsearchAuthIT extends TestSuiteBase implements TestResource {
                 "hosts",
                 Lists.newArrayList("https://" + elasticsearchContainer.getHttpHostAddress()));
         config.put("auth_type", "api_key");
-        config.put("api_key_id", keyId);
-        config.put("api_key", keySecret);
+        config.put("auth.api_key_id", keyId);
+        config.put("auth.api_key", keySecret);
         config.put("tls_verify_certificate", false);
         config.put("tls_verify_hostname", false);
         return config;
@@ -371,7 +374,7 @@ public class ElasticsearchAuthIT extends TestSuiteBase implements TestResource {
                 "hosts",
                 Lists.newArrayList("https://" + elasticsearchContainer.getHttpHostAddress()));
         config.put("auth_type", "api_key");
-        config.put("api_key_encoded", encodedKey);
+        config.put("auth.api_key_encoded", encodedKey);
         config.put("tls_verify_certificate", false);
         config.put("tls_verify_hostname", false);
         return config;
@@ -532,5 +535,144 @@ public class ElasticsearchAuthIT extends TestSuiteBase implements TestResource {
 
             log.info("✓ API key encoded authentication test passed - {} documents found", docCount);
         }
+    }
+
+    /** E2E test: API Key authentication source and sink */
+    @TestTemplate
+    public void testE2EApiKeyAuthSourceAndSink(TestContainer container) throws Exception {
+        log.info("=== E2E Test: API Key Authentication Source and Sink ===");
+
+        // Setup test data
+        setupAuthTestData();
+
+        // Create temporary config file with real API key values
+        String configContent = createApiKeyConfigContent();
+        java.nio.file.Path tempConfigFile =
+                java.nio.file.Files.createTempFile("elasticsearch_auth_apikey_", ".conf");
+        java.nio.file.Files.write(tempConfigFile, configContent.getBytes(StandardCharsets.UTF_8));
+
+        try {
+            // Execute SeaTunnel job with API key auth
+            Container.ExecResult execResult = container.executeJob(tempConfigFile.toString());
+            Assertions.assertEquals(
+                    0, execResult.getExitCode(), "Job should complete successfully");
+
+            // Wait for index refresh
+            Thread.sleep(2000);
+
+            // Verify results
+            long targetCount =
+                    esRestClient.getIndexDocsCount("auth_test_apikey_target").get(0).getDocsCount();
+            log.info("✓ API Key auth E2E test completed - {} documents processed", targetCount);
+            Assertions.assertTrue(
+                    targetCount > 0, "Should have processed documents with API key auth");
+
+        } finally {
+            // Clean up temporary file
+            java.nio.file.Files.deleteIfExists(tempConfigFile);
+        }
+    }
+
+    /** Create API Key configuration content with real values */
+    private String createApiKeyConfigContent() {
+        return String.format(
+                "env {\n"
+                        + "  parallelism = 1\n"
+                        + "  job.mode = \"BATCH\"\n"
+                        + "}\n"
+                        + "\n"
+                        + "source {\n"
+                        + "  Elasticsearch {\n"
+                        + "    hosts = [\"https://elasticsearch:9200\"]\n"
+                        + "    auth_type = \"api_key\"\n"
+                        + "    auth.api_key_id = \"%s\"\n"
+                        + "    auth.api_key = \"%s\"\n"
+                        + "    tls_verify_certificate = false\n"
+                        + "    tls_verify_hostname = false\n"
+                        + "\n"
+                        + "    index = \"auth_test_index\"\n"
+                        + "    query = {\"match_all\": {}}\n"
+                        + "    schema = {\n"
+                        + "      fields {\n"
+                        + "        id = int\n"
+                        + "        name = string\n"
+                        + "        category = string\n"
+                        + "        price = double\n"
+                        + "        timestamp = timestamp\n"
+                        + "      }\n"
+                        + "    }\n"
+                        + "  }\n"
+                        + "}\n"
+                        + "\n"
+                        + "sink {\n"
+                        + "  Elasticsearch {\n"
+                        + "    hosts = [\"https://elasticsearch:9200\"]\n"
+                        + "    auth_type = \"api_key\"\n"
+                        + "    auth.api_key_id = \"%s\"\n"
+                        + "    auth.api_key = \"%s\"\n"
+                        + "    tls_verify_certificate = false\n"
+                        + "    tls_verify_hostname = false\n"
+                        + "\n"
+                        + "    index = \"auth_test_apikey_target\"\n"
+                        + "    schema_save_mode = \"CREATE_SCHEMA_WHEN_NOT_EXIST\"\n"
+                        + "    data_save_mode = \"APPEND_DATA\"\n"
+                        + "  }\n"
+                        + "}\n",
+                validApiKeyId, validApiKeySecret, validApiKeyId, validApiKeySecret);
+    }
+
+    /** Setup test data for authentication tests */
+    private void setupAuthTestData() throws Exception {
+        String testIndex = "auth_test_index";
+
+        // Create index mapping
+        String mapping =
+                "{"
+                        + "\"mappings\": {"
+                        + "\"properties\": {"
+                        + "\"id\": {\"type\": \"integer\"},"
+                        + "\"name\": {\"type\": \"text\"},"
+                        + "\"category\": {\"type\": \"keyword\"},"
+                        + "\"price\": {\"type\": \"double\"},"
+                        + "\"timestamp\": {\"type\": \"date\"}"
+                        + "}"
+                        + "}"
+                        + "}";
+
+        try {
+            esRestClient.createIndex(testIndex, mapping);
+            log.info("Created test index: {}", testIndex);
+        } catch (Exception e) {
+            log.warn("Index might already exist: {}", e.getMessage());
+        }
+
+        // Insert test data
+        StringBuilder requestBody = new StringBuilder();
+        String indexHeader = "{\"index\":{\"_index\":\"" + testIndex + "\"}}\n";
+
+        String[] categories = {"electronics", "books", "clothing", "home", "sports"};
+        for (int i = 1; i <= 10; i++) {
+            Map<String, Object> doc = new HashMap<>();
+            doc.put("id", i);
+            doc.put("name", "Auth Test Product " + i);
+            doc.put("category", categories[i % categories.length]);
+            doc.put("price", 15.99 + (i * 3.5)); // Prices from 19.49 to 50.49
+            doc.put("timestamp", "2024-01-" + String.format("%02d", i) + "T10:00:00Z");
+
+            requestBody.append(indexHeader);
+            requestBody.append(objectMapper.writeValueAsString(doc));
+            requestBody.append("\n");
+        }
+
+        BulkResponse response = esRestClient.bulk(requestBody.toString());
+        if (response.isErrors()) {
+            log.warn("Some documents might already exist: {}", response.getResponse());
+        }
+
+        // Wait for index refresh
+        Thread.sleep(2000);
+
+        long docCount = esRestClient.getIndexDocsCount(testIndex).get(0).getDocsCount();
+        log.info("Test data setup completed - {} documents in source index", docCount);
     }
 }
