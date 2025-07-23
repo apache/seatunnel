@@ -37,7 +37,10 @@ public class TypeUtil {
             return to.getSqlType() == SqlType.BIGINT;
         }
         if (from.getSqlType() == SqlType.FLOAT) {
-            return to.getSqlType() == SqlType.DOUBLE;
+            return to.getSqlType() == SqlType.DOUBLE || to.getSqlType() == SqlType.DECIMAL;
+        }
+        if (from.getSqlType() == SqlType.DOUBLE) {
+            return to.getSqlType() == SqlType.DECIMAL;
         }
         return false;
     }
