@@ -11,7 +11,7 @@
 | **目标类型** | SeaTunnel |
 | **转换状态** | {{status}} |
 {{customTemplateInfo}}
-| **工具版本** | 1.0.0-SNAPSHOT (迭代1.3) |
+| **工具版本** | 0.1 |
 
 {{errorInfo}}
 
@@ -19,21 +19,26 @@
 
 | 类型 | 数量 | 百分比 |
 |------|------|--------|
-| ✅ **成功映射** | {{successCount}} | {{successPercent}} |
-| 🔧 **自动构造** | {{autoCount}} | {{autoPercent}} |
-| ❌ **缺失必填** | {{missingCount}} | {{missingPercent}} |
+| ✅ **直接映射** | {{directCount}} | {{directPercent}} |
+| 🔧 **转换映射** | {{transformCount}} | {{transformPercent}} |
+| 🔄 **使用默认值** | {{defaultCount}} | {{defaultPercent}} |
+| ❌ **缺失字段** | {{missingCount}} | {{missingPercent}} |
 | ⚠️ **未映射** | {{unmappedCount}} | {{unmappedPercent}} |
 | **总计** | {{totalCount}} | 100% |
 
-## ✅ 成功映射的字段
+## ✅ 直接映射的字段
 
-{{successMappingTable}}
+{{directMappingTable}}
 
-## 🔧 自动构造的字段
+## 🔧 转换映射的字段
 
-{{autoConstructedTable}}
+{{transformMappingTable}}
 
-## ❌ 缺失的必填字段
+## 🔄 使用默认值的字段
+
+{{defaultValuesTable}}
+
+## ❌ 缺失的字段
 
 {{missingFieldsTable}}
 
@@ -54,12 +59,3 @@ X2SeaTunnel是一个配置转换工具，当前版本 (迭代1.3) 实现了以�
 - ✅ SeaTunnel配置模板生成
 - ✅ 详细的转换报告
 {{customFeatures}}
-
-**后续版本将支持**：
-- 更多连接器类型
-- 复杂数据类型映射
-- 批量配置转换
-- 配置验证功能
-
----
-*报告生成时间: {{generateTime}}*

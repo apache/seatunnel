@@ -325,6 +325,178 @@ sh bin/x2seatunnel.sh -s examples/datax-sqlserver.json -t output/seatunnel-sqlse
 6. 编写单元测试和集成测试，覆盖所有连接器转换场景
 7. 更新用户文档和开发文档，补充连接器支持说明和使用示例
 
+#### 迭代1.7：优化转换报告功能（1周）
+**目标**: 修复转换报告统计不准确的问题，让报告真实反映字段映射过程
+
+**问题分析**:
+当前转换报告存在统计偏差问题，例如包含50+有效字段的 `datax-mysql2mysql-full.json` 文件，报告中只显示了3个成功映射和1个自动构造，与实际的字段提取过程不符。根本原因是：
+1. `ConfigDrivenTemplateEngine.generateMappingResult()` 只记录了模板级别的映射（reader.name、writer.name等），未记录字段级别的提取过程
+2. `TemplateVariableResolver` 在解析模板变量时提取了大量字段值，但这些映射过程没有被记录到 `MappingResult` 中
+3. 报告生成与实际转换过程脱节，无法反映真实的转换复杂度
+
+**功能范围**:
+- 增强 `TemplateVariableResolver` 支持映射过程记录
+- 扩展 `MappingResult` 数据模型，详细分类字段映射类型
+- 优化 `ConfigDrivenTemplateEngine` 的映射结果统计逻辑
+- 完善转换报告的准确性和可读性
+
+**开发思路**:
+1. **扩展 `TemplateVariableResolver` 记录字段提取过程**:
+   ```java
+   public class TemplateVariableResolver {
+       private MappingTracker mappingTracker; // 新增：映射跟踪器
+       
+       private String extractValueFromJinja2Path(JsonNode rootNode, String path) {
+           String value = // ...原有提取逻辑
+           
+           // 新增：记录字段提取
+           if (value != null && !value.isEmpty()) {
+               mappingTracker.recordSuccessMapping(path, value, "直接从DataX提取");
+           } else {
+               mappingTracker.recordMissingField(path, "DataX配置中未找到该字段");
+           }
+           return value;
+       }
+       
+       private Object applyFilter(Object value, String filterExpression) {
+           Object result = // ...原有过滤逻辑
+           
+           // 新增：记录字段转换
+           if (!Objects.equals(value, result)) {
+               mappingTracker.recordAutoConstructed(
+                   filterExpression, result.toString(), "通过过滤器转换: " + filterExpression);
+           }
+           return result;
+       }
+   }
+   ```
+
+2. **设计 `MappingTracker` 映射跟踪器**:
+   ```java
+   public class MappingTracker {
+       private List<FieldMapping> directMappings = new ArrayList<>();      // 直接映射
+       private List<FieldMapping> constructedFields = new ArrayList<>();   // 自动构造
+       private List<FieldMapping> defaultValues = new ArrayList<>();       // 使用默认值
+       private List<FieldMapping> missingFields = new ArrayList<>();       // 缺失字段
+       private List<FieldMapping> unmappedFields = new ArrayList<>();      // 未映射字段
+       
+       public void recordSuccessMapping(String sourcePath, String value, String description) {
+           directMappings.add(new FieldMapping(sourcePath, null, value, description));
+       }
+       
+       public void recordAutoConstructed(String field, String value, String reason) {
+           constructedFields.add(new FieldMapping(null, field, value, reason));
+       }
+       
+       public MappingResult generateMappingResult() {
+           // 汇总所有映射信息到 MappingResult
+       }
+   }
+   ```
+
+3. **增强 `ConfigDrivenTemplateEngine` 集成映射跟踪**:
+   ```java
+   public TemplateConversionResult convertWithTemplate(DataXConfig dataXConfig, String sourceContent) {
+       MappingTracker tracker = new MappingTracker();
+       
+       // 5. 使用增强的变量解析器处理source模板
+       TemplateVariableResolver resolver = new TemplateVariableResolver(mappingManager, tracker);
+       String resolvedSourceConfig = resolver.resolve(sourceTemplateContent, sourceContent);
+       String resolvedSinkConfig = resolver.resolve(sinkTemplateContent, sourceContent);
+       
+       // 8. 从跟踪器生成完整的映射结果
+       MappingResult mappingResult = tracker.generateMappingResult();
+       
+       // 补充模板级别的映射信息
+       mappingResult.addSuccessMapping("reader.name", "source.template", sourceTemplate);
+       mappingResult.addSuccessMapping("writer.name", "sink.template", sinkTemplate);
+       
+       result.setMappingResult(mappingResult);
+       return result;
+   }
+   ```
+
+4. **扩展 `FieldMapping` 数据模型**:
+   ```java
+   public class FieldMapping {
+       private String sourcePath;        // 源字段路径，如 job.content[0].reader.parameter.username
+       private String targetField;       // 目标字段名，如 source.Jdbc.user
+       private String value;             // 字段值
+       private String description;       // 映射说明
+       private MappingType type;         // 映射类型：DIRECT, CONSTRUCTED, DEFAULT, MISSING, UNMAPPED
+       
+       // 构造函数和getter/setter
+   }
+   ```
+
+5. **优化转换报告生成逻辑**:
+   ```java
+   public class MarkdownReportGenerator {
+       private void buildStatistics(Map<String, String> variables, MappingResult result) {
+           // 重新统计，基于实际的字段映射数量
+           int directMappings = result.getDirectMappings().size();        // 新增：直接映射
+           int autoConstructed = result.getAutoConstructedFields().size();
+           int defaultValues = result.getDefaultValues().size();          // 新增：默认值
+           int missingFields = result.getMissingRequiredFields().size();
+           int unmappedFields = result.getUnmappedFields().size();
+           
+           int totalFields = directMappings + autoConstructed + defaultValues + missingFields + unmappedFields;
+           
+           // 更新统计变量...
+       }
+       
+       private String buildDetailedMappingTable(MappingResult result) {
+           // 新增：详细的字段映射表格，按映射类型分类显示
+           StringBuilder table = new StringBuilder();
+           
+           // 直接映射字段
+           table.append("### 📥 直接映射字段 (").append(result.getDirectMappings().size()).append(")\n");
+           for (FieldMapping mapping : result.getDirectMappings()) {
+               table.append("- `").append(mapping.getSourcePath()).append("` → `")
+                    .append(mapping.getValue()).append("` (").append(mapping.getDescription()).append(")\n");
+           }
+           
+           // 自动构造字段
+           table.append("### 🔧 自动构造字段 (").append(result.getAutoConstructedFields().size()).append(")\n");
+           // ...
+           
+           return table.toString();
+       }
+   }
+   ```
+
+**可交付成果**:
+- 增强的 `TemplateVariableResolver` 支持映射过程跟踪
+- 新增 `MappingTracker` 映射跟踪器类
+- 扩展的 `MappingResult` 数据模型，支持更细分的映射类型统计
+- 优化的转换报告，准确反映字段级别的映射情况
+- 完善的单元测试，验证映射统计的准确性
+
+**验证标准**:
+```bash
+# 使用复杂的DataX配置测试映射统计准确性
+sh bin/x2seatunnel.sh -s examples/source/datax-mysql2mysql-full.json \
+  -t examples/target/mysql2mysql-result.conf \
+  -r examples/report/mysql2mysql-detailed-report.md --verbose
+
+# 验证报告内容：
+# ✅ 直接映射: 15-20个字段 (username, password, jdbcUrl, table, column等)
+# 🔧 自动构造: 8-12个字段 (driver推断, query生成, 默认值设置等)  
+# 🔄 默认值: 3-5个字段 (连接池配置, 超时设置等)
+# ❌ 缺失必填: 0-2个字段
+# ⚠️ 未映射: 2-5个字段 (DataX特有但SeaTunnel不需要的配置)
+# 📊 总计: 30-40个字段 (接近DataX原始配置的字段数量)
+```
+
+**主要任务**:
+1. 设计和实现 `MappingTracker` 映射跟踪器
+2. 扩展 `TemplateVariableResolver` 支持映射过程记录
+3. 优化 `ConfigDrivenTemplateEngine` 集成映射跟踪功能
+4. 扩展 `MappingResult` 数据模型，支持更详细的字段分类
+5. 重构 `MarkdownReportGenerator` 生成更准确的统计报告
+6. 编写单元测试验证映射统计的准确性
+7. 更新转换报告模板，增加详细的字段映射展示
+
 ### 第三阶段：高级功能与优化（2周）
 
 #### 迭代3.1：SDK接口开发（1周）

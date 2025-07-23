@@ -60,7 +60,7 @@ public class TemplateVariableResolverTest {
 
     @Test
     public void testBasicVariableResolution() {
-        String template = "username: ${datax:job.content[0].reader.parameter.username}";
+        String template = "username: {{ datax.job.content[0].reader.parameter.username }}";
         String result = resolver.resolve(template, testDataXJson);
         assertEquals("username: root", result);
     }
@@ -68,7 +68,7 @@ public class TemplateVariableResolverTest {
     @Test
     public void testRegexVariableResolution() {
         String template =
-                "database: ${datax:job.content[0].writer.parameter.path|regex:/warehouse/([^/]+)/.*:$1|default_db}";
+                "database: {{ datax.job.content[0].writer.parameter.path | regex_extract('/warehouse/([^/]+)/.*', '$1') | default('default_db') }}";
         String result = resolver.resolve(template, testDataXJson);
         assertEquals("database: ecology_ods", result);
     }
@@ -78,9 +78,9 @@ public class TemplateVariableResolverTest {
         String template =
                 "source {\n"
                         + "  Jdbc {\n"
-                        + "    url = \"${datax:job.content[0].reader.parameter.connection[0].jdbcUrl[0]}\"\n"
-                        + "    user = \"${datax:job.content[0].reader.parameter.username}\"\n"
-                        + "    table = \"${datax:job.content[0].reader.parameter.connection[0].table[0]}\"\n"
+                        + "    url = \"{{ datax.job.content[0].reader.parameter.connection[0].jdbcUrl[0] }}\"\n"
+                        + "    user = \"{{ datax.job.content[0].reader.parameter.username }}\"\n"
+                        + "    table = \"{{ datax.job.content[0].reader.parameter.connection[0].table[0] }}\"\n"
                         + "  }\n"
                         + "}";
 
@@ -93,7 +93,8 @@ public class TemplateVariableResolverTest {
 
     @Test
     public void testDefaultValue() {
-        String template = "host: ${datax:job.content[0].reader.parameter.host|localhost}";
+        String template =
+                "host: {{ datax.job.content[0].reader.parameter.host | default('localhost') }}";
         String result = resolver.resolve(template, testDataXJson);
         assertEquals("host: localhost", result);
     }

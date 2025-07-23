@@ -126,8 +126,9 @@ public class MarkdownReportGenerator {
         buildStatistics(variables, result);
 
         // 各种表格
-        variables.put("successMappingTable", buildSuccessMappingTable(result, sourceType));
-        variables.put("autoConstructedTable", buildAutoConstructedTable(result));
+        variables.put("directMappingTable", buildDirectMappingTable(result, sourceType));
+        variables.put("transformMappingTable", buildTransformMappingTable(result, sourceType));
+        variables.put("defaultValuesTable", buildDefaultValuesTable(result));
         variables.put("missingFieldsTable", buildMissingFieldsTable(result));
         variables.put("unmappedFieldsTable", buildUnmappedFieldsTable(result));
         variables.put("recommendations", buildRecommendations(result, sourceType, customTemplate));
@@ -137,24 +138,30 @@ public class MarkdownReportGenerator {
 
     /** 构建统计信息 */
     private void buildStatistics(Map<String, String> variables, MappingResult result) {
-        int successCount = result.getSuccessMappings().size();
-        int autoCount = result.getAutoConstructedFields().size();
+        int directCount = result.getSuccessMappings().size();
+        int transformCount = result.getTransformMappings().size();
+        int defaultCount = result.getDefaultValues().size();
         int missingCount = result.getMissingRequiredFields().size();
         int unmappedCount = result.getUnmappedFields().size();
-        int totalCount = successCount + autoCount + missingCount + unmappedCount;
+        int totalCount = directCount + transformCount + defaultCount + missingCount + unmappedCount;
 
-        variables.put("successCount", String.valueOf(successCount));
-        variables.put("autoCount", String.valueOf(autoCount));
+        variables.put("directCount", String.valueOf(directCount));
+        variables.put("transformCount", String.valueOf(transformCount));
+        variables.put("defaultCount", String.valueOf(defaultCount));
         variables.put("missingCount", String.valueOf(missingCount));
         variables.put("unmappedCount", String.valueOf(unmappedCount));
         variables.put("totalCount", String.valueOf(totalCount));
 
         if (totalCount > 0) {
             variables.put(
-                    "successPercent",
-                    String.format("%.1f%%", (double) successCount / totalCount * 100));
+                    "directPercent",
+                    String.format("%.1f%%", (double) directCount / totalCount * 100));
             variables.put(
-                    "autoPercent", String.format("%.1f%%", (double) autoCount / totalCount * 100));
+                    "transformPercent",
+                    String.format("%.1f%%", (double) transformCount / totalCount * 100));
+            variables.put(
+                    "defaultPercent",
+                    String.format("%.1f%%", (double) defaultCount / totalCount * 100));
             variables.put(
                     "missingPercent",
                     String.format("%.1f%%", (double) missingCount / totalCount * 100));
@@ -164,52 +171,79 @@ public class MarkdownReportGenerator {
         } else {
             variables.put("successPercent", "0%");
             variables.put("autoPercent", "0%");
+            variables.put("defaultPercent", "0%"); // 新增：默认值百分比
             variables.put("missingPercent", "0%");
             variables.put("unmappedPercent", "0%");
         }
     }
 
     /** 构建成功映射表格 */
-    private String buildSuccessMappingTable(MappingResult result, String sourceType) {
+    /** 构建直接映射字段表格 */
+    private String buildDirectMappingTable(MappingResult result, String sourceType) {
         if (result.getSuccessMappings().isEmpty()) {
-            return "*无成功映射的字段*\n";
+            return "*无直接映射的字段*\n";
         }
 
         StringBuilder table = new StringBuilder();
-        table.append("| ").append(sourceType.toUpperCase()).append("字段 | SeaTunnel字段 | 值 |\n");
-        table.append("|-----------|---------------|----|\\n");
+        table.append("| SeaTunnel字段 | 值 | ").append(sourceType.toUpperCase()).append("来源字段 |\n");
+        table.append("|---------------|----|--------------|\n");
 
         for (MappingResult.MappingItem item : result.getSuccessMappings()) {
             table.append("| `")
-                    .append(item.getSourceField())
-                    .append("` | `")
                     .append(item.getTargetField())
                     .append("` | `")
                     .append(item.getValue())
+                    .append("` | `")
+                    .append(item.getSourceField())
                     .append("` |\n");
         }
 
         return table.toString();
     }
 
-    /** 构建自动构造字段表格 */
-    private String buildAutoConstructedTable(MappingResult result) {
-        if (result.getAutoConstructedFields().isEmpty()) {
-            return "*无自动构造的字段*\n";
+    /** 构建转换映射字段表格 */
+    private String buildTransformMappingTable(MappingResult result, String sourceType) {
+        if (result.getTransformMappings().isEmpty()) {
+            return "*无转换映射的字段*\n";
         }
 
         StringBuilder table = new StringBuilder();
-        table.append("| 字段名 | 值 | 说明 |\n");
-        table.append("|--------|----|------|\\n");
+        table.append("| SeaTunnel字段 | 值 | ")
+                .append(sourceType.toUpperCase())
+                .append("来源字段 | 使用过滤器 |\n");
+        table.append("|---------------|----|--------------|-----------|\n");
 
-        for (MappingResult.ConstructedField field : result.getAutoConstructedFields()) {
+        for (MappingResult.TransformMapping item : result.getTransformMappings()) {
+            table.append("| `")
+                    .append(item.getTargetField())
+                    .append("` | `")
+                    .append(item.getValue())
+                    .append("` | `")
+                    .append(item.getSourceField())
+                    .append("` | ")
+                    .append(item.getFilterName())
+                    .append(" |\n");
+        }
+
+        return table.toString();
+    }
+
+    /** 构建默认值字段表格 */
+    private String buildDefaultValuesTable(MappingResult result) {
+        if (result.getDefaultValues().isEmpty()) {
+            return "*无使用默认值的字段*\n";
+        }
+
+        StringBuilder table = new StringBuilder();
+        table.append("| SeaTunnel字段 | 默认值 |\n");
+        table.append("|---------------|--------|\n");
+
+        for (MappingResult.DefaultValueField field : result.getDefaultValues()) {
             table.append("| `")
                     .append(field.getFieldName())
                     .append("` | `")
                     .append(field.getValue())
-                    .append("` | ")
-                    .append(field.getReason())
-                    .append(" |\n");
+                    .append("` |\n");
         }
 
         return table.toString();
@@ -218,20 +252,16 @@ public class MarkdownReportGenerator {
     /** 构建缺失字段表格 */
     private String buildMissingFieldsTable(MappingResult result) {
         if (result.getMissingRequiredFields().isEmpty()) {
-            return "*无缺失的必填字段* 🎉\n";
+            return "*无缺失的字段* 🎉\n";
         }
 
         StringBuilder table = new StringBuilder();
-        table.append("⚠️ **注意**: 以下字段是必填的，但在源配置中未找到，请手动补充：\n\n");
-        table.append("| 字段名 | 说明 |\n");
-        table.append("|--------|------|\\n");
+        table.append("⚠️ **注意**: 以下字段在源配置中未找到，请手动补充：\n\n");
+        table.append("| SeaTunnel字段 |\n");
+        table.append("|---------------|\n");
 
         for (MappingResult.MissingField field : result.getMissingRequiredFields()) {
-            table.append("| `")
-                    .append(field.getFieldName())
-                    .append("` | ")
-                    .append(field.getReason())
-                    .append(" |\n");
+            table.append("| `").append(field.getFieldName()).append("` |\n");
         }
 
         return table.toString();
@@ -244,18 +274,15 @@ public class MarkdownReportGenerator {
         }
 
         StringBuilder table = new StringBuilder();
-        table.append("以下字段在源配置中存在，但暂时无法映射到SeaTunnel配置：\n\n");
-        table.append("| 字段名 | 原值 | 说明 |\n");
-        table.append("|--------|----- |------|\\n");
+        table.append("| DataX字段 | 值 |\n");
+        table.append("|--------|------|\n");
 
         for (MappingResult.UnmappedField field : result.getUnmappedFields()) {
             table.append("| `")
                     .append(field.getFieldName())
                     .append("` | `")
                     .append(field.getValue())
-                    .append("` | ")
-                    .append(field.getReason())
-                    .append(" |\n");
+                    .append("` |\n");
         }
 
         return table.toString();
@@ -276,10 +303,15 @@ public class MarkdownReportGenerator {
                         .append(counter++)
                         .append(". ⚠️ **补充缺失字段**: 转换后的配置中有一些必填字段缺失，请根据上面的列表手动补充。\n");
             }
-            if (!result.getAutoConstructedFields().isEmpty()) {
+            if (!result.getTransformMappings().isEmpty()) {
                 recommendations
                         .append(counter++)
-                        .append(". 🔧 **检查自动构造的字段**: 部分字段是自动构造的，请确认这些值是否符合您的需求。\n");
+                        .append(". 🔧 **检查转换映射的字段**: 部分字段经过了过滤器转换，请确认这些值是否符合您的需求。\n");
+            }
+            if (!result.getDefaultValues().isEmpty()) {
+                recommendations
+                        .append(counter++)
+                        .append(". 🔄 **检查默认值字段**: 某些字段使用了默认值，请根据实际需要进行调整。\n");
             }
             if (!result.getUnmappedFields().isEmpty()) {
                 recommendations

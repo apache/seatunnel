@@ -19,6 +19,7 @@ package org.apache.seatunnel.tools.x2seatunnel.template;
 
 import org.apache.seatunnel.tools.x2seatunnel.model.DataXConfig;
 import org.apache.seatunnel.tools.x2seatunnel.model.MappingResult;
+import org.apache.seatunnel.tools.x2seatunnel.model.MappingTracker;
 import org.apache.seatunnel.tools.x2seatunnel.util.FileUtils;
 import org.apache.seatunnel.tools.x2seatunnel.util.PathResolver;
 
@@ -32,10 +33,13 @@ public class ConfigDrivenTemplateEngine {
 
     private final TemplateMappingManager mappingManager;
     private final TemplateVariableResolver variableResolver;
+    private final MappingTracker mappingTracker; // 新增：映射跟踪器
 
     public ConfigDrivenTemplateEngine() {
         this.mappingManager = TemplateMappingManager.getInstance();
-        this.variableResolver = new TemplateVariableResolver(this.mappingManager);
+        this.mappingTracker = new MappingTracker(); // 初始化映射跟踪器
+        this.variableResolver =
+                new TemplateVariableResolver(this.mappingManager, this.mappingTracker);
     }
 
     /**
@@ -52,6 +56,17 @@ public class ConfigDrivenTemplateEngine {
         TemplateConversionResult result = new TemplateConversionResult();
 
         try {
+            // 重置映射跟踪器状态
+            mappingTracker.reset();
+            logger.info("映射跟踪器已重置，开始新的转换过程");
+
+            // 创建字段引用跟踪器
+            org.apache.seatunnel.tools.x2seatunnel.util.DataXFieldExtractor dataXExtractor =
+                    new org.apache.seatunnel.tools.x2seatunnel.util.DataXFieldExtractor();
+            org.apache.seatunnel.tools.x2seatunnel.util.DataXFieldExtractor.FieldReferenceTracker
+                    fieldTracker = dataXExtractor.createFieldReferenceTracker(sourceContent);
+            variableResolver.setFieldReferenceTracker(fieldTracker);
+
             // 1. 根据reader类型选择source模板
             String readerType = dataXConfig.getReaderName();
             String sourceTemplate = mappingManager.getSourceTemplate(readerType);
@@ -67,21 +82,34 @@ public class ConfigDrivenTemplateEngine {
             String sinkTemplateContent = loadTemplate(sinkTemplate);
 
             // 4. 生成env配置
-            String envConfig = generateEnvConfig(dataXConfig);
+            String envConfig = generateEnvConfig(dataXConfig, sourceContent);
 
-            // 5. 使用变量解析器处理source模板
+            // 5. 验证并解析source模板
+            if (!variableResolver.validateTemplate(sourceTemplateContent)) {
+                throw new RuntimeException("Source模板格式错误，不符合Jinja2语法标准。请检查模板文件: " + sourceTemplate);
+            }
+            logger.info("使用模板分析器解析 source 模板");
             String resolvedSourceConfig =
-                    variableResolver.resolve(sourceTemplateContent, sourceContent);
+                    variableResolver.resolveWithTemplateAnalysis(
+                            sourceTemplateContent, "source", sourceContent);
 
-            // 6. 使用变量解析器处理sink模板
+            // 6. 验证并解析sink模板
+            if (!variableResolver.validateTemplate(sinkTemplateContent)) {
+                throw new RuntimeException("Sink模板格式错误，不符合Jinja2语法标准。请检查模板文件: " + sinkTemplate);
+            }
+            logger.info("使用模板分析器解析 sink 模板");
             String resolvedSinkConfig =
-                    variableResolver.resolve(sinkTemplateContent, sourceContent);
+                    variableResolver.resolveWithTemplateAnalysis(
+                            sinkTemplateContent, "sink", sourceContent);
 
             // 7. 组装完整的SeaTunnel配置
             String finalConfig =
                     assembleConfig(envConfig, resolvedSourceConfig, resolvedSinkConfig);
 
-            // 8. 生成映射结果（用于报告）
+            // 8. 计算未映射字段（基于引用计数）
+            mappingTracker.calculateUnmappedFieldsFromTracker(fieldTracker);
+
+            // 9. 生成映射结果（用于报告）- 现在集成了MappingTracker数据
             MappingResult mappingResult =
                     generateMappingResult(
                             dataXConfig, readerType, writerType, sourceTemplate, sinkTemplate);
@@ -93,6 +121,7 @@ public class ConfigDrivenTemplateEngine {
             result.setSinkTemplate(sinkTemplate);
 
             logger.info("配置驱动的模板转换完成");
+            logger.info("映射跟踪统计: {}", mappingTracker.getStatisticsText());
 
         } catch (Exception e) {
             logger.error("配置驱动的模板转换失败: {}", e.getMessage(), e);
@@ -125,19 +154,15 @@ public class ConfigDrivenTemplateEngine {
     }
 
     /** 生成env配置部分 */
-    private String generateEnvConfig(DataXConfig dataXConfig) {
-        StringBuilder envConfig = new StringBuilder();
-        envConfig.append("env {\n");
+    private String generateEnvConfig(DataXConfig dataXConfig, String sourceContent) {
+        // 加载环境配置模板
+        String envTemplate = loadTemplate("datax/env.conf");
 
-        // 并行度配置
-        int parallelism = dataXConfig.getChannelCount() > 0 ? dataXConfig.getChannelCount() : 1;
-        envConfig.append("  parallelism = ").append(parallelism).append("\n");
+        // 使用模板变量解析器处理环境配置
+        String resolvedEnvConfig =
+                variableResolver.resolveWithTemplateAnalysis(envTemplate, "env", sourceContent);
 
-        // 作业模式
-        envConfig.append("  job.mode = \"BATCH\"\n");
-
-        envConfig.append("}\n");
-        return envConfig.toString();
+        return resolvedEnvConfig;
     }
 
     /** 组装完整的SeaTunnel配置 */
@@ -169,24 +194,17 @@ public class ConfigDrivenTemplateEngine {
             String writerType,
             String sourceTemplate,
             String sinkTemplate) {
-        MappingResult result = new MappingResult();
 
-        // 添加成功映射
-        result.addSuccessMapping("reader.name", "source.template", sourceTemplate);
-        result.addSuccessMapping("writer.name", "sink.template", sinkTemplate);
+        // 首先从 MappingTracker 获取基础映射结果
+        MappingResult result = mappingTracker.generateMappingResult();
 
-        // 添加并行度映射
-        if (dataXConfig.getChannelCount() > 0) {
-            result.addSuccessMapping(
-                    "speed.channel",
-                    "env.parallelism",
-                    String.valueOf(dataXConfig.getChannelCount()));
-        } else {
-            result.addAutoConstructedField("env.parallelism", "1", "使用默认并行度");
-        }
+        // 设置模板信息（这些属于基本信息，不是字段映射）
+        result.setSourceTemplate(sourceTemplate);
+        result.setSinkTemplate(sinkTemplate);
+        result.setReaderType(readerType);
+        result.setWriterType(writerType);
 
-        // 添加作业模式
-        result.addAutoConstructedField("env.job.mode", "BATCH", "DataX默认为批处理模式");
+        // 所有配置都通过模板驱动，不在Java代码中硬编码任何配置项
 
         // 检查是否支持的类型
         if (!mappingManager.isReaderSupported(readerType)) {
@@ -198,6 +216,13 @@ public class ConfigDrivenTemplateEngine {
         }
 
         result.setSuccess(true);
+        logger.info(
+                "生成映射结果完成，总计字段: 成功{}个, 默认值{}个, 缺失{}个, 未映射{}个",
+                result.getSuccessMappings().size(),
+                result.getDefaultValues().size(),
+                result.getMissingRequiredFields().size(),
+                result.getUnmappedFields().size());
+
         return result;
     }
 

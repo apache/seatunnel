@@ -1,0 +1,63 @@
+{
+  "job": {
+    "setting": {
+      "speed": {
+        "channel": 3,
+        "record": 50000
+      },
+      "errorLimit": {
+        "record": 0,
+        "percentage": 0.02
+      }
+    },
+    "content": [
+      {
+        "reader": {
+          "name": "mysqlreader",
+          "parameter": {
+            "username": "username",
+            "password": "password",
+            "connection": [
+              {
+                "jdbcUrl": ["jdbc:mysql://192.168.1.1:3306/test?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai&useSSL=false"],
+                "table": ["customer", "customer_profile"]
+              }
+            ],
+            "column": ["customer_id", "customer_name", "email", "phone", "region", "registration_date", "last_login", "status"],
+            "splitPk": "customer_id",
+            "where": "status IN ('active', 'premium') AND registration_date >= '2024-01-01'",
+            "fetchSize": 2000
+          }
+        },
+        "writer": {
+          "name": "mysqlwriter",
+          "parameter": {
+            "writeMode": "replace",
+            "username": "username",
+            "password": "password",
+            "column": ["customer_id", "customer_name", "email", "phone", "region", "registration_date", "last_login", "status"],
+            "session": [
+              "set session sql_mode='STRICT_TRANS_TABLES'",
+              "set session innodb_lock_wait_timeout=120"
+            ],
+            "preSql": [
+              "CREATE TABLE IF NOT EXISTS @table LIKE template_customer",
+              "TRUNCATE TABLE @table"
+            ],
+            "postSql": [
+              "UPDATE @table SET sync_time = NOW() WHERE sync_time IS NULL",
+              "ANALYZE TABLE @table"
+            ],
+            "connection": [
+              {
+                "jdbcUrl": "jdbc:mysql://192.168.1.200:3306/datawarehouse?useUnicode=true&characterEncoding=UTF-8&rewriteBatchedStatements=true&yearIsDateType=false&zeroDateTimeBehavior=convertToNull&serverTimezone=Asia/Shanghai&useSSL=false",
+                "table": ["dw_customer_snapshot"]
+              }
+            ],
+            "batchSize": 2000
+          }
+        }
+      }
+    ]
+  }
+}

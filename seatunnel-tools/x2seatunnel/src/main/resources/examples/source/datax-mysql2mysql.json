@@ -1,0 +1,45 @@
+{
+  "job": {
+    "setting": {
+      "speed": {
+        "channel": 2
+      }
+    },
+    "content": [
+      {
+        "reader": {
+          "name": "mysqlreader",
+          "parameter": {
+            "username": "source_user",
+            "password": "source_password",
+            "connection": [
+              {
+                "jdbcUrl": ["jdbc:mysql://source-db:3306/test_db?useUnicode=true&characterEncoding=UTF-8&serverTimezone=UTC"],
+                "table": ["user_profile"]
+              }
+            ],
+            "column": ["id", "username", "email", "phone", "status", "created_at", "updated_at"],
+            "splitPk": "id",
+            "where": "status = 'active'"
+          }
+        },
+        "writer": {
+          "name": "mysqlwriter",
+          "parameter": {
+            "writeMode": "insert",
+            "username": "target_user",
+            "password": "target_password",
+            "column": ["id", "username", "email", "phone", "status", "created_at", "updated_at"],
+            "connection": [
+              {
+                "jdbcUrl": "jdbc:mysql://target-db:3306/warehouse_db?useUnicode=true&characterEncoding=UTF-8&rewriteBatchedStatements=true&serverTimezone=UTC",
+                "table": ["dim_user_profile"]
+              }
+            ],
+            "batchSize": 1000
+          }
+        }
+      }
+    ]
+  }
+}

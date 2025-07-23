@@ -55,9 +55,9 @@ public class MappingRuleEngine {
             result.setSuccess(true);
 
             logger.info(
-                    "配置映射完成，成功: {}, 自动构造: {}, 缺失: {}",
+                    "配置映射完成，成功: {}, 默认值: {}, 缺失: {}",
                     result.getSuccessMappings().size(),
-                    result.getAutoConstructedFields().size(),
+                    result.getDefaultValues().size(),
                     result.getMissingRequiredFields().size());
 
         } catch (Exception e) {
@@ -84,12 +84,12 @@ public class MappingRuleEngine {
         } else {
             // 设置默认并行度
             seaTunnelConfig.setParallelism(1);
-            result.addAutoConstructedField("env.parallelism", "1", "使用默认并行度");
+            result.addDefaultValueField("env.parallelism", "1", "使用默认并行度");
         }
 
         // 设置作业模式为批处理（默认）
         seaTunnelConfig.setJobMode("BATCH");
-        result.addAutoConstructedField("env.job.mode", "BATCH", "DataX默认为批处理模式");
+        result.addDefaultValueField("env.job.mode", "BATCH", "DataX默认为批处理模式");
     }
 
     /** 映射Source配置 */
@@ -155,13 +155,13 @@ public class MappingRuleEngine {
 
         // 设置驱动程序
         seaTunnelConfig.setSourceDriver("com.mysql.cj.jdbc.Driver");
-        result.addAutoConstructedField("source.driver", "com.mysql.cj.jdbc.Driver", "MySQL默认驱动");
+        result.addDefaultValueField("source.driver", "com.mysql.cj.jdbc.Driver", "MySQL默认驱动");
 
         // 构造查询语句
         if (dataXConfig.getReaderTable() != null) {
             String query = "SELECT * FROM " + dataXConfig.getReaderTable();
             seaTunnelConfig.setSourceQuery(query);
-            result.addAutoConstructedField("source.query", query, "根据表名自动构造查询语句");
+            result.addDefaultValueField("source.query", query, "根据表名自动构造查询语句");
         }
     }
 
@@ -196,13 +196,13 @@ public class MappingRuleEngine {
 
         // Oracle驱动
         seaTunnelConfig.setSourceDriver("oracle.jdbc.driver.OracleDriver");
-        result.addAutoConstructedField(
+        result.addDefaultValueField(
                 "source.driver", "oracle.jdbc.driver.OracleDriver", "Oracle默认驱动");
 
         if (dataXConfig.getReaderTable() != null) {
             String query = "SELECT * FROM " + dataXConfig.getReaderTable();
             seaTunnelConfig.setSourceQuery(query);
-            result.addAutoConstructedField("source.query", query, "根据表名自动构造查询语句");
+            result.addDefaultValueField("source.query", query, "根据表名自动构造查询语句");
         }
     }
 
@@ -239,13 +239,13 @@ public class MappingRuleEngine {
 
         // PostgreSQL驱动
         seaTunnelConfig.setSourceDriver("org.postgresql.Driver");
-        result.addAutoConstructedField("source.driver", "org.postgresql.Driver", "PostgreSQL默认驱动");
+        result.addDefaultValueField("source.driver", "org.postgresql.Driver", "PostgreSQL默认驱动");
 
         // 构造查询语句
         if (dataXConfig.getReaderTable() != null) {
             String query = "SELECT * FROM " + dataXConfig.getReaderTable();
             seaTunnelConfig.setSourceQuery(query);
-            result.addAutoConstructedField("source.query", query, "根据表名自动构造查询语句");
+            result.addDefaultValueField("source.query", query, "根据表名自动构造查询语句");
         }
     }
 
@@ -282,14 +282,14 @@ public class MappingRuleEngine {
 
         // SQL Server驱动
         seaTunnelConfig.setSourceDriver("com.microsoft.sqlserver.jdbc.SQLServerDriver");
-        result.addAutoConstructedField(
+        result.addDefaultValueField(
                 "source.driver", "com.microsoft.sqlserver.jdbc.SQLServerDriver", "SQL Server默认驱动");
 
         // 构造查询语句
         if (dataXConfig.getReaderTable() != null) {
             String query = "SELECT * FROM " + dataXConfig.getReaderTable();
             seaTunnelConfig.setSourceQuery(query);
-            result.addAutoConstructedField("source.query", query, "根据表名自动构造查询语句");
+            result.addDefaultValueField("source.query", query, "根据表名自动构造查询语句");
         }
     }
 
@@ -359,7 +359,7 @@ public class MappingRuleEngine {
 
         // 设置默认文件格式
         seaTunnelConfig.setSinkFileFormat("text");
-        result.addAutoConstructedField("sink.file_format", "text", "文本文件默认格式");
+        result.addDefaultValueField("sink.file_format", "text", "文本文件默认格式");
     }
 
     /** 映射HDFS Sink */

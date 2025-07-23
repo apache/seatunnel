@@ -134,6 +134,14 @@ transformers:
     "truncate": "overwrite"
     "insert": "append"
     "replace": "overwrite"
+
+  # DataX writeMode 到 SeaTunnel data_save_mode 映射
+  writemode_to_datasavemode_mapper:
+    "insert": "APPEND_DATA"
+    "replace": "DROP_DATA"
+    "update": "UPSERT_DATA"
+    "append": "APPEND_DATA"
+    "overwrite": "DROP_DATA"
     
   # 是否启用压缩映射
   enable_compress_mapper:

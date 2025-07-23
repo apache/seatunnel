@@ -27,9 +27,16 @@ public class MappingResult {
     private String errorMessage;
     private SeaTunnelConfig seaTunnelConfig;
 
+    // 基本信息
+    private String sourceTemplate;
+    private String sinkTemplate;
+    private String readerType;
+    private String writerType;
+
     // 映射结果统计
     private List<MappingItem> successMappings = new ArrayList<>();
-    private List<ConstructedField> autoConstructedFields = new ArrayList<>();
+    private List<TransformMapping> transformMappings = new ArrayList<>(); // 新增：转换映射字段
+    private List<DefaultValueField> defaultValues = new ArrayList<>(); // 新增：默认值字段
     private List<MissingField> missingRequiredFields = new ArrayList<>();
     private List<UnmappedField> unmappedFields = new ArrayList<>();
 
@@ -64,13 +71,58 @@ public class MappingResult {
         }
     }
 
-    /** 自动构造的字段 */
-    public static class ConstructedField {
+    /** 转换映射的字段（使用了过滤器） */
+    public static class TransformMapping {
+        private String sourceField;
+        private String targetField;
+        private String value;
+        private String filterName;
+
+        public TransformMapping(
+                String sourceField, String targetField, String value, String filterName) {
+            this.sourceField = sourceField;
+            this.targetField = targetField;
+            this.value = value;
+            this.filterName = filterName;
+        }
+
+        // Getters
+        public String getSourceField() {
+            return sourceField;
+        }
+
+        public String getTargetField() {
+            return targetField;
+        }
+
+        public String getValue() {
+            return value;
+        }
+
+        public String getFilterName() {
+            return filterName;
+        }
+
+        @Override
+        public String toString() {
+            return sourceField
+                    + " -> "
+                    + targetField
+                    + " = "
+                    + value
+                    + " (过滤器: "
+                    + filterName
+                    + ")";
+        }
+    }
+
+    /** 使用默认值的字段 */
+    public static class DefaultValueField {
         private String fieldName;
         private String value;
         private String reason;
 
-        public ConstructedField(String fieldName, String value, String reason) {
+        public DefaultValueField(String fieldName, String value, String reason) {
             this.fieldName = fieldName;
             this.value = value;
             this.reason = reason;
@@ -91,7 +143,7 @@ public class MappingResult {
 
         @Override
         public String toString() {
-            return fieldName + " = " + value + " (" + reason + ")";
+            return fieldName + " = " + value + " (默认值: " + reason + ")";
         }
     }
 
@@ -156,8 +208,13 @@ public class MappingResult {
         successMappings.add(new MappingItem(sourceField, targetField, value));
     }
 
-    public void addAutoConstructedField(String fieldName, String value, String reason) {
-        autoConstructedFields.add(new ConstructedField(fieldName, value, reason));
+    public void addTransformMapping(
+            String sourceField, String targetField, String value, String filterName) {
+        transformMappings.add(new TransformMapping(sourceField, targetField, value, filterName));
+    }
+
+    public void addDefaultValueField(String fieldName, String value, String reason) {
+        defaultValues.add(new DefaultValueField(fieldName, value, reason));
     }
 
     public void addMissingRequiredField(String fieldName, String reason) {
@@ -193,12 +250,48 @@ public class MappingResult {
         this.seaTunnelConfig = seaTunnelConfig;
     }
 
+    public String getSourceTemplate() {
+        return sourceTemplate;
+    }
+
+    public void setSourceTemplate(String sourceTemplate) {
+        this.sourceTemplate = sourceTemplate;
+    }
+
+    public String getSinkTemplate() {
+        return sinkTemplate;
+    }
+
+    public void setSinkTemplate(String sinkTemplate) {
+        this.sinkTemplate = sinkTemplate;
+    }
+
+    public String getReaderType() {
+        return readerType;
+    }
+
+    public void setReaderType(String readerType) {
+        this.readerType = readerType;
+    }
+
+    public String getWriterType() {
+        return writerType;
+    }
+
+    public void setWriterType(String writerType) {
+        this.writerType = writerType;
+    }
+
     public List<MappingItem> getSuccessMappings() {
         return successMappings;
     }
 
-    public List<ConstructedField> getAutoConstructedFields() {
-        return autoConstructedFields;
+    public List<TransformMapping> getTransformMappings() {
+        return transformMappings;
+    }
+
+    public List<DefaultValueField> getDefaultValues() {
+        return defaultValues;
     }
 
     public List<MissingField> getMissingRequiredFields() {
@@ -216,8 +309,10 @@ public class MappingResult {
                 + success
                 + ", successMappings="
                 + successMappings.size()
-                + ", autoConstructedFields="
-                + autoConstructedFields.size()
+                + ", transformMappings="
+                + transformMappings.size()
+                + ", defaultValues="
+                + defaultValues.size()
                 + ", missingRequiredFields="
                 + missingRequiredFields.size()
                 + ", unmappedFields="

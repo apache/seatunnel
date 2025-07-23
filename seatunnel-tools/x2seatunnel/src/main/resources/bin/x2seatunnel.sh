@@ -19,7 +19,7 @@
 
 # X2SeaTunnel 配置转换工具启动脚本
 
-set -x
+set -e
 
 # 获取脚本所在目录
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"

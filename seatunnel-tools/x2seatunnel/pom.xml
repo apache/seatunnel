@@ -43,10 +43,11 @@
             <version>${revision}</version>
         </dependency>
 
-        <!-- 依赖 typesafe config 模块 -->
+        <!-- 原生 Typesafe Config -->
         <dependency>
             <groupId>com.typesafe</groupId>
             <artifactId>config</artifactId>
+            <version>1.4.2</version>
         </dependency>
 
         <!-- 命令行参数解析 -->

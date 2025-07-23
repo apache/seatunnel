@@ -36,7 +36,7 @@
             <AppenderRef ref="FileAppender"/>
         </Logger>
         
-        <Logger name="org.apache.seatunnel.tools.x2seatunnel.template" level="INFO" additivity="false">
+        <Logger name="org.apache.seatunnel.tools.x2seatunnel.template" level="DEBUG" additivity="false">
             <AppenderRef ref="Console"/>
             <AppenderRef ref="FileAppender"/>
         </Logger>
