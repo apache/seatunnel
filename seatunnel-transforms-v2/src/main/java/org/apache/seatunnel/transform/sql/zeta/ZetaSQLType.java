@@ -22,13 +22,13 @@ import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.MapType;
-import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.transform.exception.TransformException;
 import org.apache.seatunnel.transform.sql.zeta.functions.ArrayFunction;
+import org.apache.seatunnel.transform.sql.zeta.functions.CastFunction;
 
 import org.apache.commons.collections4.CollectionUtils;
 
@@ -59,50 +59,12 @@ import net.sf.jsqlparser.expression.operators.relational.NotEqualsTo;
 import net.sf.jsqlparser.schema.Column;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.stream.Collectors;
 
 public class ZetaSQLType {
-    public static final String DECIMAL = "DECIMAL";
-    public static final String VARCHAR = "VARCHAR";
-    public static final String STRING = "STRING";
-    public static final String TINYINT = "TINYINT";
-    public static final String SMALLINT = "SMALLINT";
-    public static final String INT = "INT";
-    public static final String INTEGER = "INTEGER";
-    public static final String BIGINT = "BIGINT";
-    public static final String LONG = "LONG";
-    public static final String BYTE = "BYTE";
-    public static final String BYTES = "BYTES";
-    public static final String BINARY = "BINARY";
-    public static final String DOUBLE = "DOUBLE";
-    public static final String FLOAT = "FLOAT";
-    public static final String TIMESTAMP = "TIMESTAMP";
-    public static final String DATETIME = "DATETIME";
-    public static final String DATE = "DATE";
-    public static final String TIME = "TIME";
-    public static final String BOOLEAN = "BOOLEAN";
-
-    public static final List<SqlType> DATETIME_CAST_TYPES =
-            Arrays.asList(SqlType.TIMESTAMP, SqlType.TIMESTAMP_TZ, SqlType.BIGINT);
-    public static final List<SqlType> DATE_CAST_TYPES =
-            Arrays.asList(SqlType.TIMESTAMP, SqlType.TIMESTAMP_TZ, SqlType.DATE, SqlType.INT);
-    public static final List<SqlType> TIME_CAST_TYPES =
-            Arrays.asList(SqlType.TIMESTAMP, SqlType.TIMESTAMP_TZ, SqlType.TIME, SqlType.INT);
-    public static final List<SqlType> BOOLEAN_CAST_TYPES =
-            Arrays.asList(
-                    SqlType.BOOLEAN,
-                    SqlType.STRING,
-                    SqlType.BIGINT,
-                    SqlType.INT,
-                    SqlType.SMALLINT,
-                    SqlType.TINYINT,
-                    SqlType.FLOAT,
-                    SqlType.DOUBLE,
-                    SqlType.BYTES);
 
     private final SeaTunnelRowType inputRowType;
 
@@ -222,7 +184,10 @@ public class ZetaSQLType {
         }
 
         if (expression instanceof CastExpression) {
-            return getCastType((CastExpression) expression);
+            CastExpression castExpression = (CastExpression) expression;
+            Expression leftExpression = castExpression.getLeftExpression();
+            SqlType originType = getExpressionType(leftExpression).getSqlType();
+            return CastFunction.getCastType(originType, castExpression.getColDataType());
         }
 
         if (expression instanceof BinaryExpression) {
@@ -345,89 +310,6 @@ public class ZetaSQLType {
             types.add(getExpressionType(caseExpression.getElseExpression()));
         }
         return getMaxType(types);
-    }
-
-    private SeaTunnelDataType<?> getCastType(CastExpression castExpression) {
-        Expression leftExpression = castExpression.getLeftExpression();
-        // from
-        SqlType sqlType = getExpressionType(leftExpression).getSqlType();
-        // to
-        String dataType = castExpression.getColDataType().getDataType();
-        switch (dataType.toUpperCase()) {
-            case DECIMAL:
-                List<String> ps = castExpression.getColDataType().getArgumentsStringList();
-                return new DecimalType(Integer.parseInt(ps.get(0)), Integer.parseInt(ps.get(1)));
-            case VARCHAR:
-            case STRING:
-                return BasicType.STRING_TYPE;
-            case TINYINT:
-                return BasicType.BYTE_TYPE;
-            case SMALLINT:
-                return BasicType.SHORT_TYPE;
-            case INT:
-            case INTEGER:
-                if (sqlType.equals(SqlType.TIMESTAMP) || sqlType.equals(SqlType.TIMESTAMP_TZ)) {
-                    throw new TransformException(
-                            CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
-                            String.format(
-                                    "Unsupported CAST FROM type: %s AS type: %s",
-                                    sqlType.name(), dataType));
-                }
-                return BasicType.INT_TYPE;
-            case BIGINT:
-            case LONG:
-                return BasicType.LONG_TYPE;
-            case BYTE:
-                return BasicType.BYTE_TYPE;
-            case BYTES:
-            case BINARY:
-                return PrimitiveByteArrayType.INSTANCE;
-            case DOUBLE:
-                return BasicType.DOUBLE_TYPE;
-            case FLOAT:
-                return BasicType.FLOAT_TYPE;
-            case TIMESTAMP:
-            case DATETIME:
-                if (!DATETIME_CAST_TYPES.contains(sqlType)) {
-                    throw new TransformException(
-                            CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
-                            String.format(
-                                    "Unsupported CAST FROM type: %s AS type: %s",
-                                    sqlType.name(), dataType));
-                }
-                return LocalTimeType.LOCAL_DATE_TIME_TYPE;
-            case DATE:
-                if (!DATE_CAST_TYPES.contains(sqlType)) {
-                    throw new TransformException(
-                            CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
-                            String.format(
-                                    "Unsupported CAST FROM type: %s AS type: %s",
-                                    sqlType.name(), dataType));
-                }
-                return LocalTimeType.LOCAL_DATE_TYPE;
-            case TIME:
-                if (!TIME_CAST_TYPES.contains(sqlType)) {
-                    throw new TransformException(
-                            CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
-                            String.format(
-                                    "Unsupported CAST FROM type: %s AS type: %s",
-                                    sqlType.name(), dataType));
-                }
-                return LocalTimeType.LOCAL_TIME_TYPE;
-            case BOOLEAN:
-                if (!BOOLEAN_CAST_TYPES.contains(sqlType)) {
-                    throw new TransformException(
-                            CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
-                            String.format(
-                                    "Unsupported CAST FROM type: %s AS type: %s",
-                                    sqlType.name(), dataType));
-                }
-                return BasicType.BOOLEAN_TYPE;
-            default:
-                throw new TransformException(
-                        CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
-                        String.format("Unsupported CAST AS type: %s", dataType));
-        }
     }
 
     private SeaTunnelDataType<?> getFunctionType(Function function) {

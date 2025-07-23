@@ -518,7 +518,7 @@ public class SQLTransformTest {
                         sqlTransform.transformTableSchema();
                     } catch (Exception e) {
                         Assertions.assertEquals(
-                                "ErrorCode:[COMMON-05], ErrorDescription:[Unsupported operation] - Unsupported CAST FROM type: INT AS type: TIMESTAMP",
+                                "ErrorCode:[COMMON-05], ErrorDescription:[Unsupported operation] - Unsupported CAST FROM INT AS type: TIMESTAMP",
                                 e.getMessage());
                         throw e;
                     }
@@ -545,7 +545,7 @@ public class SQLTransformTest {
                         sqlTransform.transformTableSchema();
                     } catch (Exception e) {
                         Assertions.assertEquals(
-                                "ErrorCode:[COMMON-05], ErrorDescription:[Unsupported operation] - Unsupported CAST FROM type: TIMESTAMP AS type: INT",
+                                "ErrorCode:[COMMON-05], ErrorDescription:[Unsupported operation] - Unsupported CAST FROM TIMESTAMP AS type: INT",
                                 e.getMessage());
                         throw e;
                     }
