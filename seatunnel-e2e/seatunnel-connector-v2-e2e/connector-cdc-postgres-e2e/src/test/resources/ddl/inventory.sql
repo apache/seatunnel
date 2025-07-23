@@ -198,6 +198,24 @@ CREATE TABLE sink_postgres_cdc_table_3
     PRIMARY KEY (id)
 );
 
+CREATE TABLE postgres_cdc_table_4
+(
+    id                  INTEGER NOT NULL,
+    f_bytea             BYTEA,
+    f_small             SMALLINT,
+    f_interval          INTERVAL,
+    PRIMARY KEY (id)
+);
+
+CREATE TABLE sink_postgres_cdc_table_4
+(
+    id                  INTEGER NOT NULL,
+    f_bytea             BYTEA,
+    f_small             SMALLINT,
+    f_interval          INTERVAL,
+    PRIMARY KEY (id)
+);
+
 ALTER TABLE postgres_cdc_table_1
     REPLICA IDENTITY FULL;
 
@@ -205,6 +223,9 @@ ALTER TABLE postgres_cdc_table_2
     REPLICA IDENTITY FULL;
 
 ALTER TABLE postgres_cdc_table_3
+    REPLICA IDENTITY FULL;
+
+ALTER TABLE postgres_cdc_table_4
     REPLICA IDENTITY FULL;
 
 ALTER TABLE sink_postgres_cdc_table_1
@@ -231,6 +252,9 @@ VALUES (1, '2', 32767, 65535, 2147483647, 5.5, 6.6, 123.12345, 404.4443, true,
 
 INSERT INTO postgres_cdc_table_3
 VALUES (1, '2', 32767, 65535);
+
+INSERT INTO postgres_cdc_table_4
+VALUES (1, '2', 32767, INTERVAL '2 days 3 hours');
 
 INSERT INTO full_types_no_primary_key
 VALUES (1, '2', 32767, 65535, 2147483647, 5.5, 6.6, 123.12345, 404.4443, true,

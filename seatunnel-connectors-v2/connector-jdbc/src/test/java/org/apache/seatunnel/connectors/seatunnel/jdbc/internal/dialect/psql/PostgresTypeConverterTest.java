@@ -812,4 +812,19 @@ public class PostgresTypeConverterTest {
                 PostgresTypeConverter.PG_SMALLINT_ARRAY, typeDefine.getColumnType());
         Assertions.assertEquals(PostgresTypeConverter.PG_SMALLINT_ARRAY, typeDefine.getDataType());
     }
+
+    @Test
+    public void testConvertInterval() {
+        BasicTypeDefine<Object> typeDefine =
+                BasicTypeDefine.builder()
+                        .name("test")
+                        .columnType("interval")
+                        .dataType("interval")
+                        .build();
+        Column column = PostgresTypeConverter.INSTANCE.convert(typeDefine);
+        Assertions.assertEquals(typeDefine.getName(), column.getName());
+        Assertions.assertEquals(BasicType.STRING_TYPE, column.getDataType());
+        Assertions.assertEquals(null, column.getColumnLength());
+        Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
+    }
 }
