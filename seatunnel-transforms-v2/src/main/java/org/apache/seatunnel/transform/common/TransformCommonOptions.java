@@ -71,7 +71,7 @@ public class TransformCommonOptions {
                                     + "When skip_row is selected, data format error will skip this line data.");
 
     public static final Option<String> ERROR_TABLE_OPTION =
-            Options.key("error_table")
+            Options.key("row_error_handle_way.error_table")
                     .stringType()
                     .noDefaultValue()
                     .withDescription(

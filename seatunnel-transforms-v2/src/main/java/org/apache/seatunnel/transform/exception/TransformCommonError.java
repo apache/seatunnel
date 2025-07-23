@@ -18,6 +18,9 @@
 package org.apache.seatunnel.transform.exception;
 
 import org.apache.seatunnel.common.exception.CommonError;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
+
+import org.apache.commons.collections4.map.SingletonMap;
 
 import java.util.HashMap;
 import java.util.List;
@@ -80,5 +83,10 @@ public class TransformCommonError {
         Map<String, String> params = new HashMap<>();
         params.put("wherebody", wherebody);
         return new TransformException(WHERE_STATEMENT_ERROR, params, cause);
+    }
+
+    public static TransformException validationFailed(String message) {
+        Map<String, String> params = new SingletonMap<>("message", message);
+        return new TransformException(CommonErrorCode.VALIDATION_FAILED, params);
     }
 }

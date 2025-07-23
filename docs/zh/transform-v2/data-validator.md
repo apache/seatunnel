@@ -188,8 +188,8 @@ transform {
   DataValidator {
     plugin_input = "source_table"
     plugin_output = "validated_table"
-    error_handle_way = "ROUTE_TO_TABLE"
-    error_table = "error_data"
+    row_error_handle_way = "ROUTE_TO_TABLE"
+    row_error_handle_way.error_table = "error_data"
     field_rules = [
       {
         field_name = "name"
