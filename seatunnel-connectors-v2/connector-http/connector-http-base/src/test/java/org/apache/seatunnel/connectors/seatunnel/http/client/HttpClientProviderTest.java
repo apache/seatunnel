@@ -18,6 +18,7 @@ package org.apache.seatunnel.connectors.seatunnel.http.client;
 
 import org.apache.http.Header;
 import org.apache.http.client.methods.HttpPost;
+import org.apache.http.message.BasicHeader;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -25,7 +26,39 @@ import org.junit.jupiter.api.Test;
 import java.util.HashMap;
 import java.util.Map;
 
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+
 class HttpClientProviderTest {
+
+    @Test
+    void testAddDefaultJsonContentTypeWhenNotPresent() throws Exception {
+        HttpPost mockRequest = new HttpPost("http://localhost:8080");
+        Map<String, Object> body = new HashMap<>();
+        body.put("key", "value");
+
+        HttpClientProvider.addBody(mockRequest, body);
+
+        // case 1: user not define content-type, use default content type
+        assertNotNull(mockRequest.getFirstHeader("Content-Type"));
+        Assertions.assertEquals(
+                "application/json", mockRequest.getFirstHeader("Content-Type").getValue());
+    }
+
+    @Test
+    void testPreserveExistingContentType() throws Exception {
+        HttpPost mockRequest = new HttpPost("http://localhost:8080");
+        mockRequest.addHeader(new BasicHeader("Content-Type", "text/plain"));
+
+        Map<String, Object> body = new HashMap<>();
+        body.put("key", "value");
+
+        HttpClientProvider.addBody(mockRequest, body);
+
+        // case 2: if user define content-type, set it
+        assertNotNull(mockRequest.getFirstHeader("Content-Type"));
+        Assertions.assertEquals(
+                "text/plain", mockRequest.getFirstHeader("Content-Type").getValue());
+    }
 
     @Test
     void addBody() throws Exception {
@@ -36,7 +69,8 @@ class HttpClientProviderTest {
 
         // ensure the original headers are preserved
         Header[] currentHeaders = post.getAllHeaders();
-        Assertions.assertEquals(originalHeaders.length, currentHeaders.length);
+        Assertions.assertEquals(0, originalHeaders.length);
+        Assertions.assertEquals(1, currentHeaders.length);
         for (int i = 0; i < originalHeaders.length; i++) {
             Assertions.assertEquals(
                     originalHeaders[i].getName(),

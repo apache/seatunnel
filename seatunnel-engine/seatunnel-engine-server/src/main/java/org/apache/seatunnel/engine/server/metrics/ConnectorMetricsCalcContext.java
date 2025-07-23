@@ -39,7 +39,7 @@ import static org.apache.seatunnel.api.common.metrics.MetricNames.SOURCE_RECEIVE
 import static org.apache.seatunnel.api.common.metrics.MetricNames.SOURCE_RECEIVED_COUNT;
 import static org.apache.seatunnel.api.common.metrics.MetricNames.SOURCE_RECEIVED_QPS;
 
-public class TaskMetricsCalcContext {
+public class ConnectorMetricsCalcContext {
 
     private final MetricsContext metricsContext;
 
@@ -47,21 +47,21 @@ public class TaskMetricsCalcContext {
 
     private Counter count;
 
-    private Map<String, Counter> countPerTable = new ConcurrentHashMap<>();
+    private final Map<String, Counter> countPerTable = new ConcurrentHashMap<>();
 
     private Meter QPS;
 
-    private Map<String, Meter> QPSPerTable = new ConcurrentHashMap<>();
+    private final Map<String, Meter> QPSPerTable = new ConcurrentHashMap<>();
 
     private Counter bytes;
 
-    private Map<String, Counter> bytesPerTable = new ConcurrentHashMap<>();
+    private final Map<String, Counter> bytesPerTable = new ConcurrentHashMap<>();
 
     private Meter bytesPerSeconds;
 
-    private Map<String, Meter> bytesPerSecondsPerTable = new ConcurrentHashMap<>();
+    private final Map<String, Meter> bytesPerSecondsPerTable = new ConcurrentHashMap<>();
 
-    public TaskMetricsCalcContext(
+    public ConnectorMetricsCalcContext(
             MetricsContext metricsContext,
             PluginType type,
             boolean isMulti,

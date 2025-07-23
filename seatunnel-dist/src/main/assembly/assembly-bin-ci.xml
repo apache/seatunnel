@@ -154,7 +154,6 @@
                 <!-- Don't exclude connector-http-base, because it contains SPI files -->
                 <exclude>org.apache.seatunnel:connector-file-base</exclude>
                 <exclude>org.apache.seatunnel:connector-file-base-hadoop</exclude>
-                <exclude>org.apache.seatunnel:connector-cdc-base</exclude>
             </excludes>
             <outputDirectory>/connectors</outputDirectory>
             <scope>provided</scope>
@@ -180,6 +179,8 @@
                 <include>com.amazon.redshift:redshift-jdbc42:jar</include>
                 <include>net.snowflake.snowflake-jdbc:jar</include>
                 <include>com.xugudb:xugu-jdbc:jar</include>
+                <include>org.tikv:tikv-client-java:jar</include>
+                <include>org.opengauss:opengauss-jdbc:jar</include>
                 <include>com.amazonaws:aws-java-sdk-bundle:jar</include>
                 <include>org.apache.seatunnel:seatunnel-hadoop3-3.1.4-uber:jar:*:optional</include>
                 <include>org.apache.seatunnel:seatunnel-hadoop-aws:jar:*:optional</include>

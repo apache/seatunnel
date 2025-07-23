@@ -641,6 +641,7 @@ public class RestApiIT {
                                                         equalTo("5"))
                                                 .body("metrics.SinkWriteCount", equalTo("5"))
                                                 .body("metrics.SourceReceivedCount", equalTo("5"))
+                                                .body("metrics.IntermediateQueueSize", equalTo("0"))
                                                 .body(
                                                         "jobDag.envOptions.'job.mode'",
                                                         equalTo("BATCH"))

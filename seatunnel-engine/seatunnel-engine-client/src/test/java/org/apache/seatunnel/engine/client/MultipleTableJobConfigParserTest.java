@@ -223,4 +223,23 @@ public class MultipleTableJobConfigParserTest {
         Assertions.assertNotEquals(classLoaders[0], classLoaders[2]);
         Assertions.assertNotEquals(classLoaders[1], classLoaders[2]);
     }
+
+    @Test
+    public void testMultipleTableJobConfigWithEnvOptionCheck() {
+        Common.setDeployMode(DeployMode.CLIENT);
+        String filePath =
+                ContentFormatUtilTest.getResource(
+                        "/batch_fake_to_console_with_error_env_option.conf");
+        JobConfig jobConfig = new JobConfig();
+        jobConfig.setJobContext(new JobContext());
+        Config config = ConfigBuilder.of(Paths.get(filePath));
+
+        Exception checkExp = null;
+        try {
+            new MultipleTableJobConfigParser(config, new IdGenerator(), jobConfig);
+        } catch (Exception e) {
+            checkExp = e;
+        }
+        Assertions.assertInstanceOf(IllegalArgumentException.class, checkExp);
+    }
 }

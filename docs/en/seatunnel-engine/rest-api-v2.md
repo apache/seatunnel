@@ -157,6 +157,7 @@ Please refer [security](security.md)
     "pipelineEdges": {}
   },
   "metrics": {
+    "IntermediateQueueSize": "",
     "SourceReceivedCount": "",
     "SourceReceivedQPS": "",
     "SourceReceivedBytes": "",
@@ -237,6 +238,7 @@ This API has been deprecated, please use /job-info/:jobId instead
     "pipelineEdges": {}
   },
   "metrics": {
+    "IntermediateQueueSize": "",
     "SourceReceivedCount": "",
     "SourceReceivedQPS": "",
     "SourceReceivedBytes": "",
