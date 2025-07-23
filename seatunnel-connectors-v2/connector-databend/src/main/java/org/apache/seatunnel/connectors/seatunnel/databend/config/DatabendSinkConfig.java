@@ -32,6 +32,7 @@ import java.util.Properties;
 
 import static org.apache.seatunnel.connectors.seatunnel.databend.config.DatabendOptions.AUTO_COMMIT;
 import static org.apache.seatunnel.connectors.seatunnel.databend.config.DatabendOptions.BATCH_SIZE;
+import static org.apache.seatunnel.connectors.seatunnel.databend.config.DatabendOptions.CONFLICT_KEY;
 import static org.apache.seatunnel.connectors.seatunnel.databend.config.DatabendOptions.DATABASE;
 import static org.apache.seatunnel.connectors.seatunnel.databend.config.DatabendOptions.JDBC_CONFIG;
 import static org.apache.seatunnel.connectors.seatunnel.databend.config.DatabendOptions.MAX_RETRIES;
@@ -66,6 +67,7 @@ public class DatabendSinkConfig implements Serializable {
     // sink options
     private Integer executeTimeoutSec;
     private String customSql;
+    private String conflictKey;
     private SchemaSaveMode schemaSaveMode;
     private DataSaveMode dataSaveMode;
     private Properties properties;
@@ -83,6 +85,7 @@ public class DatabendSinkConfig implements Serializable {
         sinkConfig.setBatchSize(config.get(BATCH_SIZE));
         sinkConfig.setMaxRetries(config.get(MAX_RETRIES));
         sinkConfig.setJdbcConfig(config.get(JDBC_CONFIG));
+        sinkConfig.setConflictKey(config.get(CONFLICT_KEY));
 
         // sink options
         sinkConfig.setExecuteTimeoutSec(config.get(EXECUTE_TIMEOUT_SEC));
@@ -119,6 +122,7 @@ public class DatabendSinkConfig implements Serializable {
         }
         return properties;
     }
+
     /** Convert this config to a ReadonlyConfig */
     public ReadonlyConfig toReadonlyConfig() {
         Map<String, Object> map = new HashMap<>();
@@ -133,6 +137,7 @@ public class DatabendSinkConfig implements Serializable {
         map.put(AUTO_COMMIT.key(), autoCommit);
         map.put(BATCH_SIZE.key(), batchSize);
         map.put(MAX_RETRIES.key(), maxRetries);
+        map.put(CONFLICT_KEY.key(), conflictKey);
         if (jdbcConfig != null) {
             map.put(JDBC_CONFIG.key(), jdbcConfig);
         }
