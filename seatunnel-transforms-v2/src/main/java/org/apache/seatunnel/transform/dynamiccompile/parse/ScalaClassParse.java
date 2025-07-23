@@ -15,10 +15,12 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.transform.dynamiccompile;
+package org.apache.seatunnel.transform.dynamiccompile.parse;
 
-public enum CompileLanguage {
-    GROOVY,
-    JAVA,
-    SCALA
+public class ScalaClassParse extends AbstractParse {
+
+    @Override
+    public Class<?> parseClassSourceCode(String sourceCode) {
+        return ScalaClassParser.parseSourceCodeWithCache(sourceCode);
+    }
 }

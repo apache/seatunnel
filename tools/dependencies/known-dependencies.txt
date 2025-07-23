@@ -26,6 +26,7 @@ protostuff-collectionschema-1.8.0.jar
 protostuff-core-1.8.0.jar
 protostuff-runtime-1.8.0.jar
 scala-library-2.12.15.jar
+scala-compiler-2.12.15.jar
 seatunnel-jackson-2.3.12-SNAPSHOT-optional.jar
 seatunnel-guava-2.3.12-SNAPSHOT-optional.jar
 seatunnel-hazelcast-shade-2.3.12-SNAPSHOT-optional.jar
