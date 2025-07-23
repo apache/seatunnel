@@ -61,4 +61,30 @@ public class ClickhouseCatalogUtilTest {
 
         assertEquals("`col1` String ", result);
     }
+
+    @Test
+    void returnsNullableTypeWhenColumnIsNullable() {
+        Column column = mock(Column.class);
+        when(column.getName()).thenReturn("col1");
+        when(column.getDataType()).thenReturn((SeaTunnelDataType) BasicType.INT_TYPE);
+        when(column.isNullable()).thenReturn(true);
+        when(column.getSinkType()).thenReturn(null);
+
+        String result = ClickhouseCatalogUtil.INSTANCE.columnToConnectorType(column);
+
+        assertEquals("`col1` Nullable(Int32) ", result);
+    }
+
+    @Test
+    void returnsNonNullableTypeWhenColumnIsNotNullable() {
+        Column column = mock(Column.class);
+        when(column.getName()).thenReturn("col1");
+        when(column.getDataType()).thenReturn((SeaTunnelDataType) BasicType.INT_TYPE);
+        when(column.isNullable()).thenReturn(false);
+        when(column.getSinkType()).thenReturn(null);
+
+        String result = ClickhouseCatalogUtil.INSTANCE.columnToConnectorType(column);
+
+        assertEquals("`col1` Int32 ", result);
+    }
 }
