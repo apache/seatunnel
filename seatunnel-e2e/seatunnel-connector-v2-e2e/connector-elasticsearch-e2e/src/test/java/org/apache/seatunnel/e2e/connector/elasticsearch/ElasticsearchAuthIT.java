@@ -203,19 +203,18 @@ public class ElasticsearchAuthIT extends TestSuiteBase implements TestResource {
 
         log.info("Creating real API key at: {}", apiKeyUrl);
 
-        // Create API key request body with broader permissions
         String requestBody =
                 "{\n"
                         + "  \"name\": \"seatunnel-test-api-key\",\n"
                         + "  \"role_descriptors\": {\n"
                         + "    \"seatunnel_test_role\": {\n"
-                        + "      \"cluster\": [\"monitor\", \"manage_index_templates\", \"create_index\"],\n"
+                        + "      \"cluster\": [\"manage\"],\n"
                         + "      \"indices\": [\n"
                         + "        {\n"
                         + "          \"names\": [\""
                         + TEST_INDEX
                         + "\", \"auth_test_*\", \"test_*\", \"*_target\"],\n"
-                        + "          \"privileges\": [\"all\", \"create\", \"create_index\", \"delete\", \"index\", \"manage\", \"read\", \"write\"]\n"
+                        + "          \"privileges\": [\"all\"]\n"
                         + "        }\n"
                         + "      ]\n"
                         + "    }\n"
