@@ -37,7 +37,10 @@ public class ClickhouseCatalogUtil extends CatalogUtil {
             columnType = column.getSinkType();
         } else {
             if (column.isNullable()) {
-                columnType = "Nullable(" + ClickhouseTypeConverter.INSTANCE.reconvert(column).getColumnType() + ")";
+                columnType =
+                        "Nullable("
+                                + ClickhouseTypeConverter.INSTANCE.reconvert(column).getColumnType()
+                                + ")";
             } else {
                 columnType = ClickhouseTypeConverter.INSTANCE.reconvert(column).getColumnType();
             }
@@ -49,8 +52,8 @@ public class ClickhouseCatalogUtil extends CatalogUtil {
                 StringUtils.isEmpty(column.getComment())
                         ? ""
                         : "COMMENT '"
-                                + column.getComment().replace("'", "''").replace("\\", "\\\\")
-                                + "'");
+                        + column.getComment().replace("'", "''").replace("\\", "\\\\")
+                        + "'");
     }
 
     public String getDropTableSql(TablePath tablePath, boolean ignoreIfNotExists) {
