@@ -89,9 +89,7 @@ public class CheckpointStorageTest extends AbstractSeaTunnelServerTest {
                                         server.getCoordinatorService().getJobStatus(jobId),
                                         JobStatus.SAVEPOINT_DONE));
         List<PipelineState> savepoint1 = checkpointStorage.getAllCheckpoints(String.valueOf(jobId));
-
-        await().atMost(5000, TimeUnit.MILLISECONDS)
-                .untilAsserted(() -> Assertions.assertEquals(1, savepoint1.size()));
+        Assertions.assertEquals(1, savepoint1.size());
     }
 
     @Test
