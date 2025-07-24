@@ -164,6 +164,8 @@ public class CheckpointStorageTest extends AbstractSeaTunnelServerTest {
         CheckpointConfig checkpointConfig =
                 server.getSeaTunnelConfig().getEngineConfig().getCheckpointConfig();
         server.getSeaTunnelConfig().getEngineConfig().setCheckpointConfig(checkpointConfig);
+        final CheckpointStorage originalCheckpointStorage =
+                server.getCheckpointService().getCheckpointStorage();
 
         // access checkpoint storage counter
         AtomicInteger accessCounter = new AtomicInteger(0);
@@ -249,5 +251,8 @@ public class CheckpointStorageTest extends AbstractSeaTunnelServerTest {
 
         checkpointStorage.getAllCheckpoints(String.valueOf(jobId));
         Assertions.assertEquals(1, accessCounter.get());
+
+        // restore the server's checkpointStorage to avoid affecting other unit cases
+        ReflectionUtils.setField(checkpointService, "checkpointStorage", originalCheckpointStorage);
     }
 }
