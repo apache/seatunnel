@@ -34,7 +34,7 @@ public final class StartupConfig implements Serializable {
     @Getter private final StartupMode startupMode;
     private final String specificOffsetFile;
     private final Long specificOffsetPos;
-    private final Long timestamp;
+    @Getter private final Long timestamp;
 
     public Offset getStartupOffset(OffsetFactory offsetFactory) {
         switch (startupMode) {
