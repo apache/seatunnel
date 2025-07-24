@@ -141,6 +141,7 @@ public abstract class AbstractTestContainer implements TestContainer {
             command.add("--set-job-id");
             command.add(jobId);
         }
+        command.add("--print-job-event");
         List<String> extraStartShellCommands = new ArrayList<>(getExtraStartShellCommands());
         if (variables != null && !variables.isEmpty()) {
             variables.forEach(
