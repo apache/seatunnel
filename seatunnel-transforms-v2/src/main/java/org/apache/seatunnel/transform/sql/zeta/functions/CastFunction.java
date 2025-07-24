@@ -54,7 +54,8 @@ public class CastFunction {
     public static final String BOOLEAN = "BOOLEAN";
 
     public static final List<SqlType> INT_CAST_TYPE =
-            Arrays.asList(SqlType.TINYINT, SqlType.SMALLINT, SqlType.INT, SqlType.STRING);
+            Arrays.asList(
+                    SqlType.TINYINT, SqlType.SMALLINT, SqlType.INT, SqlType.BIGINT, SqlType.STRING);
     public static final List<SqlType> LONG_CAST_TYPES =
             Arrays.asList(
                     SqlType.TINYINT, SqlType.SMALLINT, SqlType.INT, SqlType.BIGINT, SqlType.STRING);
