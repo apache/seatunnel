@@ -36,8 +36,11 @@ public class ClickhouseCatalogUtil extends CatalogUtil {
         if (column.getSinkType() != null) {
             columnType = column.getSinkType();
         } else {
-            columnType = column.isNullable() ? "Nullable("+ ClickhouseTypeConverter.INSTANCE.reconvert(column).getColumnType() + ")":
-                    ClickhouseTypeConverter.INSTANCE.reconvert(column).getColumnType();
+            if (column.isNullable()) {
+                columnType = "Nullable(" + ClickhouseTypeConverter.INSTANCE.reconvert(column).getColumnType() + ")";
+            } else {
+                columnType = ClickhouseTypeConverter.INSTANCE.reconvert(column).getColumnType();
+            }
         }
         return String.format(
                 "`%s` %s %s",
