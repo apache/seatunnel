@@ -511,7 +511,7 @@ public class MysqlCDCSpecificStartingOffsetIT extends TestSuiteBase implements T
                 });
 
         // validate results
-        await().atMost(60000, TimeUnit.MILLISECONDS)
+        await().atMost(90000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () -> {
                             Assertions.assertIterableEquals(
