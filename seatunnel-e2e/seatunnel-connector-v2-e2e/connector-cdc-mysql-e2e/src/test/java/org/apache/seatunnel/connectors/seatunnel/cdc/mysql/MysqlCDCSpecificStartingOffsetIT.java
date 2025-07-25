@@ -452,7 +452,7 @@ public class MysqlCDCSpecificStartingOffsetIT extends TestSuiteBase implements T
         String[] variables = {
             "timestamp=" + getCurrentBinlogTimestamp(),
         };
-        log.info("offset start with timestamp :{}",variables[0]);
+        log.info("offset start with timestamp :{}", variables[0]);
 
         // Insert data
         executeSql(
@@ -638,7 +638,7 @@ public class MysqlCDCSpecificStartingOffsetIT extends TestSuiteBase implements T
             if (binlogFiles.isEmpty()) {
                 return System.currentTimeMillis();
             }
-            log.info("SHOW BINARY LOGS result :{}",binlogFiles);
+            log.info("SHOW BINARY LOGS result :{}", binlogFiles);
             BinaryLogClient client =
                     MySqlConnectionUtils.createBinaryClient(jdbcSourceConfig.getDbzConfiguration());
             return MySqlConnectionUtils.getBinlogTimestamp(
