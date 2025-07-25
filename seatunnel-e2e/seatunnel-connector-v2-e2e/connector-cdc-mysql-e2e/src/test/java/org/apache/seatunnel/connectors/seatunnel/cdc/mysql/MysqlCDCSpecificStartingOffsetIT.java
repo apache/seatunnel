@@ -405,6 +405,7 @@ public class MysqlCDCSpecificStartingOffsetIT extends TestSuiteBase implements T
 
     @TestTemplate
     public void testMysqlCdcTimestampOffset(TestContainer container) throws Exception {
+        log.info("begin testMysqlCdcTimestampOffset");
         // clean data
         flushLogs();
         clearTable(MYSQL_DATABASE, SOURCE_TABLE_1);
@@ -451,6 +452,7 @@ public class MysqlCDCSpecificStartingOffsetIT extends TestSuiteBase implements T
         String[] variables = {
             "timestamp=" + getCurrentBinlogTimestamp(),
         };
+        log.info("offset start with timestamp :{}",variables[0]);
 
         // Insert data
         executeSql(
@@ -636,6 +638,7 @@ public class MysqlCDCSpecificStartingOffsetIT extends TestSuiteBase implements T
             if (binlogFiles.isEmpty()) {
                 return System.currentTimeMillis();
             }
+            log.info("SHOW BINARY LOGS result :{}",binlogFiles);
             BinaryLogClient client =
                     MySqlConnectionUtils.createBinaryClient(jdbcSourceConfig.getDbzConfiguration());
             return MySqlConnectionUtils.getBinlogTimestamp(
