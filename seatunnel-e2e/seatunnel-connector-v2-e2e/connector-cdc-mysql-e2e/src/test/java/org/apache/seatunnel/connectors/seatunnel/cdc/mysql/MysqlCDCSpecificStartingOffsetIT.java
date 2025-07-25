@@ -410,7 +410,7 @@ public class MysqlCDCSpecificStartingOffsetIT extends TestSuiteBase implements T
         clearTable(MYSQL_DATABASE, SOURCE_TABLE_1);
         clearTable(MYSQL_DATABASE, SINK_TABLE);
 
-        //write error data
+        // write error data
         executeSql(
                 String.format(
                         "INSERT INTO %s.%s ( id, f_binary, f_blob, f_long_varbinary, f_longblob, f_tinyblob, f_varbinary, f_smallint,\n"
@@ -449,7 +449,7 @@ public class MysqlCDCSpecificStartingOffsetIT extends TestSuiteBase implements T
 
         // get latest binlog timestamp
         String[] variables = {
-                "timestamp=" + getCurrentBinlogTimestamp(),
+            "timestamp=" + getCurrentBinlogTimestamp(),
         };
 
         // Insert data
@@ -488,7 +488,6 @@ public class MysqlCDCSpecificStartingOffsetIT extends TestSuiteBase implements T
                                 + "         112.345, '14:30:00', -128, 22, '{ \"key\": \"value5\" }', 2013 )",
                         MYSQL_DATABASE, SOURCE_TABLE_1));
 
-
         String jobId = String.valueOf(JobIdGenerator.newJobId());
         String jobConfigFile = "/mysqlcdc_timestamp_offset.conf";
         String source_sql_where_id_template =
@@ -499,7 +498,6 @@ public class MysqlCDCSpecificStartingOffsetIT extends TestSuiteBase implements T
                         + " f_text, f_tinytext, f_varchar, f_date, f_datetime, f_timestamp, f_bit1, cast(f_bit64 as char) as f_bit64, f_char,"
                         + " f_enum, cast(f_mediumblob as char) as f_mediumblob, f_long_varchar, f_real, f_time, f_tinyint, f_tinyint_unsigned,"
                         + " f_json, f_year from %s.%s where id in (%s)";
-
 
         CompletableFuture.supplyAsync(
                 () -> {
@@ -641,7 +639,7 @@ public class MysqlCDCSpecificStartingOffsetIT extends TestSuiteBase implements T
             BinaryLogClient client =
                     MySqlConnectionUtils.createBinaryClient(jdbcSourceConfig.getDbzConfiguration());
             return MySqlConnectionUtils.getBinlogTimestamp(
-                    client, binlogFiles.get(binlogFiles.size()-1));
+                    client, binlogFiles.get(binlogFiles.size() - 1));
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
