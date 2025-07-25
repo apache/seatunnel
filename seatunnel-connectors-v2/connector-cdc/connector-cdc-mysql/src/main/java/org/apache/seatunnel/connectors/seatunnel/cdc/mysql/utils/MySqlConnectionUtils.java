@@ -240,7 +240,7 @@ public class MySqlConnectionUtils {
         return endIdx < 0 ? binlogFiles.get(0) : binlogFiles.get(endIdx);
     }
 
-    private static long getBinlogTimestamp(BinaryLogClient client, String binlogFile)
+    public static long getBinlogTimestamp(BinaryLogClient client, String binlogFile)
             throws IOException, InterruptedException {
 
         ArrayBlockingQueue<Long> binlogTimestamps = new ArrayBlockingQueue<>(1);

@@ -270,6 +270,7 @@ public class MySqlSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
     private MySqlOffsetContext loadStartingOffsetState(
             MySqlOffsetContext.Loader loader, SourceSplitBase mySqlSplit) {
         Offset offset = getInitOffset(mySqlSplit);
+        LOG.info("mysql cdc start at {}", offset);
         MySqlOffsetContext mySqlOffsetContext = loader.load(offset.getOffset());
 
         if (!isBinlogAvailable(mySqlOffsetContext)) {
