@@ -55,7 +55,7 @@ import org.apache.paimon.types.DataType;
 import org.apache.paimon.types.RowType;
 import org.apache.paimon.types.TimestampType;
 
-import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Disabled;
@@ -170,7 +170,7 @@ public class PaimonSinkDynamicBucketIT extends TestSuiteBase implements TestReso
         log.info("Mysql ddl execution is complete");
     }
 
-    @AfterEach
+    @AfterAll
     @Override
     public void tearDown() throws Exception {
         if (MYSQL_CONTAINER != null) {
