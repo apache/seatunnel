@@ -406,6 +406,7 @@ public class MysqlCDCSpecificStartingOffsetIT extends TestSuiteBase implements T
         String jobId = String.valueOf(JobIdGenerator.newJobId());
         String jobConfigFile = "/mysqlcdc_timestamp_offset.conf";
         purgeBinaryLogs();
+        flushLogs();
         String source_sql_where_id_template =
                 "select id, cast(f_binary as char) as f_binary, cast(f_blob as char) as f_blob, cast(f_long_varbinary as char) as f_long_varbinary,"
                         + " cast(f_longblob as char) as f_longblob, cast(f_tinyblob as char) as f_tinyblob, cast(f_varbinary as char) as f_varbinary,"
@@ -419,6 +420,7 @@ public class MysqlCDCSpecificStartingOffsetIT extends TestSuiteBase implements T
         clearTable(MYSQL_DATABASE, SINK_TABLE);
         // Purge binary log at first
         purgeBinaryLogs();
+        flushLogs();
         // Record current binlog offset
         BinlogOffset currentBinlogOffset = getCurrentBinlogOffset();
 
