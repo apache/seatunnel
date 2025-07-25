@@ -21,9 +21,6 @@ import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.config.CustomMySqlConnectionConfiguration;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source.offset.BinlogOffset;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import com.github.shyiko.mysql.binlog.BinaryLogClient;
 import com.github.shyiko.mysql.binlog.event.EventData;
 import com.github.shyiko.mysql.binlog.event.EventHeaderV4;
@@ -52,8 +49,6 @@ import java.util.concurrent.ArrayBlockingQueue;
 
 /** MySQL connection Utilities. */
 public class MySqlConnectionUtils {
-
-    private static final Logger LOG = LoggerFactory.getLogger(MySqlConnectionUtils.class);
 
     /** Creates a new {@link MySqlConnection}, but not open the connection. */
     public static MySqlConnection createMySqlConnection(Configuration dbzConfiguration) {
@@ -227,23 +222,17 @@ public class MySqlConnectionUtils {
     private static String searchBinlogName(
             BinaryLogClient client, long targetMs, List<String> binlogFiles)
             throws IOException, InterruptedException {
-        LOG.info("Searching binlog name for timestamp {}", targetMs);
-        LOG.info("Searching binlog name for binlogFiles {}", binlogFiles);
         int startIdx = 0;
         int endIdx = binlogFiles.size() - 1;
 
         while (startIdx <= endIdx) {
             int mid = startIdx + (endIdx - startIdx) / 2;
             long midTs = getBinlogTimestamp(client, binlogFiles.get(mid));
-            LOG.info("Searching binlog name for midTs {}", midTs);
             if (midTs < targetMs) {
-                LOG.info("Searching binlog name for midTs < targetMs");
                 startIdx = mid + 1;
             } else if (targetMs < midTs) {
-                LOG.info("Searching binlog name for targetMs < midTs");
                 endIdx = mid - 1;
             } else {
-                LOG.info("Searching binlog name for targetMs = midTs");
                 return binlogFiles.get(mid);
             }
         }
