@@ -18,6 +18,7 @@
 package org.apache.seatunnel.e2e.connector.paimon;
 
 import org.apache.seatunnel.common.utils.SeaTunnelException;
+import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
@@ -31,7 +32,9 @@ import org.apache.paimon.table.source.ReadBuilder;
 import org.apache.paimon.table.source.TableRead;
 import org.apache.paimon.table.source.TableScan;
 
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.Container;
 
@@ -52,7 +55,7 @@ import static org.awaitility.Awaitility.given;
         disabledReason =
                 "Spark and Flink engine can not auto create paimon table on worker node in local file(e.g flink tm) by savemode feature which can lead error")
 @Slf4j
-public class PaimonStreamReadIT extends PaimonSinkCDCIT {
+public class PaimonStreamReadIT extends AbstractPaimonIT implements TestResource {
 
     @TestTemplate
     public void testStreamReadPaimon(TestContainer container) throws Exception {
@@ -75,7 +78,6 @@ public class PaimonStreamReadIT extends PaimonSinkCDCIT {
                 .atMost(400L, TimeUnit.SECONDS)
                 .untilAsserted(
                         () -> {
-                            container.executeExtraCommands(containerExtendedFactory);
                             List<PaimonRecordWithFullType> paimonSourceRecords =
                                     loadPaimonDataWithFullType("full_type", "st_test");
                             List<PaimonRecordWithFullType> paimonSinkRecords =
@@ -96,7 +98,6 @@ public class PaimonStreamReadIT extends PaimonSinkCDCIT {
                 .atMost(400L, TimeUnit.SECONDS)
                 .untilAsserted(
                         () -> {
-                            container.executeExtraCommands(containerExtendedFactory);
                             List<PaimonRecordWithFullType> paimonSourceRecords =
                                     loadPaimonDataWithFullType("full_type", "st_test");
                             List<PaimonRecordWithFullType> paimonSinkRecords =
@@ -150,4 +151,15 @@ public class PaimonStreamReadIT extends PaimonSinkCDCIT {
         }
         return result;
     }
+
+    @Override
+    @BeforeEach
+    public void startUp() throws Exception {
+        this.isWindows =
+                System.getProperties().getProperty("os.name").toUpperCase().contains("WINDOWS");
+    }
+
+    @Override
+    @AfterEach
+    public void tearDown() throws Exception {}
 }

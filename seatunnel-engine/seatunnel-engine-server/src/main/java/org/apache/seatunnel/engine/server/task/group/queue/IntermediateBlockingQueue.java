@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.server.task.group.queue;
 
+import org.apache.seatunnel.api.common.metrics.Counter;
 import org.apache.seatunnel.api.table.type.Record;
 import org.apache.seatunnel.api.transform.Collector;
 import org.apache.seatunnel.common.utils.function.ConsumerWithException;
@@ -29,14 +30,19 @@ import java.util.concurrent.TimeUnit;
 
 public class IntermediateBlockingQueue extends AbstractIntermediateQueue<BlockingQueue<Record<?>>> {
 
-    public IntermediateBlockingQueue(BlockingQueue<Record<?>> queue) {
+    private final Counter intermediateQueueSize;
+
+    public IntermediateBlockingQueue(
+            BlockingQueue<Record<?>> queue, Counter intermediateQueueSize) {
         super(queue);
+        this.intermediateQueueSize = intermediateQueueSize;
     }
 
     @Override
     public void received(Record<?> record) {
         try {
             handleRecord(record, getIntermediateQueue()::put);
+            intermediateQueueSize.inc();
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
@@ -48,6 +54,7 @@ public class IntermediateBlockingQueue extends AbstractIntermediateQueue<Blockin
             Record<?> record = getIntermediateQueue().poll(100, TimeUnit.MILLISECONDS);
             if (record != null) {
                 handleRecord(record, collector::collect);
+                intermediateQueueSize.dec();
             } else {
                 break;
             }

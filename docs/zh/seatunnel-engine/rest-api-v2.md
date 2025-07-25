@@ -153,6 +153,7 @@ seatunnel:
     "pipelineEdges": {}
   },
   "metrics": {
+    "IntermediateQueueSize": "",
     "SourceReceivedCount": "",
     "SourceReceivedQPS": "",
     "SourceReceivedBytes": "",
