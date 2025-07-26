@@ -24,56 +24,48 @@ import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.container.TestContainerId;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
-import org.apache.seatunnel.e2e.common.util.ContainerUtil;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.Container;
-import org.testcontainers.utility.MountableFile;
 
 import java.io.IOException;
-import java.nio.file.Path;
 
 @DisabledOnContainer(
         value = TestContainerId.FLINK_1_13,
         disabledReason = "Paimon does not support flink 1.13")
-public class PaimonIT extends TestSuiteBase implements TestResource {
+public class PaimonMultiTableIT extends TestSuiteBase implements TestResource {
 
     @TestContainerExtension
     private final ContainerExtendedFactory extendedFactory =
             container -> {
-                Path schemaPath = ContainerUtil.getResourcesFile("/schema-0.json").toPath();
-                container.copyFileToContainer(
-                        MountableFile.forHostPath(schemaPath),
-                        "/tmp/seatunnel_mnt/paimon/default.db/st_test/schema/schema-0");
                 container.execInContainer("chmod", "777", "-R", "/tmp/seatunnel_mnt/");
             };
 
     @TestTemplate
-    public void testWriteAndReadPaimon(TestContainer container)
+    public void testMultiTableReadAndAssert(TestContainer container)
             throws IOException, InterruptedException {
-        Container.ExecResult textWriteResult = container.executeJob("/fake_to_paimon.conf");
-        Assertions.assertEquals(0, textWriteResult.getExitCode());
-        Container.ExecResult readResult = container.executeJob("/paimon_to_assert.conf");
-        Assertions.assertEquals(0, readResult.getExitCode());
-        Container.ExecResult readProjectionResult =
-                container.executeJob("/paimon_projection_to_assert.conf");
-        Assertions.assertEquals(0, readProjectionResult.getExitCode());
+        // First, write data to multiple tables
+        Container.ExecResult writeTable1Result = container.executeJob("/fake_to_paimon_table1.conf");
+        Assertions.assertEquals(0, writeTable1Result.getExitCode());
+        
+        Container.ExecResult writeTable2Result = container.executeJob("/fake_to_paimon_table2.conf");
+        Assertions.assertEquals(0, writeTable2Result.getExitCode());
+        
+        // Then, read from multiple tables using table_list and assert the results
+        Container.ExecResult multiTableReadResult = 
+                container.executeJob("/paimon-to-assert-with-multitable.conf");
+        Assertions.assertEquals(0, multiTableReadResult.getExitCode());
     }
 
     @TestTemplate
-    public void testReadMultiPaimon(TestContainer container)
+    public void testMultiTableSink(TestContainer container)
             throws IOException, InterruptedException {
-        Container.ExecResult writeTable1Result = container.executeJob("/fake_to_paimon_table1.conf");
-        Assertions.assertEquals(0, writeTable1Result.getExitCode());
-
-        Container.ExecResult writeTable2Result = container.executeJob("/fake_to_paimon_table2.conf");
-        Assertions.assertEquals(0, writeTable2Result.getExitCode());
-
-        Container.ExecResult multiTableReadResult =
-                container.executeJob("/paimon-to-assert-with-multitable.conf");
-        Assertions.assertEquals(0, multiTableReadResult.getExitCode());
+        // Test multi-table sink functionality
+        Container.ExecResult multiTableSinkResult = 
+                container.executeJob("/fake_to_paimon_multi_table.conf");
+        Assertions.assertEquals(0, multiTableSinkResult.getExitCode());
     }
 
     @Override

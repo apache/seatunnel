@@ -28,6 +28,7 @@ import org.apache.paimon.CoreOptions;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
@@ -44,6 +45,7 @@ public class PaimonSinkConfig extends PaimonConfig {
     private final List<String> primaryKeys;
     private final List<String> partitionKeys;
     private final Map<String, String> writeProps;
+    private final List<PaimonSinkTableConfig> tableConfigList;
 
     public PaimonSinkConfig(ReadonlyConfig readonlyConfig) {
         super(readonlyConfig);
@@ -79,6 +81,7 @@ public class PaimonSinkConfig extends PaimonConfig {
         this.changelogTmpPath =
                 writeProps.getOrDefault(
                         PaimonSinkOptions.CHANGELOG_TMP_PATH, System.getProperty("java.io.tmpdir"));
+        this.tableConfigList = PaimonSinkTableConfig.of(readonlyConfig);
         checkConfig();
     }
 

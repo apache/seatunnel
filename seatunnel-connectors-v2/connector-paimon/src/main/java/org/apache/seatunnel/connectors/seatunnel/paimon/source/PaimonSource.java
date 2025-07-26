@@ -30,6 +30,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.connectors.seatunnel.paimon.catalog.PaimonCatalog;
 import org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonSourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonSourceTableConfig;
 import org.apache.seatunnel.connectors.seatunnel.paimon.source.converter.SqlToPaimonPredicateConverter;
 import org.apache.seatunnel.connectors.seatunnel.paimon.source.enumerator.PaimonBatchSourceSplitEnumerator;
 import org.apache.seatunnel.connectors.seatunnel.paimon.source.enumerator.PaimonStreamSourceSplitEnumerator;
@@ -42,10 +43,14 @@ import org.apache.paimon.types.RowType;
 
 import net.sf.jsqlparser.statement.select.PlainSelect;
 
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.stream.Collectors;
 
 import static org.apache.seatunnel.connectors.seatunnel.paimon.source.converter.SqlToPaimonPredicateConverter.convertSqlSelectToPaimonProjectionIndex;
 import static org.apache.seatunnel.connectors.seatunnel.paimon.source.converter.SqlToPaimonPredicateConverter.convertToPlainSelect;
@@ -58,43 +63,53 @@ public class PaimonSource
 
     public static final String PLUGIN_NAME = "Paimon";
 
-    private SeaTunnelRowType seaTunnelRowType;
-
-    private Table paimonTable;
-
     private JobContext jobContext;
 
-    private CatalogTable catalogTable;
-
-    protected final ReadBuilder readBuilder;
+    private List<CatalogTable> catalogTables;
+    private Map<String, Table> paimonTables;
+    private Map<String, SeaTunnelRowType> seaTunnelRowTypes;
+    private Map<String, ReadBuilder> readBuilders;
 
     public PaimonSource(ReadonlyConfig readonlyConfig, PaimonCatalog paimonCatalog) {
         PaimonSourceConfig paimonSourceConfig = new PaimonSourceConfig(readonlyConfig);
-        TablePath tablePath =
-                TablePath.of(paimonSourceConfig.getNamespace(), paimonSourceConfig.getTable());
-        this.catalogTable = paimonCatalog.getTable(tablePath);
-        this.paimonTable = paimonCatalog.getPaimonTable(tablePath);
 
-        String filterSql = paimonSourceConfig.getQuery();
-        PlainSelect plainSelect = convertToPlainSelect(filterSql);
-        RowType paimonRowType = this.paimonTable.rowType();
-        String[] filedNames = paimonRowType.getFieldNames().toArray(new String[0]);
+        this.catalogTables = new ArrayList<>();
+        this.paimonTables = new HashMap<>();
+        this.seaTunnelRowTypes = new HashMap<>();
+        this.readBuilders = new HashMap<>();
 
-        Predicate predicate = null;
-        int[] projectionIndex = null;
-        if (!Objects.isNull(plainSelect)) {
-            projectionIndex = convertSqlSelectToPaimonProjectionIndex(filedNames, plainSelect);
-            if (!Objects.isNull(projectionIndex)) {
-                this.catalogTable =
-                        paimonCatalog.getTableWithProjection(tablePath, projectionIndex);
+        for (PaimonSourceTableConfig tableConfig : paimonSourceConfig.getTableConfigList()) {
+            TablePath tablePath = tableConfig.getTablePath();
+            String tableKey = tablePath.toString();
+
+            CatalogTable catalogTable = paimonCatalog.getTable(tablePath);
+            Table paimonTable = paimonCatalog.getPaimonTable(tablePath);
+
+            String filterSql = tableConfig.getQuery();
+            PlainSelect plainSelect = convertToPlainSelect(filterSql);
+            RowType paimonRowType = paimonTable.rowType();
+            String[] filedNames = paimonRowType.getFieldNames().toArray(new String[0]);
+
+            Predicate predicate = null;
+            int[] projectionIndex = null;
+            if (!Objects.isNull(plainSelect)) {
+                projectionIndex = convertSqlSelectToPaimonProjectionIndex(filedNames, plainSelect);
+                if (!Objects.isNull(projectionIndex)) {
+                    catalogTable = paimonCatalog.getTableWithProjection(tablePath, projectionIndex);
+                }
+                predicate =
+                        SqlToPaimonPredicateConverter.convertSqlWhereToPaimonPredicate(
+                                paimonRowType, plainSelect);
             }
-            predicate =
-                    SqlToPaimonPredicateConverter.convertSqlWhereToPaimonPredicate(
-                            paimonRowType, plainSelect);
+
+            SeaTunnelRowType seaTunnelRowType = RowTypeConverter.convert(paimonRowType, projectionIndex);
+            ReadBuilder readBuilder = paimonTable.newReadBuilder().withProjection(projectionIndex).withFilter(predicate);
+
+            this.catalogTables.add(catalogTable);
+            this.paimonTables.put(tableKey, paimonTable);
+            this.seaTunnelRowTypes.put(tableKey, seaTunnelRowType);
+            this.readBuilders.put(tableKey, readBuilder);
         }
-        this.seaTunnelRowType = RowTypeConverter.convert(paimonRowType, projectionIndex);
-        this.readBuilder =
-                paimonTable.newReadBuilder().withProjection(projectionIndex).withFilter(predicate);
     }
 
     @Override
@@ -104,7 +119,7 @@ public class PaimonSource
 
     @Override
     public List<CatalogTable> getProducedCatalogTables() {
-        return Collections.singletonList(catalogTable);
+        return catalogTables;
     }
 
     @Override
@@ -123,18 +138,21 @@ public class PaimonSource
     public SourceReader<SeaTunnelRow, PaimonSourceSplit> createReader(
             SourceReader.Context readerContext) throws Exception {
         return new PaimonSourceReader(
-                readerContext, paimonTable, seaTunnelRowType, readBuilder.newRead());
+                readerContext, paimonTables, seaTunnelRowTypes, readBuilders);
     }
 
     @Override
     public SourceSplitEnumerator<PaimonSourceSplit, PaimonSourceState> createEnumerator(
             SourceSplitEnumerator.Context<PaimonSourceSplit> enumeratorContext) throws Exception {
+        // For multi-table support, we use the first table's readBuilder for now
+        // TODO: Implement proper multi-table split enumeration
+        ReadBuilder firstReadBuilder = readBuilders.values().iterator().next();
         if (getBoundedness() == Boundedness.BOUNDED) {
             return new PaimonBatchSourceSplitEnumerator(
-                    enumeratorContext, new LinkedList<>(), null, readBuilder.newScan(), 1);
+                    enumeratorContext, new LinkedList<>(), null, firstReadBuilder.newScan(), 1);
         }
         return new PaimonStreamSourceSplitEnumerator(
-                enumeratorContext, new LinkedList<>(), null, readBuilder.newStreamScan(), 1);
+                enumeratorContext, new LinkedList<>(), null, firstReadBuilder.newStreamScan(), 1);
     }
 
     @Override
@@ -142,19 +160,22 @@ public class PaimonSource
             SourceSplitEnumerator.Context<PaimonSourceSplit> enumeratorContext,
             PaimonSourceState checkpointState)
             throws Exception {
+        // For multi-table support, we use the first table's readBuilder for now
+        // TODO: Implement proper multi-table split enumeration
+        ReadBuilder firstReadBuilder = readBuilders.values().iterator().next();
         if (getBoundedness() == Boundedness.BOUNDED) {
             return new PaimonBatchSourceSplitEnumerator(
                     enumeratorContext,
                     checkpointState.getAssignedSplits(),
                     checkpointState.getCurrentSnapshotId(),
-                    readBuilder.newScan(),
+                    firstReadBuilder.newScan(),
                     1);
         }
         return new PaimonStreamSourceSplitEnumerator(
                 enumeratorContext,
                 checkpointState.getAssignedSplits(),
                 checkpointState.getCurrentSnapshotId(),
-                readBuilder.newStreamScan(),
+                firstReadBuilder.newStreamScan(),
                 1);
     }
 }

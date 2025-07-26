@@ -35,6 +35,13 @@ public class PaimonSourceSplit implements SourceSplit {
 
     private final Split split;
 
+    /** The table path this split belongs to */
+    private final String tableId;
+
+    public PaimonSourceSplit(String id, Split split) {
+        this(id, split, null);
+    }
+
     @Override
     public String splitId() {
         return split.toString();
