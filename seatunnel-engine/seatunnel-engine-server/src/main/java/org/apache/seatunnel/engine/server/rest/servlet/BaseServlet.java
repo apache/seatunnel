@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.engine.server.rest.servlet;
 
-import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
-
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 
@@ -154,37 +152,5 @@ public class BaseServlet extends HttpServlet {
             }
         }
         return reqParameterMap;
-    }
-
-    @VisibleForTesting
-    public void writeJsonForTest(HttpServletResponse resp, Object obj, String type)
-            throws IOException {
-        switch (type) {
-            case "1":
-                writeJson(resp, obj);
-                break;
-            case "2":
-                writeJson(resp, (JsonArray) obj);
-                break;
-            case "3":
-                writeJson(resp, (JsonObject) obj);
-                break;
-            case "4":
-                writeJson(resp, (JsonArray) obj, 200);
-                break;
-            case "5":
-                writeJson(resp, (JsonObject) obj, 200);
-                break;
-            case "6":
-                writeJson(resp, obj, 200);
-                break;
-            case "7":
-                write(resp, obj);
-                break;
-            case "8":
-                writeHtml(resp, obj);
-                break;
-            default:
-        }
     }
 }

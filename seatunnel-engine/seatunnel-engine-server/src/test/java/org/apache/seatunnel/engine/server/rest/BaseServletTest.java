@@ -17,133 +17,108 @@
 
 package org.apache.seatunnel.engine.server.rest;
 
-import org.apache.seatunnel.engine.server.rest.servlet.BaseServlet;
+import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
+import org.apache.seatunnel.engine.common.config.server.HttpConfig;
+import org.apache.seatunnel.engine.common.runtime.ExecutionMode;
+import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
+import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
+import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
+import org.apache.seatunnel.engine.server.AbstractSeaTunnelServerTest;
+import org.apache.seatunnel.engine.server.SeaTunnelServer;
+import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
+import org.apache.seatunnel.engine.server.TestUtils;
 
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import com.google.gson.Gson;
-import com.hazelcast.internal.json.JsonArray;
-import com.hazelcast.internal.json.JsonObject;
-import com.hazelcast.spi.impl.NodeEngineImpl;
+import com.hazelcast.config.Config;
+import com.hazelcast.internal.serialization.Data;
 
-import javax.servlet.http.HttpServletResponse;
-
+import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.PrintWriter;
-import java.io.StringWriter;
+import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.util.Collections;
+import java.util.stream.Collectors;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+class BaseServletTest extends AbstractSeaTunnelServerTest {
 
-class BaseServletTest {
+    private static final int HTTP_PORT = 18080;
 
-    private BaseServlet baseServlet;
-    private NodeEngineImpl mockNodeEngine;
-    private HttpServletResponse mockResponse;
-    private StringWriter stringWriter;
+    private static final Long JOB_1 = System.currentTimeMillis() + 1L;
 
     @BeforeEach
-    void setUp() throws IOException {
-        mockNodeEngine = mock(NodeEngineImpl.class);
-        baseServlet = new BaseServlet(mockNodeEngine);
-        mockResponse = mock(HttpServletResponse.class);
-        stringWriter = new StringWriter();
-        PrintWriter printWriter = new PrintWriter(stringWriter);
-        when(mockResponse.getWriter()).thenReturn(printWriter);
-    }
+    void setUp() {
+        String name = this.getClass().getName();
+        Config hazelcastConfig = Config.loadFromString(getHazelcastConfig());
+        hazelcastConfig.setClusterName(TestUtils.getClusterName("RestApiServletTest_" + name));
+        SeaTunnelConfig seaTunnelConfig = loadSeaTunnelConfig();
+        seaTunnelConfig.setHazelcastConfig(hazelcastConfig);
+        seaTunnelConfig.getEngineConfig().setMode(ExecutionMode.LOCAL);
 
-    private JsonObject createJsonObject() {
-        JsonObject jsonObject = new JsonObject();
-        jsonObject.add("Jack", "li");
-        return jsonObject;
-    }
+        HttpConfig httpConfig = seaTunnelConfig.getEngineConfig().getHttpConfig();
+        // enabled Http
+        httpConfig.setEnabled(true);
+        httpConfig.setPort(HTTP_PORT);
 
-    private JsonArray createJsonArray() {
-        JsonArray jsonArray = new JsonArray();
-        jsonArray.add(createJsonObject());
-        return jsonArray;
+        instance = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
+        nodeEngine = instance.node.nodeEngine;
+        server = nodeEngine.getService(SeaTunnelServer.SERVICE_NAME);
+        LOGGER = nodeEngine.getLogger(AbstractSeaTunnelServerTest.class);
     }
 
     @Test
     void testWriteJsonWithObject() throws IOException {
-        JsonObject jsonObject = createJsonObject();
-        baseServlet.writeJsonForTest(mockResponse, jsonObject, "1");
-
-        verify(mockResponse).setCharacterEncoding("UTF-8");
-        verify(mockResponse).setContentType("application/json; charset=UTF-8");
-        assertEquals(new Gson().toJson(jsonObject), stringWriter.toString());
+        startJob(JOB_1, "fake_to_console.conf");
+        testLogRestApiResponse();
     }
 
-    @Test
-    void testWriteJsonWithObjectStatusCode() throws IOException {
-        JsonObject jsonObject = createJsonObject();
-        baseServlet.writeJsonForTest(mockResponse, jsonObject, "6");
+    public void testLogRestApiResponse() throws IOException {
+        HttpURLConnection conn = null;
+        BufferedReader in = null;
+        try {
+            java.net.URL url =
+                    new java.net.URL(
+                            "http://localhost:" + HTTP_PORT + "/logs/job-" + JOB_1 + ".log");
+            conn = (HttpURLConnection) url.openConnection();
 
-        verify(mockResponse).setCharacterEncoding("UTF-8");
-        verify(mockResponse).setContentType("application/json; charset=UTF-8");
-        assertEquals(new Gson().toJson(jsonObject), stringWriter.toString());
+            Assertions.assertEquals(200, conn.getResponseCode());
+
+            in = new BufferedReader(new InputStreamReader(conn.getInputStream()));
+            String response = in.lines().collect(Collectors.joining("\r\n"));
+            Assertions.assertTrue(
+                    conn.getHeaderFields()
+                            .get("Content-Type")
+                            .toString()
+                            .contains("charset=utf-8"));
+        } finally {
+            if (in != null) {
+                in.close();
+            }
+            if (conn != null) {
+                conn.disconnect();
+            }
+        }
     }
 
-    @Test
-    void testWriteJsonWithJsonArray() throws IOException {
-        JsonArray jsonArray = createJsonArray();
-        baseServlet.writeJsonForTest(mockResponse, jsonArray, "2");
+    private void startJob(Long jobid, String path) {
+        LogicalDag testLogicalDag = TestUtils.createTestLogicalPlan(path, jobid.toString(), jobid);
 
-        verify(mockResponse).setCharacterEncoding("UTF-8");
-        verify(mockResponse).setContentType("application/json; charset=UTF-8");
-        assertEquals(jsonArray.toString(), stringWriter.toString());
-    }
+        JobImmutableInformation jobImmutableInformation =
+                new JobImmutableInformation(
+                        jobid,
+                        "Test",
+                        nodeEngine.getSerializationService(),
+                        testLogicalDag,
+                        Collections.emptyList(),
+                        Collections.emptyList());
 
-    @Test
-    void testWriteJsonWithJsonObject() throws IOException {
-        JsonObject jsonObject = createJsonObject();
-        baseServlet.writeJsonForTest(mockResponse, jsonObject, "3");
+        Data data = nodeEngine.getSerializationService().toData(jobImmutableInformation);
 
-        verify(mockResponse).setCharacterEncoding("UTF-8");
-        verify(mockResponse).setContentType("application/json; charset=UTF-8");
-        assertEquals(jsonObject.toString(), stringWriter.toString());
-    }
-
-    @Test
-    void testWriteJsonWithJsonArrayStatusCode() throws IOException {
-        JsonArray jsonArray = createJsonArray();
-        baseServlet.writeJsonForTest(mockResponse, jsonArray, "4");
-
-        verify(mockResponse).setCharacterEncoding("UTF-8");
-        verify(mockResponse).setContentType("application/json; charset=UTF-8");
-        assertEquals(jsonArray.toString(), stringWriter.toString());
-    }
-
-    @Test
-    void testWriteJsonWithJsonObjectStatusCode() throws IOException {
-        JsonObject jsonObject = createJsonObject();
-        baseServlet.writeJsonForTest(mockResponse, jsonObject, "5");
-
-        verify(mockResponse).setCharacterEncoding("UTF-8");
-        verify(mockResponse).setContentType("application/json; charset=UTF-8");
-        assertEquals(jsonObject.toString(), stringWriter.toString());
-    }
-
-    @Test
-    void testWriteTextPlainWithJsonObject() throws IOException {
-        JsonObject jsonObject = createJsonObject();
-        baseServlet.writeJsonForTest(mockResponse, jsonObject, "7");
-
-        verify(mockResponse).setCharacterEncoding("UTF-8");
-        verify(mockResponse).setContentType("text/plain; charset=UTF-8");
-        assertEquals(jsonObject.toString(), stringWriter.toString());
-    }
-
-    @Test
-    void testWriteHtmlWithJsonObject() throws IOException {
-        JsonObject jsonObject = createJsonObject();
-        baseServlet.writeJsonForTest(mockResponse, jsonObject, "8");
-
-        verify(mockResponse).setCharacterEncoding("UTF-8");
-        verify(mockResponse).setContentType("text/html; charset=UTF-8");
-        assertEquals(jsonObject.toString(), stringWriter.toString());
+        PassiveCompletableFuture<Void> voidPassiveCompletableFuture =
+                server.getCoordinatorService()
+                        .submitJob(jobid, data, jobImmutableInformation.isStartWithSavePoint());
+        voidPassiveCompletableFuture.join();
     }
 }
