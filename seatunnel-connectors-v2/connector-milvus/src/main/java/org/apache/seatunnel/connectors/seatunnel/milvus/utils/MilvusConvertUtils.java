@@ -206,7 +206,6 @@ public class MilvusConvertUtils {
                     MetadataColumn.of(
                             CommonOptions.PARTITION.getName(),
                             BasicType.STRING_TYPE,
-                            (Long) null,
                             null,
                             true,
                             null,
