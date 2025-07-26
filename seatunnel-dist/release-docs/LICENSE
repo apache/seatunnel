@@ -359,8 +359,10 @@ The text of each license is also included at licenses/LICENSE-[project].txt.
 
      (New BSD license) Protocol Buffer Java API (com.google.protobuf:protobuf-java:2.5.0 - http://code.google.com/p/protobuf)
      (FreeBSD License) stax2-api (org.codehaus.woodstox:stax2-api:3.1.4 - https://github.com/FasterXML/stax2-api)
-     (BSD 3-Clause) Scala Library (org.scala-lang:scala-library:2.12.15 - http://www.scala-lang.org/)
      (BSD 3-Clause) Scala Library (org.scala-lang:scala-compiler:2.12.15 - http://www.scala-lang.org/)
+     (BSD 3-Clause) Scala Library (org.scala-lang:scala-library:2.12.15 - http://www.scala-lang.org/)
+     (BSD 3-Clause) Scala Reflect (org.scala-lang:scala-reflect:2.12.15 - http://www.scala-lang.org/)
+     (Apache-2.0) Scala XML (org.scala-lang.modules:scala-xml_2.12:1.0.6 - http://www.scala-lang.org/)
      (BSD 3-Clause) asm (org.ow2.asm:asm:9.1 - https://mvnrepository.com/artifact/org.ow2.asm/asm/)
      (BSD 3-Clause) asm (org.ow2.asm:asm:5.0.4 - https://mvnrepository.com/artifact/org.ow2.asm/asm/)
 ========================================================================
