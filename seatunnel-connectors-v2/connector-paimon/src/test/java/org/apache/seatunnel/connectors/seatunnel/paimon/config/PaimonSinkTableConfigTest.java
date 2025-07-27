@@ -23,6 +23,7 @@ import org.apache.seatunnel.api.sink.SchemaSaveMode;
 
 import org.junit.jupiter.api.Test;
 
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -69,9 +70,7 @@ public class PaimonSinkTableConfigTest {
         table2.put("table", "table2");
         table2.put("schema_save_mode", "RECREATE_SCHEMA");
         table2.put("data_save_mode", "DROP_DATA");
-
-        configMap.put("table_list", List.of(table1, table2));
-
+        configMap.put("table_list", Arrays.asList(table1, table2));
         ReadonlyConfig config = ReadonlyConfig.fromMap(configMap);
         List<PaimonSinkTableConfig> tableConfigs = PaimonSinkTableConfig.of(config);
 

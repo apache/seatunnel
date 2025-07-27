@@ -47,14 +47,16 @@ public class PaimonMultiTableIT extends TestSuiteBase implements TestResource {
     public void testMultiTableReadAndAssert(TestContainer container)
             throws IOException, InterruptedException {
         // First, write data to multiple tables
-        Container.ExecResult writeTable1Result = container.executeJob("/fake_to_paimon_table1.conf");
+        Container.ExecResult writeTable1Result =
+                container.executeJob("/fake_to_paimon_table1.conf");
         Assertions.assertEquals(0, writeTable1Result.getExitCode());
-        
-        Container.ExecResult writeTable2Result = container.executeJob("/fake_to_paimon_table2.conf");
+
+        Container.ExecResult writeTable2Result =
+                container.executeJob("/fake_to_paimon_table2.conf");
         Assertions.assertEquals(0, writeTable2Result.getExitCode());
-        
+
         // Then, read from multiple tables using table_list and assert the results
-        Container.ExecResult multiTableReadResult = 
+        Container.ExecResult multiTableReadResult =
                 container.executeJob("/paimon-to-assert-with-multitable.conf");
         Assertions.assertEquals(0, multiTableReadResult.getExitCode());
     }
@@ -63,7 +65,7 @@ public class PaimonMultiTableIT extends TestSuiteBase implements TestResource {
     public void testMultiTableSink(TestContainer container)
             throws IOException, InterruptedException {
         // Test multi-table sink functionality
-        Container.ExecResult multiTableSinkResult = 
+        Container.ExecResult multiTableSinkResult =
                 container.executeJob("/fake_to_paimon_multi_table.conf");
         Assertions.assertEquals(0, multiTableSinkResult.getExitCode());
     }

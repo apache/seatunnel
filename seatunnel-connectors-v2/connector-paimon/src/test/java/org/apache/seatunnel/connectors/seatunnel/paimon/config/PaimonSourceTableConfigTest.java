@@ -17,8 +17,9 @@
 
 package org.apache.seatunnel.connectors.seatunnel.paimon.config;
 
-import org.apache.curator.shaded.com.google.common.collect.Lists;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+
+import org.apache.curator.shaded.com.google.common.collect.Lists;
 
 import org.junit.jupiter.api.Test;
 

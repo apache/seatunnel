@@ -20,13 +20,14 @@ package org.apache.seatunnel.connectors.seatunnel.paimon.source.enumerator;
 import org.apache.seatunnel.connectors.seatunnel.paimon.source.PaimonSourceSplit;
 import org.apache.seatunnel.connectors.seatunnel.paimon.source.PaimonSourceState;
 
-import org.apache.paimon.table.source.TableScan;
+import org.apache.paimon.table.source.ReadBuilder;
 
 import lombok.extern.slf4j.Slf4j;
 
 import javax.annotation.Nullable;
 
 import java.util.Deque;
+import java.util.Map;
 import java.util.Set;
 
 /** Paimon source split enumerator, used to calculate the splits for every reader. */
@@ -37,9 +38,9 @@ public class PaimonBatchSourceSplitEnumerator extends AbstractSplitEnumerator {
             Context<PaimonSourceSplit> context,
             Deque<PaimonSourceSplit> pendingSplits,
             @Nullable Long nextSnapshotId,
-            TableScan tableScan,
+            Map<String, ReadBuilder> readBuilders,
             int splitMaxPerTask) {
-        super(context, pendingSplits, nextSnapshotId, tableScan, splitMaxPerTask);
+        super(context, pendingSplits, nextSnapshotId, readBuilders, splitMaxPerTask);
     }
 
     @Override

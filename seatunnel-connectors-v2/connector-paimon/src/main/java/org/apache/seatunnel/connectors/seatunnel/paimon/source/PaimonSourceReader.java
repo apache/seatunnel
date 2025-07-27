@@ -20,7 +20,6 @@ package org.apache.seatunnel.connectors.seatunnel.paimon.source;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.source.SourceReader;
-import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -40,6 +39,7 @@ import lombok.extern.slf4j.Slf4j;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Deque;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -64,7 +64,7 @@ public class PaimonSourceReader implements SourceReader<SeaTunnelRow, PaimonSour
         this.context = context;
         this.tables = tables;
         this.seaTunnelRowTypes = seaTunnelRowTypes;
-        this.tableReads = new java.util.HashMap<>();
+        this.tableReads = new HashMap<>();
         for (Map.Entry<String, ReadBuilder> entry : readBuilders.entrySet()) {
             this.tableReads.put(entry.getKey(), entry.getValue().newRead());
         }
@@ -106,7 +106,6 @@ public class PaimonSourceReader implements SourceReader<SeaTunnelRow, PaimonSour
                                 seaTunnelRow.setRowKind(rowKind);
                             }
                         }
-                        // Set table ID for multi-table support
                         seaTunnelRow.setTableId(tableId);
                         output.collect(seaTunnelRow);
                     }

@@ -76,7 +76,7 @@ public class PaimonSinkTableConfig implements Serializable {
         String primaryKeys = config.getOptional(PaimonSinkOptions.PRIMARY_KEYS).orElse(null);
         String partitionKeys = config.getOptional(PaimonSinkOptions.PARTITION_KEYS).orElse(null);
         Map<String, String> writeProps = config.get(PaimonSinkOptions.WRITE_PROPS);
-        
+
         TablePath tablePath = TablePath.of(database, table);
         TableSchema tableSchema = new ReadonlyConfigParser().parse(config);
         CatalogTable catalogTable =
@@ -88,8 +88,14 @@ public class PaimonSinkTableConfig implements Serializable {
                         "");
 
         return new PaimonSinkTableConfig(
-                database, table, schemaSaveMode, dataSaveMode, 
-                primaryKeys, partitionKeys, writeProps, catalogTable);
+                database,
+                table,
+                schemaSaveMode,
+                dataSaveMode,
+                primaryKeys,
+                partitionKeys,
+                writeProps,
+                catalogTable);
     }
 
     public static List<PaimonSinkTableConfig> of(ReadonlyConfig config) {

@@ -65,10 +65,12 @@ public class PaimonIT extends TestSuiteBase implements TestResource {
     @TestTemplate
     public void testReadMultiPaimon(TestContainer container)
             throws IOException, InterruptedException {
-        Container.ExecResult writeTable1Result = container.executeJob("/fake_to_paimon_table1.conf");
+        Container.ExecResult writeTable1Result =
+                container.executeJob("/fake_to_paimon_table1.conf");
         Assertions.assertEquals(0, writeTable1Result.getExitCode());
 
-        Container.ExecResult writeTable2Result = container.executeJob("/fake_to_paimon_table2.conf");
+        Container.ExecResult writeTable2Result =
+                container.executeJob("/fake_to_paimon_table2.conf");
         Assertions.assertEquals(0, writeTable2Result.getExitCode());
 
         Container.ExecResult multiTableReadResult =

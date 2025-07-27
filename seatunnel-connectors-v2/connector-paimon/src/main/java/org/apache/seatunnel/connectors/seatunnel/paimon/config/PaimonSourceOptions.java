@@ -17,9 +17,10 @@
 
 package org.apache.seatunnel.connectors.seatunnel.paimon.config;
 
+import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
+
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
-import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
 
 import java.util.List;
 import java.util.Map;
