@@ -33,7 +33,6 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.connectors.seatunnel.paimon.catalog.PaimonCatalog;
 import org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonSourceConfig;
-import org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonSourceTableConfig;
 import org.apache.seatunnel.connectors.seatunnel.paimon.source.converter.SqlToPaimonPredicateConverter;
 import org.apache.seatunnel.connectors.seatunnel.paimon.source.enumerator.PaimonBatchSourceSplitEnumerator;
 import org.apache.seatunnel.connectors.seatunnel.paimon.source.enumerator.PaimonStreamSourceSplitEnumerator;
@@ -70,42 +69,50 @@ public class PaimonSource
     private Map<String, ReadBuilder> readBuilders = Maps.newHashMap();
 
     public PaimonSource(ReadonlyConfig readonlyConfig, PaimonCatalog paimonCatalog) {
-        PaimonSourceConfig paimonSourceConfig = new PaimonSourceConfig(readonlyConfig);
+        new PaimonSourceConfig(readonlyConfig)
+                .getTableConfigList()
+                .forEach(
+                        tableConfig -> {
+                            TablePath tablePath = tableConfig.getTablePath();
+                            String tableKey = tablePath.toString();
 
-        for (PaimonSourceTableConfig tableConfig : paimonSourceConfig.getTableConfigList()) {
-            TablePath tablePath = tableConfig.getTablePath();
-            String tableKey = tablePath.toString();
+                            CatalogTable catalogTable = paimonCatalog.getTable(tablePath);
+                            Table paimonTable = paimonCatalog.getPaimonTable(tablePath);
+                            PlainSelect plainSelect = convertToPlainSelect(tableConfig.getQuery());
+                            RowType paimonRowType = paimonTable.rowType();
+                            String[] filedNames =
+                                    paimonRowType.getFieldNames().toArray(new String[0]);
 
-            CatalogTable catalogTable = paimonCatalog.getTable(tablePath);
-            Table paimonTable = paimonCatalog.getPaimonTable(tablePath);
+                            Predicate predicate = null;
+                            int[] projectionIndex = null;
+                            if (!Objects.isNull(plainSelect)) {
+                                projectionIndex =
+                                        convertSqlSelectToPaimonProjectionIndex(
+                                                filedNames, plainSelect);
+                                if (!Objects.isNull(projectionIndex)) {
+                                    catalogTable =
+                                            paimonCatalog.getTableWithProjection(
+                                                    tablePath, projectionIndex);
+                                    this.catalogTables.add(catalogTable);
+                                }
+                                predicate =
+                                        SqlToPaimonPredicateConverter
+                                                .convertSqlWhereToPaimonPredicate(
+                                                        paimonRowType, plainSelect);
+                                this.seaTunnelRowTypes.put(
+                                        tableKey,
+                                        RowTypeConverter.convert(paimonRowType, projectionIndex));
+                            }
 
-            PlainSelect plainSelect = convertToPlainSelect(tableConfig.getQuery());
-            RowType paimonRowType = paimonTable.rowType();
-            String[] filedNames = paimonRowType.getFieldNames().toArray(new String[0]);
+                            ReadBuilder readBuilder =
+                                    paimonTable
+                                            .newReadBuilder()
+                                            .withProjection(projectionIndex)
+                                            .withFilter(predicate);
 
-            Predicate predicate = null;
-            int[] projectionIndex = null;
-            if (!Objects.isNull(plainSelect)) {
-                projectionIndex = convertSqlSelectToPaimonProjectionIndex(filedNames, plainSelect);
-                if (!Objects.isNull(projectionIndex)) {
-                    catalogTable = paimonCatalog.getTableWithProjection(tablePath, projectionIndex);
-                    this.catalogTables.add(catalogTable);
-                }
-                predicate =
-                        SqlToPaimonPredicateConverter.convertSqlWhereToPaimonPredicate(
-                                paimonRowType, plainSelect);
-            }
-
-            ReadBuilder readBuilder =
-                    paimonTable
-                            .newReadBuilder()
-                            .withProjection(projectionIndex)
-                            .withFilter(predicate);
-
-            this.paimonTables.put(tableKey, paimonTable);
-            this.seaTunnelRowTypes.put(tableKey, RowTypeConverter.convert(paimonRowType, projectionIndex));
-            this.readBuilders.put(tableKey, readBuilder);
-        }
+                            this.paimonTables.put(tableKey, paimonTable);
+                            this.readBuilders.put(tableKey, readBuilder);
+                        });
     }
 
     @Override
