@@ -19,6 +19,8 @@ package org.apache.kafka.clients.admin;
 
 import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.connectors.seatunnel.kafka.source.KafkaSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.kafka.source.KafkaSourceSplit;
 import org.apache.seatunnel.connectors.seatunnel.kafka.source.KafkaSourceSplitEnumerator;
 
@@ -43,6 +45,7 @@ import java.util.concurrent.ExecutionException;
 class KafkaSourceSplitEnumeratorTest {
 
     AdminClient adminClient = Mockito.mock(KafkaAdminClient.class);
+    KafkaSourceConfig kafkaSourceConfig = Mockito.mock(KafkaSourceConfig.class);
     // prepare
     TopicPartition partition0 = new TopicPartition("test", 0);
     TopicPartition partition2 = new TopicPartition("test", 2);
@@ -110,7 +113,7 @@ class KafkaSourceSplitEnumeratorTest {
         Map<TopicPartition, KafkaSourceSplit> pendingSplit = new HashMap<>();
         List<KafkaSourceSplit> splits = Arrays.asList(new KafkaSourceSplit(null, partition0));
         KafkaSourceSplitEnumerator enumerator =
-                new KafkaSourceSplitEnumerator(adminClient, pendingSplit, assignedSplit);
+                new KafkaSourceSplitEnumerator(adminClient, null, pendingSplit, assignedSplit);
         enumerator.addSplitsBack(splits, 1);
         Assertions.assertTrue(pendingSplit.size() == splits.size());
         Assertions.assertNull(assignedSplit.get(partition0));
@@ -143,8 +146,11 @@ class KafkaSourceSplitEnumeratorTest {
         Map<TopicPartition, KafkaSourceSplit> assignedSplit =
                 new HashMap<TopicPartition, KafkaSourceSplit>();
         Map<TopicPartition, KafkaSourceSplit> pendingSplit = new HashMap<>();
+
         List<KafkaSourceSplit> splits =
-                Collections.singletonList(new KafkaSourceSplit(null, partition0));
+                Arrays.asList(
+                        new KafkaSourceSplit(null, partition0),
+                        new KafkaSourceSplit(null, partition2));
         KafkaSourceSplitEnumerator enumerator =
                 new KafkaSourceSplitEnumerator(adminClient, pendingSplit, assignedSplit, true);
         enumerator.fetchPendingPartitionSplit();
@@ -154,36 +160,55 @@ class KafkaSourceSplitEnumeratorTest {
     }
 
     @Test
-    void addBatchSplits() throws ExecutionException, InterruptedException {
-        // test
-        Map<TopicPartition, KafkaSourceSplit> assignedSplit =
-                new HashMap<TopicPartition, KafkaSourceSplit>();
-        Map<TopicPartition, KafkaSourceSplit> pendingSplit = new HashMap<>();
-        KafkaSourceSplit kafkaSourceSplit0 = new KafkaSourceSplit(null, partition0);
-        KafkaSourceSplit kafkaSourceSplit2 = new KafkaSourceSplit(null, partition2);
-        List<KafkaSourceSplit> splits = Lists.newArrayList(kafkaSourceSplit0, kafkaSourceSplit2);
-        KafkaSourceSplitEnumerator enumerator =
-                new KafkaSourceSplitEnumerator(adminClient, pendingSplit, assignedSplit, false);
-        enumerator.fetchPendingPartitionSplit();
-        Assertions.assertEquals(pendingSplit.size(), splits.size());
-        Assertions.assertNotNull(pendingSplit.get(partition0));
-    }
-
-    @Test
     void addplits() throws ExecutionException, InterruptedException {
         // test
         Map<TopicPartition, KafkaSourceSplit> assignedSplit =
                 new HashMap<TopicPartition, KafkaSourceSplit>();
         Map<TopicPartition, KafkaSourceSplit> pendingSplit = new HashMap<>();
+        List<KafkaSourceSplit> splits =
+                Arrays.asList(
+                        new KafkaSourceSplit(null, partition0),
+                        new KafkaSourceSplit(null, partition2));
 
-        KafkaSourceSplit kafkaSourceSplit0 = new KafkaSourceSplit(null, partition0);
-        KafkaSourceSplit kafkaSourceSplit2 = new KafkaSourceSplit(null, partition2);
-        List<KafkaSourceSplit> splits = Lists.newArrayList(kafkaSourceSplit0, kafkaSourceSplit2);
         KafkaSourceSplitEnumerator enumerator =
                 new KafkaSourceSplitEnumerator(adminClient, pendingSplit, assignedSplit, false);
         enumerator.fetchPendingPartitionSplit();
         Assertions.assertEquals(pendingSplit.size(), splits.size());
         Assertions.assertNotNull(pendingSplit.get(partition0));
         Assertions.assertTrue(pendingSplit.get(partition0).getEndOffset() == 0);
+    }
+
+    @Test
+    void testIgnoreNoLeaderPartition() throws ExecutionException, InterruptedException {
+
+        Map<TopicPartition, KafkaSourceSplit> assignedSplit = new HashMap<>();
+        Map<TopicPartition, KafkaSourceSplit> pendingSplit = new HashMap<>();
+
+        Map<String, Object> configMap = new HashMap<>();
+        configMap.put("group.id", "test");
+        configMap.put("topic", "test");
+        configMap.put("ignore_no_leader_partition", "false");
+        KafkaSourceConfig sourceConfig = new KafkaSourceConfig(ReadonlyConfig.fromMap(configMap));
+        KafkaSourceSplitEnumerator enumerator =
+                new KafkaSourceSplitEnumerator(
+                        adminClient, sourceConfig, pendingSplit, assignedSplit);
+        enumerator.fetchPendingPartitionSplit();
+
+        Assertions.assertEquals(2, pendingSplit.size());
+        Assertions.assertNotNull(pendingSplit.get(partition0));
+        Assertions.assertNotNull(pendingSplit.get(partition2));
+
+        pendingSplit.clear();
+        assignedSplit.clear();
+
+        configMap.put("ignore_no_leader_partition", "true");
+        sourceConfig = new KafkaSourceConfig(ReadonlyConfig.fromMap(configMap));
+        enumerator =
+                new KafkaSourceSplitEnumerator(
+                        adminClient, sourceConfig, pendingSplit, assignedSplit);
+        enumerator.fetchPendingPartitionSplit();
+        Assertions.assertEquals(1, pendingSplit.size());
+        Assertions.assertNotNull(pendingSplit.get(partition0));
+        Assertions.assertNull(pendingSplit.get(partition2));
     }
 }
