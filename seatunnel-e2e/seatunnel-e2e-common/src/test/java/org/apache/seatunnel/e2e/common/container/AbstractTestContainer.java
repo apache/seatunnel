@@ -141,7 +141,7 @@ public abstract class AbstractTestContainer implements TestContainer {
             command.add("--set-job-id");
             command.add(jobId);
         }
-        if(getStartModuleName().equals("seatunnel-starter")) {
+        if (getStartModuleName().equals("seatunnel-starter")) {
             command.add("--print-job-event");
         }
         List<String> extraStartShellCommands = new ArrayList<>(getExtraStartShellCommands());
