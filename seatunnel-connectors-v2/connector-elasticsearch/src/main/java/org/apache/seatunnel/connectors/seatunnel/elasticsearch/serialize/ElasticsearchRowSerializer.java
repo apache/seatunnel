@@ -215,32 +215,24 @@ public class ElasticsearchRowSerializer implements SeaTunnelRowSerializer {
             }
             return value;
         } else if (value instanceof ByteBuffer) {
+            ByteBuffer buffer = (ByteBuffer) value;
+            Double[] doubles = BufferUtils.toDoubleArray(buffer);
+
+            // Calculate dimension from the buffer size by default
+            int dimension = buffer.remaining() / 8;
             // Check if this field is configured as a vectorization field
             if (vectorizationFields != null && vectorizationFields.contains(fieldName)) {
-                ByteBuffer buffer = (ByteBuffer) value;
-                Float[] floats = BufferUtils.toFloatArray(buffer);
-
-                // Use the configured dimension or calculate it from the buffer size
-                int dimension = vectorDimension > 0 ? vectorDimension : buffer.remaining() / 4;
-
-                // Read the floats from the buffer
-                for (int i = 0; i < dimension && buffer.remaining() >= 4; i++) {
-                    floats[i] = buffer.getFloat();
+                // Use the configured dimension with high priority
+                if (vectorDimension > 0) {
+                    dimension = vectorDimension;
                 }
-
-                return floats;
-            } else {
-                // Default behavior for ByteBuffer fields not specified as vectorization fields
-                ByteBuffer buffer = (ByteBuffer) value;
-                Float[] floats = BufferUtils.toFloatArray(buffer);
-                int floatCount = buffer.remaining() / 4;
-
-                for (int i = 0; i < floatCount; i++) {
-                    floats[i] = buffer.getFloat();
-                }
-
-                return floats;
             }
+
+            // Read the double value from the buffer
+            for (int i = 0; i < dimension; i++) {
+                doubles[i] = buffer.getDouble();
+            }
+            return doubles;
         } else {
             return value;
         }

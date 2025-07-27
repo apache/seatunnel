@@ -24,6 +24,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
+import org.apache.seatunnel.common.utils.BufferUtils;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.ElasticsearchSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.ElasticsearchClusterInfo;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.IndexInfo;
@@ -31,10 +32,13 @@ import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.IndexInfo;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
+import static org.apache.seatunnel.api.table.type.BasicType.DOUBLE_TYPE;
 import static org.apache.seatunnel.api.table.type.BasicType.STRING_TYPE;
 
 public class ElasticsearchRowSerializerTest {
@@ -52,15 +56,17 @@ public class ElasticsearchRowSerializerTest {
         IndexInfo indexInfo = new IndexInfo(index, pluginConf);
         SeaTunnelRowType schema =
                 new SeaTunnelRowType(
-                        new String[] {primaryKey, "name"},
-                        new SeaTunnelDataType[] {STRING_TYPE, STRING_TYPE});
+                        new String[] {primaryKey, "name", "data_vector"},
+                        new SeaTunnelDataType[] {STRING_TYPE, STRING_TYPE, DOUBLE_TYPE});
 
         final ElasticsearchRowSerializer serializer =
                 new ElasticsearchRowSerializer(clusterInfo, indexInfo, schema);
 
         String id = "0001";
         String name = "jack";
-        SeaTunnelRow row = new SeaTunnelRow(new Object[] {id, name});
+        List<Double> vector = Arrays.asList(-2.5, -1.390625, -3.15625, -3.078125);
+        ByteBuffer data_vector = BufferUtils.toByteBuffer(vector.toArray(new Double[0]));
+        SeaTunnelRow row = new SeaTunnelRow(new Object[] {id, name, data_vector});
         row.setRowKind(RowKind.UPDATE_AFTER);
 
         String expected =
@@ -73,7 +79,9 @@ public class ElasticsearchRowSerializerTest {
                         + name
                         + "\",\"id\":\""
                         + id
-                        + "\"}, \"doc_as_upsert\" : true }";
+                        + "\",\"data_vector\":"
+                        + vector.toString().replaceAll(", ", ",")
+                        + "}, \"doc_as_upsert\" : true }";
 
         String upsertStr = serializer.serializeRow(row);
         Assertions.assertEquals(expected, upsertStr);
