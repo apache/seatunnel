@@ -24,6 +24,7 @@ import org.apache.seatunnel.api.table.connector.TableSource;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
+import org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.AuthTypeEnum;
 
 import com.google.auto.service.AutoService;
 
@@ -82,7 +83,7 @@ public class ElasticsearchSourceFactory implements TableSourceFactory {
                         TLS_TRUST_STORE_PATH,
                         TLS_TRUST_STORE_PASSWORD)
                 .optional(AUTH_TYPE)
-                .conditional(AUTH_TYPE, API_KEY, API_KEY_ID, API_KEY, API_KEY_ENCODED)
+                .conditional(AUTH_TYPE, AuthTypeEnum.API_KEY, API_KEY_ID, API_KEY, API_KEY_ENCODED)
                 .build();
     }
 
