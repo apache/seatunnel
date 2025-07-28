@@ -103,13 +103,6 @@ public class FileBaseSourceOptions extends FileBaseOptions {
                     .withDescription(
                             "File modification time filter. The connector will filter some files base on the last modification end time (not include end time). the default data format is yyyy-mm-dd, if you not set `file_filter_modified_date_format`");
 
-    public static final Option<String> FILE_FILTER_MODIFIED_DATE_FORMAT =
-            Options.key("file_filter_modified_date_format")
-                    .stringType()
-                    .defaultValue("yyyy-MM-dd")
-                    .withDescription(
-                            "File modification time format. This parameter specifies the file's last modification time for filtering, using which time format. If not set, it defaults to the yyyy-MM-dd format, with the time zone defaulting to GMT+8.");
-
     public static final Option<Integer> BINARY_CHUNK_SIZE =
             Options.key("binary_chunk_size")
                     .intType()

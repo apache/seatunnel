@@ -94,8 +94,6 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
     protected Pattern pattern;
     protected String fileModifiedStartDate;
     protected String fileModifiedEndDate;
-    protected String modifiedDateFormat =
-            FileBaseSourceOptions.FILE_FILTER_MODIFIED_DATE_FORMAT.defaultValue();
 
     @Override
     public void init(HadoopConf conf) {
@@ -159,7 +157,7 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
     protected boolean filterFileByModificationDate(FileStatus fileStatus) {
 
         long fileModifiedTime = fileStatus.getModificationTime();
-        SimpleDateFormat dateFormat = new SimpleDateFormat(modifiedDateFormat);
+        SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
         dateFormat.setTimeZone(TimeZone.getTimeZone("GMT+8"));
         Date startTime = null;
         Date endTime = null;
@@ -174,10 +172,8 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
 
         } catch (ParseException e) {
             log.warn(
-                    "Failed to parse file modified date format: {}, please check date format: {}",
-                    modifiedDateFormat,
-                    FileBaseSourceOptions.FILE_FILTER_MODIFIED_DATE_FORMAT);
-            return true;
+                    "Failed to parse file modified date format: yyyy-MM-dd HH:mm:ss, please check file_filter_modified_start or file_filter_modified_end format.");
+            return false;
         }
 
         // Both start and end date are set
@@ -241,12 +237,6 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
         if (pluginConfig.hasPath(FileBaseSourceOptions.FILE_FILTER_MODIFIED_END.key())) {
             fileModifiedEndDate =
                     pluginConfig.getString(FileBaseSourceOptions.FILE_FILTER_MODIFIED_END.key());
-        }
-
-        if (pluginConfig.hasPath(FileBaseSourceOptions.FILE_FILTER_MODIFIED_DATE_FORMAT.key())) {
-            modifiedDateFormat =
-                    pluginConfig.getString(
-                            FileBaseSourceOptions.FILE_FILTER_MODIFIED_DATE_FORMAT.key());
         }
     }
 

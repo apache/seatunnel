@@ -138,8 +138,8 @@ public class AbstractReadStrategyTest {
     @Test
     void testBothStartAndEndWithinRange() throws Exception {
         try (CsvReadStrategy strategy = new CsvReadStrategy()) {
-            String startDateStr = "2024-01-01";
-            String endDateStr = "2024-12-31";
+            String startDateStr = "2024-01-01 00:00:00";
+            String endDateStr = "2024-12-31 00:00:00";
             String format = "yyyy-MM-dd";
             SimpleDateFormat simpleDateFormat = new SimpleDateFormat(format);
             simpleDateFormat.setTimeZone(TimeZone.getTimeZone("GMT+8"));
@@ -147,7 +147,7 @@ public class AbstractReadStrategyTest {
 
             strategy.fileModifiedStartDate = startDateStr;
             strategy.fileModifiedEndDate = endDateStr;
-            strategy.modifiedDateFormat = format;
+
             FileStatus fileStatus =
                     new FileStatus(0L, false, 0, 0, modificationTime, 0, null, null, null, null);
             boolean result = strategy.filterFileByModificationDate(fileStatus);
@@ -159,12 +159,11 @@ public class AbstractReadStrategyTest {
     void testOnlyEndDateOutOfRange() throws Exception {
 
         try (CsvReadStrategy strategy = new CsvReadStrategy()) {
-            String endDateStr = "2024-07-01";
+            String endDateStr = "2024-07-01 00:00:00";
             String format = "yyyy-MM-dd";
 
             strategy.fileModifiedStartDate = null;
             strategy.fileModifiedEndDate = endDateStr;
-            strategy.modifiedDateFormat = format;
 
             SimpleDateFormat simpleDateFormat = new SimpleDateFormat(format);
             simpleDateFormat.setTimeZone(TimeZone.getTimeZone("GMT+8"));
@@ -186,7 +185,7 @@ public class AbstractReadStrategyTest {
 
             strategy.fileModifiedStartDate = null;
             strategy.fileModifiedEndDate = endDateStr;
-            strategy.modifiedDateFormat = format;
+
             SimpleDateFormat simpleDateFormat = new SimpleDateFormat(format);
             simpleDateFormat.setTimeZone(TimeZone.getTimeZone("GMT+8"));
             long modificationTime = simpleDateFormat.parse("2024-07-01 13:00:00").getTime();
@@ -216,12 +215,12 @@ public class AbstractReadStrategyTest {
     void testOnlyStartDateOutOfRange() throws Exception {
 
         try (CsvReadStrategy strategy = new CsvReadStrategy()) {
-            String startDateStr = "2024-04-01";
+            String startDateStr = "2024-04-01 00:00:00";
             String format = "yyyy-MM-dd";
 
             strategy.fileModifiedStartDate = startDateStr;
             strategy.fileModifiedEndDate = null;
-            strategy.modifiedDateFormat = format;
+
             SimpleDateFormat simpleDateFormat = new SimpleDateFormat(format);
             simpleDateFormat.setTimeZone(TimeZone.getTimeZone("GMT+8"));
             long modificationTime = simpleDateFormat.parse("2024-06-01").getTime();
