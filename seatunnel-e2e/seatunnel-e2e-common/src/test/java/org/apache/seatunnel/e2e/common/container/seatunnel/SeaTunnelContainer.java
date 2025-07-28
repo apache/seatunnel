@@ -39,6 +39,7 @@ import org.apache.http.util.EntityUtils;
 
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.Assertions;
+import org.testcontainers.containers.BindMode;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.Network;
@@ -84,6 +85,7 @@ public class SeaTunnelContainer extends AbstractTestContainer {
 
     @Override
     public void startUp() throws Exception {
+        FileUtils.createNewDir(HOST_VOLUME_MOUNT_PATH);
         server = createSeaTunnelServer();
     }
 
@@ -114,6 +116,10 @@ public class SeaTunnelContainer extends AbstractTestContainer {
                                 new Slf4jLogConsumer(
                                         DockerLoggerFactory.getLogger(
                                                 "seatunnel-engine:" + JDK_DOCKER_IMAGE)))
+                        .withFileSystemBind(
+                                HOST_VOLUME_MOUNT_PATH,
+                                CONTAINER_VOLUME_MOUNT_PATH,
+                                BindMode.READ_WRITE)
                         .waitingFor(Wait.forLogMessage(".*received new worker register:.*", 1));
         copySeaTunnelStarterToContainer(server);
         server.setPortBindings(Arrays.asList("5801:5801", "8080:8080"));
@@ -213,8 +219,11 @@ public class SeaTunnelContainer extends AbstractTestContainer {
     @Override
     public void tearDown() throws Exception {
         if (server != null) {
+            // delete the volume
+            server.execInContainer("rm", "-rf", CONTAINER_VOLUME_MOUNT_PATH);
             server.close();
         }
+        FileUtils.deleteFile(HOST_VOLUME_MOUNT_PATH);
     }
 
     @Override

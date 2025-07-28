@@ -29,7 +29,7 @@ import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.connectors.seatunnel.common.source.TypeDefineUtils;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcCommonOptions;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 
 import com.google.auto.service.AutoService;
@@ -112,11 +112,11 @@ public class MySqlTypeConverter implements TypeConverter<BasicTypeDefine<MysqlTy
     private final boolean intTypeNarrowing;
 
     public MySqlTypeConverter() {
-        this(MySqlVersion.V_5_7, JdbcOptions.INT_TYPE_NARROWING.defaultValue());
+        this(MySqlVersion.V_5_7, JdbcCommonOptions.INT_TYPE_NARROWING.defaultValue());
     }
 
     public MySqlTypeConverter(MySqlVersion version) {
-        this(version, JdbcOptions.INT_TYPE_NARROWING.defaultValue());
+        this(version, JdbcCommonOptions.INT_TYPE_NARROWING.defaultValue());
     }
 
     public MySqlTypeConverter(MySqlVersion version, boolean intTypeNarrowing) {

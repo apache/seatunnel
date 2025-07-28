@@ -65,7 +65,7 @@ public class PreviewActionTest {
                     "comment");
 
     @Test
-    public void testDorisPreviewAction() {
+    public void testStarRocksPreviewAction() {
         StarRocksCatalogFactory factory = new StarRocksCatalogFactory();
         Catalog catalog =
                 factory.createCatalog(

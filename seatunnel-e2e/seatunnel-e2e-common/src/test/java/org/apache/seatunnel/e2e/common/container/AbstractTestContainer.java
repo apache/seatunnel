@@ -43,6 +43,21 @@ public abstract class AbstractTestContainer implements TestContainer {
     protected static final String START_ROOT_MODULE_NAME = "seatunnel-core";
 
     public static final String SEATUNNEL_HOME = "/tmp/seatunnel/";
+
+    protected static final boolean isWindows =
+            System.getProperties().getProperty("os.name").toUpperCase().contains("WINDOWS");
+
+    protected static String hostName = System.getProperty("user.name");
+    protected Integer hostUid = Integer.parseInt(System.getProperty("user.id", "1000"));
+    protected Integer hostGid = Integer.parseInt(System.getProperty("user.gid", "1000"));
+
+    protected static final String CONTAINER_VOLUME_MOUNT_PATH = "/tmp/seatunnel_mnt";
+
+    public static final String HOST_VOLUME_MOUNT_PATH =
+            isWindows
+                    ? String.format("C:/Users/%s/tmp/seatunnel_mnt", hostName)
+                    : CONTAINER_VOLUME_MOUNT_PATH;
+
     protected final String startModuleName;
 
     protected final String startModuleFullPath;

@@ -478,7 +478,7 @@ source {
       ]
       password="xxxxxx"
       username="xxxxxxxxxxxxx"
-      base-url="jdbc:mysql://localhost:3306/qa_source"
+      url="jdbc:mysql://localhost:3306/qa_source"
   }
 }
 
