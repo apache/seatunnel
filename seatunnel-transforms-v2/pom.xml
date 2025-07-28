@@ -33,7 +33,6 @@
         <httpclient.version>4.5.13</httpclient.version>
         <httpcore.version>4.4.16</httpcore.version>
         <mockwebserver.version>3.6.0</mockwebserver.version>
-        <zhipu.version>release-V4-2.3.0</zhipu.version>
         <aws.sdk.version>2.27.21</aws.sdk.version>
     </properties>
 

@@ -109,7 +109,6 @@ public class LLMTransform extends SingleFieldOutputTransform {
             case DEEPSEEK:
             case OPENAI:
             case DOUBAO:
-            case ZHIPU:
                 model =
                         new OpenAIModel(
                                 inputCatalogTable.getSeaTunnelRowType(),
