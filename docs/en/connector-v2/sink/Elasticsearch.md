@@ -73,7 +73,7 @@ Delimiter for composite keys ("_" by default), e.g., "$" would result in documen
 
 The Elasticsearch connector supports multiple authentication methods to connect to secured Elasticsearch clusters. You can choose the appropriate authentication method based on your Elasticsearch security configuration.
 
-### auth_type [string]
+### auth_type [enum]
 
 Specifies the authentication method to use. Supported values:
 - `basic` (default): HTTP Basic Authentication using username and password

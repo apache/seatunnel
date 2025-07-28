@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.elasticsearch.client.auth;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.AuthTypeEnum;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.ElasticsearchBaseOptions;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.exception.ElasticsearchConnectorException;
 
@@ -31,15 +32,15 @@ import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.exception.
 @Slf4j
 public class AuthenticationProviderFactory {
 
-    private static final String DEFAULT_AUTH_TYPE = "basic";
+    private static final AuthTypeEnum DEFAULT_AUTH_TYPE = AuthTypeEnum.BASIC;
 
-    private static final Map<String, Class<? extends AuthenticationProvider>> PROVIDER_REGISTRY =
-            new HashMap<>();
+    private static final Map<AuthTypeEnum, Class<? extends AuthenticationProvider>>
+            PROVIDER_REGISTRY = new HashMap<>();
 
     static {
         // Register built-in authentication providers
-        PROVIDER_REGISTRY.put("basic", BasicAuthProvider.class);
-        PROVIDER_REGISTRY.put("api_key", ApiKeyAuthProvider.class);
+        PROVIDER_REGISTRY.put(AuthTypeEnum.BASIC, BasicAuthProvider.class);
+        PROVIDER_REGISTRY.put(AuthTypeEnum.API_KEY, ApiKeyAuthProvider.class);
     }
 
     /**
@@ -54,13 +55,12 @@ public class AuthenticationProviderFactory {
      * @throws ElasticsearchConnectorException if the auth_type is not supported
      */
     public static AuthenticationProvider createProvider(ReadonlyConfig config) {
-        String authType =
+        AuthTypeEnum authType =
                 config.getOptional(ElasticsearchBaseOptions.AUTH_TYPE).orElse(DEFAULT_AUTH_TYPE);
 
         log.debug("Creating authentication provider for type: {}", authType);
 
-        Class<? extends AuthenticationProvider> providerClass =
-                PROVIDER_REGISTRY.get(authType.toLowerCase());
+        Class<? extends AuthenticationProvider> providerClass = PROVIDER_REGISTRY.get(authType);
         if (providerClass == null) {
             throw new ElasticsearchConnectorException(
                     UNSUPPORTED_AUTH_TYPE,

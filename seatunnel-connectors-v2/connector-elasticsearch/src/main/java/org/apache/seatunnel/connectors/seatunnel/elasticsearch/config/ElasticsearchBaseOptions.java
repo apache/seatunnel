@@ -89,10 +89,10 @@ public class ElasticsearchBaseOptions implements Serializable {
                     .withDescription("The key password for the trust store specified");
 
     // Authentication configuration options
-    public static final Option<String> AUTH_TYPE =
+    public static final Option<AuthTypeEnum> AUTH_TYPE =
             Options.key("auth_type")
-                    .stringType()
-                    .defaultValue("basic")
+                    .enumType(AuthTypeEnum.class)
+                    .defaultValue(AuthTypeEnum.BASIC)
                     .withDescription("Authentication type. Supported values: basic, api_key");
 
     // API Key authentication options
