@@ -80,8 +80,8 @@ public class ElasticsearchSourceFactory implements TableSourceFactory {
                         TLS_KEY_STORE_PATH,
                         TLS_KEY_STORE_PASSWORD,
                         TLS_TRUST_STORE_PATH,
-                        TLS_TRUST_STORE_PASSWORD,
-                        AUTH_TYPE)
+                        TLS_TRUST_STORE_PASSWORD)
+                .optional(AUTH_TYPE)
                 .conditional(AUTH_TYPE, API_KEY, API_KEY_ID, API_KEY, API_KEY_ENCODED)
                 .build();
     }
