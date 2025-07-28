@@ -827,4 +827,39 @@ public class PostgresTypeConverterTest {
         Assertions.assertEquals(null, column.getColumnLength());
         Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
     }
+
+    @Test
+    public void testConvertNetworkAddressTypes() {
+        BasicTypeDefine<Object> typeDefine =
+                BasicTypeDefine.builder().name("test").columnType("cidr").dataType("cidr").build();
+        Column column = PostgresTypeConverter.INSTANCE.convert(typeDefine);
+        Assertions.assertEquals(typeDefine.getName(), column.getName());
+        Assertions.assertEquals(BasicType.STRING_TYPE, column.getDataType());
+        Assertions.assertNull(column.getColumnLength());
+        Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
+
+        BasicTypeDefine<Object> typeDefine1 =
+                BasicTypeDefine.builder()
+                        .name("test1")
+                        .columnType("macaddr")
+                        .dataType("macaddr")
+                        .build();
+        Column column1 = PostgresTypeConverter.INSTANCE.convert(typeDefine1);
+        Assertions.assertEquals(typeDefine1.getName(), column1.getName());
+        Assertions.assertEquals(BasicType.STRING_TYPE, column1.getDataType());
+        Assertions.assertNull(column1.getColumnLength());
+        Assertions.assertEquals(typeDefine1.getColumnType(), column1.getSourceType());
+
+        BasicTypeDefine<Object> typeDefine2 =
+                BasicTypeDefine.builder()
+                        .name("test2")
+                        .columnType("macaddr8")
+                        .dataType("macaddr8")
+                        .build();
+        Column column2 = PostgresTypeConverter.INSTANCE.convert(typeDefine2);
+        Assertions.assertEquals(typeDefine2.getName(), column2.getName());
+        Assertions.assertEquals(BasicType.STRING_TYPE, column2.getDataType());
+        Assertions.assertNull(column2.getColumnLength());
+        Assertions.assertEquals(typeDefine2.getColumnType(), column2.getSourceType());
+    }
 }

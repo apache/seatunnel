@@ -115,7 +115,7 @@ source {
     username = "st_user_source"
     password = "mysqlpw"
     table-names = ["shop.products"]
-    base-url = "jdbc:mysql://mysql_cdc_e2e:3306/shop"
+    url = "jdbc:mysql://mysql_cdc_e2e:3306/shop"
     
     schema-changes.enabled = true
   }
@@ -141,7 +141,7 @@ env {
 
 source {
   Mysql-CDC {
-    base-url = "jdbc:mysql://127.0.0.1:3306/seatunnel"
+    url = "jdbc:mysql://127.0.0.1:3306/seatunnel"
     username = "root"
     password = "******"
     table-names = ["seatunnel.role"]
@@ -219,7 +219,7 @@ env {
 
 source {
   Mysql-CDC {
-    base-url = "jdbc:mysql://127.0.0.1:3306/seatunnel"
+    url = "jdbc:mysql://127.0.0.1:3306/seatunnel"
     username = "root"
     password = "******"
     table-names = ["seatunnel.role"]
@@ -261,7 +261,7 @@ env {
 
 source {
   Mysql-CDC {
-    base-url = "jdbc:mysql://127.0.0.1:3306/seatunnel"
+    url = "jdbc:mysql://127.0.0.1:3306/seatunnel"
     username = "root"
     password = "******"
     table-names = ["seatunnel.role"]
@@ -389,7 +389,7 @@ env {
 
 source {
   Mysql-CDC {
-    base-url = "jdbc:mysql://127.0.0.1:3306/seatunnel"
+    url = "jdbc:mysql://127.0.0.1:3306/seatunnel"
     username = "root"
     password = "******"
     table-names = ["seatunnel.role"]
@@ -423,7 +423,7 @@ env {
 
 source {
  Mysql-CDC {
-  base-url = "jdbc:mysql://127.0.0.1:3306/seatunnel"
+  url = "jdbc:mysql://127.0.0.1:3306/seatunnel"
   username = "root"
   password = "******"
   table-names = ["seatunnel.role"]
@@ -466,7 +466,7 @@ env {
 
 source {
   Mysql-CDC {
-    base-url = "jdbc:mysql://127.0.0.1:3306/seatunnel"
+    url = "jdbc:mysql://127.0.0.1:3306/seatunnel"
     username = "root"
     password = "******"
     table-names = ["seatunnel.role"]
@@ -502,7 +502,7 @@ env {
 
 source {
   Mysql-CDC {
-    base-url = "jdbc:mysql://127.0.0.1:3306/seatunnel"
+    url = "jdbc:mysql://127.0.0.1:3306/seatunnel"
     username = "root"
     password = "******"
     

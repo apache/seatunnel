@@ -18,19 +18,15 @@
 package org.apache.seatunnel.e2e.connector.paimon;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
-import org.apache.seatunnel.common.utils.FileUtils;
 import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.seatunnel.paimon.catalog.PaimonCatalogLoader;
 import org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonSinkConfig;
-import org.apache.seatunnel.core.starter.utils.CompressionUtils;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
-import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
 import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 
-import org.apache.commons.compress.archivers.ArchiveException;
 import org.apache.paimon.catalog.Catalog;
 import org.apache.paimon.catalog.CatalogContext;
 import org.apache.paimon.catalog.CatalogFactory;
@@ -50,16 +46,15 @@ import org.apache.paimon.table.source.TableScan;
 import org.apache.paimon.types.DataField;
 import org.apache.paimon.types.TimestampType;
 
-import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.Container;
 
 import lombok.extern.slf4j.Slf4j;
 
-import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -70,6 +65,7 @@ import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
+import static org.apache.seatunnel.e2e.common.container.AbstractTestContainer.HOST_VOLUME_MOUNT_PATH;
 import static org.awaitility.Awaitility.given;
 
 @DisabledOnContainer(
@@ -80,23 +76,16 @@ import static org.awaitility.Awaitility.given;
 @Slf4j
 public class PaimonSinkDynamicBucketIT extends TestSuiteBase implements TestResource {
 
-    private static String CATALOG_ROOT_DIR = "/tmp/";
-    private static final String NAMESPACE = "paimon";
-    private static final String NAMESPACE_TAR = "paimon.tar.gz";
-    private static final String CATALOG_DIR = CATALOG_ROOT_DIR + NAMESPACE + "/";
-    private String CATALOG_ROOT_DIR_WIN = "C:/Users/";
-    private String CATALOG_DIR_WIN = CATALOG_ROOT_DIR_WIN + NAMESPACE + "/";
     private boolean isWindows;
+    private static final String NAMESPACE = "paimon";
 
     private Map<String, Object> PAIMON_SINK_PROPERTIES;
 
-    @BeforeAll
+    @BeforeEach
     @Override
     public void startUp() throws Exception {
         this.isWindows =
                 System.getProperties().getProperty("os.name").toUpperCase().contains("WINDOWS");
-        CATALOG_ROOT_DIR_WIN = CATALOG_ROOT_DIR_WIN + System.getProperty("user.name") + "/tmp/";
-        CATALOG_DIR_WIN = CATALOG_ROOT_DIR_WIN + NAMESPACE + "/";
         Map<String, Object> map = new HashMap<>();
         map.put("warehouse", "hdfs:///tmp/paimon");
         map.put("database", "default");
@@ -115,7 +104,7 @@ public class PaimonSinkDynamicBucketIT extends TestSuiteBase implements TestReso
         this.PAIMON_SINK_PROPERTIES = map;
     }
 
-    @AfterAll
+    @AfterEach
     @Override
     public void tearDown() throws Exception {}
 
@@ -130,18 +119,6 @@ public class PaimonSinkDynamicBucketIT extends TestSuiteBase implements TestReso
         Container.ExecResult readProjectionResult =
                 container.executeJob("/paimon_projection_to_assert.conf");
         Assertions.assertEquals(0, readProjectionResult.getExitCode());
-        deleteTable();
-    }
-
-    private void deleteTable() {
-        Options options = new Options();
-        options.set("warehouse", "file://" + "/opt/seatunnel_mounts/paimon");
-        try {
-            CatalogFactory.createCatalog(CatalogContext.create(options))
-                    .dropTable(Identifier.create("default", "st_test"), true);
-        } catch (Catalog.TableNotExistException e) {
-            throw new RuntimeException(e);
-        }
     }
 
     @TestTemplate
@@ -155,8 +132,6 @@ public class PaimonSinkDynamicBucketIT extends TestSuiteBase implements TestReso
                 .atMost(30L, TimeUnit.SECONDS)
                 .untilAsserted(
                         () -> {
-                            // copy paimon to local
-                            container.executeExtraCommands(containerExtendedFactory);
                             FileStoreTable table =
                                     (FileStoreTable) getTable("default", "st_test_2");
                             IndexBootstrap indexBootstrap = new IndexBootstrap(table);
@@ -225,8 +200,6 @@ public class PaimonSinkDynamicBucketIT extends TestSuiteBase implements TestReso
                 .atMost(30L, TimeUnit.SECONDS)
                 .untilAsserted(
                         () -> {
-                            // copy paimon to local
-                            container.executeExtraCommands(containerExtendedFactory);
                             FileStoreTable table =
                                     (FileStoreTable) getTable("default", "st_test_3");
                             IndexBootstrap indexBootstrap = new IndexBootstrap(table);
@@ -262,8 +235,6 @@ public class PaimonSinkDynamicBucketIT extends TestSuiteBase implements TestReso
                 .atMost(120L, TimeUnit.SECONDS)
                 .untilAsserted(
                         () -> {
-                            // copy paimon to local
-                            container.executeExtraCommands(containerExtendedFactory);
                             FileStoreTable table =
                                     (FileStoreTable) getTable("default", "st_test_4");
                             IndexBootstrap indexBootstrap = new IndexBootstrap(table);
@@ -303,10 +274,8 @@ public class PaimonSinkDynamicBucketIT extends TestSuiteBase implements TestReso
                 .atMost(30L, TimeUnit.SECONDS)
                 .untilAsserted(
                         () -> {
-                            // copy paimon to local
-                            container.executeExtraCommands(containerExtendedFactory);
                             FileStoreTable table =
-                                    (FileStoreTable) getTable("default", "st_test_3");
+                                    (FileStoreTable) getTable("default", "st_test_cdc_write");
                             List<DataField> fields = table.schema().fields();
                             for (DataField field : fields) {
                                 if (field.name().equalsIgnoreCase("one_time")) {
@@ -345,15 +314,15 @@ public class PaimonSinkDynamicBucketIT extends TestSuiteBase implements TestReso
                             Assertions.assertEquals(2, result.size());
                             for (PaimonRecord paimonRecord : result) {
                                 Assertions.assertEquals(
-                                        paimonRecord.oneTime.toString(), "2024-03-10T10:00:12");
+                                        "2024-03-10T10:00:12", paimonRecord.oneTime.toString());
                                 Assertions.assertEquals(
-                                        paimonRecord.twoTime.toString(), "2024-03-10T10:00:00.123");
+                                        "2024-03-10T10:00:00.123", paimonRecord.twoTime.toString());
                                 Assertions.assertEquals(
-                                        paimonRecord.threeTime.toString(),
-                                        "2024-03-10T10:00:00.123456");
+                                        "2024-03-10T10:00:00.123456",
+                                        paimonRecord.threeTime.toString());
                                 Assertions.assertEquals(
-                                        paimonRecord.fourTime.toString(),
-                                        "2024-03-10T10:00:00.123456789");
+                                        "2024-03-10T10:00:00.123456789",
+                                        paimonRecord.fourTime.toString());
                             }
                         });
     }
@@ -371,7 +340,6 @@ public class PaimonSinkDynamicBucketIT extends TestSuiteBase implements TestReso
                 .atMost(60L, TimeUnit.SECONDS)
                 .untilAsserted(
                         () -> {
-                            container.executeExtraCommands(containerExtendedFactory);
                             FileStoreTable table =
                                     (FileStoreTable) getTable("full_type", "st_test");
                             List<String> primaryKeys = table.schema().primaryKeys();
@@ -386,72 +354,12 @@ public class PaimonSinkDynamicBucketIT extends TestSuiteBase implements TestReso
         Assertions.assertEquals(0, writeResult1.getExitCode());
     }
 
-    protected final ContainerExtendedFactory containerExtendedFactory =
-            container -> {
-                if (isWindows) {
-                    FileUtils.deleteFile(CATALOG_ROOT_DIR_WIN + NAMESPACE_TAR);
-                    FileUtils.deleteFile(CATALOG_ROOT_DIR_WIN + "paimon.tar");
-                    FileUtils.createNewDir(CATALOG_ROOT_DIR_WIN);
-                } else {
-                    FileUtils.deleteFile(CATALOG_ROOT_DIR + NAMESPACE_TAR);
-                    FileUtils.createNewDir(CATALOG_DIR);
-                }
-
-                container.execInContainer(
-                        "sh",
-                        "-c",
-                        "cd "
-                                + CATALOG_ROOT_DIR
-                                + " && tar -czvf "
-                                + NAMESPACE_TAR
-                                + " "
-                                + NAMESPACE);
-                container.copyFileFromContainer(
-                        CATALOG_ROOT_DIR + NAMESPACE_TAR,
-                        (isWindows ? CATALOG_ROOT_DIR_WIN : CATALOG_ROOT_DIR) + NAMESPACE_TAR);
-                if (isWindows) {
-                    extractFilesWin();
-                } else {
-                    extractFiles();
-                }
-            };
-
-    private void extractFiles() {
-        ProcessBuilder processBuilder = new ProcessBuilder();
-        processBuilder.command(
-                "sh", "-c", "cd " + CATALOG_ROOT_DIR + " && tar -zxvf " + NAMESPACE_TAR);
-        try {
-            Process process = processBuilder.start();
-            // wait command completed
-            int exitCode = process.waitFor();
-            if (exitCode == 0) {
-                log.info("Extract files successful.");
-            } else {
-                log.error("Extract files failed with exit code " + exitCode);
-            }
-        } catch (IOException | InterruptedException e) {
-            e.printStackTrace();
-        }
-    }
-
-    private void extractFilesWin() {
-        try {
-            CompressionUtils.unGzip(
-                    new File(CATALOG_ROOT_DIR_WIN + NAMESPACE_TAR), new File(CATALOG_ROOT_DIR_WIN));
-            CompressionUtils.unTar(
-                    new File(CATALOG_ROOT_DIR_WIN + "paimon.tar"), new File(CATALOG_ROOT_DIR_WIN));
-        } catch (IOException | ArchiveException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
     protected Table getTable(String dbName, String tbName) {
         Options options = new Options();
-        if (isWindows) {
-            options.set("warehouse", CATALOG_DIR_WIN);
-        } else {
-            options.set("warehouse", "file://" + CATALOG_DIR);
-        }
+        String warehouse =
+                String.format(
+                        "%s%s/%s", isWindows ? "" : "file://", HOST_VOLUME_MOUNT_PATH, NAMESPACE);
+        options.set("warehouse", warehouse);
         try {
             Catalog catalog = CatalogFactory.createCatalog(CatalogContext.create(options));
             return catalog.getTable(Identifier.create(dbName, tbName));

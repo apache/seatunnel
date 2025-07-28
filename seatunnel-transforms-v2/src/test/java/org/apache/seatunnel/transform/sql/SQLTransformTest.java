@@ -498,4 +498,57 @@ public class SQLTransformTest {
                     }
                 });
     }
+
+    @Test
+    public void testCastTimestampValidate() {
+        String querySql = "select CAST(`id` AS TIMESTAMP) AS idStr, name AS name from dual";
+        SQLTransform sqlTransform =
+                new SQLTransform(
+                        ReadonlyConfig.fromMap(
+                                new HashMap<String, Object>() {
+                                    {
+                                        put("query", querySql);
+                                    }
+                                }),
+                        getCatalogTable());
+        Assertions.assertThrows(
+                TransformException.class,
+                () -> {
+                    try {
+                        sqlTransform.transformTableSchema();
+                    } catch (Exception e) {
+                        Assertions.assertEquals(
+                                "ErrorCode:[COMMON-05], ErrorDescription:[Unsupported operation] - Unsupported CAST FROM INT AS type: TIMESTAMP",
+                                e.getMessage());
+                        throw e;
+                    }
+                });
+    }
+
+    @Test
+    public void testCastIntValidate() {
+        String querySql =
+                "select id AS id, name AS name, CAST(create_time AS INT) AS timeInt from dual";
+        SQLTransform sqlTransform =
+                new SQLTransform(
+                        ReadonlyConfig.fromMap(
+                                new HashMap<String, Object>() {
+                                    {
+                                        put("query", querySql);
+                                    }
+                                }),
+                        getCatalogTable());
+        Assertions.assertThrows(
+                TransformException.class,
+                () -> {
+                    try {
+                        sqlTransform.transformTableSchema();
+                    } catch (Exception e) {
+                        Assertions.assertEquals(
+                                "ErrorCode:[COMMON-05], ErrorDescription:[Unsupported operation] - Unsupported CAST FROM TIMESTAMP AS type: INT",
+                                e.getMessage());
+                        throw e;
+                    }
+                });
+    }
 }
