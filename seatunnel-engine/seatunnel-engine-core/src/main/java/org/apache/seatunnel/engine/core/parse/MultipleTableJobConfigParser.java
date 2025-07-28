@@ -20,6 +20,10 @@ package org.apache.seatunnel.engine.core.parse;
 import org.apache.seatunnel.shade.com.google.common.base.Preconditions;
 import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigValue;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigValueType;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigObject;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
 
 import org.apache.seatunnel.api.common.PluginIdentifier;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
@@ -159,22 +163,72 @@ public class MultipleTableJobConfigParser {
         this.jobConfig = jobConfig;
         this.commonPluginJars = commonPluginJars;
         this.isStartWithSavePoint = isStartWithSavePoint;
-        //this.seaTunnelJobConfig = ConfigBuilder.of(Paths.get(jobDefineFilePath), variables);
         boolean metalakeEnabled = Boolean.parseBoolean(System.getenv().getOrDefault("METALAKE_ENABLED", "false"));
-        Map<String, Object> metalakeConfigMap = new LinkedHashMap<>();
         if (metalakeEnabled) {
+            Config jobConfigTmp = ConfigBuilder.of(Paths.get(jobDefineFilePath), variables);
+            Map<String, Object> metalakeConfigMap = new LinkedHashMap<>();
+
             String metalakeType = System.getenv("METALAKE_TYPE");
             String metalakeUrl = System.getenv("METALAKE_URL");
 
-            metalakeConfigMap.put("metalake.enabled", true);
-            metalakeConfigMap.put("metalake.type", metalakeType != null ? metalakeType : "");
-            metalakeConfigMap.put("metalake.url", metalakeUrl != null ? metalakeUrl : "");
-        } else {
-            metalakeConfigMap.put("metalake.enabled", false);
-        }
-        Config metalakeConfig = ConfigBuilder.of(metalakeConfigMap);
-        this.seaTunnelJobConfig = metalakeConfig.withFallback(ConfigBuilder.of(Paths.get(jobDefineFilePath), variables));
+            ConfigObject sourceObj = jobConfigTmp.getObject("source");
+            Set<String> sourceKeys = sourceObj.keySet();
+            for (String key : sourceKeys) {
+                if (jobConfigTmp.hasPath("source."+key+".sourceId")){
+                    String sourceId = jobConfigTmp.getString("source."+key+".sourceId");
+                    JsonNode metalakeJson = ...
+                    ConfigObject subConfig = jobConfigTmp.getObject("source." + key);
+                    for (Map.Entry<String, ConfigValue> entry : subConfig.entrySet()) {
+                        String subKey = entry.getKey();
+                        ConfigValue value = entry.getValue();
 
+                        if (value.valueType() == ConfigValueType.STRING) {
+                            String strValue = (String) value.unwrapped();
+                            if (strValue.startsWith("${") && strValue.endsWith("}")) {
+                                String placeholder = strValue.substring(2, strValue.length() - 1);
+
+                                if (metalakeJson.has(placeholder)) {
+                                    String replaced = metalakeJson.get(placeholder).asText();
+                                    String finalPath = "source." + key + "." + subKey;
+                                    metalakeConfigMap.put(finalPath, replaced);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            ConfigObject sinkObj = jobConfigTmp.getObject("sink");
+            Set<String> sinkKeys = sinkObj.keySet();
+            for (String key : sinkKeys) {
+                if (jobConfigTmp.hasPath("sink."+key+".sourceId")){
+                    String sourceId = jobConfigTmp.getString("source."+key+".sourceId");
+                    JsonNode metalakeJson = ...
+                    ConfigObject subConfig = jobConfigTmp.getObject("sink." + key);
+                    for (Map.Entry<String, ConfigValue> entry : subConfig.entrySet()) {
+                        String subKey = entry.getKey();
+                        ConfigValue value = entry.getValue();
+
+                        if (value.valueType() == ConfigValueType.STRING) {
+                            String strValue = (String) value.unwrapped();
+                            if (strValue.startsWith("${") && strValue.endsWith("}")) {
+                                String placeholder = strValue.substring(2, strValue.length() - 1);
+
+                                if (metalakeJson.has(placeholder)) {
+                                    String replaced = metalakeJson.get(placeholder).asText();
+                                    String finalPath = "sink." + key + "." + subKey;
+                                    metalakeConfigMap.put(finalPath, replaced);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            Config metalakeConfig = ConfigBuilder.of(metalakeConfigMap);
+            this.seaTunnelJobConfig = metalakeConfig.withFallback(ConfigBuilder.of(Paths.get(jobDefineFilePath), variables));
+        } else {
+            this.seaTunnelJobConfig = ConfigBuilder.of(Paths.get(jobDefineFilePath), variables);
+        }
         this.envOptions = ReadonlyConfig.fromConfig(seaTunnelJobConfig.getConfig("env"));
         this.pipelineCheckpoints = pipelineCheckpoints;
         ConfigValidator.of(this.envOptions).validate(new EnvOptionRule().optionRule());

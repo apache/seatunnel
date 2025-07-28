@@ -26,5 +26,5 @@ if "%METALAKE_ENABLED%" == "" set "META_LAKE_ENABLED=false"
 REM Type of metalake implementation. 
 if "%METALAKE_TYPE%" == "" set "METALAKE_TYPE=gravitino"
 
-REM Metalake service URL, format: http://host:port/api/metalakes/{metalake_name}/catalogs/{catalog_name}
-if "%METALAKE_URL%" == "" set "METALAKE_URL=http://localhost:8090/api/metalakes/default_metalake_name/catalogs/default_catalog_name"
+REM Metalake service URL, format: http://host:port/api/metalakes/{metalake_name}/catalogs/
+if "%METALAKE_URL%" == "" set "METALAKE_URL=http://localhost:8090/api/metalakes/default_metalake_name/catalogs/"
