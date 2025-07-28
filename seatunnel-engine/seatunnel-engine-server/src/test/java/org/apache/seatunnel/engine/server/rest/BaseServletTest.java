@@ -71,16 +71,17 @@ class BaseServletTest extends AbstractSeaTunnelServerTest {
     @Test
     void testWriteJsonWithObject() throws IOException {
         startJob(JOB_1, "fake_to_console.conf");
-        testLogRestApiResponse();
+        testLogRestApiResponse("html");
+        testLogRestApiResponse("JSON");
     }
 
-    public void testLogRestApiResponse() throws IOException {
+    public void testLogRestApiResponse(String format) throws IOException {
         HttpURLConnection conn = null;
         BufferedReader in = null;
         try {
             java.net.URL url =
                     new java.net.URL(
-                            "http://localhost:" + HTTP_PORT + "/logs/job-" + JOB_1 + ".log");
+                            "http://localhost:" + HTTP_PORT + "/logs?format=" + format);
             conn = (HttpURLConnection) url.openConnection();
 
             Assertions.assertEquals(200, conn.getResponseCode());
