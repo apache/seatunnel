@@ -129,6 +129,10 @@ public abstract class AbstractDorisIT extends TestSuiteBase implements TestResou
             while (beResultSet.next()) {
                 beList.add(beResultSet.getString("Host"));
             }
+            if (beList.isEmpty()) {
+                log.error("doris BE is empty, skip initialization");
+                throw new RuntimeException("doris BE is empty, skip initialization");
+            }
             if (beList.stream().anyMatch("127.0.0.1"::equals)) {
                 ResultSet resultSet = statement.executeQuery(SHOW_FE);
                 String feIp = null;
