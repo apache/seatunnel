@@ -374,9 +374,6 @@ public class KafkaPartitionSplitReader
             props.setProperty(
                     ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG,
                     ByteArrayDeserializer.class.getName());
-            props.setProperty(
-                    ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG,
-                    String.valueOf(kafkaSourceConfig.isCommitOnCheckpoint()));
 
             // Disable auto create topics feature
             props.setProperty(ConsumerConfig.ALLOW_AUTO_CREATE_TOPICS_CONFIG, "false");
