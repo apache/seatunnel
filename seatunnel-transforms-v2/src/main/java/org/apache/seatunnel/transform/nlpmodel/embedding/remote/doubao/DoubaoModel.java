@@ -54,7 +54,7 @@ public class DoubaoModel extends AbstractModel {
     }
 
     @Override
-    protected List<List<Double>> vector(Object[] fields) throws IOException {
+    protected List<List<Float>> vector(Object[] fields) throws IOException {
         return vectorGeneration(fields);
     }
 
@@ -63,7 +63,7 @@ public class DoubaoModel extends AbstractModel {
         return vectorGeneration(new Object[] {DIMENSION_EXAMPLE}).size();
     }
 
-    private List<List<Double>> vectorGeneration(Object[] fields) throws IOException {
+    private List<List<Float>> vectorGeneration(Object[] fields) throws IOException {
         HttpPost post = new HttpPost(apiPath);
         post.setHeader("Authorization", "Bearer " + apiKey);
         post.setHeader("Content-Type", "application/json");
@@ -82,14 +82,14 @@ public class DoubaoModel extends AbstractModel {
         }
 
         JsonNode data = OBJECT_MAPPER.readTree(responseStr).get("data");
-        List<List<Double>> embeddings = new ArrayList<>();
+        List<List<Float>> embeddings = new ArrayList<>();
 
         if (data.isArray()) {
             for (JsonNode node : data) {
                 JsonNode embeddingNode = node.get("embedding");
-                List<Double> embedding =
+                List<Float> embedding =
                         OBJECT_MAPPER.readValue(
-                                embeddingNode.traverse(), new TypeReference<List<Double>>() {});
+                                embeddingNode.traverse(), new TypeReference<List<Float>>() {});
                 embeddings.add(embedding);
             }
         }
