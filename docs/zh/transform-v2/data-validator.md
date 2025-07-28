@@ -14,7 +14,7 @@ DataValidator 转换插件根据配置的规则验证字段值，并基于指定
 | row_error_handle_way.error_table     | string | 否       |        |
 | field_rules     | array  | 是       |        |
 
-### error_handle_way [enum]
+### row_error_handle_way [enum]
 
 验证失败时的错误处理策略：
 - `FAIL`: 当验证错误发生时，整个任务失败
@@ -25,7 +25,7 @@ DataValidator 转换插件根据配置的规则验证字段值，并基于指定
 
 ### row_error_handle_way.error_table [string]
 
-当 `error_handle_way` 设置为 `ROUTE_TO_TABLE` 时，用于路由无效数据的目标表名。使用 `ROUTE_TO_TABLE` 模式时此参数为必需。
+当 `row_error_handle_way` 设置为 `ROUTE_TO_TABLE` 时，用于路由无效数据的目标表名。使用 `ROUTE_TO_TABLE` 模式时此参数为必需。
 
 #### 错误表Schema
 
@@ -135,7 +135,7 @@ transform {
   DataValidator {
     plugin_input = "source_table"
     plugin_output = "validated_table"
-    error_handle_way = "FAIL"
+    row_error_handle_way = "FAIL"
     field_rules = [
       {
         field_name = "name"
@@ -164,7 +164,7 @@ transform {
   DataValidator {
     plugin_input = "source_table"
     plugin_output = "validated_table"
-    error_handle_way = "SKIP"
+    row_error_handle_way = "SKIP"
     field_rules = [
       {
         field_name = "name"
@@ -219,7 +219,7 @@ transform {
   DataValidator {
     plugin_input = "source_table"
     plugin_output = "validated_table"
-    error_handle_way = "FAIL"
+    row_error_handle_way = "FAIL"
     field_rules = [
       {
         field_name = "name"
@@ -248,7 +248,7 @@ transform {
   DataValidator {
     plugin_input = "source_table"
     plugin_output = "validated_table"
-    error_handle_way = "FAIL"
+    row_error_handle_way = "FAIL"
     field_rules = [
       {
         field_name = "email"

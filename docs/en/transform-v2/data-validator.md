@@ -10,11 +10,11 @@ The DataValidator transform validates field values according to configured rules
 
 |      name       |  type  | required | default value |
 |-----------------|--------|----------|---------------|
-| error_handle_way| enum   | no       | FAIL          |
+| row_error_handle_way| enum   | no       | FAIL          |
 | row_error_handle_way.error_table     | string | no       |               |
 | field_rules     | array  | yes      |               |
 
-### error_handle_way [enum]
+### row_error_handle_way [enum]
 
 Error handling strategy when validation fails:
 - `FAIL`: Fail the entire task when validation errors occur
@@ -25,7 +25,7 @@ Error handling strategy when validation fails:
 
 ### row_error_handle_way.error_table [string]
 
-Target table name for routing invalid data when `error_handle_way` is set to `ROUTE_TO_TABLE`. This parameter is required when using `ROUTE_TO_TABLE` mode.
+Target table name for routing invalid data when `row_error_handle_way` is set to `ROUTE_TO_TABLE`. This parameter is required when using `ROUTE_TO_TABLE` mode.
 
 #### Error Table Schema
 
@@ -135,7 +135,7 @@ transform {
   DataValidator {
     plugin_input = "source_table"
     plugin_output = "validated_table"
-    error_handle_way = "FAIL"
+    row_error_handle_way = "FAIL"
     field_rules = [
       {
         field_name = "name"
@@ -164,7 +164,7 @@ transform {
   DataValidator {
     plugin_input = "source_table"
     plugin_output = "validated_table"
-    error_handle_way = "SKIP"
+    row_error_handle_way = "SKIP"
     field_rules = [
       {
         field_name = "name"
@@ -219,7 +219,7 @@ transform {
   DataValidator {
     plugin_input = "source_table"
     plugin_output = "validated_table"
-    error_handle_way = "FAIL"
+    row_error_handle_way = "FAIL"
     field_rules = [
       {
         field_name = "name"
@@ -248,7 +248,7 @@ transform {
   DataValidator {
     plugin_input = "source_table"
     plugin_output = "validated_table"
-    error_handle_way = "FAIL"
+    row_error_handle_way = "FAIL"
     field_rules = [
       {
         field_name = "email"
