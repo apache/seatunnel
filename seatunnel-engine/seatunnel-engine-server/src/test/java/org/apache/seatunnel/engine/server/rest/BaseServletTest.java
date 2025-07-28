@@ -58,7 +58,6 @@ class BaseServletTest extends AbstractSeaTunnelServerTest {
         seaTunnelConfig.getEngineConfig().setMode(ExecutionMode.LOCAL);
 
         HttpConfig httpConfig = seaTunnelConfig.getEngineConfig().getHttpConfig();
-        // enabled Http
         httpConfig.setEnabled(true);
         httpConfig.setPort(HTTP_PORT);
 
@@ -80,8 +79,7 @@ class BaseServletTest extends AbstractSeaTunnelServerTest {
         BufferedReader in = null;
         try {
             java.net.URL url =
-                    new java.net.URL(
-                            "http://localhost:" + HTTP_PORT + "/logs?format=" + format);
+                    new java.net.URL("http://localhost:" + HTTP_PORT + "/logs?format=" + format);
             conn = (HttpURLConnection) url.openConnection();
 
             Assertions.assertEquals(200, conn.getResponseCode());
