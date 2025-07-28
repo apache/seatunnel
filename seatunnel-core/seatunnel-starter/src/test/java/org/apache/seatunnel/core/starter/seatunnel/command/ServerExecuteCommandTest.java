@@ -45,7 +45,6 @@ public class ServerExecuteCommandTest {
     }
 
     @Test
-    @DisabledOnJre(value = JRE.JAVA_11, disabledReason = "the test case only works on Java 8")
     public void testMemberList() {
         String clusterName = getClusterName("ServerExecuteCommandTest");
         SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
