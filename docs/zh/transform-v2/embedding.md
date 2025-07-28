@@ -32,8 +32,7 @@
 **重要：** 当前版本的 Embedding 插件仅支持 **float32** 精度的向量数据。
 
 - 所有生成的 embedding 向量将以 float32 格式存储
-- 如果您的模型或API返回其他精度格式（如 float64 或 float16），插件会自动转换为 float32
-- 建议在配置模型时确认其输出格式与 float32 兼容，以避免精度损失
+- 如果您的模型或API返回其他精度格式（如 float64），插件会自动转换为 float32
 
 ### embedding_model_provider
 

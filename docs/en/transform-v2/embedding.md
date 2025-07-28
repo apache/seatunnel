@@ -34,8 +34,7 @@ different API endpoints.
 **Important:** The current version of the Embedding plugin only supports **float32** precision for vector data.
 
 - All generated embedding vectors will be stored in float32 format
-- If your model or API returns other precision formats (such as float64 or float16), the plugin will automatically convert them to float32
-- It is recommended to verify that your model's output format is compatible with float32 when configuring the model to avoid precision loss
+- If your model or API returns other precision formats (such as float64), the plugin will automatically convert them to float32
 
 ### model_provider
 
