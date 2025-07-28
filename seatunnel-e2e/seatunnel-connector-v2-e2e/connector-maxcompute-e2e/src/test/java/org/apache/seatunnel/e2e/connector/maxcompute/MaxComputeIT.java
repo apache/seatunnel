@@ -196,10 +196,6 @@ public class MaxComputeIT extends TestSuiteBase implements TestResource {
     @TestTemplate
     public void testMaxCompute(TestContainer container)
             throws IOException, InterruptedException, OdpsException {
-        if (container instanceof Spark3Container) {
-            log.info("Skip on Spark 3.3.0 due to Netty conflict.");
-            return;
-        }
         Odps odps = getTestOdps();
         odps.tables().delete("mocked_mc", "test_table_sink", true);
         createEmptyTable(odps, "test_table_sink");
@@ -223,10 +219,6 @@ public class MaxComputeIT extends TestSuiteBase implements TestResource {
     @TestTemplate
     public void testMaxComputeMultiTable(TestContainer container)
             throws OdpsException, IOException, InterruptedException {
-        if (container instanceof Spark3Container) {
-            log.info("Skip on Spark 3.3.0 due to Netty conflict.");
-            return;
-        }
         Odps odps = getTestOdps();
         odps.tables().delete("mocked_mc", "test_table_sink", true);
         odps.tables().delete("mocked_mc", "test_table_2_sink", true);
@@ -265,10 +257,6 @@ public class MaxComputeIT extends TestSuiteBase implements TestResource {
     @TestTemplate
     public void testMaxComputeUpsert(TestContainer container)
             throws IOException, InterruptedException, OdpsException {
-        if (container instanceof Spark3Container) {
-            log.info("Skip on Spark 3.3.0 due to Netty conflict.");
-            return;
-        }
         Odps odps = getTestOdps();
         odps.tables().delete("mocked_mc", "test_table_sink", true);
         createTableWithData(odps, "test_table_sink");
@@ -298,10 +286,6 @@ public class MaxComputeIT extends TestSuiteBase implements TestResource {
     @TestTemplate
     public void testMaxComputeDelete(TestContainer container)
             throws IOException, InterruptedException, OdpsException {
-        if (container instanceof Spark3Container) {
-            log.info("Skip on Spark 3.3.0 due to Netty conflict.");
-            return;
-        }
         Odps odps = getTestOdps();
         odps.tables().delete("mocked_mc", "test_table_sink", true);
         createTableWithData(odps, "test_table_sink");
