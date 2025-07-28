@@ -11,7 +11,7 @@ The DataValidator transform validates field values according to configured rules
 |      name       |  type  | required | default value |
 |-----------------|--------|----------|---------------|
 | error_handle_way| enum   | no       | FAIL          |
-| error_table     | string | no       |               |
+| row_error_handle_way.error_table     | string | no       |               |
 | field_rules     | array  | yes      |               |
 
 ### error_handle_way [enum]
@@ -23,7 +23,7 @@ Error handling strategy when validation fails:
 
 **Note**: `ROUTE_TO_TABLE` mode only works with sinks that support multiple tables. The sink must be capable of handling data routed to different table destinations.
 
-### error_table [string]
+### row_error_handle_way.error_table [string]
 
 Target table name for routing invalid data when `error_handle_way` is set to `ROUTE_TO_TABLE`. This parameter is required when using `ROUTE_TO_TABLE` mode.
 

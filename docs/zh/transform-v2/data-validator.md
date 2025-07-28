@@ -11,7 +11,7 @@ DataValidator 转换插件根据配置的规则验证字段值，并基于指定
 |      名称       |  类型  | 是否必需 | 默认值 |
 |-----------------|--------|----------|--------|
 | error_handle_way| enum   | 否       | FAIL   |
-| error_table     | string | 否       |        |
+| row_error_handle_way.error_table     | string | 否       |        |
 | field_rules     | array  | 是       |        |
 
 ### error_handle_way [enum]
@@ -23,7 +23,7 @@ DataValidator 转换插件根据配置的规则验证字段值，并基于指定
 
 **注意**: `ROUTE_TO_TABLE` 模式仅适用于支持多表的 sink 连接器。sink 必须具备处理路由到不同表目标的数据的能力。
 
-### error_table [string]
+### row_error_handle_way.error_table [string]
 
 当 `error_handle_way` 设置为 `ROUTE_TO_TABLE` 时，用于路由无效数据的目标表名。使用 `ROUTE_TO_TABLE` 模式时此参数为必需。
 
