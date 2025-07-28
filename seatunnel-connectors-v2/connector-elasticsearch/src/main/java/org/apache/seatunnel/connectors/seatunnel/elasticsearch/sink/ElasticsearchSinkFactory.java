@@ -80,6 +80,7 @@ public class ElasticsearchSinkFactory implements TableSinkFactory {
                         TLS_KEY_STORE_PASSWORD,
                         TLS_TRUST_STORE_PATH,
                         TLS_TRUST_STORE_PASSWORD,
+                        AUTH_TYPE,
                         SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA)
                 .conditional(AUTH_TYPE, AuthTypeEnum.API_KEY, API_KEY_ID, API_KEY, API_KEY_ENCODED)
                 .build();
