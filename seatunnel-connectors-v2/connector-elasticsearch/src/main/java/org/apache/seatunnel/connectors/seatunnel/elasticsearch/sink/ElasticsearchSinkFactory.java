@@ -26,7 +26,6 @@ import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
-import org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.AuthTypeEnum;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.ElasticsearchSinkOptions;
 
 import com.google.auto.service.AutoService;
@@ -82,7 +81,7 @@ public class ElasticsearchSinkFactory implements TableSinkFactory {
                         TLS_TRUST_STORE_PASSWORD,
                         AUTH_TYPE,
                         SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA)
-                .conditional(AUTH_TYPE, AuthTypeEnum.API_KEY, API_KEY_ID, API_KEY, API_KEY_ENCODED)
+                .conditional(AUTH_TYPE, API_KEY, API_KEY_ID, API_KEY, API_KEY_ENCODED)
                 .build();
     }
 

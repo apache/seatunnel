@@ -82,7 +82,7 @@ public class ElasticsearchSourceFactory implements TableSourceFactory {
                         TLS_TRUST_STORE_PATH,
                         TLS_TRUST_STORE_PASSWORD,
                         AUTH_TYPE)
-                .conditional(AUTH_TYPE, AuthTypeEnum.API_KEY, API_KEY_ID, API_KEY, API_KEY_ENCODED)
+                .conditional(AUTH_TYPE, API_KEY, API_KEY_ID, API_KEY, API_KEY_ENCODED)
                 .build();
     }
 
