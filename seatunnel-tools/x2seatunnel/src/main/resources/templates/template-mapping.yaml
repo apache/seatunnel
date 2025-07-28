@@ -5,6 +5,13 @@
 
 # DataX连接器映射配置
 datax:
+  # 环境配置映射
+  env_mappings:
+    # 根据任务类型选择环境配置
+    "batch": "datax/env/batch-env.conf"
+    "streaming": "datax/env/streaming-env.conf"
+    "realtime": "datax/env/realtime-env.conf"
+    
   # DataX Reader到Source模板的映射
   source_mappings:
     # 数据库类Reader - 统一JDBC模板策略（所有JDBC数据库使用同一模板）
@@ -66,12 +73,7 @@ datax:
     "hdfsreader->mysqlwriter": "datax/hdfs-to-mysql.conf"
     "hdfsreader->hivewriter": "datax/hdfs-to-hive.conf"
     
-  # 环境配置映射
-  env_mappings:
-    # 根据任务类型选择环境配置
-    "batch": "datax/env/batch-env.conf"
-    "streaming": "datax/env/streaming-env.conf"
-    "realtime": "datax/env/realtime-env.conf"
+
     
   # 默认模板配置
   defaults:
@@ -134,6 +136,8 @@ transformers:
     "truncate": "overwrite"
     "insert": "append"
     "replace": "overwrite"
+
+
 
   # DataX writeMode 到 SeaTunnel data_save_mode 映射
   writemode_to_datasavemode_mapper:

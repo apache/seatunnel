@@ -108,6 +108,11 @@ public class X2SeaTunnelCli {
                 }
                 ConversionEngine engine = new ConversionEngine();
                 BatchConversionReport batchReport = new BatchConversionReport();
+
+                // 设置批量转换配置信息
+                batchReport.setConversionConfig(
+                        directory, outputDir, reportDir, pattern, batchTemplate);
+
                 int total = sources.size();
                 for (int i = 0; i < total; i++) {
                     String src = sources.get(i);
@@ -125,7 +130,7 @@ public class X2SeaTunnelCli {
                     logger.info("[{} / {}] 处理文件: {}", i + 1, total, src);
                     try {
                         engine.convert(src, tgt, "datax", "seatunnel", batchTemplate, rpt);
-                        batchReport.recordSuccess(src);
+                        batchReport.recordSuccess(src, tgt, rpt);
                         System.out.println(
                                 String.format("[%d/%d] 转换完成: %s -> %s", i + 1, total, src, tgt));
                     } catch (Exception e) {

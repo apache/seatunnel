@@ -1,40 +1,19 @@
 /*
-* Licensed to the Apache Software Foundation (ASF) under one or mo    @Test
-   public vo    @Test
-   public void    @Test
-   public void testMissingFieldTracking() {
-       // 测试缺失字段跟踪
-       String template = "host: {{ datax.job.content[0].reader.parameter.nonexistent }}}}";
-
-       String result = resolver.resolve(template, testDataXJson);
-
-       Assertions.assertEquals("host: ", result); // 缺失字段应返回空字符串aultValueUsage() {
-       // 测试默认值使用并跟踪
-       String template =
-               "host: {{ datax.job.content[0].reader.parameter.host | default('localhost') }}}}";
-
-       String result = resolver.resolve(template, testDataXJson);
-
-       Assertions.assertEquals("host: localhost", result);sicFieldExtraction() {
-       // 测试基础字段提取并跟踪映射过程
-       String template = "user: {{ datax.job.content[0].reader.parameter.username }}}}";
-
-       String result = resolver.resolve(template, testDataXJson);
-
-       Assertions.assertEquals("user: root", result);ontributor license agreements.  See the NOTICE file distributed with
-* this work for additional information regarding copyright ownership.
-* The ASF licenses this file to You under the Apache License, Version 2.0
-* (the "License"); you may not use this file except in compliance with
-* the License.  You may obtain a copy of the License at
-*
-*    http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 package org.apache.seatunnel.tools.x2seatunnel.template;
 

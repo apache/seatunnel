@@ -39,6 +39,7 @@ public class TemplateMappingManager {
     private Map<String, Object> mappingConfig;
     private Map<String, String> sourceMappings;
     private Map<String, String> sinkMappings;
+    private Map<String, String> envMappings;
     private Map<String, Object> transformers;
 
     private TemplateMappingManager() {
@@ -100,6 +101,12 @@ public class TemplateMappingManager {
                 sinkMappings = (Map<String, String>) dataxConfig.get("sink_mappings");
                 logger.info("加载了 {} 个sink映射", sinkMappings.size());
             }
+
+            // 加载环境映射
+            if (dataxConfig.containsKey("env_mappings")) {
+                envMappings = (Map<String, String>) dataxConfig.get("env_mappings");
+                logger.info("加载了 {} 个环境映射", envMappings.size());
+            }
         }
 
         // 加载转换器配置
@@ -159,6 +166,23 @@ public class TemplateMappingManager {
         }
 
         logger.debug("为writer类型 {} 选择模板: {}", writerType, template);
+        return template;
+    }
+
+    /** 根据任务类型获取对应的环境模板路径 */
+    public String getEnvTemplate(String jobType) {
+        if (envMappings == null) {
+            logger.warn("环境映射未初始化，使用默认模板");
+            return "datax/env/batch-env.conf";
+        }
+
+        String template = envMappings.get(jobType.toLowerCase());
+        if (template == null) {
+            logger.warn("未找到任务类型 {} 的环境模板映射，使用默认模板", jobType);
+            return "datax/env/batch-env.conf";
+        }
+
+        logger.debug("为任务类型 {} 选择环境模板: {}", jobType, template);
         return template;
     }
 

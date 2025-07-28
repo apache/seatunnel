@@ -319,27 +319,16 @@ transformers:
 | **PostgreSQL** | `postgresqlreader` | `jdbc-source.conf` | ✅ 完全支持 | 统一JDBC模板 |
 | **Oracle** | `oraclereader` | `jdbc-source.conf` | ✅ 完全支持 | 统一JDBC模板 |
 | **SQL Server** | `sqlserverreader` | `jdbc-source.conf` | ✅ 完全支持 | 统一JDBC模板 |
-| **ClickHouse** | `clickhousereader` | `jdbc-source.conf` | 🔧 开发中 | 统一JDBC模板 |
-| **Hive** | `hivereader` | `hive-source.conf` | 📋 计划中 | v1.2 |
-| **HDFS** | `hdfsreader` | `hdfs-source.conf` | 📋 计划中 | v1.2 |
-| **Kafka** | `kafkareader` | `kafka-source.conf` | 📋 计划中 | v1.3 |
-| **MongoDB** | `mongoreader` | `mongodb-source.conf` | 📋 计划中 | v1.3 |
-| **Elasticsearch** | `elasticsearchreader` | `elasticsearch-source.conf` | 📋 计划中 | v1.4 |
-| **Redis** | `redisreader` | `redis-source.conf` | 📋 计划中 | v1.4 |
+| **HDFS** | `hdfsreader` | `hdfs-source.conf` | 支持 | |
 
 ### 数据目标（Sinks）
 
 | 数据目标类型 | DataX Writer | 模板文件 | 支持状态 | 备注 |
 |-------------|-------------|----------|----------|------|
+| **MySQL** | `mysqlwriter` | `jdbc-sink.conf` | ✅ 完全支持 | v1.2 |
+| **PostgreSQL** | `postgresqlwriter` | `jdbc-sink.conf` | 📋 计划中 | v1.2 |
 | **HDFS** | `hdfswriter` | `hdfs-sink.conf` | ✅ 完全支持 | 多种文件格式 |
-| **MySQL** | `mysqlwriter` | `mysql-sink.conf` | 📋 计划中 | v1.2 |
-| **PostgreSQL** | `postgresqlwriter` | `postgresql-sink.conf` | 📋 计划中 | v1.2 |
-| **ClickHouse** | `clickhousewriter` | `clickhouse-sink.conf` | 🔧 开发中 | 高性能写入 |
 | **Doris** | `doriswriter` | `doris-sink.conf` | 📋 计划中 | v1.3 |
-| **Elasticsearch** | `elasticsearchwriter` | `elasticsearch-sink.conf` | 📋 计划中 | v1.3 |
-| **Kafka** | `kafkawriter` | `kafka-sink.conf` | 📋 计划中 | v1.3 |
-| **MongoDB** | `mongowriter` | `mongodb-sink.conf` | 📋 计划中 | v1.4 |
-| **Redis** | `rediswriter` | `redis-sink.conf` | 📋 计划中 | v1.4 |
 
 
 ## 开发指南

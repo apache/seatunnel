@@ -41,8 +41,38 @@ public class TemplateVariableResolver {
 
     private static final Logger logger = LoggerFactory.getLogger(TemplateVariableResolver.class);
 
-    // 标志：遇到 default 过滤器时抑制缺失字段记录
-    private boolean suppressMissing = false;
+    // 常量定义
+    private static final String DATAX_PREFIX = "datax.";
+    private static final String DATAX_JOB_PREFIX = "datax.job.";
+    private static final int DATAX_PREFIX_LENGTH = 6;
+    private static final String JOB_PREFIX = "job.";
+    private static final int INDENT_SIZE = 2;
+    private static final int TAB_SIZE = 4;
+    private static final String DEFAULT_JOIN_SEPARATOR = ",";
+    private static final String DEFAULT_SPLIT_DELIMITER = "/";
+
+    // 常用字符串常量
+    private static final String EMPTY_STRING = "";
+    private static final String EQUALS_SIGN = "=";
+    private static final String PIPE_SYMBOL = "|";
+    private static final String OPEN_BRACE = "{";
+    private static final String CLOSE_BRACE = "}";
+    private static final String COMMENT_PREFIX = "#";
+    private static final String NEWLINE = "\n";
+    private static final String QUOTE_DOUBLE = "\"";
+    private static final String QUOTE_SINGLE = "'";
+    private static final String TEMPLATE_VAR_START = "{{";
+    private static final String TEMPLATE_VAR_END = "}}";
+
+    // 日志消息常量
+    private static final String LOG_MSG_TEMPLATE_RESOLUTION_START = "开始解析模板变量";
+    private static final String LOG_MSG_TEMPLATE_RESOLUTION_COMPLETE = "模板变量解析完成";
+    private static final String LOG_MSG_JINJA2_RESOLUTION_COMPLETE = "Jinja2变量解析完成";
+    private static final String LOG_MSG_TEMPLATE_ANALYSIS_COMPLETE = "模板分析解析完成，字段总数: {}";
+
+    // 错误消息常量
+    private static final String ERROR_MSG_TEMPLATE_RESOLUTION_FAILED = "模板变量解析失败";
+    private static final String ERROR_MSG_TEMPLATE_ANALYSIS_FAILED = "模板分析解析失败";
 
     // Jinja2 变量模式：{{ datax.path.to.value }}
     private static final Pattern JINJA2_VARIABLE_PATTERN =
@@ -51,6 +81,12 @@ public class TemplateVariableResolver {
     // Jinja2 过滤器模式：{{ datax.path.to.value | filter }}
     private static final Pattern JINJA2_FILTER_PATTERN =
             Pattern.compile("\\{\\{\\s*([^}|]+)\\s*\\|\\s*([^}]+)\\s*\\}\\}");
+
+    // 其他模式
+    private static final Pattern SET_PATTERN =
+            Pattern.compile("\\{%\\s*set\\s+(\\w+)\\s*=\\s*(.*?)\\s*%\\}");
+    private static final Pattern FILTER_PATTERN =
+            Pattern.compile("\\|\\s*([a-zA-Z_][a-zA-Z0-9_]*)");
 
     private final ObjectMapper objectMapper;
     private final TemplateMappingManager templateMappingManager;
@@ -62,26 +98,155 @@ public class TemplateVariableResolver {
     // 标志：当前是否在处理复杂转换（包含过滤器的复合表达式）
     private boolean processingComplexTransform = false;
 
+    // 标志：遇到 default 过滤器时抑制缺失字段记录
+    private boolean suppressMissing = false;
+
     // 字段引用跟踪器
     private DataXFieldExtractor.FieldReferenceTracker fieldReferenceTracker;
 
+    /**
+     * 构造函数 - 支持完整功能
+     *
+     * @param templateMappingManager 模板映射管理器，可为null
+     * @param mappingTracker 映射跟踪器，可为null
+     */
     public TemplateVariableResolver(
             TemplateMappingManager templateMappingManager, MappingTracker mappingTracker) {
-        this.objectMapper = new ObjectMapper();
+        this.objectMapper = createObjectMapper();
         this.templateMappingManager = templateMappingManager;
         this.mappingTracker = mappingTracker;
     }
 
+    /**
+     * 构造函数 - 仅支持模板映射管理器
+     *
+     * @param templateMappingManager 模板映射管理器，可为null
+     */
     public TemplateVariableResolver(TemplateMappingManager templateMappingManager) {
-        this.objectMapper = new ObjectMapper();
-        this.templateMappingManager = templateMappingManager;
-        this.mappingTracker = null; // 旧版本兼容，无映射跟踪
+        this(templateMappingManager, null);
     }
 
+    /** 默认构造函数 - 基础功能 */
     public TemplateVariableResolver() {
-        this.objectMapper = new ObjectMapper();
-        this.templateMappingManager = null;
-        this.mappingTracker = null;
+        this(null, null);
+    }
+
+    /**
+     * 创建并配置ObjectMapper实例
+     *
+     * @return 配置好的ObjectMapper实例
+     */
+    private static ObjectMapper createObjectMapper() {
+        return new ObjectMapper();
+    }
+
+    /**
+     * 检查模板内容是否为空
+     *
+     * @param templateContent 模板内容
+     * @return 如果为空返回true
+     */
+    private boolean isEmptyTemplate(String templateContent) {
+        return templateContent == null || templateContent.trim().isEmpty();
+    }
+
+    /**
+     * 解析模板的核心方法
+     *
+     * @param templateContent 模板内容
+     * @param rootNode JSON根节点
+     * @return 解析后的内容
+     */
+    private String resolveTemplate(String templateContent, JsonNode rootNode) {
+        String result = templateContent;
+
+        // 1. 处理 {% set var = expr %} 语法（仅支持简单表达式）
+        Map<String, String> localVars = processSetStatements(result, rootNode);
+        result = SET_PATTERN.matcher(result).replaceAll("");
+
+        // 2. 简单的字符串替换处理局部变量
+        result = replaceLocalVariables(result, localVars);
+
+        // 3. 使用智能上下文解析处理所有变量
+        result = resolveWithSmartContext(result, rootNode);
+
+        logger.debug(LOG_MSG_TEMPLATE_RESOLUTION_COMPLETE);
+        return result;
+    }
+
+    /**
+     * 处理 {% set var = expr %} 语句
+     *
+     * @param content 模板内容
+     * @param rootNode JSON根节点
+     * @return 局部变量映射
+     */
+    private Map<String, String> processSetStatements(String content, JsonNode rootNode) {
+        Map<String, String> localVars = new HashMap<>();
+        Matcher setMatcher = SET_PATTERN.matcher(content);
+
+        while (setMatcher.find()) {
+            String varName = setMatcher.group(1);
+            String expr = setMatcher.group(2);
+            String exprTemplate = "{{ " + expr + " }}";
+            String value =
+                    resolveJinja2FilterVariables(
+                            resolveJinja2Variables(exprTemplate, rootNode), rootNode);
+            localVars.put(varName, value);
+            logger.debug("设置局部变量: {} = {}", varName, value);
+        }
+
+        return localVars;
+    }
+
+    /**
+     * 替换局部变量
+     *
+     * @param content 模板内容
+     * @param localVars 局部变量映射
+     * @return 替换后的内容
+     */
+    private String replaceLocalVariables(String content, Map<String, String> localVars) {
+        String result = content;
+        for (Map.Entry<String, String> entry : localVars.entrySet()) {
+            result = result.replace("{{ " + entry.getKey() + " }}", entry.getValue());
+        }
+        return result;
+    }
+
+    /**
+     * 标准化DataX路径，移除datax前缀并转换为job前缀
+     *
+     * @param path 原始路径
+     * @return 标准化后的路径
+     */
+    private String normalizeDataXPath(String path) {
+        if (path.startsWith(DATAX_JOB_PREFIX)) {
+            return path.substring(DATAX_PREFIX_LENGTH);
+        } else if (path.startsWith(DATAX_PREFIX)) {
+            return path.replace(DATAX_PREFIX, JOB_PREFIX);
+        }
+        return path;
+    }
+
+    /**
+     * 处理模板解析异常的统一方法
+     *
+     * @param operation 操作描述
+     * @param e 原始异常
+     * @throws TemplateResolutionException 包装后的异常
+     */
+    private void handleTemplateException(String operation, Exception e) {
+        String errorMsg = operation + ": " + e.getMessage();
+        logger.error(errorMsg, e);
+        throw new TemplateResolutionException(errorMsg, e);
+    }
+
+    /** 模板解析异常 */
+    public static class TemplateResolutionException extends RuntimeException {
+        public TemplateResolutionException(String message, Throwable cause) {
+            super(message, cause);
+        }
     }
     /**
      * 解析模板变量
@@ -91,48 +256,20 @@ public class TemplateVariableResolver {
      * @return 解析后的内容
      */
     public String resolve(String templateContent, DataXConfig dataXConfig) {
-        if (templateContent == null || templateContent.trim().isEmpty()) {
+        if (isEmptyTemplate(templateContent)) {
             return templateContent;
         }
 
-        logger.debug("开始解析模板变量");
+        logger.debug(LOG_MSG_TEMPLATE_RESOLUTION_START);
 
         try {
             // 将DataXConfig转换为JsonNode以便路径查询
             JsonNode rootNode = objectMapper.valueToTree(dataXConfig);
-
-            String result = templateContent;
-
-            // 0. 处理 {% set var = expr %} 语法（仅支持简单表达式）
-            Map<String, String> localVars = new HashMap<>();
-            Pattern setPattern = Pattern.compile("\\{%\\s*set\\s+(\\w+)\\s*=\\s*(.*?)\\s*%\\}");
-            Matcher setMatcher = setPattern.matcher(result);
-            while (setMatcher.find()) {
-                String varName = setMatcher.group(1);
-                String expr = setMatcher.group(2);
-                String exprTemplate = "{{ " + expr + " }}";
-                String value =
-                        resolveJinja2FilterVariables(
-                                resolveJinja2Variables(exprTemplate, rootNode), rootNode);
-                localVars.put(varName, value);
-                logger.debug("设置局部变量: {} = {}", varName, value);
-            }
-            result = setMatcher.replaceAll("");
-
-            // 简单的字符串替换处理局部变量
-            for (Map.Entry<String, String> entry : localVars.entrySet()) {
-                result = result.replace("{{ " + entry.getKey() + " }}", entry.getValue());
-            }
-
-            // 1. 使用智能上下文解析处理所有变量
-            result = resolveWithSmartContext(result, rootNode);
-
-            logger.debug("模板变量解析完成");
-            return result;
+            return resolveTemplate(templateContent, rootNode);
 
         } catch (Exception e) {
-            logger.error("模板变量解析失败: {}", e.getMessage(), e);
-            throw new RuntimeException("模板变量解析失败: " + e.getMessage(), e);
+            handleTemplateException(ERROR_MSG_TEMPLATE_RESOLUTION_FAILED, e);
+            return null; // 这行不会执行，但编译器需要
         }
     }
 
@@ -144,27 +281,20 @@ public class TemplateVariableResolver {
      * @return 解析后的内容
      */
     public String resolve(String templateContent, String dataXJsonContent) {
-        if (templateContent == null || templateContent.trim().isEmpty()) {
+        if (isEmptyTemplate(templateContent)) {
             return templateContent;
         }
 
-        logger.debug("开始解析模板变量");
+        logger.debug(LOG_MSG_TEMPLATE_RESOLUTION_START);
 
         try {
             // 直接解析JSON字符串为JsonNode
             JsonNode rootNode = objectMapper.readTree(dataXJsonContent);
-
-            String result = templateContent;
-
-            // 使用智能上下文解析处理所有变量
-            result = resolveWithSmartContext(result, rootNode);
-
-            logger.debug("模板变量解析完成");
-            return result;
+            return resolveWithSmartContext(templateContent, rootNode);
 
         } catch (Exception e) {
-            logger.error("模板变量解析失败: {}", e.getMessage(), e);
-            throw new RuntimeException("模板变量解析失败: " + e.getMessage(), e);
+            handleTemplateException(ERROR_MSG_TEMPLATE_RESOLUTION_FAILED, e);
+            return null; // 这行不会执行，但编译器需要
         }
     }
 
@@ -181,17 +311,13 @@ public class TemplateVariableResolver {
         while (matcher.find()) {
             String path = matcher.group(1).trim();
             String value = extractValueFromJinja2Path(rootNode, path);
-            String resolvedValue = (value != null) ? value : "";
+            String resolvedValue = (value != null) ? value : EMPTY_STRING;
 
             logger.debug("找到变量: {}, 解析值: {}", path, resolvedValue);
 
             // 增加字段引用计数
-            if (fieldReferenceTracker != null && path.startsWith("datax.")) {
-                // 修复路径重复问题：datax.job.xxx -> job.xxx
-                String normalizedPath =
-                        path.startsWith("datax.job.")
-                                ? path.substring(6)
-                                : path.replace("datax.", "job.");
+            if (fieldReferenceTracker != null && path.startsWith(DATAX_PREFIX)) {
+                String normalizedPath = normalizeDataXPath(path);
                 logger.debug("解析变量时增加引用计数: {} -> {}", path, normalizedPath);
                 incrementFieldReference(normalizedPath);
             } else {
@@ -205,7 +331,7 @@ public class TemplateVariableResolver {
         }
         matcher.appendTail(sb);
 
-        logger.debug("Jinja2变量解析完成");
+        logger.debug(LOG_MSG_JINJA2_RESOLUTION_COMPLETE);
         return sb.toString();
     }
 
@@ -222,12 +348,8 @@ public class TemplateVariableResolver {
             logger.debug("找到过滤器变量: {}, 过滤器: {}", path, filterExpression);
 
             // 增加字段引用计数
-            if (fieldReferenceTracker != null && path.startsWith("datax.")) {
-                // 修复路径重复问题：datax.job.xxx -> job.xxx
-                String normalizedPath =
-                        path.startsWith("datax.job.")
-                                ? path.substring(6)
-                                : path.replace("datax.", "job.");
+            if (fieldReferenceTracker != null && path.startsWith(DATAX_PREFIX)) {
+                String normalizedPath = normalizeDataXPath(path);
                 logger.debug("过滤器变量增加引用计数: {} -> {}", path, normalizedPath);
                 incrementFieldReference(normalizedPath);
             }
@@ -250,7 +372,7 @@ public class TemplateVariableResolver {
             for (String filter : filters) {
                 // 添加空值检查，防止空指针异常
                 if (resolvedValue == null) {
-                    resolvedValue = "";
+                    resolvedValue = EMPTY_STRING;
                 }
 
                 // 统一应用过滤器
@@ -260,7 +382,7 @@ public class TemplateVariableResolver {
             String finalValue =
                     resolvedValue instanceof String
                             ? (String) resolvedValue
-                            : (resolvedValue != null ? resolvedValue.toString() : "");
+                            : (resolvedValue != null ? resolvedValue.toString() : EMPTY_STRING);
             matcher.appendReplacement(sb, Matcher.quoteReplacement(finalValue));
         }
         matcher.appendTail(sb);
@@ -314,8 +436,8 @@ public class TemplateVariableResolver {
             JsonNode currentNode = rootNode;
 
             // 将 datax.job.content[0] 转换为 job.content[0] (移除 datax 前缀)
-            if (path.startsWith("datax.")) {
-                path = path.substring(6);
+            if (path.startsWith(DATAX_PREFIX)) {
+                path = path.substring(DATAX_PREFIX_LENGTH);
             }
 
             String[] pathParts = path.split("\\.");
@@ -414,12 +536,12 @@ public class TemplateVariableResolver {
     /** 统一的过滤器应用方法 - 支持字符串和数组 */
     private Object applyFilter(Object value, String filterExpression) {
         if (value == null) {
-            value = "";
+            value = EMPTY_STRING;
         }
 
         // 解析过滤器：join(',') 或 join(', ') 或 default('SELECT * FROM table')
         String filterName;
-        String filterArgs = "";
+        String filterArgs = EMPTY_STRING;
 
         if (filterExpression.contains("(") && filterExpression.contains(")")) {
             filterName = filterExpression.substring(0, filterExpression.indexOf("(")).trim();
@@ -431,9 +553,10 @@ public class TemplateVariableResolver {
             if (closeParenPos != -1) {
                 filterArgs = filterExpression.substring(openParenPos + 1, closeParenPos).trim();
                 // 移除引号
-                if (filterArgs.startsWith("'") && filterArgs.endsWith("'")) {
+                if (filterArgs.startsWith(QUOTE_SINGLE) && filterArgs.endsWith(QUOTE_SINGLE)) {
                     filterArgs = filterArgs.substring(1, filterArgs.length() - 1);
-                } else if (filterArgs.startsWith("\"") && filterArgs.endsWith("\"")) {
+                } else if (filterArgs.startsWith(QUOTE_DOUBLE)
+                        && filterArgs.endsWith(QUOTE_DOUBLE)) {
                     filterArgs = filterArgs.substring(1, filterArgs.length() - 1);
                 }
             } else {
@@ -453,11 +576,13 @@ public class TemplateVariableResolver {
                 if (value instanceof String[]) {
                     result =
                             applyJoinFilterOnArray(
-                                    (String[]) value, filterArgs.isEmpty() ? "," : filterArgs);
+                                    (String[]) value,
+                                    filterArgs.isEmpty() ? DEFAULT_JOIN_SEPARATOR : filterArgs);
                 } else {
                     result =
                             applyJoinFilter(
-                                    value.toString(), filterArgs.isEmpty() ? "," : filterArgs);
+                                    value.toString(),
+                                    filterArgs.isEmpty() ? DEFAULT_JOIN_SEPARATOR : filterArgs);
                 }
                 break;
             case "default":
@@ -715,9 +840,11 @@ public class TemplateVariableResolver {
             return new String[0];
         }
 
-        // 如果没有指定分隔符，使用默认的 "/"
+        // 如果没有指定分隔符，使用默认的分隔符
         String actualDelimiter =
-                (delimiter != null && !delimiter.trim().isEmpty()) ? delimiter.trim() : "/";
+                (delimiter != null && !delimiter.trim().isEmpty())
+                        ? delimiter.trim()
+                        : DEFAULT_SPLIT_DELIMITER;
 
         logger.info("字符串分割: 输入值='{}', 分隔符='{}'", value, actualDelimiter);
 
@@ -907,12 +1034,42 @@ public class TemplateVariableResolver {
 
     /** 检查行是否包含过滤器 */
     private boolean containsFilters(String line) {
-        return line.contains("|") && containsVariable(line);
+        return line.contains(PIPE_SYMBOL) && containsVariable(line);
     }
 
     /** 检查当前是否在处理复杂转换 */
     private boolean isPartOfComplexTransform() {
         return processingComplexTransform;
+    }
+
+    /** 检查是否为真正的复杂转换（多个变量或复杂表达式） */
+    private boolean isReallyComplexTransform(String line) {
+        // 计算变量数量
+        Pattern variablePattern = Pattern.compile("\\{\\{[^}]+\\}\\}");
+        Matcher matcher = variablePattern.matcher(line);
+        int variableCount = 0;
+        while (matcher.find()) {
+            variableCount++;
+        }
+
+        // 如果有多个变量，则认为是复杂转换
+        if (variableCount > 1) {
+            return true;
+        }
+
+        // 如果只有一个变量，检查是否有复杂的过滤器链（超过2个过滤器）
+        if (variableCount == 1) {
+            matcher.reset();
+            if (matcher.find()) {
+                String variable = matcher.group();
+                // 计算管道符数量
+                long pipeCount = variable.chars().filter(ch -> ch == '|').count();
+                // 如果有超过2个过滤器，认为是复杂转换
+                return pipeCount > 2;
+            }
+        }
+
+        return false;
     }
 
     /** 记录复杂转换映射（包含多个变量和过滤器的行） */
@@ -974,10 +1131,7 @@ public class TemplateVariableResolver {
         }
 
         Set<String> filters = new HashSet<>();
-
-        // 使用正则表达式匹配所有的过滤器
-        Pattern filterPattern = Pattern.compile("\\|\\s*([a-zA-Z_][a-zA-Z0-9_]*)");
-        Matcher matcher = filterPattern.matcher(templateExpression);
+        Matcher matcher = FILTER_PATTERN.matcher(templateExpression);
 
         while (matcher.find()) {
             String filter = matcher.group(1);
@@ -1003,7 +1157,9 @@ public class TemplateVariableResolver {
 
     /** 检查是否是硬编码的默认值配置行 */
     private boolean isHardcodedDefaultValue(String trimmedLine) {
-        if (trimmedLine.isEmpty() || trimmedLine.startsWith("#") || !trimmedLine.contains("=")) {
+        if (trimmedLine.isEmpty()
+                || trimmedLine.startsWith(COMMENT_PREFIX)
+                || !trimmedLine.contains(EQUALS_SIGN)) {
             return false;
         }
 
@@ -1013,7 +1169,7 @@ public class TemplateVariableResolver {
         }
 
         // 排除结构性的行（如 "}" 等）
-        if (trimmedLine.equals("}") || trimmedLine.equals("{")) {
+        if (trimmedLine.equals(CLOSE_BRACE) || trimmedLine.equals(OPEN_BRACE)) {
             return false;
         }
 
@@ -1029,7 +1185,7 @@ public class TemplateVariableResolver {
         }
 
         // 提取配置键和值
-        String[] parts = trimmedLine.split("=", 2);
+        String[] parts = trimmedLine.split(EQUALS_SIGN, 2);
         if (parts.length != 2) {
             return;
         }
@@ -1038,7 +1194,7 @@ public class TemplateVariableResolver {
         String value = parts[1].trim();
 
         // 移除引号
-        if (value.startsWith("\"") && value.endsWith("\"")) {
+        if (value.startsWith(QUOTE_DOUBLE) && value.endsWith(QUOTE_DOUBLE)) {
             value = value.substring(1, value.length() - 1);
         }
 
@@ -1052,7 +1208,6 @@ public class TemplateVariableResolver {
     private String resolveWithSmartContext(String content, JsonNode rootNode) {
         StringBuilder result = new StringBuilder();
         String[] lines = content.split("\n");
-
         List<String> configPath = new ArrayList<>(); // 当前配置路径栈
 
         for (String line : lines) {
@@ -1062,61 +1217,94 @@ public class TemplateVariableResolver {
             // 更新配置路径栈
             updateConfigPath(configPath, trimmedLine, indentLevel);
 
-            // 如果这行包含变量，设置准确的目标上下文
             if (containsVariable(line)) {
-                logger.debug("发现包含变量的行: {}", line.trim());
-                String targetContext = buildTargetContext(configPath, trimmedLine);
-                String previousContext = this.currentTargetContext;
-                this.currentTargetContext = targetContext;
-
-                try {
-                    // 检查这行是否包含过滤器，决定如何记录映射
-                    boolean hasFilters = containsFilters(line);
-                    String originalLine = line;
-
-                    // 如果包含过滤器，设置复杂转换标志
-                    if (hasFilters) {
-                        processingComplexTransform = true;
-                    }
-
-                    // 解析该行的变量
-                    String resolvedLine = resolveJinja2FilterVariables(line, rootNode);
-                    resolvedLine = resolveJinja2Variables(resolvedLine, rootNode);
-
-                    // 如果包含过滤器，记录为复合转换映射
-                    if (hasFilters && mappingTracker != null) {
-                        recordComplexTransformMapping(originalLine, resolvedLine, targetContext);
-                    }
-
-                    result.append(resolvedLine).append("\n");
-                } finally {
-                    // 恢复之前的上下文和标志
-                    this.currentTargetContext = previousContext;
-                    this.processingComplexTransform = false;
-                }
+                String resolvedLine = processVariableLine(line, trimmedLine, configPath, rootNode);
+                result.append(resolvedLine).append("\n");
             } else {
-                // 检查是否是硬编码的默认值配置行
-                if (isHardcodedDefaultValue(trimmedLine)) {
-                    String targetContext = buildTargetContext(configPath, trimmedLine);
-                    recordHardcodedDefaultValue(trimmedLine, targetContext);
-                }
-
-                // 没有变量的行直接添加
+                processNonVariableLine(line, trimmedLine, configPath);
                 result.append(line).append("\n");
             }
         }
 
-        // 移除最后一个换行符
+        return removeTrailingNewline(result);
+    }
+
+    /**
+     * 处理包含变量的行
+     *
+     * @param line 原始行
+     * @param trimmedLine 去除空白的行
+     * @param configPath 配置路径栈
+     * @param rootNode JSON根节点
+     * @return 解析后的行
+     */
+    private String processVariableLine(
+            String line, String trimmedLine, List<String> configPath, JsonNode rootNode) {
+        logger.debug("发现包含变量的行: {}", trimmedLine);
+        String targetContext = buildTargetContext(configPath, trimmedLine);
+        String previousContext = this.currentTargetContext;
+        this.currentTargetContext = targetContext;
+
+        try {
+            boolean hasFilters = containsFilters(line);
+            String originalLine = line;
+
+            // 检查是否为真正的复杂转换（多个变量或复杂表达式）
+            boolean isComplexTransform = hasFilters && isReallyComplexTransform(line);
+
+            // 只有真正复杂的转换才设置复杂转换标志
+            if (isComplexTransform) {
+                processingComplexTransform = true;
+            }
+
+            // 解析该行的变量
+            String resolvedLine = resolveJinja2FilterVariables(line, rootNode);
+            resolvedLine = resolveJinja2Variables(resolvedLine, rootNode);
+
+            // 只有真正复杂的转换才记录为复合转换映射
+            if (isComplexTransform && mappingTracker != null) {
+                recordComplexTransformMapping(originalLine, resolvedLine, targetContext);
+            }
+
+            return resolvedLine;
+        } finally {
+            // 恢复之前的上下文和标志
+            this.currentTargetContext = previousContext;
+            this.processingComplexTransform = false;
+        }
+    }
+
+    /**
+     * 处理不包含变量的行
+     *
+     * @param line 原始行
+     * @param trimmedLine 去除空白的行
+     * @param configPath 配置路径栈
+     */
+    private void processNonVariableLine(String line, String trimmedLine, List<String> configPath) {
+        // 检查是否是硬编码的默认值配置行
+        if (isHardcodedDefaultValue(trimmedLine)) {
+            String targetContext = buildTargetContext(configPath, trimmedLine);
+            recordHardcodedDefaultValue(trimmedLine, targetContext);
+        }
+    }
+
+    /**
+     * 移除结果末尾的换行符
+     *
+     * @param result 字符串构建器
+     * @return 处理后的字符串
+     */
+    private String removeTrailingNewline(StringBuilder result) {
         if (result.length() > 0) {
             result.setLength(result.length() - 1);
         }
-
         return result.toString();
     }
 
     /** 检查行是否包含模板变量 */
     private boolean containsVariable(String line) {
-        return line.contains("{{") && line.contains("}}");
+        return line.contains(TEMPLATE_VAR_START) && line.contains(TEMPLATE_VAR_END);
     }
 
     /** 获取行的缩进级别 */
@@ -1126,7 +1314,7 @@ public class TemplateVariableResolver {
             if (c == ' ') {
                 indent++;
             } else if (c == '\t') {
-                indent += 4; // tab视为4个空格
+                indent += TAB_SIZE; // tab视为TAB_SIZE个空格
             } else {
                 break;
             }
@@ -1143,13 +1331,13 @@ public class TemplateVariableResolver {
                 trimmedLine);
 
         // 忽略空行和注释行，不要因为它们而影响配置路径
-        if (trimmedLine.isEmpty() || trimmedLine.startsWith("#")) {
+        if (trimmedLine.isEmpty() || trimmedLine.startsWith(COMMENT_PREFIX)) {
             logger.debug("忽略空行或注释行，保持configPath不变: {}", configPath);
             return;
         }
 
-        // 根据缩进调整路径深度（每2个空格为一级）
-        int targetDepth = indentLevel / 2;
+        // 根据缩进调整路径深度（每INDENT_SIZE个空格为一级）
+        int targetDepth = indentLevel / INDENT_SIZE;
 
         logger.debug("计算目标深度: targetDepth={}", targetDepth);
 
@@ -1159,8 +1347,8 @@ public class TemplateVariableResolver {
         }
 
         // 如果这是一个配置块的开始，添加到路径中
-        if (trimmedLine.endsWith("{")) {
-            String configKey = trimmedLine.substring(0, trimmedLine.indexOf("{")).trim();
+        if (trimmedLine.endsWith(OPEN_BRACE)) {
+            String configKey = trimmedLine.substring(0, trimmedLine.indexOf(OPEN_BRACE)).trim();
             if (!configKey.isEmpty()) {
                 configPath.add(configKey);
                 logger.debug("添加路径元素: {}, 更新后configPath={}", configKey, configPath);
@@ -1181,7 +1369,7 @@ public class TemplateVariableResolver {
         }
 
         // 如果当前行包含具体的配置项（key = value格式），添加配置键
-        if (trimmedLine.contains("=")) {
+        if (trimmedLine.contains(EQUALS_SIGN)) {
             String configKey = extractConfigKey(trimmedLine);
             if (configKey != null && !configKey.isEmpty()) {
                 if (targetPath.length() > 0) {
@@ -1204,7 +1392,7 @@ public class TemplateVariableResolver {
     private String extractConfigKey(String trimmedLine) {
         if (trimmedLine.contains("=")) {
             // key = value 格式
-            return trimmedLine.substring(0, trimmedLine.indexOf("=")).trim();
+            return trimmedLine.substring(0, trimmedLine.indexOf(EQUALS_SIGN)).trim();
         }
         return null;
     }
@@ -1346,12 +1534,12 @@ public class TemplateVariableResolver {
             // 6. 重置上下文
             this.currentTargetContext = null;
 
-            logger.info("模板分析解析完成，字段总数: {}", fieldVariables.size());
+            logger.info(LOG_MSG_TEMPLATE_ANALYSIS_COMPLETE, fieldVariables.size());
             return result;
 
         } catch (Exception e) {
-            logger.error("模板分析解析失败: {}", e.getMessage(), e);
-            throw new RuntimeException("模板分析解析失败: " + e.getMessage(), e);
+            handleTemplateException(ERROR_MSG_TEMPLATE_ANALYSIS_FAILED, e);
+            return null; // 这行不会执行，但编译器需要
         }
     }
 
@@ -1382,12 +1570,12 @@ public class TemplateVariableResolver {
             // 3. 使用智能上下文解析处理所有变量
             String result = resolveWithSmartContext(templateContent, rootNode);
 
-            logger.info("模板分析解析完成，字段总数: {}", fieldVariables.size());
+            logger.info(LOG_MSG_TEMPLATE_ANALYSIS_COMPLETE, fieldVariables.size());
             return result;
 
         } catch (Exception e) {
-            logger.error("模板分析解析失败: {}", e.getMessage(), e);
-            throw new RuntimeException("模板分析解析失败: " + e.getMessage(), e);
+            handleTemplateException(ERROR_MSG_TEMPLATE_ANALYSIS_FAILED, e);
+            return null; // 这行不会执行，但编译器需要
         }
     }
 

@@ -19,6 +19,7 @@ package org.apache.seatunnel.tools.x2seatunnel.core;
 
 import org.apache.seatunnel.tools.x2seatunnel.model.DataXConfig;
 import org.apache.seatunnel.tools.x2seatunnel.model.MappingResult;
+import org.apache.seatunnel.tools.x2seatunnel.model.MappingTracker;
 import org.apache.seatunnel.tools.x2seatunnel.parser.DataXConfigParser;
 import org.apache.seatunnel.tools.x2seatunnel.report.MarkdownReportGenerator;
 import org.apache.seatunnel.tools.x2seatunnel.template.ConfigDrivenTemplateEngine;
@@ -32,6 +33,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
+import java.util.List;
+import java.util.Map;
 
 /** 核心转换引擎 */
 public class ConversionEngine {
@@ -106,6 +109,7 @@ public class ConversionEngine {
 
             String targetContent;
             MappingResult mappingResult = null;
+            TemplateConversionResult templateResult = null;
 
             if (customTemplate != null && !customTemplate.trim().isEmpty()) {
                 // 使用自定义模板进行转换（极简方案）
@@ -119,8 +123,7 @@ public class ConversionEngine {
 
                 // 使用配置驱动引擎进行转换
                 logger.info("正在执行配置驱动的模板转换...");
-                TemplateConversionResult templateResult =
-                        configDrivenEngine.convertWithTemplate(dataXConfig, sourceContent);
+                templateResult = configDrivenEngine.convertWithTemplate(dataXConfig, sourceContent);
 
                 if (!templateResult.isSuccess()) {
                     throw new RuntimeException("配置驱动模板转换失败: " + templateResult.getErrorMessage());
@@ -128,17 +131,12 @@ public class ConversionEngine {
 
                 targetContent = templateResult.getConfigContent();
                 mappingResult = templateResult.getMappingResult();
-
-                logger.info(
-                        "配置驱动的模板转换完成，使用source模板: {}, sink模板: {}",
-                        templateResult.getSourceTemplate(),
-                        templateResult.getSinkTemplate());
             }
 
             // 生成报告（如果指定了报告文件）
             if (reportFile != null && !reportFile.trim().isEmpty()) {
                 logger.info("正在生成转换报告...");
-                if (mappingResult != null) {
+                if (mappingResult != null && templateResult != null) {
                     // 标准转换的详细报告
                     generateDetailedConversionReport(
                             mappingResult,
@@ -146,19 +144,22 @@ public class ConversionEngine {
                             targetFile,
                             sourceType,
                             customTemplate,
+                            templateResult.getSourceTemplate(),
+                            templateResult.getSinkTemplate(),
                             reportFile);
                 } else {
-                    // 自定义模板转换：使用配置驱动引擎生成报告数据
+                    // 自定义模板转换：分析自定义模板生成报告数据
                     logger.info("为自定义模板转换生成报告数据...");
-                    TemplateConversionResult reportTemplateResult =
-                            configDrivenEngine.convertWithTemplate(dataXConfig, sourceContent);
-                    MappingResult reportMappingResult = reportTemplateResult.getMappingResult();
+                    MappingResult customMappingResult =
+                            analyzeCustomTemplate(customTemplate, dataXConfig, sourceContent);
                     generateDetailedConversionReport(
-                            reportMappingResult,
+                            customMappingResult,
                             sourceFile,
                             targetFile,
                             sourceType,
                             customTemplate,
+                            customTemplate, // 自定义模板作为源模板
+                            customTemplate, // 自定义模板作为目标模板
                             reportFile);
                 }
                 logger.info("转换报告生成完成: {}", reportFile);
@@ -256,11 +257,68 @@ public class ConversionEngine {
             String targetFile,
             String sourceType,
             String customTemplate,
+            String sourceTemplate,
+            String sinkTemplate,
             String reportFile) {
         MarkdownReportGenerator reportGenerator = new MarkdownReportGenerator();
         String reportContent =
                 reportGenerator.generateReport(
-                        mappingResult, sourceFile, targetFile, sourceType, customTemplate);
+                        mappingResult,
+                        sourceFile,
+                        targetFile,
+                        sourceType,
+                        customTemplate,
+                        sourceTemplate,
+                        sinkTemplate);
         FileUtils.writeFile(reportFile, reportContent);
+    }
+
+    /** 分析自定义模板，生成映射结果 */
+    private MappingResult analyzeCustomTemplate(
+            String customTemplate, DataXConfig dataXConfig, String sourceContent) {
+        logger.info("开始分析自定义模板: {}", customTemplate);
+
+        try {
+            // 1. 加载自定义模板内容
+            String templateContent = loadCustomTemplate(customTemplate);
+
+            // 2. 创建专用的映射跟踪器和变量解析器
+            MappingTracker customTracker = new MappingTracker();
+            TemplateVariableResolver customResolver =
+                    new TemplateVariableResolver(templateMappingManager, customTracker);
+
+            // 3. 分析模板，提取字段映射关系
+            logger.info("分析自定义模板的字段映射关系...");
+            Map<String, List<String>> fieldMappings =
+                    customResolver.analyzeTemplateFieldMappings(templateContent, "custom");
+            logger.info("自定义模板包含 {} 个字段映射", fieldMappings.size());
+
+            // 4. 解析模板变量，触发映射跟踪
+            logger.info("解析自定义模板变量...");
+            customResolver.resolveWithTemplateAnalysis(templateContent, "custom", sourceContent);
+
+            // 5. 生成映射结果
+            MappingResult result = customTracker.generateMappingResult();
+            result.setSuccess(true);
+
+            logger.info(
+                    "自定义模板分析完成: 直接映射({})个, 转换映射({})个, 默认值({})个, 缺失({})个, 未映射({})个",
+                    result.getSuccessMappings().size(),
+                    result.getTransformMappings().size(),
+                    result.getDefaultValues().size(),
+                    result.getMissingRequiredFields().size(),
+                    result.getUnmappedFields().size());
+
+            return result;
+
+        } catch (Exception e) {
+            logger.error("自定义模板分析失败: {}", e.getMessage(), e);
+            // 返回一个基本的成功结果，避免报告生成失败
+            MappingResult fallbackResult = new MappingResult();
+            fallbackResult.setSuccess(true);
+            fallbackResult.addDefaultValueField(
+                    "template.type", "custom", "使用自定义模板: " + customTemplate);
+            return fallbackResult;
+        }
     }
 }

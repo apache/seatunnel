@@ -43,13 +43,6 @@
             <version>${revision}</version>
         </dependency>
 
-        <!-- 原生 Typesafe Config -->
-        <dependency>
-            <groupId>com.typesafe</groupId>
-            <artifactId>config</artifactId>
-            <version>1.4.2</version>
-        </dependency>
-
         <!-- 命令行参数解析 -->
         <dependency>
             <groupId>commons-cli</groupId>
@@ -120,11 +113,16 @@
 
     <build>
 
-        <!-- 设置构建时间戳 -->
+        <!-- 设置构建时间戳和资源过滤 -->
         <resources>
             <resource>
                 <filtering>true</filtering>
                 <directory>src/main/resources</directory>
+                <excludes>
+                    <!-- 排除测试生成的文件，但保留目录结构和示例文件 -->
+                    <exclude>examples/target*/*.*</exclude>
+                    <exclude>examples/report*/*.*</exclude>
+                </excludes>
             </resource>
         </resources>
         <plugins>

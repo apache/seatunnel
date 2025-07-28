@@ -27,11 +27,14 @@
           "parameter": {
             "defaultFS": "hdfs://localhost:9000",
             "path": "/data/users",
-            "fileName": "users_export",
+            "fileName": "users_export_${now}",
             "fileType": "text",
             "fieldDelimiter": "\t",
+            "rowDelimiter": "\n",
             "writeMode": "append",
-            "compress": "gzip"
+            "compress": "gzip",
+            "encoding": "UTF-8",
+            "batchSize": 50000
           }
         }
       }

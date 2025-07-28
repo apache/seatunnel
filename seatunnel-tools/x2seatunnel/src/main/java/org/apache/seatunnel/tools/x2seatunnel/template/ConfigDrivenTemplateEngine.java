@@ -117,8 +117,8 @@ public class ConfigDrivenTemplateEngine {
             result.setSuccess(true);
             result.setConfigContent(finalConfig);
             result.setMappingResult(mappingResult);
-            result.setSourceTemplate(sourceTemplate);
-            result.setSinkTemplate(sinkTemplate);
+            result.setSourceTemplate(sourceTemplateContent); // 传递模板内容而不是路径
+            result.setSinkTemplate(sinkTemplateContent); // 传递模板内容而不是路径
 
             logger.info("配置驱动的模板转换完成");
             logger.info("映射跟踪统计: {}", mappingTracker.getStatisticsText());
@@ -155,8 +155,13 @@ public class ConfigDrivenTemplateEngine {
 
     /** 生成env配置部分 */
     private String generateEnvConfig(DataXConfig dataXConfig, String sourceContent) {
+        // 根据任务类型动态选择环境模板（默认为batch）
+        String jobType = "batch"; // DataX默认为批处理
+        String envTemplatePath = mappingManager.getEnvTemplate(jobType);
+        logger.info("为任务类型 {} 选择环境模板: {}", jobType, envTemplatePath);
+
         // 加载环境配置模板
-        String envTemplate = loadTemplate("datax/env.conf");
+        String envTemplate = loadTemplate(envTemplatePath);
 
         // 使用模板变量解析器处理环境配置
         String resolvedEnvConfig =
