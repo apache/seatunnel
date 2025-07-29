@@ -26,10 +26,8 @@ protostuff-collectionschema-1.8.0.jar
 protostuff-core-1.8.0.jar
 protostuff-runtime-1.8.0.jar
 scala-library-2.12.15.jar
-scala-library-2.13.11.jar
 scala-compiler-2.13.11.jar
 scala-reflect-2.13.11.jar
-scala-xml_2.13-2.1.0.jar
 seatunnel-scala-compiler-2.3.12-SNAPSHOT-optional.jar
 seatunnel-jackson-2.3.12-SNAPSHOT-optional.jar
 seatunnel-guava-2.3.12-SNAPSHOT-optional.jar
@@ -126,3 +124,5 @@ netty-common-4.1.112.Final.jar
 netty-handler-4.1.112.Final.jar
 netty-resolver-4.1.112.Final.jar
 eventstream-1.0.1.jar
+java-diff-utils-4.12.jar
+jline-3.22.0.jar
