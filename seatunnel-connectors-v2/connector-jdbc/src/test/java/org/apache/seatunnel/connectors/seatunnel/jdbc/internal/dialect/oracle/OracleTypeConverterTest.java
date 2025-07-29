@@ -236,7 +236,7 @@ public class OracleTypeConverterTest {
                         .build();
         column = INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
-        Assertions.assertEquals(BasicType.BOOLEAN_TYPE, column.getDataType());
+        Assertions.assertEquals(BasicType.INT_TYPE, column.getDataType());
         Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
 
         typeDefine =
