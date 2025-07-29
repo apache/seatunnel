@@ -35,7 +35,7 @@ import org.apache.seatunnel.connectors.cdc.base.option.StopMode;
 import org.apache.seatunnel.connectors.cdc.base.source.BaseChangeStreamTableSourceFactory;
 import org.apache.seatunnel.connectors.cdc.base.utils.CatalogTableUtils;
 import org.apache.seatunnel.connectors.seatunnel.cdc.oracle.config.OracleSourceConfigFactory;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.JdbcCatalogOptions;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcCommonOptions;
 
 import com.google.auto.service.AutoService;
 
@@ -57,7 +57,7 @@ public class OracleIncrementalSourceFactory extends BaseChangeStreamTableSourceF
                 .exclusive(ConnectorCommonOptions.TABLE_NAMES, ConnectorCommonOptions.TABLE_PATTERN)
                 .bundled(JdbcSourceOptions.HOSTNAME, JdbcSourceOptions.PORT)
                 .optional(
-                        JdbcCatalogOptions.BASE_URL,
+                        JdbcCommonOptions.URL,
                         JdbcSourceOptions.DATABASE_NAMES,
                         OracleSourceOptions.SCHEMA_NAMES,
                         OracleSourceOptions.USE_SELECT_COUNT,

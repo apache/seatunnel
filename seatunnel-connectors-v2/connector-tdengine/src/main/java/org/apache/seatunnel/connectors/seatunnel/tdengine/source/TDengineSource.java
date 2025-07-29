@@ -36,6 +36,7 @@ import org.apache.seatunnel.connectors.seatunnel.tdengine.typemapper.TDengineTyp
 import org.apache.commons.lang3.ArrayUtils;
 
 import com.taosdata.jdbc.TSDBDriver;
+import lombok.Getter;
 import lombok.SneakyThrows;
 
 import java.sql.Connection;
@@ -59,8 +60,7 @@ import static org.apache.seatunnel.connectors.seatunnel.tdengine.utils.TDengineU
  */
 public class TDengineSource
         implements SeaTunnelSource<SeaTunnelRow, TDengineSourceSplit, TDengineSourceState> {
-
-    private final StableMetadata stableMetadata;
+    @Getter private final StableMetadata stableMetadata;
     private final TDengineSourceConfig tdengineSourceConfig;
     private final CatalogTable catalogTable;
 
@@ -137,12 +137,22 @@ public class TDengineSource
                 if (timestampFieldName == null) {
                     timestampFieldName = metaResultSet.getString(1);
                 }
+                if (config.getReadColumns() != null
+                        && !config.getReadColumns().isEmpty()
+                        && !config.getReadColumns().contains(metaResultSet.getString(1))) {
+                    continue;
+                }
                 fieldNames.add(metaResultSet.getString(1));
                 fieldTypes.add(TDengineTypeMapper.mapping(metaResultSet.getString(2)));
             }
 
             while (subTableNameResultSet.next()) {
                 String subTableName = subTableNameResultSet.getString(1);
+                if (config.getSubTables() != null
+                        && !config.getSubTables().isEmpty()
+                        && !config.getSubTables().contains(subTableName)) {
+                    continue;
+                }
                 subTableNames.add(subTableName);
             }
         }

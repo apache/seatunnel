@@ -40,7 +40,7 @@ import org.apache.seatunnel.connectors.cdc.debezium.row.DebeziumJsonDeserializeS
 import org.apache.seatunnel.connectors.cdc.debezium.row.SeaTunnelRowDebeziumDeserializeSchema;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.config.MySqlSourceConfigFactory;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source.offset.BinlogOffsetFactory;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.JdbcCatalogOptions;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcCommonOptions;
 
 import org.apache.kafka.connect.data.Struct;
 
@@ -83,8 +83,7 @@ public class MySqlIncrementalSource<T> extends IncrementalSource<T, JdbcSourceCo
         MySqlSourceConfigFactory configFactory = new MySqlSourceConfigFactory();
         configFactory.serverId(config.get(JdbcSourceOptions.SERVER_ID));
         configFactory.fromReadonlyConfig(readonlyConfig);
-        JdbcUrlUtil.UrlInfo urlInfo =
-                JdbcUrlUtil.getUrlInfo(config.get(JdbcCatalogOptions.BASE_URL));
+        JdbcUrlUtil.UrlInfo urlInfo = JdbcUrlUtil.getUrlInfo(config.get(JdbcCommonOptions.URL));
         configFactory.originUrl(urlInfo.getOrigin());
         configFactory.hostname(urlInfo.getHost());
         configFactory.port(urlInfo.getPort());

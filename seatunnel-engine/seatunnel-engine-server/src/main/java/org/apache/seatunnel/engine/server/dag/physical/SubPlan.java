@@ -98,7 +98,7 @@ public class SubPlan {
 
     private PassiveCompletableFuture<Void> reSchedulerPipelineFuture;
 
-    private Integer pipelineRestoreNum;
+    private AtomicInteger pipelineRestoreNum;
 
     private final Object restoreLock = new Object();
 
@@ -125,7 +125,7 @@ public class SubPlan {
         this.pipelineFuture = new CompletableFuture<>();
         this.physicalVertexList = physicalVertexList;
         this.coordinatorVertexList = coordinatorVertexList;
-        pipelineRestoreNum = 0;
+        pipelineRestoreNum = new AtomicInteger();
         pipelineMaxRestoreNum =
                 Integer.parseInt(
                         jobImmutableInformation
@@ -462,7 +462,7 @@ public class SubPlan {
     private boolean prepareRestorePipeline() {
         synchronized (restoreLock) {
             try {
-                pipelineRestoreNum++;
+                pipelineRestoreNum.getAndIncrement();
                 log.info(
                         String.format(
                                 "Restore time %s, pipeline %s",
@@ -590,7 +590,7 @@ public class SubPlan {
     }
 
     public int getPipelineRestoreNum() {
-        return pipelineRestoreNum;
+        return pipelineRestoreNum.get();
     }
 
     public void handleCheckpointError() {
