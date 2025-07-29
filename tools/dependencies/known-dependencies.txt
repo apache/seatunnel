@@ -73,6 +73,7 @@ jetty-util-9.4.56.v20240826.jar
 jetty-util-ajax-9.4.56.v20240826.jar
 javax.servlet-api-3.1.0.jar
 seatunnel-jetty9-9.4.56-2.3.12-SNAPSHOT-optional.jar
+jna-5.13.0.jar
 jna-5.15.0.jar
 jna-platform-5.15.0.jar
 oshi-core-6.6.5.jar

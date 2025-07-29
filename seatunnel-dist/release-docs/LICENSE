@@ -307,6 +307,7 @@ The text of each license is the standard Apache 2.0 license.
      (Apache-2.0) kerby-pkix (org.apache.kerby:kerby-pkix:1.0.1 - https://github.com/apache/directory-kerby)
      (Apache-2.0) kerby-util (org.apache.kerby:kerby-util:1.0.1 - https://github.com/apache/directory-kerby)
      (Apache-2.0) kerby-xdr (org.apache.kerby:kerby-xdr:1.0.1 - https://github.com/apache/directory-kerby)
+     (Apache-2.0) jna (net.java.dev.jna:jna:5.13.0 - https://github.com/java-native-access/jna)
      (Apache-2.0) jna (net.java.dev.jna:jna:5.15.0 - https://github.com/java-native-access/jna)
      (Apache-2.0) jna-platform (net.java.dev.jna:jna-platform:5.15.0 - https://github.com/java-native-access/jna)
      (Apache-2.0) token-provider (org.apache.kerby:token-provider:1.0.1 - https://github.com/apache/directory-kerby)
