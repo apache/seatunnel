@@ -102,11 +102,11 @@ public class ClickhouseCreateTableTest {
         Assertions.assertEquals(
                 createTableSql,
                 "CREATE TABLE IF NOT EXISTS  `test1`.`test2` (\n"
-                        + "    `id` Int64 ,`age` Int32 COMMENT 'test comment',\n"
-                        + "    `name` String ,\n"
-                        + "`score` Int32 COMMENT '''N''-N',\n"
-                        + "`gender` Int8 ,\n"
-                        + "`create_time` Int64 \n"
+                        + "    `id` Nullable(Int64) ,`age` Nullable(Int32) COMMENT 'test comment',\n"
+                        + "    `name` Nullable(String) ,\n"
+                        + "`score` Nullable(Int32) COMMENT '''N''-N',\n"
+                        + "`gender` Nullable(Int8) ,\n"
+                        + "`create_time` Nullable(Int64) \n"
                         + ") ENGINE = MergeTree()\n"
                         + "ORDER BY (`id`,`age`)\n"
                         + "PRIMARY KEY (`id`,`age`)\n"
