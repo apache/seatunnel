@@ -23,6 +23,7 @@ import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 
 import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.lifecycle.Startables;
@@ -131,7 +132,7 @@ public abstract class AbstractDorisIT extends TestSuiteBase implements TestResou
             }
             if (beList.isEmpty()) {
                 log.error("doris BE is empty, skip initialization");
-                throw new RuntimeException("doris BE is empty, skip initialization");
+                Assertions.fail("doris BE is empty, skip initialization");
             }
             if (beList.stream().anyMatch("127.0.0.1"::equals)) {
                 ResultSet resultSet = statement.executeQuery(SHOW_FE);
