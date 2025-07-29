@@ -27,8 +27,8 @@
     <name>SeaTunnel : Shade : Scala</name>
 
     <properties>
-        <scala.version>2.12.15</scala.version>
-        <scala.binary.version>2.12</scala.binary.version>
+        <scala.version>2.13.11</scala.version>
+        <scala.binary.version>2.13</scala.binary.version>
     </properties>
 
     <dependencies>
