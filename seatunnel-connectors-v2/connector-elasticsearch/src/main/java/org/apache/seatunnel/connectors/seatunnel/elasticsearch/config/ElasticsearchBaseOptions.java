@@ -93,7 +93,8 @@ public class ElasticsearchBaseOptions implements Serializable {
             Options.key("auth_type")
                     .enumType(AuthTypeEnum.class)
                     .defaultValue(AuthTypeEnum.BASIC)
-                    .withDescription("Authentication type. Supported values: basic, api_key");
+                    .withDescription(
+                            "Authentication type. Supported values: basic, api_key, api_key_encoded");
 
     // API Key authentication options
     public static final Option<String> API_KEY_ID =

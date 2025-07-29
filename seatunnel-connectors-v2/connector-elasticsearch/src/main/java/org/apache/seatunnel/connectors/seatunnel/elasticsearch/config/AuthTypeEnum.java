@@ -21,8 +21,11 @@ public enum AuthTypeEnum {
     /** HTTP Basic Authentication using username and password */
     BASIC("basic"),
 
-    /** Elasticsearch API Key authentication */
-    API_KEY("api_key");
+    /** Elasticsearch API Key authentication using api_key_id and api_key */
+    API_KEY("api_key"),
+
+    /** Elasticsearch API Key authentication using encoded api_key */
+    API_KEY_ENCODED("api_key_encoded");
 
     private final String value;
 

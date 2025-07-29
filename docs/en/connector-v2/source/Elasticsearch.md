@@ -65,7 +65,8 @@ The Elasticsearch connector supports multiple authentication methods to connect 
 
 Specifies the authentication method to use. Supported values:
 - `basic` (default): HTTP Basic Authentication using username and password
-- `api_key`: Elasticsearch API Key authentication
+- `api_key`: Elasticsearch API Key authentication using separate ID and key
+- `api_key_encoded`: Elasticsearch API Key authentication using encoded key
 
 If not specified, defaults to `basic` for backward compatibility.
 
@@ -130,7 +131,7 @@ source {
 source {
     Elasticsearch {
         hosts = ["https://localhost:9200"]
-        auth_type = "api_key"
+        auth_type = "api_key_encoded"
         auth.api_key_encoded = "eW91cl9hcGlfa2V5X2lkOnlvdXJfYXBpX2tleV9zZWNyZXQ="
         index = "my_index"
     }

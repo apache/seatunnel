@@ -372,7 +372,7 @@ public class ElasticsearchAuthIT extends TestSuiteBase implements TestResource {
         config.put(
                 "hosts",
                 Lists.newArrayList("https://" + elasticsearchContainer.getHttpHostAddress()));
-        config.put("auth_type", "api_key");
+        config.put("auth_type", "api_key_encoded");
         config.put("auth.api_key_encoded", encodedKey);
         config.put("tls_verify_certificate", false);
         config.put("tls_verify_hostname", false);
@@ -521,7 +521,9 @@ public class ElasticsearchAuthIT extends TestSuiteBase implements TestResource {
                 AuthenticationProviderFactory.createProvider(readonlyConfig);
         Assertions.assertNotNull(provider, "Authentication provider should be created");
         Assertions.assertEquals(
-                "api_key", provider.getAuthType(), "Provider should be api_key auth type");
+                "api_key_encoded",
+                provider.getAuthType(),
+                "Provider should be api_key_encoded auth type");
 
         // Test client creation and functionality
         try (EsRestClient client = EsRestClient.createInstance(readonlyConfig)) {
@@ -582,6 +584,58 @@ public class ElasticsearchAuthIT extends TestSuiteBase implements TestResource {
         }
     }
 
+    /** E2E test: API Key Encoded authentication source and sink */
+    @TestTemplate
+    public void testE2EApiKeyEncodedAuthSourceAndSink(TestContainer container) throws Exception {
+        log.info("=== E2E Test: API Key Encoded Authentication Source and Sink ===");
+
+        // Setup test data
+        setupAuthTestData();
+
+        // Create temporary config file with real encoded API key values
+        String configContent = createApiKeyEncodedConfigContent();
+        java.io.File resourcesDir = new java.io.File("src/test/resources/elasticsearch");
+        if (!resourcesDir.exists()) {
+            resourcesDir.mkdirs();
+        }
+
+        java.io.File tempConfigFile =
+                new java.io.File(resourcesDir, "elasticsearch_auth_apikey_encoded_temp.conf");
+        try (java.io.FileWriter writer = new java.io.FileWriter(tempConfigFile)) {
+            writer.write(configContent);
+        }
+
+        try {
+            // Execute SeaTunnel job with encoded API key auth
+            Container.ExecResult execResult =
+                    container.executeJob(
+                            "/elasticsearch/elasticsearch_auth_apikey_encoded_temp.conf");
+            Assertions.assertEquals(
+                    0, execResult.getExitCode(), "Job should complete successfully");
+
+            // Wait for index refresh
+            Thread.sleep(2000);
+
+            // Verify results
+            long targetCount =
+                    esRestClient
+                            .getIndexDocsCount("auth_test_apikey_encoded_target")
+                            .get(0)
+                            .getDocsCount();
+            log.info(
+                    "✓ API Key Encoded auth E2E test completed - {} documents processed",
+                    targetCount);
+            Assertions.assertTrue(
+                    targetCount > 0, "Should have processed documents with encoded API key auth");
+
+        } finally {
+            // Clean up temporary file
+            if (tempConfigFile.exists()) {
+                tempConfigFile.delete();
+            }
+        }
+    }
+
     /** Create API Key configuration content with real values */
     private String createApiKeyConfigContent() {
         return String.format(
@@ -628,6 +682,52 @@ public class ElasticsearchAuthIT extends TestSuiteBase implements TestResource {
                         + "  }\n"
                         + "}\n",
                 validApiKeyId, validApiKeySecret, validApiKeyId, validApiKeySecret);
+    }
+
+    /** Create API Key Encoded configuration content with real values */
+    private String createApiKeyEncodedConfigContent() {
+        return String.format(
+                "env {\n"
+                        + "  parallelism = 1\n"
+                        + "  job.mode = \"BATCH\"\n"
+                        + "}\n"
+                        + "\n"
+                        + "source {\n"
+                        + "  Elasticsearch {\n"
+                        + "    hosts = [\"https://elasticsearch:9200\"]\n"
+                        + "    auth_type = \"api_key_encoded\"\n"
+                        + "    auth.api_key_encoded = \"%s\"\n"
+                        + "    tls_verify_certificate = false\n"
+                        + "    tls_verify_hostname = false\n"
+                        + "\n"
+                        + "    index = \"auth_test_index\"\n"
+                        + "    query = {\"match_all\": {}}\n"
+                        + "    schema = {\n"
+                        + "      fields {\n"
+                        + "        id = int\n"
+                        + "        name = string\n"
+                        + "        category = string\n"
+                        + "        price = double\n"
+                        + "        timestamp = timestamp\n"
+                        + "      }\n"
+                        + "    }\n"
+                        + "  }\n"
+                        + "}\n"
+                        + "\n"
+                        + "sink {\n"
+                        + "  Elasticsearch {\n"
+                        + "    hosts = [\"https://elasticsearch:9200\"]\n"
+                        + "    auth_type = \"api_key_encoded\"\n"
+                        + "    auth.api_key_encoded = \"%s\"\n"
+                        + "    tls_verify_certificate = false\n"
+                        + "    tls_verify_hostname = false\n"
+                        + "\n"
+                        + "    index = \"auth_test_apikey_encoded_target\"\n"
+                        + "    schema_save_mode = \"CREATE_SCHEMA_WHEN_NOT_EXIST\"\n"
+                        + "    data_save_mode = \"APPEND_DATA\"\n"
+                        + "  }\n"
+                        + "}\n",
+                validEncodedApiKey, validEncodedApiKey);
     }
 
     /** Setup test data for authentication tests */

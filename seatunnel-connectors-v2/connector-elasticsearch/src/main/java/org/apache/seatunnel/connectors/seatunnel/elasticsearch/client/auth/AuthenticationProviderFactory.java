@@ -41,6 +41,7 @@ public class AuthenticationProviderFactory {
         // Register built-in authentication providers
         PROVIDER_REGISTRY.put(AuthTypeEnum.BASIC, BasicAuthProvider.class);
         PROVIDER_REGISTRY.put(AuthTypeEnum.API_KEY, ApiKeyAuthProvider.class);
+        PROVIDER_REGISTRY.put(AuthTypeEnum.API_KEY_ENCODED, ApiKeyEncodedAuthProvider.class);
     }
 
     /**

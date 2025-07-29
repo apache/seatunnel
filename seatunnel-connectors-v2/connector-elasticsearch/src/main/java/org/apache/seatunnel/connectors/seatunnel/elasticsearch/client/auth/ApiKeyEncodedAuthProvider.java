@@ -29,31 +29,33 @@ import java.util.Base64;
 import java.util.Optional;
 
 @Slf4j
-public class ApiKeyAuthProvider extends AbstractAuthenticationProvider {
+public class ApiKeyEncodedAuthProvider extends AbstractAuthenticationProvider {
 
-    private static final String AUTH_TYPE = "api_key";
+    private static final String AUTH_TYPE = "api_key_encoded";
     private static final String API_KEY_HEADER = "Authorization";
     private static final String API_KEY_PREFIX = "ApiKey ";
 
     @Override
     protected void configureAuthentication(
             HttpAsyncClientBuilder httpClientBuilder, ReadonlyConfig config) {
-        String encodedApiKey = getEncodedApiKey(config);
+        Optional<String> apiKeyEncoded =
+                config.getOptional(ElasticsearchBaseOptions.API_KEY_ENCODED);
 
-        if (encodedApiKey != null) {
-            log.debug("Configuring API key authentication");
+        if (apiKeyEncoded.isPresent()) {
+            log.debug("Configuring encoded API key authentication");
 
             // Add API key header to all requests
             httpClientBuilder.addInterceptorFirst(
                     (org.apache.http.HttpRequestInterceptor)
                             (request, context) -> {
-                                request.setHeader(API_KEY_HEADER, API_KEY_PREFIX + encodedApiKey);
+                                request.setHeader(
+                                        API_KEY_HEADER, API_KEY_PREFIX + apiKeyEncoded.get());
                             });
 
-            log.info("API key authentication configured successfully");
+            log.info("Encoded API key authentication configured successfully");
         } else {
             log.debug(
-                    "No API key credentials provided, skipping API key authentication configuration");
+                    "No encoded API key provided, skipping encoded API key authentication configuration");
         }
     }
 
@@ -64,46 +66,34 @@ public class ApiKeyAuthProvider extends AbstractAuthenticationProvider {
 
     @Override
     public void validate(ReadonlyConfig config) {
-        Optional<String> apiKeyId = config.getOptional(ElasticsearchBaseOptions.API_KEY_ID);
-        Optional<String> apiKey = config.getOptional(ElasticsearchBaseOptions.API_KEY);
         Optional<String> apiKeyEncoded =
                 config.getOptional(ElasticsearchBaseOptions.API_KEY_ENCODED);
-
-        if (!apiKeyId.isPresent() || !apiKey.isPresent()) {
+        if (!apiKeyEncoded.isPresent()) {
             throw new IllegalArgumentException(
-                    "API key authentication with auth_type='api_key' requires both api_key_id and api_key");
+                    "API key authentication with auth_type='api_key_encoded' requires api_key_encoded");
         }
-        validateApiKeyIdAndSecret(apiKeyId.get(), apiKey.get());
+        validateEncodedApiKey(apiKeyEncoded.get());
 
-        log.debug("API key authentication configuration validated");
+        log.debug("Encoded API key authentication configuration validated");
     }
 
-    /**
-     * Get the encoded API key from configuration.
-     *
-     * @param config the configuration
-     * @return the Base64 encoded API key, or null if not configured
-     */
-    private String getEncodedApiKey(ReadonlyConfig config) {
-        Optional<String> apiKeyId = config.getOptional(ElasticsearchBaseOptions.API_KEY_ID);
-        Optional<String> apiKey = config.getOptional(ElasticsearchBaseOptions.API_KEY);
-
-        if (apiKeyId.isPresent() && apiKey.isPresent()) {
-            String credentials = apiKeyId.get() + ":" + apiKey.get();
-            return Base64.getEncoder().encodeToString(credentials.getBytes(StandardCharsets.UTF_8));
+    /** Validate encoded API key. */
+    private void validateEncodedApiKey(String apiKeyEncoded) {
+        if (apiKeyEncoded == null || apiKeyEncoded.trim().isEmpty()) {
+            throw new IllegalArgumentException("Encoded API key cannot be null or empty");
         }
 
-        return null;
-    }
+        try {
+            byte[] decoded = Base64.getDecoder().decode(apiKeyEncoded);
+            String decodedStr = new String(decoded, StandardCharsets.UTF_8);
 
-    /** Validate API key ID and secret. */
-    private void validateApiKeyIdAndSecret(String apiKeyId, String apiKey) {
-        if (apiKeyId == null || apiKeyId.trim().isEmpty()) {
-            throw new IllegalArgumentException("API key ID cannot be null or empty");
-        }
-
-        if (apiKey == null || apiKey.trim().isEmpty()) {
-            throw new IllegalArgumentException("API key cannot be null or empty");
+            if (!decodedStr.contains(":")) {
+                throw new IllegalArgumentException(
+                        "Encoded API key must be Base64 encoded 'id:key' format");
+            }
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException(
+                    "Invalid encoded API key format: " + e.getMessage(), e);
         }
     }
 }
