@@ -36,7 +36,8 @@ public class ClickhouseCatalogUtil extends CatalogUtil {
         if (column.getSinkType() != null) {
             columnType = column.getSinkType();
         } else {
-            String reconvertedColumnType = ClickhouseTypeConverter.INSTANCE.reconvert(column).getColumnType();
+            String reconvertedColumnType =
+                    ClickhouseTypeConverter.INSTANCE.reconvert(column).getColumnType();
             columnType =
                     column.isNullable()
                             ? "Nullable(" + reconvertedColumnType + ")"
