@@ -29,7 +29,7 @@ public class PaimonBucketAssignerFactory implements Serializable {
 
     private static final long serialVersionUID = 1L;
     private final ConcurrentHashMap<TablePath, Map<Integer, PaimonBucketAssigner>>
-            BUCKET_ASSIGNER_MAP = new ConcurrentHashMap<>();
+            bucketAssignerMap = new ConcurrentHashMap<>();
 
     public PaimonBucketAssignerFactory() {}
 
