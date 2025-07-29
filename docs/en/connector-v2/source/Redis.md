@@ -142,7 +142,7 @@ schema {
 
 ### key_field_name [string]
 
-Specifies the field name to store the Redis key in the output record  when `read_key_enabled = true`.
+Specifies the field name to store the Redis key in the output record  when `read_key_enabled = true` or `data_type = hash`.
 
 If not set, the default field name `key` will be used.
 
