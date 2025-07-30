@@ -126,6 +126,12 @@ public class KafkaSourceConfig implements Serializable {
         this.consumerGroup = readonlyConfig.get(CONSUMER_GROUP);
         this.readerCacheQueueSize = readonlyConfig.get(READER_CACHE_QUEUE_SIZE);
         this.ignoreNoLeaderPartition = readonlyConfig.get(IGNORE_NO_LEADER_PARTITION);
+
+        if (this.ignoreNoLeaderPartition && this.discoveryIntervalMillis == -1L) {
+            throw new IllegalArgumentException(
+                    "partition-discovery.interval-millis must be configured when ignore_no_leader_partition is set to true. "
+                            + "Please provide a positive value for partition-discovery.interval-millis.");
+        }
     }
 
     private Properties createKafkaProperties(ReadonlyConfig readonlyConfig) {

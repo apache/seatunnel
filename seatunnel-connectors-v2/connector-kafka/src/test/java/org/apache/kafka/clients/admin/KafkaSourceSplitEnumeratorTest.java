@@ -202,6 +202,7 @@ class KafkaSourceSplitEnumeratorTest {
         assignedSplit.clear();
 
         configMap.put("ignore_no_leader_partition", "true");
+        configMap.put("partition-discovery.interval-millis", 5000L);
         sourceConfig = new KafkaSourceConfig(ReadonlyConfig.fromMap(configMap));
         enumerator =
                 new KafkaSourceSplitEnumerator(
