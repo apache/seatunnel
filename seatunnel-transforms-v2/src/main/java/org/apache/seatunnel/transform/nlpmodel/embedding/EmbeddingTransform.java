@@ -52,7 +52,7 @@ public class EmbeddingTransform extends MultipleFieldOutputTransform {
     private final ReadonlyConfig config;
     private List<String> fieldNames;
     private List<Integer> fieldOriginalIndexes;
-    private Model model;
+    private transient Model model;
     private Integer dimension;
 
     public EmbeddingTransform(
@@ -213,6 +213,7 @@ public class EmbeddingTransform extends MultipleFieldOutputTransform {
 
     @Override
     protected Column[] getOutputColumns() {
+        tryOpen();
         Column[] columns = new Column[fieldNames.size()];
         for (int i = 0; i < fieldNames.size(); i++) {
             columns[i] =
