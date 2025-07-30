@@ -448,6 +448,7 @@ public abstract class RedisTestCaseTemplateIT extends TestSuiteBase implements T
 
         for (int i = 0; i < 100; i++) {
             Map<String, String> map = jedis.hgetAll("key-test-check:" + hashKeyPrefix + i);
+            Assertions.assertEquals(2, map.size());
         }
 
         for (int i = 0; i < 100; i++) {
