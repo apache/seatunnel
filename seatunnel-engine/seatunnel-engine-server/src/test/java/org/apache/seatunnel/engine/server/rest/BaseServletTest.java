@@ -85,7 +85,6 @@ class BaseServletTest extends AbstractSeaTunnelServerTest {
             Assertions.assertEquals(200, conn.getResponseCode());
 
             in = new BufferedReader(new InputStreamReader(conn.getInputStream()));
-            String response = in.lines().collect(Collectors.joining("\r\n"));
             Assertions.assertTrue(
                     conn.getHeaderFields()
                             .get("Content-Type")
@@ -101,12 +100,12 @@ class BaseServletTest extends AbstractSeaTunnelServerTest {
         }
     }
 
-    private void startJob(Long jobid, String path) {
-        LogicalDag testLogicalDag = TestUtils.createTestLogicalPlan(path, jobid.toString(), jobid);
+    private void startJob(Long jobId, String path) {
+        LogicalDag testLogicalDag = TestUtils.createTestLogicalPlan(path, jobId.toString(), jobId);
 
         JobImmutableInformation jobImmutableInformation =
                 new JobImmutableInformation(
-                        jobid,
+                        jobId,
                         "Test",
                         nodeEngine.getSerializationService(),
                         testLogicalDag,
@@ -117,7 +116,7 @@ class BaseServletTest extends AbstractSeaTunnelServerTest {
 
         PassiveCompletableFuture<Void> voidPassiveCompletableFuture =
                 server.getCoordinatorService()
-                        .submitJob(jobid, data, jobImmutableInformation.isStartWithSavePoint());
+                        .submitJob(jobId, data, jobImmutableInformation.isStartWithSavePoint());
         voidPassiveCompletableFuture.join();
     }
 }
