@@ -62,7 +62,7 @@ public class OpenAIModel extends AbstractModel {
 
     @Override
     public Integer dimension() throws IOException {
-        return vectorGeneration(new Object[] {DIMENSION_EXAMPLE}).size();
+        return vectorGeneration(new Object[] {DIMENSION_EXAMPLE}).get(0).size();
     }
 
     private List<List<Float>> vectorGeneration(Object[] fields) throws IOException {
