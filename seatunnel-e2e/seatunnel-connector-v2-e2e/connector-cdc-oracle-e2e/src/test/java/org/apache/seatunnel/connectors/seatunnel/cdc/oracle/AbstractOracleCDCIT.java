@@ -197,14 +197,6 @@ public class AbstractOracleCDCIT extends TestSuiteBase {
             DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSSSSS");
             return ((LocalDateTime) value).format(formatter);
         }
-        if (columnName.equalsIgnoreCase("VAL_NUMBER_1") && value instanceof BigDecimal) {
-            BigDecimal bdValue = (BigDecimal) value;
-            if (bdValue.compareTo(BigDecimal.ONE) == 0) {
-                return "true";
-            } else if (bdValue.compareTo(BigDecimal.ZERO) == 0) {
-                return "false";
-            }
-        }
         if (value instanceof Double || value instanceof Float || value instanceof BigDecimal) {
             BigDecimal bd = new BigDecimal(value.toString()).stripTrailingZeros();
             return bd.toPlainString();
