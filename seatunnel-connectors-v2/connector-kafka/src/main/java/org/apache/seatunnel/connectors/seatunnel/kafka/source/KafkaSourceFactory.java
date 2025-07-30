@@ -65,6 +65,10 @@ public class KafkaSourceFactory implements TableSourceFactory {
                         StartMode.TIMESTAMP,
                         KafkaSourceOptions.START_MODE_TIMESTAMP)
                 .conditional(
+                        KafkaSourceOptions.IGNORE_NO_LEADER_PARTITION,
+                        Boolean.TRUE,
+                        KafkaSourceOptions.KEY_PARTITION_DISCOVERY_INTERVAL_MILLIS)
+                .conditional(
                         KafkaSourceOptions.START_MODE,
                         StartMode.SPECIFIC_OFFSETS,
                         KafkaSourceOptions.START_MODE_OFFSETS)

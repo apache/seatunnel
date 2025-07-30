@@ -102,33 +102,4 @@ public class KafkaSourceConfigTest {
 
         Assertions.assertNotNull(deserializationSchema);
     }
-
-    @Test
-    void testIgnoreNoLeaderPartitionValidation() {
-        Map<String, Object> configMap = new HashMap<>();
-        configMap.put("bootstrap.servers", "localhost:9092");
-        configMap.put("group.id", "test");
-        configMap.put("topic", "test");
-
-        configMap.put("ignore_no_leader_partition", false);
-        Assertions.assertDoesNotThrow(
-                () -> new KafkaSourceConfig(ReadonlyConfig.fromMap(configMap)));
-
-        configMap.put("ignore_no_leader_partition", true);
-        IllegalArgumentException exception =
-                Assertions.assertThrows(
-                        IllegalArgumentException.class,
-                        () -> new KafkaSourceConfig(ReadonlyConfig.fromMap(configMap)));
-
-        Assertions.assertTrue(
-                exception
-                        .getMessage()
-                        .contains("partition-discovery.interval-millis must be configured"));
-        Assertions.assertTrue(
-                exception.getMessage().contains("ignore_no_leader_partition is set to true"));
-
-        configMap.put("partition-discovery.interval-millis", 5000L);
-        Assertions.assertDoesNotThrow(
-                () -> new KafkaSourceConfig(ReadonlyConfig.fromMap(configMap)));
-    }
 }
