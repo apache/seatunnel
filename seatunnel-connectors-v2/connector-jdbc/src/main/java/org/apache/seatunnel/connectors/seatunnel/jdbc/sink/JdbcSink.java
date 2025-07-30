@@ -40,8 +40,8 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.iris.IrisCatalog;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.iris.savemode.IrisSaveModeHandler;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.utils.CatalogUtils;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.dialectenum.FieldIdeEnum;
@@ -178,7 +178,7 @@ public class JdbcSink
 
     private Optional<TableSchema> getDatabaseTableSchema() {
         Optional<Catalog> catalogOptional = getCatalog();
-        FieldIdeEnum fieldIdeEnumEnum = config.get(JdbcOptions.FIELD_IDE);
+        FieldIdeEnum fieldIdeEnumEnum = config.get(JdbcSinkOptions.FIELD_IDE);
         String fieldIde =
                 fieldIdeEnumEnum == null
                         ? FieldIdeEnum.ORIGINAL.getValue()
@@ -243,7 +243,7 @@ public class JdbcSink
             if (catalogOptional.isPresent()) {
                 try {
                     Catalog catalog = catalogOptional.get();
-                    FieldIdeEnum fieldIdeEnumEnum = config.get(JdbcOptions.FIELD_IDE);
+                    FieldIdeEnum fieldIdeEnumEnum = config.get(JdbcSinkOptions.FIELD_IDE);
                     String fieldIde =
                             fieldIdeEnumEnum == null
                                     ? FieldIdeEnum.ORIGINAL.getValue()
@@ -263,7 +263,7 @@ public class JdbcSink
                                         catalog,
                                         tablePath,
                                         catalogTable,
-                                        config.get(JdbcOptions.CUSTOM_SQL),
+                                        config.get(JdbcSinkOptions.CUSTOM_SQL),
                                         jdbcSinkConfig.isCreateIndex()));
                     }
                     return Optional.of(
@@ -273,7 +273,7 @@ public class JdbcSink
                                     catalog,
                                     tablePath,
                                     catalogTable,
-                                    config.get(JdbcOptions.CUSTOM_SQL),
+                                    config.get(JdbcSinkOptions.CUSTOM_SQL),
                                     jdbcSinkConfig.isCreateIndex()));
                 } catch (Exception e) {
                     throw new JdbcConnectorException(HANDLE_SAVE_MODE_FAILED, e);

@@ -99,7 +99,7 @@ source {
     username = "st_user"
     password = "seatunnel"
     table-names = ["mysql_cdc.mysql_cdc_e2e_source_table"]
-    base-url = "jdbc:mysql://mysql_cdc_e2e:3306/mysql_cdc"
+    url = "jdbc:mysql://mysql_cdc_e2e:3306/mysql_cdc"
   }
 }
 
@@ -193,7 +193,7 @@ env {
 
 source {
   Mysql-CDC {
-    base-url = "jdbc:mysql://127.0.0.1:3306/seatunnel"
+    url = "jdbc:mysql://127.0.0.1:3306/seatunnel"
     username = "root"
     password = "******"
     

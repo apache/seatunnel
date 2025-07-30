@@ -35,10 +35,9 @@ import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.AbstractJdbcCatalog;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.JdbcCatalogOptions;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.utils.CatalogUtils;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcCommonOptions;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConnectionConfig;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSourceTableConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.JdbcConnectionProvider;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
@@ -443,17 +442,18 @@ public class JdbcCatalogUtils {
 
     private static ReadonlyConfig extractCatalogConfig(JdbcConnectionConfig config) {
         Map<String, Object> catalogConfig = new HashMap<>();
-        catalogConfig.put(JdbcCatalogOptions.BASE_URL.key(), config.getUrl());
+        catalogConfig.put(JdbcCommonOptions.URL.key(), config.getUrl());
         config.getUsername()
-                .ifPresent(val -> catalogConfig.put(JdbcCatalogOptions.USERNAME.key(), val));
+                .ifPresent(val -> catalogConfig.put(JdbcCommonOptions.USERNAME.key(), val));
         config.getPassword()
-                .ifPresent(val -> catalogConfig.put(JdbcCatalogOptions.PASSWORD.key(), val));
+                .ifPresent(val -> catalogConfig.put(JdbcCommonOptions.PASSWORD.key(), val));
         Optional.ofNullable(config.getCompatibleMode())
-                .ifPresent(val -> catalogConfig.put(JdbcCatalogOptions.COMPATIBLE_MODE.key(), val));
+                .ifPresent(val -> catalogConfig.put(JdbcCommonOptions.COMPATIBLE_MODE.key(), val));
         catalogConfig.put(
-                JdbcOptions.DECIMAL_TYPE_NARROWING.key(), config.isDecimalTypeNarrowing());
-        catalogConfig.put(JdbcOptions.INT_TYPE_NARROWING.key(), config.isIntTypeNarrowing());
-        catalogConfig.put(JdbcOptions.HANDLE_BLOB_AS_STRING.key(), config.isHandleBlobAsString());
+                JdbcCommonOptions.DECIMAL_TYPE_NARROWING.key(), config.isDecimalTypeNarrowing());
+        catalogConfig.put(JdbcCommonOptions.INT_TYPE_NARROWING.key(), config.isIntTypeNarrowing());
+        catalogConfig.put(
+                JdbcCommonOptions.HANDLE_BLOB_AS_STRING.key(), config.isHandleBlobAsString());
         return ReadonlyConfig.fromMap(catalogConfig);
     }
 

@@ -15,7 +15,7 @@ import ChangeLog from '../changelog/connector-tdengine.md';
 
 ## 选项
 
-|   名称   |  类型  | 是否必传 | 默认值 |
+|   名称   | 类型     | 是否必传 | 默认值 |
 |----------|--------|----------|---------------|
 | url      | string | 是      | -             |
 | username | string | 是      | -             |
@@ -23,6 +23,7 @@ import ChangeLog from '../changelog/connector-tdengine.md';
 | database | string | 是      |               |
 | stable   | string | 是      | -             |
 | timezone | string | 否       | UTC           |
+| write_columns | list   | 否       | -             |
 
 ### url [string]
 
@@ -54,6 +55,10 @@ TDengine的超级表
 
 TDengine服务器的时间，对ts字段很重要
 
+### write_columns [list]
+TDengine的写入列，默认为所有列。无需包含 TAGS 字段，插件会自动处理 TAGS 字段的写入。
+
+
 ## 示例
 
 ### sink
@@ -67,9 +72,11 @@ sink {
           database : "power2"
           stable : "meters2"
           timezone: UTC
+          write_columns: ["ts", "voltage", "current", "power"]
         }
 }
 ```
+
 
 ## 变更日志
 

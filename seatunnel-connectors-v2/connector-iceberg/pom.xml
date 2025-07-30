@@ -34,7 +34,7 @@
         <parquet-avro.version>1.13.1</parquet-avro.version>
         <avro.version>1.11.3</avro.version>
         <hive.version>2.3.9</hive.version>
-        <connector.name>connector-iceberg</connector.name>
+        <connector.name>connector.iceberg</connector.name>
         <software.amazon.awssdk.version>2.31.30</software.amazon.awssdk.version>
     </properties>
 

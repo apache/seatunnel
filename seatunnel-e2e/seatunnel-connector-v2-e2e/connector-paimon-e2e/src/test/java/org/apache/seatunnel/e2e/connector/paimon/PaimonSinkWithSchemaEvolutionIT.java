@@ -170,8 +170,6 @@ public class PaimonSinkWithSchemaEvolutionIT extends AbstractPaimonIT implements
         await().atMost(30, TimeUnit.SECONDS)
                 .untilAsserted(
                         () -> {
-                            // copy paimon to local
-                            container.executeExtraCommands(containerExtendedFactory);
                             Assertions.assertIterableEquals(
                                     queryMysql(String.format(QUERY, MYSQL_DATABASE, SOURCE_TABLE)),
                                     queryPaimon(null, 0, Integer.MAX_VALUE));
@@ -335,8 +333,6 @@ public class PaimonSinkWithSchemaEvolutionIT extends AbstractPaimonIT implements
         await().atMost(30, TimeUnit.SECONDS)
                 .untilAsserted(
                         () -> {
-                            // copy paimon to local
-                            container.executeExtraCommands(containerExtendedFactory);
                             // 1. Vertify the schema
                             vertifySchema();
 

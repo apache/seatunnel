@@ -32,7 +32,6 @@ import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.common.utils.RetryUtils;
 import org.apache.seatunnel.common.utils.SeaTunnelException;
-import org.apache.seatunnel.engine.checkpoint.storage.exception.CheckpointStorageException;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.EngineConfig;
 import org.apache.seatunnel.engine.common.config.JobConfig;
@@ -317,7 +316,7 @@ public class JobMaster {
         }
     }
 
-    public void initCheckPointManager(boolean restart) throws CheckpointStorageException {
+    public void initCheckPointManager(boolean restart) {
         this.checkpointManager =
                 new CheckpointManager(
                         jobImmutableInformation.getJobId(),
@@ -326,6 +325,7 @@ public class JobMaster {
                         this,
                         checkpointPlanMap,
                         jobCheckpointConfig,
+                        seaTunnelServer.getCheckpointService().getCheckpointStorage(),
                         executorService,
                         runningJobStateIMap);
     }

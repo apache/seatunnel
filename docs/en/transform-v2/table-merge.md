@@ -32,7 +32,7 @@ source {
         username = "root"
         password = "123456"
         table-names = ["source.user_1", "source.user_2", "source.shop"]
-        base-url = "jdbc:mysql://localhost:3306/source"
+        url = "jdbc:mysql://localhost:3306/source"
     }
 }
 

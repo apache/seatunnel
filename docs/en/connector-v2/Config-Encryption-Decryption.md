@@ -57,7 +57,7 @@ Next, I'll show how to quickly use SeaTunnel's own `base64` encryption:
        password = "seatunnel_password"
        database-name = "inventory_vwyw0n"
        table-name = "products"
-       base-url = "jdbc:mysql://localhost:56725"
+       url = "jdbc:mysql://localhost:56725"
        f1 = "seatunnel"
        # custom shade options
        config1.f1 = "seatunnel"
@@ -100,7 +100,7 @@ Next, I'll show how to quickly use SeaTunnel's own `base64` encryption:
        },
        "source" : [
            {
-               "base-url" : "jdbc:mysql://localhost:56725",
+               "url" : "jdbc:mysql://localhost:56725",
                "hostname" : "127.0.0.1",
                "password" : "c2VhdHVubmVsX3Bhc3N3b3Jk",
                "port" : 56725,

@@ -87,4 +87,31 @@ public class ElasticsearchBaseOptions implements Serializable {
                     .stringType()
                     .noDefaultValue()
                     .withDescription("The key password for the trust store specified");
+
+    // Authentication configuration options
+    public static final Option<AuthTypeEnum> AUTH_TYPE =
+            Options.key("auth_type")
+                    .enumType(AuthTypeEnum.class)
+                    .defaultValue(AuthTypeEnum.BASIC)
+                    .withDescription(
+                            "Authentication type. Supported values: basic, api_key, api_key_encoded");
+
+    // API Key authentication options
+    public static final Option<String> API_KEY_ID =
+            Options.key("auth.api_key_id")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("Elasticsearch API key ID for authentication");
+
+    public static final Option<String> API_KEY =
+            Options.key("auth.api_key")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("Elasticsearch API key secret for authentication");
+
+    public static final Option<String> API_KEY_ENCODED =
+            Options.key("auth.api_key_encoded")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("Base64 encoded Elasticsearch API key (id:key format)");
 }
