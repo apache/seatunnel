@@ -68,7 +68,6 @@ public class TextReadStrategy extends AbstractReadStrategy {
 
     /** Custom stream divider for splitting text streams by specified delimiters */
     public static class StreamLineSplitter {
-        private final String delimiter;
         private final char[] delimiterChars;
         private final StringBuilder lineBuffer;
         private int delimiterIndex;
@@ -79,7 +78,6 @@ public class TextReadStrategy extends AbstractReadStrategy {
 
         public StreamLineSplitter(
                 String delimiter, long skipHeaderNumber, LineProcessor lineProcessor) {
-            this.delimiter = delimiter;
             this.delimiterChars = delimiter.toCharArray();
             this.lineBuffer = new StringBuilder();
             this.delimiterIndex = 0;
@@ -91,7 +89,7 @@ public class TextReadStrategy extends AbstractReadStrategy {
         }
 
         private boolean isDefaultLineDelimiter(String delimiter) {
-            return "\n".equals(delimiter) || "\r\n".equals(delimiter);
+            return "\n".equals(delimiter) || "\r".equals(delimiter) || "\r\n".equals(delimiter);
         }
 
         public void processStream(BufferedReader reader) throws IOException {
