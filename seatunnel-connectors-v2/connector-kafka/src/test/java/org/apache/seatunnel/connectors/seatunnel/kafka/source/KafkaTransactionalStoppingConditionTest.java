@@ -17,7 +17,9 @@
 
 package org.apache.seatunnel.connectors.seatunnel.kafka.source;
 
+import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.seatunnel.api.source.SourceReader;
+import org.apache.seatunnel.connectors.seatunnel.common.source.reader.RecordsWithSplitIds;
 import org.apache.seatunnel.connectors.seatunnel.kafka.config.StartMode;
 
 import org.apache.kafka.clients.consumer.ConsumerConfig;
@@ -33,7 +35,9 @@ import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
+import java.io.IOException;
 import java.time.Duration;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -41,7 +45,10 @@ import java.util.Properties;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 /** Test class demonstrating the fix for transactional message stopping condition. */
@@ -79,6 +86,43 @@ public class KafkaTransactionalStoppingConditionTest {
         metadata.setStartMode(StartMode.EARLIEST);
         mapMetadata.put(TOPIC, metadata);
     }
+
+
+    @Test
+    @DisplayName("Test KafkaPartitionSplitReader with Mockito mocked KafkaConsumer")
+    void testFetchWithMockitoConsumer() throws IOException {
+
+        KafkaConsumer<byte[], byte[]> mockConsumer = mock(KafkaConsumer.class);
+        ConsumerRecords<byte[], byte[]> records = new ConsumerRecords<>(
+                Collections.singletonMap(TOPIC_PARTITION, Arrays.asList(
+                        new ConsumerRecord<>(TOPIC, PARTITION, 0L, "key1".getBytes(), "value1".getBytes()),
+                        new ConsumerRecord<>(TOPIC, PARTITION, 1L, "key2".getBytes(), "value2".getBytes())
+                ))
+        );
+
+        when(mockConsumer.poll(any(Duration.class))).thenReturn(records);
+        when(mockConsumer.assignment()).thenReturn(Collections.singleton(TOPIC_PARTITION));
+        when(mockConsumer.position(TOPIC_PARTITION)).thenReturn(2L);
+        mockConsumer.seek(TOPIC_PARTITION, 0L);
+
+        long stoppingOffset = 15L;
+
+        mockConsumer.seek(TOPIC_PARTITION, 16L);
+        KafkaPartitionSplitReader reader = new KafkaPartitionSplitReader(kafkaSourceConfig, mockConsumer);
+        RecordsWithSplitIds<ConsumerRecord<byte[], byte[]>> result = reader.fetch();
+        assertNotNull(result);
+
+        // Find the last visible record offset (what old approach used)
+        long lastRecordOffset = -1;
+        for (ConsumerRecord<byte[], byte[]> record : records) {
+            lastRecordOffset = Math.max(lastRecordOffset, record.offset());
+        }
+
+        assertEquals(14L, lastRecordOffset, "Last visible record should be at offset 14");
+
+
+    }
+
 
     /**
      * Test the core issue: control messages can cause infinite blocking when using last record

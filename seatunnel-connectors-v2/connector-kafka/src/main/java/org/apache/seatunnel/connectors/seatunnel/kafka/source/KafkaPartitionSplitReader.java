@@ -85,6 +85,16 @@ public class KafkaPartitionSplitReader
         this.pollTimeout = kafkaSourceConfig.getPollTimeout();
     }
 
+    public KafkaPartitionSplitReader(
+            KafkaSourceConfig kafkaSourceConfig, KafkaConsumer<byte[], byte[]> consumer) {
+        this.kafkaSourceConfig = kafkaSourceConfig;
+        this.consumer = consumer;
+        this.stoppingOffsets = new HashMap<>();
+        this.groupId =
+                kafkaSourceConfig.getProperties().getProperty(ConsumerConfig.GROUP_ID_CONFIG);
+        this.pollTimeout = kafkaSourceConfig.getPollTimeout();
+    }
+
     @Override
     public RecordsWithSplitIds<ConsumerRecord<byte[], byte[]>> fetch() throws IOException {
         ConsumerRecords<byte[], byte[]> consumerRecords;
