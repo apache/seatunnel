@@ -34,7 +34,7 @@ public class PaimonBucketAssignerFactory implements Serializable {
     public PaimonBucketAssignerFactory() {}
 
     public void init(final TablePath tableId, final Table table, final int numAssigners) {
-        BUCKET_ASSIGNER_MAP.computeIfAbsent(
+        bucketAssignerMap.computeIfAbsent(
                 tableId,
                 t -> {
                     Map<Integer, PaimonBucketAssigner> map = new ConcurrentHashMap<>();
@@ -46,18 +46,18 @@ public class PaimonBucketAssignerFactory implements Serializable {
     }
 
     public PaimonBucketAssigner getBucketAssigner(final TablePath tableId, final int assignId) {
-        return BUCKET_ASSIGNER_MAP.get(tableId).get(assignId);
+        return bucketAssignerMap.get(tableId).get(assignId);
     }
 
     public void clear(final TablePath tableId, final int assignId) {
-        if (BUCKET_ASSIGNER_MAP.containsKey(tableId)) {
+        if (bucketAssignerMap.containsKey(tableId)) {
             Map<Integer, PaimonBucketAssigner> paimonBucketAssignerMap =
-                    BUCKET_ASSIGNER_MAP.get(tableId);
+                    bucketAssignerMap.get(tableId);
             boolean isRunning =
                     paimonBucketAssignerMap.values().stream()
                             .anyMatch(PaimonBucketAssigner::isRunning);
             if (!isRunning) {
-                BUCKET_ASSIGNER_MAP.remove(tableId);
+                bucketAssignerMap.remove(tableId);
             } else {
                 paimonBucketAssignerMap.get(assignId).finish();
             }
