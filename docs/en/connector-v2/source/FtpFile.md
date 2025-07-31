@@ -14,6 +14,10 @@ import ChangeLog from '../changelog/connector-file-ftp.md';
 
 - [x] [batch](../../concept/connector-v2-features.md)
 - [ ] [stream](../../concept/connector-v2-features.md)
+- [x] [multimodal](../../concept/connector-v2-features.md#multimodal)
+
+  Use binary file format to read and write files in any format, such as videos, pictures, etc. In short, any files can be synchronized to the target place.
+
 - [ ] [exactly-once](../../concept/connector-v2-features.md)
 - [x] [column projection](../../concept/connector-v2-features.md)
 - [x] [parallelism](../../concept/connector-v2-features.md)
