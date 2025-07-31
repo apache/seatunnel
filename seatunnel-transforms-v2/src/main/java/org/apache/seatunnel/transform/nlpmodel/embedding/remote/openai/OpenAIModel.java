@@ -45,11 +45,20 @@ public class OpenAIModel extends AbstractModel {
     private final String apiPath;
 
     public OpenAIModel(String apiKey, String model, String apiPath, Integer vectorizedNumber) {
+        this(apiKey, model, apiPath, vectorizedNumber, HttpClients.createDefault());
+    }
+
+    public OpenAIModel(
+            String apiKey,
+            String model,
+            String apiPath,
+            Integer vectorizedNumber,
+            CloseableHttpClient client) {
         super(vectorizedNumber);
         this.apiKey = apiKey;
         this.model = model;
         this.apiPath = apiPath;
-        this.client = HttpClients.createDefault();
+        this.client = client;
     }
 
     @Override

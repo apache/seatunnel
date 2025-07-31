@@ -57,13 +57,24 @@ public class CustomModel extends AbstractModel {
             Map<String, Object> body,
             String parse,
             Integer vectorizedNumber) {
+        this(model, apiPath, header, body, parse, vectorizedNumber, HttpClients.createDefault());
+    }
+
+    public CustomModel(
+            String model,
+            String apiPath,
+            Map<String, String> header,
+            Map<String, Object> body,
+            String parse,
+            Integer vectorizedNumber,
+            CloseableHttpClient client) {
         super(vectorizedNumber);
         this.apiPath = apiPath;
         this.model = model;
         this.header = header;
         this.body = body;
         this.parse = parse;
-        this.client = HttpClients.createDefault();
+        this.client = client;
     }
 
     @Override
