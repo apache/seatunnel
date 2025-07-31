@@ -35,9 +35,7 @@ import org.junit.jupiter.api.Test;
 import com.hazelcast.config.Config;
 import com.hazelcast.internal.serialization.Data;
 
-import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.util.Collections;
 
@@ -75,24 +73,18 @@ class BaseServletTest extends AbstractSeaTunnelServerTest {
 
     public void testLogRestApiResponse(String format) throws IOException {
         HttpURLConnection conn = null;
-        BufferedReader in = null;
         try {
             java.net.URL url =
                     new java.net.URL("http://localhost:" + HTTP_PORT + "/logs?format=" + format);
             conn = (HttpURLConnection) url.openConnection();
 
             Assertions.assertEquals(200, conn.getResponseCode());
-
-            in = new BufferedReader(new InputStreamReader(conn.getInputStream()));
             Assertions.assertTrue(
                     conn.getHeaderFields()
                             .get("Content-Type")
                             .toString()
                             .contains("charset=utf-8"));
         } finally {
-            if (in != null) {
-                in.close();
-            }
             if (conn != null) {
                 conn.disconnect();
             }
