@@ -93,6 +93,12 @@ public class JdbcSink
             SchemaSaveMode schemaSaveMode,
             DataSaveMode dataSaveMode,
             CatalogTable catalogTable) {
+        // Load the JDBC driver in to DriverManager
+        try {
+            Class.forName(jdbcSinkConfig.getJdbcConnectionConfig().getDriverName());
+        } catch (ClassNotFoundException e) {
+            throw new RuntimeException(e);
+        }
         this.config = config;
         this.jdbcSinkConfig = jdbcSinkConfig;
         this.dialect = dialect;
@@ -204,6 +210,12 @@ public class JdbcSink
     @Override
     public Optional<SinkAggregatedCommitter<XidInfo, JdbcAggregatedCommitInfo>>
             createAggregatedCommitter() {
+        // Load the JDBC driver in to DriverManager
+        try {
+            Class.forName(jdbcSinkConfig.getJdbcConnectionConfig().getDriverName());
+        } catch (ClassNotFoundException e) {
+            throw new RuntimeException(e);
+        }
         if (jdbcSinkConfig.isExactlyOnce()) {
             return Optional.of(new JdbcSinkAggregatedCommitter(jdbcSinkConfig));
         }

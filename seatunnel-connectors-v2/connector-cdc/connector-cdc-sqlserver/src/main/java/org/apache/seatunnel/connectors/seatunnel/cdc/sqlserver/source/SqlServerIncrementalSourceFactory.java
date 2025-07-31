@@ -101,6 +101,12 @@ public class SqlServerIncrementalSourceFactory implements TableSourceFactory {
     public <T, SplitT extends SourceSplit, StateT extends Serializable>
             TableSource<T, SplitT, StateT> createSource(TableSourceFactoryContext context) {
         return () -> {
+            // Load the JDBC driver in to DriverManager
+            try {
+                Class.forName("com.microsoft.sqlserver.jdbc.SQLServerDriver");
+            } catch (ClassNotFoundException e) {
+                throw new RuntimeException(e);
+            }
             List<CatalogTable> catalogTables =
                     CatalogTableUtil.getCatalogTables(
                             context.getOptions(), context.getClassLoader());

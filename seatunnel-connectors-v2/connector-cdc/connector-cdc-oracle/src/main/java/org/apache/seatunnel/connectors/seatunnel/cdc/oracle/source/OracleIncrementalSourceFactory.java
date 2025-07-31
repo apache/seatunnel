@@ -105,6 +105,12 @@ public class OracleIncrementalSourceFactory extends BaseChangeStreamTableSourceF
             TableSource<T, SplitT, StateT> restoreSource(
                     TableSourceFactoryContext context, List<CatalogTable> restoreTables) {
         return () -> {
+            // Load the JDBC driver in to DriverManager
+            try {
+                Class.forName("oracle.jdbc.OracleDriver");
+            } catch (ClassNotFoundException e) {
+                throw new RuntimeException(e);
+            }
             List<CatalogTable> catalogTables =
                     CatalogTableUtil.getCatalogTables(
                             context.getOptions(), context.getClassLoader());

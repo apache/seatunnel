@@ -91,6 +91,12 @@ public class TiDBSource
     @Override
     public SourceReader<SeaTunnelRow, TiDBSourceSplit> createReader(SourceReader.Context context)
             throws Exception {
+        // Load the JDBC driver in to DriverManager
+        try {
+            Class.forName("com.mysql.cj.jdbc.Driver");
+        } catch (ClassNotFoundException e) {
+            throw new RuntimeException(e);
+        }
         return new TiDBSourceReader(context, config, catalogTable);
     }
 
@@ -105,6 +111,12 @@ public class TiDBSource
     @Override
     public SourceSplitEnumerator<TiDBSourceSplit, TiDBSourceCheckpointState> createEnumerator(
             SourceSplitEnumerator.Context<TiDBSourceSplit> context) throws Exception {
+        // Load the JDBC driver in to DriverManager
+        try {
+            Class.forName("com.mysql.cj.jdbc.Driver");
+        } catch (ClassNotFoundException e) {
+            throw new RuntimeException(e);
+        }
         return new TiDBSourceSplitEnumerator(context, config);
     }
 
@@ -122,6 +134,12 @@ public class TiDBSource
             SourceSplitEnumerator.Context<TiDBSourceSplit> context,
             TiDBSourceCheckpointState checkpointState)
             throws Exception {
+        // Load the JDBC driver in to DriverManager
+        try {
+            Class.forName("com.mysql.cj.jdbc.Driver");
+        } catch (ClassNotFoundException e) {
+            throw new RuntimeException(e);
+        }
         return new TiDBSourceSplitEnumerator(context, config, checkpointState);
     }
 

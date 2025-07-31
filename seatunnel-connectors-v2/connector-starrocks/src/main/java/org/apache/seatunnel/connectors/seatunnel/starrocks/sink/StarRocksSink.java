@@ -56,6 +56,12 @@ public class StarRocksSink extends AbstractSimpleSink<SeaTunnelRow, Void>
         this.catalogTable = catalogTable;
         this.dataSaveMode = sinkConfig.getDataSaveMode();
         this.schemaSaveMode = sinkConfig.getSchemaSaveMode();
+        // Load the JDBC driver in to DriverManager
+        try {
+            Class.forName("com.mysql.cj.jdbc.Driver");
+        } catch (ClassNotFoundException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     @Override
@@ -65,6 +71,12 @@ public class StarRocksSink extends AbstractSimpleSink<SeaTunnelRow, Void>
 
     @Override
     public StarRocksSinkWriter createWriter(SinkWriter.Context context) {
+        // Load the JDBC driver in to DriverManager
+        try {
+            Class.forName("com.mysql.cj.jdbc.Driver");
+        } catch (ClassNotFoundException e) {
+            throw new RuntimeException(e);
+        }
         TablePath sinkTablePath = catalogTable.getTablePath();
         return new StarRocksSinkWriter(sinkConfig, tableSchema, sinkTablePath);
     }

@@ -52,6 +52,12 @@ public class JdbcSource
 
     @SneakyThrows
     public JdbcSource(JdbcSourceConfig jdbcSourceConfig) {
+        // Load the JDBC driver in to DriverManager
+        try {
+            Class.forName(jdbcSourceConfig.getJdbcConnectionConfig().getDriverName());
+        } catch (ClassNotFoundException e) {
+            throw new RuntimeException(e);
+        }
         this.jdbcSourceConfig = jdbcSourceConfig;
         this.jdbcSourceTables =
                 JdbcCatalogUtils.getTables(
@@ -79,6 +85,12 @@ public class JdbcSource
     @Override
     public SourceReader<SeaTunnelRow, JdbcSourceSplit> createReader(
             SourceReader.Context readerContext) throws Exception {
+        // Load the JDBC driver in to DriverManager
+        try {
+            Class.forName(jdbcSourceConfig.getJdbcConnectionConfig().getDriverName());
+        } catch (ClassNotFoundException e) {
+            throw new RuntimeException(e);
+        }
         Map<TablePath, CatalogTable> tables = new HashMap<>();
         for (TablePath tablePath : jdbcSourceTables.keySet()) {
             tables.put(tablePath, jdbcSourceTables.get(tablePath).getCatalogTable());
@@ -94,6 +106,12 @@ public class JdbcSource
     @Override
     public SourceSplitEnumerator<JdbcSourceSplit, JdbcSourceState> createEnumerator(
             SourceSplitEnumerator.Context<JdbcSourceSplit> enumeratorContext) throws Exception {
+        // Load the JDBC driver in to DriverManager
+        try {
+            Class.forName(jdbcSourceConfig.getJdbcConnectionConfig().getDriverName());
+        } catch (ClassNotFoundException e) {
+            throw new RuntimeException(e);
+        }
         return new JdbcSourceSplitEnumerator(
                 enumeratorContext, jdbcSourceConfig, jdbcSourceTables, null);
     }
@@ -103,6 +121,12 @@ public class JdbcSource
             SourceSplitEnumerator.Context<JdbcSourceSplit> enumeratorContext,
             JdbcSourceState checkpointState)
             throws Exception {
+        // Load the JDBC driver in to DriverManager
+        try {
+            Class.forName(jdbcSourceConfig.getJdbcConnectionConfig().getDriverName());
+        } catch (ClassNotFoundException e) {
+            throw new RuntimeException(e);
+        }
         return new JdbcSourceSplitEnumerator(
                 enumeratorContext, jdbcSourceConfig, jdbcSourceTables, checkpointState);
     }
