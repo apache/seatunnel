@@ -13,6 +13,7 @@ import ChangeLog from '../changelog/connector-file-hadoop.md';
 ## Key Features
 
 - [x] [exactly-once](../../concept/connector-v2-features.md)
+- [x] [support multiple table write](../../concept/connector-v2-features.md)
 
 By default, we use 2PC commit to ensure `exactly-once`
 

@@ -22,6 +22,7 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.options.SinkConnectorCommonOptions;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
@@ -60,6 +61,7 @@ public class HdfsFileSinkFactory extends BaseMultipleTableFileSinkFactory {
                 .required(HdfsSourceConfigOptions.DEFAULT_FS)
                 .required(FileBaseSinkOptions.FILE_PATH)
                 .optional(FileBaseSinkOptions.FILE_FORMAT_TYPE)
+                .optional(SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA)
                 .conditional(
                         FileBaseSinkOptions.FILE_FORMAT_TYPE,
                         FileFormat.TEXT,

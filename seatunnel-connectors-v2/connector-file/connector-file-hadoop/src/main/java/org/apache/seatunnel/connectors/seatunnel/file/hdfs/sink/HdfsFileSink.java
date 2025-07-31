@@ -18,17 +18,13 @@
 package org.apache.seatunnel.connectors.seatunnel.file.hdfs.sink;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
-import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.BaseMultipleTableFileSink;
 
-import com.google.auto.service.AutoService;
-
 import java.util.Optional;
 
-@AutoService(SeaTunnelSink.class)
 public class HdfsFileSink extends BaseMultipleTableFileSink {
 
     private final CatalogTable catalogTable;
