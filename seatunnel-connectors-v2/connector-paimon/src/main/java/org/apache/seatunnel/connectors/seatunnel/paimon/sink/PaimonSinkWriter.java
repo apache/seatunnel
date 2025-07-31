@@ -161,13 +161,13 @@ public class PaimonSinkWriter
         // starting job. For tables with a large amount of data, there will be a significant loss in
         // performance. Moreover, initialization takes a long time. This mode is not supported at
         // this time.
-        if (BucketMode.GLOBAL_DYNAMIC == bucketMode) {
+        if (BucketMode.CROSS_PARTITION == bucketMode) {
             throw new UnsupportedOperationException(
                     "Cross Partitions Upsert Dynamic Bucket Mode is not supported.");
         }
-        this.dynamicBucket = BucketMode.DYNAMIC == bucketMode;
+        this.dynamicBucket = BucketMode.HASH_DYNAMIC == bucketMode;
         int bucket = ((FileStoreTable) paimonTable).coreOptions().bucket();
-        if (bucket == -1 && BucketMode.UNAWARE == bucketMode) {
+        if (bucket == -1 && BucketMode.BUCKET_UNAWARE == bucketMode) {
             log.warn("Append only table currently do not support dynamic bucket");
         }
         if (dynamicBucket) {
