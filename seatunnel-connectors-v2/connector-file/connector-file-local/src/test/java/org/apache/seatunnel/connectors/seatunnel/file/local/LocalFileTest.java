@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.local;
 
-import org.apache.hadoop.fs.FileStatus;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
@@ -31,7 +30,6 @@ import org.apache.seatunnel.common.utils.FileUtils;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.file.local.sink.LocalFileSinkFactory;
 import org.apache.seatunnel.connectors.seatunnel.file.local.source.LocalFileSourceFactory;
-import org.apache.seatunnel.connectors.seatunnel.file.source.reader.CsvReadStrategy;
 import org.apache.seatunnel.connectors.seatunnel.sink.SinkFlowTestUtils;
 import org.apache.seatunnel.connectors.seatunnel.source.SourceFlowTestUtils;
 
@@ -44,8 +42,6 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.text.SimpleDateFormat;
-import java.util.*;
 
 @DisabledOnOs(
         value = OS.WINDOWS,

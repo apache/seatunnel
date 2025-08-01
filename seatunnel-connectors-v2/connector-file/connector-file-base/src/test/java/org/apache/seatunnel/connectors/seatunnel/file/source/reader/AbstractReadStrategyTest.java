@@ -141,7 +141,6 @@ public class AbstractReadStrategyTest {
             String endDateStr = "2024-12-31 00:00:00";
             String format = "yyyy-MM-dd";
             SimpleDateFormat simpleDateFormat = new SimpleDateFormat(format);
-
             long modificationTime = simpleDateFormat.parse("2024-06-01").getTime();
 
             strategy.fileModifiedStartDate = startDateStr;
@@ -165,7 +164,6 @@ public class AbstractReadStrategyTest {
             strategy.fileModifiedEndDate = endDateStr;
 
             SimpleDateFormat simpleDateFormat = new SimpleDateFormat(format);
-
             long modificationTime = simpleDateFormat.parse("2024-06-01").getTime();
 
             FileStatus fileStatus =
@@ -186,7 +184,6 @@ public class AbstractReadStrategyTest {
             strategy.fileModifiedEndDate = endDateStr;
 
             SimpleDateFormat simpleDateFormat = new SimpleDateFormat(format);
-
             long modificationTime = simpleDateFormat.parse("2024-07-01 13:00:00").getTime();
 
             FileStatus fileStatus =
@@ -221,7 +218,6 @@ public class AbstractReadStrategyTest {
             strategy.fileModifiedEndDate = null;
 
             SimpleDateFormat simpleDateFormat = new SimpleDateFormat(format);
-
             long modificationTime = simpleDateFormat.parse("2024-06-01").getTime();
 
             FileStatus fileStatus =
