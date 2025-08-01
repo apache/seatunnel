@@ -20,6 +20,8 @@ github:
   labels:
     - data-integration
     - multimodal
+    - llm
+    - embeddings
     - change-data-capture
     - cdc
     - high-performance
