@@ -56,7 +56,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.TimeZone;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.zip.ZipEntry;
@@ -128,8 +127,7 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
                 // filter '_SUCCESS' file
                 if (!fileStatus.getPath().getName().equals("_SUCCESS")
                         && !fileStatus.getPath().getName().startsWith(".")
-                //                        && filterFileByModificationDate(fileStatus)
-                ) {
+                        && filterFileByModificationDate(fileStatus)) {
 
                     String filePath = fileStatus.getPath().toString();
                     if (!readPartitions.isEmpty()) {
@@ -158,7 +156,6 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
 
         long fileModifiedTime = fileStatus.getModificationTime();
         SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-        dateFormat.setTimeZone(TimeZone.getTimeZone("GMT+8"));
         Date startTime = null;
         Date endTime = null;
         try {

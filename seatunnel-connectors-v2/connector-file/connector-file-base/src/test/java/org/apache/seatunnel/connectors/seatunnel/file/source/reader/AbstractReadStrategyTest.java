@@ -40,7 +40,6 @@ import java.io.File;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.List;
-import java.util.TimeZone;
 
 import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.FS_DEFAULT_NAME_DEFAULT;
 
@@ -142,7 +141,7 @@ public class AbstractReadStrategyTest {
             String endDateStr = "2024-12-31 00:00:00";
             String format = "yyyy-MM-dd";
             SimpleDateFormat simpleDateFormat = new SimpleDateFormat(format);
-            simpleDateFormat.setTimeZone(TimeZone.getTimeZone("GMT+8"));
+
             long modificationTime = simpleDateFormat.parse("2024-06-01").getTime();
 
             strategy.fileModifiedStartDate = startDateStr;
@@ -166,7 +165,7 @@ public class AbstractReadStrategyTest {
             strategy.fileModifiedEndDate = endDateStr;
 
             SimpleDateFormat simpleDateFormat = new SimpleDateFormat(format);
-            simpleDateFormat.setTimeZone(TimeZone.getTimeZone("GMT+8"));
+
             long modificationTime = simpleDateFormat.parse("2024-06-01").getTime();
 
             FileStatus fileStatus =
@@ -187,7 +186,7 @@ public class AbstractReadStrategyTest {
             strategy.fileModifiedEndDate = endDateStr;
 
             SimpleDateFormat simpleDateFormat = new SimpleDateFormat(format);
-            simpleDateFormat.setTimeZone(TimeZone.getTimeZone("GMT+8"));
+
             long modificationTime = simpleDateFormat.parse("2024-07-01 13:00:00").getTime();
 
             FileStatus fileStatus =
@@ -222,7 +221,7 @@ public class AbstractReadStrategyTest {
             strategy.fileModifiedEndDate = null;
 
             SimpleDateFormat simpleDateFormat = new SimpleDateFormat(format);
-            simpleDateFormat.setTimeZone(TimeZone.getTimeZone("GMT+8"));
+
             long modificationTime = simpleDateFormat.parse("2024-06-01").getTime();
 
             FileStatus fileStatus =
