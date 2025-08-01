@@ -434,7 +434,18 @@ public abstract class RedisTestCaseTemplateIT extends TestSuiteBase implements T
     }
 
     @TestTemplate
+    public void testScanHashTypeWriteRedisWithDefaultKey(TestContainer container)
+            throws IOException, InterruptedException {
+        testScanHashTypeWithKey(container, "/scan-hash-to-redis-with-default-key.conf");
+    }
+
+    @TestTemplate
     public void testScanHashTypeWriteRedisWithKey(TestContainer container)
+            throws IOException, InterruptedException {
+        testScanHashTypeWithKey(container, "/scan-hash-to-redis-with-key.conf");
+    }
+
+    private void testScanHashTypeWithKey(TestContainer container, String confFile)
             throws IOException, InterruptedException {
         String hashKeyPrefix = "key-test-hash";
         for (int i = 0; i < 100; i++) {
@@ -443,7 +454,7 @@ public abstract class RedisTestCaseTemplateIT extends TestSuiteBase implements T
             map.put("name", "dybyte");
             jedis.hset(setKey, map);
         }
-        Container.ExecResult execResult = container.executeJob("/scan-hash-to-redis-with-key.conf");
+        Container.ExecResult execResult = container.executeJob(confFile);
         Assertions.assertEquals(0, execResult.getExitCode());
 
         for (int i = 0; i < 100; i++) {

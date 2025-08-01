@@ -111,6 +111,9 @@ public class RedisParameters implements Serializable {
         }
         // set redis data type verification factory createAndPrepareSource
         this.redisDataType = config.get(RedisBaseOptions.DATA_TYPE);
+        if (this.redisDataType == RedisDataType.HASH && this.keyFieldName == null) {
+            keyFieldName = "hash_key";
+        }
         // Indicates the number of keys to attempt to return per iteration.default 10
         this.batchSize = config.get(RedisBaseOptions.BATCH_SIZE);
         // set support custom key
