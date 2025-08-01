@@ -38,6 +38,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.stream.Collectors;
 
 /** Paimon connector aggregated committer class */
 @Slf4j
@@ -62,22 +63,24 @@ public class PaimonAggregatedCommitter
             PaimonSecurityContext.runSecured(
                     () -> {
                         log.debug("Trying to commit states streaming mode");
-                        aggregatedCommitInfo.stream()
-                                .flatMap(
-                                        paimonAggregatedCommitInfo ->
-                                                paimonAggregatedCommitInfo.getCommittablesMap()
-                                                        .entrySet().stream())
-                                .forEach(
-                                        entry ->
-                                                ((StreamTableCommit) tableCommit)
-                                                        .commit(entry.getKey(), entry.getValue()));
+                        Map<Long, List<CommitMessage>> committablesMap =
+                                aggregatedCommitInfo.stream()
+                                        .flatMap(
+                                                paimonAggregatedCommitInfo ->
+                                                        paimonAggregatedCommitInfo
+                                                                .getCommittablesMap().entrySet()
+                                                                .stream())
+                                        .collect(
+                                                Collectors.toMap(
+                                                        Map.Entry::getKey, Map.Entry::getValue));
+                        if (!committablesMap.isEmpty()) {
+                            ((StreamTableCommit) tableCommit).filterAndCommit(committablesMap);
+                        }
                         return null;
                     });
         } catch (Exception e) {
             throw new PaimonConnectorException(
-                    PaimonConnectorErrorCode.TABLE_WRITE_COMMIT_FAILED,
-                    "Paimon table storage write-commit Failed.",
-                    e);
+                    PaimonConnectorErrorCode.TABLE_WRITE_COMMIT_FAILED, e);
         }
         return Collections.emptyList();
     }
@@ -97,7 +100,25 @@ public class PaimonAggregatedCommitter
 
     @Override
     public void abort(List<PaimonAggregatedCommitInfo> aggregatedCommitInfo) throws Exception {
-        // TODO find the right way to abort
+        try (TableCommit tableCommit = tableWriteBuilder.newCommit()) {
+            PaimonSecurityContext.runSecured(
+                    () -> {
+                        log.debug("Trying to abort states streaming mode");
+                        List<CommitMessage> commitMessageList =
+                                aggregatedCommitInfo.stream()
+                                        .flatMap(
+                                                paimonAggregatedCommitInfo ->
+                                                        paimonAggregatedCommitInfo
+                                                                .getCommittablesMap().values()
+                                                                .stream())
+                                        .flatMap(List::stream)
+                                        .collect(Collectors.toList());
+                        if (!commitMessageList.isEmpty()) {
+                            tableCommit.abort(commitMessageList);
+                        }
+                        return null;
+                    });
+        }
     }
 
     @Override

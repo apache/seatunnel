@@ -67,10 +67,12 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import static org.apache.paimon.disk.IOManagerImpl.splitPaths;
@@ -199,23 +201,32 @@ public class PaimonSinkWriter
             return;
         }
         this.commitUser = states.get(0).getCommitUser();
-        long checkpointId = states.get(0).getCheckpointId();
         try (TableCommit tableCommit = tableWriteBuilder.newCommit()) {
-            List<CommitMessage> commitables =
+            Map<Long, List<CommitMessage>> commitMessagesMap =
                     states.stream()
-                            .map(PaimonSinkState::getCommittables)
-                            .flatMap(List::stream)
-                            .collect(Collectors.toList());
+                            .collect(
+                                    Collectors.toMap(
+                                            PaimonSinkState::getCheckpointId,
+                                            PaimonSinkState::getCommittables));
             // batch mode without checkpoint has no state to commit
-            if (commitables.isEmpty()) {
+            if (commitMessagesMap.isEmpty()) {
                 return;
             }
             // streaming mode or batch mode with checkpoint need to recommit by stream api
-            log.info("Trying to recommit states {}", commitables);
-            ((StreamTableCommit) tableCommit).commit(checkpointId, commitables);
+            log.info("Trying to recommit states {}", commitMessagesMap);
+            ((StreamTableCommit) tableCommit).filterAndCommit(commitMessagesMap);
         } catch (Exception e) {
-            throw new PaimonConnectorException(
-                    PaimonConnectorErrorCode.TABLE_WRITE_COMMIT_FAILED, e);
+            if (!(e.getCause() instanceof IllegalStateException)) {
+                throw new PaimonConnectorException(
+                        PaimonConnectorErrorCode.TABLE_WRITE_COMMIT_FAILED, e);
+            }
+            Pattern pattern =
+                    Pattern.compile("Trying to add file .*? which is already added\\.\\s*");
+            if (!pattern.matcher(e.getCause().getMessage()).matches()) {
+                throw new PaimonConnectorException(
+                        PaimonConnectorErrorCode.TABLE_WRITE_COMMIT_FAILED, e);
+            }
+            log.warn("commit message already added, skip it.");
         }
     }
 

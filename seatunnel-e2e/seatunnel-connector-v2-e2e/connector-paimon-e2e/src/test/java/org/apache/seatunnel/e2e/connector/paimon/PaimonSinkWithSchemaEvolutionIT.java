@@ -33,6 +33,7 @@ import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
+import org.apache.seatunnel.e2e.common.util.JobIdGenerator;
 
 import org.apache.paimon.data.BinaryString;
 import org.apache.paimon.data.Decimal;
@@ -153,20 +154,21 @@ public class PaimonSinkWithSchemaEvolutionIT extends AbstractPaimonIT implements
     }
 
     @TestTemplate
-    public void testMysqlCdcSinkPaimonWithSchemaChange(TestContainer container) throws Exception {
+    public void testMysqlCdcSinkPaimonWithSchemaChangeAndRestore(TestContainer container)
+            throws Exception {
+        String jobId = String.valueOf(JobIdGenerator.newJobId());
         String jobConfigFile = "/mysql_cdc_to_paimon_with_schema_change.conf";
         CompletableFuture.runAsync(
                 () -> {
                     try {
-                        container.executeJob(jobConfigFile);
+                        container.executeJob(jobConfigFile, jobId);
                     } catch (Exception e) {
                         log.error("Commit task exception :" + e.getMessage());
                         throw new RuntimeException(e);
                     }
                 });
 
-        // Waiting for auto create sink table
-        Thread.sleep(15000);
+        vertifyJobStatus(container, jobId);
 
         await().atMost(30, TimeUnit.SECONDS)
                 .untilAsserted(
@@ -183,6 +185,21 @@ public class PaimonSinkWithSchemaEvolutionIT extends AbstractPaimonIT implements
         List<ImmutableTriple<String[], Integer, Integer>> idRangesWithFiledProjection1 =
                 getIdRangesWithFiledProjectionImmutableTriplesCase1();
         vertifySchemaAndData(container, idRangesWithFiledProjection1);
+
+        // savepoint job
+        Container.ExecResult execResult = container.savepointJob(jobId);
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+        // restore job
+        CompletableFuture.runAsync(
+                () -> {
+                    try {
+                        container.restoreJob(jobConfigFile, jobId);
+                    } catch (Exception e) {
+                        log.error("Commit task exception :" + e.getMessage());
+                        throw new RuntimeException(e);
+                    }
+                });
+        vertifyJobStatus(container, jobId);
 
         // Case 2: Drop columns with data at same time
         shopDatabase.setTemplateName("drop_columns").createAndInitialize();
@@ -201,6 +218,16 @@ public class PaimonSinkWithSchemaEvolutionIT extends AbstractPaimonIT implements
         List<ImmutableTriple<String[], Integer, Integer>> idRangesWithFiledProjection4 =
                 getIdRangesWithFiledProjectionImmutableTriplesCase4();
         vertifySchemaAndData(container, idRangesWithFiledProjection4);
+    }
+
+    private void vertifyJobStatus(TestContainer container, String jobId) {
+        await().pollDelay(30, TimeUnit.SECONDS)
+                .atMost(45, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () -> {
+                            String jobStatus = container.getJobStatus(jobId);
+                            Assertions.assertEquals("RUNNING", jobStatus);
+                        });
     }
 
     private List<ImmutableTriple<String[], Integer, Integer>>
@@ -331,8 +358,8 @@ public class PaimonSinkWithSchemaEvolutionIT extends AbstractPaimonIT implements
     private void vertifySchemaAndData(
             TestContainer container,
             List<ImmutableTriple<String[], Integer, Integer>> idRangesWithFiledProjection) {
-        await().pollDelay(3, TimeUnit.SECONDS)
-                .atMost(30, TimeUnit.SECONDS)
+        await().pollDelay(5, TimeUnit.SECONDS)
+                .atMost(40, TimeUnit.SECONDS)
                 .untilAsserted(
                         () -> {
                             // 1. Vertify the schema

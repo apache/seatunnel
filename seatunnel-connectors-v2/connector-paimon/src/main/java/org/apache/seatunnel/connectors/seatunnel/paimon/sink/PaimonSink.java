@@ -29,6 +29,7 @@ import org.apache.seatunnel.api.sink.SupportMultiTableSink;
 import org.apache.seatunnel.api.sink.SupportSaveMode;
 import org.apache.seatunnel.api.sink.SupportSchemaEvolutionSink;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.schema.SchemaChangeType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.paimon.catalog.PaimonCatalog;
@@ -84,6 +85,18 @@ public class PaimonSink
         this.catalogTable = catalogTable;
         this.paimonHadoopConfiguration = PaimonSecurityContext.loadHadoopConfig(paimonSinkConfig);
         this.paimonBucketAssignerFactory = new PaimonBucketAssignerFactory();
+        try (PaimonCatalog paimonCatalog = PaimonCatalog.loadPaimonCatalog(readonlyConfig)) {
+            paimonCatalog.open();
+            boolean databaseExists =
+                    paimonCatalog.databaseExists(this.paimonSinkConfig.getNamespace());
+            if (databaseExists) {
+                TablePath tablePath = catalogTable.getTablePath();
+                boolean tableExists = paimonCatalog.tableExists(tablePath);
+                if (tableExists) {
+                    this.paimonTable = paimonCatalog.getPaimonTable(tablePath);
+                }
+            }
+        }
     }
 
     @Override
@@ -156,6 +169,11 @@ public class PaimonSink
     @Override
     public void setLoadTable(Table table) {
         this.paimonTable = table;
+    }
+
+    @Override
+    public Table getLoadTable() {
+        return paimonTable;
     }
 
     @Override
