@@ -253,14 +253,23 @@ public class SqlToPaimonPredicateConverter {
                     convertValueByPaimonDataType(rowType, column.getColumnName(), rightPredicate);
 
             Pattern BEGIN_PATTERN = Pattern.compile("([^%]+)%");
-            Matcher matcher = BEGIN_PATTERN.matcher(rightVal.toString());
-            if (matcher.matches()) {
-                return builder.startsWith(columnIndex, BinaryString.fromString(matcher.group(1)));
-            } else {
-                throw new IllegalArgumentException(
-                        "Unsupported expression type: "
-                                + expression.getClass().getSimpleName()
-                                + ", only support like pattern matching with prefix");
+            Matcher beginMatcher = BEGIN_PATTERN.matcher(rightVal.toString());
+            if (beginMatcher.matches()) {
+                return builder.startsWith(
+                        columnIndex, BinaryString.fromString(beginMatcher.group(1)));
+            }
+
+            Pattern END_PATTERN = Pattern.compile("%([^%]+)");
+            Matcher endMatcher = END_PATTERN.matcher(rightVal.toString());
+            if (endMatcher.matches()) {
+                return builder.endsWith(columnIndex, BinaryString.fromString(endMatcher.group(1)));
+            }
+
+            Pattern CONTAINS_PATTERN = Pattern.compile("%([^%]+)%");
+            Matcher containsMatcher = CONTAINS_PATTERN.matcher(rightVal.toString());
+            if (containsMatcher.matches()) {
+                return builder.contains(
+                        columnIndex, BinaryString.fromString(containsMatcher.group(1)));
             }
         } else if (expression instanceof Parenthesis) {
             Parenthesis parenthesis = (Parenthesis) expression;
