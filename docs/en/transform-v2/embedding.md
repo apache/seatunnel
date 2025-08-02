@@ -4,8 +4,8 @@
 
 ## Description
 
-The `Embedding` transform plugin leverages embedding models to convert text data into vectorized representations. This
-transformation can be applied to various fields. The plugin supports multiple model providers and can be integrated with
+The `Embedding` transform plugin leverages embedding models to convert text and multimodal data into vectorized representations. This
+transformation can be applied to various fields including text, images, and videos. The plugin supports multiple model providers and can be integrated with
 different API endpoints.
 
 > **Important Note:** The current embedding precision only supports float32 format.
@@ -19,7 +19,7 @@ different API endpoints.
 | secret_key                     | string | yes      | -             | The secret key required for additional authentication with the embedding service.                                                                                       |
 | aws_region                     | string | no       |               | AWS Region. Required for use Amazon Bedrock model.                                                                                                                      |
 | single_vectorized_input_number | int    | no       | 1             | The number of inputs vectorized in one request. Default is 1.                                                                                                           |
-| vectorization_fields           | map    | yes      | -             | A mapping between input fields and their corresponding output vector fields.                                                                                            |
+| vectorization_fields           | map    | yes      | -             | A mapping between input fields and their corresponding output vector fields. Supports multimodal field specifications with format `field_name:modality_type`.        |
 | model                          | string | yes      | -             | The specific model to use for embedding (e.g: `text-embedding-3-small` for OPENAI).                                                                                     |
 | api_path                       | string | no       | -             | The API endpoint for the embedding service. Typically provided by the model provider.                                                                                   |
 | dimension                      | int    | no       | -             | TThe vector dimension defaults to 2048. The Embedding-3 model supports custom vector dimensions, and it is recommended to choose dimensions of 256, 512, 1024, or 2048. |
@@ -59,14 +59,34 @@ capacity and the model provider's API limitations.
 ### vectorization_fields
 
 A mapping between input fields and their respective output vector fields. This allows the plugin to understand which
-text fields to vectorize and how to store the resulting vectors.
+fields to vectorize and how to store the resulting vectors. The plugin supports multimodal data by allowing you to specify
+the modality type for each field.
 
+**Basic Text Vectorization:**
 ```hocon
 vectorization_fields {
     book_intro_vector = book_intro
-    author_biography_vector  = author_biography
+    author_biography_vector = author_biography
 }
 ```
+
+**Multimodal Vectorization:**
+```hocon
+vectorization_fields {
+    text_vector = text_field:text          # Explicit text type
+    image_vector = image_url:image         # Image modality
+    video_vector = video_path:video        # Video modality
+    mixed_vector = content_field           # Defaults to text if no type specified
+}
+```
+
+**Field Specification Format:**
+- `field_name` - Uses text modality by default
+- `field_name:text` - Explicitly specifies text modality
+- `field_name:image` - Specifies image modality for image URLs
+- `field_name:video` - Specifies video modality for video URLs
+
+> **Important:** When using multimodal fields (image or video), ensure your model provider supports multimodal embedding. Currently, `DOUBAO` provider supports multimodal data processing. Image and video fields must contain valid URLs.
 
 ### model
 
@@ -137,7 +157,9 @@ The `custom_request_body` option supports placeholders:
 
 Transform plugin common parameters, please refer to [Transform Plugin](common-options.md) for details.
 
-## Example Configuration
+## Example Configurations
+
+### Basic Text Embedding
 
 ```hocon
 env {

@@ -4,9 +4,9 @@
 
 ## 描述
 
-`Embedding` 转换插件利用 embedding 模型将文本数据转换为向量化表示。此转换可以应用于各种字段。该插件支持多种模型提供商，并且可以与不同的API集成。
+`Embedding` 转换插件利用 embedding 模型将文本和多模态数据转换为向量化表示。此转换可以应用于各种字段，包括文本、图片和视频。该插件支持多种模型提供商，并且可以与不同的API集成。
 
-> **重要提示：** 当前 embedding 精确度仅支持 float32 
+> **重要提示：** 当前 embedding 精确度仅支持 float32
 
 ## 配置选项
 
@@ -17,7 +17,7 @@
 | secret_key                     | string | 是    | -      | 用于额外验证的密钥。一些提供商可能需要此密钥进行安全的API请求。                                |
 | aws_region                     | string | 否    |        | 用于使用Amazon Bedrock 模型，需要指定模型请求区域.                                |
 | single_vectorized_input_number | int    | 否    | 1      | 单次请求向量化的输入数量。默认值为1。                                              |
-| vectorization_fields           | map    | 是    | -      | 输入字段和相应的输出向量字段之间的映射。                                             |
+| vectorization_fields           | map    | 是    | -      | 输入字段和相应的输出向量字段之间的映射。支持使用 `field_name:modality_type` 格式的多模态字段规范。 |
 | model                          | string | 是    | -      | 要使用的具体embedding模型。例如，如果提供商为OPENAI，可以指定 `text-embedding-3-small`。 |
 | api_path                       | string | 否    | -      | embedding服务的API。通常由模型提供商提供。                                      |
 | dimension                      | int    | 否    | 2048   | 向量维度默认为 2048，Embedding-3模型支持自定义向量维度，建议选择256、512、1024或2048维度。     |
@@ -53,14 +53,33 @@
 
 ### vectorization_fields
 
-输入字段和相应的输出向量字段之间的映射。这使得插件可以理解要向量化的文本字段以及如何存储生成的向量。
+输入字段和相应的输出向量字段之间的映射。这使得插件可以理解要向量化的字段以及如何存储生成的向量。插件通过允许您为每个字段指定模态类型来支持多模态数据。
 
+**基本文本向量化：**
 ```hocon
 vectorization_fields {
     book_intro_vector = book_intro
-    author_biography_vector  = author_biography
+    author_biography_vector = author_biography
 }
 ```
+
+**多模态向量化：**
+```hocon
+vectorization_fields {
+    text_vector = text_field:text          # 显式指定文本类型
+    image_vector = image_url:image         # 图片模态
+    video_vector = video_path:video        # 视频模态
+    mixed_vector = content_field           # 如果未指定类型则默认为文本
+}
+```
+
+**字段规范格式：**
+- `field_name` - 默认使用文本模态
+- `field_name:text` - 显式指定文本模态
+- `field_name:image` - 为图片 URL 指定图片模态
+- `field_name:video` - 为视频 URL 指定视频模态
+
+> **重要：** 使用多模态字段（图片或视频）时，请确保您的模型提供商支持多模态 embedding。图片和视频字段必须包含有效的 URL。目前，`DOUBAO` 提供商支持多模态数据处理。
 
 ### model
 
@@ -126,6 +145,8 @@ vectorization_fields {
 转换插件的常见参数, 请参考  [Transform Plugin](common-options.md) 了解详情
 
 ## 示例配置
+
+### 基本文本 Embedding
 
 ```hocon
 env {

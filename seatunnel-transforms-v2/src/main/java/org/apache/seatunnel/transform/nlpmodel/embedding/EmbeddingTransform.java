@@ -28,6 +28,9 @@ import org.apache.seatunnel.transform.common.MultipleFieldOutputTransform;
 import org.apache.seatunnel.transform.exception.TransformCommonError;
 import org.apache.seatunnel.transform.nlpmodel.ModelProvider;
 import org.apache.seatunnel.transform.nlpmodel.ModelTransformConfig;
+import org.apache.seatunnel.transform.nlpmodel.embedding.multimodal.ModalityType;
+import org.apache.seatunnel.transform.nlpmodel.embedding.multimodal.MultimodalField;
+import org.apache.seatunnel.transform.nlpmodel.embedding.multimodal.MultimodalModel;
 import org.apache.seatunnel.transform.nlpmodel.embedding.remote.Model;
 import org.apache.seatunnel.transform.nlpmodel.embedding.remote.amazon.BedrockModel;
 import org.apache.seatunnel.transform.nlpmodel.embedding.remote.custom.CustomModel;
@@ -44,16 +47,20 @@ import java.io.IOException;
 import java.net.URISyntaxException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 public class EmbeddingTransform extends MultipleFieldOutputTransform {
 
     private final ReadonlyConfig config;
     private List<String> fieldNames;
-    private List<Integer> fieldOriginalIndexes;
     private Model model;
     private Integer dimension;
+    private boolean isMultimodalFields = false;
+    private Map<Integer, String> fieldModalitys;
 
     public EmbeddingTransform(
             @NonNull ReadonlyConfig config, @NonNull CatalogTable inputCatalogTable) {
@@ -72,8 +79,10 @@ public class EmbeddingTransform extends MultipleFieldOutputTransform {
 
     @Override
     public void open() {
-        // Initialize model
         ModelProvider provider = config.get(ModelTransformConfig.MODEL_PROVIDER);
+        String apiPath =
+                provider.usedEmbeddingPath(
+                        config.get(ModelTransformConfig.API_PATH), isMultimodalFields);
         try {
             switch (provider) {
                 case CUSTOM:
@@ -89,8 +98,7 @@ public class EmbeddingTransform extends MultipleFieldOutputTransform {
                     model =
                             new CustomModel(
                                     config.get(ModelTransformConfig.MODEL),
-                                    provider.usedEmbeddingPath(
-                                            config.get(ModelTransformConfig.API_PATH)),
+                                    apiPath,
                                     customConfig.get(
                                             LLMTransformConfig.CustomRequestConfig
                                                     .CUSTOM_REQUEST_HEADERS),
@@ -109,8 +117,7 @@ public class EmbeddingTransform extends MultipleFieldOutputTransform {
                             new OpenAIModel(
                                     config.get(ModelTransformConfig.API_KEY),
                                     config.get(ModelTransformConfig.MODEL),
-                                    provider.usedEmbeddingPath(
-                                            config.get(ModelTransformConfig.API_PATH)),
+                                    apiPath,
                                     config.get(
                                             EmbeddingTransformConfig
                                                     .SINGLE_VECTORIZED_INPUT_NUMBER));
@@ -120,8 +127,7 @@ public class EmbeddingTransform extends MultipleFieldOutputTransform {
                             new DoubaoModel(
                                     config.get(ModelTransformConfig.API_KEY),
                                     config.get(ModelTransformConfig.MODEL),
-                                    provider.usedEmbeddingPath(
-                                            config.get(ModelTransformConfig.API_PATH)),
+                                    apiPath,
                                     config.get(
                                             EmbeddingTransformConfig
                                                     .SINGLE_VECTORIZED_INPUT_NUMBER));
@@ -132,8 +138,7 @@ public class EmbeddingTransform extends MultipleFieldOutputTransform {
                                     config.get(ModelTransformConfig.API_KEY),
                                     config.get(ModelTransformConfig.SECRET_KEY),
                                     config.get(ModelTransformConfig.MODEL),
-                                    provider.usedEmbeddingPath(
-                                            config.get(ModelTransformConfig.API_PATH)),
+                                    apiPath,
                                     config.get(ModelTransformConfig.OAUTH_PATH),
                                     config.get(
                                             EmbeddingTransformConfig
@@ -145,8 +150,7 @@ public class EmbeddingTransform extends MultipleFieldOutputTransform {
                             new ZhipuModel(
                                     config.get(ModelTransformConfig.API_KEY),
                                     config.get(ModelTransformConfig.MODEL),
-                                    provider.usedEmbeddingPath(
-                                            config.get(ModelTransformConfig.API_PATH)),
+                                    apiPath,
                                     config.get(ModelTransformConfig.DIMENSION),
                                     config.get(
                                             EmbeddingTransformConfig
@@ -169,7 +173,12 @@ public class EmbeddingTransform extends MultipleFieldOutputTransform {
                 default:
                     throw new IllegalArgumentException("Unsupported model provider: " + provider);
             }
-            // Initialize dimension
+            if (isMultimodalFields && !(model instanceof MultimodalModel)) {
+                throw new IllegalArgumentException(
+                        String.format(
+                                "Model provider: %s does not support multimodal embedding",
+                                provider));
+            }
             dimension = model.dimension();
         } catch (IOException e) {
             throw new RuntimeException("Failed to initialize model", e);
@@ -180,31 +189,48 @@ public class EmbeddingTransform extends MultipleFieldOutputTransform {
 
     private void initOutputFields(SeaTunnelRowType inputRowType, Map<String, String> fields) {
         List<String> fieldNames = new ArrayList<>();
-        List<Integer> fieldOriginalIndexes = new ArrayList<>();
+        Map<Integer, String> fieldModalitys = new HashMap<>();
+
         for (Map.Entry<String, String> field : fields.entrySet()) {
-            String srcField = field.getValue();
+            String outputField = field.getKey();
+            String inputFieldSpec = field.getValue();
+            MultimodalField multimodalField = new MultimodalField(inputFieldSpec);
+            String srcField = multimodalField.getFieldName();
             int srcFieldIndex;
             try {
                 srcFieldIndex = inputRowType.indexOf(srcField);
             } catch (IllegalArgumentException e) {
                 throw TransformCommonError.cannotFindInputFieldError(getPluginName(), srcField);
             }
+            if (!ModalityType.TEXT.equals(multimodalField.getModalityType())) {
+                isMultimodalFields = true;
+            }
+
             fieldNames.add(field.getKey());
-            fieldOriginalIndexes.add(srcFieldIndex);
+            fieldModalitys.put(srcFieldIndex, multimodalField.getModalityType().getName());
         }
+
         this.fieldNames = fieldNames;
-        this.fieldOriginalIndexes = fieldOriginalIndexes;
+        this.fieldModalitys = fieldModalitys;
     }
 
     @Override
     protected Object[] getOutputFieldValues(SeaTunnelRowAccessor inputRow) {
         tryOpen();
         try {
+            Set<Integer> fieldOriginalIndexes = fieldModalitys.keySet();
             Object[] fieldArray = new Object[fieldOriginalIndexes.size()];
-            for (int i = 0; i < fieldOriginalIndexes.size(); i++) {
-                fieldArray[i] = inputRow.getField(fieldOriginalIndexes.get(i));
+            List<ByteBuffer> vectorization;
+            int i = 0;
+            for (Integer fieldOriginalIndex : fieldOriginalIndexes) {
+                Object field = inputRow.getField(fieldOriginalIndex);
+                fieldArray[i++] =
+                        isMultimodalFields
+                                ? Collections.singletonMap(
+                                        fieldModalitys.get(fieldOriginalIndex), field)
+                                : field;
             }
-            List<ByteBuffer> vectorization = model.vectorization(fieldArray);
+            vectorization = model.vectorization(fieldArray);
             return vectorization.toArray();
         } catch (Exception e) {
             throw new RuntimeException("Failed to data vectorization", e);
@@ -231,6 +257,10 @@ public class EmbeddingTransform extends MultipleFieldOutputTransform {
     @Override
     public String getPluginName() {
         return "Embedding";
+    }
+
+    public boolean isMultimodalFields() {
+        return isMultimodalFields;
     }
 
     @SneakyThrows
