@@ -217,7 +217,7 @@ sink {
 sink {
   Iceberg {
     catalog_name = "seatunnel_rest"
-    rest.uri = "http://localhost:8181"
+    rest.uri = "https://s3tables.<Region>.amazonaws.com/iceberg"
     rest.warehouse = "s3://your-bucket/warehouse/"
     rest.auth.type = "none"
     namespace = "seatunnel_namespace"
