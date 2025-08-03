@@ -211,5 +211,47 @@ class KafkaSourceSplitEnumeratorTest {
         Assertions.assertEquals(1, pendingSplit.size());
         Assertions.assertNotNull(pendingSplit.get(partition0));
         Assertions.assertNull(pendingSplit.get(partition2));
+
+        // Test partition restoration: simulate partition2 getting a leader
+        // Create new mock topic partition list with partition2 now having a leader
+        List<TopicPartitionInfo> restoredMockTopicPartition = Lists.newArrayList();
+        TopicPartitionInfo topicPartitionWithLeader =
+                new TopicPartitionInfo(
+                        0,
+                        new Node(1, "127.0.0.1", 9092),
+                        Collections.emptyList(),
+                        Collections.emptyList());
+        TopicPartitionInfo restoredTopicPartitionWithLeader =
+                new TopicPartitionInfo(
+                        2,
+                        new Node(2, "127.0.0.1", 9093), // partition2 now has a leader
+                        Collections.emptyList(),
+                        Collections.emptyList());
+        restoredMockTopicPartition.add(topicPartitionWithLeader);
+        restoredMockTopicPartition.add(restoredTopicPartitionWithLeader);
+
+        // Update the mock to return the restored partition information
+        Mockito.when(adminClient.describeTopics(Mockito.any(java.util.Collection.class)))
+                .thenReturn(
+                        DescribeTopicsResult.ofTopicNames(
+                                new HashMap<String, KafkaFuture<TopicDescription>>() {
+                                    {
+                                        put(
+                                                partition0.topic(),
+                                                KafkaFuture.completedFuture(
+                                                        new TopicDescription(
+                                                                partition0.topic(),
+                                                                false,
+                                                                restoredMockTopicPartition)));
+                                    }
+                                }));
+
+        // Test that dynamic partition discovery detects the restored partition
+        enumerator.fetchPendingPartitionSplit();
+
+        // After partition restoration, both partitions should be available
+        Assertions.assertEquals(2, pendingSplit.size());
+        Assertions.assertNotNull(pendingSplit.get(partition0));
+        Assertions.assertNotNull(pendingSplit.get(partition2));
     }
 }
