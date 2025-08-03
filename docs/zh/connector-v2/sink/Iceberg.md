@@ -80,6 +80,10 @@ libfb303-xxx.jar
 | data_save_mode                         | Enum    | no   | APPEND_DATA                  | 数据写入方式, 请参考下面的 `data_save_mode`                                                                                                                                                                                   |
 | custom_sql                             | string  | no   | -                            | 自定义 `delete` 数据的 SQL 语句，用于数据写入方式。例如： `delete from ... where ...`                                                                                                                                                  |
 | iceberg.table.commit-branch            | string  | no   | -                            | 提交的默认分支                                                                                                                                                                                                           |
+| rest.uri                               | string  | no   | -                            | REST catalog 端点的 URI。使用 REST catalog 时必需。                                                                                                                                                                         |
+| rest.warehouse                         | string  | no   | -                            | REST catalog 的仓库位置。使用 REST catalog 时必需。                                                                                                                                                                          |
+| rest.auth.type                         | string  | no   | none                         | REST catalog 的认证类型。支持的值：`none`、`token`、`aws`。使用 `aws` 进行 AWS S3 Tables 集成。                                                                                                                                      |
+| rest.auth.token                        | string  | no   | -                            | 当 `rest.auth.type` 为 `token` 时，REST catalog 的认证令牌。                                                                                                                                                                |
 
 ## 任务示例
 
@@ -179,6 +183,60 @@ sink {
 }
 
 ```
+
+### REST Catalog
+
+```hocon
+sink {
+  Iceberg {
+    catalog_name = "seatunnel_rest"
+    rest.uri = "http://localhost:8181"
+    rest.warehouse = "s3://your-bucket/warehouse/"
+    rest.auth.type = "none"
+    namespace = "seatunnel_namespace"
+    table = "iceberg_sink_table"
+    iceberg.table.write-props = {
+      write.format.default = "parquet"
+      write.target-file-size-bytes = 536870912
+    }
+    iceberg.table.primary-keys = "id"
+    iceberg.table.partition-keys = "f_datetime"
+    iceberg.table.upsert-mode-enabled = true
+    iceberg.table.schema-evolution-enabled = true
+    case_sensitive = true
+  }
+}
+```
+
+### AWS S3 Tables
+
+```hocon
+sink {
+  Iceberg {
+    catalog_name = "seatunnel_s3tables"
+    rest.uri = "https://s3tables.us-east-1.amazonaws.com/namespaces/your-namespace-arn"
+    rest.warehouse = "s3://your-bucket/warehouse/"
+    rest.auth.type = "aws"
+    namespace = "seatunnel_namespace"
+    table = "iceberg_sink_table"
+    iceberg.table.write-props = {
+      write.format.default = "parquet"
+      write.target-file-size-bytes = 536870912
+    }
+    iceberg.table.primary-keys = "id"
+    iceberg.table.partition-keys = "f_datetime"
+    iceberg.table.upsert-mode-enabled = true
+    iceberg.table.schema-evolution-enabled = true
+    case_sensitive = true
+  }
+}
+```
+
+**AWS S3 Tables 注意事项**：使用 AWS S3 Tables 时，请确保设置以下环境变量：
+- `AWS_ACCESS_KEY_ID`：您的 AWS 访问密钥 ID
+- `AWS_SECRET_ACCESS_KEY`：您的 AWS 秘密访问密钥
+- `AWS_SESSION_TOKEN`：您的 AWS 会话令牌（如果使用临时凭证）
+- `AWS_REGION` 或 `AWS_DEFAULT_REGION`：您的 S3 Tables 所在的 AWS 区域
 
 ### Multiple table（多表写入）
 

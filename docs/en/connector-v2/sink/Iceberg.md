@@ -80,6 +80,10 @@ libfb303-xxx.jar
 | data_save_mode                         | Enum    | no       | APPEND_DATA                  | the data save mode, please refer to `data_save_mode` below                                                                                                                                                                                                                                                                |
 | custom_sql                             | string  | no       | -                            | Custom `delete` data sql for data save mode. e.g: `delete from ... where ...`                                                                                                                                                                                                                                             |
 | iceberg.table.commit-branch            | string  | no       | -                            | Default branch for commits                                                                                                                                                                                                                                                                                                |
+| rest.uri                               | string  | no       | -                            | The URI for the REST catalog endpoint. Required when using REST catalog.                                                                                                                                                                                                                                                 |
+| rest.warehouse                         | string  | no       | -                            | The warehouse location for the REST catalog. Required when using REST catalog.                                                                                                                                                                                                                                           |
+| rest.auth.type                         | string  | no       | none                         | Authentication type for REST catalog. Supported values: `none`, `token`, `aws`. Use `aws` for AWS S3 Tables integration.                                                                                                                                                                                                |
+| rest.auth.token                        | string  | no       | -                            | Authentication token for REST catalog when `rest.auth.type` is `token`.                                                                                                                                                                                                                                                  |
 
 ## Task Example
 
@@ -206,6 +210,60 @@ sink {
 }
 
 ```
+
+### REST Catalog
+
+```hocon
+sink {
+  Iceberg {
+    catalog_name = "seatunnel_rest"
+    rest.uri = "http://localhost:8181"
+    rest.warehouse = "s3://your-bucket/warehouse/"
+    rest.auth.type = "none"
+    namespace = "seatunnel_namespace"
+    table = "iceberg_sink_table"
+    iceberg.table.write-props = {
+      write.format.default = "parquet"
+      write.target-file-size-bytes = 536870912
+    }
+    iceberg.table.primary-keys = "id"
+    iceberg.table.partition-keys = "f_datetime"
+    iceberg.table.upsert-mode-enabled = true
+    iceberg.table.schema-evolution-enabled = true
+    case_sensitive = true
+  }
+}
+```
+
+### AWS S3 Tables
+
+```hocon
+sink {
+  Iceberg {
+    catalog_name = "seatunnel_s3tables"
+    rest.uri = "https://s3tables.us-east-1.amazonaws.com/namespaces/your-namespace-arn"
+    rest.warehouse = "s3://your-bucket/warehouse/"
+    rest.auth.type = "aws"
+    namespace = "seatunnel_namespace"
+    table = "iceberg_sink_table"
+    iceberg.table.write-props = {
+      write.format.default = "parquet"
+      write.target-file-size-bytes = 536870912
+    }
+    iceberg.table.primary-keys = "id"
+    iceberg.table.partition-keys = "f_datetime"
+    iceberg.table.upsert-mode-enabled = true
+    iceberg.table.schema-evolution-enabled = true
+    case_sensitive = true
+  }
+}
+```
+
+**Note for AWS S3 Tables**: When using AWS S3 Tables, ensure the following environment variables are set:
+- `AWS_ACCESS_KEY_ID`: Your AWS access key ID
+- `AWS_SECRET_ACCESS_KEY`: Your AWS secret access key
+- `AWS_SESSION_TOKEN`: Your AWS session token (if using temporary credentials)
+- `AWS_REGION` or `AWS_DEFAULT_REGION`: The AWS region where your S3 Tables are located
 
 ### Multiple table
 

@@ -147,6 +147,14 @@ public class IcebergSinkIT extends TestSuiteBase {
         Assertions.assertEquals(0, textWriteResult.getExitCode());
     }
 
+    @TestTemplate
+    public void testS3TablesWrite(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult textWriteResult =
+                container.executeJob("/iceberg/fake_to_iceberg_s3_tables.conf");
+        Assertions.assertEquals(0, textWriteResult.getExitCode());
+    }
+
     private List<Record> loadIcebergTable() {
         List<Record> results = new ArrayList<>();
         Map<String, Object> configs = new HashMap<>();
