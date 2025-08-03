@@ -894,10 +894,6 @@
                     <java>
                         <excludes>
                             <exclude>src/main/java/org/apache/seatunnel/antlr4/generated/*.*</exclude>
-                            <exclude>**/org/apache/seatunnel/format/compatible/debezium/json/**</exclude>
-                            <exclude>**/org/apache/seatunnel/format/compatible/kafka/connect/json/**</exclude>
-                            <exclude>**/org/apache/seatunnel/connectors/druid/sink/**</exclude>
-                            <exclude>**/org/apache/seatunnel/connectors/seatunnel/typesense/client/**</exclude>
                         </excludes>
                         <googleJavaFormat>
                             <version>1.7</version>
@@ -927,11 +923,6 @@
                             <name>Convert Google Guava imports to shade</name>
                             <searchRegex>import\s+(static\s+)?com\.google\.common\.([^;]+);(\r\n|\r|\n)</searchRegex>
                             <replacement>import $1org.apache.seatunnel.shade.com.google.common.$2;$3</replacement>
-                        </replaceRegex>
-                        <replaceRegex>
-                            <name>Convert Jackson imports to shade</name>
-                            <searchRegex>import\s+(static\s+)?com\.fasterxml\.jackson\.([^;]+);(\r\n|\r|\n)</searchRegex>
-                            <replacement>import $1org.apache.seatunnel.shade.com.fasterxml.jackson.$2;$3</replacement>
                         </replaceRegex>
                         <replaceRegex>
                             <name>Convert Jetty imports to shade</name>
