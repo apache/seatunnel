@@ -44,6 +44,12 @@ public class IcebergCommonConfig implements Serializable {
     private String kerberosKeytabPath;
     private String kerberosKrb5ConfPath;
 
+    // REST catalog
+    private String restUri;
+    private String restWarehouse;
+    private String restAuthType;
+    private String restAuthToken;
+
     public IcebergCommonConfig(ReadonlyConfig pluginConfig) {
         this.catalogName = pluginConfig.get(IcebergCommonOptions.KEY_CATALOG_NAME);
         this.namespace = pluginConfig.get(IcebergCommonOptions.KEY_NAMESPACE);
@@ -61,5 +67,20 @@ public class IcebergCommonConfig implements Serializable {
         if (pluginConfig.getOptional(IcebergCommonOptions.KERBEROS_KEYTAB_PATH).isPresent()) {
             this.kerberosKeytabPath = pluginConfig.get(IcebergCommonOptions.KERBEROS_KEYTAB_PATH);
         }
+
+        // REST catalog configuration
+        if (pluginConfig.getOptional(IcebergCommonOptions.REST_URI).isPresent()) {
+            this.restUri = pluginConfig.get(IcebergCommonOptions.REST_URI);
+        }
+        if (pluginConfig.getOptional(IcebergCommonOptions.REST_WAREHOUSE).isPresent()) {
+            this.restWarehouse = pluginConfig.get(IcebergCommonOptions.REST_WAREHOUSE);
+        }
+        this.restAuthType = pluginConfig.get(IcebergCommonOptions.REST_AUTH_TYPE);
+        if (pluginConfig.getOptional(IcebergCommonOptions.REST_AUTH_TOKEN).isPresent()) {
+            this.restAuthToken = pluginConfig.get(IcebergCommonOptions.REST_AUTH_TOKEN);
+        }
+
+        // AWS credentials will be handled through environment variables
+        // No need to read AWS-specific configuration from plugin config
     }
 }

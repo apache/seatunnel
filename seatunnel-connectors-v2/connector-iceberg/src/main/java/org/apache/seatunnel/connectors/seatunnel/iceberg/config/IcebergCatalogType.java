@@ -22,7 +22,8 @@ import org.apache.curator.shaded.com.google.common.annotations.VisibleForTesting
 @VisibleForTesting
 public enum IcebergCatalogType {
     HADOOP("hadoop"),
-    HIVE("hive");
+    HIVE("hive"),
+    REST("rest");
 
     final String type;
 

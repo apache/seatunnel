@@ -87,4 +87,35 @@ public class IcebergCommonOptions {
                     .stringType()
                     .noDefaultValue()
                     .withDescription("When using kerberos, We should specify the keytab path");
+
+    // REST Catalog Configuration
+    public static final Option<String> REST_URI =
+            Options.key("rest.uri")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("The URI for the REST catalog endpoint");
+
+    public static final Option<String> REST_WAREHOUSE =
+            Options.key("rest.warehouse")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("The warehouse location for the REST catalog");
+
+    public static final Option<String> REST_AUTH_TYPE =
+            Options.key("rest.auth.type")
+                    .stringType()
+                    .defaultValue("none")
+                    .withDescription(
+                            "Authentication type for REST catalog. Supported values: none, token, aws");
+
+    public static final Option<String> REST_AUTH_TOKEN =
+            Options.key("rest.auth.token")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "Authentication token for REST catalog when auth.type is 'token'");
+
+    // AWS authentication is handled through environment variables:
+    // AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_SESSION_TOKEN (optional)
+    // AWS_REGION or AWS_DEFAULT_REGION
 }
