@@ -120,9 +120,7 @@ public class DorisSinkWriter
 
         for (int i = 0; i < feNodesNum; i++) {
             try {
-                if (i > 0) {
-                    log.info("Trying next FE node: {}", feNodes.get(i));
-                }
+                log.info("Trying FE node {}  for stream load.", feNodes.get(i));
                 this.dorisStreamLoad =
                         new DorisStreamLoad(
                                 feNodes.get(i),
