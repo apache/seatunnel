@@ -37,7 +37,7 @@ import org.apache.seatunnel.connectors.cdc.debezium.row.DebeziumJsonDeserializeS
 import org.apache.seatunnel.connectors.cdc.debezium.row.SeaTunnelRowDebeziumDeserializeSchema;
 import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.config.PostgresSourceConfigFactory;
 import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.source.offset.LsnOffsetFactory;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.JdbcCatalogOptions;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcCommonOptions;
 
 import org.apache.kafka.connect.data.Struct;
 
@@ -81,8 +81,7 @@ public class PostgresIncrementalSource<T> extends IncrementalSource<T, JdbcSourc
     public SourceConfig.Factory<JdbcSourceConfig> createSourceConfigFactory(ReadonlyConfig config) {
         PostgresSourceConfigFactory configFactory = new PostgresSourceConfigFactory();
         configFactory.fromReadonlyConfig(readonlyConfig);
-        JdbcUrlUtil.UrlInfo urlInfo =
-                JdbcUrlUtil.getUrlInfo(config.get(JdbcCatalogOptions.BASE_URL));
+        JdbcUrlUtil.UrlInfo urlInfo = JdbcUrlUtil.getUrlInfo(config.get(JdbcCommonOptions.URL));
         configFactory.originUrl(urlInfo.getOrigin());
         configFactory.hostname(urlInfo.getHost());
         configFactory.port(urlInfo.getPort());

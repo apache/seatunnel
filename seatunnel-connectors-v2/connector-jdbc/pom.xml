@@ -212,6 +212,7 @@
                 <groupId>org.tikv</groupId>
                 <artifactId>tikv-client-java</artifactId>
                 <version>${tikv.version}</version>
+                <scope>provided</scope>
             </dependency>
             <dependency>
                 <groupId>org.opengauss</groupId>

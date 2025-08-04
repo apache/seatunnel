@@ -29,30 +29,24 @@ import lombok.ToString;
 public class MetadataColumn extends Column {
     private static final long serialVersionUID = 1L;
 
-    private final String metadataKey;
-
     protected MetadataColumn(
             String name,
             SeaTunnelDataType<?> dataType,
             Long columnLength,
-            String metadataKey,
             boolean nullable,
             Object defaultValue,
             String comment) {
         super(name, dataType, columnLength, nullable, defaultValue, comment);
-        this.metadataKey = metadataKey;
     }
 
     public static MetadataColumn of(
             String name,
             SeaTunnelDataType<?> dataType,
             Long columnLength,
-            String metadataKey,
             boolean nullable,
             Object defaultValue,
             String comment) {
-        return new MetadataColumn(
-                name, dataType, columnLength, metadataKey, nullable, defaultValue, comment);
+        return new MetadataColumn(name, dataType, columnLength, nullable, defaultValue, comment);
     }
 
     @Override
@@ -62,26 +56,23 @@ public class MetadataColumn extends Column {
 
     @Override
     public Column copy(SeaTunnelDataType<?> newType) {
-        return MetadataColumn.of(
-                name, newType, columnLength, metadataKey, nullable, defaultValue, comment);
+        return MetadataColumn.of(name, newType, columnLength, nullable, defaultValue, comment);
     }
 
     @Override
     public Column copy() {
-        return MetadataColumn.of(
-                name, dataType, columnLength, metadataKey, nullable, defaultValue, comment);
+        return MetadataColumn.of(name, dataType, columnLength, nullable, defaultValue, comment);
     }
 
     @Override
     public Column rename(String newColumnName) {
         return MetadataColumn.of(
-                newColumnName,
-                dataType,
-                columnLength,
-                metadataKey,
-                nullable,
-                defaultValue,
-                comment);
+                newColumnName, dataType, columnLength, nullable, defaultValue, comment);
+    }
+
+    public PhysicalColumn toPhysicalColumn() {
+        return PhysicalColumn.of(
+                name, dataType, columnLength, scale, nullable, defaultValue, comment);
     }
 
     @Override

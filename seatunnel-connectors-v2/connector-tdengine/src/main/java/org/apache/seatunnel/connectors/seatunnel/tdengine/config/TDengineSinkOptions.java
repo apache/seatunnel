@@ -23,6 +23,8 @@ import org.apache.seatunnel.api.configuration.Options;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 
+import java.util.List;
+
 @Data
 @AllArgsConstructor
 public class TDengineSinkOptions extends TDengineCommonOptions {
@@ -32,4 +34,13 @@ public class TDengineSinkOptions extends TDengineCommonOptions {
                     .stringType()
                     .defaultValue("UTC")
                     .withDescription("The timezone used for timestamp conversion, default is UTC");
+
+    public static final Option<List<String>> WRITE_COLUMNS =
+            Options.key("write_columns")
+                    .listType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "The field names to be written to TDengine "
+                                    + "If not specified, all fields will be written. "
+                                    + "This option is useful when the source schema does not match the TDengine table schema.");
 }

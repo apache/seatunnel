@@ -46,47 +46,55 @@ public class BaseServlet extends HttpServlet {
     }
 
     protected void writeJson(HttpServletResponse resp, Object obj) throws IOException {
-        resp.setContentType("application/json");
+        resp.setCharacterEncoding(StandardCharsets.UTF_8.name());
+        resp.setContentType("application/json; charset=UTF-8");
         resp.getWriter().write(new Gson().toJson(obj));
     }
 
     protected void writeJson(HttpServletResponse resp, JsonArray jsonArray) throws IOException {
-        resp.setContentType("application/json");
+        resp.setCharacterEncoding(StandardCharsets.UTF_8.name());
+        resp.setContentType("application/json; charset=UTF-8");
         resp.getWriter().write(jsonArray.toString());
     }
 
     protected void writeJson(HttpServletResponse resp, JsonObject jsonObject) throws IOException {
-        resp.setContentType("application/json");
+        resp.setCharacterEncoding(StandardCharsets.UTF_8.name());
+        resp.setContentType("application/json; charset=UTF-8");
         resp.getWriter().write(jsonObject.toString());
     }
 
     protected void writeJson(HttpServletResponse resp, JsonArray jsonArray, int statusCode)
             throws IOException {
-        resp.setContentType("application/json");
+        resp.setCharacterEncoding(StandardCharsets.UTF_8.name());
+        resp.setContentType("application/json; charset=UTF-8");
         resp.setStatus(statusCode);
         resp.getWriter().write(jsonArray.toString());
     }
 
     protected void writeJson(HttpServletResponse resp, JsonObject jsonObject, int statusCode)
             throws IOException {
-        resp.setContentType("application/json");
+        resp.setCharacterEncoding(StandardCharsets.UTF_8.name());
+        resp.setContentType("application/json; charset=UTF-8");
         resp.setStatus(statusCode);
         resp.getWriter().write(jsonObject.toString());
     }
 
     protected void writeJson(HttpServletResponse resp, Object obj, int statusCode)
             throws IOException {
-        resp.setContentType("application/json");
+        resp.setCharacterEncoding(StandardCharsets.UTF_8.name());
+        resp.setContentType("application/json; charset=UTF-8");
         resp.setStatus(statusCode);
         resp.getWriter().write(new Gson().toJson(obj));
     }
 
     protected void write(HttpServletResponse resp, Object obj) throws IOException {
-        resp.setContentType("text/plain");
+        resp.setCharacterEncoding(StandardCharsets.UTF_8.name());
+        resp.setContentType("text/plain; charset=UTF-8");
         resp.getWriter().write(obj.toString());
     }
 
     protected void writeHtml(HttpServletResponse resp, Object obj) throws IOException {
+        resp.setCharacterEncoding(StandardCharsets.UTF_8.name());
         resp.setContentType("text/html; charset=UTF-8");
         resp.getWriter().write(obj.toString());
     }

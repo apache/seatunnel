@@ -32,6 +32,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.util.concurrent.TimeUnit;
 
+import static org.apache.seatunnel.api.common.metrics.MetricNames.INTERMEDIATE_QUEUE_SIZE;
 import static org.apache.seatunnel.api.common.metrics.MetricNames.SINK_WRITE_COUNT;
 import static org.apache.seatunnel.api.common.metrics.MetricNames.SINK_WRITE_QPS;
 import static org.apache.seatunnel.api.common.metrics.MetricNames.SOURCE_RECEIVED_COUNT;
@@ -89,6 +90,22 @@ class JobMetricsTest extends AbstractSeaTunnelServerTest {
         assertEquals(30, (Long) jobMetrics.get(SOURCE_RECEIVED_COUNT).get(0).value());
         assertTrue((Double) jobMetrics.get(SOURCE_RECEIVED_QPS).get(0).value() > 0);
         assertTrue((Double) jobMetrics.get(SINK_WRITE_QPS).get(0).value() > 0);
+        assertEquals(0, (Long) jobMetrics.get(INTERMEDIATE_QUEUE_SIZE).get(0).value());
+    }
+
+    @Test
+    public void testMetricsWhenJobFailed() {
+        long jobId = System.currentTimeMillis();
+        startJob(jobId, "stream_fake_to_inmemory_with_error.conf", false);
+        await().atMost(120000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        JobStatus.FAILED,
+                                        server.getCoordinatorService().getJobStatus(jobId)));
+
+        JobMetrics jobMetrics = server.getCoordinatorService().getJobMetrics(jobId);
+        assertTrue((Long) jobMetrics.get(INTERMEDIATE_QUEUE_SIZE).get(0).value() > 0);
     }
 
     @Test

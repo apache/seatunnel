@@ -857,6 +857,7 @@ public class ZetaSQLFunction {
         SeaTunnelRow outputRow = new SeaTunnelRow(fields);
         outputRow.setRowKind(row.getRowKind());
         outputRow.setTableId(row.getTableId());
+        outputRow.setOptions(row.getOptions());
         outputRow.setField(fieldIndex, fieldValue);
         return outputRow;
     }
