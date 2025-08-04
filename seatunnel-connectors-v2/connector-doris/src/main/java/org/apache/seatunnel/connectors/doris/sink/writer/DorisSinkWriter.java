@@ -140,6 +140,11 @@ public class DorisSinkWriter
                         "stream load error for feNode: {} with exception: {}",
                         feNodes.get(i),
                         e.getMessage());
+                if (i < feNodesNum - 1) {
+                    log.info("Trying next FE node: {}", feNodes.get(i+1));
+                } else {
+                    log.error("All {} FE nodes failed, no more nodes to try", feNodesNum);
+                }
             }
         }
 
