@@ -162,7 +162,7 @@ sh bin/x2seatunnel.sh -s examples/mysql2hdfs.json -t output/result.conf -T mysql
 # - 业务优化配置（parquet格式、snappy压缩等）
 
 # 验证模板变量正则语法工作正常：
-# database = "ecology_ods"     # 从 /warehouse/ecology_ods/ods_table/ 提取
+# database = "test_ods"     # 从 /warehouse/test_ods/ods_table/ 提取
 # table_name = "ods_table"     # 从路径末尾提取表名
 ```
 
@@ -497,6 +497,41 @@ sh bin/x2seatunnel.sh -s examples/source/datax-mysql2mysql-full.json \
 6. 编写单元测试验证映射统计的准确性
 7. 更新转换报告模板，增加详细的字段映射展示
 
+### 第二阶段：社区化
+
+#### 迭代2.1：英文化和源码解析（已完成）
+**目标**: 完成seatunnel-tools/x2seatunnel的全面英文化工作，包括源码解析文档、注释英文化和README英文版本生成
+
+**功能范围**:
+- 编写中文源码解析文档，从bin/x2seatunnel.sh调用开始分析整个工具的执行流程
+- 将所有Java类的中文注释翻译为英文，保持代码的专业性和可读性
+- 将启动脚本、配置文件、模板文件中的中文注释和提示信息翻译为英文
+- 基于README_zh.md生成完整的英文版README.md，确保内容准确且符合开源项目标准
+- 验证英文化后的代码功能正常，测试文档的准确性和完整性
+
+**可交付成果**:
+- X2SeaTunnel源码解析文档（中文）
+- 完全英文化的Java代码注释
+- 英文化的配置文件和脚本
+- 标准的英文README.md文档
+- 功能验证测试报告
+
+**验证标准**:
+```bash
+# 验证英文化后的工具功能正常
+./bin/x2seatunnel.sh -s examples/source/datax-mysql2hdfs.json -t examples/target/mysql2hdfs-result.conf
+
+# 验证：
+# - 所有输出信息为英文
+# - 功能完全正常
+# - 文档内容准确完整
+```
+
+备注：
+我在人工review的过程中，发现了很多问题，：
+- shell 中定义的环境变量问题，已修复
+- 发现多余类，DataXConfigParser
+
 ### 第三阶段：高级功能与优化（2周）
 
 #### 迭代3.1：SDK接口开发（1周）
@@ -635,3 +670,41 @@ sh bin/x2seatunnel.sh -t datax -i invalid-config.json -o output/result.conf
 2. **第五阶段**：Sqoop支持（3周）
 3. **第六阶段**：更多高级功能（数据类型转换、复杂表达式支持等）
 4. **第七阶段**：Web界面和可视化功能
+
+## 迭代完成状态
+
+### ✅ 迭代1.8：英文化和源码解析（已完成 - 2025年7月28日）
+
+**完成内容**:
+1. **源码解析文档**: 创建了 `docs/X2Seatunnel/X2SeaTunnel源码解析.md`，详细分析了从启动脚本到核心组件的完整执行流程
+2. **Java代码英文化**: 完成了主要类的注释英文化，包括：
+   - `X2SeaTunnelCli`: 命令行工具主类
+   - `CommandLineOptions`: 命令行选项配置
+   - `ConversionEngine`: 核心转换引擎
+   - `ConfigDrivenTemplateEngine`: 配置驱动模板引擎
+   - `TemplateVariableResolver`: 模板变量解析器
+3. **配置文件英文化**:
+   - `bin/x2seatunnel.sh`: 启动脚本完全英文化
+   - `templates/template-mapping.yaml`: 模板映射配置英文化
+4. **单元测试英文化**: 完成了所有测试文件的英文化，包括：
+   - `MappingTrackerTest`: 映射跟踪器测试
+   - `CommandLineOptionsTest`: 命令行选项测试
+   - `FileUtilsTest`: 文件工具测试
+   - `YamlConfigParserTest`: YAML配置解析器测试
+   - `TemplateVariableResolverTest`: 模板变量解析器测试
+   - `TemplateVariableResolverMappingTest`: 模板变量解析器映射测试
+   - `MarkdownReportGeneratorEnhancedTest`: Markdown报告生成器测试
+5. **英文README**: 创建了完整的 `seatunnel-tools/x2seatunnel/README.md`（342行），包含：
+   - 快速开始指南
+   - 功能特性说明
+   - 详细的模板系统文档
+   - 支持的数据源和目标
+   - 开发指南和版本信息
+
+**技术成果**:
+- 代码已准备好提交到Apache SeaTunnel开源社区
+- 文档符合开源项目标准
+- 保持了代码的专业性和可读性
+- 功能验证正常，无编译错误
+
+**下一步**: 准备提交到开源社区，开始后续功能开发

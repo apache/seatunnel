@@ -24,7 +24,7 @@ import java.io.File;
 import java.net.URL;
 import java.nio.file.Paths;
 
-/** X2SeaTunnel 智能路径解析器 */
+/** X2SeaTunnel Intelligent Path Resolver */
 public class PathResolver {
 
     private static final Logger logger = LoggerFactory.getLogger(PathResolver.class);
@@ -35,47 +35,44 @@ public class PathResolver {
 
     private static String cachedHomePath = null;
 
-    /**
-     * 获取 X2SeaTunnel 的主目录
-     *
-     * @return X2SeaTunnel 主目录路径
-     */
     public static String getHomePath() {
         if (cachedHomePath != null) {
             return cachedHomePath;
         }
 
-        // 1. 优先使用系统属性（脚本设置）
+        // 1. Priority: use system property (set by script)
         String homePath = System.getProperty(X2SEATUNNEL_HOME_PROPERTY);
         if (homePath != null && !homePath.trim().isEmpty()) {
             cachedHomePath = new File(homePath).getAbsolutePath();
-            logger.info("使用系统属性 X2SEATUNNEL_HOME: {}", cachedHomePath);
+            logger.info("Using system property X2SEATUNNEL_HOME: {}", cachedHomePath);
             return cachedHomePath;
         }
 
-        // 2. 自动检测JAR包位置推导
+        // 2. Automatically detect the JAR location to infer the home directory
         homePath = autoDetectHomePath();
         if (homePath != null) {
             cachedHomePath = homePath;
-            logger.info("自动检测到 X2SEATUNNEL_HOME: {}", cachedHomePath);
+            logger.info("Auto-detected X2SEATUNNEL_HOME: {}", cachedHomePath);
             return cachedHomePath;
         }
 
-        // 3. 回退到当前工作目录
+        // 3. Fallback to the current working directory
         cachedHomePath = System.getProperty("user.dir");
-        logger.warn("无法检测 X2SEATUNNEL_HOME，使用当前工作目录: {}", cachedHomePath);
+        logger.warn(
+                "Unable to detect X2SEATUNNEL_HOME, using current working directory: {}",
+                cachedHomePath);
         return cachedHomePath;
     }
 
-    /** 自动检测主目录路径（基于JAR包位置） */
+    /** Automatically detect the home directory path (based on JAR location) */
     private static String autoDetectHomePath() {
         try {
-            // 获取当前类所在的JAR包位置
+            // Get the location of the JAR file where the current class is located
             URL classUrl = PathResolver.class.getProtectionDomain().getCodeSource().getLocation();
             if (classUrl != null) {
-                File jarFile = new File(classUrl.toURI()); // 如果是JAR包，获取其父目录的父目录作为主目录
+                File jarFile = new File(classUrl.toURI());
                 if (jarFile.isFile() && jarFile.getName().endsWith(".jar")) {
-                    File parentDir = jarFile.getParentFile(); // lib/ 或 bin/
+                    File parentDir = jarFile.getParentFile(); // lib/ or bin/
                     if (parentDir != null) {
                         if ("lib".equals(parentDir.getName())
                                 || "bin".equals(parentDir.getName())) {
@@ -84,11 +81,12 @@ public class PathResolver {
                     }
                 }
 
-                // 如果是开发环境（target/classes），查找 x2seatunnel 模块根目录
+                // If it is a development environment (target/classes), find the root directory of
+                // the x2seatunnel module
                 if (jarFile.getPath().contains("target" + File.separator + "classes")) {
                     File current = jarFile;
                     while (current != null) {
-                        // 查找 x2seatunnel 模块根目录
+                        // Find the root directory of the x2seatunnel module
                         if (isX2SeaTunnelModuleRoot(current)) {
                             return current.getAbsolutePath();
                         }
@@ -97,19 +95,17 @@ public class PathResolver {
                 }
             }
         } catch (Exception e) {
-            logger.debug("自动检测主目录失败: {}", e.getMessage());
+            logger.debug("Failed to auto-detect home directory: {}", e.getMessage());
         }
 
         return null;
     }
 
-    /** 判断是否是 X2SeaTunnel 模块根目录 */
     private static boolean isX2SeaTunnelModuleRoot(File dir) {
         if (dir == null || !dir.isDirectory()) {
             return false;
         }
 
-        // 检查是否存在 X2SeaTunnel 模块的特征文件/目录
         return new File(dir, "pom.xml").exists()
                 && new File(dir, "src").exists()
                 && (new File(dir, "config").exists()
@@ -117,105 +113,82 @@ public class PathResolver {
                         || dir.getName().equals("x2seatunnel"));
     }
 
-    /** 判断是否是 SeaTunnel 项目根目录（保留用于兼容性） */
-    private static boolean isSeaTunnelProjectRoot(File dir) {
-        if (dir == null || !dir.isDirectory()) {
-            return false;
-        }
-
-        // 检查是否存在 SeaTunnel 项目的特征文件/目录
-        return new File(dir, "pom.xml").exists()
-                && (new File(dir, "seatunnel-tools").exists()
-                        || new File(dir, "bin").exists()
-                        || dir.getName().toLowerCase().contains("seatunnel"));
-    }
-
     /**
-     * 解析模板文件路径
+     * Resolve the template file path
      *
-     * @param templatePath 模板文件路径（可以是绝对路径或相对路径）
-     * @return 解析后的完整路径
+     * @param templatePath The template file path (can be an absolute or relative path)
+     * @return The resolved full path
      */
     public static String resolveTemplatePath(String templatePath) {
         if (templatePath == null || templatePath.trim().isEmpty()) {
-            throw new IllegalArgumentException("模板路径不能为空");
+            throw new IllegalArgumentException("Template path cannot be empty");
         }
 
         templatePath = templatePath.trim();
 
-        // 1. 如果是绝对路径，直接返回
+        // 1. If it is an absolute path, return it directly
         if (Paths.get(templatePath).isAbsolute()) {
             return templatePath;
         }
 
-        // 2. 相对于当前工作目录查找
+        // 2. Look for it relative to the current working directory
         File currentDirFile = new File(templatePath);
         if (currentDirFile.exists()) {
             String absolutePath = currentDirFile.getAbsolutePath();
-            logger.info("从当前目录找到模板: {}", absolutePath);
+            logger.info("Found template from current directory: {}", absolutePath);
             return absolutePath;
         }
 
-        // 3. 相对于 X2SEATUNNEL_HOME/templates 查找
+        // 3. Look for it relative to X2SEATUNNEL_HOME/templates
         String homePath = getHomePath();
         String homeTemplatePath =
                 Paths.get(homePath, CONFIG_TEMPLATES_DIR, templatePath).toString();
         File homeTemplateFile = new File(homeTemplatePath);
         if (homeTemplateFile.exists()) {
-            logger.info("从主目录配置找到模板: {}", homeTemplatePath);
+            logger.info("Found template from home directory configuration: {}", homeTemplatePath);
             return homeTemplatePath;
         }
 
-        // 4. 尝试开发环境路径（seatunnel/config/x2seatunnel/templates）
+        // 4. Try the development environment path (seatunnel/config/x2seatunnel/templates)
         String devTemplatePath =
                 Paths.get(homePath, "config/x2seatunnel/templates", templatePath).toString();
         File devTemplateFile = new File(devTemplatePath);
         if (devTemplateFile.exists()) {
-            logger.info("从开发环境配置找到模板: {}", devTemplatePath);
+            logger.info(
+                    "Found template from development environment configuration: {}",
+                    devTemplatePath);
             return devTemplatePath;
         }
 
-        // 5. 如果都找不到，返回null，让调用方处理classpath查找
-        logger.debug("在文件系统中未找到模板文件: {}", templatePath);
+        // 5. If not found, return null, let the caller handle classpath lookup
+        logger.warn("Template file not found in the file system: {}", templatePath);
         return null;
     }
 
     /**
-     * 构建资源路径（用于classpath查找）
+     * Build the resource path (for classpath lookup)
      *
-     * @param templatePath 模板路径
-     * @return classpath资源路径
+     * @param templatePath The template path
+     * @return The classpath resource path
      */
     public static String buildResourcePath(String templatePath) {
-        // 确保以/开头
         if (!templatePath.startsWith("/")) {
             templatePath = "/" + templatePath;
         }
 
-        // 如果已经包含完整路径，直接返回
+        // If it already contains the full path, return it directly
         if (templatePath.startsWith(RESOURCE_TEMPLATES_PREFIX)) {
             return templatePath;
         }
 
-        // 否则拼接标准前缀
+        // Otherwise, concatenate the standard prefix
         return RESOURCE_TEMPLATES_PREFIX + templatePath;
     }
 
-    /**
-     * 获取配置模板目录路径
-     *
-     * @return 配置模板目录的绝对路径
-     */
     public static String getConfigTemplatesDir() {
         return Paths.get(getHomePath(), CONFIG_TEMPLATES_DIR).toString();
     }
 
-    /**
-     * 检查路径是否存在
-     *
-     * @param path 要检查的路径
-     * @return 如果路径存在返回true，否则返回false
-     */
     public static boolean exists(String path) {
         return path != null && new File(path).exists();
     }

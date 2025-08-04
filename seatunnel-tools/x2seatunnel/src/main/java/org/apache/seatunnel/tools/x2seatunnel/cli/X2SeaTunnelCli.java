@@ -38,20 +38,19 @@ import org.slf4j.LoggerFactory;
 import java.nio.file.Paths;
 import java.util.List;
 
-/** X2SeaTunnel 命令行工具主类 */
+/** X2SeaTunnel command-line tool main class */
 public class X2SeaTunnelCli {
 
     private static final Logger logger = LoggerFactory.getLogger(X2SeaTunnelCli.class);
 
     private static final String TOOL_NAME = "x2seatunnel";
-    private static final String VERSION = "1.0.0-SNAPSHOT";
 
     public static void main(String[] args) {
         try {
             X2SeaTunnelCli cli = new X2SeaTunnelCli();
             cli.run(args);
         } catch (Exception e) {
-            logger.error("执行失败: {}", e.getMessage());
+            logger.error("Execution failed: {}", e.getMessage());
             System.exit(1);
         }
     }
@@ -63,19 +62,19 @@ public class X2SeaTunnelCli {
             CommandLineParser parser = new DefaultParser();
             CommandLine cmd = parser.parse(options, args);
 
-            // 支持 YAML 配置文件
+            // Support YAML configuration file
             ConversionConfig yamlConfig = null;
             if (cmd.hasOption("c") || cmd.hasOption("config")) {
                 String configPath = cmd.getOptionValue("c", cmd.getOptionValue("config"));
                 yamlConfig = YamlConfigParser.parse(configPath);
-                logger.info("加载 YAML 配置: {}", configPath);
+                logger.info("Loaded YAML configuration: {}", configPath);
             }
 
-            // 提前读取批量模式参数
+            // Read batch mode parameters in advance
             String directory = null;
             String outputDir = null;
             String reportDir = null;
-            // 批量模式自定义模板
+            // Custom template for batch mode
             String batchTemplate = null;
             if (cmd.hasOption("d")) directory = cmd.getOptionValue("d");
             if (cmd.hasOption("directory")) directory = cmd.getOptionValue("directory");
@@ -86,17 +85,20 @@ public class X2SeaTunnelCli {
             if (cmd.hasOption("T")) batchTemplate = cmd.getOptionValue("T");
             if (cmd.hasOption("template")) batchTemplate = cmd.getOptionValue("template");
 
-            // 如果指定批量模式，先执行批量逻辑并直接返回
+            // If batch mode is specified, execute batch logic first and return directly
             if (directory != null) {
                 if (outputDir == null) {
-                    logger.error("批量转换必须指定输出目录: -o/--output-dir");
+                    logger.error("Batch conversion requires output directory: -o/--output-dir");
                     printUsage();
                     System.exit(1);
                 }
-                logger.info("开始批量转换，源目录={}, 输出目录={}", directory, outputDir);
+                logger.info(
+                        "Starting batch conversion, source directory={}, output directory={}",
+                        directory,
+                        outputDir);
                 FileUtils.createDirectory(outputDir);
                 if (reportDir != null) {
-                    logger.info("报告目录={}", reportDir);
+                    logger.info("Report directory={}", reportDir);
                     FileUtils.createDirectory(reportDir);
                 }
                 DirectoryProcessor dp = new DirectoryProcessor(directory, outputDir);
@@ -104,12 +106,15 @@ public class X2SeaTunnelCli {
                 String pattern = cmd.getOptionValue("p", cmd.getOptionValue("pattern"));
                 sources = FilePattern.filter(sources, pattern);
                 if (sources.isEmpty()) {
-                    logger.warn("源目录中未找到待转换文件: {} 匹配模式: {}", directory, pattern);
+                    logger.warn(
+                            "No files to convert found in source directory: {} with pattern: {}",
+                            directory,
+                            pattern);
                 }
                 ConversionEngine engine = new ConversionEngine();
                 BatchConversionReport batchReport = new BatchConversionReport();
 
-                // 设置批量转换配置信息
+                // Set batch conversion configuration information
                 batchReport.setConversionConfig(
                         directory, outputDir, reportDir, pattern, batchTemplate);
 
@@ -127,14 +132,20 @@ public class X2SeaTunnelCli {
                             rpt = dp.resolveReportPath(src);
                         }
                     }
-                    logger.info("[{} / {}] 处理文件: {}", i + 1, total, src);
+                    logger.info("[{} / {}] Processing file: {}", i + 1, total, src);
                     try {
                         engine.convert(src, tgt, "datax", "seatunnel", batchTemplate, rpt);
                         batchReport.recordSuccess(src, tgt, rpt);
                         System.out.println(
-                                String.format("[%d/%d] 转换完成: %s -> %s", i + 1, total, src, tgt));
+                                String.format(
+                                        "[%d/%d] Conversion completed: %s -> %s",
+                                        i + 1, total, src, tgt));
                     } catch (Exception e) {
-                        logger.error("文件转换失败: {} -> {} , 错误: {}", src, tgt, e.getMessage());
+                        logger.error(
+                                "File conversion failed: {} -> {} , error: {}",
+                                src,
+                                tgt,
+                                e.getMessage());
                         batchReport.recordFailure(src, e.getMessage());
                     }
                 }
@@ -148,25 +159,30 @@ public class X2SeaTunnelCli {
                     }
                 }
                 batchReport.writeReport(summary);
-                System.out.println("批量转换完成！输出目录：" + outputDir + "，报告：" + summary);
+                System.out.println(
+                        "Batch conversion completed! Output directory: "
+                                + outputDir
+                                + ", Report: "
+                                + summary);
                 return;
             }
 
-            // 验证必需的参数：仅在非 YAML 且非批量模式下必须指定 -s/-t
+            // Validate required parameters: only required to specify -s/-t in non-YAML and
+            // non-batch mode
             if (yamlConfig == null && directory == null) {
                 if (!cmd.hasOption("s") && !cmd.hasOption("source")) {
-                    logger.error("缺少必需的参数：-s/--source");
+                    logger.error("Missing required parameter: -s/--source");
                     printUsage();
                     System.exit(1);
                 }
                 if (!cmd.hasOption("t") && !cmd.hasOption("target")) {
-                    logger.error("缺少必需的参数：-t/--target");
+                    logger.error("Missing required parameter: -t/--target");
                     printUsage();
                     System.exit(1);
                 }
             }
 
-            // 获取参数值，优先命令行，其次 YAML
+            // Get parameter values, command line takes priority, then YAML
             String sourceFile = yamlConfig != null ? yamlConfig.getSource() : null;
             String targetFile = yamlConfig != null ? yamlConfig.getTarget() : null;
             String sourceType =
@@ -175,7 +191,7 @@ public class X2SeaTunnelCli {
                             : "datax";
             String customTemplate = yamlConfig != null ? yamlConfig.getTemplate() : null;
             String reportFile = yamlConfig != null ? yamlConfig.getReport() : null;
-            // 命令行参数覆盖 YAML 配置
+            // Command line parameters override YAML configuration
             if (cmd.hasOption("s")) sourceFile = cmd.getOptionValue("s");
             if (cmd.hasOption("source")) sourceFile = cmd.getOptionValue("source");
             if (cmd.hasOption("t")) targetFile = cmd.getOptionValue("t");
@@ -186,26 +202,26 @@ public class X2SeaTunnelCli {
             if (cmd.hasOption("template")) customTemplate = cmd.getOptionValue("template");
             if (cmd.hasOption("r")) reportFile = cmd.getOptionValue("r");
             if (cmd.hasOption("report")) reportFile = cmd.getOptionValue("report");
-            String targetType = "seatunnel"; // 固定为seatunnel
+            String targetType = "seatunnel"; // Fixed as seatunnel
 
-            // 执行转换
+            // Execute conversion
             ConversionEngine engine = new ConversionEngine();
             engine.convert(
                     sourceFile, targetFile, sourceType, targetType, customTemplate, reportFile);
 
-            System.out.println("配置转换完成！");
-            System.out.println("源文件: " + sourceFile);
-            System.out.println("目标文件: " + targetFile);
+            System.out.println("Configuration conversion completed!");
+            System.out.println("Source file: " + sourceFile);
+            System.out.println("Target file: " + targetFile);
             if (reportFile != null) {
-                System.out.println("转换报告: " + reportFile);
+                System.out.println("Conversion report: " + reportFile);
             }
 
         } catch (ParseException e) {
-            logger.error("参数解析失败: {}", e.getMessage());
+            logger.error("Parameter parsing failed: {}", e.getMessage());
             printHelp(options);
             System.exit(1);
         } catch (Exception e) {
-            logger.error("转换过程中发生错误: {}", e.getMessage());
+            logger.error("Error occurred during conversion: {}", e.getMessage());
             System.exit(1);
         }
     }
@@ -214,9 +230,9 @@ public class X2SeaTunnelCli {
         HelpFormatter formatter = new HelpFormatter();
         formatter.printHelp(
                 TOOL_NAME,
-                "X2SeaTunnel 配置转换工具",
+                "X2SeaTunnel configuration conversion tool",
                 options,
-                "\\n示例:\\n"
+                "\\nExamples:\\n"
                         + "  "
                         + TOOL_NAME
                         + " -s datax.json -t seatunnel.conf\\n"
@@ -226,9 +242,9 @@ public class X2SeaTunnelCli {
     }
 
     private void printUsage() {
-        System.out.println("使用方法：x2seatunnel [OPTIONS]");
+        System.out.println("Usage: x2seatunnel [OPTIONS]");
         System.out.println(
-                "常用批量模式：x2seatunnel -d <source_dir> -o <output_dir> [-R <report_dir>] [-p <pattern>]");
-        System.out.println("使用 -h 或 --help 查看完整帮助信息");
+                "Common batch mode: x2seatunnel -d <source_dir> -o <output_dir> [-R <report_dir>] [-p <pattern>]");
+        System.out.println("Use -h or --help to view complete help information");
     }
 }

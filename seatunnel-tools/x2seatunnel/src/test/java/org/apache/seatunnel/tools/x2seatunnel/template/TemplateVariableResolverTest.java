@@ -23,7 +23,7 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-/** TemplateVariableResolver 单元测试 */
+/** TemplateVariableResolver unit tests */
 public class TemplateVariableResolverTest {
 
     private TemplateVariableResolver resolver;
@@ -33,7 +33,7 @@ public class TemplateVariableResolverTest {
     public void setUp() {
         resolver = new TemplateVariableResolver();
 
-        // 简化的DataX配置JSON字符串
+        // Simplified DataX configuration JSON string
         testDataXJson =
                 "{\n"
                         + "  \"job\": {\n"
@@ -50,7 +50,7 @@ public class TemplateVariableResolverTest {
                         + "      },\n"
                         + "      \"writer\": {\n"
                         + "        \"parameter\": {\n"
-                        + "          \"path\": \"/warehouse/ecology_ods/ods_user_info/\"\n"
+                        + "          \"path\": \"/warehouse/test_ods/ods_user_info/\"\n"
                         + "        }\n"
                         + "      }\n"
                         + "    }]\n"
@@ -70,7 +70,7 @@ public class TemplateVariableResolverTest {
         String template =
                 "database: {{ datax.job.content[0].writer.parameter.path | regex_extract('/warehouse/([^/]+)/.*', '$1') | default('default_db') }}";
         String result = resolver.resolve(template, testDataXJson);
-        assertEquals("database: ecology_ods", result);
+        assertEquals("database: test_ods", result);
     }
 
     @Test

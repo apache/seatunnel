@@ -28,7 +28,7 @@ public class CommandLineOptionsTest {
     public void testCreateOptions() {
         Options options = CommandLineOptions.createOptions();
 
-        // 验证基本选项是否存在
+        // Verify basic options exist
         Assertions.assertTrue(options.hasOption("s"), "Should have source option");
         Assertions.assertTrue(options.hasOption("t"), "Should have target option");
         Assertions.assertTrue(options.hasOption("st"), "Should have source-type option");

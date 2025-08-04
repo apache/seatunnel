@@ -1,6 +1,6 @@
 package org.apache.seatunnel.tools.x2seatunnel.util;
 
-/** 转换配置对象，支持 YAML 或命令行参数映射 */
+/** Convert the configuration object, supporting YAML or command - line argument mapping */
 public class ConversionConfig {
     private String source;
     private String target;

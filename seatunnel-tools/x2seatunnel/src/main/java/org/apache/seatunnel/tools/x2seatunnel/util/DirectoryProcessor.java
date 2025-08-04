@@ -6,7 +6,7 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 
-/** 批量处理目录扫描工具 */
+/** Batch processing directory scanning tool */
 public class DirectoryProcessor {
     private final String inputDir;
     private final String outputDir;
@@ -17,9 +17,9 @@ public class DirectoryProcessor {
     }
 
     /**
-     * 获取所有待转换文件列表，按扩展名过滤 (JSON/XML/TXT)
+     * Get all files to be converted, filtered by extension (JSON/XML/TXT)
      *
-     * @return 文件路径列表
+     * @return list of file paths
      */
     public List<String> listSourceFiles() {
         List<String> result = new ArrayList<>();
@@ -33,16 +33,16 @@ public class DirectoryProcessor {
                             })
                     .forEach(path -> result.add(path.toString()));
         } catch (IOException e) {
-            throw new RuntimeException("扫描目录失败: " + inputDir, e);
+            throw new RuntimeException("Failed to scan directory: " + inputDir, e);
         }
         return result;
     }
 
     /**
-     * 根据源文件路径生成目标文件路径
+     * Generate the target file path based on the source file path
      *
-     * @param sourceFile 源文件路径
-     * @return 目标文件路径
+     * @param sourceFile the path of the source file
+     * @return the path of the target file
      */
     public String resolveTargetPath(String sourceFile) {
         String name = FileUtils.getFileNameWithoutExtension(sourceFile);
@@ -50,10 +50,10 @@ public class DirectoryProcessor {
     }
 
     /**
-     * 根据源文件路径生成报告文件路径
+     * Generate the report file path based on the source file path
      *
-     * @param sourceFile 源文件路径
-     * @return 报告文件路径
+     * @param sourceFile the path of the source file
+     * @return the path of the report file
      */
     public String resolveReportPath(String sourceFile) {
         String name = FileUtils.getFileNameWithoutExtension(sourceFile);

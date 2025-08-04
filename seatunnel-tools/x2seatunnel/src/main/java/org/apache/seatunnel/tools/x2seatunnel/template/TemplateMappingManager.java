@@ -27,7 +27,10 @@ import org.yaml.snakeyaml.Yaml;
 import java.util.HashMap;
 import java.util.Map;
 
-/** 模板映射配置管理器 负责加载和管理template-mapping.yaml配置文件 */
+/**
+ * Template mapping configuration manager responsible for loading and managing template-mapping.yaml
+ * configuration file
+ */
 public class TemplateMappingManager {
 
     private static final Logger logger = LoggerFactory.getLogger(TemplateMappingManager.class);
@@ -53,35 +56,36 @@ public class TemplateMappingManager {
         return instance;
     }
 
-    /** 加载模板映射配置 */
+    /** Load template mapping configuration */
     @SuppressWarnings("unchecked")
     private void loadMappingConfig() {
-        logger.info("正在加载模板映射配置...");
+        logger.info("Loading template mapping configuration...");
 
         try {
-            // 1. 尝试从文件系统加载
+            // 1. Try to load from file system
             String configPath = PathResolver.resolveTemplatePath(TEMPLATE_MAPPING_CONFIG);
             if (configPath != null && PathResolver.exists(configPath)) {
-                logger.info("从文件系统加载模板映射配置: {}", configPath);
+                logger.info(
+                        "Loading template mapping configuration from file system: {}", configPath);
                 String content = FileUtils.readFile(configPath);
                 parseMappingConfig(content);
                 return;
             }
 
-            // 2. 从classpath加载（内置配置）
+            // 2. Load from classpath (built-in configuration)
             String resourcePath = "templates/" + TEMPLATE_MAPPING_CONFIG;
-            logger.info("从classpath加载模板映射配置: {}", resourcePath);
+            logger.info("Loading template mapping configuration from classpath: {}", resourcePath);
             String content = FileUtils.readResourceFile(resourcePath);
             parseMappingConfig(content);
 
         } catch (Exception e) {
-            logger.error("加载模板映射配置失败: {}", e.getMessage(), e);
-            // 使用默认配置
+            logger.error("Failed to load template mapping configuration: {}", e.getMessage(), e);
+            // Use default configuration
             initDefaultMappings();
         }
     }
 
-    /** 解析映射配置内容 */
+    /** Parse mapping configuration content */
     @SuppressWarnings("unchecked")
     private void parseMappingConfig(String content) {
         Yaml yaml = new Yaml();
@@ -90,107 +94,118 @@ public class TemplateMappingManager {
         if (mappingConfig != null && mappingConfig.containsKey("datax")) {
             Map<String, Object> dataxConfig = (Map<String, Object>) mappingConfig.get("datax");
 
-            // 加载source映射
+            // Load source mappings
             if (dataxConfig.containsKey("source_mappings")) {
                 sourceMappings = (Map<String, String>) dataxConfig.get("source_mappings");
-                logger.info("加载了 {} 个source映射", sourceMappings.size());
+                logger.info("Loaded {} source mappings", sourceMappings.size());
             }
 
-            // 加载sink映射
+            // Load sink mappings
             if (dataxConfig.containsKey("sink_mappings")) {
                 sinkMappings = (Map<String, String>) dataxConfig.get("sink_mappings");
-                logger.info("加载了 {} 个sink映射", sinkMappings.size());
+                logger.info("Loaded {} sink mappings", sinkMappings.size());
             }
 
-            // 加载环境映射
+            // Load environment mappings
             if (dataxConfig.containsKey("env_mappings")) {
                 envMappings = (Map<String, String>) dataxConfig.get("env_mappings");
-                logger.info("加载了 {} 个环境映射", envMappings.size());
+                logger.info("Loaded {} environment mappings", envMappings.size());
             }
         }
 
-        // 加载转换器配置
+        // Load transformer configuration
         if (mappingConfig != null && mappingConfig.containsKey("transformers")) {
             transformers = (Map<String, Object>) mappingConfig.get("transformers");
-            logger.info("加载了 {} 个转换器", transformers.size());
+            logger.info("Loaded {} transformers", transformers.size());
         }
 
-        logger.info("模板映射配置加载完成");
+        logger.info("Template mapping configuration loading completed");
     }
 
-    /** 初始化默认映射（fallback） - 使用内置配置文件 */
+    /** Initialize default mappings (fallback) - use built-in configuration file */
     private void initDefaultMappings() {
-        logger.warn("使用内置默认模板映射配置");
+        logger.warn("Using built-in default template mapping configuration");
 
         try {
-            // 尝试从内置配置文件加载默认配置
+            // Try to load default configuration from built-in configuration file
             String resourcePath = "templates/" + TEMPLATE_MAPPING_CONFIG;
             String content = FileUtils.readResourceFile(resourcePath);
             parseMappingConfig(content);
-            logger.info("成功加载内置默认配置");
+            logger.info("Successfully loaded built-in default configuration");
         } catch (Exception e) {
-            logger.error("加载内置默认配置失败，系统无法正常工作: {}", e.getMessage());
+            logger.error(
+                    "Failed to load built-in default configuration, system cannot work properly: {}",
+                    e.getMessage());
             throw new RuntimeException(
-                    "无法加载模板映射配置文件，请检查 " + TEMPLATE_MAPPING_CONFIG + " 文件是否存在", e);
+                    "Unable to load template mapping configuration file, please check if "
+                            + TEMPLATE_MAPPING_CONFIG
+                            + " file exists",
+                    e);
         }
     }
 
-    /** 根据reader类型获取对应的source模板路径 */
+    /** Get corresponding source template path based on reader type */
     public String getSourceTemplate(String readerType) {
         if (sourceMappings == null) {
-            logger.warn("source映射未初始化，使用默认模板");
+            logger.warn("Source mappings not initialized, using default template");
             return "datax/sources/jdbc-source.conf";
         }
 
         String template = sourceMappings.get(readerType.toLowerCase());
         if (template == null) {
-            logger.warn("未找到reader类型 {} 的模板映射，使用默认模板", readerType);
+            logger.warn(
+                    "Template mapping not found for reader type {}, using default template",
+                    readerType);
             return "datax/sources/jdbc-source.conf";
         }
 
-        logger.debug("为reader类型 {} 选择模板: {}", readerType, template);
+        logger.debug("Selected template for reader type {}: {}", readerType, template);
         return template;
     }
 
-    /** 根据writer类型获取对应的sink模板路径 */
+    /** Get corresponding sink template path based on writer type */
     public String getSinkTemplate(String writerType) {
         if (sinkMappings == null) {
-            logger.warn("sink映射未初始化，使用默认模板");
+            logger.warn("Sink mappings not initialized, using default template");
             return "datax/sinks/hdfs-sink.conf";
         }
 
         String template = sinkMappings.get(writerType.toLowerCase());
         if (template == null) {
-            logger.warn("未找到writer类型 {} 的模板映射，使用默认模板", writerType);
+            logger.warn(
+                    "Template mapping not found for writer type {}, using default template",
+                    writerType);
             return "datax/sinks/hdfs-sink.conf";
         }
 
-        logger.debug("为writer类型 {} 选择模板: {}", writerType, template);
+        logger.debug("Selected template for writer type {}: {}", writerType, template);
         return template;
     }
 
-    /** 根据任务类型获取对应的环境模板路径 */
+    /** Get corresponding environment template path based on job type */
     public String getEnvTemplate(String jobType) {
         if (envMappings == null) {
-            logger.warn("环境映射未初始化，使用默认模板");
+            logger.warn("Environment mappings not initialized, using default template");
             return "datax/env/batch-env.conf";
         }
 
         String template = envMappings.get(jobType.toLowerCase());
         if (template == null) {
-            logger.warn("未找到任务类型 {} 的环境模板映射，使用默认模板", jobType);
+            logger.warn(
+                    "Environment template mapping not found for job type {}, using default template",
+                    jobType);
             return "datax/env/batch-env.conf";
         }
 
-        logger.debug("为任务类型 {} 选择环境模板: {}", jobType, template);
+        logger.debug("Selected environment template for job type {}: {}", jobType, template);
         return template;
     }
 
-    /** 获取转换器配置 */
+    /** Get transformer configuration */
     @SuppressWarnings("unchecked")
     public Map<String, String> getTransformer(String transformerName) {
         if (transformers == null) {
-            logger.warn("转换器配置未初始化");
+            logger.warn("Transformer configuration not initialized");
             return new HashMap<>();
         }
 
@@ -199,21 +214,21 @@ public class TemplateMappingManager {
             return (Map<String, String>) transformer;
         }
 
-        logger.warn("未找到转换器: {}", transformerName);
+        logger.warn("Transformer not found: {}", transformerName);
         return new HashMap<>();
     }
 
-    /** 检查是否支持指定的reader类型 */
+    /** Check if specified reader type is supported */
     public boolean isReaderSupported(String readerType) {
         return sourceMappings != null && sourceMappings.containsKey(readerType.toLowerCase());
     }
 
-    /** 检查是否支持指定的writer类型 */
+    /** Check if specified writer type is supported */
     public boolean isWriterSupported(String writerType) {
         return sinkMappings != null && sinkMappings.containsKey(writerType.toLowerCase());
     }
 
-    /** 获取所有支持的reader类型 */
+    /** Get all supported reader types */
     public String[] getSupportedReaders() {
         if (sourceMappings == null) {
             return new String[0];
@@ -221,7 +236,7 @@ public class TemplateMappingManager {
         return sourceMappings.keySet().toArray(new String[0]);
     }
 
-    /** 获取所有支持的writer类型 */
+    /** Get all supported writer types */
     public String[] getSupportedWriters() {
         if (sinkMappings == null) {
             return new String[0];
@@ -229,9 +244,9 @@ public class TemplateMappingManager {
         return sinkMappings.keySet().toArray(new String[0]);
     }
 
-    /** 重新加载配置（用于动态更新） */
+    /** Reload configuration (for dynamic updates) */
     public void reload() {
-        logger.info("重新加载模板映射配置...");
+        logger.info("Reloading template mapping configuration...");
         loadMappingConfig();
     }
 }

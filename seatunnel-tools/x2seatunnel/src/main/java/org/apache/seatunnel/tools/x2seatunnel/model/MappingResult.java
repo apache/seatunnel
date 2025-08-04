@@ -20,27 +20,27 @@ package org.apache.seatunnel.tools.x2seatunnel.model;
 import java.util.ArrayList;
 import java.util.List;
 
-/** 映射结果数据模型 */
+/** Mapping result data model */
 public class MappingResult {
 
     private boolean success = false;
     private String errorMessage;
     private SeaTunnelConfig seaTunnelConfig;
 
-    // 基本信息
+    // Basic information
     private String sourceTemplate;
     private String sinkTemplate;
     private String readerType;
     private String writerType;
 
-    // 映射结果统计
+    // Mapping result statistics
     private List<MappingItem> successMappings = new ArrayList<>();
-    private List<TransformMapping> transformMappings = new ArrayList<>(); // 新增：转换映射字段
-    private List<DefaultValueField> defaultValues = new ArrayList<>(); // 新增：默认值字段
+    private List<TransformMapping> transformMappings = new ArrayList<>();
+    private List<DefaultValueField> defaultValues = new ArrayList<>();
     private List<MissingField> missingRequiredFields = new ArrayList<>();
     private List<UnmappedField> unmappedFields = new ArrayList<>();
 
-    /** 成功映射的字段 */
+    /** Successfully mapped fields */
     public static class MappingItem {
         private String sourceField;
         private String targetField;
@@ -71,7 +71,7 @@ public class MappingResult {
         }
     }
 
-    /** 转换映射的字段（使用了过滤器） */
+    /** Transform mapped fields (using filters) */
     public static class TransformMapping {
         private String sourceField;
         private String targetField;
@@ -110,13 +110,13 @@ public class MappingResult {
                     + targetField
                     + " = "
                     + value
-                    + " (过滤器: "
+                    + " (filter: "
                     + filterName
                     + ")";
         }
     }
 
-    /** 使用默认值的字段 */
+    /** Fields using default values */
     public static class DefaultValueField {
         private String fieldName;
         private String value;
@@ -143,11 +143,11 @@ public class MappingResult {
 
         @Override
         public String toString() {
-            return fieldName + " = " + value + " (默认值: " + reason + ")";
+            return fieldName + " = " + value + " (default: " + reason + ")";
         }
     }
 
-    /** 缺失的必填字段 */
+    /** Missing required fields */
     public static class MissingField {
         private String fieldName;
         private String reason;
@@ -168,11 +168,11 @@ public class MappingResult {
 
         @Override
         public String toString() {
-            return fieldName + " (原因: " + reason + ")";
+            return fieldName + " (reason: " + reason + ")";
         }
     }
 
-    /** 未映射的字段 */
+    /** Unmapped fields */
     public static class UnmappedField {
         private String fieldName;
         private String value;
@@ -199,11 +199,11 @@ public class MappingResult {
 
         @Override
         public String toString() {
-            return fieldName + " = " + value + " (原因: " + reason + ")";
+            return fieldName + " = " + value + " (reason: " + reason + ")";
         }
     }
 
-    // 添加映射结果的便捷方法
+    // Convenient methods for adding mapping results
     public void addSuccessMapping(String sourceField, String targetField, String value) {
         successMappings.add(new MappingItem(sourceField, targetField, value));
     }

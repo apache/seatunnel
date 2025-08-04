@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -24,7 +24,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-/** TemplateVariableResolver 与 MappingTracker 集成测试 */
+/** TemplateVariableResolver and MappingTracker integration tests */
 public class TemplateVariableResolverMappingTest {
 
     private TemplateVariableResolver resolver;
@@ -36,7 +36,7 @@ public class TemplateVariableResolverMappingTest {
         mappingTracker = new MappingTracker();
         resolver = new TemplateVariableResolver(null, mappingTracker);
 
-        // 测试用的DataX配置JSON
+        // Test DataX configuration JSON
         testDataXJson =
                 "{\n"
                         + "  \"job\": {\n"
@@ -55,7 +55,7 @@ public class TemplateVariableResolverMappingTest {
                         + "      \"writer\": {\n"
                         + "        \"name\": \"hdfswriter\",\n"
                         + "        \"parameter\": {\n"
-                        + "          \"path\": \"/warehouse/ecology_ods/ods_user_info/\",\n"
+                        + "          \"path\": \"/warehouse/test_ods/ods_user_info/\",\n"
                         + "          \"fileType\": \"orc\"\n"
                         + "        }\n"
                         + "      }\n"
@@ -71,14 +71,14 @@ public class TemplateVariableResolverMappingTest {
 
     @Test
     public void testBasicFieldExtraction() {
-        // 测试基础字段提取并跟踪映射过程
+        // Test basic field extraction and track the mapping process
         String template = "user: {{ datax.job.content[0].reader.parameter.username }}";
 
         String result = resolver.resolve(template, testDataXJson);
 
         Assertions.assertEquals("user: root", result);
 
-        // 验证映射跟踪
+        // Verify mapping tracking
         MappingResult mappingResult = mappingTracker.generateMappingResult();
         Assertions.assertEquals(1, mappingResult.getSuccessMappings().size());
         Assertions.assertEquals(
@@ -89,7 +89,7 @@ public class TemplateVariableResolverMappingTest {
 
     @Test
     public void testDefaultValueUsage() {
-        // 测试默认值使用并跟踪
+        // Test default value usage and tracking
         String template =
                 "host: {{ datax.job.content[0].reader.parameter.host | default('localhost') }}";
 
@@ -97,28 +97,29 @@ public class TemplateVariableResolverMappingTest {
 
         Assertions.assertEquals("host: localhost", result);
 
-        // 验证映射跟踪 - 默认值应该被记录
+        // Verify mapping tracking - default values should be recorded
         MappingResult mappingResult = mappingTracker.generateMappingResult();
         Assertions.assertEquals(1, mappingResult.getDefaultValues().size());
         Assertions.assertEquals("localhost", mappingResult.getDefaultValues().get(0).getValue());
         Assertions.assertTrue(
-                mappingResult.getDefaultValues().get(0).getReason().contains("应用默认值"));
+                mappingResult.getDefaultValues().get(0).getReason().contains("default value"));
     }
 
     @Test
     public void testMissingFieldTracking() {
-        // 测试缺失字段跟踪
+        // Test missing field tracking
         String template = "host: {{ datax.job.content[0].reader.parameter.nonexistent }}";
 
         String result = resolver.resolve(template, testDataXJson);
 
-        Assertions.assertEquals("host: ", result); // 缺失字段应返回空字符串
+        // Missing field should return an empty string
+        Assertions.assertEquals("host: ", result);
 
-        // 验证映射跟踪 - 缺失字段应该被记录
+        // Verify mapping tracking - missing fields should be recorded
         MappingResult mappingResult = mappingTracker.generateMappingResult();
         Assertions.assertTrue(mappingResult.getMissingRequiredFields().size() >= 1);
 
-        // 查找对应的缺失字段
+        // Find the corresponding missing field
         boolean foundMissingField =
                 mappingResult.getMissingRequiredFields().stream()
                         .anyMatch(
@@ -131,21 +132,22 @@ public class TemplateVariableResolverMappingTest {
 
     @Test
     public void testFilterTransformationTracking() {
-        // 测试过滤器转换跟踪
+        // Test filter transformation tracking
         String template = "username: {{ datax.job.content[0].reader.parameter.username | upper }}";
 
         String result = resolver.resolve(template, testDataXJson);
 
         Assertions.assertEquals("username: ROOT", result);
 
-        // 验证映射跟踪 - 过滤器转换应该被记录为转换映射
+        // Verify mapping tracking - filter transformations should be recorded as transformation
+        // mappings
         MappingResult mappingResult = mappingTracker.generateMappingResult();
 
-        // 原字段提取记录为直接映射
+        // Original field extraction is recorded as a direct mapping
         Assertions.assertTrue(mappingResult.getSuccessMappings().size() >= 1);
         Assertions.assertEquals("root", mappingResult.getSuccessMappings().get(0).getValue());
 
-        // 过滤器转换记录为转换映射
+        // Filter transformation is recorded as a transformation mapping
         Assertions.assertEquals(1, mappingResult.getTransformMappings().size());
         Assertions.assertEquals("ROOT", mappingResult.getTransformMappings().get(0).getValue());
         Assertions.assertTrue(
@@ -154,7 +156,7 @@ public class TemplateVariableResolverMappingTest {
 
     @Test
     public void testComplexTemplateWithMixedMappingTypes() {
-        // 测试复杂模板，包含多种映射类型
+        // Test complex template with mixed mapping types
         String template =
                 "source {\n"
                         + "  Jdbc {\n"
@@ -170,7 +172,7 @@ public class TemplateVariableResolverMappingTest {
 
         String result = resolver.resolve(template, testDataXJson);
 
-        // 验证解析结果
+        // Verify parsing result
         Assertions.assertTrue(result.contains("url = \"jdbc:mysql://localhost:3306/test_db\""));
         Assertions.assertTrue(result.contains("user = \"root\""));
         Assertions.assertTrue(result.contains("password = \"123456\""));
@@ -179,38 +181,40 @@ public class TemplateVariableResolverMappingTest {
         Assertions.assertTrue(result.contains("driver = \"com.mysql.cj.jdbc.Driver\""));
         Assertions.assertTrue(result.contains("fetchSize = \"\""));
 
-        // 验证映射统计
+        // Verify mapping statistics
         MappingResult mappingResult = mappingTracker.generateMappingResult();
 
-        // 直接映射：url, user, password, table
+        // Direct mappings: url, user, password, table
         Assertions.assertEquals(4, mappingResult.getSuccessMappings().size());
 
-        // 默认值：port, driver
+        // Default values: port, driver
         Assertions.assertEquals(2, mappingResult.getDefaultValues().size());
 
-        // 缺失字段：fetchSize
+        // Missing fields: fetchSize
         Assertions.assertEquals(1, mappingResult.getMissingRequiredFields().size());
 
-        // 验证统计总数
+        // Verify total count
         int totalFields =
                 mappingResult.getSuccessMappings().size()
                         + mappingResult.getTransformMappings().size()
                         + mappingResult.getDefaultValues().size()
                         + mappingResult.getMissingRequiredFields().size()
                         + mappingResult.getUnmappedFields().size();
-        Assertions.assertEquals(7, totalFields); // 与模板中的字段数量一致
+
+        // Should match the number of fields in the template
+        Assertions.assertEquals(7, totalFields);
     }
 
     @Test
     public void testMappingTrackerReset() {
-        // 测试 MappingTracker 重置功能
+        // Test MappingTracker reset functionality
         String template1 = "user: {{ datax.job.content[0].reader.parameter.username }}";
         resolver.resolve(template1, testDataXJson);
 
         MappingResult result1 = mappingTracker.generateMappingResult();
         Assertions.assertEquals(1, result1.getSuccessMappings().size());
 
-        // 重置跟踪器
+        // Reset the tracker
         mappingTracker.reset();
 
         String template2 = "password: {{ datax.job.content[0].reader.parameter.password }}";
@@ -225,27 +229,26 @@ public class TemplateVariableResolverMappingTest {
 
     @Test
     public void testRegexFilterWithMappingTracking() {
-        // 测试正则表达式过滤器与映射跟踪
+        // Test regex filter with mapping tracking
         String template =
                 "database: {{ datax.job.content[0].writer.parameter.path | regex_extract('/warehouse/([^/]+)/.*', '$1') | default('unknown') }}";
 
         String result = resolver.resolve(template, testDataXJson);
 
-        Assertions.assertEquals("database: ecology_ods", result);
+        Assertions.assertEquals("database: test_ods", result);
 
-        // 验证映射跟踪
+        // Verify mapping tracking
         MappingResult mappingResult = mappingTracker.generateMappingResult();
 
-        // 原路径提取为直接映射
+        // Original path extraction is a direct mapping
         Assertions.assertTrue(mappingResult.getSuccessMappings().size() >= 1);
         Assertions.assertEquals(
-                "/warehouse/ecology_ods/ods_user_info/",
+                "/warehouse/test_ods/ods_user_info/",
                 mappingResult.getSuccessMappings().get(0).getValue());
 
-        // 正则提取为转换映射
+        // Regex extraction is a transformation mapping
         Assertions.assertEquals(1, mappingResult.getTransformMappings().size());
-        Assertions.assertEquals(
-                "ecology_ods", mappingResult.getTransformMappings().get(0).getValue());
+        Assertions.assertEquals("test_ods", mappingResult.getTransformMappings().get(0).getValue());
         Assertions.assertTrue(
                 mappingResult
                         .getTransformMappings()

@@ -5,15 +5,14 @@ import java.util.List;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
-/** 文件通配符匹配工具 */
 public class FilePattern {
 
     /**
-     * 根据逗号分隔的通配符模式过滤文件列表
+     * Filters the file list according to the wildcard patterns separated by commas.
      *
-     * @param files 全部文件路径列表
-     * @param patterns 通配符模式，如 "*.json,*.xml"
-     * @return 匹配后的文件列表
+     * @param files The list of all file paths.
+     * @param patterns The wildcard patterns, such as "*.json,*.xml".
+     * @return The list of files that match the patterns.
      */
     public static List<String> filter(List<String> files, String patterns) {
         if (patterns == null || patterns.trim().isEmpty()) {

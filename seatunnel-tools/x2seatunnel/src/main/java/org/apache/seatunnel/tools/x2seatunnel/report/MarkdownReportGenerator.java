@@ -27,19 +27,19 @@ import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
 
-/** Markdown格式转换报告生成器 */
+/** Markdown format conversion report generator */
 public class MarkdownReportGenerator {
     private static final Logger logger = LoggerFactory.getLogger(MarkdownReportGenerator.class);
     private static final String TEMPLATE_PATH = "/templates/report/report-template.md";
 
     /**
-     * 生成Markdown格式的转换报告（标准转换）
+     * Generate Markdown format conversion report (standard conversion)
      *
-     * @param result 映射结果
-     * @param sourceFile 源文件路径
-     * @param targetFile 目标文件路径
-     * @param sourceType 源类型
-     * @return Markdown报告内容
+     * @param result mapping result
+     * @param sourceFile source file path
+     * @param targetFile target file path
+     * @param sourceType source type
+     * @return Markdown report content
      */
     public String generateReport(
             MappingResult result, String sourceFile, String targetFile, String sourceType) {
@@ -47,16 +47,16 @@ public class MarkdownReportGenerator {
     }
 
     /**
-     * 生成Markdown格式的转换报告（支持自定义模板）
+     * Generate Markdown format conversion report (supports custom templates)
      *
-     * @param result 映射结果
-     * @param sourceFile 源文件路径
-     * @param targetFile 目标文件路径
-     * @param sourceType 源类型
-     * @param customTemplate 自定义模板名称（可选）
-     * @param sourceTemplate 源模板内容（用于提取连接器类型）
-     * @param sinkTemplate 目标模板内容（用于提取连接器类型）
-     * @return Markdown报告内容
+     * @param result mapping result
+     * @param sourceFile source file path
+     * @param targetFile target file path
+     * @param sourceType source type
+     * @param customTemplate custom template name (optional)
+     * @param sourceTemplate source template content (for extracting connector type)
+     * @param sinkTemplate sink template content (for extracting connector type)
+     * @return Markdown report content
      */
     public String generateReport(
             MappingResult result,
@@ -66,12 +66,12 @@ public class MarkdownReportGenerator {
             String customTemplate,
             String sourceTemplate,
             String sinkTemplate) {
-        logger.info("生成Markdown转换报告");
+        logger.info("Generating Markdown conversion report");
 
-        // 加载模板
+        // Load template
         String template = loadTemplate();
 
-        // 构建模板变量
+        // Build template variables
         Map<String, String> variables =
                 buildTemplateVariables(
                         result,
@@ -82,21 +82,21 @@ public class MarkdownReportGenerator {
                         sourceTemplate,
                         sinkTemplate);
 
-        // 替换模板变量
+        // Replace template variables
         return replaceTemplateVariables(template, variables);
     }
 
-    /** 加载报告模板 */
+    /** Load report template */
     private String loadTemplate() {
         try {
             return FileUtils.readResourceFile(TEMPLATE_PATH);
         } catch (Exception e) {
-            logger.warn("无法加载报告模板，使用默认格式: {}", e.getMessage());
+            logger.warn("Unable to load report template, using default format: {}", e.getMessage());
             return getDefaultTemplate();
         }
     }
 
-    /** 构建模板变量 */
+    /** Build template variables */
     private Map<String, String> buildTemplateVariables(
             MappingResult result,
             String sourceFile,
@@ -108,38 +108,40 @@ public class MarkdownReportGenerator {
 
         Map<String, String> variables = new HashMap<>();
 
-        // 基本信息
+        // Basic information
         variables.put("convertTime", LocalDateTime.now().toString());
         variables.put("sourceFile", formatFilePath(sourceFile));
         variables.put("targetFile", formatFilePath(targetFile));
         variables.put("sourceType", sourceType.toUpperCase());
         variables.put("sourceTypeName", sourceType.toUpperCase());
-        variables.put("status", result.isSuccess() ? "✅ 成功" : "❌ 失败");
+        variables.put("status", result.isSuccess() ? "✅ Success" : "❌ Failed");
         variables.put("generateTime", LocalDateTime.now().toString());
 
-        // 连接器类型识别
+        // Connector type identification
         variables.put("sourceConnector", extractConnectorType(sourceTemplate, "Jdbc", result));
         variables.put("sinkConnector", extractConnectorType(sinkTemplate, "HdfsFile", result));
 
-        // 自定义模板信息
+        // Custom template information
         if (customTemplate != null && !customTemplate.trim().isEmpty()) {
-            variables.put("customTemplateInfo", "| **自定义模板** | `" + customTemplate + "` |");
+            variables.put(
+                    "customTemplateInfo", "| **Custom Template** | `" + customTemplate + "` |");
         } else {
             variables.put("customTemplateInfo", "");
         }
 
-        // 错误信息
+        // Error information
         if (!result.isSuccess() && result.getErrorMessage() != null) {
             variables.put(
-                    "errorInfo", "### ⚠️ 错误信息\n\n```\n" + result.getErrorMessage() + "\n```\n");
+                    "errorInfo",
+                    "### ⚠️ Error Information\n\n```\n" + result.getErrorMessage() + "\n```\n");
         } else {
             variables.put("errorInfo", "");
         }
 
-        // 统计信息
+        // Statistics information
         buildStatistics(variables, result);
 
-        // 各种表格
+        // Various tables
         variables.put("directMappingTable", buildDirectMappingTable(result, sourceType));
         variables.put("transformMappingTable", buildTransformMappingTable(result, sourceType));
         variables.put("defaultValuesTable", buildDefaultValuesTable(result));
@@ -149,7 +151,7 @@ public class MarkdownReportGenerator {
         return variables;
     }
 
-    /** 构建统计信息 */
+    /** Build statistics information */
     private void buildStatistics(Map<String, String> variables, MappingResult result) {
         int directCount = result.getSuccessMappings().size();
         int transformCount = result.getTransformMappings().size();
@@ -184,21 +186,22 @@ public class MarkdownReportGenerator {
         } else {
             variables.put("successPercent", "0%");
             variables.put("autoPercent", "0%");
-            variables.put("defaultPercent", "0%"); // 新增：默认值百分比
+            variables.put("defaultPercent", "0%");
             variables.put("missingPercent", "0%");
             variables.put("unmappedPercent", "0%");
         }
     }
 
-    /** 构建成功映射表格 */
-    /** 构建直接映射字段表格 */
+    /** Build direct mapping fields table */
     private String buildDirectMappingTable(MappingResult result, String sourceType) {
         if (result.getSuccessMappings().isEmpty()) {
-            return "*无直接映射的字段*\n";
+            return "*No direct mapped fields*\n";
         }
 
         StringBuilder table = new StringBuilder();
-        table.append("| SeaTunnel字段 | 值 | ").append(sourceType.toUpperCase()).append("来源字段 |\n");
+        table.append("| SeaTunnel Field | Value | ")
+                .append(sourceType.toUpperCase())
+                .append(" Source Field |\n");
         table.append("|---------------|----|--------------|\n");
 
         for (MappingResult.MappingItem item : result.getSuccessMappings()) {
@@ -214,16 +217,16 @@ public class MarkdownReportGenerator {
         return table.toString();
     }
 
-    /** 构建转换映射字段表格 */
+    /** Build transform mapping fields table */
     private String buildTransformMappingTable(MappingResult result, String sourceType) {
         if (result.getTransformMappings().isEmpty()) {
-            return "*无转换映射的字段*\n";
+            return "*No transform mapped fields*\n";
         }
 
         StringBuilder table = new StringBuilder();
-        table.append("| SeaTunnel字段 | 值 | ")
+        table.append("| SeaTunnel Field | Value | ")
                 .append(sourceType.toUpperCase())
-                .append("来源字段 | 使用过滤器 |\n");
+                .append(" Source Field | Filter Used |\n");
         table.append("|---------------|----|--------------|-----------|\n");
 
         for (MappingResult.TransformMapping item : result.getTransformMappings()) {
@@ -241,14 +244,14 @@ public class MarkdownReportGenerator {
         return table.toString();
     }
 
-    /** 构建默认值字段表格 */
+    /** Build default value fields table */
     private String buildDefaultValuesTable(MappingResult result) {
         if (result.getDefaultValues().isEmpty()) {
-            return "*无使用默认值的字段*\n";
+            return "*No fields using default values*\n";
         }
 
         StringBuilder table = new StringBuilder();
-        table.append("| SeaTunnel字段 | 默认值 |\n");
+        table.append("| SeaTunnel Field | Default Value |\n");
         table.append("|---------------|--------|\n");
 
         for (MappingResult.DefaultValueField field : result.getDefaultValues()) {
@@ -262,15 +265,16 @@ public class MarkdownReportGenerator {
         return table.toString();
     }
 
-    /** 构建缺失字段表格 */
+    /** Build missing fields table */
     private String buildMissingFieldsTable(MappingResult result) {
         if (result.getMissingRequiredFields().isEmpty()) {
-            return "*无缺失的字段* 🎉\n";
+            return "*No missing fields* 🎉\n";
         }
 
         StringBuilder table = new StringBuilder();
-        table.append("⚠️ **注意**: 以下字段在源配置中未找到，请手动补充：\n\n");
-        table.append("| SeaTunnel字段 |\n");
+        table.append(
+                "⚠️ **Note**: The following fields were not found in the source configuration, please add manually:\n\n");
+        table.append("| SeaTunnel Field |\n");
         table.append("|---------------|\n");
 
         for (MappingResult.MissingField field : result.getMissingRequiredFields()) {
@@ -280,14 +284,14 @@ public class MarkdownReportGenerator {
         return table.toString();
     }
 
-    /** 构建未映射字段表格 */
+    /** Build unmapped fields table */
     private String buildUnmappedFieldsTable(MappingResult result) {
         if (result.getUnmappedFields().isEmpty()) {
-            return "*所有字段都已映射* 🎉\n";
+            return "*All fields are mapped* 🎉\n";
         }
 
         StringBuilder table = new StringBuilder();
-        table.append("| DataX字段 | 值 |\n");
+        table.append("| DataX Field | Value |\n");
         table.append("|--------|------|\n");
 
         for (MappingResult.UnmappedField field : result.getUnmappedFields()) {
@@ -301,111 +305,116 @@ public class MarkdownReportGenerator {
         return table.toString();
     }
 
-    /** 从模板内容中提取连接器类型 */
+    /** Extract connector type from template content */
     private String extractConnectorType(
             String templateContent, String defaultType, MappingResult result) {
         if (templateContent == null || templateContent.trim().isEmpty()) {
-            logger.warn("模板内容为空，使用默认类型: {}", defaultType);
+            logger.warn("Template content is empty, using default type: {}", defaultType);
             return defaultType;
         }
 
-        logger.debug("正在分析模板内容提取连接器类型，模板长度: {}", templateContent.length());
         logger.debug(
-                "模板内容前200字符: {}",
+                "Analyzing template content to extract connector type, template length: {}",
+                templateContent.length());
+        logger.debug(
+                "Template content first 200 characters: {}",
                 templateContent.substring(0, Math.min(200, templateContent.length())));
 
-        // 查找模板中的连接器类型（如 Jdbc {, HdfsFile {, Kafka { 等）
-        // 需要跳过顶层的 source { 和 sink {，查找嵌套的连接器类型
+        // Find connector type in template (e.g. Jdbc {, HdfsFile {, Kafka {, etc.)
+        // Need to skip top-level source { and sink {, look for nested connector types
         String[] lines = templateContent.split("\n");
         boolean inSourceOrSink = false;
 
         for (String line : lines) {
             String trimmed = line.trim();
 
-            // 检测是否进入 source { 或 sink { 块
+            // Detect if entering source { or sink { block
             if (trimmed.equals("source {") || trimmed.equals("sink {")) {
                 inSourceOrSink = true;
                 continue;
             }
 
-            // 在 source/sink 块内查找连接器类型
+            // Look for connector type within source/sink block
             if (inSourceOrSink && trimmed.matches("\\w+\\s*\\{")) {
                 String connectorType = trimmed.substring(0, trimmed.indexOf('{')).trim();
-                logger.info("找到连接器类型: {}", connectorType);
+                logger.info("Found connector type: {}", connectorType);
 
-                // 添加数据库类型识别（对于JDBC连接器）
+                // Add database type identification (for JDBC connector)
                 if ("Jdbc".equals(connectorType)) {
                     String dbType = extractDatabaseTypeFromMappingResult(result);
                     if (dbType != null) {
-                        logger.info("识别到数据库类型: {}", dbType);
+                        logger.info("Identified database type: {}", dbType);
                         return connectorType + " (" + dbType + ")";
                     }
                 }
                 return connectorType;
             }
 
-            // 检测是否退出 source/sink 块（遇到顶层的 }）
+            // Detect if exiting source/sink block (encountering top-level })
             if (inSourceOrSink && trimmed.equals("}") && !line.startsWith("  ")) {
                 inSourceOrSink = false;
             }
         }
 
-        logger.warn("未找到连接器类型，使用默认类型: {}", defaultType);
+        logger.warn("Connector type not found, using default type: {}", defaultType);
         return defaultType;
     }
 
-    /** 从映射结果中提取数据库类型 */
+    /** Extract database type from mapping result */
     private String extractDatabaseTypeFromMappingResult(MappingResult result) {
         if (result == null) {
             return null;
         }
 
-        // 从成功映射中查找JDBC URL
+        // Look for JDBC URL in successful mappings
         for (MappingResult.MappingItem mapping : result.getSuccessMappings()) {
             String targetField = mapping.getTargetField();
             String value = mapping.getValue();
 
-            // 查找包含 .url 的字段，且值是JDBC URL
+            // Look for fields containing .url with JDBC URL value
             if (targetField != null
                     && targetField.contains(".url")
                     && value != null
                     && value.startsWith("jdbc:")) {
                 String dbType = extractDatabaseTypeFromUrl(value);
                 if (dbType != null) {
-                    logger.debug("从映射结果中识别数据库类型: {} -> {}", value, dbType);
+                    logger.debug(
+                            "Identified database type from mapping result: {} -> {}",
+                            value,
+                            dbType);
                     return dbType;
                 }
             }
         }
 
-        logger.debug("映射结果中未找到JDBC URL");
+        logger.debug("JDBC URL not found in mapping result");
         return null;
     }
 
-    /** 从JDBC URL中提取数据库类型（使用正则表达式） */
+    /** Extract database type from JDBC URL (using regular expression) */
     private String extractDatabaseTypeFromUrl(String jdbcUrl) {
         if (jdbcUrl == null || jdbcUrl.trim().isEmpty()) {
             return null;
         }
 
         try {
-            // 使用正则表达式从 "jdbc:mysql://..." 中提取 "mysql"
+            // Use regular expression to extract "mysql" from "jdbc:mysql://..."
             if (jdbcUrl.startsWith("jdbc:")) {
                 String dbType = jdbcUrl.replaceFirst("^jdbc:([^:]+):.*", "$1");
-                if (!dbType.equals(jdbcUrl)) { // 确保正则匹配成功
-                    logger.debug("通过正则表达式识别数据库类型: {} -> {}", jdbcUrl, dbType);
+                if (!dbType.equals(jdbcUrl)) { // Ensure regex match succeeded
+                    logger.debug("Identified database type via regex: {} -> {}", jdbcUrl, dbType);
                     return dbType;
                 }
             }
         } catch (Exception e) {
-            logger.warn("正则提取数据库类型失败: {}", e.getMessage());
+            logger.warn("Failed to extract database type via regex: {}", e.getMessage());
         }
 
-        logger.debug("无法从URL识别数据库类型: {}", jdbcUrl);
+        logger.debug("Unable to identify database type from URL: {}", jdbcUrl);
         return null;
     }
 
-    /** 替换模板变量 */
+    /** Replace template variables */
     private String replaceTemplateVariables(String template, Map<String, String> variables) {
         String result = template;
         for (Map.Entry<String, String> entry : variables.entrySet()) {
@@ -415,41 +424,43 @@ public class MarkdownReportGenerator {
         return result;
     }
 
-    /** 获取默认模板（当模板文件无法加载时使用） */
+    /** Get default template (used when template file cannot be loaded) */
     private String getDefaultTemplate() {
-        return "# X2SeaTunnel 转换报告\n\n"
-                + "## 📋 基本信息\n\n"
-                + "- **转换时间**: {{convertTime}}\n"
-                + "- **源文件**: {{sourceFile}}\n"
-                + "- **目标文件**: {{targetFile}}\n"
-                + "- **转换状态**: {{status}}\n\n"
-                + "转换完成！";
+        return "# X2SeaTunnel Conversion Report\n\n"
+                + "## 📋 Basic Information\n\n"
+                + "- **Conversion Time**: {{convertTime}}\n"
+                + "- **Source File**: {{sourceFile}}\n"
+                + "- **Target File**: {{targetFile}}\n"
+                + "- **Conversion Status**: {{status}}\n\n"
+                + "Conversion completed!";
     }
 
-    /** 格式化文件路径，将绝对路径转换为相对路径（基于当前工作目录） */
+    /**
+     * Format file path, convert absolute path to relative path (based on current working directory)
+     */
     private String formatFilePath(String filePath) {
         if (filePath == null) {
             return "";
         }
 
         try {
-            // 获取当前工作目录
+            // Get current working directory
             String currentDir = System.getProperty("user.dir");
 
-            // 如果是绝对路径且在当前工作目录下，转换为相对路径
+            // If it's an absolute path under current working directory, convert to relative path
             if (filePath.startsWith(currentDir)) {
                 String relativePath = filePath.substring(currentDir.length());
-                // 去掉开头的分隔符
+                // Remove leading separator
                 if (relativePath.startsWith("\\") || relativePath.startsWith("/")) {
                     relativePath = relativePath.substring(1);
                 }
-                return relativePath.replace("\\", "/"); // 统一使用正斜杠
+                return relativePath.replace("\\", "/"); // Use forward slash uniformly
             }
 
-            // 否则返回原路径
-            return filePath.replace("\\", "/"); // 统一使用正斜杠
+            // Otherwise return original path
+            return filePath.replace("\\", "/"); // Use forward slash uniformly
         } catch (Exception e) {
-            logger.warn("格式化文件路径失败: {}", e.getMessage());
+            logger.warn("Failed to format file path: {}", e.getMessage());
             return filePath;
         }
     }

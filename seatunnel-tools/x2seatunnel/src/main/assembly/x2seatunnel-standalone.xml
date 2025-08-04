@@ -27,7 +27,7 @@
     <baseDirectory>x2seatunnel</baseDirectory>
 
     <fileSets>
-        <!-- 启动脚本到 bin 目录 -->
+        <!-- Start the script to the bin directory -->
         <fileSet>
             <directory>src/main/resources/bin</directory>
             <outputDirectory>bin</outputDirectory>
@@ -37,7 +37,7 @@
             </includes>
         </fileSet>
 
-        <!-- JAR文件到 lib 目录 -->
+        <!-- JAR file to the lib directory -->
         <fileSet>
             <directory>target</directory>
             <outputDirectory>lib</outputDirectory>
@@ -50,7 +50,6 @@
             </excludes>
         </fileSet>
 
-        <!-- 配置文件 -->
         <fileSet>
             <directory>src/main/resources/config</directory>
             <outputDirectory>config</outputDirectory>
@@ -59,7 +58,6 @@
             </includes>
         </fileSet>
 
-        <!-- 模板文件 -->
         <fileSet>
             <directory>src/main/resources/templates</directory>
             <outputDirectory>templates</outputDirectory>
@@ -68,7 +66,6 @@
             </includes>
         </fileSet>
 
-        <!-- 示例文件 -->
         <fileSet>
             <directory>src/main/resources/examples</directory>
             <outputDirectory>examples</outputDirectory>
@@ -77,7 +74,6 @@
             </includes>
         </fileSet>
 
-        <!-- 项目根目录的许可证文件 -->
         <fileSet>
             <directory>../../../../</directory>
             <outputDirectory>.</outputDirectory>
@@ -87,7 +83,6 @@
             </includes>
         </fileSet>
 
-        <!-- 创建空的 logs 目录 -->
         <fileSet>
             <directory>src/main/resources/logs</directory>
             <outputDirectory>logs</outputDirectory>
@@ -97,9 +92,7 @@
         </fileSet>
     </fileSets>
 
-    <!-- 生成的文件 -->
     <files>
-        <!-- 复制模块根目录的README -->
         <file>
             <source>README.md</source>
             <outputDirectory>.</outputDirectory>

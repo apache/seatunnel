@@ -17,67 +17,66 @@
 # limitations under the License.
 #
 
-# X2SeaTunnel 配置转换工具启动脚本
+# X2SeaTunnel configuration conversion tool startup script
 
 set -e
 
-# 获取脚本所在目录
+# Get script directory
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-SEATUNNEL_HOME="$(dirname "$SCRIPT_DIR")"
+X2SEATUNNEL_HOME="$(dirname "$SCRIPT_DIR")"
 
-# 设置 X2SeaTunnel 相关环境变量
-export X2SEATUNNEL_HOME="$SEATUNNEL_HOME"
-export X2SEATUNNEL_CONFIG_DIR="$SEATUNNEL_HOME/config"
-export X2SEATUNNEL_TEMPLATES_DIR="$SEATUNNEL_HOME/templates"
+# Set X2SeaTunnel related environment variables
+export X2SEATUNNEL_CONFIG_DIR="$X2SEATUNNEL_HOME/config"
+export X2SEATUNNEL_TEMPLATES_DIR="$X2SEATUNNEL_HOME/templates"
 
-# 查找 X2SeaTunnel JAR 文件
+# Find X2SeaTunnel JAR file
 find_jar() {
     local jar_file=""
-    
-    # 1. 优先从打包后的 lib 目录查找（生产环境）
-    if [ -d "$SEATUNNEL_HOME/lib" ]; then
-        jar_file=$(find "$SEATUNNEL_HOME/lib" -name "x2seatunnel-*.jar" 2>/dev/null | head -1)
+
+    # 1. First search in packaged lib directory (production environment)
+    if [ -d "$X2SEATUNNEL_HOME/lib" ]; then
+        jar_file=$(find "$X2SEATUNNEL_HOME/lib" -name "x2seatunnel-*.jar" 2>/dev/null | head -1)
     fi
-    
-    # 2. 从 starter 目录查找（SeaTunnel 标准目录结构）
-    if [ -z "$jar_file" ] && [ -d "$SEATUNNEL_HOME/starter" ]; then
-        jar_file=$(find "$SEATUNNEL_HOME/starter" -name "x2seatunnel-*.jar" 2>/dev/null | head -1)
+
+    # 2. Search in starter directory (SeaTunnel standard directory structure)
+    if [ -z "$jar_file" ] && [ -d "$X2SEATUNNEL_HOME/starter" ]; then
+        jar_file=$(find "$X2SEATUNNEL_HOME/starter" -name "x2seatunnel-*.jar" 2>/dev/null | head -1)
     fi
-    
-    # 3. 如果在开发环境资源目录下运行，定位到 x2seatunnel 模块根目录的 target 目录
+
+    # 3. If running in development environment resource directory, locate target directory of x2seatunnel module root
     module_root="$(cd "$SCRIPT_DIR/../../../../" && pwd)"
     if [ -z "$jar_file" ] && [ -d "$module_root/target" ]; then
         jar_file=$(find "$module_root/target" -name "x2seatunnel-*.jar" 2>/dev/null | grep -v sources | head -1)
     fi
 
     if [ -z "$jar_file" ] || [ ! -f "$jar_file" ]; then
-        echo "错误: 未找到 X2SeaTunnel JAR 文件"
-        echo "搜索路径:"
-        echo "  - $SEATUNNEL_HOME/lib/"
-        echo "  - $SEATUNNEL_HOME/starter/"
+        echo "Error: X2SeaTunnel JAR file not found"
+        echo "Search paths:"
+        echo "  - $X2SEATUNNEL_HOME/lib/"
+        echo "  - $X2SEATUNNEL_HOME/starter/"
         echo "  - $module_root/target/"
         echo ""
-        echo "如果是开发环境，请先编译: mvn clean package -pl seatunnel-tools/x2seatunnel -am"
+        echo "If in development environment, please compile first: mvn clean package -pl seatunnel-tools/x2seatunnel -am"
         exit 1
     fi
-    
+
     echo "$jar_file"
 }
 
-# 检查 Java 环境
+# Check Java environment
 check_java() {
     if [ -n "$JAVA_HOME" ]; then
         JAVA_CMD="$JAVA_HOME/bin/java"
     else
         JAVA_CMD="java"
     fi
-    
+
     if ! command -v "$JAVA_CMD" > /dev/null 2>&1; then
-        echo "错误: Java 未找到，请确保 JAVA_HOME 设置正确或 java 在 PATH 中"
+        echo "Error: Java not found, please ensure JAVA_HOME is set correctly or java is in PATH"
         exit 1
     fi
-    
-    # 检查 Java 版本
+
+    # Check Java version
     java_version=$("$JAVA_CMD" -version 2>&1 | head -1 | cut -d'"' -f2)
     case "$java_version" in
         1.8*)
@@ -87,49 +86,51 @@ check_java() {
             java_major_version=$(echo "$java_version" | cut -d'.' -f1)
             ;;
     esac
-    
+
     if [ "$java_major_version" -lt 8 ]; then
-        echo "错误: 需要 Java 8 或更高版本，当前版本: $java_version"
+        echo "Error: Java 8 or higher is required, current version: $java_version"
         exit 1
     fi
 }
 
-# 主函数
+# Main function
 main() {
-    echo "启动 X2SeaTunnel 配置转换工具..."
-    
-    # 检查 Java 环境
+    echo "Starting X2SeaTunnel configuration conversion tool..."
+
+    # Check Java environment
     check_java
-    
-    # 查找 JAR 文件
+
+    # Find JAR file
     CLI_JAR=$(find_jar)
-    echo "使用 JAR: $CLI_JAR"
-    echo "Java 命令: $JAVA_CMD"
-    echo
-    
-    # 设置 JVM 参数
+    echo "Using JAR: $CLI_JAR"
+    echo "Java command: $JAVA_CMD"
+
+    # Set JVM parameters
     JVM_OPTS="-Xms512m -Xmx1024m"
-    
-    # 设置日志配置文件路径
+
+    # Set log configuration file path
     LOG4J2_CONFIG="$X2SEATUNNEL_CONFIG_DIR/log4j2.xml"
     if [ -f "$LOG4J2_CONFIG" ]; then
         JVM_OPTS="$JVM_OPTS -Dlog4j.configurationFile=$LOG4J2_CONFIG"
-        echo "使用日志配置: $LOG4J2_CONFIG"
+        echo "Using log configuration: $LOG4J2_CONFIG"
     else
-        echo "警告: 日志配置文件不存在: $LOG4J2_CONFIG"
+        echo "Warning: Log configuration file does not exist: $LOG4J2_CONFIG"
     fi
-    
-    # 设置日志目录
-    LOG_DIR="$SEATUNNEL_HOME/logs"
+
+    # Set log directory
+    LOG_DIR="$X2SEATUNNEL_HOME/logs"
     mkdir -p "$LOG_DIR"
-    
-    # 执行转换工具
-    "$JAVA_CMD" $JVM_OPTS \
-        -DX2SEATUNNEL_HOME="$X2SEATUNNEL_HOME" \
-        -DX2SEATUNNEL_CONFIG_DIR="$X2SEATUNNEL_CONFIG_DIR" \
-        -DX2SEATUNNEL_TEMPLATES_DIR="$X2SEATUNNEL_TEMPLATES_DIR" \
-        -jar "$CLI_JAR" "$@"
+
+    # Build execution command
+    EXEC_CMD="\"$JAVA_CMD\" $JVM_OPTS \
+        -DX2SEATUNNEL_HOME=\"$X2SEATUNNEL_HOME\" \
+        -DX2SEATUNNEL_CONFIG_DIR=\"$X2SEATUNNEL_CONFIG_DIR\" \
+        -DX2SEATUNNEL_TEMPLATES_DIR=\"$X2SEATUNNEL_TEMPLATES_DIR\" \
+        -jar \"$CLI_JAR\" $@"
+
+    echo
+    eval $EXEC_CMD
 }
 
-# 运行主函数
+# Run main function
 main "$@"

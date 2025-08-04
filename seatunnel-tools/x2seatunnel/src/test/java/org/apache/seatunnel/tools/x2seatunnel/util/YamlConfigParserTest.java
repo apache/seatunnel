@@ -19,12 +19,12 @@ package org.apache.seatunnel.tools.x2seatunnel.util;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-/** 单元测试 YamlConfigParser，验证 YAML 配置映射正确 */
+/** Unit tests for YamlConfigParser, verifying YAML configuration mapping is correct */
 public class YamlConfigParserTest {
 
     @Test
     public void testParseConversionYaml() {
-        // 示例文件位于 resources/examples/datax-mysql2hdfs.yaml
+        // Example file located at resources/examples/datax-mysql2hdfs.yaml
         String yamlPath = "src/main/resources/examples/yaml/datax-mysql2hdfs.yaml";
         ConversionConfig config = YamlConfigParser.parse(yamlPath);
         Assertions.assertNotNull(config);
@@ -33,12 +33,12 @@ public class YamlConfigParserTest {
         Assertions.assertEquals("examples/target/mysql2hdfs-result.conf", config.getTarget());
         Assertions.assertEquals("examples/report/mysql2hdfs-report.md", config.getReport());
         Assertions.assertEquals("datax/custom/mysql-to-hive.conf", config.getTemplate());
-        Assertions.assertTrue(config.isVerbose(), "YAML options.verbose 应为 true");
+        Assertions.assertTrue(config.isVerbose(), "YAML options.verbose should be true");
     }
 
     @Test
     public void testParseSimpleYamlWithStringSource() {
-        // 动态创建并解析简单 YAML，只包含 source 字段
+        // Dynamically create and parse simple YAML, containing only source field
         String yamlContent = "source: foo.json\n" + "target: bar.conf\n" + "report: report.md\n";
         try {
             java.nio.file.Path tempFile = java.nio.file.Files.createTempFile("test", ".yaml");
@@ -47,11 +47,11 @@ public class YamlConfigParserTest {
             Assertions.assertEquals("foo.json", config.getSource());
             Assertions.assertEquals("bar.conf", config.getTarget());
             Assertions.assertEquals("report.md", config.getReport());
-            // 默认值
+            // Default values
             Assertions.assertNull(config.getTemplate());
             Assertions.assertFalse(config.isVerbose());
         } catch (Exception e) {
-            Assertions.fail("解析简单 YAML 失败: " + e.getMessage());
+            Assertions.fail("Failed to parse simple YAML: " + e.getMessage());
         }
     }
 }

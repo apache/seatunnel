@@ -45,8 +45,8 @@
             "defaultFS": "hdfs://nameservice1",
             "fileType": "PAR",
             "compress": "SNAPPY",
-            "path": "/user/hive/warehouse/ecology_ods.db/ods_formtable_main/${partition}",
-            "fileName": "ods_formtable_main",
+            "path": "/user/hive/warehouse/test_ods.db/test_table/${partition}",
+            "fileName": "test_table",
             "writeMode": "append",
             "fieldDelimiter": "|",
             "hadoopConfig": {

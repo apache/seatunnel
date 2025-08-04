@@ -30,17 +30,17 @@ public class FileUtilsTest {
         String testFile = "target/test-file.txt";
         String testContent = "Hello, World!";
 
-        // 写入文件
+        // Write file
         FileUtils.writeFile(testFile, testContent);
 
-        // 验证文件存在
+        // Verify file exists
         Assertions.assertTrue(FileUtils.exists(testFile));
 
-        // 读取文件
+        // Read file
         String content = FileUtils.readFile(testFile);
         Assertions.assertEquals(testContent, content);
 
-        // 清理
+        // Cleanup
         new File(testFile).delete();
     }
 }

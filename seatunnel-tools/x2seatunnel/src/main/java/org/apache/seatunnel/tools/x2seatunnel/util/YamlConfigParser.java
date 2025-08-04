@@ -7,7 +7,7 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.Map;
 
-/** 解析 YAML 配置文件，映射到 ConversionConfig 对象 */
+/** Parse the YAML configuration file and map it to the ConversionConfig object */
 public class YamlConfigParser {
     @SuppressWarnings("unchecked")
     public static ConversionConfig parse(String yamlPath) {
@@ -43,7 +43,7 @@ public class YamlConfigParser {
             }
             return config;
         } catch (Exception e) {
-            throw new RuntimeException("加载 YAML 配置失败: " + e.getMessage(), e);
+            throw new RuntimeException("Failed to load YAML configuration: " + e.getMessage(), e);
         }
     }
 }

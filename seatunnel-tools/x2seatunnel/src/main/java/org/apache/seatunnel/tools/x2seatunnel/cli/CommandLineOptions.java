@@ -20,96 +20,112 @@ package org.apache.seatunnel.tools.x2seatunnel.cli;
 import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
 
-/** X2SeaTunnel 命令行选项配置 */
+/** X2SeaTunnel command line options configuration */
 public class CommandLineOptions {
 
-    /** 创建命令行选项 */
+    /** Create command line options */
     public static Options createOptions() {
         Options options = new Options();
 
-        // 源文件参数
+        // Source file parameter
         options.addOption(
                 Option.builder("s")
                         .longOpt("source")
                         .hasArg()
-                        .desc("源配置文件路径")
+                        .desc("Source configuration file path")
                         .required(false)
                         .build());
 
-        // 目标文件参数
+        // Target file parameter
         options.addOption(
                 Option.builder("t")
                         .longOpt("target")
                         .hasArg()
-                        .desc("目标配置文件路径")
+                        .desc("Target configuration file path")
                         .required(false)
                         .build());
 
-        // 源类型参数
+        // Source type parameter
         options.addOption(
                 Option.builder("st")
                         .longOpt("source-type")
                         .hasArg()
-                        .desc("源配置类型 (datax, sqloop, flume, auto，默认: datax)")
+                        .desc(
+                                "Source configuration type (datax, sqloop, flume, auto, default: datax)")
                         .build());
 
-        // 自定义模板参数
+        // Custom template parameter
         options.addOption(
-                Option.builder("T").longOpt("template").hasArg().desc("自定义模板文件名").build());
+                Option.builder("T")
+                        .longOpt("template")
+                        .hasArg()
+                        .desc("Custom template file name")
+                        .build());
 
-        // 报告文件参数
-        options.addOption(Option.builder("r").longOpt("report").hasArg().desc("转换报告文件路径").build());
+        // Report file parameter
+        options.addOption(
+                Option.builder("r")
+                        .longOpt("report")
+                        .hasArg()
+                        .desc("Conversion report file path")
+                        .build());
 
-        // 报告目录（批量模式下单文件报告输出目录）
+        // Report directory (output directory for individual file reports in batch mode)
         options.addOption(
                 Option.builder("R")
                         .longOpt("report-dir")
                         .hasArg()
-                        .desc("批量模式下报告输出目录，单文件报告和汇总summary.md将输出到该目录")
+                        .desc(
+                                "Report output directory in batch mode, individual file reports and summary.md will be output to this directory")
                         .build());
 
-        // 版本信息
-        options.addOption(Option.builder("v").longOpt("version").desc("显示版本信息").build());
+        // Version information
+        options.addOption(
+                Option.builder("v").longOpt("version").desc("Show version information").build());
 
-        // 帮助信息
-        options.addOption(Option.builder("h").longOpt("help").desc("显示帮助信息").build());
+        // Help information
+        options.addOption(
+                Option.builder("h").longOpt("help").desc("Show help information").build());
 
-        // 详细日志
-        options.addOption(Option.builder().longOpt("verbose").desc("启用详细日志输出").build());
+        // Verbose logging
+        options.addOption(
+                Option.builder().longOpt("verbose").desc("Enable verbose log output").build());
 
-        // YAML 配置文件
+        // YAML configuration file
         options.addOption(
                 Option.builder("c")
                         .longOpt("config")
                         .hasArg()
-                        .desc("YAML 配置文件路径，包含 source, target, report, template 等设置")
+                        .desc(
+                                "YAML configuration file path, containing source, target, report, template and other settings")
                         .required(false)
                         .build());
 
-        // 批量转换源目录
+        // Batch conversion source directory
         options.addOption(
                 Option.builder("d")
                         .longOpt("directory")
                         .hasArg()
-                        .desc("待转换源文件目录")
+                        .desc("Source file directory to be converted")
                         .required(false)
                         .build());
 
-        // 批量转换输出目录
+        // Batch conversion output directory
         options.addOption(
                 Option.builder("o")
                         .longOpt("output-dir")
                         .hasArg()
-                        .desc("批量转换输出目录")
+                        .desc("Batch conversion output directory")
                         .required(false)
                         .build());
 
-        // 批量转换文件匹配模式
+        // Batch conversion file matching pattern
         options.addOption(
                 Option.builder("p")
                         .longOpt("pattern")
                         .hasArg()
-                        .desc("批量转换文件通配符模式，逗号分隔，例如: *.json,*.xml")
+                        .desc(
+                                "Batch conversion file wildcard pattern, comma separated, e.g.: *.json,*.xml")
                         .build());
 
         return options;

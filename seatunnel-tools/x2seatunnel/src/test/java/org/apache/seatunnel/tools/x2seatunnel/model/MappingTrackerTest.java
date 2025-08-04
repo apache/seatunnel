@@ -23,7 +23,7 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-/** MappingTracker 单元测试 */
+/** MappingTracker unit tests */
 public class MappingTrackerTest {
 
     private MappingTracker mappingTracker;
@@ -35,17 +35,17 @@ public class MappingTrackerTest {
 
     @Test
     public void testRecordDirectMapping() {
-        // 测试记录直接映射
+        // Test recording direct mapping
         mappingTracker.recordDirectMapping(
                 "job.content[0].reader.parameter.username",
                 "source.Jdbc.user",
                 "root",
-                "从DataX直接提取");
+                "Directly extracted from DataX");
         mappingTracker.recordDirectMapping(
                 "job.content[0].reader.parameter.password",
                 "source.Jdbc.password",
                 "123456",
-                "从DataX直接提取");
+                "Directly extracted from DataX");
 
         MappingResult result = mappingTracker.generateMappingResult();
 
@@ -59,7 +59,7 @@ public class MappingTrackerTest {
 
     @Test
     public void testRecordTransformMapping() {
-        // 测试记录转换映射字段
+        // Test recording transform mapping fields
         mappingTracker.recordTransformMapping(
                 "job.content[0].reader.parameter.connection[0].jdbcUrl[0]",
                 "source.Jdbc.driver",
@@ -78,23 +78,27 @@ public class MappingTrackerTest {
 
     @Test
     public void testRecordDefaultValue() {
-        // 测试记录默认值字段
-        mappingTracker.recordDefaultValue("env.parallelism", "1", "使用默认并行度");
-        mappingTracker.recordDefaultValue("env.job.mode", "BATCH", "DataX默认为批处理模式");
+        // Test recording default value fields
+        mappingTracker.recordDefaultValue("env.parallelism", "1", "Using default parallelism");
+        mappingTracker.recordDefaultValue(
+                "env.job.mode", "BATCH", "DataX defaults to batch processing mode");
 
         MappingResult result = mappingTracker.generateMappingResult();
 
         assertEquals(2, result.getDefaultValues().size());
         assertEquals("env.parallelism", result.getDefaultValues().get(0).getFieldName());
         assertEquals("1", result.getDefaultValues().get(0).getValue());
-        assertEquals("使用默认并行度", result.getDefaultValues().get(0).getReason());
+        assertEquals("Using default parallelism", result.getDefaultValues().get(0).getReason());
     }
 
     @Test
     public void testRecordMissingField() {
-        // 测试记录缺失字段
-        mappingTracker.recordMissingField("job.content[0].reader.parameter.host", "DataX配置中未找到该字段");
-        mappingTracker.recordMissingField("job.content[0].reader.parameter.port", "DataX配置中字段值为空");
+        // Test recording missing fields
+        mappingTracker.recordMissingField(
+                "job.content[0].reader.parameter.host", "Field not found in DataX configuration");
+        mappingTracker.recordMissingField(
+                "job.content[0].reader.parameter.port",
+                "Field value is empty in DataX configuration");
 
         MappingResult result = mappingTracker.generateMappingResult();
 
@@ -102,14 +106,18 @@ public class MappingTrackerTest {
         assertEquals(
                 "job.content[0].reader.parameter.host",
                 result.getMissingRequiredFields().get(0).getFieldName());
-        assertEquals("DataX配置中未找到该字段", result.getMissingRequiredFields().get(0).getReason());
+        assertEquals(
+                "Field not found in DataX configuration",
+                result.getMissingRequiredFields().get(0).getReason());
     }
 
     @Test
     public void testRecordUnmappedField() {
-        // 测试记录未映射字段
+        // Test recording unmapped fields
         mappingTracker.recordUnmappedField(
-                "job.content[0].reader.parameter.fetchSize", "1000", "DataX特有配置，SeaTunnel不需要");
+                "job.content[0].reader.parameter.fetchSize",
+                "1000",
+                "DataX specific configuration, not needed by SeaTunnel");
 
         MappingResult result = mappingTracker.generateMappingResult();
 
@@ -118,22 +126,27 @@ public class MappingTrackerTest {
                 "job.content[0].reader.parameter.fetchSize",
                 result.getUnmappedFields().get(0).getFieldName());
         assertEquals("1000", result.getUnmappedFields().get(0).getValue());
-        assertEquals("DataX特有配置，SeaTunnel不需要", result.getUnmappedFields().get(0).getReason());
+        assertEquals(
+                "DataX specific configuration, not needed by SeaTunnel",
+                result.getUnmappedFields().get(0).getReason());
     }
 
     @Test
     public void testMixedMappingTypes() {
-        // 测试混合各种映射类型
+        // Test mixed mapping types
         mappingTracker.recordDirectMapping(
-                "job.content[0].reader.parameter.username", "source.Jdbc.user", "root", "直接映射");
+                "job.content[0].reader.parameter.username",
+                "source.Jdbc.user",
+                "root",
+                "Direct mapping");
         mappingTracker.recordTransformMapping(
                 "job.content[0].reader.parameter.connection[0].jdbcUrl[0]",
                 "source.Jdbc.driver",
                 "com.mysql.cj.jdbc.Driver",
                 "jdbc_driver_mapper");
-        mappingTracker.recordDefaultValue("env.parallelism", "1", "默认值");
-        mappingTracker.recordMissingField("missing.field", "缺失字段");
-        mappingTracker.recordUnmappedField("unmapped.field", "value", "未映射");
+        mappingTracker.recordDefaultValue("env.parallelism", "1", "Default value");
+        mappingTracker.recordMissingField("missing.field", "Missing field");
+        mappingTracker.recordUnmappedField("unmapped.field", "value", "Unmapped");
 
         MappingResult result = mappingTracker.generateMappingResult();
 
@@ -147,17 +160,17 @@ public class MappingTrackerTest {
 
     @Test
     public void testReset() {
-        // 添加一些映射记录
+        // Add some mapping records
         mappingTracker.recordDirectMapping("test.field", "target.field", "value", "test");
         mappingTracker.recordTransformMapping(
                 "source.field", "target.field", "transformed.value", "upper");
 
-        // 验证有记录
+        // Verify records exist
         MappingResult result1 = mappingTracker.generateMappingResult();
         assertEquals(1, result1.getSuccessMappings().size());
         assertEquals(1, result1.getTransformMappings().size());
 
-        // 重置后验证清空
+        // Verify cleared after reset
         mappingTracker.reset();
         MappingResult result2 = mappingTracker.generateMappingResult();
         assertEquals(0, result2.getSuccessMappings().size());
@@ -169,7 +182,7 @@ public class MappingTrackerTest {
 
     @Test
     public void testGetStatistics() {
-        // 添加各种类型的映射记录
+        // Add various types of mapping records
         mappingTracker.recordDirectMapping("direct1", "target1", "value1", "test");
         mappingTracker.recordDirectMapping("direct2", "target2", "value2", "test");
         mappingTracker.recordTransformMapping("transform1", "target3", "transformValue1", "upper");
@@ -178,11 +191,12 @@ public class MappingTrackerTest {
         mappingTracker.recordUnmappedField("unmapped1", "unmappedValue1", "unmapped test");
 
         String statistics = mappingTracker.getStatisticsText();
-        assertTrue(statistics.contains("直接映射: 2"));
-        assertTrue(statistics.contains("转换映射: 1"));
-        assertTrue(statistics.contains("默认值: 1"));
-        assertTrue(statistics.contains("缺失: 1"));
-        assertTrue(statistics.contains("未映射: 1"));
+
+        assertTrue(statistics.contains("Direct mappings: 2"));
+        assertTrue(statistics.contains("Transform mappings: 1"));
+        assertTrue(statistics.contains("Default values: 1"));
+        assertTrue(statistics.contains("Missing: 1"));
+        assertTrue(statistics.contains("Unmapped: 1"));
 
         MappingTracker.MappingStatistics stats = mappingTracker.getStatistics();
         assertEquals(2, stats.getDirectMappings());

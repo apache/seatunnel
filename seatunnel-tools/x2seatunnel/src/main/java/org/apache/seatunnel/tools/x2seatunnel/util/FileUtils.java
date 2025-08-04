@@ -28,51 +28,51 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
-/** 文件工具类 */
+/** Utility class for file operations. */
 public class FileUtils {
 
     private static final Logger logger = LoggerFactory.getLogger(FileUtils.class);
 
     /**
-     * 读取文件内容
+     * Read the content of a file.
      *
-     * @param filePath 文件路径
-     * @return 文件内容
+     * @param filePath The path to the file.
+     * @return The content of the file.
      */
     public static String readFile(String filePath) {
         if (filePath == null || filePath.trim().isEmpty()) {
-            throw new RuntimeException("文件路径不能为空");
+            throw new RuntimeException("File path cannot be empty");
         }
 
         File file = new File(filePath);
         if (!file.exists()) {
-            throw new RuntimeException("文件不存在: " + filePath);
+            throw new RuntimeException("File does not exist: " + filePath);
         }
 
         if (!file.isFile()) {
-            throw new RuntimeException("不是有效的文件: " + filePath);
+            throw new RuntimeException("Invalid file: " + filePath);
         }
 
         try {
-            logger.debug("正在读取文件: {}", filePath);
+            logger.debug("Reading file: {}", filePath);
             byte[] bytes = Files.readAllBytes(Paths.get(filePath));
             String content = new String(bytes, StandardCharsets.UTF_8);
-            logger.debug("文件读取成功，内容长度: {}", content.length());
+            logger.debug("File read successfully, content length: {}", content.length());
             return content;
         } catch (IOException e) {
-            throw new RuntimeException("读取文件失败: " + filePath, e);
+            throw new RuntimeException("Failed to read file: " + filePath, e);
         }
     }
 
     /**
-     * 写入文件内容
+     * Write content to a file.
      *
-     * @param filePath 文件路径
-     * @param content 文件内容
+     * @param filePath The path to the file.
+     * @param content The content to write.
      */
     public static void writeFile(String filePath, String content) {
         if (filePath == null || filePath.trim().isEmpty()) {
-            throw new RuntimeException("文件路径不能为空");
+            throw new RuntimeException("File path cannot be empty");
         }
 
         if (content == null) {
@@ -81,27 +81,27 @@ public class FileUtils {
 
         try {
             File file = new File(filePath);
-            // 创建目录
+            // Create directory
             File parentDir = file.getParentFile();
             if (parentDir != null && !parentDir.exists()) {
                 if (!parentDir.mkdirs()) {
-                    throw new RuntimeException("创建目录失败: " + parentDir.getAbsolutePath());
+                    throw new RuntimeException(
+                            "Failed to create directory: " + parentDir.getAbsolutePath());
                 }
             }
-
-            logger.debug("正在写入文件: {}", filePath);
+            logger.debug("Writing file: {}", filePath);
             Files.write(Paths.get(filePath), content.getBytes(StandardCharsets.UTF_8));
-            logger.debug("文件写入成功，内容长度: {}", content.length());
+            logger.debug("File written successfully, content length: {}", content.length());
         } catch (IOException e) {
-            throw new RuntimeException("写入文件失败: " + filePath, e);
+            throw new RuntimeException("Failed to write file: " + filePath, e);
         }
     }
 
     /**
-     * 检查文件是否存在
+     * Check if a file exists.
      *
-     * @param filePath 文件路径
-     * @return 是否存在
+     * @param filePath The path to the file.
+     * @return True if the file exists, false otherwise.
      */
     public static boolean exists(String filePath) {
         if (filePath == null || filePath.trim().isEmpty()) {
@@ -111,50 +111,47 @@ public class FileUtils {
     }
 
     /**
-     * 创建目录
+     * Create a directory.
      *
-     * @param dirPath 目录路径
+     * @param dirPath The path to the directory.
      */
     public static void createDirectory(String dirPath) {
         if (dirPath == null || dirPath.trim().isEmpty()) {
-            throw new RuntimeException("目录路径不能为空");
+            throw new RuntimeException("Directory path cannot be empty");
         }
-
         Path path = Paths.get(dirPath);
         if (!Files.exists(path)) {
             try {
                 Files.createDirectories(path);
-                logger.debug("目录创建成功: {}", dirPath);
+                logger.debug("Directory created successfully: {}", dirPath);
             } catch (IOException e) {
-                throw new RuntimeException("创建目录失败: " + dirPath, e);
+                throw new RuntimeException("Failed to create directory: " + dirPath, e);
             }
         }
     }
 
     /**
-     * 获取文件扩展名
+     * Get the file extension.
      *
-     * @param filePath 文件路径
-     * @return 扩展名（不包含点号）
+     * @param filePath The path to the file.
+     * @return The file extension or an empty string if there is none.
      */
     public static String getFileExtension(String filePath) {
         if (filePath == null || filePath.trim().isEmpty()) {
             return "";
         }
-
         int lastDotIndex = filePath.lastIndexOf('.');
         if (lastDotIndex == -1 || lastDotIndex == filePath.length() - 1) {
             return "";
         }
-
         return filePath.substring(lastDotIndex + 1).toLowerCase();
     }
 
     /**
-     * 获取文件名（不包含扩展名）
+     * Get the file name without the extension.
      *
-     * @param filePath 文件路径
-     * @return 文件名
+     * @param filePath The path to the file.
+     * @return The file name without the extension.
      */
     public static String getFileNameWithoutExtension(String filePath) {
         if (filePath == null || filePath.trim().isEmpty()) {
@@ -171,27 +168,27 @@ public class FileUtils {
     }
 
     /**
-     * 从classpath读取资源文件
+     * Read a resource file from the classpath.
      *
-     * @param resourcePath 资源路径（从classpath根目录开始）
-     * @return 文件内容，如果文件不存在返回null
+     * @param resourcePath The path to the resource (relative to the classpath root).
+     * @return The content of the resource file, or null if the file does not exist.
      */
     public static String readResourceFile(String resourcePath) {
         if (resourcePath == null || resourcePath.trim().isEmpty()) {
-            throw new RuntimeException("资源路径不能为空");
+            throw new RuntimeException("Resource path cannot be empty");
         }
 
         try {
-            logger.debug("正在读取classpath资源: {}", resourcePath);
+            logger.debug("Reading classpath resource: {}", resourcePath);
 
-            // 获取资源输入流
+            // Get the resource input stream
             InputStream inputStream = FileUtils.class.getResourceAsStream(resourcePath);
             if (inputStream == null) {
-                logger.debug("classpath资源不存在: {}", resourcePath);
+                logger.debug("Classpath resource does not exist: {}", resourcePath);
                 return null;
             }
 
-            // 使用BufferedReader读取流内容（Java 8兼容）
+            // Read the stream content using a BufferedReader (Java 8 compatible)
             try (java.io.BufferedReader reader =
                     new java.io.BufferedReader(
                             new java.io.InputStreamReader(inputStream, StandardCharsets.UTF_8))) {
@@ -206,12 +203,13 @@ public class FileUtils {
                 }
 
                 String content = sb.toString();
-                logger.debug("资源文件读取成功，内容长度: {}", content.length());
+                logger.debug(
+                        "Resource file read successfully, content length: {}", content.length());
                 return content;
             }
 
         } catch (IOException e) {
-            logger.warn("读取classpath资源失败: {}", resourcePath, e);
+            logger.warn("Failed to read classpath resource: {}", resourcePath, e);
             return null;
         }
     }

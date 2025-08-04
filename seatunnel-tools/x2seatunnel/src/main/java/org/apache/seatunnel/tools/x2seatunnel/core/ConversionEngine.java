@@ -17,10 +17,8 @@
 
 package org.apache.seatunnel.tools.x2seatunnel.core;
 
-import org.apache.seatunnel.tools.x2seatunnel.model.DataXConfig;
 import org.apache.seatunnel.tools.x2seatunnel.model.MappingResult;
 import org.apache.seatunnel.tools.x2seatunnel.model.MappingTracker;
-import org.apache.seatunnel.tools.x2seatunnel.parser.DataXConfigParser;
 import org.apache.seatunnel.tools.x2seatunnel.report.MarkdownReportGenerator;
 import org.apache.seatunnel.tools.x2seatunnel.template.ConfigDrivenTemplateEngine;
 import org.apache.seatunnel.tools.x2seatunnel.template.ConfigDrivenTemplateEngine.TemplateConversionResult;
@@ -32,11 +30,14 @@ import org.apache.seatunnel.tools.x2seatunnel.util.PathResolver;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import java.io.File;
 import java.util.List;
 import java.util.Map;
 
-/** 核心转换引擎 */
+/** Core conversion engine */
 public class ConversionEngine {
 
     private static final Logger logger = LoggerFactory.getLogger(ConversionEngine.class);
@@ -52,13 +53,13 @@ public class ConversionEngine {
     }
 
     /**
-     * 执行配置转换（标准转换方式）
+     * Execute configuration conversion (standard conversion method)
      *
-     * @param sourceFile 源文件路径
-     * @param targetFile 目标文件路径
-     * @param sourceType 源类型
-     * @param targetType 目标类型
-     * @param reportFile 报告文件路径
+     * @param sourceFile Source file path
+     * @param targetFile Target file path
+     * @param sourceType Source type
+     * @param targetType Target type
+     * @param reportFile Report file path
      */
     public void convert(
             String sourceFile,
@@ -70,14 +71,14 @@ public class ConversionEngine {
     }
 
     /**
-     * 执行配置转换（支持自定义模板）
+     * Execute configuration conversion (supports custom templates)
      *
-     * @param sourceFile 源文件路径
-     * @param targetFile 目标文件路径
-     * @param sourceType 源类型
-     * @param targetType 目标类型
-     * @param customTemplate 自定义模板文件名
-     * @param reportFile 报告文件路径
+     * @param sourceFile Source file path
+     * @param targetFile Target file path
+     * @param sourceType Source type
+     * @param targetType Target type
+     * @param customTemplate Custom template file name
+     * @param reportFile Report file path
      */
     public void convert(
             String sourceFile,
@@ -86,58 +87,56 @@ public class ConversionEngine {
             String targetType,
             String customTemplate,
             String reportFile) {
-        logger.info("开始执行配置转换...");
-        logger.info("源文件: {}", sourceFile);
-        logger.info("目标文件: {}", targetFile);
-        logger.info("源类型: {}", sourceType);
-        logger.info("目标类型: {}", targetType);
+        logger.info("Starting configuration conversion...");
+        logger.info("Source file: {}", sourceFile);
+        logger.info("Target file: {}", targetFile);
+        logger.info("Source type: {}", sourceType);
+        logger.info("Target type: {}", targetType);
         if (customTemplate != null) {
-            logger.info("自定义模板: {}", customTemplate);
+            logger.info("Custom template: {}", customTemplate);
         }
 
         try {
-            // 读取源文件
-            logger.info("正在读取输入文件...");
+            // Read source file
+            logger.info("Reading input file...");
             String sourceContent = FileUtils.readFile(sourceFile);
-            logger.info("文件读取成功，大小: {} bytes", sourceContent.length());
+            logger.info("File read successfully, size: {} bytes", sourceContent.length());
 
-            // 解析DataX配置
-            logger.info("正在解析{}配置...", sourceType);
-            DataXConfigParser parser = new DataXConfigParser();
-            DataXConfig dataXConfig = parser.parse(sourceContent);
-            logger.info("配置解析完成");
+            // Validate DataX configuration format
+            logger.info("Validating {} configuration format...", sourceType);
+            validateDataXFormat(sourceContent);
+            logger.info("Configuration validation completed");
 
             String targetContent;
             MappingResult mappingResult = null;
             TemplateConversionResult templateResult = null;
 
             if (customTemplate != null && !customTemplate.trim().isEmpty()) {
-                // 使用自定义模板进行转换（极简方案）
-                logger.info("使用自定义模板进行转换: {}", customTemplate);
-                targetContent =
-                        convertWithCustomTemplate(dataXConfig, customTemplate, sourceContent);
-                logger.info("自定义模板转换完成");
+                // Use custom template for conversion (simplified approach)
+                logger.info("Using custom template for conversion: {}", customTemplate);
+                targetContent = convertWithCustomTemplate(customTemplate, sourceContent);
+                logger.info("Custom template conversion completed");
             } else {
-                // 使用配置驱动的标准转换流程
-                logger.info("使用配置驱动的标准转换流程");
+                // Use configuration-driven standard conversion process
+                logger.info("Using configuration-driven standard conversion process");
 
-                // 使用配置驱动引擎进行转换
-                logger.info("正在执行配置驱动的模板转换...");
-                templateResult = configDrivenEngine.convertWithTemplate(dataXConfig, sourceContent);
+                templateResult = configDrivenEngine.convertWithTemplate(sourceContent);
 
                 if (!templateResult.isSuccess()) {
-                    throw new RuntimeException("配置驱动模板转换失败: " + templateResult.getErrorMessage());
+                    throw new RuntimeException(
+                            "Configuration-driven template conversion failed: "
+                                    + templateResult.getErrorMessage());
                 }
 
                 targetContent = templateResult.getConfigContent();
                 mappingResult = templateResult.getMappingResult();
             }
 
-            // 生成报告（如果指定了报告文件）
+            // Generate report (if report file is specified)
             if (reportFile != null && !reportFile.trim().isEmpty()) {
-                logger.info("正在生成转换报告...");
+                logger.info("Generating conversion report...");
                 if (mappingResult != null && templateResult != null) {
-                    // 标准转换的详细报告
+                    // Detailed report for standard conversion
                     generateDetailedConversionReport(
                             mappingResult,
                             sourceFile,
@@ -148,100 +147,99 @@ public class ConversionEngine {
                             templateResult.getSinkTemplate(),
                             reportFile);
                 } else {
-                    // 自定义模板转换：分析自定义模板生成报告数据
-                    logger.info("为自定义模板转换生成报告数据...");
+                    // Custom template conversion: analyze custom template to generate report data
+                    logger.info("Generating report data for custom template conversion...");
                     MappingResult customMappingResult =
-                            analyzeCustomTemplate(customTemplate, dataXConfig, sourceContent);
+                            analyzeCustomTemplate(customTemplate, sourceContent);
                     generateDetailedConversionReport(
                             customMappingResult,
                             sourceFile,
                             targetFile,
                             sourceType,
                             customTemplate,
-                            customTemplate, // 自定义模板作为源模板
-                            customTemplate, // 自定义模板作为目标模板
+                            customTemplate, // Custom template as source template
+                            customTemplate, // Custom template as target template
                             reportFile);
                 }
-                logger.info("转换报告生成完成: {}", reportFile);
+                logger.info("Conversion report generation completed: {}", reportFile);
             }
 
-            // 写入目标文件
-            logger.info("正在写入目标文件...");
+            // Write target file
+            logger.info("Writing target file...");
             FileUtils.writeFile(targetFile, targetContent);
-            logger.info("输出文件生成完成: {}", targetFile);
+            logger.info("Output file generation completed: {}", targetFile);
 
         } catch (Exception e) {
-            logger.error("配置转换失败: {}", e.getMessage(), e);
-            throw new RuntimeException("配置转换失败", e);
+            logger.error("Configuration conversion failed: {}", e.getMessage(), e);
+            throw new RuntimeException("Configuration conversion failed", e);
         }
     }
 
     /**
-     * 使用自定义模板进行转换
+     * Convert using custom template
      *
-     * @param dataXConfig DataX配置
-     * @param customTemplate 自定义模板文件名
-     * @param sourceContent 原始DataX JSON内容
-     * @return 转换后的配置内容
+     * @param customTemplate Custom template file name
+     * @param sourceContent Original DataX JSON content
+     * @return Converted configuration content
      */
-    private String convertWithCustomTemplate(
-            DataXConfig dataXConfig, String customTemplate, String sourceContent) {
+    private String convertWithCustomTemplate(String customTemplate, String sourceContent) {
         try {
-            // 加载自定义模板
+            // Load custom template
             String templateContent = loadCustomTemplate(customTemplate);
 
-            // 使用模板变量解析器进行变量替换（使用原始JSON内容）
+            // Use template variable resolver for variable substitution (using original JSON
+            // content)
             return templateResolver.resolve(templateContent, sourceContent);
 
         } catch (Exception e) {
-            logger.error("自定义模板转换失败: {}", e.getMessage(), e);
-            throw new RuntimeException("自定义模板转换失败: " + e.getMessage(), e);
+            logger.error("Custom template conversion failed: {}", e.getMessage(), e);
+            throw new RuntimeException("Custom template conversion failed: " + e.getMessage(), e);
         }
     }
 
     /**
-     * 加载自定义模板文件
+     * Load custom template file
      *
-     * @param templatePath 模板文件路径（支持绝对路径和相对路径）
-     * @return 模板内容
+     * @param templatePath Template file path (supports absolute and relative paths)
+     * @return Template content
      */
     private String loadCustomTemplate(String templatePath) {
-        logger.info("正在加载自定义模板: {}", templatePath);
+        logger.info("Loading custom template: {}", templatePath);
 
-        // 1. 使用智能路径解析器查找文件系统中的模板
+        // 1. Use intelligent path resolver to find template in file system
         String resolvedPath = PathResolver.resolveTemplatePath(templatePath);
         if (resolvedPath != null && PathResolver.exists(resolvedPath)) {
-            logger.info("从文件系统加载模板: {}", resolvedPath);
+            logger.info("Loading template from file system: {}", resolvedPath);
             return FileUtils.readFile(resolvedPath);
         }
 
-        // 2. 从classpath加载（内置模板）
+        // 2. Load from classpath (built-in templates)
         try {
             String resourcePath = PathResolver.buildResourcePath(templatePath);
-            logger.info("尝试从classpath加载模板: {}", resourcePath);
+            logger.info("Attempting to load template from classpath: {}", resourcePath);
 
             String content = FileUtils.readResourceFile(resourcePath);
             if (content != null && !content.trim().isEmpty()) {
-                logger.info("从classpath成功加载模板: {}", resourcePath);
+                logger.info("Successfully loaded template from classpath: {}", resourcePath);
                 return content;
             }
         } catch (Exception e) {
-            logger.debug("从classpath加载模板失败: {}", e.getMessage());
+            logger.debug("Failed to load template from classpath: {}", e.getMessage());
         }
 
-        // 3. 生成详细的错误信息，帮助用户调试
+        // 3. Generate detailed error information to help users debug
         String homePath = PathResolver.getHomePath();
         String configTemplatesDir = PathResolver.getConfigTemplatesDir();
 
         throw new RuntimeException(
                 String.format(
-                        "找不到自定义模板文件: %s\n"
-                                + "搜索路径:\n"
-                                + "  1. 当前工作目录: %s\n"
-                                + "  2. 配置模板目录: %s\n"
-                                + "  3. 开发环境配置: %s/config/x2seatunnel/templates/%s\n"
-                                + "  4. 内置资源: classpath:%s\n"
-                                + "提示: 请检查模板文件是否存在，或使用绝对路径指定模板位置",
+                        "Custom template file not found: %s\n"
+                                + "Search paths:\n"
+                                + "  1. Current working directory: %s\n"
+                                + "  2. Configuration template directory: %s\n"
+                                + "  3. Development environment configuration: %s/config/x2seatunnel/templates/%s\n"
+                                + "  4. Built-in resources: classpath:%s\n"
+                                + "Hint: Please check if the template file exists, or use absolute path to specify template location",
                         templatePath,
                         new File(templatePath).getAbsolutePath(),
                         new File(configTemplatesDir, templatePath).getAbsolutePath(),
@@ -250,7 +248,7 @@ public class ConversionEngine {
                         PathResolver.buildResourcePath(templatePath)));
     }
 
-    /** 生成详细的转换报告 */
+    /** Generate detailed conversion report */
     private void generateDetailedConversionReport(
             MappingResult mappingResult,
             String sourceFile,
@@ -273,36 +271,82 @@ public class ConversionEngine {
         FileUtils.writeFile(reportFile, reportContent);
     }
 
-    /** 分析自定义模板，生成映射结果 */
-    private MappingResult analyzeCustomTemplate(
-            String customTemplate, DataXConfig dataXConfig, String sourceContent) {
-        logger.info("开始分析自定义模板: {}", customTemplate);
+    /**
+     * Validate DataX configuration format
+     *
+     * @param sourceContent DataX JSON content
+     * @throws IllegalArgumentException if configuration format is invalid
+     */
+    private void validateDataXFormat(String sourceContent) {
+        try {
+            ObjectMapper objectMapper = new ObjectMapper();
+            JsonNode rootNode = objectMapper.readTree(sourceContent);
+
+            // Validate basic structure
+            if (!rootNode.has("job")) {
+                throw new IllegalArgumentException(
+                        "DataX configuration missing required 'job' node");
+            }
+
+            JsonNode jobNode = rootNode.get("job");
+            if (!jobNode.has("content")) {
+                throw new IllegalArgumentException(
+                        "DataX configuration missing required 'content' node");
+            }
+
+            JsonNode contentNode = jobNode.get("content");
+            if (!contentNode.isArray() || contentNode.size() == 0) {
+                throw new IllegalArgumentException(
+                        "DataX configuration 'content' must be a non-empty array");
+            }
+
+            // Validate first content item has reader and writer
+            JsonNode firstContent = contentNode.get(0);
+            if (!firstContent.has("reader")) {
+                throw new IllegalArgumentException(
+                        "DataX configuration missing required 'reader' configuration");
+            }
+            if (!firstContent.has("writer")) {
+                throw new IllegalArgumentException(
+                        "DataX configuration missing required 'writer' configuration");
+            }
+
+        } catch (Exception e) {
+            logger.error("DataX configuration validation failed: {}", e.getMessage());
+            throw new IllegalArgumentException(
+                    "Invalid DataX configuration format: " + e.getMessage(), e);
+        }
+    }
+
+    /** Analyze custom template and generate mapping result */
+    private MappingResult analyzeCustomTemplate(String customTemplate, String sourceContent) {
+        logger.info("Starting analysis of custom template: {}", customTemplate);
 
         try {
-            // 1. 加载自定义模板内容
+            // 1. Load custom template content
             String templateContent = loadCustomTemplate(customTemplate);
 
-            // 2. 创建专用的映射跟踪器和变量解析器
+            // 2. Create dedicated mapping tracker and variable resolver
             MappingTracker customTracker = new MappingTracker();
             TemplateVariableResolver customResolver =
                     new TemplateVariableResolver(templateMappingManager, customTracker);
 
-            // 3. 分析模板，提取字段映射关系
-            logger.info("分析自定义模板的字段映射关系...");
+            // 3. Analyze template and extract field mapping relationships
+            logger.info("Analyzing field mapping relationships in custom template...");
             Map<String, List<String>> fieldMappings =
                     customResolver.analyzeTemplateFieldMappings(templateContent, "custom");
-            logger.info("自定义模板包含 {} 个字段映射", fieldMappings.size());
+            logger.info("Custom template contains {} field mappings", fieldMappings.size());
 
-            // 4. 解析模板变量，触发映射跟踪
-            logger.info("解析自定义模板变量...");
+            // 4. Parse template variables and trigger mapping tracking
+            logger.info("Parsing custom template variables...");
             customResolver.resolveWithTemplateAnalysis(templateContent, "custom", sourceContent);
 
-            // 5. 生成映射结果
+            // 5. Generate mapping result
             MappingResult result = customTracker.generateMappingResult();
             result.setSuccess(true);
 
             logger.info(
-                    "自定义模板分析完成: 直接映射({})个, 转换映射({})个, 默认值({})个, 缺失({})个, 未映射({})个",
+                    "Custom template analysis completed: direct mappings({}), transform mappings({}), default values({}), missing({}), unmapped({})",
                     result.getSuccessMappings().size(),
                     result.getTransformMappings().size(),
                     result.getDefaultValues().size(),
@@ -312,12 +356,12 @@ public class ConversionEngine {
             return result;
 
         } catch (Exception e) {
-            logger.error("自定义模板分析失败: {}", e.getMessage(), e);
-            // 返回一个基本的成功结果，避免报告生成失败
+            logger.error("Custom template analysis failed: {}", e.getMessage(), e);
+            // Return a basic success result to avoid report generation failure
             MappingResult fallbackResult = new MappingResult();
             fallbackResult.setSuccess(true);
             fallbackResult.addDefaultValueField(
-                    "template.type", "custom", "使用自定义模板: " + customTemplate);
+                    "template.type", "custom", "Using custom template: " + customTemplate);
             return fallbackResult;
         }
     }

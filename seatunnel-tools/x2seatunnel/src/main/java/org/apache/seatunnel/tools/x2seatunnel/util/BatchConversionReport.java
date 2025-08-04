@@ -7,15 +7,12 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-/** 批量转换报告，记录成功和失败条目并输出报告文件 */
+/** Batch conversion report, records successful and failed entries and outputs a report file */
 public class BatchConversionReport {
 
-    // 成功转换的记录
     private final List<ConversionRecord> successList = new ArrayList<>();
-    // 失败转换的记录
     private final Map<String, String> failureMap = new LinkedHashMap<>();
 
-    // 批量转换的配置信息
     private String sourceDirectory;
     private String outputDirectory;
     private String reportDirectory;
@@ -24,7 +21,6 @@ public class BatchConversionReport {
     private LocalDateTime startTime;
     private LocalDateTime endTime;
 
-    /** 转换记录 */
     public static class ConversionRecord {
         private final String sourceFile;
         private final String targetFile;
@@ -55,7 +51,6 @@ public class BatchConversionReport {
         }
     }
 
-    /** 设置批量转换配置信息 */
     public void setConversionConfig(
             String sourceDirectory,
             String outputDirectory,
@@ -70,30 +65,25 @@ public class BatchConversionReport {
         this.startTime = LocalDateTime.now();
     }
 
-    /** 记录成功的转换 */
     public void recordSuccess(String sourceFile, String targetFile, String reportFile) {
         successList.add(new ConversionRecord(sourceFile, targetFile, reportFile));
     }
 
-    /** 记录成功的转换（向后兼容） */
     public void recordSuccess(String source) {
-        // 为了向后兼容，生成默认的目标和报告文件路径
+        // For backward compatibility, generate default target and report file paths
         String targetFile = generateDefaultTargetPath(source);
         String reportFile = generateDefaultReportPath(source);
         recordSuccess(source, targetFile, reportFile);
     }
 
-    /** 记录失败的源文件路径和原因 */
     public void recordFailure(String source, String reason) {
         failureMap.put(source, reason);
     }
 
-    /** 完成批量转换 */
     public void finish() {
         this.endTime = LocalDateTime.now();
     }
 
-    /** 生成默认的目标文件路径 */
     private String generateDefaultTargetPath(String sourceFile) {
         if (outputDirectory != null) {
             String fileName = FileUtils.getFileNameWithoutExtension(sourceFile);
@@ -102,7 +92,6 @@ public class BatchConversionReport {
         return sourceFile.replace(".json", ".conf");
     }
 
-    /** 生成默认的报告文件路径 */
     private String generateDefaultReportPath(String sourceFile) {
         if (reportDirectory != null) {
             String fileName = FileUtils.getFileNameWithoutExtension(sourceFile);
@@ -112,52 +101,56 @@ public class BatchConversionReport {
     }
 
     /**
-     * 将报告写为 Markdown 格式
+     * Write report in Markdown format
      *
-     * @param reportPath 报告文件输出路径
+     * @param reportPath report file output path
      */
     public void writeReport(String reportPath) {
         if (endTime == null) {
-            finish(); // 如果没有调用 finish()，自动完成
+            finish(); // If finish() was not called, complete automatically
         }
 
         StringBuilder sb = new StringBuilder();
 
-        // 标题和基本信息
-        sb.append("# 批量转换报告\n\n");
-        sb.append("## 📋 转换概览\n\n");
-        sb.append("| 项目 | 值 |\n");
-        sb.append("|------|----|\n");
-        sb.append("| **开始时间** | ").append(formatDateTime(startTime)).append(" |\n");
-        sb.append("| **结束时间** | ").append(formatDateTime(endTime)).append(" |\n");
-        sb.append("| **耗时** | ").append(calculateDuration()).append(" |\n");
-        sb.append("| **源目录** | `")
-                .append(sourceDirectory != null ? sourceDirectory : "未指定")
+        // Title and basic information
+        sb.append("# Batch Conversion Report\n\n");
+        sb.append("## 📋 Conversion Overview\n\n");
+        sb.append("| Item | Value |\n");
+        sb.append("|------|-------|\n");
+        sb.append("| **Start Time** | ").append(formatDateTime(startTime)).append(" |\n");
+        sb.append("| **End Time** | ").append(formatDateTime(endTime)).append(" |\n");
+        sb.append("| **Duration** | ").append(calculateDuration()).append(" |\n");
+        sb.append("| **Source Directory** | `")
+                .append(sourceDirectory != null ? sourceDirectory : "Not specified")
                 .append("` |\n");
-        sb.append("| **输出目录** | `")
-                .append(outputDirectory != null ? outputDirectory : "未指定")
+        sb.append("| **Output Directory** | `")
+                .append(outputDirectory != null ? outputDirectory : "Not specified")
                 .append("` |\n");
-        sb.append("| **报告目录** | `")
-                .append(reportDirectory != null ? reportDirectory : "未指定")
+        sb.append("| **Report Directory** | `")
+                .append(reportDirectory != null ? reportDirectory : "Not specified")
                 .append("` |\n");
-        sb.append("| **文件模式** | `")
+        sb.append("| **File Pattern** | `")
                 .append(filePattern != null ? filePattern : "*.json")
                 .append("` |\n");
-        sb.append("| **自定义模板** | `")
-                .append(templatePath != null ? templatePath : "默认模板")
+        sb.append("| **Custom Template** | `")
+                .append(templatePath != null ? templatePath : "Default template")
                 .append("` |\n");
-        sb.append("| **成功转换** | ").append(successList.size()).append(" 个文件 |\n");
-        sb.append("| **转换失败** | ").append(failureMap.size()).append(" 个文件 |\n");
-        sb.append("| **总计** | ").append(successList.size() + failureMap.size()).append(" 个文件 |\n");
-        sb.append("| **成功率** | ").append(calculateSuccessRate()).append(" |\n\n");
+        sb.append("| **Successful Conversions** | ")
+                .append(successList.size())
+                .append(" files |\n");
+        sb.append("| **Failed Conversions** | ").append(failureMap.size()).append(" files |\n");
+        sb.append("| **Total** | ")
+                .append(successList.size() + failureMap.size())
+                .append(" files |\n");
+        sb.append("| **Success Rate** | ").append(calculateSuccessRate()).append(" |\n\n");
 
-        // 成功转换详情
-        sb.append("## ✅ 成功转换 (").append(successList.size()).append(")\n\n");
+        // Successful conversion details
+        sb.append("## ✅ Successful Conversions (").append(successList.size()).append(")\n\n");
         if (successList.isEmpty()) {
-            sb.append("*无成功转换的文件*\n\n");
+            sb.append("*No successfully converted files*\n\n");
         } else {
-            sb.append("| # | 源文件 | 目标文件 | 报告文件 |\n");
-            sb.append("|---|--------|----------|----------|\n");
+            sb.append("| # | Source File | Target File | Report File |\n");
+            sb.append("|---|-------------|-------------|-------------|\n");
             for (int i = 0; i < successList.size(); i++) {
                 ConversionRecord record = successList.get(i);
                 sb.append("| ").append(i + 1).append(" | ");
@@ -168,13 +161,13 @@ public class BatchConversionReport {
             sb.append("\n");
         }
 
-        // 失败转换详情
-        sb.append("## ❌ 转换失败 (").append(failureMap.size()).append(")\n\n");
+        // Failed conversion details
+        sb.append("## ❌ Failed Conversions (").append(failureMap.size()).append(")\n\n");
         if (failureMap.isEmpty()) {
-            sb.append("*无转换失败的文件*\n\n");
+            sb.append("*No failed conversion files*\n\n");
         } else {
-            sb.append("| # | 源文件 | 失败原因 |\n");
-            sb.append("|---|--------|----------|\n");
+            sb.append("| # | Source File | Failure Reason |\n");
+            sb.append("|---|-------------|----------------|\n");
             int index = 1;
             for (Map.Entry<String, String> entry : failureMap.entrySet()) {
                 sb.append("| ").append(index++).append(" | ");
@@ -184,43 +177,45 @@ public class BatchConversionReport {
             sb.append("\n");
         }
 
-        // 添加简单的结尾信息
+        // Add simple footer information
         sb.append("---\n");
-        sb.append("*报告生成时间: ").append(formatDateTime(LocalDateTime.now())).append("*\n");
-        sb.append("*工具版本: X2SeaTunnel v0.1*\n");
+        sb.append("*Report generated at: ")
+                .append(formatDateTime(LocalDateTime.now()))
+                .append("*\n");
+        sb.append("*Tool version: X2SeaTunnel v0.1*\n");
 
-        // 写入文件
+        // Write to file
         FileUtils.writeFile(reportPath, sb.toString());
     }
 
-    /** 格式化日期时间 */
+    /** Format date time */
     private String formatDateTime(LocalDateTime dateTime) {
         if (dateTime == null) {
-            return "未知";
+            return "Unknown";
         }
         return dateTime.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
     }
 
-    /** 计算转换耗时 */
+    /** Calculate conversion duration */
     private String calculateDuration() {
         if (startTime == null || endTime == null) {
-            return "未知";
+            return "Unknown";
         }
 
         long seconds = java.time.Duration.between(startTime, endTime).getSeconds();
         if (seconds < 60) {
-            return seconds + " 秒";
+            return seconds + " seconds";
         } else if (seconds < 3600) {
-            return (seconds / 60) + " 分 " + (seconds % 60) + " 秒";
+            return (seconds / 60) + " minutes " + (seconds % 60) + " seconds";
         } else {
             long hours = seconds / 3600;
             long minutes = (seconds % 3600) / 60;
             long remainingSeconds = seconds % 60;
-            return hours + " 时 " + minutes + " 分 " + remainingSeconds + " 秒";
+            return hours + " hours " + minutes + " minutes " + remainingSeconds + " seconds";
         }
     }
 
-    /** 计算成功率 */
+    /** Calculate success rate */
     private String calculateSuccessRate() {
         int total = successList.size() + failureMap.size();
         if (total == 0) {

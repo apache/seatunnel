@@ -26,70 +26,76 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-/** 映射跟踪器 - 记录字段映射过程，用于生成详细的转换报告 */
+/** Mapping tracker - records field mapping process for generating detailed conversion reports */
 public class MappingTracker {
 
     private static final Logger logger = LoggerFactory.getLogger(MappingTracker.class);
 
-    private final List<FieldMapping> directMappings = new ArrayList<>(); // 直接映射
-    private final List<FieldMapping> transformMappings = new ArrayList<>(); // 转换映射（过滤器）
-    private final List<FieldMapping> defaultValues = new ArrayList<>(); // 使用默认值
-    private final List<FieldMapping> missingFields = new ArrayList<>(); // 缺失字段
-    private final List<FieldMapping> unmappedFields = new ArrayList<>(); // 未映射字段
+    private final List<FieldMapping> directMappings = new ArrayList<>(); // Direct mappings
+    private final List<FieldMapping> transformMappings =
+            new ArrayList<>(); // Transform mappings (filters)
+    private final List<FieldMapping> defaultValues = new ArrayList<>(); // Default values used
+    private final List<FieldMapping> missingFields = new ArrayList<>(); // Missing fields
+    private final List<FieldMapping> unmappedFields = new ArrayList<>(); // Unmapped fields
 
-    /** 记录成功的直接映射 */
+    /** Record successful direct mapping */
     public void recordDirectMapping(
             String sourcePath, String targetField, String value, String description) {
         FieldMapping mapping =
                 new FieldMapping(sourcePath, targetField, value, description, MappingType.DIRECT);
         directMappings.add(mapping);
-        logger.debug("记录直接映射: {} -> {} = {}", sourcePath, targetField, value);
+        logger.debug("Recording direct mapping: {} -> {} = {}", sourcePath, targetField, value);
     }
 
-    /** 记录转换映射的字段（使用过滤器） */
+    /** Record transform mapping fields (using filters) */
     public void recordTransformMapping(
             String sourcePath, String targetField, String value, String filterName) {
         FieldMapping mapping =
                 new FieldMapping(sourcePath, targetField, value, filterName, MappingType.TRANSFORM);
         transformMappings.add(mapping);
-        logger.debug("记录转换映射: {} -> {} = {} (过滤器: {})", sourcePath, targetField, value, filterName);
+        logger.debug(
+                "Recording transform mapping: {} -> {} = {} (filter: {})",
+                sourcePath,
+                targetField,
+                value,
+                filterName);
     }
 
-    /** 记录使用默认值的字段 */
+    /** Record fields using default values */
     public void recordDefaultValue(String targetField, String value, String reason) {
         FieldMapping mapping =
                 new FieldMapping(null, targetField, value, reason, MappingType.DEFAULT);
         defaultValues.add(mapping);
-        logger.debug("记录默认值: {} = {} ({})", targetField, value, reason);
+        logger.debug("Recording default value: {} = {} ({})", targetField, value, reason);
     }
 
-    /** 记录缺失的必填字段 */
+    /** Record missing required fields */
     public void recordMissingField(String sourcePath, String reason) {
         FieldMapping mapping =
                 new FieldMapping(sourcePath, null, null, reason, MappingType.MISSING);
         missingFields.add(mapping);
-        logger.debug("记录缺失字段: {} ({})", sourcePath, reason);
+        logger.debug("Recording missing field: {} ({})", sourcePath, reason);
     }
 
-    /** 记录未映射的字段 */
+    /** Record unmapped fields */
     public void recordUnmappedField(String sourcePath, String value, String reason) {
         FieldMapping mapping =
                 new FieldMapping(sourcePath, null, value, reason, MappingType.UNMAPPED);
         unmappedFields.add(mapping);
-        logger.debug("记录未映射字段: {} = {} ({})", sourcePath, value, reason);
+        logger.debug("Recording unmapped field: {} = {} ({})", sourcePath, value, reason);
     }
 
-    /** 生成完整的映射结果 */
+    /** Generate complete mapping result */
     public MappingResult generateMappingResult() {
         MappingResult result = new MappingResult();
 
-        // 转换直接映射
+        // Convert direct mappings
         for (FieldMapping mapping : directMappings) {
             result.addSuccessMapping(
                     mapping.getSourcePath(), mapping.getTargetField(), mapping.getValue());
         }
 
-        // 转换转换映射字段
+        // Convert transform mapping fields
         for (FieldMapping mapping : transformMappings) {
             result.addTransformMapping(
                     mapping.getSourcePath(),
@@ -98,18 +104,18 @@ public class MappingTracker {
                     mapping.getDescription());
         }
 
-        // 转换默认值字段 - 单独归类
+        // Convert default value fields - separate category
         for (FieldMapping mapping : defaultValues) {
             result.addDefaultValueField(
                     mapping.getTargetField(), mapping.getValue(), mapping.getDescription());
         }
 
-        // 转换缺失字段
+        // Convert missing fields
         for (FieldMapping mapping : missingFields) {
             result.addMissingRequiredField(mapping.getSourcePath(), mapping.getDescription());
         }
 
-        // 转换未映射字段
+        // Convert unmapped fields
         for (FieldMapping mapping : unmappedFields) {
             result.addUnmappedField(
                     mapping.getSourcePath(), mapping.getValue(), mapping.getDescription());
@@ -118,7 +124,7 @@ public class MappingTracker {
         result.setSuccess(true);
 
         logger.info(
-                "映射跟踪完成: 直接映射({})个, 转换映射({})个, 默认值({})个, 缺失({})个, 未映射({})个",
+                "Mapping tracking completed: direct mappings({}), transform mappings({}), default values({}), missing({}), unmapped({})",
                 directMappings.size(),
                 transformMappings.size(),
                 defaultValues.size(),
@@ -128,58 +134,59 @@ public class MappingTracker {
         return result;
     }
 
-    /** 重置映射跟踪器状态，为新的转换过程做准备 */
+    /** Reset mapping tracker state for new conversion process */
     public void reset() {
         directMappings.clear();
         transformMappings.clear();
         defaultValues.clear();
         missingFields.clear();
         unmappedFields.clear();
-        logger.info("映射跟踪器已重置");
+        logger.info("Mapping tracker has been reset");
     }
 
     /**
-     * 基于字段引用跟踪器计算并记录未映射的字段
+     * Calculate and record unmapped fields based on field reference tracker
      *
-     * @param fieldReferenceTracker 字段引用跟踪器
+     * @param fieldReferenceTracker field reference tracker
      */
     public void calculateUnmappedFieldsFromTracker(
             DataXFieldExtractor.FieldReferenceTracker fieldReferenceTracker) {
         try {
             if (fieldReferenceTracker == null) {
-                logger.warn("字段引用跟踪器为空，跳过未映射字段计算");
+                logger.warn("Field reference tracker is null, skipping unmapped field calculation");
                 return;
             }
 
-            // 获取未引用的字段
+            // Get unreferenced fields
             Map<String, String> unreferencedFields = fieldReferenceTracker.getUnreferencedFields();
 
-            // 记录未映射字段（带实际值）
+            // Record unmapped fields (with actual values)
             for (Map.Entry<String, String> entry : unreferencedFields.entrySet()) {
                 String fieldPath = entry.getKey();
                 String actualValue = entry.getValue();
-                recordUnmappedField(fieldPath, actualValue, "DataX中存在但模板中未引用");
+                recordUnmappedField(
+                        fieldPath, actualValue, "Exists in DataX but not referenced in template");
             }
 
             logger.info(
-                    "未映射字段计算完成: 总字段({})个, 已引用({})个, 未映射({})个",
+                    "Unmapped field calculation completed: total fields({}), referenced({}), unmapped({})",
                     fieldReferenceTracker.getTotalFields(),
                     fieldReferenceTracker.getReferencedFieldCount(),
                     fieldReferenceTracker.getUnreferencedFieldCount());
 
         } catch (Exception e) {
-            logger.error("计算未映射字段失败: {}", e.getMessage(), e);
+            logger.error("Failed to calculate unmapped fields: {}", e.getMessage(), e);
         }
     }
 
     /**
-     * 获取统计信息的简要描述
+     * Get brief description of statistics
      *
-     * @return 统计信息字符串
+     * @return statistics string
      */
     public String getStatisticsText() {
         return String.format(
-                "直接映射: %d, 转换映射: %d, 默认值: %d, 缺失: %d, 未映射: %d",
+                "Direct mappings: %d, Transform mappings: %d, Default values: %d, Missing: %d, Unmapped: %d",
                 directMappings.size(),
                 transformMappings.size(),
                 defaultValues.size(),
@@ -187,7 +194,7 @@ public class MappingTracker {
                 unmappedFields.size());
     }
 
-    /** 获取统计信息 */
+    /** Get statistics */
     public MappingStatistics getStatistics() {
         return new MappingStatistics(
                 directMappings.size(),
@@ -197,13 +204,14 @@ public class MappingTracker {
                 unmappedFields.size());
     }
 
-    /** 字段映射数据模型 */
+    /** Field mapping data model */
     public static class FieldMapping {
-        private final String sourcePath; // 源字段路径，如 job.content[0].reader.parameter.username
-        private final String targetField; // 目标字段名，如 source.Jdbc.user
-        private final String value; // 字段值
-        private final String description; // 映射说明
-        private final MappingType type; // 映射类型
+        private final String
+                sourcePath; // Source field path, e.g. job.content[0].reader.parameter.username
+        private final String targetField; // Target field name, e.g. source.Jdbc.user
+        private final String value; // Field value
+        private final String description; // Mapping description
+        private final MappingType type; // Mapping type
 
         public FieldMapping(
                 String sourcePath,
@@ -246,16 +254,16 @@ public class MappingTracker {
         }
     }
 
-    /** 映射类型枚举 */
+    /** Mapping type enumeration */
     public enum MappingType {
-        DIRECT, // 直接映射
-        TRANSFORM, // 转换映射（过滤器）
-        DEFAULT, // 默认值
-        MISSING, // 缺失字段
-        UNMAPPED // 未映射字段
+        DIRECT, // Direct mapping
+        TRANSFORM, // Transform mapping (filters)
+        DEFAULT, // Default value
+        MISSING, // Missing field
+        UNMAPPED // Unmapped field
     }
 
-    /** 映射统计信息 */
+    /** Mapping statistics */
     public static class MappingStatistics {
         private final int directMappings;
         private final int transformMappings;
@@ -307,7 +315,7 @@ public class MappingTracker {
         @Override
         public String toString() {
             return String.format(
-                    "直接映射: %d, 转换映射: %d, 默认值: %d, 缺失: %d, 未映射: %d, 总计: %d",
+                    "Direct mappings: %d, Transform mappings: %d, Default values: %d, Missing: %d, Unmapped: %d, Total: %d",
                     directMappings,
                     transformMappings,
                     defaultValues,

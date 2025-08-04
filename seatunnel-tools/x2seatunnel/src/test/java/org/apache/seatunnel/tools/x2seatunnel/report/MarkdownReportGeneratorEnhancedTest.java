@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -24,7 +24,7 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-/** MarkdownReportGenerator 单元测试 - 验证增强的报告功能 */
+/** MarkdownReportGenerator unit tests - verifying enhanced report functionality */
 public class MarkdownReportGeneratorEnhancedTest {
 
     private MarkdownReportGenerator reportGenerator;
@@ -35,12 +35,12 @@ public class MarkdownReportGeneratorEnhancedTest {
         reportGenerator = new MarkdownReportGenerator();
         mappingResult = new MappingResult();
 
-        // 设置测试数据：包含各种类型的映射
+        // Set up test data: containing various types of mappings
         setupTestMappingResult();
     }
 
     private void setupTestMappingResult() {
-        // 添加成功映射
+        // Add successful mappings
         mappingResult.addSuccessMapping(
                 "job.content[0].reader.parameter.username", "source.Jdbc.user", "root");
         mappingResult.addSuccessMapping(
@@ -54,25 +54,31 @@ public class MarkdownReportGeneratorEnhancedTest {
                 "source.Jdbc.table",
                 "users");
 
-        // 添加默认值字段（转换器自动构造的）
         mappingResult.addDefaultValueField(
-                "source.Jdbc.driver", "com.mysql.cj.jdbc.Driver", "根据JDBC URL自动推断");
-        mappingResult.addDefaultValueField("source.Jdbc.query", "SELECT * FROM users", "根据表名自动生成");
+                "source.Jdbc.driver",
+                "com.mysql.cj.jdbc.Driver",
+                "Automatically inferred from JDBC URL");
+        mappingResult.addDefaultValueField(
+                "source.Jdbc.query",
+                "SELECT * FROM users",
+                "Automatically generated from table name");
 
-        // 添加默认值字段
-        mappingResult.addDefaultValueField("env.parallelism", "1", "使用默认并行度");
-        mappingResult.addDefaultValueField("env.job.mode", "BATCH", "DataX默认为批处理模式");
-        mappingResult.addDefaultValueField("source.Jdbc.fetchSize", "1000", "使用默认fetch大小");
+        mappingResult.addDefaultValueField("env.parallelism", "1", "Using default parallelism");
+        mappingResult.addDefaultValueField("env.job.mode", "BATCH", "DataX defaults to BATCH mode");
+        mappingResult.addDefaultValueField(
+                "source.Jdbc.fetchSize", "1000", "Using default fetch size");
 
-        // 添加缺失字段
         mappingResult.addMissingRequiredField(
-                "job.content[0].reader.parameter.host", "DataX配置中未找到该字段");
+                "job.content[0].reader.parameter.host", "Field not found in DataX configuration");
 
-        // 添加未映射字段
         mappingResult.addUnmappedField(
-                "job.content[0].reader.parameter.splitPk", "id", "DataX特有配置，SeaTunnel不需要");
+                "job.content[0].reader.parameter.splitPk",
+                "id",
+                "DataX-specific configuration, not needed in SeaTunnel");
         mappingResult.addUnmappedField(
-                "job.content[0].reader.parameter.where", "status=1", "DataX特有配置，SeaTunnel不需要");
+                "job.content[0].reader.parameter.where",
+                "status=1",
+                "DataX-specific configuration, not needed in SeaTunnel");
 
         mappingResult.setSuccess(true);
     }
@@ -89,18 +95,18 @@ public class MarkdownReportGeneratorEnhancedTest {
                         "examples/empty-seatunnel.conf",
                         "datax");
 
-        // 验证空结果能正常生成报告，不测试具体格式
-        assertTrue(report.length() > 0, "空结果应该能生成报告");
+        // Verify that an empty result can generate a report, without testing the specific format
+        assertTrue(report.length() > 0, "An empty result should generate a report");
         assertTrue(
-                report.contains("0") || report.contains("无") || report.contains("empty"),
-                "应该反映空状态");
+                report.contains("0") || report.contains("none") || report.contains("empty"),
+                "Should reflect the empty state");
     }
 
     @Test
     public void testFailedConversionReport() {
         MappingResult failedResult = new MappingResult();
         failedResult.setSuccess(false);
-        failedResult.setErrorMessage("模板解析失败：语法错误");
+        failedResult.setErrorMessage("Template parsing failed: syntax error");
 
         String report =
                 reportGenerator.generateReport(
@@ -109,15 +115,15 @@ public class MarkdownReportGeneratorEnhancedTest {
                         "examples/error-seatunnel.conf",
                         "datax");
 
-        // 验证失败报告能正常生成，不测试具体格式
-        assertTrue(report.length() > 0, "失败结果应该能生成报告");
+        // Verify that a failure report can be generated, without testing the specific format
+        assertTrue(report.length() > 0, "A failed result should generate a report");
         assertTrue(
-                report.contains("失败")
-                        || report.contains("错误")
+                report.contains("Failed")
+                        || report.contains("Error")
                         || report.contains("error")
                         || report.contains("fail"),
-                "应该反映失败状态");
-        assertTrue(report.contains("模板解析失败"), "应该包含错误信息");
+                "Should reflect the failure state");
+        assertTrue(report.contains("Template parsing failed"), "Should contain the error message");
     }
 
     @Test
@@ -129,13 +135,15 @@ public class MarkdownReportGeneratorEnhancedTest {
                         "examples/test-seatunnel.conf",
                         "datax");
 
-        // 只测试基本功能：能生成报告且包含基本信息
-        assertTrue(report.length() > 0, "应该能生成报告");
+        // Test only basic functionality: ensures a report is generated and contains basic info
+        assertTrue(report.length() > 0, "Should be able to generate a report");
         assertTrue(
                 report.contains("X2SeaTunnel")
-                        || report.contains("转换")
+                        || report.contains("Conversion")
                         || report.contains("report"),
-                "应该包含工具相关信息");
-        assertTrue(report.contains("datax") || report.contains("test"), "应该包含输入文件信息");
+                "Should contain tool-related information");
+        assertTrue(
+                report.contains("datax") || report.contains("test"),
+                "Should contain input file information");
     }
 }

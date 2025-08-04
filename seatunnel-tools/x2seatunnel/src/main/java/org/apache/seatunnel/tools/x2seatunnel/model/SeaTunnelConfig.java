@@ -20,14 +20,14 @@ package org.apache.seatunnel.tools.x2seatunnel.model;
 import java.util.HashMap;
 import java.util.Map;
 
-/** SeaTunnel配置数据模型 */
+/** SeaTunnel configuration data model */
 public class SeaTunnelConfig {
 
-    // Environment配置
+    // Environment configuration
     private int parallelism = 1;
     private String jobMode = "BATCH";
 
-    // Source配置
+    // Source configuration
     private String sourceType;
     private String sourceUrl;
     private String sourceUser;
@@ -36,7 +36,7 @@ public class SeaTunnelConfig {
     private String sourceQuery;
     private Map<String, Object> sourceParams = new HashMap<>();
 
-    // Sink配置
+    // Sink configuration
     private String sinkType;
     private String sinkPath;
     private String sinkFileName;
