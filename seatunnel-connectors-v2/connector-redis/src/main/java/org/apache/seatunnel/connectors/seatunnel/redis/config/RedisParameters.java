@@ -84,7 +84,15 @@ public class RedisParameters implements Serializable {
             this.singleFieldName = config.get(RedisSourceOptions.SINGLE_FIELD_NAME);
         }
         // set key name
-        this.keyFieldName = config.get(RedisSourceOptions.KEY_FIELD_NAME);
+        if(!config.getOptional(RedisSourceOptions.KEY_FIELD_NAME).isPresent()){
+            if(config.get(RedisBaseOptions.DATA_TYPE) == RedisDataType.HASH){
+                this.keyFieldName = "hash_key";
+            } else {
+                this.keyFieldName = "key";
+            }
+        } else {
+            this.keyFieldName = config.get(RedisSourceOptions.KEY_FIELD_NAME);
+        }
         // set expire
         this.expire = config.get(RedisSinkOptions.EXPIRE);
         // set auth
@@ -111,9 +119,6 @@ public class RedisParameters implements Serializable {
         }
         // set redis data type verification factory createAndPrepareSource
         this.redisDataType = config.get(RedisBaseOptions.DATA_TYPE);
-        if (this.redisDataType == RedisDataType.HASH && this.keyFieldName == null) {
-            keyFieldName = "hash_key";
-        }
         // Indicates the number of keys to attempt to return per iteration.default 10
         this.batchSize = config.get(RedisBaseOptions.BATCH_SIZE);
         // set support custom key

@@ -146,7 +146,7 @@ Specifies the field name to store the Redis key in the output record  when `read
 
 - When read_key_enabled = true, this option must be set explicitly.
 
-- When data_type = hash and this option is not set, the default field name will be hash_key.
+- When data_type = hash and this option is not set, the default field name will be `hash_key`.
 
 This field is useful when the default field name conflicts with existing schema fields, or if a more descriptive name is preferred.
 

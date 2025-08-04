@@ -52,5 +52,5 @@ public class RedisSourceOptions extends RedisBaseOptions {
             Options.key("key_field_name")
                     .stringType()
                     .noDefaultValue()
-                    .withDescription("Specifies the key field name to be used in the output row");
+                    .withDescription("Specifies the key field name to be used in the output row.");
 }
