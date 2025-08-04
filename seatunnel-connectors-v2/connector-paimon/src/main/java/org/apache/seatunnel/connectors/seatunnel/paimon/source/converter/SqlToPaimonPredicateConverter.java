@@ -252,25 +252,32 @@ public class SqlToPaimonPredicateConverter {
             Object rightVal =
                     convertValueByPaimonDataType(rowType, column.getColumnName(), rightPredicate);
 
-            Pattern BEGIN_PATTERN = Pattern.compile("([^%]+)%");
+            Pattern BEGIN_PATTERN = Pattern.compile("([^%]+)%$");
             Matcher beginMatcher = BEGIN_PATTERN.matcher(rightVal.toString());
             if (beginMatcher.matches()) {
                 return builder.startsWith(
                         columnIndex, BinaryString.fromString(beginMatcher.group(1)));
             }
 
-            Pattern END_PATTERN = Pattern.compile("%([^%]+)");
+            Pattern END_PATTERN = Pattern.compile("^%([^%]+)");
             Matcher endMatcher = END_PATTERN.matcher(rightVal.toString());
             if (endMatcher.matches()) {
                 return builder.endsWith(columnIndex, BinaryString.fromString(endMatcher.group(1)));
             }
 
-            Pattern CONTAINS_PATTERN = Pattern.compile("%([^%]+)%");
+            Pattern CONTAINS_PATTERN = Pattern.compile("^%([^%]+)%$");
             Matcher containsMatcher = CONTAINS_PATTERN.matcher(rightVal.toString());
             if (containsMatcher.matches()) {
                 return builder.contains(
                         columnIndex, BinaryString.fromString(containsMatcher.group(1)));
             }
+
+            // If none of the patterns match, throw an exception
+            throw new IllegalArgumentException(
+                    String.format(
+                            "Unsupported LIKE pattern: '%s'. Only patterns like 'prefix%%', '%%suffix', and '%%substring%%' are supported.",
+                            rightVal.toString()));
+
         } else if (expression instanceof Parenthesis) {
             Parenthesis parenthesis = (Parenthesis) expression;
             return parseExpressionToPredicate(builder, rowType, parenthesis.getExpression());
