@@ -25,6 +25,7 @@ import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.schema.handler.TableSchemaChangeEventDispatcher;
 import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -41,6 +42,8 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -48,6 +51,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -69,6 +75,17 @@ public class DatabendSinkWriter
     private int batchCount = 0;
     private DatabendSinkConfig databendSinkConfig;
 
+    // CDC related fields
+    private boolean isCdcMode = false;
+    private String rawTableName;
+    private String streamName;
+    private String targetTableName;
+    private ScheduledExecutorService mergeScheduler;
+    private PreparedStatement cdcPreparedStatement;
+    private String conflictKey;
+    private boolean allowDelete;
+    private int interval;
+
     public DatabendSinkWriter(
             Context context,
             Connection connection,
@@ -88,11 +105,30 @@ public class DatabendSinkWriter
         this.tableSchema = catalogTable.getTableSchema();
         this.sinkTablePath = TablePath.of(database, table);
 
+        // CDC mode check
+        this.isCdcMode = databendSinkConfig.isCdcMode();
+        this.conflictKey = databendSinkConfig.getConflictKey();
+        this.allowDelete = databendSinkConfig.isAllowDelete();
+        this.interval = databendSinkConfig.getInterval();
+        this.targetTableName = table;
+
         log.info("DatabendSinkWriter constructor - catalogTable: {}", catalogTable);
         log.info("DatabendSinkWriter constructor - tableSchema: {}", tableSchema);
         log.info(
                 "DatabendSinkWriter constructor - rowType: {}", catalogTable.getSeaTunnelRowType());
         log.info("DatabendSinkWriter constructor - target table path: {}", sinkTablePath);
+        log.info("DatabendSinkWriter constructor - CDC mode: {}", isCdcMode);
+
+        if (isCdcMode) {
+            this.rawTableName = table + "_raw_" + getCurrentTimestamp();
+            this.streamName = table + "_stream_" + getCurrentTimestamp();
+            log.info("CDC mode enabled - raw table: {}, stream: {}", rawTableName, streamName);
+            log.info(
+                    "Conflict key: {}, allow delete: {}, interval: {}s",
+                    conflictKey,
+                    allowDelete,
+                    interval);
+        }
 
         // if custom SQL is provided, use it directly
         if (customSql != null && !customSql.isEmpty()) {
@@ -110,46 +146,177 @@ public class DatabendSinkWriter
                         e);
             }
         } else {
-            // use the catalog table schema to create the target table
-            SeaTunnelRowType rowType = catalogTable.getSeaTunnelRowType();
-            if (rowType == null || rowType.getFieldNames().length == 0) {
-                throw new DatabendConnectorException(
-                        DatabendConnectorErrorCode.SCHEMA_NOT_FOUND,
-                        "Source table schema is empty or null");
-            }
-
             try {
-                if (!tableExists(database, table)) {
-                    log.info(
-                            "Target table {}.{} does not exist, creating with source schema",
-                            database,
-                            table);
-                    createTable(database, table, rowType);
+                if (isCdcMode) {
+                    // Initialize CDC mode
+                    initCdcMode(database);
                 } else {
-                    log.info("Target table {}.{} exists, verifying schema", database, table);
-                    verifyTableSchema(database, table, rowType);
+                    // Traditional mode
+                    initTraditionalMode(database, table);
                 }
             } catch (SQLException e) {
                 throw new DatabendConnectorException(
                         DatabendConnectorErrorCode.SQL_OPERATION_FAILED,
-                        "Failed to verify/create target table: " + e.getMessage(),
-                        e);
-            }
-
-            this.insertSql = generateInsertSql(database, table, rowType);
-            log.info("Generated insert SQL: {}", insertSql);
-            try {
-                this.schemaChangeManager = new SchemaChangeManager(databendSinkConfig);
-                this.preparedStatement = connection.prepareStatement(insertSql);
-                this.preparedStatement.setQueryTimeout(executeTimeoutSec);
-                log.info("PreparedStatement created successfully");
-            } catch (SQLException e) {
-                throw new DatabendConnectorException(
-                        DatabendConnectorErrorCode.SQL_OPERATION_FAILED,
-                        "Failed to prepare statement: " + e.getMessage(),
+                        "Failed to initialize sink writer: " + e.getMessage(),
                         e);
             }
         }
+    }
+
+    private String getCurrentTimestamp() {
+        return LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss"));
+    }
+
+    private void initCdcMode(String database) throws SQLException {
+        // Create raw table
+        createRawTable(database);
+
+        // Create stream on raw table
+        createStream(database);
+
+        // Prepare statement for inserting into raw table
+        String insertRawSql = generateInsertRawSql(database);
+        this.cdcPreparedStatement = connection.prepareStatement(insertRawSql);
+        this.cdcPreparedStatement.setQueryTimeout(executeTimeoutSec);
+        log.info("CDC PreparedStatement created: {}", insertRawSql);
+
+        // Start merge scheduler
+        startMergeScheduler();
+
+        log.info("CDC mode initialized successfully");
+    }
+
+    private void initTraditionalMode(String database, String table) throws SQLException {
+        // use the catalog table schema to create the target table
+        SeaTunnelRowType rowType = catalogTable.getSeaTunnelRowType();
+        if (rowType == null || rowType.getFieldNames().length == 0) {
+            throw new DatabendConnectorException(
+                    DatabendConnectorErrorCode.SCHEMA_NOT_FOUND,
+                    "Source table schema is empty or null");
+        }
+
+        if (!tableExists(database, table)) {
+            log.info(
+                    "Target table {}.{} does not exist, creating with source schema",
+                    database,
+                    table);
+            createTable(database, table, rowType);
+        } else {
+            log.info("Target table {}.{} exists, verifying schema", database, table);
+            verifyTableSchema(database, table, rowType);
+        }
+
+        this.insertSql = generateInsertSql(database, table, rowType);
+        log.info("Generated insert SQL: {}", insertSql);
+        try {
+            this.schemaChangeManager = new SchemaChangeManager(databendSinkConfig);
+            this.preparedStatement = connection.prepareStatement(insertSql);
+            this.preparedStatement.setQueryTimeout(executeTimeoutSec);
+            log.info("PreparedStatement created successfully");
+        } catch (SQLException e) {
+            throw new DatabendConnectorException(
+                    DatabendConnectorErrorCode.SQL_OPERATION_FAILED,
+                    "Failed to prepare statement: " + e.getMessage(),
+                    e);
+        }
+    }
+
+    private void createRawTable(String database) throws SQLException {
+        String createTableSql =
+                String.format(
+                        "CREATE TABLE %s.%s ("
+                                + "  id VARCHAR(255),"
+                                + "  table_name VARCHAR(255),"
+                                + "  raw_data JSON,"
+                                + "  add_time TIMESTAMP,"
+                                + "  action STRING"
+                                + ")",
+                        database, rawTableName);
+
+        try (Statement stmt = connection.createStatement()) {
+            log.info("Creating raw table with SQL: {}", createTableSql);
+            stmt.execute(createTableSql);
+            log.info("Raw table {} created successfully", rawTableName);
+        }
+    }
+
+    private void createStream(String database) throws SQLException {
+        String createStreamSql =
+                String.format(
+                        "CREATE STREAM %s.%s ON TABLE %s.%s",
+                        database, streamName, database, rawTableName);
+
+        try (Statement stmt = connection.createStatement()) {
+            log.info("Creating stream with SQL: {}", createStreamSql);
+            stmt.execute(createStreamSql);
+            log.info("Stream {} created successfully", streamName);
+        }
+    }
+
+    private String generateInsertRawSql(String database) {
+        return String.format(
+                "INSERT INTO %s.%s (id, table_name, raw_data, add_time, action) VALUES (?, ?, ?, ?, ?)",
+                database, rawTableName);
+    }
+
+    private void startMergeScheduler() {
+        mergeScheduler = Executors.newSingleThreadScheduledExecutor();
+        mergeScheduler.scheduleWithFixedDelay(
+                this::performMerge, interval, interval, TimeUnit.SECONDS);
+        log.info("Merge scheduler started with interval: {} seconds", interval);
+    }
+
+    private void performMerge() {
+        if (batchCount <= 0) {
+            log.debug("No data to merge, skipping");
+            return;
+        }
+
+        String mergeSql = generateMergeSql();
+        log.info("Executing MERGE INTO statement: {}", mergeSql);
+
+        try (Statement stmt = connection.createStatement()) {
+            stmt.execute(mergeSql);
+            log.info("Merge operation completed successfully");
+            batchCount = 0; // Reset batch count after successful merge
+        } catch (SQLException e) {
+            log.error("Failed to execute merge operation: {}", e.getMessage(), e);
+        }
+    }
+
+    String generateMergeSql() {
+        StringBuilder sql = new StringBuilder();
+        sql.append(
+                String.format(
+                        "MERGE INTO %s.%s a ", sinkTablePath.getDatabaseName(), targetTableName));
+        sql.append(String.format("USING (SELECT "));
+
+        // Add all columns from raw_data
+        String[] fieldNames = catalogTable.getSeaTunnelRowType().getFieldNames();
+        for (int i = 0; i < fieldNames.length; i++) {
+            if (i > 0) sql.append(", ");
+            sql.append(String.format("raw_data:%s as %s", fieldNames[i], fieldNames[i]));
+        }
+
+        sql.append(", action FROM ")
+                .append(sinkTablePath.getDatabaseName())
+                .append(".")
+                .append(streamName)
+                .append(" QUALIFY ROW_NUMBER() OVER(PARTITION BY ")
+                .append(conflictKey)
+                .append(" ORDER BY add_time DESC) = 1) b ");
+
+        sql.append("ON a.").append(conflictKey).append(" = b.").append(conflictKey).append(" ");
+
+        sql.append("WHEN MATCHED AND b.action = 'update' THEN UPDATE * ");
+
+        if (allowDelete) {
+            sql.append("WHEN MATCHED AND b.action = 'delete' THEN DELETE ");
+        }
+
+        sql.append("WHEN NOT MATCHED THEN INSERT *");
+
+        return sql.toString();
     }
 
     @Override
@@ -217,26 +384,12 @@ public class DatabendSinkWriter
                 return;
             }
 
-            if (preparedStatement == null) {
-                log.info("PreparedStatement is null, initializing...");
-                initializePreparedStatement(row);
-                log.info("PreparedStatement initialized successfully");
+            if (isCdcMode) {
+                processCdcRow(row);
+            } else {
+                processTraditionalRow(row);
             }
 
-            boolean allFieldsNull = true;
-            for (Object field : row.getFields()) {
-                if (field != null) {
-                    allFieldsNull = false;
-                    break;
-                }
-            }
-
-            if (allFieldsNull) {
-                log.warn("All fields in row are null, skipping");
-                return;
-            }
-
-            processRow(row);
             batchCount++;
             log.info("Batch count after adding row: {}", batchCount);
 
@@ -247,7 +400,7 @@ public class DatabendSinkWriter
             }
         } catch (Exception e) {
             log.error("Failed to write row: {}", row, e);
-            // tru to execute the remaining batch if any error occurs
+            // try to execute the remaining batch if any error occurs
             try {
                 if (batchCount > 0) {
                     log.info("Attempting to execute remaining batch after error");
@@ -261,6 +414,113 @@ public class DatabendSinkWriter
                     "Failed to write data to Databend: " + e.getMessage(),
                     e);
         }
+    }
+
+    private void processCdcRow(SeaTunnelRow row) throws SQLException {
+        log.info("Processing CDC row with kind: {}", row.getRowKind());
+
+        String action = mapRowKindToAction(row.getRowKind());
+
+        if ("delete".equals(action) && !allowDelete) {
+            log.debug("DELETE operation not allowed, skipping row");
+            return;
+        }
+
+        // Get conflict key value
+        String conflictKeyValue = getConflictKeyValue(row);
+
+        // Convert row to JSON
+        String jsonData = convertRowToJson(row);
+
+        cdcPreparedStatement.setString(1, conflictKeyValue);
+        cdcPreparedStatement.setString(2, targetTableName);
+        cdcPreparedStatement.setString(3, jsonData);
+        cdcPreparedStatement.setTimestamp(4, java.sql.Timestamp.valueOf(LocalDateTime.now()));
+        cdcPreparedStatement.setString(5, action);
+
+        cdcPreparedStatement.addBatch();
+    }
+
+    private void processTraditionalRow(SeaTunnelRow row) throws SQLException {
+        if (preparedStatement == null) {
+            log.info("PreparedStatement is null, initializing...");
+            initializePreparedStatement(row);
+            log.info("PreparedStatement initialized successfully");
+        }
+
+        boolean allFieldsNull = true;
+        for (Object field : row.getFields()) {
+            if (field != null) {
+                allFieldsNull = false;
+                break;
+            }
+        }
+
+        if (allFieldsNull) {
+            log.warn("All fields in row are null, skipping");
+            return;
+        }
+
+        processRow(row);
+    }
+
+    private String mapRowKindToAction(RowKind rowKind) {
+        switch (rowKind) {
+            case INSERT:
+            case UPDATE_AFTER:
+                return "update";
+            case DELETE:
+            case UPDATE_BEFORE:
+                return "delete";
+            default:
+                return "update";
+        }
+    }
+
+    /**
+     * Get the value of the conflict key field from the row. This value will be used as the ID in
+     * the raw table.
+     */
+    private String getConflictKeyValue(SeaTunnelRow row) {
+        String[] fieldNames = catalogTable.getSeaTunnelRowType().getFieldNames();
+        int index = Arrays.asList(fieldNames).indexOf(conflictKey);
+
+        if (index >= 0 && index < row.getFields().length) {
+            Object value = row.getField(index);
+            if (value != null) {
+                return value.toString();
+            }
+        }
+
+        // This should not happen in a proper CDC setup where conflict key values are always present
+        // If we reach here, it indicates a data issue
+        throw new IllegalArgumentException(
+                "Conflict key field '" + conflictKey + "' value is null or not found in row");
+    }
+
+    private String convertRowToJson(SeaTunnelRow row) {
+        StringBuilder jsonBuilder = new StringBuilder("{");
+        String[] fieldNames = catalogTable.getSeaTunnelRowType().getFieldNames();
+        Object[] fields = row.getFields();
+
+        for (int i = 0; i < fieldNames.length; i++) {
+            if (i > 0) jsonBuilder.append(",");
+            jsonBuilder.append("\"").append(fieldNames[i]).append("\":");
+            Object value = fields[i];
+            if (value == null) {
+                jsonBuilder.append("null");
+            } else if (value instanceof String) {
+                jsonBuilder
+                        .append("\"")
+                        .append(value.toString().replace("\"", "\\\""))
+                        .append("\"");
+            } else {
+                jsonBuilder.append(value.toString());
+            }
+        }
+
+        jsonBuilder.append("}");
+        return jsonBuilder.toString();
     }
 
     private void initializePreparedStatement(SeaTunnelRow row) throws SQLException {
@@ -427,12 +687,25 @@ public class DatabendSinkWriter
         if (batchCount > 0) {
             try {
                 log.info("Executing batch of {} records", batchCount);
-                int[] results = preparedStatement.executeBatch();
-                int totalAffected = 0;
-                for (int result : results) {
-                    totalAffected += result;
+                if (isCdcMode) {
+                    int[] results = cdcPreparedStatement.executeBatch();
+                    int totalAffected = 0;
+                    for (int result : results) {
+                        totalAffected += result;
+                    }
+                    log.info(
+                            "CDC batch executed successfully, total affected rows: {}",
+                            totalAffected);
+                } else {
+                    int[] results = preparedStatement.executeBatch();
+                    int totalAffected = 0;
+                    for (int result : results) {
+                        totalAffected += result;
+                    }
+                    log.info(
+                            "Traditional batch executed successfully, total affected rows: {}",
+                            totalAffected);
                 }
-                log.info("Batch executed successfully, total affected rows: {}", totalAffected);
                 batchCount = 0;
             } catch (SQLException e) {
                 log.error("Failed to execute batch", e);
@@ -490,12 +763,39 @@ public class DatabendSinkWriter
     public void close() throws IOException {
         log.info("Closing DatabendSinkWriter");
         try {
-            if (preparedStatement != null) {
+            // Execute final batch before closing
+            if (batchCount > 0) {
                 log.info("Executing final batch before closing");
                 executeBatch();
+            }
+
+            // Perform final merge in CDC mode
+            if (isCdcMode && mergeScheduler != null) {
+                log.info("Performing final merge before closing");
+                performMerge();
+                mergeScheduler.shutdown();
+                try {
+                    if (!mergeScheduler.awaitTermination(5, TimeUnit.SECONDS)) {
+                        mergeScheduler.shutdownNow();
+                    }
+                } catch (InterruptedException e) {
+                    mergeScheduler.shutdownNow();
+                    Thread.currentThread().interrupt();
+                }
+            }
+
+            // Close prepared statements
+            if (preparedStatement != null) {
                 log.info("Closing PreparedStatement");
                 preparedStatement.close();
             }
+
+            if (cdcPreparedStatement != null) {
+                log.info("Closing CDC PreparedStatement");
+                cdcPreparedStatement.close();
+            }
+
+            // Close connection
             if (connection != null) {
                 if (!connection.getAutoCommit()) {
                     log.info("Committing transaction");
@@ -504,6 +804,7 @@ public class DatabendSinkWriter
                 log.info("Closing connection");
                 connection.close();
             }
+
             log.info("DatabendSinkWriter closed successfully");
         } catch (SQLException e) {
             log.error("Failed to close DatabendSinkWriter", e);
@@ -633,5 +934,30 @@ public class DatabendSinkWriter
             default:
                 return "VARCHAR"; // default use VARCHAR
         }
+    }
+
+    // Package-private methods for testing
+    String getConflictKey() {
+        return conflictKey;
+    }
+
+    TablePath getSinkTablePath() {
+        return sinkTablePath;
+    }
+
+    String getRawTableName() {
+        return rawTableName;
+    }
+
+    String getStreamName() {
+        return streamName;
+    }
+
+    boolean isAllowDelete() {
+        return allowDelete;
+    }
+
+    CatalogTable getCatalogTable() {
+        return catalogTable;
     }
 }

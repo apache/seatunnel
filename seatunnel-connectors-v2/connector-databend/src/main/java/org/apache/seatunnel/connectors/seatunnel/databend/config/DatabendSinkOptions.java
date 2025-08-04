@@ -47,4 +47,28 @@ public class DatabendSinkOptions {
                     .intType()
                     .defaultValue(300)
                     .withDescription("The timeout seconds for Databend client execution");
+
+    public static final Option<Integer> BATCH_SIZE =
+            Options.key("batch_size")
+                    .intType()
+                    .defaultValue(1000)
+                    .withDescription("Batch size for CDC merge operations");
+
+    public static final Option<Integer> INTERVAL =
+            Options.key("interval")
+                    .intType()
+                    .defaultValue(30)
+                    .withDescription("Interval in seconds for CDC merge operations");
+
+    public static final Option<String> CONFLICT_KEY =
+            Options.key("conflict_key")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("Conflict key for CDC merge operations");
+
+    public static final Option<Boolean> ALLOW_DELETE =
+            Options.key("allow_delete")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription("Whether to allow delete operations in CDC mode");
 }

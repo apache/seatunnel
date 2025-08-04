@@ -111,6 +111,13 @@ public class DatabendSink
         log.info("Auto commit: {}", autoCommit);
         log.info("Batch size: {}", batchSize);
         log.info("Execute timeout: {} seconds", executeTimeoutSec);
+
+        // CDC mode info
+        if (databendSinkConfig.isCdcMode()) {
+            log.info("CDC mode enabled with conflict key: {}", databendSinkConfig.getConflictKey());
+            log.info("Allow delete: {}", databendSinkConfig.isAllowDelete());
+            log.info("Interval: {} seconds", databendSinkConfig.getInterval());
+        }
     }
 
     @Override
