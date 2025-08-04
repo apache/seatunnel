@@ -35,7 +35,7 @@ import org.apache.seatunnel.connectors.cdc.base.utils.CatalogTableUtils;
 import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.option.PostgresOptions;
 import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.source.PostgresIncrementalSource;
 import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.source.PostgresSourceOptions;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.JdbcCatalogOptions;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcCommonOptions;
 
 import com.google.auto.service.AutoService;
 
@@ -58,7 +58,7 @@ public class OpengaussIncrementalSourceFactory implements TableSourceFactory {
                 .required(
                         JdbcSourceOptions.USERNAME,
                         JdbcSourceOptions.PASSWORD,
-                        JdbcCatalogOptions.BASE_URL)
+                        JdbcCommonOptions.URL)
                 .exclusive(ConnectorCommonOptions.TABLE_NAMES, ConnectorCommonOptions.TABLE_PATTERN)
                 .optional(
                         JdbcSourceOptions.DATABASE_NAMES,

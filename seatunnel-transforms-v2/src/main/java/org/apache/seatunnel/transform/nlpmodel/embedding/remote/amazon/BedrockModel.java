@@ -186,7 +186,7 @@ public class BedrockModel extends AbstractModel {
     }
 
     @Override
-    protected List<List<Double>> vector(Object[] fields) throws IOException {
+    protected List<List<Float>> vector(Object[] fields) throws IOException {
         if (fields == null || fields.length == 0) {
             return new ArrayList<>();
         }
@@ -247,26 +247,26 @@ public class BedrockModel extends AbstractModel {
         return requestBody;
     }
 
-    private List<List<Double>> parseSingleResponse(String responseBody) throws IOException {
+    private List<List<Float>> parseSingleResponse(String responseBody) throws IOException {
         try {
             JsonNode responseJson = OBJECT_MAPPER.readTree(responseBody);
-            List<List<Double>> result = new ArrayList<>();
+            List<List<Float>> result = new ArrayList<>();
 
             if (modelId.startsWith("amazon.titan")) {
                 JsonNode embedding = responseJson.get("embedding");
                 if (embedding != null && embedding.isArray()) {
-                    List<Double> vector = new ArrayList<>();
+                    List<Float> vector = new ArrayList<>();
                     for (JsonNode value : embedding) {
-                        vector.add(value.asDouble());
+                        vector.add(value.floatValue());
                     }
                     result.add(vector);
                 }
             } else if (modelId.startsWith("cohere.")) {
                 JsonNode embeddings = responseJson.get("embeddings");
                 if (embeddings != null && embeddings.isArray() && !embeddings.isEmpty()) {
-                    List<Double> vector = new ArrayList<>();
+                    List<Float> vector = new ArrayList<>();
                     for (JsonNode value : embeddings.get(0)) {
-                        vector.add(value.asDouble());
+                        vector.add(value.floatValue());
                     }
                     result.add(vector);
                 }
@@ -278,26 +278,26 @@ public class BedrockModel extends AbstractModel {
         }
     }
 
-    private List<List<Double>> parseBatchResponse(String responseBody) throws IOException {
+    private List<List<Float>> parseBatchResponse(String responseBody) throws IOException {
         try {
             JsonNode responseJson = OBJECT_MAPPER.readTree(responseBody);
-            List<List<Double>> result = new ArrayList<>();
+            List<List<Float>> result = new ArrayList<>();
             JsonNode embeddings = responseJson.get("embeddings");
             if (embeddings != null && embeddings.isArray()) {
                 if (modelId.startsWith("amazon.titan")) {
                     for (JsonNode embedding : embeddings) {
-                        List<Double> vector = new ArrayList<>();
+                        List<Float> vector = new ArrayList<>();
                         for (JsonNode value : embedding) {
-                            vector.add(value.asDouble());
+                            vector.add(value.floatValue());
                         }
                         result.add(vector);
                     }
 
                 } else if (modelId.startsWith("cohere.")) {
                     for (JsonNode embedding : embeddings) {
-                        List<Double> vector = new ArrayList<>();
+                        List<Float> vector = new ArrayList<>();
                         for (JsonNode value : embedding) {
-                            vector.add(value.asDouble());
+                            vector.add(value.floatValue());
                         }
                         result.add(vector);
                     }

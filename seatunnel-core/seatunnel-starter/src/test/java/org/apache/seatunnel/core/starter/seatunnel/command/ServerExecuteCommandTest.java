@@ -17,10 +17,19 @@
 
 package org.apache.seatunnel.core.starter.seatunnel.command;
 
+import org.apache.seatunnel.core.starter.seatunnel.args.ServerCommandArgs;
+import org.apache.seatunnel.engine.common.config.ConfigProvider;
+import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
+import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
+
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledOnJre;
 import org.junit.jupiter.api.condition.JRE;
+
+import com.hazelcast.cluster.Member;
+
+import java.util.Set;
 
 public class ServerExecuteCommandTest {
 
@@ -33,5 +42,31 @@ public class ServerExecuteCommandTest {
         System.setProperty("java.version", "1.8.0_60");
         Assertions.assertTrue(ServerExecuteCommand.isAllocatingThreadGetName());
         System.setProperty("java.version", realVersion);
+    }
+
+    @Test
+    public void testMemberList() {
+        String clusterName = getClusterName("ServerExecuteCommandTest");
+        SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
+        seaTunnelConfig.getHazelcastConfig().setClusterName(clusterName);
+        seaTunnelConfig.getEngineConfig().getHttpConfig().setEnableDynamicPort(true);
+
+        SeaTunnelServerStarter.createMasterHazelcastInstance(seaTunnelConfig);
+        SeaTunnelServerStarter.createMasterHazelcastInstance(seaTunnelConfig);
+        SeaTunnelServerStarter.createWorkerHazelcastInstance(seaTunnelConfig);
+        SeaTunnelServerStarter.createWorkerHazelcastInstance(seaTunnelConfig);
+        SeaTunnelServerStarter.createWorkerHazelcastInstance(seaTunnelConfig);
+
+        ServerCommandArgs serverCommandArgs = new ServerCommandArgs();
+        serverCommandArgs.setClusterName(clusterName);
+        serverCommandArgs.setShowClusterMembers(true);
+
+        ServerExecuteCommand serverExecuteCommand = new ServerExecuteCommand(serverCommandArgs);
+        Set<Member> members = serverExecuteCommand.showClusterMembers();
+        Assertions.assertEquals(5, members.size());
+    }
+
+    public static String getClusterName(String testClassName) {
+        return System.getProperty("user.name") + "_" + testClassName;
     }
 }

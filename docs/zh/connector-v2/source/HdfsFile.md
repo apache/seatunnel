@@ -51,6 +51,7 @@ import ChangeLog from '../changelog/connector-file-hadoop.md';
 | read_columns              | list    | 否       | -                   | 数据源的读取列列表，用户可以使用它来实现字段投影。支持列投影的文件类型如下所示：[text,json,csv,orc,parquet,excel,xml]。提示：如果用户想在读取 `text` `json` `csv` 文件时使用此功能，必须配置 schema 选项。                       |
 | hdfs_site_path            | string  | 否       | -                   | `hdfs-site.xml` 的路径，用于加载 namenodes 的 ha 配置                                                                                                                                                                                                                                                                                       |
 | delimiter/field_delimiter | string  | 否       | \001                | 字段分隔符，用于告诉连接器在读取文本文件时如何分割字段。默认 `\001`，与 hive 的默认分隔符相同                                                                                                                                                                                                                                                            |
+| row_delimiter             | string  | 否    | \n                  | 行分隔符，用于告诉连接器在读取文本文件时如何分割行。默认 `\n`。                                                                                                                                                                                                 |
 | parse_partition_from_path | boolean | 否       | true                | 控制是否从文件路径解析分区键和值。例如，如果您从路径 `hdfs://hadoop-cluster/tmp/seatunnel/parquet/name=tyrantlucifer/age=26` 读取文件。文件中的每条记录数据都将添加这两个字段：[name:tyrantlucifer,age:26]。提示：不要在 schema 选项中定义分区字段。            |
 | date_format               | string  | 否       | yyyy-MM-dd          | 日期类型格式，用于告诉连接器如何将字符串转换为日期，支持以下格式：`yyyy-MM-dd` `yyyy.MM.dd` `yyyy/MM/dd` 默认 `yyyy-MM-dd`。日期类型格式，用于告诉连接器如何将字符串转换为日期，支持以下格式：`yyyy-MM-dd` `yyyy.MM.dd` `yyyy/MM/dd` 默认 `yyyy-MM-dd` |
 | datetime_format           | string  | 否       | yyyy-MM-dd HH:mm:ss | 日期时间类型格式，用于告诉连接器如何将字符串转换为日期时间，支持以下格式：`yyyy-MM-dd HH:mm:ss` `yyyy.MM.dd HH:mm:ss` `yyyy/MM/dd HH:mm:ss` `yyyyMMddHHmmss`。默认 `yyyy-MM-dd HH:mm:ss`                                                                                                          |
@@ -78,6 +79,15 @@ import ChangeLog from '../changelog/connector-file-hadoop.md';
 ### delimiter/field_delimiter [string]
 
 **delimiter** 参数将在 2.3.5 版本后弃用，请使用 **field_delimiter** 代替。
+
+
+### row_delimiter [string]
+
+仅在 file_format 为 text 时需要配置。
+
+行分隔符，用于告诉连接器如何分割行。
+
+默认 `\n`。
 
 ### file_filter_pattern [string]
 
