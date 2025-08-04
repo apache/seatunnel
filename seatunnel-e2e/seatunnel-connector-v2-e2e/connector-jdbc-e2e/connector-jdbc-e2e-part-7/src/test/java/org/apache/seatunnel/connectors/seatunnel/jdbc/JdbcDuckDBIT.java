@@ -277,7 +277,7 @@ public class JdbcDuckDBIT extends AbstractJdbcIT {
         if (execResult.getExitCode() != 0) {
             String stdout = execResult.getStdout();
             String stderr = execResult.getStderr();
-            
+
             log.error("Test [{}] failed with exit code: {}", executeKey, execResult.getExitCode());
             if (stdout != null && !stdout.trim().isEmpty()) {
                 log.error("Stdout: {}", stdout);
@@ -285,12 +285,14 @@ public class JdbcDuckDBIT extends AbstractJdbcIT {
             if (stderr != null && !stderr.trim().isEmpty()) {
                 log.error("Stderr: {}", stderr);
             }
-            
-            Assertions.fail(String.format(
-                "Test [%s] failed with exit code %d.\nStdout: %s\nStderr: %s", 
-                executeKey, execResult.getExitCode(), 
-                stdout != null ? stdout : "<empty>", 
-                stderr != null ? stderr : "<empty>"));
+
+            Assertions.fail(
+                    String.format(
+                            "Test [%s] failed with exit code %d.\nStdout: %s\nStderr: %s",
+                            executeKey,
+                            execResult.getExitCode(),
+                            stdout != null ? stdout : "<empty>",
+                            stderr != null ? stderr : "<empty>"));
         } else {
             log.info("Test [{}] completed successfully", executeKey);
         }
@@ -315,7 +317,10 @@ public class JdbcDuckDBIT extends AbstractJdbcIT {
                 connection.rollback();
                 log.info("Transaction rolled back due to table creation failure");
             } catch (SQLException rollbackException) {
-                log.error("Failed to rollback transaction: {}", rollbackException.getMessage(), rollbackException);
+                log.error(
+                        "Failed to rollback transaction: {}",
+                        rollbackException.getMessage(),
+                        rollbackException);
             }
             throw new RuntimeException("Failed to create tables: " + e.getMessage(), e);
         }
@@ -327,13 +332,13 @@ public class JdbcDuckDBIT extends AbstractJdbcIT {
             log.warn("Table name is null or empty, skipping clear operation");
             return;
         }
-        
+
         try (Statement stmt = connection.createStatement()) {
             // Use schema-qualified table name for DuckDB
             String schemaName = (schema == null || schema.trim().isEmpty()) ? "main" : schema;
             String qualifiedTable = quoteIdentifier(schemaName) + "." + quoteIdentifier(table);
             String clearSql = String.format("DELETE FROM %s", qualifiedTable);
-            
+
             int deletedRows = stmt.executeUpdate(clearSql);
             connection.commit();
             log.info("Cleared table: {}, deleted {} rows", qualifiedTable, deletedRows);
@@ -343,7 +348,10 @@ public class JdbcDuckDBIT extends AbstractJdbcIT {
                 connection.rollback();
                 log.info("Transaction rolled back due to table clear failure");
             } catch (SQLException rollbackException) {
-                log.error("Failed to rollback transaction: {}", rollbackException.getMessage(), rollbackException);
+                log.error(
+                        "Failed to rollback transaction: {}",
+                        rollbackException.getMessage(),
+                        rollbackException);
             }
             throw new RuntimeException("Failed to clear table " + table + ": " + e.getMessage(), e);
         }
@@ -354,7 +362,7 @@ public class JdbcDuckDBIT extends AbstractJdbcIT {
             throws IOException, InterruptedException, SQLException {
         String testId = UUID.randomUUID().toString().replace("-", "");
         log.info("Starting DuckDB source and sink test with ID: {}", testId);
-        
+
         try {
             // Initialize unique database URL to avoid concurrent conflicts
             duckdbUrl = String.format(DUCKDB_URL_TEMPLATE, testId);
@@ -370,23 +378,25 @@ public class JdbcDuckDBIT extends AbstractJdbcIT {
             log.debug("Set system property DUCKDB_URL to: {}", duckdbUrl);
 
             // Execute SeaTunnel job
-            log.info("Executing SeaTunnel job with configuration: /jdbc_duckdb_source_and_sink.conf");
-            Container.ExecResult execResult = container.executeJob("/jdbc_duckdb_source_and_sink.conf");
-            
+            log.info(
+                    "Executing SeaTunnel job with configuration: /jdbc_duckdb_source_and_sink.conf");
+            Container.ExecResult execResult =
+                    container.executeJob("/jdbc_duckdb_source_and_sink.conf");
+
             if (execResult.getExitCode() != 0) {
                 log.error("SeaTunnel job failed with exit code: {}", execResult.getExitCode());
                 log.error("Job stderr: {}", execResult.getStderr());
                 log.error("Job stdout: {}", execResult.getStdout());
             }
-            Assertions.assertEquals(0, execResult.getExitCode(), 
-                "SeaTunnel job failed: " + execResult.getStderr());
+            Assertions.assertEquals(
+                    0, execResult.getExitCode(), "SeaTunnel job failed: " + execResult.getStderr());
             log.info("SeaTunnel job completed successfully");
 
             // Verify results
             log.info("Starting result verification");
             verifyResults();
             log.info("Result verification completed successfully");
-            
+
         } catch (Exception e) {
             log.error("DuckDB test failed with exception: {}", e.getMessage(), e);
             throw e;
@@ -394,7 +404,7 @@ public class JdbcDuckDBIT extends AbstractJdbcIT {
             // Clean up system property
             System.clearProperty("DUCKDB_URL");
             log.debug("Cleared system property DUCKDB_URL");
-            
+
             log.info("DuckDB source and sink test completed for ID: {}", testId);
         }
     }
@@ -404,7 +414,7 @@ public class JdbcDuckDBIT extends AbstractJdbcIT {
         Pair<String[], List<SeaTunnelRow>> testDataSet = initTestData();
         String[] fieldNames = testDataSet.getKey();
         List<SeaTunnelRow> rows = testDataSet.getValue();
-        
+
         try (Connection conn = DriverManager.getConnection(duckdbUrl);
                 Statement stmt = conn.createStatement()) {
 
@@ -413,13 +423,18 @@ public class JdbcDuckDBIT extends AbstractJdbcIT {
             stmt.execute(createSourceSql);
 
             // Insert test data using prepared statement for better performance and data consistency
-            String fieldList = String.join(", ", Arrays.stream(fieldNames)
-                    .map(this::quoteIdentifier)
-                    .toArray(String[]::new));
+            String fieldList =
+                    String.join(
+                            ", ",
+                            Arrays.stream(fieldNames)
+                                    .map(this::quoteIdentifier)
+                                    .toArray(String[]::new));
             String placeholders = String.join(", ", Collections.nCopies(fieldNames.length, "?"));
-            String insertSql = String.format("INSERT INTO %s (%s) VALUES (%s)", 
-                    quoteIdentifier(DUCKDB_SOURCE), fieldList, placeholders);
-            
+            String insertSql =
+                    String.format(
+                            "INSERT INTO %s (%s) VALUES (%s)",
+                            quoteIdentifier(DUCKDB_SOURCE), fieldList, placeholders);
+
             try (java.sql.PreparedStatement pstmt = conn.prepareStatement(insertSql)) {
                 for (SeaTunnelRow row : rows) {
                     Object[] fields = row.getFields();
@@ -437,23 +452,24 @@ public class JdbcDuckDBIT extends AbstractJdbcIT {
 
     private void verifyResults() throws SQLException {
         log.info("Verifying DuckDB test results");
-        
+
         try (Connection conn = DriverManager.getConnection(duckdbUrl)) {
             log.debug("Connected to DuckDB for result verification: {}", duckdbUrl);
-            
+
             try (Statement stmt = conn.createStatement()) {
                 // Check if sink table exists and has data
                 String countSql = "SELECT COUNT(*) FROM " + quoteIdentifier(DUCKDB_SINK);
                 log.debug("Executing count query: {}", countSql);
-                
+
                 try (ResultSet rs = stmt.executeQuery(countSql)) {
                     if (rs.next()) {
                         int count = rs.getInt(1);
                         log.info("DuckDB sink table contains {} rows", count);
-                        
+
                         if (count <= 0) {
                             log.error("Sink table is empty, expected > 0 rows");
-                            Assertions.fail("Sink table should contain data but found " + count + " rows");
+                            Assertions.fail(
+                                    "Sink table should contain data but found " + count + " rows");
                         }
                     } else {
                         log.error("Failed to get count from sink table");
@@ -462,29 +478,44 @@ public class JdbcDuckDBIT extends AbstractJdbcIT {
                 }
 
                 // Verify specific field values to ensure data integrity
-                String selectSql = "SELECT id, c_boolean, c_integer, c_varchar, c_decimal FROM "
-                        + quoteIdentifier(DUCKDB_SINK) + " ORDER BY id LIMIT 1";
+                String selectSql =
+                        "SELECT id, c_boolean, c_integer, c_varchar, c_decimal FROM "
+                                + quoteIdentifier(DUCKDB_SINK)
+                                + " ORDER BY id LIMIT 1";
                 log.info("Executing data verification query: {}", selectSql);
-                
+
                 try (ResultSet rs = stmt.executeQuery(selectSql)) {
                     if (rs.next()) {
                         long idValue = rs.getLong("id");
                         boolean boolValue = rs.getBoolean("c_boolean");
                         int intValue = rs.getInt("c_integer");
                         String varcharValue = rs.getString("c_varchar");
-                        
-                        log.debug("Retrieved values: id={}, boolean={}, integer={}, varchar={}", 
-                                idValue, boolValue, intValue, varcharValue);
+
+                        log.debug(
+                                "Retrieved values: id={}, boolean={}, integer={}, varchar={}",
+                                idValue,
+                                boolValue,
+                                intValue,
+                                varcharValue);
 
                         // Verify expected values based on our test data
-                        Assertions.assertTrue(idValue > 0, "ID should be positive, got: " + idValue);
-                        Assertions.assertTrue(boolValue, "Boolean value should be true, got: " + boolValue);
-                        Assertions.assertEquals(1, intValue, "Integer value should be 1, got: " + intValue);
-                        Assertions.assertEquals("varchar", varcharValue, 
+                        Assertions.assertTrue(
+                                idValue > 0, "ID should be positive, got: " + idValue);
+                        Assertions.assertTrue(
+                                boolValue, "Boolean value should be true, got: " + boolValue);
+                        Assertions.assertEquals(
+                                1, intValue, "Integer value should be 1, got: " + intValue);
+                        Assertions.assertEquals(
+                                "varchar",
+                                varcharValue,
                                 "Varchar value should be 'varchar', got: " + varcharValue);
 
-                        log.info("Data integrity verification successful: id={}, boolean={}, integer={}, varchar={}",
-                                idValue, boolValue, intValue, varcharValue);
+                        log.info(
+                                "Data integrity verification successful: id={}, boolean={}, integer={}, varchar={}",
+                                idValue,
+                                boolValue,
+                                intValue,
+                                varcharValue);
                     } else {
                         log.error("No data found in sink table for verification");
                         Assertions.fail("Sink table contains no data for verification");
@@ -495,7 +526,7 @@ public class JdbcDuckDBIT extends AbstractJdbcIT {
             log.error("Failed to verify results due to SQL exception: {}", e.getMessage(), e);
             throw new SQLException("Result verification failed: " + e.getMessage(), e);
         }
-        
+
         log.info("DuckDB test results verification completed successfully");
     }
 }
