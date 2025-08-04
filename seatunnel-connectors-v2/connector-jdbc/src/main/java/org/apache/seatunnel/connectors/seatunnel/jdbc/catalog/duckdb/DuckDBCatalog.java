@@ -41,6 +41,7 @@ import java.sql.DatabaseMetaData;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -54,7 +55,7 @@ public class DuckDBCatalog extends AbstractJdbcCatalog {
 
     private static final String SELECT_COLUMNS_SQL =
             "SELECT column_name, data_type, is_nullable, column_default, numeric_precision, numeric_scale, "
-                    + "character_maximum_length, description "
+                    + "character_maximum_length "
                     + "FROM information_schema.columns "
                     + "WHERE table_schema = ? AND table_name = ? "
                     + "ORDER BY ordinal_position";
@@ -139,11 +140,17 @@ public class DuckDBCatalog extends AbstractJdbcCatalog {
     }
 
     private boolean tableExists(Connection connection, TablePath tablePath) throws SQLException {
+        // Use the schema name from tablePath, fallback to 'main' if not specified
+        String schemaName = tablePath.getSchemaName();
+        if (schemaName == null || schemaName.trim().isEmpty()) {
+            schemaName = "main";
+        }
+
         try (PreparedStatement ps =
                 connection.prepareStatement(
                         "SELECT table_name FROM information_schema.tables "
                                 + "WHERE table_schema = ? AND table_name = ?")) {
-            ps.setString(1, tablePath.getSchemaName());
+            ps.setString(1, schemaName);
             ps.setString(2, tablePath.getTableName());
             try (ResultSet rs = ps.executeQuery()) {
                 return rs.next();
@@ -178,7 +185,15 @@ public class DuckDBCatalog extends AbstractJdbcCatalog {
 
     private String buildCreateTableSql(TablePath tablePath, CatalogTable table) {
         StringBuilder sb = new StringBuilder();
-        sb.append("CREATE TABLE ").append(tablePath.getSchemaAndTableName("\"")).append(" (\n");
+        // Build full table name with schema if specified
+        String schemaName = tablePath.getSchemaName();
+        String tableName;
+        if (schemaName != null && !schemaName.trim().isEmpty() && !"main".equals(schemaName)) {
+            tableName = "\"" + schemaName + "\".\"" + tablePath.getTableName() + "\"";
+        } else {
+            tableName = "\"" + tablePath.getTableName() + "\"";
+        }
+        sb.append("CREATE TABLE ").append(tableName).append(" (\n");
 
         // Add columns
         List<String> columnSqls = new ArrayList<>();
@@ -192,9 +207,10 @@ public class DuckDBCatalog extends AbstractJdbcCatalog {
             if (column.getDefaultValue() != null) {
                 columnSql.append(" DEFAULT ").append(column.getDefaultValue());
             }
-            if (column.getComment() != null) {
-                columnSql.append(" COMMENT '").append(column.getComment()).append("'");
-            }
+            // DuckDB does not support COMMENT syntax in CREATE TABLE
+            // if (column.getComment() != null) {
+            //     columnSql.append(" COMMENT '").append(column.getComment()).append("'");
+            // }
             columnSqls.add(columnSql.toString());
         }
 
@@ -214,6 +230,12 @@ public class DuckDBCatalog extends AbstractJdbcCatalog {
         sb.append("\n)");
 
         return sb.toString();
+    }
+
+    @Override
+    protected String getCreateTableSql(
+            TablePath tablePath, CatalogTable table, boolean createIndex) {
+        return buildCreateTableSql(tablePath, table);
     }
 
     @Override
@@ -259,12 +281,21 @@ public class DuckDBCatalog extends AbstractJdbcCatalog {
     private List<Column> getColumns(Connection conn, TablePath tablePath) throws SQLException {
         List<Column> columns = new ArrayList<>();
         try (PreparedStatement ps = conn.prepareStatement(SELECT_COLUMNS_SQL)) {
-            ps.setString(1, tablePath.getSchemaName());
+            String schemaName = tablePath.getSchemaName();
+            if (schemaName == null || schemaName.trim().isEmpty()) {
+                schemaName = "main";
+            }
+            ps.setString(1, schemaName);
             ps.setString(2, tablePath.getTableName());
             try (ResultSet rs = ps.executeQuery()) {
                 DuckDBTypeMapper typeMapper = new DuckDBTypeMapper();
-                while (rs.next()) {
-                    columns.add(typeMapper.mappingColumn(rs, rs.getRow()));
+                ResultSetMetaData metaData = rs.getMetaData();
+                int columnCount = metaData.getColumnCount();
+
+                if (rs.next()) { // Only need to read the first row to get column metadata
+                    for (int i = 1; i <= columnCount; i++) {
+                        columns.add(typeMapper.mappingColumn(metaData, i));
+                    }
                 }
             }
         }
@@ -275,7 +306,11 @@ public class DuckDBCatalog extends AbstractJdbcCatalog {
             throws SQLException {
         List<String> pkColumns = new ArrayList<>();
         try (PreparedStatement ps = conn.prepareStatement(SELECT_PK_SQL)) {
-            ps.setString(1, tablePath.getSchemaName());
+            String schemaName = tablePath.getSchemaName();
+            if (schemaName == null || schemaName.trim().isEmpty()) {
+                schemaName = "main";
+            }
+            ps.setString(1, schemaName);
             ps.setString(2, tablePath.getTableName());
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
@@ -329,7 +364,11 @@ public class DuckDBCatalog extends AbstractJdbcCatalog {
             throws SQLException {
         HashMap<String, ConstraintKey> constraintKeys = new HashMap<>();
         try (PreparedStatement ps = conn.prepareStatement(SELECT_CONSTRAINTS_SQL)) {
-            ps.setString(1, tablePath.getSchemaName());
+            String schemaName = tablePath.getSchemaName();
+            if (schemaName == null || schemaName.trim().isEmpty()) {
+                schemaName = "main";
+            }
+            ps.setString(1, schemaName);
             ps.setString(2, tablePath.getTableName());
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
@@ -394,12 +433,13 @@ public class DuckDBCatalog extends AbstractJdbcCatalog {
         // For now, return empty comment to avoid NullPointerException
         try {
             // Try to get table comment using standard JDBC metadata
+            String schemaName = tablePath.getSchemaName();
+            if (schemaName == null || schemaName.trim().isEmpty()) {
+                schemaName = "main";
+            }
             try (ResultSet rs =
                     metaData.getTables(
-                            null,
-                            tablePath.getSchemaName(),
-                            tablePath.getTableName(),
-                            new String[] {"TABLE"})) {
+                            null, schemaName, tablePath.getTableName(), new String[] {"TABLE"})) {
                 if (rs.next()) {
                     String comment = rs.getString("REMARKS");
                     return Optional.ofNullable(comment);

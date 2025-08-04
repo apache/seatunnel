@@ -70,6 +70,8 @@ SeaTunnel data types are automatically mapped to DuckDB data types as follows:
 | connection_pool_size         | Int     | No       | 1             | Maximum connections in pool                    |
 | enable_upsert                | Boolean | No       | false         | Enable upsert mode                             |
 | save_mode                    | Enum    | No       | append        | Data save mode                                 |
+| auto_create_table            | Boolean | No       | false         | Automatically create table if not exists      |
+| schema_save_mode             | Enum    | No       | CREATE_SCHEMA_WHEN_NOT_EXIST | Schema creation mode |
 | common-options               |         | No       | -             | Common sink connector options                  |
 
 ### driver [String]
@@ -270,6 +272,29 @@ Data saving strategy for the target table.
   - `error_if_exists`: Fail if table already exists
   - `ignore_if_exists`: Skip if table already exists
 
+### auto_create_table [Boolean]
+
+Automatically create the target table if it doesn't exist.
+
+- **Required**: No
+- **Default**: false
+- **Behavior**: Creates table based on source schema when enabled
+- **Dependencies**: Works with `schema_save_mode` configuration
+- **Note**: Essential for DuckDB embedded database scenarios
+
+### schema_save_mode [Enum]
+
+Strategy for handling table schema creation and management.
+
+- **Required**: No
+- **Default**: `CREATE_SCHEMA_WHEN_NOT_EXIST`
+- **Values**:
+  - `CREATE_SCHEMA_WHEN_NOT_EXIST`: Create table if not exists (recommended)
+  - `RECREATE_SCHEMA`: Drop and recreate table
+  - `ERROR_WHEN_SCHEMA_NOT_EXIST`: Fail if table doesn't exist
+  - `IGNORE`: Skip schema operations
+- **Best Practice**: Use with `auto_create_table = true` for seamless operation
+
 ### common options
 
 Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details.
@@ -285,6 +310,8 @@ sink {
     driver = "org.duckdb.DuckDBDriver"
     table = "user_events"
     generate_sink_sql = true
+    auto_create_table = true
+    schema_save_mode = "CREATE_SCHEMA_WHEN_NOT_EXIST"
   }
 }
 ```
@@ -469,6 +496,18 @@ Solution: Increase connection_pool_size or reduce concurrent operations
 ```
 Error: Cannot convert data type
 Solution: Verify data type mapping or enable generate_sink_sql
+```
+
+**Table Does Not Exist:**
+```
+Error: Table with name 'table_name' does not exist!
+Solution: Enable auto_create_table = true and schema_save_mode = "CREATE_SCHEMA_WHEN_NOT_EXIST"
+```
+
+**Auto Table Creation Failures:**
+```
+Error: Auto table creation failed
+Solution: Ensure database parameter is configured (can be empty for DuckDB)
 ```
 
 ### Debugging Tips

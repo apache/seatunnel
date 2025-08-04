@@ -53,6 +53,7 @@ import static java.sql.Types.NCHAR;
 import static java.sql.Types.NCLOB;
 import static java.sql.Types.NUMERIC;
 import static java.sql.Types.NVARCHAR;
+import static java.sql.Types.OTHER;
 import static java.sql.Types.REAL;
 import static java.sql.Types.SMALLINT;
 import static java.sql.Types.TIME;
@@ -198,6 +199,11 @@ public class JdbcColumnConverter {
             case BLOB:
                 seaTunnelType = PrimitiveByteArrayType.INSTANCE;
                 bitLength = precision * 8;
+                break;
+            case OTHER:
+                // Handle special types like JSON, UUID, INTERVAL, ARRAY in DuckDB
+                // Map to STRING for compatibility
+                seaTunnelType = BasicType.STRING_TYPE;
                 break;
             default:
                 throw new UnsupportedOperationException("Unsupported JDBC type: " + jdbcType);

@@ -26,24 +26,24 @@ DuckDB Sink 连接器以高性能和可靠性将数据写入 DuckDB 数据库。
 
 SeaTunnel 数据类型自动映射到 DuckDB 数据类型，映射关系如下：
 
-| SeaTunnel 数据类型             | DuckDB 数据类型                | 说明                                         |
-|--------------------------------|--------------------------------|----------------------------------------------|
-| BOOLEAN                        | BOOLEAN                        |                                              |
-| TINYINT                        | TINYINT                        |                                              |
-| SMALLINT                       | SMALLINT                       |                                              |
-| INT                            | INTEGER                        |                                              |
-| BIGINT                         | BIGINT                         |                                              |
-| FLOAT                          | FLOAT                          |                                              |
-| DOUBLE                         | DOUBLE                         |                                              |
-| DECIMAL(p,s)                   | DECIMAL(p,s)                   | 保持精度和标度                               |
-| STRING                         | VARCHAR                        | 长度自动确定                                 |
-| BYTES                          | BLOB                           |                                              |
-| DATE                           | DATE                           |                                              |
-| TIME                           | TIME                           |                                              |
-| TIMESTAMP                      | TIMESTAMP                      |                                              |
-| ARRAY&lt;T&gt;                | T[]                            | 支持嵌套数组                                 |
-| ROW                            | STRUCT                         | 保持命名字段                                 |
-| MAP&lt;K,V&gt;                | MAP(K,V)                       | 保持键值映射                                 |
+| SeaTunnel 数据类型 | DuckDB 数据类型                | 说明                                         |
+|----------------|--------------------------------|----------------------------------------------|
+| BOOLEAN        | BOOLEAN                        |                                              |
+| TINYINT        | TINYINT                        |                                              |
+| SMALLINT       | SMALLINT                       |                                              |
+| INT            | INTEGER                        |                                              |
+| BIGINT         | BIGINT                         |                                              |
+| FLOAT          | FLOAT                          |                                              |
+| DOUBLE         | DOUBLE                         |                                              |
+| DECIMAL(p,s)   | DECIMAL(p,s)                   | 保持精度和标度                               |
+| STRING         | VARCHAR                        | 长度自动确定                                 |
+| BYTES          | BLOB                           |                                              |
+| DATE           | DATE                           |                                              |
+| TIME           | TIME                           |                                              |
+| TIMESTAMP      | TIMESTAMP                      |                                              |
+| ARRAY          | T[]                            | 支持嵌套数组                                 |
+| ROW            | STRUCT                         | 保持命名字段                                 |
+| MAP<K,V>       | MAP(K,V)                       | 保持键值映射                                 |
 
 ## 配置选项
 
@@ -70,6 +70,8 @@ SeaTunnel 数据类型自动映射到 DuckDB 数据类型，映射关系如下�
 | connection_pool_size         | Int     | 否   | 1      | 连接池最大连接数                                |
 | enable_upsert                | Boolean | 否   | false  | 启用更新插入模式                                |
 | save_mode                    | Enum    | 否   | append | 数据保存模式                                    |
+| auto_create_table            | Boolean | 否   | false  | 表不存在时自动创建                              |
+| schema_save_mode             | Enum    | 否   | CREATE_SCHEMA_WHEN_NOT_EXIST | 模式创建模式     |
 | common-options               |         | 否   | -      | 通用 Sink 连接器选项                           |
 
 ### driver [String]
@@ -270,6 +272,29 @@ DuckDB 中的目标模式名称。
   - `error_if_exists`：表已存在时失败
   - `ignore_if_exists`：表已存在时跳过
 
+### auto_create_table [Boolean]
+
+目标表不存在时自动创建。
+
+- **必填**：否
+- **默认值**：false
+- **行为**：启用时基于源模式创建表
+- **依赖**：与 `schema_save_mode` 配置协同工作
+- **注意**：对于 DuckDB 嵌入式数据库场景至关重要
+
+### schema_save_mode [Enum]
+
+处理表模式创建和管理的策略。
+
+- **必填**：否
+- **默认值**：`CREATE_SCHEMA_WHEN_NOT_EXIST`
+- **值**：
+  - `CREATE_SCHEMA_WHEN_NOT_EXIST`：表不存在时创建（推荐）
+  - `RECREATE_SCHEMA`：删除并重新创建表
+  - `ERROR_WHEN_SCHEMA_NOT_EXIST`：表不存在时失败
+  - `IGNORE`：跳过模式操作
+- **最佳实践**：与 `auto_create_table = true` 配合使用以实现无缝操作
+
 ### common options
 
 Sink 插件通用参数，详情请参考 [Sink Common Options](common-options.md)。
@@ -285,6 +310,8 @@ sink {
     driver = "org.duckdb.DuckDBDriver"
     table = "user_events"
     generate_sink_sql = true
+    auto_create_table = true
+    schema_save_mode = "CREATE_SCHEMA_WHEN_NOT_EXIST"
   }
 }
 ```
@@ -469,6 +496,18 @@ DuckDB 提供完整的 ACID 合规性，具有以下保证：
 ```
 错误：无法转换数据类型
 解决方案：验证数据类型映射或启用 generate_sink_sql
+```
+
+**表不存在：**
+```
+错误：表 'table_name' 不存在！
+解决方案：启用 auto_create_table = true 和 schema_save_mode = "CREATE_SCHEMA_WHEN_NOT_EXIST"
+```
+
+**自动建表失败：**
+```
+错误：自动建表失败
+解决方案：确保配置了 database 参数（对于 DuckDB 可以为空）
 ```
 
 ### 调试技巧

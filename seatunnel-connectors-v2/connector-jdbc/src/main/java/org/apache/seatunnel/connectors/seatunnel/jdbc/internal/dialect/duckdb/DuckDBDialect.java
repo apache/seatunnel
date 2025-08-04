@@ -156,7 +156,12 @@ public class DuckDBDialect implements JdbcDialect {
 
     @Override
     public String tableIdentifier(TablePath tablePath) {
-        return tableIdentifier(tablePath.getDatabaseName(), tablePath.getTableName());
+        // For DuckDB, use schema name instead of database name
+        String schemaName = tablePath.getSchemaName();
+        if (schemaName == null || schemaName.trim().isEmpty()) {
+            schemaName = "main"; // Default schema for DuckDB
+        }
+        return tableIdentifier(schemaName, tablePath.getTableName());
     }
 
     @Override
@@ -221,23 +226,24 @@ public class DuckDBDialect implements JdbcDialect {
     }
 
     /**
-     * Get optimal batch size for DuckDB operations DuckDB performs better with larger batches due
-     * to its columnar storage
+     * Get optimal batch size for DuckDB operations. DuckDB performs better with larger batches due
+     * to its columnar storage architecture.
      */
     public int getOptimalBatchSize() {
         return OPTIMAL_BATCH_SIZE;
     }
 
     /**
-     * Check if DuckDB supports bulk copy operations DuckDB has excellent bulk loading capabilities
+     * Check if DuckDB supports bulk copy operations. DuckDB has excellent bulk loading
+     * capabilities.
      */
     public boolean supportsBulkCopy() {
         return true;
     }
 
     /**
-     * Generate DuckDB-specific bulk insert statement Uses VALUES clause optimization for better
-     * performance
+     * Generate DuckDB-specific bulk insert statement. Uses VALUES clause optimization for better
+     * performance.
      */
     public Optional<String> getBulkInsertStatement(
             String database, String tableName, String[] fieldNames, int batchSize) {
@@ -264,7 +270,7 @@ public class DuckDBDialect implements JdbcDialect {
                         tableIdentifier, columns, valuesBuilder.toString()));
     }
 
-    /** Get connection validation timeout specific to DuckDB */
+    /** Get connection validation timeout specific to DuckDB. */
     public int getConnectionValidationTimeout() {
         return CONNECTION_VALIDATION_TIMEOUT;
     }

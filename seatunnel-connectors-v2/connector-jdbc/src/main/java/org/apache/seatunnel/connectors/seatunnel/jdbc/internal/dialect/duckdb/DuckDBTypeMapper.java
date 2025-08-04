@@ -54,7 +54,7 @@ public class DuckDBTypeMapper implements JdbcDialectTypeMapper {
         return mappingColumn(typeDefine);
     }
 
-    // 添加支持直接从ResultSet获取列信息的方法
+    // Add method to support getting column information directly from ResultSet
     public Column mappingColumn(ResultSet rs, int colIndex) throws SQLException {
         return mappingColumn(rs.getMetaData(), colIndex);
     }

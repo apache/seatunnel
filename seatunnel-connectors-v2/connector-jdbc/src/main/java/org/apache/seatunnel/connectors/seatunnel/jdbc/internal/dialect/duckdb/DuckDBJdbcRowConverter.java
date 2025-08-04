@@ -23,15 +23,14 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseI
 
 import org.checkerframework.checker.nullness.qual.Nullable;
 
+import lombok.extern.slf4j.Slf4j;
+
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 
 /** DuckDB row converter for converting between DuckDB data types and SeaTunnel data types */
+@Slf4j
 public class DuckDBJdbcRowConverter extends AbstractJdbcRowConverter {
-
-    static {
-        System.err.println("🚀 DuckDBJdbcRowConverter 类已加载!");
-    }
 
     @Override
     public String converterName() {
@@ -47,21 +46,17 @@ public class DuckDBJdbcRowConverter extends AbstractJdbcRowConverter {
             @Nullable String sourceType)
             throws SQLException {
 
-        System.err.println(
-                String.format(
-                        "🔧 DuckDBJdbcRowConverter.setValueToStatementByDataType 被调用: index=%d, type=%s, valueClass=%s, value=%s",
-                        statementIndex,
-                        seaTunnelDataType.getSqlType(),
-                        value != null ? value.getClass().getSimpleName() : "null",
-                        value));
+        log.debug(
+                "Setting DuckDB parameter: index={}, type={}, valueClass={}, value={}",
+                statementIndex,
+                seaTunnelDataType.getSqlType(),
+                value != null ? value.getClass().getSimpleName() : "null",
+                value);
 
         if (value == null) {
             statement.setObject(statementIndex, null);
             return;
         }
-
-        // Enhanced Python object detection and conversion
-        String valueClassName = value.getClass().getName();
 
         try {
             // Use type-specific setters instead of setObject to avoid DuckDB batch execution issues
@@ -137,26 +132,24 @@ public class DuckDBJdbcRowConverter extends AbstractJdbcRowConverter {
             }
         } catch (SQLException e) {
             // Enhanced error logging for DuckDB-specific issues
-            System.err.println(
-                    String.format(
-                            "❌ DuckDB 参数设置失败: index=%d, type=%s, valueClass=%s, value=%s, error=%s",
-                            statementIndex,
-                            seaTunnelDataType.getSqlType(),
-                            value.getClass().getSimpleName(),
-                            value.toString(),
-                            e.getMessage()));
+            log.error(
+                    "Failed to set DuckDB parameter: index={}, type={}, valueClass={}, value={}, error={}",
+                    statementIndex,
+                    seaTunnelDataType.getSqlType(),
+                    value.getClass().getSimpleName(),
+                    value.toString(),
+                    e.getMessage());
             throw e;
         } catch (Exception e) {
             // Catch any other exceptions and convert to SQLException
-            System.err.println(
-                    String.format(
-                            "❌ DuckDB 意外错误: index=%d, type=%s, valueClass=%s, value=%s, error=%s",
-                            statementIndex,
-                            seaTunnelDataType.getSqlType(),
-                            value.getClass().getSimpleName(),
-                            value.toString(),
-                            e.getMessage()));
-            throw new SQLException("DuckDB parameter setting failed", e);
+            log.error(
+                    "Unexpected DuckDB error: index={}, type={}, valueClass={}, value={}, error={}",
+                    statementIndex,
+                    seaTunnelDataType.getSqlType(),
+                    value.getClass().getSimpleName(),
+                    value.toString(),
+                    e.getMessage());
+            throw new SQLException("Failed to set DuckDB parameter", e);
         }
     }
 }
