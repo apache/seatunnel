@@ -1,4 +1,3 @@
-# 示例 YAML 转换配置
 source: examples/source/datax-mysql2hdfs2hive.json
 sourceType: datax
 target: examples/target/mysql2hdfs2hive-result.conf
