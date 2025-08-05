@@ -249,7 +249,7 @@ source {
     user = "{{ datax.job.content[0].reader.parameter.username }}"
     password = "{{ datax.job.content[0].reader.parameter.password }}"
     query = "{{ datax.job.content[0].reader.parameter.querySql[0] | default('SELECT') }} {{ datax.job.content[0].reader.parameter.column | join(',') }} FROM {{ datax.job.content[0].reader.parameter.connection[0].table[0] }}"
-    result_table_name = "source_table"
+    plugin_output = "source_table"
   }
 }
 
@@ -278,7 +278,7 @@ sink {
     # }
     
     # 结果表名
-    source_table_name = "source_table"
+    plugin_input = "source_table"
   }
 }
 ```
@@ -449,7 +449,7 @@ src/main/java/org/apache/seatunnel/tools/x2seatunnel/
 | `source.Jdbc.connection_check_timeout_sec` | `60` |
 | `source.Jdbc.max_retries` | `3` |
 | `source.Jdbc.fetch_size` | `1024` |
-| `source.Jdbc.result_table_name` | `jdbc_source_table` |
+| `source.Jdbc.plugin_output` | `jdbc_source_table` |
 | `sink.HdfsFile.tmp_path` | `/tmp/seatunnel` |
 | `sink.HdfsFile.is_enable_transaction` | `true` |
 | `sink.HdfsFile.enable_header_write` | `false` |
