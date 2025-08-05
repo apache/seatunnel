@@ -98,6 +98,11 @@
             <outputDirectory>.</outputDirectory>
             <filtered>true</filtered>
         </file>
+        <file>
+            <source>README_zh.md</source>
+            <outputDirectory>.</outputDirectory>
+            <filtered>true</filtered>
+        </file>
     </files>
 
 </assembly>
