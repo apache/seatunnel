@@ -314,7 +314,7 @@ public class DatabendSinkWriter
             sql.append("WHEN MATCHED AND b.action = 'delete' THEN DELETE ");
         }
 
-        sql.append("WHEN NOT MATCHED THEN INSERT *");
+        sql.append("WHEN NOT MATCHED AND b.action!='delete' THEN INSERT *");
 
         return sql.toString();
     }

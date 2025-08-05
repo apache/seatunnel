@@ -74,7 +74,7 @@ public class DatabendSinkWriterTest {
                         + "ON a.id = b.id "
                         + "WHEN MATCHED AND b.action = 'update' THEN UPDATE * "
                         + "WHEN MATCHED AND b.action = 'delete' THEN DELETE "
-                        + "WHEN NOT MATCHED THEN INSERT *";
+                        + "WHEN NOT MATCHED AND b.action!='delete' THEN INSERT *";
 
         assertEquals(expectedSql, mergeSql);
     }
@@ -117,7 +117,7 @@ public class DatabendSinkWriterTest {
                         + "QUALIFY ROW_NUMBER() OVER(PARTITION BY id ORDER BY add_time DESC) = 1) b "
                         + "ON a.id = b.id "
                         + "WHEN MATCHED AND b.action = 'update' THEN UPDATE * "
-                        + "WHEN NOT MATCHED THEN INSERT *";
+                        + "WHEN NOT MATCHED AND b.action!='delete' THEN INSERT *";
 
         assertEquals(expectedSql, mergeSql);
     }
