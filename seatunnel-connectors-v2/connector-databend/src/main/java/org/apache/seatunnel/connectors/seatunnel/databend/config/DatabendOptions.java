@@ -37,7 +37,7 @@ public class DatabendOptions {
                     .withDescription("Whether to use SSL for the Databend connection");
 
     public static final Option<String> USERNAME =
-            Options.key("username")
+            Options.key("user")
                     .stringType()
                     .noDefaultValue()
                     .withDescription("The username for Databend database authentication");
