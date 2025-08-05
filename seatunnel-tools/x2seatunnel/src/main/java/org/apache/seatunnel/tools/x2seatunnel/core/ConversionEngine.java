@@ -17,6 +17,9 @@
 
 package org.apache.seatunnel.tools.x2seatunnel.core;
 
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
+
 import org.apache.seatunnel.tools.x2seatunnel.model.MappingResult;
 import org.apache.seatunnel.tools.x2seatunnel.model.MappingTracker;
 import org.apache.seatunnel.tools.x2seatunnel.report.MarkdownReportGenerator;
@@ -29,9 +32,6 @@ import org.apache.seatunnel.tools.x2seatunnel.util.PathResolver;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.io.File;
 import java.util.List;
