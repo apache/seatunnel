@@ -1,0 +1,8 @@
+# 示例 YAML 转换配置
+source: examples/source/datax-mysql2hdfs2hive.json
+sourceType: datax
+target: examples/target/mysql2hdfs2hive-result.conf
+report: examples/report/mysql2hdfs2hive-report.md
+template: datax/custom/mysql-to-hive.conf
+options:
+  verbose: true

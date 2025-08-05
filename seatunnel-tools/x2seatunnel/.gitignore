@@ -1,0 +1,18 @@
+# X2SeaTunnel 测试生成的文件
+src/main/resources/examples/target*/*.conf
+src/main/resources/examples/report*/*.md
+
+# 保留示例文件
+!src/main/resources/examples/report*/summary-example.md
+
+# Maven 构建目录
+target/
+
+# IDE 文件
+.idea/
+*.iml
+.vscode/
+
+# 日志文件
+logs/
+*.log
