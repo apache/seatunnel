@@ -24,14 +24,14 @@ public class YamlConfigParserTest {
 
     @Test
     public void testParseConversionYaml() {
-        // Example file located at resources/examples/datax-mysql2hdfs.yaml
-        String yamlPath = "src/main/resources/examples/yaml/datax-mysql2hdfs.yaml";
+        // Example file located at resources/examples/datax-mysql2hdfs2hive.yaml
+        String yamlPath = "src/main/resources/examples/yaml/datax-mysql2hdfs2hive.yaml";
         ConversionConfig config = YamlConfigParser.parse(yamlPath);
         Assertions.assertNotNull(config);
-        Assertions.assertEquals("examples/source/datax-mysql2hdfs.json", config.getSource());
+        Assertions.assertEquals("examples/source/datax-mysql2hdfs2hive.json", config.getSource());
         Assertions.assertEquals("datax", config.getSourceType());
-        Assertions.assertEquals("examples/target/mysql2hdfs-result.conf", config.getTarget());
-        Assertions.assertEquals("examples/report/mysql2hdfs-report.md", config.getReport());
+        Assertions.assertEquals("examples/target/mysql2hdfs2hive-result.conf", config.getTarget());
+        Assertions.assertEquals("examples/report/mysql2hdfs2hive-report.md", config.getReport());
         Assertions.assertEquals("datax/custom/mysql-to-hive.conf", config.getTemplate());
         Assertions.assertTrue(config.isVerbose(), "YAML options.verbose should be true");
     }
