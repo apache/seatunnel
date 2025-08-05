@@ -21,6 +21,8 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
 import org.apache.seatunnel.api.source.Collector;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -28,9 +30,11 @@ import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.source.reader.ParquetReadStrategy;
 
+import org.apache.avro.Conversions;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericArray;
 import org.apache.avro.generic.GenericData;
+import org.apache.avro.generic.GenericFixed;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.util.Utf8;
 import org.apache.hadoop.conf.Configuration;
@@ -57,11 +61,17 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.io.File;
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.net.URL;
+import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Paths;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.TimeZone;
 
 import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.FS_DEFAULT_NAME_DEFAULT;
@@ -249,6 +259,71 @@ public class ParquetReadStrategyTest {
         parquetReadStrategy.read(NativeParquetWriter.DATA_FILE_PATH, "", testCollector);
     }
 
+    @DisabledOnOs(OS.WINDOWS)
+    @Test
+    public void testParquetWithUserConfigRowType() throws Exception {
+        AutoGenerateParquetData.generateTestData();
+        String path = AutoGenerateParquetData.DATA_FILE_PATH;
+
+        URL conf = ParquetReadStrategyTest.class.getResource("/test_user_config_read_parquet.conf");
+        Assertions.assertNotNull(conf);
+        String confPath = Paths.get(conf.toURI()).toString();
+        Config pluginConfig = ConfigFactory.parseFile(new File(confPath));
+        CatalogTable catalogTable = CatalogTableUtil.buildWithConfig(pluginConfig);
+
+        ParquetReadStrategy parquetReadStrategy = new ParquetReadStrategy();
+        LocalConf localConf = new LocalConf(FS_DEFAULT_NAME_DEFAULT);
+        parquetReadStrategy.init(localConf);
+
+        SeaTunnelRowType configRowType = catalogTable.getSeaTunnelRowType();
+        parquetReadStrategy.getSeaTunnelRowTypeInfoWithUserConfigRowType(path, configRowType);
+
+        TestCollector testCollector = new TestCollector();
+        parquetReadStrategy.read(path, "default", testCollector);
+        List<SeaTunnelRow> rows = testCollector.getRows();
+        SeaTunnelRow row = rows.get(0);
+
+        // Verify whether the data type and type conversion are correct
+        // id convert to String
+        Assertions.assertEquals(String.class, row.getField(0).getClass());
+        Assertions.assertEquals(String.class, row.getField(1).getClass());
+        // salary convert to Double
+        Assertions.assertEquals(Double.class, row.getField(2).getClass());
+        Assertions.assertTrue(row.getField(3) instanceof String[]);
+        // age convert to Long
+        Assertions.assertEquals(Long.class, row.getField(4).getClass());
+        Assertions.assertEquals(Boolean.class, row.getField(5).getClass());
+        // score convert to Decimal
+        Assertions.assertEquals(BigDecimal.class, row.getField(6).getClass());
+        Assertions.assertEquals(BigDecimal.class, row.getField(7).getClass());
+        Assertions.assertEquals(LocalDate.class, row.getField(8).getClass());
+        Assertions.assertEquals(LocalDateTime.class, row.getField(9).getClass());
+        Assertions.assertEquals(HashMap.class, row.getField(10).getClass());
+        Assertions.assertEquals(byte[].class, row.getField(11).getClass());
+        // binary_as_string convert to String
+        Assertions.assertEquals(String.class, row.getField(12).getClass());
+
+        Assertions.assertEquals("1", row.getField(0));
+        Assertions.assertEquals("Alice", row.getField(1));
+        Assertions.assertEquals(50000.0, row.getField(2));
+        String[] skills = (String[]) row.getField(3);
+        Assertions.assertEquals(2, skills.length);
+        Assertions.assertEquals("Java", skills[0]);
+        Assertions.assertEquals("Python", skills[1]);
+        Assertions.assertEquals(30L, row.getField(4));
+        Assertions.assertEquals(true, row.getField(5));
+        Assertions.assertEquals(new BigDecimal("98.50"), row.getField(6));
+        Assertions.assertEquals(new BigDecimal("1198.02"), row.getField(7));
+        Assertions.assertNotNull(row.getField(8));
+        Assertions.assertNotNull(row.getField(9));
+        Assertions.assertTrue(((HashMap<?, ?>) row.getField(10)).containsKey("department"));
+        Assertions.assertArrayEquals(
+                "binary data example".getBytes(StandardCharsets.UTF_8), (byte[]) row.getField(11));
+        Assertions.assertEquals("binary_as_string", row.getField(12));
+
+        AutoGenerateParquetData.deleteFile();
+    }
+
     public static class TestCollector implements Collector<SeaTunnelRow> {
 
         private final List<SeaTunnelRow> rows = new ArrayList<>();
@@ -294,12 +369,27 @@ public class ParquetReadStrategyTest {
 
         public static void generateTestData() throws IOException {
             deleteFile();
+
+            // create schema, which includes various data types
             String schemaString =
-                    "{\"type\":\"record\",\"name\":\"User\",\"fields\":[{\"name\":\"id\",\"type\":\"int\"},{\"name\":\"name\",\"type\":\"string\"},{\"name\":\"salary\",\"type\":\"double\"},{\"name\":\"skills\",\"type\":{\"type\":\"array\",\"items\":\"string\"}}]}";
+                    "{\"type\":\"record\",\"name\":\"User\",\"fields\":["
+                            + "{\"name\":\"id\",\"type\":\"int\"},"
+                            + "{\"name\":\"name\",\"type\":\"string\"},"
+                            + "{\"name\":\"salary\",\"type\":\"float\"},"
+                            + "{\"name\":\"skills\",\"type\":{\"type\":\"array\",\"items\":\"string\"}},"
+                            + "{\"name\":\"age\",\"type\":\"int\"},"
+                            + "{\"name\":\"active\",\"type\":\"boolean\"},"
+                            + "{\"name\":\"score\",\"type\":\"double\"},"
+                            + "{\"name\":\"budget\",\"type\":{\"type\":\"fixed\",\"name\":\"BudgetDecimal\",\"size\":8,\"logicalType\":\"decimal\",\"precision\":8,\"scale\":2}},"
+                            + "{\"name\":\"join_date\",\"type\":{\"type\":\"int\",\"logicalType\":\"date\"}},"
+                            + "{\"name\":\"created_at\",\"type\":{\"type\":\"long\",\"logicalType\":\"timestamp-millis\"}},"
+                            + "{\"name\":\"properties\",\"type\":{\"type\":\"map\",\"values\":\"string\"}},"
+                            + "{\"name\":\"binary_data\",\"type\":\"bytes\"},"
+                            + "{\"name\":\"binary_as_string\",\"type\":\"bytes\"}"
+                            + "]}";
             Schema schema = new Schema.Parser().parse(schemaString);
 
             Configuration conf = new Configuration();
-
             Path file = new Path(DATA_FILE_PATH);
 
             ParquetWriter<GenericRecord> writer =
@@ -309,26 +399,91 @@ public class ParquetReadStrategyTest {
                             .withCompressionCodec(CompressionCodecName.SNAPPY)
                             .build();
 
+            // create first record
             GenericRecord record1 = new GenericData.Record(schema);
             record1.put("id", 1);
             record1.put("name", "Alice");
             record1.put("salary", 50000.0);
+            record1.put("age", 30);
+            record1.put("active", true);
+            record1.put("score", 98.5f);
+            record1.put("created_at", System.currentTimeMillis());
+
+            // Date type
+            record1.put("join_date", 20289);
+
+            // Decimal type
+            BigDecimal budget = new BigDecimal("1198.02");
+            Schema.Field budgetField = schema.getField("budget");
+            Schema budgetSchema = budgetField.schema();
+            Conversions.DecimalConversion decimalConversion = new Conversions.DecimalConversion();
+            GenericFixed budgetFixed =
+                    decimalConversion.toFixed(budget, budgetSchema, budgetSchema.getLogicalType());
+            record1.put("budget", budgetFixed);
+
+            // Array type
             GenericArray<Utf8> skills1 =
                     new GenericData.Array<>(2, schema.getField("skills").schema());
             skills1.add(new Utf8("Java"));
             skills1.add(new Utf8("Python"));
             record1.put("skills", skills1);
+
+            // Map type
+            Map<Utf8, Utf8> properties1 = new HashMap<>();
+            properties1.put(new Utf8("department"), new Utf8("Engineering"));
+            properties1.put(new Utf8("location"), new Utf8("Beijing"));
+            record1.put("properties", properties1);
+
+            // Binary type
+            record1.put(
+                    "binary_data",
+                    ByteBuffer.wrap("binary data example".getBytes(StandardCharsets.UTF_8)));
+            record1.put(
+                    "binary_as_string",
+                    ByteBuffer.wrap("binary_as_string".getBytes(StandardCharsets.UTF_8)));
+
             writer.write(record1);
 
+            // create second record
             GenericRecord record2 = new GenericData.Record(schema);
             record2.put("id", 2);
             record2.put("name", "Bob");
             record2.put("salary", 60000.0);
+            record2.put("age", 35);
+            record2.put("active", false);
+            record2.put("score", 89.2f);
+            record2.put("created_at", System.currentTimeMillis() - 86400000);
+
+            // Date type
+            record2.put("join_date", 20288);
+
+            // Decimal type
+            BigDecimal budget2 = new BigDecimal("2394.13");
+            Schema.Field budgetField2 = schema.getField("budget");
+            Schema budgetSchema2 = budgetField2.schema();
+            GenericFixed budgetFixed2 =
+                    decimalConversion.toFixed(
+                            budget2, budgetSchema2, budgetSchema2.getLogicalType());
+            record2.put("budget", budgetFixed2);
+
             GenericArray<Utf8> skills2 =
                     new GenericData.Array<>(2, schema.getField("skills").schema());
             skills2.add(new Utf8("C++"));
             skills2.add(new Utf8("Go"));
             record2.put("skills", skills2);
+
+            Map<Utf8, Utf8> properties2 = new HashMap<>();
+            properties2.put(new Utf8("department"), new Utf8("Marketing"));
+            properties2.put(new Utf8("location"), new Utf8("Shanghai"));
+            record2.put("properties", properties2);
+
+            record2.put(
+                    "binary_data",
+                    ByteBuffer.wrap("another binary example".getBytes(StandardCharsets.UTF_8)));
+            record2.put(
+                    "binary_as_string",
+                    ByteBuffer.wrap("another binary_as_string".getBytes(StandardCharsets.UTF_8)));
+
             writer.write(record2);
 
             writer.close();

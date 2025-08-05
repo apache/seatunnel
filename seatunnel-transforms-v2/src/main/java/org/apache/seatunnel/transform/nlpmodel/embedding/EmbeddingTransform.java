@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.transform.nlpmodel.embedding;
 
+import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
+
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
@@ -52,7 +54,7 @@ public class EmbeddingTransform extends MultipleFieldOutputTransform {
     private final ReadonlyConfig config;
     private List<String> fieldNames;
     private List<Integer> fieldOriginalIndexes;
-    private Model model;
+    private transient Model model;
     private Integer dimension;
 
     public EmbeddingTransform(
@@ -212,7 +214,9 @@ public class EmbeddingTransform extends MultipleFieldOutputTransform {
     }
 
     @Override
-    protected Column[] getOutputColumns() {
+    @VisibleForTesting
+    public Column[] getOutputColumns() {
+        tryOpen();
         Column[] columns = new Column[fieldNames.size()];
         for (int i = 0; i < fieldNames.size(); i++) {
             columns[i] =

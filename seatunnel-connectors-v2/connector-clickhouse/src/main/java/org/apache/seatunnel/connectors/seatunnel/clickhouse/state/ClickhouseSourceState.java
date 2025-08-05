@@ -17,6 +17,19 @@
 
 package org.apache.seatunnel.connectors.seatunnel.clickhouse.state;
 
-import java.io.Serializable;
+import org.apache.seatunnel.connectors.seatunnel.clickhouse.source.split.ClickhouseSourceSplit;
 
-public class ClickhouseSourceState implements Serializable {}
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+
+import java.io.Serializable;
+import java.util.List;
+import java.util.Map;
+
+@AllArgsConstructor
+@Getter
+public class ClickhouseSourceState implements Serializable {
+    private static final long serialVersionUID = 286679054882099834L;
+    private boolean shouldEnumerate;
+    private Map<Integer, List<ClickhouseSourceSplit>> pendingSplit;
+}

@@ -54,6 +54,7 @@ import ChangeLog from '../changelog/connector-kafka.md';
 | start_mode.timestamp                | Long                                | 否    | -                            | 用于 "timestamp" 消费模式的时间。                                                                                                                                                                                                                                                                                                        |
 | start_mode.end_timestamp             | Long                                | 否    | -                            | 用于 "timestamp" 消费模式的结束时间，只支持批模式                                                                                                                                                                                                                                                                                             |
 | partition-discovery.interval-millis | Long                                | 否    | -1                           | 动态发现主题和分区的间隔时间。                                                                                                                                                                                                                                                                                                                |
+| ignore_no_leader_partition          | Boolean                             | 否    | false                        | 是否忽略没有 leader 的分区。如果设置为 true，在分区发现过程中将跳过没有 leader 的分区。如果设置为 false（默认值），连接器将包含所有分区，无论 leader 状态如何。这在处理可能存在临时 leader 问题的 Kafka 集群时很有用。                                                                                                                                                                                  |
 | common-options                      |                                     | 否    | -                            | 源插件的常见参数，详情请参考 [Source Common Options](../source-common-options.md)。                                                                                                                                                                                                                                                           |
 | protobuf_message_name               | String                              | 否    | -                            | 当格式设置为 protobuf 时有效，指定消息名称。                                                                                                                                                                                                                                                                                                    |
 | protobuf_schema                     | String                              | 否    | -                            | 当格式设置为 protobuf 时有效，指定 Schema 定义。                                                                                                                                                                                                                                                                                              |
@@ -367,6 +368,24 @@ source {
   }
 }
 ```
+
+### 忽略无 Leader 分区
+
+当处理可能存在临时 leader 问题的 Kafka 集群时，您可以配置连接器忽略没有 leader 的分区：
+
+```hocon
+source {
+  Kafka {
+    topic = "test_topic"
+    bootstrap.servers = "localhost:9092"
+    consumer.group = "test_group"
+    ignore_no_leader_partition = true
+    start_mode = "earliest"
+  }
+}
+```
+
+当 `ignore_no_leader_partition = true` 时，连接器将在分区发现过程中跳过任何没有 leader 的分区，允许作业继续处理其他健康的分区。
 
 ### format
 如果需要保留Kafka原生的信息，可以参考如下配置。

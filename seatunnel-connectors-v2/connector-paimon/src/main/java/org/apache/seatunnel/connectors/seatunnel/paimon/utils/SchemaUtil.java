@@ -34,6 +34,7 @@ import org.apache.paimon.types.DataField;
 import org.apache.paimon.types.DataType;
 import org.apache.paimon.types.DataTypeJsonParser;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -67,6 +68,9 @@ public class SchemaUtil {
         List<String> primaryKeys = paimonSinkConfig.getPrimaryKeys();
         if (primaryKeys.isEmpty() && Objects.nonNull(tableSchema.getPrimaryKey())) {
             primaryKeys = tableSchema.getPrimaryKey().getColumnNames();
+        }
+        if (paimonSinkConfig.getNonPrimaryKey()) {
+            primaryKeys = Collections.emptyList();
         }
         if (!primaryKeys.isEmpty()) {
             paiSchemaBuilder.primaryKey(primaryKeys);

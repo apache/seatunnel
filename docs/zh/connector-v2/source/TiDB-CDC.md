@@ -68,20 +68,20 @@ cp mysql-connector-java-xxx.jar ${SEATUNNEL_HOME}/lib/
 
 ## 源选项
 
-| 名称                           | 类型      | 必需 | 默认      | 描述                                                                                                                                                                                             |
-|------------------------------|---------|----|---------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| base-url                     | String  | 是  | -       | JDBC 连接的 URL，例如：`jdbc:mysql://tidb0:4000/inventory`。                                                                                                                                           |
-| username                     | String  | 是  | -       | 连接数据库服务器时使用的用户名。                                                                                                                                                                               |
-| password                     | String  | 是  | -       | 连接数据库服务器时使用的密码。                                                                                                                                                                                |
-| pd-addresses                 | String  | 是  | -       | TiKV 集群的 PD 地址。                                                                                                                                                                                |
-| database-name                | String  | 是  | -       | 要监控的数据库名称。                                                                                                                                                                                     |
-| table-name                   | String  | 是  | -       | 要监控的表名称。表名称需要包含数据库名称。                                                                                                                                                                          |
-| startup.mode                 | Enum    | 否  | INITIAL | TiDB CDC 消费器的可选启动模式，可选值有 `initial`、`earliest`、`latest` 和 `specific`。<br/>`initial`：启动时同步历史数据，然后同步增量数据。<br/>`earliest`：从最早的可用偏移量开始启动。<br/>`latest`：从最新的偏移量开始启动。<br/>`specific`：从用户提供的特定偏移量开始启动。 |
-| batch-size-per-scan          | Int     | 否  | 1000    | 每次扫描的大小。                                                                                                                                                                                       |
-| tikv.grpc.timeout_in_ms      | Long    | 否  | -       | TiKV GRPC 超时时间（毫秒）。                                                                                                                                                                            |
+| 名称                      | 类型      | 必需 | 默认      | 描述                                                                                                                                                                                             |
+|-------------------------|---------|----|---------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| url                     | String  | 是  | -       | JDBC 连接的 URL，例如：`jdbc:mysql://tidb0:4000/inventory`。                                                                                                                                           |
+| username                | String  | 是  | -       | 连接数据库服务器时使用的用户名。                                                                                                                                                                               |
+| password                | String  | 是  | -       | 连接数据库服务器时使用的密码。                                                                                                                                                                                |
+| pd-addresses            | String  | 是  | -       | TiKV 集群的 PD 地址。                                                                                                                                                                                |
+| database-name           | String  | 是  | -       | 要监控的数据库名称。                                                                                                                                                                                     |
+| table-name              | String  | 是  | -       | 要监控的表名称。表名称需要包含数据库名称。                                                                                                                                                                          |
+| startup.mode            | Enum    | 否  | INITIAL | TiDB CDC 消费器的可选启动模式，可选值有 `initial`、`earliest`、`latest` 和 `specific`。<br/>`initial`：启动时同步历史数据，然后同步增量数据。<br/>`earliest`：从最早的可用偏移量开始启动。<br/>`latest`：从最新的偏移量开始启动。<br/>`specific`：从用户提供的特定偏移量开始启动。 |
+| batch-size-per-scan     | Int     | 否  | 1000    | 每次扫描的大小。                                                                                                                                                                                       |
+| tikv.grpc.timeout_in_ms | Long    | 否  | -       | TiKV GRPC 超时时间（毫秒）。                                                                                                                                                                            |
 | tikv.grpc.scan_timeout_in_ms | Long    | 否  | -       | TiKV GRPC 扫描超时时间（毫秒）。                                                                                                                                                                          |
-| tikv.batch_get_concurrency   | Integer | 否  | -       | TiKV GRPC 批量获取并发度。                                                                                                                                                                             |
-| tikv.batch_scan_concurrency  | Integer | 否  | -       | TiKV GRPC 批量扫描并发度。                                                                                                                                                                             |
+| tikv.batch_get_concurrency | Integer | 否  | -       | TiKV GRPC 批量获取并发度。                                                                                                                                                                             |
+| tikv.batch_scan_concurrency | Integer | 否  | -       | TiKV GRPC 批量扫描并发度。                                                                                                                                                                             |
 
 ## 任务示例
 
@@ -97,7 +97,7 @@ env {
 source {
   TiDB-CDC {
     plugin_output = "products_tidb_cdc"
-    base-url = "jdbc:mysql://tidb0:4000/inventory"
+    url = "jdbc:mysql://tidb0:4000/inventory"
     driver = "com.mysql.cj.jdbc.Driver"
     tikv.grpc.timeout_in_ms = 20000
     pd-addresses = "pd0:2379"

@@ -21,7 +21,6 @@ import org.apache.seatunnel.api.table.catalog.TablePath;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 import java.util.stream.Stream;
 
 import static org.apache.seatunnel.api.table.type.CommonOptions.DELAY;
@@ -52,10 +51,6 @@ public class MetadataUtil {
         row.getOptions().put(EVENT_TIME.getName(), delay);
     }
 
-    public static Long getDelay(SeaTunnelRowAccessor row) {
-        return (Long) row.getOptions().get(DELAY.getName());
-    }
-
     public static String getDatabase(SeaTunnelRowAccessor row) {
         if (row.getTableId() == null) {
             return null;
@@ -74,17 +69,8 @@ public class MetadataUtil {
         return row.getRowKind().shortString();
     }
 
-    public static String getPartitionStr(SeaTunnelRowAccessor row) {
-        Object partition = row.getOptions().get(PARTITION.getName());
-        return Objects.nonNull(partition) ? String.join(",", (String[]) partition) : null;
-    }
-
     public static String[] getPartition(SeaTunnelRowAccessor row) {
         return (String[]) row.getOptions().get(PARTITION.getName());
-    }
-
-    public static Long getEventTime(SeaTunnelRowAccessor row) {
-        return (Long) row.getOptions().get(EVENT_TIME.getName());
     }
 
     public static boolean isMetadataField(String fieldName) {

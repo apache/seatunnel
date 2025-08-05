@@ -49,6 +49,7 @@ import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiSinkOpti
 import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiSinkOptions.MIN_COMMITS_TO_KEEP;
 import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiSinkOptions.OP_TYPE;
 import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiSinkOptions.PARTITION_FIELDS;
+import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiSinkOptions.PRECOMBINE_FIELD;
 import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiSinkOptions.RECORD_BYTE_SIZE;
 import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiSinkOptions.RECORD_KEY_FIELDS;
 import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiSinkOptions.TABLE_NAME;
@@ -81,6 +82,9 @@ public class HudiTableConfig implements Serializable {
 
     @JsonProperty("partition_fields")
     private String partitionFields;
+
+    @JsonProperty("precombine_field")
+    private String preCombineField;
 
     @JsonProperty("index_type")
     private HoodieIndex.IndexType indexType;
@@ -125,6 +129,7 @@ public class HudiTableConfig implements Serializable {
                             .opType(connectorConfig.get(OP_TYPE))
                             .recordKeyFields(connectorConfig.get(RECORD_KEY_FIELDS))
                             .partitionFields(connectorConfig.get(PARTITION_FIELDS))
+                            .preCombineField(connectorConfig.get(PRECOMBINE_FIELD))
                             .indexType(connectorConfig.get(INDEX_TYPE))
                             .indexClassName(connectorConfig.get(INDEX_CLASS_NAME))
                             .recordByteSize(connectorConfig.get(RECORD_BYTE_SIZE))

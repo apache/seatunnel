@@ -88,7 +88,8 @@ Since in the separated cluster mode, the Worker node does not store Imap data, t
 
 ### 4.2 Slot configuration (this parameter is not effective on the Master node)
 
-The number of Slots determines the number of task groups that can be run in parallel on the cluster node. The number of Slots required by a task is formulated as N = 2 + P (parallelism configured by the task). By default, the number of Slots of SeaTunnel Engine is dynamic, that is, there is no limit on the number. We recommend that the number of Slots be set to twice the number of CPU cores of the node.
+The number of Slots determines the number of task groups that can be run in parallel on the cluster node. The number of Slots required by a task is formulated as N = 2 + P (parallelism configured by the task). By default, the number of Slots of SeaTunnel Engine is dynamic, that is, there is no limit on the number.
+We recommend that the number of slots be set to twice the number of CPU cores on the node, it's a default value when `dynamic-slot` is set to false and not set `slot-num`.
 
 The configuration of dynamic slot number (default) is as follows:
 

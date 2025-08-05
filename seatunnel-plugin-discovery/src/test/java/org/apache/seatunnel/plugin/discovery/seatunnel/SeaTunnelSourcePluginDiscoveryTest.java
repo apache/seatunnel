@@ -29,11 +29,9 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.condition.DisabledOnOs;
-import org.junit.jupiter.api.condition.OS;
 
+import java.io.File;
 import java.io.IOException;
-import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -41,13 +39,28 @@ import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-@DisabledOnOs(OS.WINDOWS)
 class SeaTunnelSourcePluginDiscoveryTest {
+
+    private static final String seatunnelHome;
+
+    static {
+        String rootModuleDir = "seatunnel-plugin-discovery";
+        Path path = Paths.get(System.getProperty("user.dir"));
+        while (!path.endsWith(Paths.get(rootModuleDir))) {
+            path = path.getParent();
+        }
+        seatunnelHome =
+                Paths.get(
+                                path.getParent().toString(),
+                                rootModuleDir,
+                                "target",
+                                "test-classes",
+                                "duplicate")
+                        .toString();
+    }
 
     private String originSeatunnelHome = null;
     private DeployMode originMode = null;
-    private static final String seatunnelHome =
-            SeaTunnelSourcePluginDiscoveryTest.class.getResource("/duplicate").getPath();
     private static final List<Path> pluginJars =
             Lists.newArrayList(
                     Paths.get(seatunnelHome, "connectors", "connector-http-jira.jar"),
@@ -103,7 +116,14 @@ class SeaTunnelSourcePluginDiscoveryTest {
                                         .toString())
                         .collect(Collectors.toList()),
                 seaTunnelSourcePluginDiscovery.getPluginJarPaths(pluginIdentifiers).stream()
-                        .map(URL::getPath)
+                        .map(
+                                url -> {
+                                    try {
+                                        return new File(url.toURI()).getPath();
+                                    } catch (Exception e) {
+                                        throw new RuntimeException(e);
+                                    }
+                                })
                         .collect(Collectors.toList()));
     }
 
@@ -149,7 +169,14 @@ class SeaTunnelSourcePluginDiscoveryTest {
                                         .toString())
                         .collect(Collectors.toList()),
                 seaTunnelSourcePluginDiscovery.getPluginJarPaths(pluginIdentifiers).stream()
-                        .map(URL::getPath)
+                        .map(
+                                url -> {
+                                    try {
+                                        return new File(url.toURI()).getPath();
+                                    } catch (Exception e) {
+                                        throw new RuntimeException(e);
+                                    }
+                                })
                         .collect(Collectors.toList()));
     }
 

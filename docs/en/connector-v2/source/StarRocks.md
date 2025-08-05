@@ -29,7 +29,7 @@ delivers the query plan as a parameter to BE nodes, and then obtains data result
 | database                | string  | yes      | -                 |
 | table                   | string  | no       | -                 |
 | scan_filter             | string  | no       | -                 |
-| schema                  | config  | no       | -                 |
+| schema                  | config  | yes      | -                 |
 | table_list              | array   | no       | -                 |
 | request_tablet_size     | int     | no       | Integer.MAX_VALUE |
 | scan_connect_timeout_ms | int     | no       | 30000             |

@@ -8,6 +8,8 @@ The `Embedding` transform plugin leverages embedding models to convert text data
 transformation can be applied to various fields. The plugin supports multiple model providers and can be integrated with
 different API endpoints.
 
+> **Important Note:** The current embedding precision only supports float32 format.
+
 ## Options
 
 | Name                           | Type   | Required | Default Value | Description                                                                                                                                                             |
@@ -26,6 +28,13 @@ different API endpoints.
 | custom_response_parse          | string | no       |               | Specifies how to parse the response from the model using JsonPath. Example: `$.choices[*].message.content`.                                                             |
 | custom_request_headers         | map    | no       |               | Custom headers for the request to the model.                                                                                                                            |
 | custom_request_body            | map    | no       |               | Custom body for the request. Supports placeholders like `${model}`, `${input}`.                                                                                         |
+
+## Precision Support
+
+**Important:** The current version of the Embedding plugin only supports **float32** precision for vector data.
+
+- All generated embedding vectors will be stored in float32 format
+- If your model or API returns other precision formats (such as float64), the plugin will automatically convert them to float32
 
 ### model_provider
 

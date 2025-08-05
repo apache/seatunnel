@@ -47,33 +47,34 @@ import ChangeLog from '../changelog/connector-file-cos.md';
 
 ## 选项
 
-| 名称                                    |  类型    | 必需  | 默认值                 |
-|---------------------------------------|---------|-----|---------------------|
-| path                                  | string  | 是   | -                   |
-| file_format_type                      | string  | 是   | -                   |
-| bucket                                | string  | 是   | -                   |
-| secret_id                             | string  | 是   | -                   |
-| secret_key                            | string  | 是   | -                   |
-| region                                | string  | 是   | -                   |
-| read_columns                          | list    | 是   | -                   |
-| delimiter/field_delimiter             | string  | 否   | \001                |
-| parse_partition_from_path             | boolean | 否   | true                |
-| skip_header_row_number                | long    | 否   | 0                   |
-| date_format                           | string  | 否   | yyyy-MM-dd          |
-| datetime_format                       | string  | 否   | yyyy-MM-dd HH:mm:ss |
-| time_format                           | string  | 否   | HH:mm:ss            |
-| schema                                | config  | 否   | -                   |
-| sheet_name                            | string  | 否   | -                   |
-| xml_row_tag                           | string  | 否   | -                   |
-| xml_use_attr_format                   | boolean | 否   | -                   |
-| csv_use_header_line                   | boolean | 否   | false               |
-| file_filter_pattern                   | string  | 否   |                     |
-| compress_codec                        | string  | 否   | none                |
-| archive_compress_codec                | string  | 否   | none                |
-| encoding                              | string  | 否   | UTF-8               |
-| binary_chunk_size                     | int     | 否   | 1024                |
-| binary_complete_file_mode             | boolean | 否   | false               |
-| common-options                        |         | 否   | -                   |
+| 名称                        | 类型      | 必需 | 默认值                 |
+|---------------------------|---------|----|---------------------|
+| path                      | string  | 是  | -                   |
+| file_format_type          | string  | 是  | -                   |
+| bucket                    | string  | 是  | -                   |
+| secret_id                 | string  | 是  | -                   |
+| secret_key                | string  | 是  | -                   |
+| region                    | string  | 是  | -                   |
+| read_columns              | list    | 是  | -                   |
+| delimiter/field_delimiter | string  | 否  | \001                |
+| row_delimiter             | string  | 否  | \n                  |
+| parse_partition_from_path | boolean | 否  | true                |
+| skip_header_row_number    | long    | 否  | 0                   |
+| date_format               | string  | 否  | yyyy-MM-dd          |
+| datetime_format           | string  | 否  | yyyy-MM-dd HH:mm:ss |
+| time_format               | string  | 否  | HH:mm:ss            |
+| schema                    | config  | 否  | -                   |
+| sheet_name                | string  | 否  | -                   |
+| xml_row_tag               | string  | 否  | -                   |
+| xml_use_attr_format       | boolean | 否  | -                   |
+| csv_use_header_line       | boolean | 否  | false               |
+| file_filter_pattern       | string  | 否  |                     |
+| compress_codec            | string  | 否  | none                |
+| archive_compress_codec    | string  | 否  | none                |
+| encoding                  | string  | 否  | UTF-8               |
+| binary_chunk_size         | int     | 否  | 1024                |
+| binary_complete_file_mode | boolean | 否  | false               |
+| common-options            |         | 否  | -                   |
 
 ### path [string]
 
@@ -200,6 +201,14 @@ cos文件系统的region。
 字段分隔符，用于告诉连接器如何对字段进行切片和切块
 
 默认值“\001”，与配置单元的默认分隔符相同
+
+### row_delimiter [string]
+
+仅在 file_format 为 text 时需要配置。
+
+行分隔符，用于告诉连接器如何分割行。
+
+默认 `\n`。
 
 ### parse_partition_from_path [boolean]
 

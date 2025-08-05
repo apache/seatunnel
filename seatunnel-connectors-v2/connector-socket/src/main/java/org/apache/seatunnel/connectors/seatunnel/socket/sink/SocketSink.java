@@ -17,69 +17,41 @@
 
 package org.apache.seatunnel.connectors.seatunnel.socket.sink;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
-import org.apache.seatunnel.api.common.PrepareFailException;
-import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
-import org.apache.seatunnel.api.sink.SeaTunnelSink;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.config.CheckConfigUtil;
-import org.apache.seatunnel.common.config.CheckResult;
-import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSimpleSink;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
-import org.apache.seatunnel.connectors.seatunnel.socket.config.SinkConfig;
-import org.apache.seatunnel.connectors.seatunnel.socket.exception.SocketConnectorException;
-
-import com.google.auto.service.AutoService;
+import org.apache.seatunnel.connectors.seatunnel.socket.config.SocketConfig;
+import org.apache.seatunnel.connectors.seatunnel.socket.config.SocketSinkOptions;
 
 import java.io.IOException;
 import java.util.Optional;
 
-import static org.apache.seatunnel.connectors.seatunnel.socket.config.SocketSinkConfigOptions.HOST;
-import static org.apache.seatunnel.connectors.seatunnel.socket.config.SocketSinkConfigOptions.PORT;
-
-@AutoService(SeaTunnelSink.class)
 public class SocketSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
-    private Config pluginConfig;
-    private SinkConfig sinkConfig;
-    private SeaTunnelRowType seaTunnelRowType;
+
+    private final SocketConfig socketConfig;
+    private final CatalogTable catalogTable;
+
+    public SocketSink(ReadonlyConfig pluginConfig, CatalogTable catalogTable) {
+        this.socketConfig = new SocketConfig(pluginConfig);
+        this.catalogTable = catalogTable;
+    }
 
     @Override
     public String getPluginName() {
-        return "Socket";
-    }
-
-    @Override
-    public void prepare(Config pluginConfig) throws PrepareFailException {
-        this.pluginConfig = pluginConfig;
-        CheckResult result = CheckConfigUtil.checkAllExists(pluginConfig, PORT.key(), HOST.key());
-        if (!result.isSuccess()) {
-            throw new SocketConnectorException(
-                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                    String.format(
-                            "PluginName: %s, PluginType: %s, Message: %s",
-                            getPluginName(), PluginType.SINK, result.getMsg()));
-        }
-        sinkConfig = new SinkConfig(pluginConfig);
-    }
-
-    @Override
-    public void setTypeInfo(SeaTunnelRowType seaTunnelRowType) {
-        this.seaTunnelRowType = seaTunnelRowType;
+        return SocketSinkOptions.identifier;
     }
 
     @Override
     public AbstractSinkWriter<SeaTunnelRow, Void> createWriter(SinkWriter.Context context)
             throws IOException {
-        return new SocketSinkWriter(sinkConfig, seaTunnelRowType);
+        return new SocketSinkWriter(socketConfig, catalogTable.getSeaTunnelRowType());
     }
 
     @Override
     public Optional<CatalogTable> getWriteCatalogTable() {
-        return super.getWriteCatalogTable();
+        return Optional.of(catalogTable);
     }
 }
