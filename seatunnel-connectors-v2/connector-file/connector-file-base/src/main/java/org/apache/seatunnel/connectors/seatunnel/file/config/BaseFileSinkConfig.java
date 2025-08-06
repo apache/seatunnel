@@ -39,6 +39,7 @@ public class BaseFileSinkConfig implements DelimiterConfig, Serializable {
     private static final long serialVersionUID = 1L;
     protected CompressFormat compressFormat = FileBaseSinkOptions.COMPRESS_CODEC.defaultValue();
     protected String fieldDelimiter;
+    protected int sheetMaxRows = FileBaseSinkOptions.SHEET_MAX_ROWS.defaultValue();
     protected String rowDelimiter = FileBaseSinkOptions.ROW_DELIMITER.defaultValue();
     protected int batchSize = FileBaseSinkOptions.BATCH_SIZE.defaultValue();
     protected String path;
@@ -60,6 +61,12 @@ public class BaseFileSinkConfig implements DelimiterConfig, Serializable {
         }
         if (config.hasPath(FileBaseSinkOptions.BATCH_SIZE.key())) {
             this.batchSize = config.getInt(FileBaseSinkOptions.BATCH_SIZE.key());
+        }
+
+        if (config.hasPath(FileBaseSinkOptions.SHEET_MAX_ROWS.key())
+                && StringUtils.isNotEmpty(
+                        config.getString(FileBaseSinkOptions.SHEET_MAX_ROWS.key()))) {
+            this.sheetMaxRows = config.getInt(FileBaseSinkOptions.SHEET_MAX_ROWS.key());
         }
 
         if (config.hasPath(FileBaseSinkOptions.ROW_DELIMITER.key())) {
