@@ -271,11 +271,10 @@ public class SqlToPaimonPredicateConverter {
                 return builder.contains(
                         columnIndex, BinaryString.fromString(containsMatcher.group(1)));
             }
-
-            // If none of the patterns match, throw an exception
             throw new IllegalArgumentException(
                     String.format(
-                            "Unsupported LIKE pattern: '%s'. Only patterns like 'prefix%%', '%%suffix', and '%%substring%%' are supported.",
+                            "Invalid LIKE pattern: '%s'. Supported patterns are: 'prefix%%', '%%suffix', and '%%substring%%'. "
+                                    + "Please ensure your pattern matches one of these formats.",
                             rightVal.toString()));
 
         } else if (expression instanceof Parenthesis) {
