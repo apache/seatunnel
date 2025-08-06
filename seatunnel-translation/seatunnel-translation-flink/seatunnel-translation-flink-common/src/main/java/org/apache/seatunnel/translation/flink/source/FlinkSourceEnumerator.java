@@ -96,7 +96,7 @@ public class FlinkSourceEnumerator<SplitT extends SourceSplit, EnumStateT>
             sourceSplitEnumerator.registerReader(subtaskId);
             currentRegisterReaders++;
         }
-        if (!isRun.getAndSet(true) && currentRegisterReaders == parallelism) {
+        if (currentRegisterReaders == parallelism && !isRun.getAndSet(true)) {
             try {
                 sourceSplitEnumerator.run();
             } catch (Exception e) {
