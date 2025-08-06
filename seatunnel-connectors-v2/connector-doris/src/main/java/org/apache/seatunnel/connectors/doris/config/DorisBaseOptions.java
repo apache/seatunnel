@@ -31,6 +31,15 @@ public class DorisBaseOptions {
                     .noDefaultValue()
                     .withDescription("doris fe http address.");
 
+    public static final Option<String> DRIVER =
+            Options.key("driver").stringType().noDefaultValue().withDescription("driver");
+
+    public static final Option<Boolean> ENABLE_LDAP =
+            Options.key("enableLdap")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription("enableLdap");
+
     public static final Option<Integer> QUERY_PORT =
             Options.key("query-port")
                     .intType()

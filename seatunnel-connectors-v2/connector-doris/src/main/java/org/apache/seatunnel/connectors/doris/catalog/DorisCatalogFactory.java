@@ -42,7 +42,9 @@ public class DorisCatalogFactory implements CatalogFactory {
                 options.get(DorisBaseOptions.USERNAME),
                 options.get(DorisBaseOptions.PASSWORD),
                 options.get(SAVE_MODE_CREATE_TEMPLATE),
-                options.get(DorisSinkOptions.DEFAULT_DATABASE));
+                options.get(DorisSinkOptions.DEFAULT_DATABASE),
+                options.get(DorisBaseOptions.DRIVER),
+                options.get(DorisBaseOptions.ENABLE_LDAP));
     }
 
     @Override

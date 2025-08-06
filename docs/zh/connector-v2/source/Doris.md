@@ -62,18 +62,19 @@ import ChangeLog from '../changelog/connector-doris.md';
 
 基础配置:
 
-|               名称                |  类型   | 是否必须  |  默认值     |                                             描述                                                     |
-|----------------------------------|--------|----------|------------|-----------------------------------------------------------------------------------------------------|
-| fenodes                          | string | yes      | -          | FE 地址, 格式：`"fe_host:fe_http_port"`                                                               |
-| username                         | string | yes      | -          | 用户名                                                                                               |
-| password                         | string | yes      | -          | 密码                                                                                                 |
-| doris.request.retries            | int    | no       | 3          | 请求Doris FE的重试次数                                                                                 |
-| doris.request.read.timeout.ms    | int    | no       | 30000      |                                                                                                     |
-| doris.request.connect.timeout.ms | int    | no       | 30000      |                                                                                                     |
-| query-port                       | string | no       | 9030       | Doris查询端口                                                                                         |
-| doris.request.query.timeout.s    | int    | no       | 3600       | Doris扫描数据的超时时间，单位秒                                                                          |
-| table_list                       | string | 否       | -           | 表清单                                                                                               |
-
+|               名称                |  类型   | 是否必须     | 默认值   | 描述                                 |
+|----------------------------------|--------|----------|-------|------------------------------------|
+| fenodes                          | string | yes      | -     | FE 地址, 格式：`"fe_host:fe_http_port"` |
+| username                         | string | yes      | -     | 用户名                                |
+| password                         | string | yes      | -     | 密码                                 |
+| doris.request.retries            | int    | no       | 3     | 请求Doris FE的重试次数                    |
+| doris.request.read.timeout.ms    | int    | no       | 30000 |                                    |
+| doris.request.connect.timeout.ms | int    | no       | 30000 |                                    |
+| query-port                       | string | no       | 9030  | Doris查询端口                          |
+| doris.request.query.timeout.s    | int    | no       | 3600  | Doris扫描数据的超时时间，单位秒                 |
+| table_list                       | string | 否        | -     | 表清单                                |
+| driver                           | string  | no       | -     | 驱动全类名                              |
+| enableLdap                       | boolean | no       | false | LDAP 认证开关，开启时建议使用 MySQL 5.x 驱动     |
 表清单配置:
 
 |               名称                |  类型   | 是否必须  |  默认值     |                                             描述                                                     |

@@ -51,6 +51,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.sql.Connection;
+import java.sql.Driver;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -58,11 +59,13 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Properties;
 
 import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkArgument;
 
@@ -90,17 +93,25 @@ public class DorisCatalog implements Catalog {
 
     private TypeConverter<BasicTypeDefine> typeConverter;
 
+    private String driverClass;
+
+    private Boolean enableLdap;
+
     public DorisCatalog(
             String catalogName,
             String frontEndNodes,
             Integer queryPort,
             String username,
-            String password) {
+            String password,
+            String driverClass,
+            Boolean enableLdap) {
         this.catalogName = catalogName;
         this.frontEndNodes = frontEndNodes.split(",");
         this.queryPort = queryPort;
         this.username = username;
         this.password = password;
+        this.driverClass = driverClass;
+        this.enableLdap = enableLdap;
     }
 
     public DorisCatalog(
@@ -109,8 +120,10 @@ public class DorisCatalog implements Catalog {
             Integer queryPort,
             String username,
             String password,
-            String createTableTemplate) {
-        this(catalogName, frontEndNodes, queryPort, username, password);
+            String createTableTemplate,
+            String driverClass,
+            Boolean enableLdap) {
+        this(catalogName, frontEndNodes, queryPort, username, password, driverClass, enableLdap);
         this.createTableTemplate = createTableTemplate;
     }
 
@@ -121,8 +134,18 @@ public class DorisCatalog implements Catalog {
             String username,
             String password,
             String createTableTemplate,
-            String defaultDatabase) {
-        this(catalogName, frontEndNodes, queryPort, username, password, createTableTemplate);
+            String defaultDatabase,
+            String driverClass,
+            Boolean enableLdap) {
+        this(
+                catalogName,
+                frontEndNodes,
+                queryPort,
+                username,
+                password,
+                createTableTemplate,
+                driverClass,
+                enableLdap);
         this.defaultDatabase = defaultDatabase;
     }
 
@@ -134,14 +157,164 @@ public class DorisCatalog implements Catalog {
                         queryPort,
                         defaultDatabase);
         try {
-            conn = DriverManager.getConnection(jdbcUrl, username, password);
+            // Prepare connection properties
+            Properties connectionInfo = new Properties();
+            if (username != null) {
+                connectionInfo.put("user", username);
+            }
+            if (password != null) {
+                connectionInfo.put("password", password);
+            }
+
+            // Attempt to connect using available drivers
+            conn = attemptConnectionWithDrivers(jdbcUrl, connectionInfo);
+
+            if (conn == null) {
+                LOG.warn(
+                        "Failed to connect using driver enumeration, falling back to DriverManager.getConnection");
+                conn = DriverManager.getConnection(jdbcUrl, username, password);
+            }
+
+            // Validate connection and initialize catalog
             conn.getCatalog();
             dorisVersion = getDorisVersion();
             typeConverter = DorisTypeConverterFactory.getTypeConverter(dorisVersion);
+
         } catch (SQLException e) {
-            throw new CatalogException(String.format("Failed to connect url %s", jdbcUrl), e);
+            throw new CatalogException(String.format("Failed to connect to URL: %s", jdbcUrl), e);
         }
-        LOG.info("Catalog {} established connection to {} success", catalogName, jdbcUrl);
+
+        LOG.info("Catalog [{}] successfully established connection to [{}]", catalogName, jdbcUrl);
+    }
+
+    /**
+     * Attempt to establish connection by iterating through available JDBC drivers. This method
+     * prioritizes the specified driver class if provided, otherwise tries all available drivers.
+     *
+     * @param jdbcUrl The JDBC URL to connect to
+     * @param connectionInfo Connection properties including user credentials and LDAP settings
+     * @return A valid database connection, or null if all attempts failed
+     */
+    private Connection attemptConnectionWithDrivers(String jdbcUrl, Properties connectionInfo) {
+        Enumeration<Driver> drivers = DriverManager.getDrivers();
+
+        // If a specific driver class is specified, try it first
+        if (StringUtils.isNotBlank(driverClass)) {
+            LOG.debug("Attempting connection with specified driver class: {}", driverClass);
+
+            while (drivers.hasMoreElements()) {
+                Driver driver = drivers.nextElement();
+                if (StringUtils.equals(driver.getClass().getName(), driverClass)) {
+                    Connection connection = tryConnectWithDriver(driver, jdbcUrl, connectionInfo);
+                    if (connection != null) {
+                        LOG.info("Successfully connected using specified driver: {}", driverClass);
+                        return connection;
+                    }
+                }
+            }
+
+            LOG.warn(
+                    "Failed to connect using specified driver class: {}, trying other available drivers",
+                    driverClass);
+
+            // Reset enumeration for fallback attempt
+            drivers = DriverManager.getDrivers();
+        }
+
+        // Try all available drivers
+        LOG.debug("Attempting connection with all available drivers");
+        while (drivers.hasMoreElements()) {
+            Driver driver = drivers.nextElement();
+            String currentDriverClass = driver.getClass().getName();
+
+            // Skip the already tried driver if it was specified
+            if (StringUtils.isNotBlank(driverClass)
+                    && StringUtils.equals(currentDriverClass, driverClass)) {
+                continue;
+            }
+
+            Connection connection = tryConnectWithDriver(driver, jdbcUrl, connectionInfo);
+            if (connection != null) {
+                LOG.info("Successfully connected using driver: {}", currentDriverClass);
+                return connection;
+            }
+        }
+
+        LOG.error("All driver connection attempts failed");
+        return null;
+    }
+
+    /**
+     * Attempt to connect using a specific driver with LDAP configuration if enabled.
+     *
+     * @param driver The JDBC driver instance to use
+     * @param jdbcUrl The JDBC URL to connect to
+     * @param connectionInfo Base connection properties
+     * @return A valid connection or null if the attempt failed
+     */
+    private Connection tryConnectWithDriver(
+            Driver driver, String jdbcUrl, Properties connectionInfo) {
+        try {
+            String driverClassName = driver.getClass().getName();
+            LOG.debug("Attempting connection with driver: {}", driverClassName);
+
+            // Create a copy of connection info to avoid modifying the original
+            Properties driverSpecificInfo = new Properties();
+            driverSpecificInfo.putAll(connectionInfo);
+
+            // Apply LDAP authentication settings if enabled
+            configureLdapAuthentication(driverSpecificInfo, driverClassName);
+
+            // Attempt connection
+            return driver.connect(jdbcUrl, driverSpecificInfo);
+
+        } catch (Exception e) {
+            LOG.debug(
+                    "Connection attempt failed with driver [{}]: {}",
+                    driver.getClass().getName(),
+                    e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Configure LDAP authentication properties based on the MySQL driver version. This method adds
+     * the appropriate authentication plugin settings for MySQL 5.x and 8.x drivers.
+     *
+     * <p><a href="https://doris.apache.org/docs/admin-manual/auth/ldap">ldap auth</a>
+     *
+     * @param connectionInfo Properties object to be modified with LDAP settings
+     * @param driverClassName The fully qualified driver class name
+     */
+    private void configureLdapAuthentication(Properties connectionInfo, String driverClassName) {
+        if (!enableLdap) {
+            return;
+        }
+
+        LOG.debug("Configuring LDAP authentication for driver: {}", driverClassName);
+
+        if (StringUtils.containsIgnoreCase(driverClassName, "com.mysql.cj")) {
+            // MySQL 8.x Connector/J LDAP authentication support needs improvement
+            // See: https://github.com/apache/doris/discussions/54356
+            // Note: Doris official documentation only provides MySQL 5.x driver configuration
+            LOG.warn(
+                    "MySQL 8 driver type [{}], LDAP configuration may not work properly",
+                    driverClassName);
+        } else if (StringUtils.containsIgnoreCase(driverClassName, "com.mysql.jdbc")) {
+            // MySQL 5.x Connector configuration
+            String mysql5LdapPlugin = "org.apache.seatunnel.connectors.doris.util.MySQL5LdapPlugin";
+            connectionInfo.put("authenticationPlugins", mysql5LdapPlugin);
+            connectionInfo.put("defaultAuthenticationPlugin", mysql5LdapPlugin);
+            connectionInfo.put(
+                    "disabledAuthenticationPlugins",
+                    "com.mysql.jdbc.authentication.MysqlNativePasswordPlugin");
+            LOG.debug("Applied MySQL 5.x LDAP authentication configuration");
+
+        } else {
+            LOG.warn(
+                    "Unknown MySQL driver type [{}], LDAP configuration may not work properly",
+                    driverClassName);
+        }
     }
 
     private String getDorisVersion() throws SQLException {
