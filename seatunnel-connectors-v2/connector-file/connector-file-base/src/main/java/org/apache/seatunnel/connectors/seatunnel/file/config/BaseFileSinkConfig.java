@@ -38,7 +38,7 @@ import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.ch
 public class BaseFileSinkConfig implements DelimiterConfig, Serializable {
     private static final long serialVersionUID = 1L;
     protected CompressFormat compressFormat = FileBaseSinkOptions.COMPRESS_CODEC.defaultValue();
-    protected String fieldDelimiter = FileBaseSinkOptions.FIELD_DELIMITER.defaultValue();
+    protected String fieldDelimiter;
     protected String rowDelimiter = FileBaseSinkOptions.ROW_DELIMITER.defaultValue();
     protected int batchSize = FileBaseSinkOptions.BATCH_SIZE.defaultValue();
     protected String path;
@@ -60,11 +60,6 @@ public class BaseFileSinkConfig implements DelimiterConfig, Serializable {
         }
         if (config.hasPath(FileBaseSinkOptions.BATCH_SIZE.key())) {
             this.batchSize = config.getInt(FileBaseSinkOptions.BATCH_SIZE.key());
-        }
-        if (config.hasPath(FileBaseSinkOptions.FIELD_DELIMITER.key())
-                && StringUtils.isNotEmpty(
-                        config.getString(FileBaseSinkOptions.FIELD_DELIMITER.key()))) {
-            this.fieldDelimiter = config.getString(FileBaseSinkOptions.FIELD_DELIMITER.key());
         }
 
         if (config.hasPath(FileBaseSinkOptions.ROW_DELIMITER.key())) {
@@ -107,6 +102,18 @@ public class BaseFileSinkConfig implements DelimiterConfig, Serializable {
         } else {
             // fall back to the default
             this.fileFormat = FileBaseSinkOptions.FILE_FORMAT_TYPE.defaultValue();
+        }
+
+        if (config.hasPath(FileBaseSinkOptions.FIELD_DELIMITER.key())
+                && StringUtils.isNotEmpty(
+                        config.getString(FileBaseSinkOptions.FIELD_DELIMITER.key()))) {
+            this.fieldDelimiter = config.getString(FileBaseSinkOptions.FIELD_DELIMITER.key());
+        } else {
+            if (FileFormat.CSV.equals(this.fileFormat)) {
+                this.fieldDelimiter = ",";
+            } else {
+                this.fieldDelimiter = FileBaseSinkOptions.FIELD_DELIMITER.defaultValue();
+            }
         }
 
         if (config.hasPath(FileBaseSinkOptions.FILENAME_EXTENSION.key())
