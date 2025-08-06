@@ -37,12 +37,11 @@ By default, we use 2PC commit to ensure `exactly-once`
 
 Output data to huawei cloud obs file system.
 
-If you use spark/flink, In order to use this connector, You must ensure your spark/flink cluster already integrated hadoop. The tested hadoop version is 2.x.
+If you use spark/flink, In order to use this connector, You must ensure your spark/flink cluster already integrated hadoop. The tested hadoop version is 3.4.
 
 If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you download and install SeaTunnel Engine. You can check the jar package under ${SEATUNNEL_HOME}/lib to confirm this.
 
 We made some trade-offs in order to support more file types, so we used the HDFS protocol for internal access to OBS and this connector need some hadoop dependencies.
-It only supports hadoop version **2.9.X+**.
 
 ## Required Jar List
 

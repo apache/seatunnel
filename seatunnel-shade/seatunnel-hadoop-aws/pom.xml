@@ -33,7 +33,24 @@
         <dependency>
             <groupId>org.apache.hadoop</groupId>
             <artifactId>hadoop-aws</artifactId>
-            <version>${hadoop-aws.version}</version>
+            <version>${hadoop3.version}</version>
+
+            <!-- the reasons to exclude the bundle module:
+            1. to unify the aws sdk version
+            -->
+            <exclusions>
+                <exclusion>
+                    <groupId>software.amazon.awssdk</groupId>
+                    <artifactId>bundle</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <!--further only import the necessary modules-->
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>bundle</artifactId>
+            <version>${software.amazon.awssdk.version}</version>
         </dependency>
     </dependencies>
 

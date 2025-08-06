@@ -36,13 +36,6 @@ import org.testcontainers.databend.DatabendContainer;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.shaded.com.google.common.collect.Lists;
 
-import com.amazonaws.auth.AWSCredentials;
-import com.amazonaws.auth.AWSCredentialsProvider;
-import com.amazonaws.auth.AWSStaticCredentialsProvider;
-import com.amazonaws.auth.BasicAWSCredentials;
-import com.amazonaws.client.builder.AwsClientBuilder;
-import com.amazonaws.services.s3.AmazonS3;
-import com.amazonaws.services.s3.AmazonS3ClientBuilder;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 
@@ -303,30 +296,42 @@ public class DatabendIT extends TestSuiteBase implements TestResource {
         try {
             LOG.info("using AWS SDK to create MinIO bucket: {}", bucketName);
 
-            AwsClientBuilder.EndpointConfiguration endpointConfig =
-                    new AwsClientBuilder.EndpointConfiguration(
-                            "http://localhost:9000", "us-east-1");
-
-            AWSCredentials credentials = new BasicAWSCredentials("minioadmin", "minioadmin");
-            AWSCredentialsProvider credentialsProvider =
-                    new AWSStaticCredentialsProvider(credentials);
-
-            AmazonS3 s3Client =
-                    AmazonS3ClientBuilder.standard()
-                            .withEndpointConfiguration(endpointConfig)
-                            .withCredentials(credentialsProvider)
-                            .withPathStyleAccessEnabled(true)
-                            .disableChunkedEncoding()
+            software.amazon.awssdk.services.s3.S3Client s3Client =
+                    software.amazon.awssdk.services.s3.S3Client.builder()
+                            .endpointOverride(java.net.URI.create("http://localhost:9000"))
+                            .region(software.amazon.awssdk.regions.Region.US_EAST_1)
+                            .credentialsProvider(
+                                    software.amazon.awssdk.auth.credentials
+                                            .StaticCredentialsProvider.create(
+                                            software.amazon.awssdk.auth.credentials
+                                                    .AwsBasicCredentials.create(
+                                                    "minioadmin", "minioadmin")))
+                            .serviceConfiguration(
+                                    software.amazon.awssdk.services.s3.S3Configuration.builder()
+                                            .pathStyleAccessEnabled(true)
+                                            .build())
                             .build();
 
-            boolean bucketExists = s3Client.doesBucketExistV2(bucketName);
-            if (bucketExists) {
+            try {
+                software.amazon.awssdk.services.s3.model.HeadBucketRequest headBucketRequest =
+                        software.amazon.awssdk.services.s3.model.HeadBucketRequest.builder()
+                                .bucket(bucketName)
+                                .build();
+                s3Client.headBucket(headBucketRequest);
                 LOG.info("bucket {} exist，no need to create", bucketName);
                 return true;
+            } catch (software.amazon.awssdk.services.s3.model.NoSuchBucketException e) {
+                LOG.info("bucket {} does not exist, creating...", bucketName);
             }
 
-            s3Client.createBucket(bucketName);
+            software.amazon.awssdk.services.s3.model.CreateBucketRequest createBucketRequest =
+                    software.amazon.awssdk.services.s3.model.CreateBucketRequest.builder()
+                            .bucket(bucketName)
+                            .build();
+            s3Client.createBucket(createBucketRequest);
+
             LOG.info("create MinIO bucket success: {}", bucketName);
+            s3Client.close();
             return true;
         } catch (Exception e) {
             LOG.error("using AWS SDK to create MinIO failed", e);

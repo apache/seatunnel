@@ -65,7 +65,8 @@ public class S3FileBaseOptions extends FileBaseSourceOptions {
     public enum S3aAwsCredentialsProvider {
         SimpleAWSCredentialsProvider("org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider"),
 
-        InstanceProfileCredentialsProvider("com.amazonaws.auth.InstanceProfileCredentialsProvider");
+        InstanceProfileCredentialsProvider(
+                "software.amazon.awssdk.auth.credentials.InstanceProfileCredentialsProvider");
 
         private String provider;
 

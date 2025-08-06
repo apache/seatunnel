@@ -22,23 +22,14 @@
         <version>${revision}</version>
     </parent>
 
-    <artifactId>seatunnel-hadoop3-3.1.4-uber</artifactId>
+    <artifactId>seatunnel-hadoop3-3.4.1-uber</artifactId>
     <name>SeaTunnel : Shade : Hadoop3</name>
 
     <properties>
-        <hadoop3.version>3.1.4</hadoop3.version>
         <guava.version>27.0-jre</guava.version>
     </properties>
 
-    <dependencyManagement>
-        <dependencies>
-            <dependency>
-                <groupId>com.google.guava</groupId>
-                <artifactId>guava</artifactId>
-                <version>${guava.version}</version>
-            </dependency>
-        </dependencies>
-    </dependencyManagement>
+    <dependencyManagement />
 
     <dependencies>
         <!-- https://mvnrepository.com/artifact/org.apache.hadoop/hadoop-aws -->
@@ -46,6 +37,12 @@
             <groupId>org.apache.hadoop</groupId>
             <artifactId>hadoop-client</artifactId>
             <version>${hadoop3.version}</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.bouncycastle</groupId>
+                    <artifactId>bcprov-jdk18on</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
         <dependency>
             <groupId>org.xerial.snappy</groupId>
@@ -66,7 +63,7 @@
                         </goals>
                         <phase>package</phase>
                         <configuration>
-                            <finalName>seatunnel-hadoop3-3.1.4-uber</finalName>
+                            <finalName>seatunnel-hadoop3-3.4.1-uber</finalName>
                             <createSourcesJar>${enableSourceJarCreation}</createSourcesJar>
                             <shadeSourcesContent>true</shadeSourcesContent>
                             <shadedArtifactAttached>false</shadedArtifactAttached>
@@ -121,7 +118,7 @@
                         <configuration>
                             <artifacts>
                                 <artifact>
-                                    <file>${basedir}/target/seatunnel-hadoop3-3.1.4-uber.jar</file>
+                                    <file>${basedir}/target/seatunnel-hadoop3-3.4.1-uber.jar</file>
                                     <type>jar</type>
                                     <classifier>optional</classifier>
                                 </artifact>

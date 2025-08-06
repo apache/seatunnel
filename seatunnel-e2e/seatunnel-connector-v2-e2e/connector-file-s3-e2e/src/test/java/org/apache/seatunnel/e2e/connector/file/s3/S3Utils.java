@@ -22,13 +22,13 @@ import org.apache.seatunnel.e2e.common.util.ContainerUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.amazonaws.auth.AWSStaticCredentialsProvider;
-import com.amazonaws.auth.BasicAWSCredentials;
-import com.amazonaws.client.builder.AwsClientBuilder;
-import com.amazonaws.services.s3.AmazonS3;
-import com.amazonaws.services.s3.AmazonS3ClientBuilder;
-import com.amazonaws.services.s3.model.ObjectMetadata;
-import com.amazonaws.services.s3.model.PutObjectRequest;
+import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
+import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
+import software.amazon.awssdk.core.sync.RequestBody;
+import software.amazon.awssdk.regions.Region;
+import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.S3Configuration;
+import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 
 import java.io.ByteArrayInputStream;
 import java.io.File;
@@ -43,16 +43,18 @@ public class S3Utils {
             "s3.cn-north-1.amazonaws.com.cn"; // For example, "https://s3.amazonaws.com"
     private String bucket = "ws-package";
 
-    private final AmazonS3 s3Client;
+    private final S3Client s3Client;
 
     public S3Utils() {
-        BasicAWSCredentials credentials = new BasicAWSCredentials(ACCESS_KEY, SECRET_KEY);
+        AwsBasicCredentials credentials = AwsBasicCredentials.create(ACCESS_KEY, SECRET_KEY);
 
         this.s3Client =
-                AmazonS3ClientBuilder.standard()
-                        .withCredentials(new AWSStaticCredentialsProvider(credentials))
-                        .withEndpointConfiguration(
-                                new AwsClientBuilder.EndpointConfiguration(ENDPOINT, REGION))
+                S3Client.builder()
+                        .credentialsProvider(StaticCredentialsProvider.create(credentials))
+                        .endpointOverride(java.net.URI.create(ENDPOINT))
+                        .region(Region.of(REGION))
+                        .serviceConfiguration(
+                                S3Configuration.builder().pathStyleAccessEnabled(true).build())
                         .build();
     }
 
@@ -64,21 +66,25 @@ public class S3Utils {
         } else {
             resourcesFile = new File(filePath);
         }
-        s3Client.putObject(bucket, targetFilePath, resourcesFile);
+        PutObjectRequest putObjectRequest =
+                PutObjectRequest.builder().bucket(bucket).key(targetFilePath).build();
+        s3Client.putObject(putObjectRequest, RequestBody.fromFile(resourcesFile));
     }
 
     public void createDir(String dir) {
-        ObjectMetadata metadata = new ObjectMetadata();
-        metadata.setContentLength(0);
+        if (!dir.endsWith("/")) {
+            dir = dir + "/";
+        }
+
         InputStream emptyContent = new ByteArrayInputStream(new byte[0]);
         PutObjectRequest putObjectRequest =
-                new PutObjectRequest(bucket, dir, emptyContent, metadata);
-        s3Client.putObject(putObjectRequest);
+                PutObjectRequest.builder().bucket(bucket).key(dir).build();
+        s3Client.putObject(putObjectRequest, RequestBody.fromInputStream(emptyContent, 0));
     }
 
     public void close() {
         if (s3Client != null) {
-            s3Client.shutdown();
+            s3Client.close();
         }
     }
 }

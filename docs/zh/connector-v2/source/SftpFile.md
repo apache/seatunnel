@@ -46,12 +46,11 @@ import ChangeLog from '../changelog/connector-file-sftp.md';
 
 :::tip
 
-如果您使用spark/flink，为了使用此连接器，您必须确保您的spark/flink集群已经集成了hadoop。测试过的hadoop版本是2.x。
+如果您使用spark/flink，为了使用此连接器，您必须确保您的spark/flink集群已经集成了hadoop。测试过的hadoop版本是3.4。
 
 如果您使用SeaTunnel引擎，它在您下载和安装SeaTunnel引擎时会自动集成hadoop jar。您可以检查${SEATUNNEL_HOME}/lib下的jar包来确认这一点。
 
-为了支持更多文件类型，我们做了一些权衡，因此我们使用HDFS协议进行内部访问Sftp，此连接器需要一些hadoop依赖项。
-它只支持hadoop版本**2.9.X+**。
+为了支持更多文件类型，我们做了一些权衡，因此我们使用HDFS协议进行内部访问Sftp，此连接器需要一些hadoop依赖项.
 
 :::
 

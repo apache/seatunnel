@@ -68,9 +68,9 @@ public class HudiSeatunnelS3MultiTableIT extends SeaTunnelContainer {
     private static final String DOWNLOAD_PATH = "/tmp/seatunnel/";
 
     protected static final String AWS_SDK_DOWNLOAD =
-            "https://repo1.maven.org/maven2/com/amazonaws/aws-java-sdk-bundle/1.11.271/aws-java-sdk-bundle-1.11.271.jar";
+            "https://repo1.maven.org/maven2/software/amazon/awssdk/bundle/2.31.30/bundle-2.31.30.jar";
     protected static final String HADOOP_AWS_DOWNLOAD =
-            "https://repo1.maven.org/maven2/org/apache/hadoop/hadoop-aws/3.1.4/hadoop-aws-3.1.4.jar";
+            "https://repo1.maven.org/maven2/org/apache/hadoop/hadoop-aws/3.4.1/hadoop-aws-3.4.1.jar";
 
     @Override
     @BeforeAll

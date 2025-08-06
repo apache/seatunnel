@@ -46,7 +46,7 @@ public class OssFileIT extends TestSuiteBase {
     public static final String JDOM_DOWNLOAD =
             "https://repo1.maven.org/maven2/org/jdom/jdom/1.1/jdom-1.1.jar";
     public static final String HADOOP_ALIYUN_DOWNLOAD =
-            "https://repo1.maven.org/maven2/org/apache/hadoop/hadoop-aliyun/3.1.4/hadoop-aliyun-3.1.4.jar";
+            "https://repo1.maven.org/maven2/org/apache/hadoop/hadoop-aliyun/3.4.1/hadoop-aliyun-3.4.1.jar";
 
     @TestContainerExtension
     private final ContainerExtendedFactory extendedFactory =

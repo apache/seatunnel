@@ -163,7 +163,7 @@
         <prometheus.simpleclient.version>0.16.0</prometheus.simpleclient.version>
         <enableSourceJarCreation>true</enableSourceJarCreation>
 
-        <hadoop-aws.version>3.1.4</hadoop-aws.version>
+        <hadoop3.version>3.4.1</hadoop3.version>
         <software.amazon.awssdk.version>2.31.30</software.amazon.awssdk.version>
         <arrow.version>15.0.1</arrow.version>
         <okhttp.version>4.12.0</okhttp.version>
@@ -509,7 +509,7 @@
 
             <dependency>
                 <groupId>org.apache.seatunnel</groupId>
-                <artifactId>seatunnel-hadoop3-3.1.4-uber</artifactId>
+                <artifactId>seatunnel-hadoop3-3.4.1-uber</artifactId>
                 <version>${project.version}</version>
                 <classifier>optional</classifier>
                 <scope>provided</scope>

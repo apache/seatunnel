@@ -122,6 +122,7 @@ public class KubernetesIT {
                     namespace, yamlStatefulSet, null, null, null, null);
             Awaitility.await()
                     .atMost(360, TimeUnit.SECONDS)
+                    .ignoreExceptions()
                     .untilAsserted(
                             () -> {
                                 V1StatefulSet v1StatefulSet =
@@ -186,8 +187,8 @@ public class KubernetesIT {
         Files.copy(
                 Paths.get(
                         PROJECT_ROOT_PATH
-                                + "/seatunnel-shade/seatunnel-hadoop3-3.1.4-uber/target/seatunnel-hadoop3-3.1.4-uber.jar"),
-                Paths.get(targetPath + "/jars/seatunnel-hadoop3-3.1.4-uber.jar"),
+                                + "/seatunnel-shade/seatunnel-hadoop3-3.4.1-uber/target/seatunnel-hadoop3-3.4.1-uber.jar"),
+                Paths.get(targetPath + "/jars/seatunnel-hadoop3-3.4.1-uber.jar"),
                 StandardCopyOption.REPLACE_EXISTING);
         Files.copy(
                 Paths.get(

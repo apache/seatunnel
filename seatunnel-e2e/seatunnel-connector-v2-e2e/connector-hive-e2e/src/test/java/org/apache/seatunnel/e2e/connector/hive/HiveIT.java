@@ -72,7 +72,7 @@ public class HiveIT extends TestSuiteBase implements TestResource {
     }
 
     private String hadoopAwsUrl() {
-        return "https://repo1.maven.org/maven2/org/apache/hadoop/hadoop-aws/3.1.4/hadoop-aws-3.1.4.jar";
+        return "https://repo1.maven.org/maven2/org/apache/hadoop/hadoop-aws/3.4.1/hadoop-aws-3.4.1.jar";
     }
 
     private String aliyunSdkOssUrl() {
@@ -84,7 +84,7 @@ public class HiveIT extends TestSuiteBase implements TestResource {
     }
 
     private String hadoopAliyunUrl() {
-        return "https://repo1.maven.org/maven2/org/apache/hadoop/hadoop-aliyun/3.1.4/hadoop-aliyun-3.1.4.jar";
+        return "https://repo1.maven.org/maven2/org/apache/hadoop/hadoop-aliyun/3.4.1/hadoop-aliyun-3.4.1.jar";
     }
 
     private String hadoopCosUrl() {

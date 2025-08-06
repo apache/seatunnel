@@ -34,9 +34,9 @@ import java.io.IOException;
 public class S3FileWithMultipleTableIT extends TestSuiteBase {
 
     public static final String S3_SDK_DOWNLOAD =
-            "https://repo1.maven.org/maven2/com/amazonaws/aws-java-sdk-bundle/1.11.271/aws-java-sdk-bundle-1.11.271.jar";
+            "https://repo1.maven.org/maven2/software/amazon/awssdk/bundle/2.31.30/bundle-2.31.30.jar";
     public static final String HADOOP_S3_DOWNLOAD =
-            "https://repo1.maven.org/maven2/org/apache/hadoop/hadoop-aws/3.1.4/hadoop-aws-3.1.4.jar";
+            "https://repo1.maven.org/maven2/org/apache/hadoop/hadoop-aws/3.4.1/hadoop-aws-3.4.1.jar";
 
     @TestContainerExtension
     private final ContainerExtendedFactory extendedFactory =

@@ -15,11 +15,11 @@ import ChangeLog from '../changelog/connector-file-oss.md';
 ### 适用于Spark/Flink引擎
 
 1. 您必须确保您的spark/flink集群已经集成了hadoop。测试的hadoop版本是2.x。
-2. 您必须确保`${SEATUNNEL_HOME}/plugins/`目录中的`hadoop-aliyun-xx.jar`, `aliyun-sdk-oss-xx.jar`和`jdom-xx.jar`的版本与您在spark/flink中使用的hadoop版本匹配，`aliyun-sdk-oss-x.x.jar`和`jdom-xx.jar`版本需要与`hadoop-aliyun`版本对应的版本。例如:`hadoop-aliyun-3.1.4.jar`依赖项`aliyun-sdk-oss-3.4.1.jar`和`jdom-1.1.jar`。
+2. 您必须确保`${SEATUNNEL_HOME}/plugins/`目录中的`hadoop-aliyun-xx.jar`, `aliyun-sdk-oss-xx.jar`和`jdom-xx.jar`的版本与您在spark/flink中使用的hadoop版本匹配，`aliyun-sdk-oss-x.x.jar`和`jdom-xx.jar`版本需要与`hadoop-aliyun`版本对应的版本。例如:`hadoop-aliyun-3.4.1.jar`依赖项`aliyun-sdk-oss-3.4.1.jar`和`jdom-1.1.jar`。
 
 ### 适用于SeaTunnel Zeta引擎
 
-1. 您必须确保在`${seatunnel_HOME}/lib/`目录中有`seatunnel-hadopp3-3.1.4-uber.jar `、`aliyun-sdk-oss-3.4.1.jar `、` hadoop-aliyun-3.1.4.jar`和`jdom-1.1.jar `。
+1. 您必须确保在`${seatunnel_HOME}/lib/`目录中有`seatunnel-hadopp3-3.4.1-uber.jar `、`aliyun-sdk-oss-3.4.1.jar `、` hadoop-aliyun-3.4.1.jar`和`jdom-1.1.jar `。
 
 ## 关键特性
 

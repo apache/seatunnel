@@ -75,7 +75,7 @@ public class ClusterSeaTunnelEngineContainer extends SeaTunnelEngineContainer {
     private static final Path binPath = Paths.get(SEATUNNEL_HOME, "bin", SERVER_SHELL);
     private static final Path config = Paths.get(SEATUNNEL_HOME, "config");
     private static final Path hadoopJar =
-            Paths.get(SEATUNNEL_HOME, "lib/seatunnel-hadoop3-3.1.4-uber.jar");
+            Paths.get(SEATUNNEL_HOME, "lib/seatunnel-hadoop3-3.4.1-uber.jar");
 
     private static final long CUSTOM_JOB_ID_1 = 862969647010611201L;
 
@@ -1354,7 +1354,7 @@ public class ClusterSeaTunnelEngineContainer extends SeaTunnelEngineContainer {
         server.withCopyFileToContainer(
                 MountableFile.forHostPath(
                         PROJECT_ROOT_PATH
-                                + "/seatunnel-shade/seatunnel-hadoop3-3.1.4-uber/target/seatunnel-hadoop3-3.1.4-uber.jar"),
+                                + "/seatunnel-shade/seatunnel-hadoop3-3.4.1-uber/target/seatunnel-hadoop3-3.4.1-uber.jar"),
                 hadoopJar.toString());
         server.start();
         // execute extra commands

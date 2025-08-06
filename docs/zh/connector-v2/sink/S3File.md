@@ -47,10 +47,10 @@ import ChangeLog from '../changelog/connector-file-s3.md';
 
 ## 数据库依赖
 
-> 如果您使用 Spark/Flink，为了使用此连接器，您必须确保您的 Spark/Flink 集群已经集成了 Hadoop。测试的 Hadoop 版本为 2.x。
+> 如果您使用 Spark/Flink，为了使用此连接器，您必须确保您的 Spark/Flink 集群已经集成了 Hadoop。测试的 Hadoop 版本为 3.4。
 >
 > 如果您使用 SeaTunnel引擎，当您下载并安装 SeaTunnel引擎时，它会自动集成 Hadoop jar 包。您可以在 `${SEATUNNEL_HOME}/lib` 下检查 jar 包以确认这一点。
-> 要使用此连接器，您需要将 `hadoop-aws-3.1.4.jar` 和 `aws-java-sdk-bundle-1.12.692.jar` 放在 `${SEATUNNEL_HOME}/lib` 目录下。
+> 要使用此连接器，您需要将 `seatunnel-hadoop-aws.jar`, 放在 `${SEATUNNEL_HOME}/lib` 目录下。该jar 已经内置了bundle.jar(aws sdk v2).
 
 ## 数据类型映射
 
@@ -102,45 +102,45 @@ import ChangeLog from '../changelog/connector-file-s3.md';
 
 ## Sink 选项
 
-| 名称                                    | 类型      | 是否必填 | 默认值                                                   | 描述                                                                                                                                  |
-|---------------------------------------|---------|------|-------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------|
-| path                                  | string  | 是    | -                                                     |                                                                                                                                     |
-| tmp_path                              | string  | 否    | /tmp/seatunnel                                        | 结果文件将首先写入临时路径，然后使用 `mv` 将临时目录提交到目标目录。需要一个 S3 目录。                                                                                    |
-| bucket                                | string  | 是    | -                                                     |                                                                                                                                     |
-| fs.s3a.endpoint                       | string  | 是    | -                                                     |                                                                                                                                     |
-| fs.s3a.aws.credentials.provider       | string  | 是    | com.amazonaws.auth.InstanceProfileCredentialsProvider | 认证 s3a 的方式。目前仅支持 `org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider` 和 `com.amazonaws.auth.InstanceProfileCredentialsProvider`。 |
-| access_key                            | string  | 否    | -                                                     | 仅当 fs.s3a.aws.credentials.provider = org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider 时使用                                      |
-| secret_key                            | string  | 否    | -                                                     | 仅当 fs.s3a.aws.credentials.provider = org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider 时使用                                      |
-| custom_filename                       | boolean | 否    | false                                                 | 是否需要自定义文件名                                                                                                                          |
-| file_name_expression                  | string  | 否    | "${transactionId}"                                    | 仅当 custom_filename 为 true 时使用                                                                                                       |
-| filename_time_format                  | string  | 否    | "yyyy.MM.dd"                                          | 仅当 custom_filename 为 true 时使用                                                                                                       |
-| file_format_type                      | string  | 否    | "csv"                                                 |                                                                                                                                     |
-| field_delimiter                       | string  | 否    | '\001'                                                | 仅当 file_format 为 text 时使用                                                                                                           |
-| row_delimiter                         | string  | 否    | "\n"                                                  | 仅当 file_format 为 `text`、`csv`、`json` 时使用                                                                                            |
-| have_partition                        | boolean | 否    | false                                                 | 是否需要处理分区。                                                                                                                           |
-| partition_by                          | array   | 否    | -                                                     | 仅当 have_partition 为 true 时使用                                                                                                        |
-| partition_dir_expression              | string  | 否    | "${k0}=${v0}/${k1}=${v1}/.../${kn}=${vn}/"            | 仅当 have_partition 为 true 时使用                                                                                                        |
-| is_partition_field_write_in_file      | boolean | 否    | false                                                 | 仅当 have_partition 为 true 时使用                                                                                                        |
-| sink_columns                          | array   | 否    |                                                       | 当此参数为空时，所有字段均为 sink 列                                                                                                               |
-| is_enable_transaction                 | boolean | 否    | true                                                  |                                                                                                                                     |
-| batch_size                            | int     | 否    | 1000000                                               |                                                                                                                                     |
-| compress_codec                        | string  | 否    | none                                                  |                                                                                                                                     |
-| common-options                        | object  | 否    | -                                                     |                                                                                                                                     |
-| max_rows_in_memory                    | int     | 否    | -                                                     | 仅当 file_format 为 excel 时使用                                                                                                          |
-| sheet_name                            | string  | 否    | Sheet${Random number}                                 | 仅当 file_format 为 excel 时使用                                                                                                          |
-| csv_string_quote_mode                 | enum    | 否    | MINIMAL                                               | 仅当 file_format 为 csv 时使用                                                                                                            |
-| xml_root_tag                          | string  | 否    | RECORDS                                               | 仅当 file_format 为 xml 时使用，指定 XML 文件中根元素的标签名称。                                                                                        |
-| xml_row_tag                           | string  | 否    | RECORD                                                | 仅当 file_format 为 xml 时使用，指定 XML 文件中数据行的标签名称。                                                                                        |
-| xml_use_attr_format                   | boolean | 否    | -                                                     | 仅当 file_format 为 xml 时使用，指定是否使用标签属性格式处理数据。                                                                                          |
-| single_file_mode                      | boolean | 否    | false                                                 | 每个并行度只会输出一个文件。当此参数开启时，batch_size 将不会生效。输出文件名不会有文件块后缀。                                                                               |
-| create_empty_file_when_no_data        | boolean | 否    | false                                                 | 当上游没有数据同步时，仍然会生成相应的数据文件。                                                                                                            |
-| parquet_avro_write_timestamp_as_int96 | boolean | 否    | false                                                 | 仅当 file_format 为 parquet 时使用                                                                                                        |
-| parquet_avro_write_fixed_as_int96     | array   | 否    | -                                                     | 仅当 file_format 为 parquet 时使用                                                                                                        |
-| hadoop_s3_properties                  | map     | 否    |                                                       | 如果您需要添加其他选项，可以在此处添加，并参考此[链接](https://hadoop.apache.org/docs/stable/hadoop-aws/tools/hadoop-aws/index.html)                          |
-| schema_save_mode                      | Enum    | 否    | CREATE_SCHEMA_WHEN_NOT_EXIST                          | 在开启同步任务之前，对目标路径进行不同的处理                                                                                                              |
-| data_save_mode                        | Enum    | 否    | APPEND_DATA                                           | 在开启同步任务之前，对目标路径中的数据文件进行不同的处理                                                                                                        |
-| enable_header_write                   | boolean | 否    | false                                                 | 仅当 file_format_type 为 text,csv 时使用。<br/> false: 不写入表头, true: 写入表头。                                                                  |
-| encoding                              | string  | 否    | "UTF-8"                                               | 仅当 file_format_type 为 json,text,csv,xml 时使用。                                                                                        |
+| 名称                                  | 类型    | 是否必填 | 默认值                                               | 描述                                                                                                                                                            |
+|---------------------------------------|---------|----------|-------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| path                                  | string  | 是       | -                                                     |                                                                                                                                                                |
+| tmp_path                              | string  | 否       | /tmp/seatunnel                                        | 结果文件将首先写入临时路径，然后使用 `mv` 将临时目录提交到目标目录。需要一个 S3 目录。                                                                           |
+| bucket                                | string  | 是       | -                                                     |                                                                                                                                                                |
+| fs.s3a.endpoint                       | string  | 是       | -                                                     |                                                                                                                                                                |
+| fs.s3a.aws.credentials.provider       | string  | 是       | software.amazon.awssdk.auth.credentials.InstanceProfileCredentialsProvider | 认证 s3a 的方式。目前仅支持 `org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider` 和 `software.amazon.awssdk.auth.credentials.InstanceProfileCredentialsProvider`。                  |
+| access_key                            | string  | 否       | -                                                     | 仅当 fs.s3a.aws.credentials.provider = org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider 时使用                                                             |
+| access_secret                         | string  | 否       | -                                                     | 仅当 fs.s3a.aws.credentials.provider = org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider 时使用                                                             |
+| custom_filename                       | boolean | 否       | false                                                 | 是否需要自定义文件名                                                                                                                                           |
+| file_name_expression                  | string  | 否       | "${transactionId}"                                    | 仅当 custom_filename 为 true 时使用                                                                                                                            |
+| filename_time_format                  | string  | 否       | "yyyy.MM.dd"                                          | 仅当 custom_filename 为 true 时使用                                                                                                                            |
+| file_format_type                      | string  | 否       | "csv"                                                 |                                                                                                                                                                |
+| field_delimiter                       | string  | 否       | '\001'                                                | 仅当 file_format 为 text 时使用                                                                                                                                |
+| row_delimiter                         | string  | 否       | "\n"                                                  | 仅当 file_format 为 `text`、`csv`、`json` 时使用                                                                                                                                |
+| have_partition                        | boolean | 否       | false                                                 | 是否需要处理分区。                                                                                                                                             |
+| partition_by                          | array   | 否       | -                                                     | 仅当 have_partition 为 true 时使用                                                                                                                             |
+| partition_dir_expression              | string  | 否       | "${k0}=${v0}/${k1}=${v1}/.../${kn}=${vn}/"            | 仅当 have_partition 为 true 时使用                                                                                                                             |
+| is_partition_field_write_in_file      | boolean | 否       | false                                                 | 仅当 have_partition 为 true 时使用                                                                                                                             |
+| sink_columns                          | array   | 否       |                                                       | 当此参数为空时，所有字段均为 sink 列                                                                                                                           |
+| is_enable_transaction                 | boolean | 否       | true                                                  |                                                                                                                                                                |
+| batch_size                            | int     | 否       | 1000000                                               |                                                                                                                                                                |
+| compress_codec                        | string  | 否       | none                                                  |                                                                                                                                                                |
+| common-options                        | object  | 否       | -                                                     |                                                                                                                                                                |
+| max_rows_in_memory                    | int     | 否       | -                                                     | 仅当 file_format 为 excel 时使用                                                                                                                               |
+| sheet_name                            | string  | 否       | Sheet${Random number}                                 | 仅当 file_format 为 excel 时使用                                                                                                                               |
+| csv_string_quote_mode                 | enum    | 否       | MINIMAL                                               | 仅当 file_format 为 csv 时使用                                                                                                                                 |
+| xml_root_tag                          | string  | 否       | RECORDS                                               | 仅当 file_format 为 xml 时使用，指定 XML 文件中根元素的标签名称。                                                                                               |
+| xml_row_tag                           | string  | 否       | RECORD                                                | 仅当 file_format 为 xml 时使用，指定 XML 文件中数据行的标签名称。                                                                                               |
+| xml_use_attr_format                   | boolean | 否       | -                                                     | 仅当 file_format 为 xml 时使用，指定是否使用标签属性格式处理数据。                                                                                              |
+| single_file_mode                      | boolean | 否       | false                                                 | 每个并行度只会输出一个文件。当此参数开启时，batch_size 将不会生效。输出文件名不会有文件块后缀。                                                                 |
+| create_empty_file_when_no_data        | boolean | 否       | false                                                 | 当上游没有数据同步时，仍然会生成相应的数据文件。                                                                                                               |
+| parquet_avro_write_timestamp_as_int96 | boolean | 否       | false                                                 | 仅当 file_format 为 parquet 时使用                                                                                                                             |
+| parquet_avro_write_fixed_as_int96     | array   | 否       | -                                                     | 仅当 file_format 为 parquet 时使用                                                                                                                             |
+| hadoop_s3_properties                  | map     | 否       |                                                       | 如果您需要添加其他选项，可以在此处添加，并参考此[链接](https://hadoop.apache.org/docs/stable/hadoop-aws/tools/hadoop-aws/index.html)                            |
+| schema_save_mode                      | Enum    | 否       | CREATE_SCHEMA_WHEN_NOT_EXIST                          | 在开启同步任务之前，对目标路径进行不同的处理                                                                                                                   |
+| data_save_mode                        | Enum    | 否       | APPEND_DATA                                           | 在开启同步任务之前，对目标路径中的数据文件进行不同的处理                                                                                                       |
+| enable_header_write                   | boolean | 否       | false                                                 | 仅当 file_format_type 为 text,csv 时使用。<br/> false: 不写入表头, true: 写入表头。                                                                             |
+| encoding                              | string  | 否       | "UTF-8"                                               | 仅当 file_format_type 为 json,text,csv,xml 时使用。                                                                                                             |
 | merge_update_event                    | boolean | 否    | false                                                 | 仅当file_format_type为canal_json、debezium_json、maxwell_json.                                                                           |
 
 ### path [string]
@@ -382,7 +382,7 @@ sink {
       tmp_path = "/tmp/seatunnel"
       path="/seatunnel/text"
       fs.s3a.endpoint="s3.cn-north-1.amazonaws.com.cn"
-      fs.s3a.aws.credentials.provider="com.amazonaws.auth.InstanceProfileCredentialsProvider"
+      fs.s3a.aws.credentials.provider="software.amazon.awssdk.auth.credentials.InstanceProfileCredentialsProvider"
       file_format_type = "text"
       field_delimiter = "\t"
       row_delimiter = "\n"
@@ -405,7 +405,7 @@ sink {
 }
 ```
 
-对于文本文件格式，包含 `have_partition`、`custom_filename`、`sink_columns` 和 `com.amazonaws.auth.InstanceProfileCredentialsProvider`
+对于文本文件格式，包含 `have_partition`、`custom_filename`、`sink_columns` 和 `software.amazon.awssdk.auth.credentials.InstanceProfileCredentialsProvider`
 
 ```hocon
 S3File {
@@ -413,7 +413,7 @@ S3File {
   tmp_path = "/tmp/seatunnel"
   path="/seatunnel/text"
   fs.s3a.endpoint="s3.cn-north-1.amazonaws.com.cn"
-  fs.s3a.aws.credentials.provider="com.amazonaws.auth.InstanceProfileCredentialsProvider"
+  fs.s3a.aws.credentials.provider="software.amazon.awssdk.auth.credentials.InstanceProfileCredentialsProvider"
   file_format_type = "text"
   field_delimiter = "\t"
   row_delimiter = "\n"

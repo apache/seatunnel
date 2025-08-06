@@ -42,6 +42,7 @@ import com.hazelcast.config.MemberAttributeConfig;
 import com.hazelcast.instance.impl.HazelcastInstanceImpl;
 import lombok.extern.slf4j.Slf4j;
 
+import java.net.ServerSocket;
 import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -81,6 +82,17 @@ public class RestApiIT {
 
     private static Map<Integer, Integer> ports;
 
+    private int findFreePortExcluding() {
+        int port;
+        try (ServerSocket socket = new ServerSocket(0)) {
+            socket.setReuseAddress(true);
+            port = socket.getLocalPort();
+        } catch (Exception e) {
+            throw new RuntimeException("No free port available", e);
+        }
+        return port;
+    }
+
     @BeforeEach
     void beforeClass() throws Exception {
         LoggerContext context = (LoggerContext) LogManager.getContext(false);
@@ -91,7 +103,7 @@ public class RestApiIT {
                         .toUri());
         String testClusterName = TestUtils.getClusterName("RestApiIT");
         node1Config = ConfigProvider.locateAndGetSeaTunnelConfig();
-        node1Config.getEngineConfig().getHttpConfig().setPort(8080);
+        node1Config.getEngineConfig().getHttpConfig().setPort(findFreePortExcluding());
         node1Config.getEngineConfig().getHttpConfig().setEnabled(true);
         node1Config.getHazelcastConfig().setClusterName(testClusterName);
         node1Config.getEngineConfig().getSlotServiceConfig().setDynamicSlot(false);
