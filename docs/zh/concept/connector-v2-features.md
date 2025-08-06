@@ -9,6 +9,7 @@ Connector V2 是基于SeaTunnel Connector API接口定义的连接器。不像Co
 * **多引擎版本支持** 通过翻译层将连接器与引擎解耦，解决了大多数连接器需要修改代码才能支持新版本底层引擎的问题。
 * **流批一体** Connector V2 可以支持批处理和流处理。我们不需要为批和流分别开发连接器。
 * **多路复用JDBC/Log连接。** Connector V2支持JDBC资源复用和共享数据库日志解析。
+* **多模态数据集成** Connector V2 支持多模态数据集成，包括结构化和非结构化文本数据、视频、图像、二进制文件等。
 
 ## Source Connector 特性
 
@@ -44,6 +45,10 @@ Source connector有一些公共的核心特性，每个source connector在不同
 并行执行的Source Connector支持配置 `parallelism`，每个并发会创建一个任务来读取数据。
 在**Parallelism Source Connector**中，source会被分割成多个split，然后枚举器会将 split 分配给 SourceReader 进行处理。
 
+### 多模态（multimodal）
+
+支持多模态数据集成，包括结构化和非结构化文本数据、视频、图像、二进制文件等。
+
 ### 支持用户自定义split
 
 用户可以配置分割规则。
@@ -68,3 +73,11 @@ Sink connector有一些公共的核心特性，每个sink connector在不同程�
 ### cdc(更改数据捕获，change data capture)
 
 如果sink connector支持基于主键写入行类型（INSERT/UPDATE_BEFORE/UPDATE_AFTER/DELETE），我们认为它支持cdc（更改数据捕获，change data capture）。
+
+### 支持多表读取
+
+支持在一个 SeaTunnel 作业中写入多个表，用户可以通过[配置占位符](./sink-options-placeholders.md)动态指定表的标识符。
+
+### 多模态（multimodal）
+
+支持多模态数据集成，包括结构化和非结构化文本数据、视频、图像、二进制文件等。

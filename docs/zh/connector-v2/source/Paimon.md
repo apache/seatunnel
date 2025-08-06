@@ -86,7 +86,7 @@ Paimon 的 catalog uri，仅当 catalog_type 为 hive 时需要
 
 读取表格的筛选条件，例如：`select * from st_test where id > 100`。如果未指定，则将读取所有记录。 
 
-目前，`where` 支持`<, <=, >, >=, =, !=, or, and,is null, is not null, between...and, in , not in, like(pattern matching with prefix only)`，其他暂不支持。 
+目前，`where` 支持`<, <=, >, >=, =, !=, or, and,is null, is not null, between...and, in , not in, like`，其他暂不支持。 
 
 Projection 已支持,你可以选择特定的列，例如：select id, name from st_test where id > 100。
 

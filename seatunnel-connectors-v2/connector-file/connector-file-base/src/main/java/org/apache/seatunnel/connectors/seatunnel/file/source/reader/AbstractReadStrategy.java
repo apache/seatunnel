@@ -53,7 +53,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
@@ -178,7 +177,7 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
         if (pluginConfig.hasPath(FileBaseSourceOptions.FILE_FILTER_PATTERN.key())) {
             String filterPattern =
                     pluginConfig.getString(FileBaseSourceOptions.FILE_FILTER_PATTERN.key());
-            this.pattern = Pattern.compile(Matcher.quoteReplacement(filterPattern));
+            this.pattern = Pattern.compile(filterPattern);
         }
     }
 

@@ -49,11 +49,20 @@ public class DoubaoModel extends MultimodalModel {
     private final String apiPath;
 
     public DoubaoModel(String apiKey, String model, String apiPath, Integer vectorizedNumber) {
+        this(apiKey, model, apiPath, vectorizedNumber, HttpClients.createDefault());
+    }
+
+    public DoubaoModel(
+            String apiKey,
+            String model,
+            String apiPath,
+            Integer vectorizedNumber,
+            CloseableHttpClient client) {
         super(vectorizedNumber);
         this.apiKey = apiKey;
         this.model = model;
         this.apiPath = apiPath;
-        this.client = HttpClients.createDefault();
+        this.client = client;
     }
 
     @Override
