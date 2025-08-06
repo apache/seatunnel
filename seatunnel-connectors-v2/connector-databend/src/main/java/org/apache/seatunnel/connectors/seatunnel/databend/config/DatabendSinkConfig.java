@@ -152,6 +152,14 @@ public class DatabendSinkConfig implements Serializable {
         return properties;
     }
 
+    public String getRawTableName() {
+        return table + "_raw_";
+    }
+
+    public String getStreamName() {
+        return table + "_stream_";
+    }
+
     public Properties toProperties() {
         return getProperties();
     }

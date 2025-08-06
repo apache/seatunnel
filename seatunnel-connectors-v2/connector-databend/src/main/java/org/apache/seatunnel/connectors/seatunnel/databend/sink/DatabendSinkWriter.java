@@ -51,14 +51,12 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 @Slf4j
 public class DatabendSinkWriter
-        implements SinkWriter<SeaTunnelRow, Void, Void>, SupportSchemaEvolutionSinkWriter {
+        implements SinkWriter<SeaTunnelRow, DatabendSinkCommitterInfo, Void>,
+                SupportSchemaEvolutionSinkWriter {
 
     private final Connection connection;
     private final Context context;
@@ -76,11 +74,12 @@ public class DatabendSinkWriter
     private DatabendSinkConfig databendSinkConfig;
 
     // CDC related fields
+    // Note: In CDC mode, rawTableName and streamName are set by DatabendSinkAggregatedCommitter
+    // The writer receives these values through the prepareCommit process
     private boolean isCdcMode = false;
     private String rawTableName;
     private String streamName;
     private String targetTableName;
-    private ScheduledExecutorService mergeScheduler;
     private PreparedStatement cdcPreparedStatement;
     private String conflictKey;
     private boolean allowDelete;
@@ -94,6 +93,8 @@ public class DatabendSinkWriter
             String customSql,
             String database,
             String table,
+            String rawTableName,
+            String streamName,
             int batchSize,
             int executeTimeoutSec) {
         this.context = context;
@@ -107,6 +108,13 @@ public class DatabendSinkWriter
 
         // CDC mode check
         this.isCdcMode = databendSinkConfig.isCdcMode();
+        if (databendSinkConfig.isCdcMode()) {
+            this.rawTableName = rawTableName;
+            this.streamName = streamName;
+            log.info("DatabendSinkWriter initialized in CDC mode with raw table: {}", rawTableName);
+        } else {
+            log.info("DatabendSinkWriter initialized in traditional mode");
+        }
         this.conflictKey = databendSinkConfig.getConflictKey();
         this.allowDelete = databendSinkConfig.isAllowDelete();
         this.interval = databendSinkConfig.getInterval();
@@ -118,17 +126,6 @@ public class DatabendSinkWriter
                 "DatabendSinkWriter constructor - rowType: {}", catalogTable.getSeaTunnelRowType());
         log.info("DatabendSinkWriter constructor - target table path: {}", sinkTablePath);
         log.info("DatabendSinkWriter constructor - CDC mode: {}", isCdcMode);
-
-        if (isCdcMode) {
-            this.rawTableName = table + "_raw_" + getCurrentTimestamp();
-            this.streamName = table + "_stream_" + getCurrentTimestamp();
-            log.info("CDC mode enabled - raw table: {}, stream: {}", rawTableName, streamName);
-            log.info(
-                    "Conflict key: {}, allow delete: {}, interval: {}s",
-                    conflictKey,
-                    allowDelete,
-                    interval);
-        }
 
         // if custom SQL is provided, use it directly
         if (customSql != null && !customSql.isEmpty()) {
@@ -148,8 +145,10 @@ public class DatabendSinkWriter
         } else {
             try {
                 if (isCdcMode) {
-                    // Initialize CDC mode
-                    initCdcMode(database);
+                    // In CDC mode, we don't create tables here, it's done in AggregatedCommitter
+                    // We'll get the raw table and stream names from the committer via prepareCommit
+                    log.info(
+                            "CDC mode enabled, table creation will be handled by AggregatedCommitter");
                 } else {
                     // Traditional mode
                     initTraditionalMode(database, table);
@@ -167,23 +166,25 @@ public class DatabendSinkWriter
         return LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss"));
     }
 
-    private void initCdcMode(String database) throws SQLException {
-        // Create raw table
-        createRawTable(database);
+    private void initializeCdcPreparedStatement() throws SQLException {
+        log.info("Initializing CDC PreparedStatement");
 
-        // Create stream on raw table
-        createStream(database);
+        // In CDC mode, the rawTableName should be set by the AggregatedCommitter
+        // If it's not set yet, we can't proceed with CDC operations
+        if (rawTableName == null || rawTableName.isEmpty()) {
+            throw new DatabendConnectorException(
+                    DatabendConnectorErrorCode.SQL_OPERATION_FAILED,
+                    "Raw table name not set by AggregatedCommitter. Cannot initialize CDC PreparedStatement.");
+        }
 
-        // Prepare statement for inserting into raw table
-        String insertRawSql = generateInsertRawSql(database);
+        // Generate insert SQL for raw table
+        String insertRawSql = generateInsertRawSql(sinkTablePath.getDatabaseName());
+
+        // Create the PreparedStatement
         this.cdcPreparedStatement = connection.prepareStatement(insertRawSql);
         this.cdcPreparedStatement.setQueryTimeout(executeTimeoutSec);
-        log.info("CDC PreparedStatement created: {}", insertRawSql);
 
-        // Start merge scheduler
-        startMergeScheduler();
-
-        log.info("CDC mode initialized successfully");
+        log.info("CDC PreparedStatement created successfully with SQL: {}", insertRawSql);
     }
 
     private void initTraditionalMode(String database, String table) throws SQLException {
@@ -221,49 +222,46 @@ public class DatabendSinkWriter
         }
     }
 
-    private void createRawTable(String database) throws SQLException {
-        String createTableSql =
-                String.format(
-                        "CREATE TABLE %s.%s ("
-                                + "  id VARCHAR(255),"
-                                + "  table_name VARCHAR(255),"
-                                + "  raw_data JSON,"
-                                + "  add_time TIMESTAMP,"
-                                + "  action STRING"
-                                + ")",
-                        database, rawTableName);
+    // This method is no longer needed as raw table creation is handled by
+    // DatabendSinkAggregatedCommitter
+    // private void createRawTable(String database) throws SQLException {
+    //     String createTableSql =
+    //             String.format(
+    //                     "CREATE TABLE %s.%s ("
+    //                             + "  id VARCHAR(255),"
+    //                             + "  table_name VARCHAR(255),"
+    //                             + "  raw_data JSON,"
+    //                             + "  add_time TIMESTAMP,"
+    //                             + "  action STRING"
+    //                             + ")",
+    //                     database, rawTableName);
+    //
+    //     try (Statement stmt = connection.createStatement()) {
+    //         log.info("Creating raw table with SQL: {}", createTableSql);
+    //         stmt.execute(createTableSql);
+    //         log.info("Raw table {} created successfully", rawTableName);
+    //     }
+    // }
 
-        try (Statement stmt = connection.createStatement()) {
-            log.info("Creating raw table with SQL: {}", createTableSql);
-            stmt.execute(createTableSql);
-            log.info("Raw table {} created successfully", rawTableName);
-        }
-    }
-
-    private void createStream(String database) throws SQLException {
-        String createStreamSql =
-                String.format(
-                        "CREATE STREAM %s.%s ON TABLE %s.%s",
-                        database, streamName, database, rawTableName);
-
-        try (Statement stmt = connection.createStatement()) {
-            log.info("Creating stream with SQL: {}", createStreamSql);
-            stmt.execute(createStreamSql);
-            log.info("Stream {} created successfully", streamName);
-        }
-    }
+    // This method is no longer needed as stream creation is handled by
+    // DatabendSinkAggregatedCommitter
+    // private void createStream(String database) throws SQLException {
+    //     String createStreamSql =
+    //             String.format(
+    //                     "CREATE STREAM %s.%s ON TABLE %s.%s",
+    //                     database, streamName, database, rawTableName);
+    //
+    //     try (Statement stmt = connection.createStatement()) {
+    //         log.info("Creating stream with SQL: {}", createStreamSql);
+    //         stmt.execute(createStreamSql);
+    //         log.info("Stream {} created successfully", streamName);
+    //     }
+    // }
 
     private String generateInsertRawSql(String database) {
         return String.format(
                 "INSERT INTO %s.%s (id, table_name, raw_data, add_time, action) VALUES (?, ?, ?, ?, ?)",
                 database, rawTableName);
-    }
-
-    private void startMergeScheduler() {
-        mergeScheduler = Executors.newSingleThreadScheduledExecutor();
-        mergeScheduler.scheduleWithFixedDelay(
-                this::performMerge, interval, interval, TimeUnit.SECONDS);
-        log.info("Merge scheduler started with interval: {} seconds", interval);
     }
 
     private void performMerge() {
@@ -426,6 +424,21 @@ public class DatabendSinkWriter
             return;
         }
 
+        // Ensure cdcPreparedStatement is initialized
+        if (cdcPreparedStatement == null) {
+            log.info("CDC PreparedStatement is null, initializing...");
+            initializeCdcPreparedStatement();
+
+            // If it's still null, we need to throw an exception as we can't proceed
+            if (cdcPreparedStatement == null) {
+                throw new DatabendConnectorException(
+                        DatabendConnectorErrorCode.SQL_OPERATION_FAILED,
+                        "Failed to initialize CDC PreparedStatement. Raw table name might not be set by AggregatedCommitter.");
+            }
+
+            log.info("CDC PreparedStatement initialized successfully");
+        }
+
         // Get conflict key value
         String conflictKeyValue = getConflictKeyValue(row);
 
@@ -442,9 +455,18 @@ public class DatabendSinkWriter
     }
 
     private void processTraditionalRow(SeaTunnelRow row) throws SQLException {
+        // Ensure preparedStatement is initialized
         if (preparedStatement == null) {
             log.info("PreparedStatement is null, initializing...");
             initializePreparedStatement(row);
+
+            // If it's still null, we need to throw an exception as we can't proceed
+            if (preparedStatement == null) {
+                throw new DatabendConnectorException(
+                        DatabendConnectorErrorCode.SQL_OPERATION_FAILED,
+                        "Failed to initialize PreparedStatement.");
+            }
+
             log.info("PreparedStatement initialized successfully");
         }
 
@@ -720,11 +742,13 @@ public class DatabendSinkWriter
     }
 
     @Override
-    public Optional<Void> prepareCommit() throws IOException {
+    public Optional<DatabendSinkCommitterInfo> prepareCommit() throws IOException {
         log.info("Preparing to commit, executing remaining batch");
         executeBatch();
         log.info("Commit prepared successfully");
-        return Optional.empty();
+        // In the new approach, rawTableName and streamName are initialized in DatabendSink
+        // We pass null values as they're not needed in the committer info
+        return Optional.of(new DatabendSinkCommitterInfo(null, null));
     }
 
     @Override
@@ -770,18 +794,9 @@ public class DatabendSinkWriter
             }
 
             // Perform final merge in CDC mode
-            if (isCdcMode && mergeScheduler != null) {
+            if (isCdcMode) {
                 log.info("Performing final merge before closing");
                 performMerge();
-                mergeScheduler.shutdown();
-                try {
-                    if (!mergeScheduler.awaitTermination(5, TimeUnit.SECONDS)) {
-                        mergeScheduler.shutdownNow();
-                    }
-                } catch (InterruptedException e) {
-                    mergeScheduler.shutdownNow();
-                    Thread.currentThread().interrupt();
-                }
             }
 
             // Close prepared statements
