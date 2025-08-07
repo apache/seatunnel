@@ -114,3 +114,127 @@ Example: `org.apache.seatunnel.api.event.LoggingEventHandler`
 ### Spark Engine
 
 You can define the implementation class of `org.apache.seatunnel.api.event.EventHandler` interface and add to the classpath to automatically load it through SPI.
+
+## JobStateEvent Event Listening
+
+`JobStateEvent` is an event triggered when the lifecycle of a task terminates. This event currently only supports the **Zeta engine** and is suitable for scenarios such as task status monitoring, exception alerting, and running log recording. Third parties can implement custom task status handling logic based on this event (e.g., automatic alerting when a task is interrupted, resource recycling, etc.).
+
+
+### Event Attribute Description
+`JobStateEvent` contains the following key attributes (which can be obtained through corresponding getter methods):
+- `jobId`: Unique identifier of the task
+- `jobName`: Name of the task
+- `jobStatus`: Task status (enumerated values such as `FAILED`/`FINISHED`/`CANCELED`/`SAVEPOINT_DONE`.)
+- `createdTime`: Timestamp of event creation (in milliseconds)
+
+
+### Steps to Implement a Custom Event Handler
+
+#### 1. Add Dependencies
+Introduce the necessary dependencies in the project's `pom.xml`:
+```xml
+<dependency>
+    <groupId>org.apache.seatunnel</groupId>
+    <artifactId>seatunnel-api</artifactId>
+    <version>${seatunnel.version}</version>
+    <scope>provided</scope>
+</dependency>
+<dependency>
+    <groupId>org.apache.seatunnel</groupId>
+    <artifactId>seatunnel-engine-server</artifactId>
+    <version>${seatunnel.version}</version>
+    <scope>provided</scope>
+</dependency>
+```
+> Note: Replace `${seatunnel.version}` with the actual SeaTunnel version used.
+
+
+#### 2. Implement the Event Handler
+Create a custom class that implements the `org.apache.seatunnel.api.event.EventHandler` interface and override the `handle` method to handle business logic for `JobStateEvent`:
+
+```java
+import lombok.extern.slf4j.Slf4j;
+import org.apache.seatunnel.api.event.Event;
+import org.apache.seatunnel.api.event.EventHandler;
+import org.apache.seatunnel.engine.core.job.JobStatus;
+import org.apache.seatunnel.engine.server.event.JobStateEvent;
+
+/**
+ * Custom Job status event handler, example includes log recording and exception alerting logic
+ */
+@Slf4j
+public class CustomJobStateEventHandler implements EventHandler {
+
+    @Override
+    public void handle(Event event) {
+        // Only process events of type JobStateEvent
+        if (!(event instanceof JobStateEvent)) {
+            return;
+        }
+
+        JobStateEvent jobEvent = (JobStateEvent) event;
+        String jobId = jobEvent.getJobId();
+        String jobName = jobEvent.getJobName();
+        JobStatus status = jobEvent.getJobStatus();
+        long eventTime = jobEvent.getCreatedTime();
+
+        // Execute different logic based on task status
+        switch (status) {
+            case FAILED:
+                String errorMsg = getErrorMsg(jobId); // Obtain error details from the task's log or other sources
+                log.error("Task failed | jobId: {}, jobName: {}, time: {}, reason: {}", 
+                    jobId, jobName, eventTime, errorMsg);
+                // Alert logic can be added here (e.g., calling email/SMS interface)
+                sendAlert("Task Failure Alert", "jobId: " + jobId + ", reason: " + errorMsg);
+                break;
+            case FINISHED:
+                log.info("Task completed | jobId: {}, jobName: {}, time: {}", 
+                    jobId, jobName, eventTime);
+                // Resource cleanup, result notification, etc. can be performed after task completion
+                break;
+            case CANCELED:
+                log.warn("Task canceled | jobId: {}, jobName: {}, time: {}", 
+                    jobId, jobName, eventTime);
+                break;
+            case SAVEPOINT_DONE:
+                log.info("Task checkpoint completed | jobId: {}, jobName: {}, time: {}", 
+                    jobId, jobName, eventTime);
+                break;
+            default:
+                log.debug("Task status changed | jobId: {}, status: {}, time: {}", 
+                    jobId, status, eventTime);
+        }
+    }
+
+    /**
+     * Example: Send alert notification
+     */
+    private void sendAlert(String title, String content) {
+        // Implement alert logic (e.g., calling HTTP interface, sending email, etc.)
+        log.info("[Alert] {}: {}", title, content);
+    }
+}
+```
+
+
+#### 3. Configure SPI Loading
+To enable the engine to automatically discover and load the custom processor, add an SPI configuration file in the project's resource directory:
+
+1. Create the directory: `src/main/resources/META-INF/services/`
+2. Create a new file: `org.apache.seatunnel.api.event.EventHandler`
+3. Add the fully qualified class name of the custom processor in the file:
+   ```
+   com.example.CustomJobStateEventHandler
+   ```
+
+
+#### 4. Deployment and Verification
+- Place the JAR package containing the custom processor into the classpath of the SeaTunnel engine (e.g., `lib/` directory)
+- After starting the task, when the task status changes, the processor will be automatically triggered and execute the logic in the `handle` method
+- You can verify whether the processor is effective through log output (such as the `log` statements in the example)
+
+
+### Notes
+- The processor logic should be as lightweight as possible to avoid blocking the event processing thread
+- For network calls (e.g., sending alerts), it is recommended to implement them asynchronously to prevent timeouts from affecting the task itself
+- Only the Zeta engine supports `JobStateEvent`; Flink/Spark engines do not currently support this event type

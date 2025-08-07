@@ -112,3 +112,125 @@ seatunnel:
 ### Spark 引擎
 
 您可以定义 `org.apache.seatunnel.api.event.EventHandler` 接口并添加到类路径，SPI会自动加载。
+
+## JobStateEvent 事件监听
+
+`JobStateEvent` 是在任务生命周期终止时触发的事件。该事件目前仅支持 **Zeta 引擎**，适用于任务状态监控、异常告警、运行日志记录等场景，第三方可基于此事件实现自定义的任务状态处理逻辑（如任务中断时自动告警、资源回收等）。
+
+
+### 事件属性说明
+`JobStateEvent` 包含以下关键属性（可通过对应 getter 方法获取）：
+- `jobId`：任务唯一标识
+- `jobName`：任务名称
+- `jobStatus`：任务状态（枚举值，如 `FAILED`/`FINISHED`/`CANCELED`/`SAVEPOINT_DONE`）
+- `createdTime`：事件创建时间戳（毫秒级）
+
+### 自定义事件处理器实现步骤
+
+#### 1. 添加依赖
+在项目 `pom.xml` 中引入必要依赖：
+```xml
+<dependency>
+    <groupId>org.apache.seatunnel</groupId>
+    <artifactId>seatunnel-api</artifactId>
+    <version>${seatunnel.version}</version>
+    <scope>provided</scope>
+</dependency>
+<dependency>
+    <groupId>org.apache.seatunnel</groupId>
+    <artifactId>seatunnel-engine-server</artifactId>
+    <version>${seatunnel.version}</version>
+    <scope>provided</scope>
+</dependency>
+```
+> 注意：需将 `${seatunnel.version}` 替换为实际使用的 SeaTunnel 版本。
+
+
+#### 2. 实现事件处理器
+自定义类实现 `org.apache.seatunnel.api.event.EventHandler` 接口，并重写 `handle` 方法，针对 `JobStateEvent` 进行业务逻辑处理：
+
+```java
+import lombok.extern.slf4j.Slf4j;
+import org.apache.seatunnel.api.event.Event;
+import org.apache.seatunnel.api.event.EventHandler;
+import org.apache.seatunnel.engine.core.job.JobStatus;
+import org.apache.seatunnel.engine.server.event.JobStateEvent;
+
+/**
+ * 自定义Job状态事件处理器，示例包含日志记录和异常告警逻辑
+ */
+@Slf4j
+public class CustomJobStateEventHandler implements EventHandler {
+
+    @Override
+    public void handle(Event event) {
+        // 仅处理JobStateEvent类型的事件
+        if (!(event instanceof JobStateEvent)) {
+            return;
+        }
+
+        JobStateEvent jobEvent = (JobStateEvent) event;
+        String jobId = jobEvent.getJobId();
+        String jobName = jobEvent.getJobName();
+        JobStatus status = jobEvent.getJobStatus();
+        long eventTime = jobEvent.getCreatedTime();
+
+        // 根据任务状态执行不同逻辑
+        switch (status) {
+            case FAILED:
+                String errorMsg = getErrorMsg(jobId); // 假设该方法用于获取任务失败原因
+                log.error("任务失败 | jobId: {}, jobName: {}, 时间: {}, 原因: {}", 
+                    jobId, jobName, eventTime, errorMsg);
+                // 此处可添加告警逻辑（如调用邮件/短信接口）
+                sendAlert("任务失败告警", "jobId: " + jobId + ", 原因: " + errorMsg);
+                break;
+            case FINISHED:
+                log.info("任务完成 | jobId: {}, jobName: {}, 时间: {}", 
+                    jobId, jobName, eventTime);
+                // 任务完成后可执行资源清理、结果通知等操作
+                break;
+            case CANCELED:
+                log.warn("任务被取消 | jobId: {}, jobName: {}, 时间: {}", 
+                    jobId, jobName, eventTime);
+                break;
+            case SAVEPOINT_DONE:
+                log.info("任务 checkpoint 完成 | jobId: {}, jobName: {}, 时间: {}", 
+                    jobId, jobName, eventTime);
+                break;
+            default:
+                log.debug("任务状态变更 | jobId: {}, 状态: {}, 时间: {}", 
+                    jobId, status, eventTime);
+        }
+    }
+
+    /**
+     * 示例：发送告警通知
+     */
+    private void sendAlert(String title, String content) {
+        // 实现告警逻辑（如调用HTTP接口、发送邮件等）
+        log.info("[告警] {}: {}", title, content);
+    }
+}
+```
+
+#### 3. 配置 SPI 加载
+为使引擎自动发现并加载自定义处理器，需在项目资源目录中添加 SPI 配置文件：
+
+1. 创建目录：`src/main/resources/META-INF/services/`
+2. 新建文件：`org.apache.seatunnel.api.event.EventHandler`
+3. 在文件中添加自定义处理器的全类名：
+   ```
+   com.example.CustomJobStateEventHandler
+   ```
+
+
+#### 4. 部署与验证
+- 将包含自定义处理器的 JAR 包放入 SeaTunnel 引擎的类路径（如 `lib/` 目录）
+- 启动任务后，当任务状态变更时，处理器会自动触发并执行 `handle` 方法中的逻辑
+- 可通过日志输出（如示例中的 `log` 语句）验证处理器是否生效
+
+
+### 注意事项
+- 处理器逻辑应尽量轻量，避免阻塞事件处理线程
+- 若需网络调用（如发送告警），建议使用异步方式实现，防止超时影响任务本身
+- 仅 Zeta 引擎支持 `JobStateEvent`，Flink/Spark 引擎暂不支持此事件类型
