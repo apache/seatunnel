@@ -63,6 +63,7 @@ If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you
 | compress_codec                        | string  | no       | none                                       |                                                                                                                                                                        |
 | common-options                        | object  | no       | -                                          |                                                                                                                                                                        |
 | max_rows_in_memory                    | int     | no       | -                                          | Only used when file_format_type is excel.                                                                                                                              |
+| sheet_max_rows                        | int     | no       | 1048576                                    | Only used when file_format_type is excel.                                                                                                                              |
 | sheet_name                            | string  | no       | Sheet${Random number}                      | Only used when file_format_type is excel.                                                                                                                              |
 | csv_string_quote_mode                 | enum    | no       | MINIMAL                                    | Only used when file_format is csv.                                                                                                                                     |
 | xml_root_tag                          | string  | no       | RECORDS                                    | Only used when file_format is xml.                                                                                                                                     |
@@ -203,6 +204,10 @@ Sink plugin common parameters, please refer to [Sink Common Options](../sink-com
 ### max_rows_in_memory
 
 When File Format is Excel,The maximum number of data items that can be cached in the memory.
+
+### sheet_max_rows
+
+When file format is Excel, the maximum number of rows per sheet.
 
 ### sheet_name
 
