@@ -26,25 +26,29 @@ import org.apache.seatunnel.common.utils.TimeUtils;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.config.FileSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.util.ExcelGenerator;
 
-import org.apache.poi.ss.usermodel.Sheet;
-import org.apache.poi.ss.usermodel.Workbook;
-import org.apache.poi.xssf.usermodel.XSSFWorkbook;
-
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import com.alibaba.excel.EasyExcel;
+import com.alibaba.excel.context.AnalysisContext;
+import com.alibaba.excel.event.AnalysisEventListener;
+import lombok.extern.slf4j.Slf4j;
+
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+@Slf4j
 public class ExcelGeneratorTest {
 
     private FileSinkConfig fileSinkConfig;
@@ -121,7 +125,6 @@ public class ExcelGeneratorTest {
                 new ExcelGenerator(sinkColumnsIndexInRow, rowType, fileSinkConfig);
 
         int totalRows = 1200000;
-        long startTime = System.currentTimeMillis();
 
         for (int i = 1; i <= totalRows; i++) {
             SeaTunnelRow row =
@@ -136,36 +139,43 @@ public class ExcelGeneratorTest {
             excelGenerator.flushAndCloseExcel(fos);
         }
 
-        long endTime = System.currentTimeMillis();
-
         assertTrue("Large file should exist", outputFile.exists());
-        //        validateGeneratedFile(outputFile, 1048575);
+        validateGeneratedFile(outputFile, 1048575);
     }
 
     private void validateGeneratedFile(File file, int expectedDataRows) throws IOException {
-        try (FileInputStream fis = new FileInputStream(file);
-                Workbook workbook = new XSSFWorkbook(fis)) {
+        AtomicInteger rowCount = new AtomicInteger(0);
+        AtomicBoolean headerValid = new AtomicBoolean(false);
+        EasyExcel.read(file)
+                .registerReadListener(
+                        new AnalysisEventListener<Map<Integer, String>>() {
+                            @Override
+                            public void invoke(Map<Integer, String> data, AnalysisContext context) {
+                                rowCount.incrementAndGet();
+                                if (rowCount.get() % 50000 == 0) {
+                                    log.info("Processed " + rowCount.get() + " rows");
+                                }
+                            }
 
-            assertTrue("Should have at least 1 sheet", workbook.getNumberOfSheets() >= 1);
+                            @Override
+                            public void invokeHeadMap(
+                                    Map<Integer, String> headMap, AnalysisContext context) {
+                                headerValid.set(
+                                        "id".equals(headMap.get(0))
+                                                && "name".equals(headMap.get(1))
+                                                && "age".equals(headMap.get(2))
+                                                && "email".equals(headMap.get(3)));
+                            }
 
-            Sheet sheet = workbook.getSheetAt(0);
-            assertEquals(
-                    "Should have correct number of rows", expectedDataRows, sheet.getLastRowNum());
+                            @Override
+                            public void doAfterAllAnalysed(AnalysisContext context) {
+                                log.info("Validation completed. Total rows: " + rowCount.get());
+                            }
+                        })
+                .sheet(0)
+                .doRead();
 
-            if (sheet.getLastRowNum() >= 0) {
-                assertEquals(
-                        "Header should have correct column",
-                        "id",
-                        sheet.getRow(0).getCell(0).getStringCellValue());
-                assertEquals(
-                        "Header should have correct column",
-                        "name",
-                        sheet.getRow(0).getCell(1).getStringCellValue());
-                assertEquals(
-                        "Header should have correct column",
-                        "email",
-                        sheet.getRow(0).getCell(3).getStringCellValue());
-            }
-        }
+        assertTrue("Headers should be valid", headerValid.get());
+        assertEquals("Should have correct number of rows", expectedDataRows, rowCount.get());
     }
 }
