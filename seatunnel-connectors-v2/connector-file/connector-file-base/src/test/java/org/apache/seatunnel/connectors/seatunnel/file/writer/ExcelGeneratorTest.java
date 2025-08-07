@@ -109,7 +109,7 @@ public class ExcelGeneratorTest {
         assertTrue("File should exist", outputFile.exists());
         assertTrue("File should not be empty", outputFile.length() > 0);
 
-        validateGeneratedFile(outputFile, 5);
+        validateGeneratedFile(outputFile, 5, 0);
     }
 
     @Test
@@ -140,10 +140,12 @@ public class ExcelGeneratorTest {
         }
 
         assertTrue("Large file should exist", outputFile.exists());
-        validateGeneratedFile(outputFile, 1048575);
+        validateGeneratedFile(outputFile, 1048575, 0);
+        validateGeneratedFile(outputFile, totalRows - 1048575, 1);
     }
 
-    private void validateGeneratedFile(File file, int expectedDataRows) throws IOException {
+    private void validateGeneratedFile(File file, int expectedDataRows, int sheetNo)
+            throws IOException {
         AtomicInteger rowCount = new AtomicInteger(0);
         AtomicBoolean headerValid = new AtomicBoolean(false);
         EasyExcel.read(file)
@@ -172,7 +174,7 @@ public class ExcelGeneratorTest {
                                 log.info("Validation completed. Total rows: " + rowCount.get());
                             }
                         })
-                .sheet(0)
+                .sheet(sheetNo)
                 .doRead();
 
         assertTrue("Headers should be valid", headerValid.get());
