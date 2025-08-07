@@ -311,7 +311,7 @@ public class DatabendCDCSinkIT extends TestSuiteBase implements TestResource {
         if (this.connection != null) {
             try {
                 this.connection.close();
-                LOG.info("Database connection and heartbeat thread closed");
+                LOG.info("Database connection closed");
 
                 this.connection = null;
             } catch (SQLException e) {
@@ -319,7 +319,8 @@ public class DatabendCDCSinkIT extends TestSuiteBase implements TestResource {
             }
         }
 
-        Thread.sleep(5000);
+        // Add a longer sleep to ensure all heartbeat threads are properly terminated
+        Thread.sleep(10000);
 
         if (this.container != null) {
             this.container.stop();

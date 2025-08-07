@@ -340,7 +340,7 @@ public class SeaTunnelContainer extends AbstractTestContainer {
         } else {
             // Waiting 120s for release thread
             Awaitility.await()
-                    .atMost(420, TimeUnit.SECONDS)
+                    .atMost(120, TimeUnit.SECONDS)
                     .untilAsserted(
                             () -> {
                                 List<String> threads = ContainerUtil.getJVMThreadNames(server);
@@ -409,6 +409,7 @@ public class SeaTunnelContainer extends AbstractTestContainer {
                 || s.contains(
                         "org.apache.hadoop.fs.FileSystem$Statistics$StatisticsDataReferenceCleaner")
                 || s.startsWith("Log4j2-TF-")
+                || s.startsWith("heartbeat") // Add heartbeat threads as system threads
                 || aqsThread.matcher(s).matches()
                 // The renewed background thread of the hdfs client
                 || s.startsWith("LeaseRenewer")
