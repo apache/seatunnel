@@ -38,7 +38,8 @@ public class DorisBaseOptions {
             Options.key("enableLdap")
                     .booleanType()
                     .defaultValue(false)
-                    .withDescription("enableLdap");
+                    .withDescription(
+                            "Enable LDAP authentication. When enabled, MySQL 5.x driver (com.mysql.jdbc.Driver) will be used as default.");
 
     public static final Option<Integer> QUERY_PORT =
             Options.key("query-port")

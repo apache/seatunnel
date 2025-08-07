@@ -166,14 +166,8 @@ public class DorisCatalog implements Catalog {
                 connectionInfo.put("password", password);
             }
 
-            // Attempt to connect using available drivers
+            // Attempt to connect using appropriate driver strategy
             conn = attemptConnectionWithDrivers(jdbcUrl, connectionInfo);
-
-            if (conn == null) {
-                LOG.warn(
-                        "Failed to connect using driver enumeration, falling back to DriverManager.getConnection");
-                conn = DriverManager.getConnection(jdbcUrl, username, password);
-            }
 
             // Validate connection and initialize catalog
             conn.getCatalog();
@@ -188,62 +182,102 @@ public class DorisCatalog implements Catalog {
     }
 
     /**
-     * Attempt to establish connection by iterating through available JDBC drivers. This method
-     * prioritizes the specified driver class if provided, otherwise tries all available drivers.
+     * Attempt to establish connection using the appropriate driver strategy. If LDAP is enabled and
+     * no driver is specified, use MySQL 5.x driver as default. If a specific driver is specified
+     * and fails, throw an exception.
      *
      * @param jdbcUrl The JDBC URL to connect to
-     * @param connectionInfo Connection properties including user credentials and LDAP settings
-     * @return A valid database connection, or null if all attempts failed
+     * @param connectionInfo Connection properties including user credentials
+     * @return A valid database connection
+     * @throws SQLException if connection fails
      */
-    private Connection attemptConnectionWithDrivers(String jdbcUrl, Properties connectionInfo) {
-        Enumeration<Driver> drivers = DriverManager.getDrivers();
+    private Connection attemptConnectionWithDrivers(String jdbcUrl, Properties connectionInfo)
+            throws SQLException {
 
-        // If a specific driver class is specified, try it first
-        if (StringUtils.isNotBlank(driverClass)) {
-            LOG.debug("Attempting connection with specified driver class: {}", driverClass);
+        // Determine the driver to use
+        String targetDriver = determineTargetDriver();
 
-            while (drivers.hasMoreElements()) {
-                Driver driver = drivers.nextElement();
-                if (StringUtils.equals(driver.getClass().getName(), driverClass)) {
-                    Connection connection = tryConnectWithDriver(driver, jdbcUrl, connectionInfo);
-                    if (connection != null) {
-                        LOG.info("Successfully connected using specified driver: {}", driverClass);
-                        return connection;
-                    }
-                }
-            }
-
-            LOG.warn(
-                    "Failed to connect using specified driver class: {}, trying other available drivers",
-                    driverClass);
-
-            // Reset enumeration for fallback attempt
-            drivers = DriverManager.getDrivers();
+        if (StringUtils.isNotBlank(targetDriver)) {
+            // Use specific driver (either specified or default for LDAP)
+            return connectWithSpecificDriver(targetDriver, jdbcUrl, connectionInfo);
+        } else {
+            // No driver specified and LDAP disabled, try all available drivers
+            return connectWithAnyAvailableDriver(jdbcUrl, connectionInfo);
         }
+    }
 
-        // Try all available drivers
-        LOG.debug("Attempting connection with all available drivers");
+    /** Determine which driver to use based on configuration */
+    private String determineTargetDriver() {
+        if (StringUtils.isNotBlank(driverClass)) {
+            // Use explicitly specified driver
+            return driverClass;
+        } else if (enableLdap) {
+            // Use MySQL 5.x driver as default when LDAP is enabled
+            return "com.mysql.jdbc.Driver";
+        }
+        return null;
+    }
+
+    /** Connect using a specific driver class. Throws exception if fails. */
+    private Connection connectWithSpecificDriver(
+            String targetDriverClass, String jdbcUrl, Properties connectionInfo)
+            throws SQLException {
+
+        LOG.debug("Attempting connection with specific driver: {}", targetDriverClass);
+
+        Enumeration<Driver> drivers = DriverManager.getDrivers();
         while (drivers.hasMoreElements()) {
             Driver driver = drivers.nextElement();
-            String currentDriverClass = driver.getClass().getName();
-
-            // Skip the already tried driver if it was specified
-            if (StringUtils.isNotBlank(driverClass)
-                    && StringUtils.equals(currentDriverClass, driverClass)) {
-                continue;
+            if (StringUtils.equals(driver.getClass().getName(), targetDriverClass)) {
+                Connection connection = tryConnectWithDriver(driver, jdbcUrl, connectionInfo);
+                if (connection != null) {
+                    LOG.info("Successfully connected using driver: {}", targetDriverClass);
+                    return connection;
+                }
             }
+        }
+
+        // If we reach here, the specified driver failed or wasn't found
+        throw new SQLException(
+                String.format(
+                        "Failed to connect using specified driver: %s. "
+                                + "Please check if the driver is available in classpath and configuration is correct.",
+                        targetDriverClass));
+    }
+
+    /**
+     * Try connecting with any available driver (fallback when no driver specified and LDAP
+     * disabled)
+     */
+    private Connection connectWithAnyAvailableDriver(String jdbcUrl, Properties connectionInfo)
+            throws SQLException {
+
+        LOG.debug("No specific driver required, attempting connection with available drivers");
+
+        Enumeration<Driver> drivers = DriverManager.getDrivers();
+        StringBuilder attemptedDrivers = new StringBuilder();
+
+        while (drivers.hasMoreElements()) {
+            Driver driver = drivers.nextElement();
+            String driverClassName = driver.getClass().getName();
+
+            if (attemptedDrivers.length() > 0) {
+                attemptedDrivers.append(", ");
+            }
+            attemptedDrivers.append(driverClassName);
 
             Connection connection = tryConnectWithDriver(driver, jdbcUrl, connectionInfo);
             if (connection != null) {
-                LOG.info("Successfully connected using driver: {}", currentDriverClass);
+                LOG.info("Successfully connected using driver: {}", driverClassName);
                 return connection;
             }
         }
 
-        LOG.error("All driver connection attempts failed");
-        return null;
+        throw new SQLException(
+                String.format(
+                        "Failed to connect using any available drivers. Attempted drivers: [%s]",
+                        attemptedDrivers.toString()));
     }
-
     /**
      * Attempt to connect using a specific driver with LDAP configuration if enabled.
      *
