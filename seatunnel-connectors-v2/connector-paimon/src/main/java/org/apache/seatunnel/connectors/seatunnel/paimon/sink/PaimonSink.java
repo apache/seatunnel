@@ -49,6 +49,7 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 public class PaimonSink
         implements SeaTunnelSink<
@@ -78,6 +79,8 @@ public class PaimonSink
     private final PaimonHadoopConfiguration paimonHadoopConfiguration;
 
     private final PaimonBucketAssignerFactory paimonBucketAssignerFactory;
+
+    private final String commitUser = UUID.randomUUID().toString();
 
     public PaimonSink(ReadonlyConfig readonlyConfig, CatalogTable catalogTable) {
         this.readonlyConfig = readonlyConfig;
@@ -111,6 +114,7 @@ public class PaimonSink
                 readonlyConfig,
                 catalogTable,
                 paimonTable,
+                commitUser,
                 jobContext,
                 paimonSinkConfig,
                 paimonHadoopConfiguration,
@@ -120,7 +124,8 @@ public class PaimonSink
     @Override
     public Optional<SinkAggregatedCommitter<PaimonCommitInfo, PaimonAggregatedCommitInfo>>
             createAggregatedCommitter() throws IOException {
-        return Optional.of(new PaimonAggregatedCommitter(paimonTable, paimonHadoopConfiguration));
+        return Optional.of(
+                new PaimonAggregatedCommitter(paimonTable, paimonHadoopConfiguration, commitUser));
     }
 
     @Override
@@ -131,6 +136,7 @@ public class PaimonSink
                 readonlyConfig,
                 catalogTable,
                 paimonTable,
+                commitUser,
                 states,
                 jobContext,
                 paimonSinkConfig,

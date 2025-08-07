@@ -24,11 +24,11 @@ import org.apache.seatunnel.connectors.seatunnel.paimon.exception.PaimonConnecto
 import org.apache.seatunnel.connectors.seatunnel.paimon.exception.PaimonConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.paimon.security.PaimonSecurityContext;
 
+import org.apache.paimon.table.FileStoreTable;
 import org.apache.paimon.table.Table;
 import org.apache.paimon.table.sink.CommitMessage;
-import org.apache.paimon.table.sink.StreamTableCommit;
 import org.apache.paimon.table.sink.TableCommit;
-import org.apache.paimon.table.sink.WriteBuilder;
+import org.apache.paimon.table.sink.TableCommitImpl;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -48,18 +48,21 @@ public class PaimonAggregatedCommitter
 
     private static final long serialVersionUID = 1L;
 
-    private final WriteBuilder tableWriteBuilder;
+    private final FileStoreTable table;
+
+    private final String commitUser;
 
     public PaimonAggregatedCommitter(
-            Table table, PaimonHadoopConfiguration paimonHadoopConfiguration) {
-        this.tableWriteBuilder = table.newStreamWriteBuilder();
+            Table table, PaimonHadoopConfiguration paimonHadoopConfiguration, String commitUser) {
+        this.table = (FileStoreTable) table;
+        this.commitUser = commitUser;
         PaimonSecurityContext.shouldEnableKerberos(paimonHadoopConfiguration);
     }
 
     @Override
     public List<PaimonAggregatedCommitInfo> commit(
             List<PaimonAggregatedCommitInfo> aggregatedCommitInfo) throws IOException {
-        try (TableCommit tableCommit = tableWriteBuilder.newCommit()) {
+        try (TableCommitImpl tableCommit = table.newCommit(commitUser)) {
             PaimonSecurityContext.runSecured(
                     () -> {
                         log.debug("Trying to commit states streaming mode");
@@ -74,7 +77,7 @@ public class PaimonAggregatedCommitter
                                                 Collectors.toMap(
                                                         Map.Entry::getKey, Map.Entry::getValue));
                         if (!committablesMap.isEmpty()) {
-                            ((StreamTableCommit) tableCommit).filterAndCommit(committablesMap);
+                            committablesMap.forEach(tableCommit::commit);
                         }
                         return null;
                     });
@@ -100,7 +103,7 @@ public class PaimonAggregatedCommitter
 
     @Override
     public void abort(List<PaimonAggregatedCommitInfo> aggregatedCommitInfo) throws Exception {
-        try (TableCommit tableCommit = tableWriteBuilder.newCommit()) {
+        try (TableCommit tableCommit = table.newCommit(commitUser)) {
             PaimonSecurityContext.runSecured(
                     () -> {
                         log.debug("Trying to abort states streaming mode");

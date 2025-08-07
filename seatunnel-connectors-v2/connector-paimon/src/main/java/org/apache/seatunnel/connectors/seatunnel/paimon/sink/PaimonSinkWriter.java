@@ -54,11 +54,9 @@ import org.apache.paimon.table.BucketMode;
 import org.apache.paimon.table.FileStoreTable;
 import org.apache.paimon.table.Table;
 import org.apache.paimon.table.sink.CommitMessage;
-import org.apache.paimon.table.sink.StreamTableCommit;
 import org.apache.paimon.table.sink.StreamTableWrite;
-import org.apache.paimon.table.sink.TableCommit;
+import org.apache.paimon.table.sink.TableCommitImpl;
 import org.apache.paimon.table.sink.TableWrite;
-import org.apache.paimon.table.sink.WriteBuilder;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -71,8 +69,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import java.util.UUID;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import static org.apache.paimon.disk.IOManagerImpl.splitPaths;
@@ -83,11 +79,9 @@ public class PaimonSinkWriter
                 SupportMultiTableSinkWriter<Void>,
                 SupportSchemaEvolutionSinkWriter {
 
-    private String commitUser = UUID.randomUUID().toString();
+    private final String commitUser;
 
-    private FileStoreTable paimonFileStoretable;
-
-    private WriteBuilder tableWriteBuilder;
+    private FileStoreTable paimonTable;
 
     private TableWrite tableWrite;
 
@@ -126,7 +120,8 @@ public class PaimonSinkWriter
             Context context,
             ReadonlyConfig readonlyConfig,
             CatalogTable catalogTable,
-            Table paimonTable,
+            Table paimonFileStoretable,
+            String commitUser,
             JobContext jobContext,
             PaimonSinkConfig paimonSinkConfig,
             PaimonHadoopConfiguration paimonHadoopConfiguration,
@@ -137,9 +132,10 @@ public class PaimonSinkWriter
         this.paimonTablePath = catalogTable.getTablePath();
         this.paimonCatalog = PaimonCatalog.loadPaimonCatalog(readonlyConfig);
         this.paimonCatalog.open();
-        this.paimonFileStoretable = (FileStoreTable) paimonTable;
+        this.paimonTable = (FileStoreTable) paimonFileStoretable;
+        this.commitUser = commitUser;
         CoreOptions.ChangelogProducer changelogProducer =
-                this.paimonFileStoretable.coreOptions().changelogProducer();
+                this.paimonTable.coreOptions().changelogProducer();
         if (Objects.nonNull(paimonSinkConfig.getChangelogProducer())
                 && changelogProducer != paimonSinkConfig.getChangelogProducer()) {
             log.warn(
@@ -147,15 +143,15 @@ public class PaimonSinkWriter
         }
         this.rowAssignerChannelComputer =
                 new RowAssignerChannelComputer(
-                        paimonFileStoretable.schema(), context.getNumberOfParallelSubtasks());
+                        paimonTable.schema(), context.getNumberOfParallelSubtasks());
         rowAssignerChannelComputer.setup(context.getNumberOfParallelSubtasks());
         this.paimonBucketAssignerFactory = paimonBucketAssignerFactory;
         this.parallelism = context.getNumberOfParallelSubtasks();
         this.taskIndex = context.getIndexOfSubtask();
         this.paimonSinkConfig = paimonSinkConfig;
-        this.sinkPaimonTableSchema = this.paimonFileStoretable.schema();
+        this.sinkPaimonTableSchema = this.paimonTable.schema();
         this.newTableWrite();
-        BucketMode bucketMode = this.paimonFileStoretable.bucketMode();
+        BucketMode bucketMode = this.paimonTable.bucketMode();
         // https://paimon.apache.org/docs/master/primary-key-table/data-distribution/#dynamic-bucket
         // When you need cross partition upsert (primary keys not contain all partition fields),
         // Dynamic Bucket mode directly maintains the mapping of keys to partition and bucket, uses
@@ -168,7 +164,7 @@ public class PaimonSinkWriter
                     "Cross Partitions Upsert Dynamic Bucket Mode is not supported.");
         }
         this.dynamicBucket = BucketMode.HASH_DYNAMIC == bucketMode;
-        int bucket = ((FileStoreTable) paimonTable).coreOptions().bucket();
+        int bucket = paimonTable.coreOptions().bucket();
         if (bucket == -1 && BucketMode.BUCKET_UNAWARE == bucketMode) {
             log.warn("Append only table currently do not support dynamic bucket");
         }
@@ -183,6 +179,7 @@ public class PaimonSinkWriter
             ReadonlyConfig readonlyConfig,
             CatalogTable catalogTable,
             Table paimonFileStoretable,
+            String commitUser,
             List<PaimonSinkState> states,
             JobContext jobContext,
             PaimonSinkConfig paimonSinkConfig,
@@ -193,6 +190,7 @@ public class PaimonSinkWriter
                 readonlyConfig,
                 catalogTable,
                 paimonFileStoretable,
+                commitUser,
                 jobContext,
                 paimonSinkConfig,
                 paimonHadoopConfiguration,
@@ -200,8 +198,7 @@ public class PaimonSinkWriter
         if (Objects.isNull(states) || states.isEmpty()) {
             return;
         }
-        this.commitUser = states.get(0).getCommitUser();
-        try (TableCommit tableCommit = tableWriteBuilder.newCommit()) {
+        try (TableCommitImpl tableCommit = paimonTable.newCommit(states.get(0).getCommitUser())) {
             Map<Long, List<CommitMessage>> commitMessagesMap =
                     states.stream()
                             .collect(
@@ -214,19 +211,10 @@ public class PaimonSinkWriter
             }
             // streaming mode or batch mode with checkpoint need to recommit by stream api
             log.info("Trying to recommit states {}", commitMessagesMap);
-            ((StreamTableCommit) tableCommit).filterAndCommit(commitMessagesMap);
+            tableCommit.filterAndCommit(commitMessagesMap);
         } catch (Exception e) {
-            if (!(e.getCause() instanceof IllegalStateException)) {
-                throw new PaimonConnectorException(
-                        PaimonConnectorErrorCode.TABLE_WRITE_COMMIT_FAILED, e);
-            }
-            Pattern pattern =
-                    Pattern.compile("Trying to add file .*? which is already added\\.\\s*");
-            if (!pattern.matcher(e.getCause().getMessage()).matches()) {
-                throw new PaimonConnectorException(
-                        PaimonConnectorErrorCode.TABLE_WRITE_COMMIT_FAILED, e);
-            }
-            log.warn("commit message already added, skip it.");
+            throw new PaimonConnectorException(
+                    PaimonConnectorErrorCode.TABLE_WRITE_COMMIT_FAILED, e);
         }
     }
 
@@ -279,21 +267,20 @@ public class PaimonSinkWriter
 
     private void reOpenTableWrite() {
         this.seaTunnelRowType = this.sourceTableSchema.toPhysicalRowDataType();
-        this.paimonFileStoretable = (FileStoreTable) paimonCatalog.getPaimonTable(paimonTablePath);
-        this.sinkPaimonTableSchema = this.paimonFileStoretable.schema();
+        this.paimonTable = (FileStoreTable) paimonCatalog.getPaimonTable(paimonTablePath);
+        this.sinkPaimonTableSchema = this.paimonTable.schema();
         this.newTableWrite();
     }
 
     private void newTableWrite() {
-        this.tableWriteBuilder = this.paimonFileStoretable.newStreamWriteBuilder();
         TableWrite oldTableWrite = this.tableWrite;
+        tableWriteClose(oldTableWrite);
         this.tableWrite =
-                tableWriteBuilder
-                        .newWrite()
+                this.paimonTable
+                        .newWrite(commitUser)
                         .withIOManager(
                                 IOManager.create(
                                         splitPaths(paimonSinkConfig.getChangelogTmpPath())));
-        tableWriteClose(oldTableWrite);
     }
 
     @Override
@@ -361,7 +348,7 @@ public class PaimonSinkWriter
         if (JobMode.BATCH.equals(jobContext.getJobMode())) {
             return true;
         }
-        CoreOptions coreOptions = this.paimonFileStoretable.coreOptions();
+        CoreOptions coreOptions = this.paimonTable.coreOptions();
         if (coreOptions.writeOnly()) {
             return false;
         }
