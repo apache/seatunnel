@@ -26,6 +26,7 @@ import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.core.job.JobStatus;
 import org.apache.seatunnel.engine.core.job.PipelineStatus;
 import org.apache.seatunnel.engine.server.operation.PrintMessageOperation;
+import org.apache.seatunnel.engine.server.operation.ReturnRetryTimesOperation;
 import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
 
 import org.junit.jupiter.api.Assertions;
@@ -37,6 +38,7 @@ import com.hazelcast.instance.impl.HazelcastInstanceImpl;
 import com.hazelcast.internal.serialization.Data;
 
 import java.util.Collections;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.TimeUnit;
 
 import static org.awaitility.Awaitility.await;
@@ -82,6 +84,34 @@ public class CoordinatorServiceTest {
                             }
                         });
         instance2.shutdown();
+    }
+
+    @Test
+    public void testSeaTunnelEngineRetryableExceptionOperationCanBeRetryByHazelcast() {
+
+        HazelcastInstanceImpl instance =
+                SeaTunnelServerStarter.createHazelcastInstance(
+                        TestUtils.getClusterName(
+                                "CoordinatorServiceTest_testSeaTunnelEngineRetryableExceptionOperationCanBeRetryByHazelcast"));
+        try {
+            CompletionException exception =
+                    Assertions.assertThrows(
+                            CompletionException.class,
+                            () -> {
+                                NodeEngineUtil.sendOperationToMemberNode(
+                                                instance.node.getNodeEngine(),
+                                                new ReturnRetryTimesOperation(),
+                                                instance.getCluster().getLocalMember().getAddress())
+                                        .join();
+                            });
+            Assertions.assertTrue(
+                    exception
+                            .getCause()
+                            .getMessage()
+                            .contains("Retryable exception occurred, retry times: 250"));
+        } finally {
+            instance.shutdown();
+        }
     }
 
     @Test
@@ -169,12 +199,30 @@ public class CoordinatorServiceTest {
             throw new RuntimeException(e);
         }
 
+        int scheduleRunnerThreadCount =
+                (int)
+                        Thread.getAllStackTraces().keySet().stream()
+                                .filter(
+                                        thread ->
+                                                thread.getName()
+                                                        .startsWith("pending-job-schedule-runner"))
+                                .count();
+        Assertions.assertTrue(scheduleRunnerThreadCount > 0);
+
         coordinatorService.clearCoordinatorService();
 
-        // because runningJobMasterMap is empty and we have no JobHistoryServer, so return
+        // because runningJobMasterMap is empty, and we have no JobHistoryServer, so return
         // UNKNOWABLE.
-        Assertions.assertTrue(JobStatus.UNKNOWABLE.equals(coordinatorService.getJobStatus(jobId)));
+        Assertions.assertEquals(JobStatus.UNKNOWABLE, coordinatorService.getJobStatus(jobId));
         coordinatorServiceTest.shutdown();
+
+        Assertions.assertEquals(
+                scheduleRunnerThreadCount - 1,
+                Thread.getAllStackTraces().keySet().stream()
+                        .filter(
+                                thread ->
+                                        thread.getName().startsWith("pending-job-schedule-runner"))
+                        .count());
     }
 
     @Test

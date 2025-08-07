@@ -400,7 +400,7 @@ public class ServerConfigOptions {
         public static final Option<Integer> SLOT_NUM =
                 Options.key("slot-num")
                         .intType()
-                        .defaultValue(2)
+                        .defaultValue(Runtime.getRuntime().availableProcessors() * 2)
                         .withDescription(
                                 "The number of slots. Only valid when dynamic slot is disabled.");
 

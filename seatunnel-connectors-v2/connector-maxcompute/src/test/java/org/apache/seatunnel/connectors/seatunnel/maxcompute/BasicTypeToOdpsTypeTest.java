@@ -65,7 +65,11 @@ public class BasicTypeToOdpsTypeTest {
         SeaTunnelRow seaTunnelRow = MaxcomputeTypeMapper.getSeaTunnelRowData(record, typeInfo);
         Record tRecord =
                 MaxcomputeTypeMapper.getMaxcomputeRowData(
-                        seaTunnelRow, tableSchema, typeInfo, defaultFormatterContext);
+                        new ArrayRecord(tableSchema),
+                        seaTunnelRow,
+                        tableSchema,
+                        typeInfo,
+                        defaultFormatterContext);
 
         for (int i = 0; i < tRecord.getColumns().length; i++) {
             Assertions.assertEquals(record.get(i), tRecord.get(i));
@@ -166,7 +170,11 @@ public class BasicTypeToOdpsTypeTest {
 
         Record finalOutputRecord =
                 MaxcomputeTypeMapper.getMaxcomputeRowData(
-                        seaTunnelRow, outputSchema, typeInfo, formatterContext);
+                        new ArrayRecord(outputSchema),
+                        seaTunnelRow,
+                        outputSchema,
+                        typeInfo,
+                        formatterContext);
 
         Assertions.assertEquals(expectedObject, finalOutputRecord.get(fieldName));
     }

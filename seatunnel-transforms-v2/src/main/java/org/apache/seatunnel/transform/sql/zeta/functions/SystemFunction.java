@@ -154,12 +154,6 @@ public class SystemFunction {
                 if (v1 instanceof LocalDateTime) {
                     return v1;
                 }
-                if (v1 instanceof LocalDate) {
-                    return LocalDateTime.of((LocalDate) v1, LocalTime.of(0, 0, 0));
-                }
-                if (v1 instanceof LocalTime) {
-                    return LocalDateTime.of(LocalDate.now(), (LocalTime) v1);
-                }
                 if (v1 instanceof Long) {
                     Instant instant = Instant.ofEpochMilli(((Long) v1).longValue());
                     ZoneId zone = ZoneId.systemDefault();
@@ -188,9 +182,6 @@ public class SystemFunction {
             case "TIME":
                 if (v1 instanceof LocalDateTime) {
                     return ((LocalDateTime) v1).toLocalTime();
-                }
-                if (v1 instanceof LocalDate) {
-                    return LocalTime.of(0, 0, 0);
                 }
                 if (v1 instanceof LocalTime) {
                     return v1;

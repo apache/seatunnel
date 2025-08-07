@@ -245,7 +245,7 @@ public abstract class SeaTunnelTask extends AbstractTask {
                             this,
                             completableFuture,
                             ((AbstractTaskGroupWithIntermediateQueue) taskBelongGroup)
-                                    .getQueueCache(config.getQueueID()));
+                                    .getQueueCache(config.getQueueID(), this.getMetricsContext()));
             outputs = flowLifeCycles;
         } else {
             throw new UnknownFlowException(flow);
@@ -298,7 +298,7 @@ public abstract class SeaTunnelTask extends AbstractTask {
     @Override
     public void close() throws IOException {
         super.close();
-        MDCTracer.tracing(allCycles.parallelStream())
+        MDCTracer.tracing(allCycles.stream())
                 .forEach(
                         flowLifeCycle -> {
                             try {

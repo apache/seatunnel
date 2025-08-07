@@ -18,32 +18,38 @@
 package org.apache.seatunnel.connectors.seatunnel.typesense.source;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.table.connector.TableSource;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
+import org.apache.seatunnel.connectors.seatunnel.typesense.config.TypesenseSinkOptions;
+import org.apache.seatunnel.connectors.seatunnel.typesense.config.TypesenseSourceOptions;
 
 import com.google.auto.service.AutoService;
 
 import java.io.Serializable;
-
-import static org.apache.seatunnel.connectors.seatunnel.typesense.config.SourceConfig.COLLECTION;
-import static org.apache.seatunnel.connectors.seatunnel.typesense.config.TypesenseConnectionConfig.APIKEY;
-import static org.apache.seatunnel.connectors.seatunnel.typesense.config.TypesenseConnectionConfig.HOSTS;
 
 @AutoService(Factory.class)
 public class TypesenseSourceFactory implements TableSourceFactory {
 
     @Override
     public String factoryIdentifier() {
-        return "Typesense";
+        return TypesenseSinkOptions.CONNECTOR_IDENTITY;
     }
 
     @Override
     public OptionRule optionRule() {
-        return OptionRule.builder().required(HOSTS, APIKEY).optional(COLLECTION).build();
+        return OptionRule.builder()
+                .required(TypesenseSourceOptions.HOSTS, TypesenseSourceOptions.APIKEY)
+                .optional(TypesenseSourceOptions.PROTOCOL)
+                .optional(TypesenseSourceOptions.QUERY)
+                .optional(TypesenseSourceOptions.QUERY_BATCH_SIZE)
+                .optional(TypesenseSourceOptions.COLLECTION)
+                .optional(ConnectorCommonOptions.SCHEMA)
+                .build();
     }
 
     @Override

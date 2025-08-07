@@ -884,6 +884,8 @@ Parses a string and returns a TIMESTAMP WITH TIME ZONE value. The most important
 Example:
 
 CALL PARSEDATETIME('2021-04-08 13:34:45','yyyy-MM-dd HH:mm:ss')
+CALL TO_DATE('2021-04-08'T'13:34:45','yyyy-MM-dd''T''HH:mm:ss')
+Note that when filling in `'` in SQL functions, it needs to be escaped to `''`.
 
 ### QUARTER
 
@@ -1022,6 +1024,16 @@ Returns NULL if 'a' is equal to 'b', otherwise 'a'.
 Example:
 
 NULLIF(A, B)
+
+
+### MULTI_IF
+```MULTI_IF(condition1, value1, condition2, value2, ... conditionN, valueN, bValue)```
+
+returns the first value for which the corresponding condition is true. If all conditions are false, it returns the last value.
+
+Example:
+
+MULTI_IF(A > 1, 'A', B > 1, 'B', C > 1, 'C', 'D')
 
 ### CASE WHEN
 

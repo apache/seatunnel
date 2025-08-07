@@ -48,11 +48,7 @@ import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
-import static org.apache.seatunnel.connectors.seatunnel.pulsar.config.SinkProperties.PULSAR_CONFIG;
-
 public class PulsarConfigUtil {
-
-    public static final String IDENTIFIER = "Pulsar";
 
     private PulsarConfigUtil() {}
 
@@ -172,10 +168,10 @@ public class PulsarConfigUtil {
         producerBuilder.messageRoutingMode(messageRoutingMode);
         producerBuilder.blockIfQueueFull(true);
 
-        if (pluginConfig.get(PULSAR_CONFIG) != null) {
+        if (pluginConfig.get(PulsarSinkOptions.PULSAR_CONFIG) != null) {
             Map<String, String> pulsarProperties = new HashMap<>();
             pluginConfig
-                    .get(PULSAR_CONFIG)
+                    .get(PulsarSinkOptions.PULSAR_CONFIG)
                     .forEach((key, value) -> pulsarProperties.put(key, value));
             producerBuilder.properties(pulsarProperties);
         }

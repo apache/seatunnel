@@ -18,24 +18,16 @@
 package org.apache.seatunnel.connectors.seatunnel.maxcompute.sink;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
-import org.apache.seatunnel.api.options.table.FormatOptions;
 import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
-import org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeSinkOptions;
+import org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeBaseOptions;
 import org.apache.seatunnel.connectors.seatunnel.maxcompute.exception.MaxcomputeConnectorException;
-import org.apache.seatunnel.connectors.seatunnel.maxcompute.util.FormatterContext;
-import org.apache.seatunnel.connectors.seatunnel.maxcompute.util.MaxcomputeTypeMapper;
-import org.apache.seatunnel.connectors.seatunnel.maxcompute.util.MaxcomputeUtil;
+import org.apache.seatunnel.connectors.seatunnel.maxcompute.util.MaxcomputeOutputFormat;
 
-import com.aliyun.odps.PartitionSpec;
-import com.aliyun.odps.Table;
-import com.aliyun.odps.TableSchema;
-import com.aliyun.odps.data.Record;
-import com.aliyun.odps.data.RecordWriter;
-import com.aliyun.odps.tunnel.TableTunnel;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
@@ -43,38 +35,11 @@ import java.io.IOException;
 @Slf4j
 public class MaxcomputeWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
         implements SupportMultiTableSinkWriter<Void> {
-    private RecordWriter recordWriter;
-    private final TableTunnel.UploadSession session;
-    private final TableSchema tableSchema;
-    private final SeaTunnelRowType rowType;
-    private final FormatterContext formatterContext;
+    private MaxcomputeOutputFormat writer;
 
     public MaxcomputeWriter(ReadonlyConfig readonlyConfig, SeaTunnelRowType rowType) {
         try {
-            this.rowType = rowType;
-            Table table = MaxcomputeUtil.getTable(readonlyConfig);
-            this.tableSchema = table.getSchema();
-            TableTunnel tunnel = MaxcomputeUtil.getTableTunnel(readonlyConfig);
-            if (readonlyConfig.getOptional(MaxcomputeSinkOptions.PARTITION_SPEC).isPresent()) {
-                PartitionSpec partitionSpec =
-                        new PartitionSpec(readonlyConfig.get(MaxcomputeSinkOptions.PARTITION_SPEC));
-                session =
-                        tunnel.createUploadSession(
-                                readonlyConfig.get(MaxcomputeSinkOptions.PROJECT),
-                                readonlyConfig.get(MaxcomputeSinkOptions.TABLE_NAME),
-                                partitionSpec);
-            } else {
-                session =
-                        tunnel.createUploadSession(
-                                readonlyConfig.get(MaxcomputeSinkOptions.PROJECT),
-                                readonlyConfig.get(MaxcomputeSinkOptions.TABLE_NAME));
-            }
-
-            this.formatterContext =
-                    new FormatterContext(readonlyConfig.get(FormatOptions.DATETIME_FORMAT));
-
-            this.recordWriter = session.openBufferedWriter();
-            log.info("open record writer success");
+            writer = new MaxcomputeOutputFormat(rowType, readonlyConfig);
         } catch (Exception e) {
             throw new MaxcomputeConnectorException(
                     CommonErrorCodeDeprecated.WRITER_OPERATION_FAILED, e);
@@ -83,23 +48,24 @@ public class MaxcomputeWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
 
     @Override
     public void write(SeaTunnelRow seaTunnelRow) throws IOException {
-        Record record =
-                MaxcomputeTypeMapper.getMaxcomputeRowData(
-                        seaTunnelRow, this.tableSchema, this.rowType, formatterContext);
-        recordWriter.write(record);
+        try {
+            writer.write(seaTunnelRow);
+        } catch (IOException e1) {
+            throw e1;
+        } catch (Exception e2) {
+            throw CommonError.writeSeaTunnelRowFailed(
+                    MaxcomputeBaseOptions.PLUGIN_NAME, seaTunnelRow.toString(), e2);
+        }
     }
 
     @Override
     public void close() throws IOException {
-        if (recordWriter != null) {
-            recordWriter.close();
-            try {
-                session.commit();
-            } catch (Exception e) {
-                throw new MaxcomputeConnectorException(
-                        CommonErrorCodeDeprecated.WRITER_OPERATION_FAILED, e);
-            }
-            recordWriter = null;
+        try {
+            writer.close();
+        } catch (IOException e1) {
+            throw e1;
+        } catch (Exception e2) {
+            throw CommonError.closeFailed(MaxcomputeBaseOptions.PLUGIN_NAME, e2);
         }
     }
 }

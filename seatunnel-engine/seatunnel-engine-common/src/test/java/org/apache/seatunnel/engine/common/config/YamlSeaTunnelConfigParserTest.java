@@ -25,6 +25,8 @@ import com.hazelcast.client.config.YamlClientConfigBuilder;
 
 import java.io.IOException;
 
+import static com.hazelcast.internal.config.DeclarativeConfigUtil.YAML_ACCEPTED_SUFFIXES;
+
 public class YamlSeaTunnelConfigParserTest {
 
     @Test
@@ -85,15 +87,46 @@ public class YamlSeaTunnelConfigParserTest {
     @Test
     public void testCustomizeClientConfig() throws IOException {
         YamlClientConfigBuilder yamlClientConfigBuilder =
-                new YamlClientConfigBuilder("custmoize-client.yaml");
+                new YamlClientConfigBuilder("customize-client.yaml");
         ClientConfig clientConfig = yamlClientConfigBuilder.build();
 
-        Assertions.assertEquals("custmoize", clientConfig.getClusterName());
+        Assertions.assertEquals("customize", clientConfig.getClusterName());
         Assertions.assertEquals(
                 3000L,
                 clientConfig
                         .getConnectionStrategyConfig()
                         .getConnectionRetryConfig()
                         .getClusterConnectTimeoutMillis());
+    }
+
+    @Test
+    public void testCustomizeSeaTunnelYaml() throws IOException {
+        YamlSeaTunnelConfigLocator yamlConfigLocator =
+                new YamlSeaTunnelConfigLocator() {
+                    @Override
+                    protected boolean locateInWorkDir() {
+                        return loadFromWorkingDirectory(
+                                "customize-seatunnel", YAML_ACCEPTED_SUFFIXES);
+                    }
+
+                    @Override
+                    protected boolean locateOnClasspath() {
+                        return loadConfigurationFromClasspath(
+                                "customize-seatunnel", YAML_ACCEPTED_SUFFIXES);
+                    }
+                };
+        SeaTunnelConfig config;
+        if (yamlConfigLocator.locateInWorkDirOrOnClasspath()) {
+            // 2. Try loading YAML config from the working directory or from the classpath
+            config = new YamlSeaTunnelConfigBuilder(yamlConfigLocator).setProperties(null).build();
+        } else {
+            throw new RuntimeException("can't find yaml in resources");
+        }
+
+        Assertions.assertFalse(config.getEngineConfig().getSlotServiceConfig().isDynamicSlot());
+        // test the default slot number should be 2 * availableProcessors
+        Assertions.assertEquals(
+                Runtime.getRuntime().availableProcessors() * 2,
+                config.getEngineConfig().getSlotServiceConfig().getSlotNum());
     }
 }

@@ -204,6 +204,36 @@ public class JdbcMysqlMultipleTablesIT extends TestSuiteBase implements TestReso
                 0, sqlConfEexecResult.getExitCode(), sqlConfEexecResult.getStderr());
     }
 
+    @TestTemplate
+    public void testMysqlJdbcRegexPatternE2e(TestContainer container)
+            throws IOException, InterruptedException, SQLException {
+        clearSinkTables();
+
+        Container.ExecResult execResult =
+                container.executeJob("/jdbc_mysql_source_and_sink_with_pattern_tables.conf");
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+
+        List<Executable> asserts =
+                TABLES.stream()
+                        .map(
+                                (Function<String, Executable>)
+                                        table ->
+                                                () ->
+                                                        Assertions.assertIterableEquals(
+                                                                query(
+                                                                        String.format(
+                                                                                "SELECT * FROM %s.%s",
+                                                                                SOURCE_DATABASE,
+                                                                                table)),
+                                                                query(
+                                                                        String.format(
+                                                                                "SELECT * FROM %s.%s",
+                                                                                SINK_DATABASE,
+                                                                                table))))
+                        .collect(Collectors.toList());
+        Assertions.assertAll(asserts);
+    }
+
     @AfterAll
     @Override
     public void tearDown() throws Exception {

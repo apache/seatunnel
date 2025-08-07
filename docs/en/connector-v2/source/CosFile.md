@@ -14,9 +14,13 @@ import ChangeLog from '../changelog/connector-file-cos.md';
 
 - [x] [batch](../../concept/connector-v2-features.md)
 - [ ] [stream](../../concept/connector-v2-features.md)
+- [x] [multimodal](../../concept/connector-v2-features.md#multimodal)
+
+  Use binary file format to read and write files in any format, such as videos, pictures, etc. In short, any files can be synchronized to the target place.
+
 - [x] [exactly-once](../../concept/connector-v2-features.md)
 
-Read all the data in a split in a pollNext call. What splits are read will be saved in snapshot.
+  Read all the data in a split in a pollNext call. What splits are read will be saved in snapshot.
 
 - [x] [column projection](../../concept/connector-v2-features.md)
 - [x] [parallelism](../../concept/connector-v2-features.md)
@@ -57,6 +61,7 @@ To use this connector you need put hadoop-cos-{hadoop.version}-{version}.jar and
 | region                    | string  | yes      | -                   |
 | read_columns              | list    | yes      | -                   |
 | delimiter/field_delimiter | string  | no       | \001                |
+| row_delimiter             | string  | no       | \n                  |
 | parse_partition_from_path | boolean | no       | true                |
 | skip_header_row_number    | long    | no       | 0                   |
 | date_format               | string  | no       | yyyy-MM-dd          |
@@ -68,7 +73,7 @@ To use this connector you need put hadoop-cos-{hadoop.version}-{version}.jar and
 | xml_use_attr_format       | boolean | no       | -                   |
 | csv_use_header_line       | boolean | no       | false               |
 | file_filter_pattern       | string  | no       | -                   |
-| filename_extension            | string  | no       | -                   |
+| filename_extension        | string  | no       | -                   |
 | compress_codec            | string  | no       | none                |
 | archive_compress_codec    | string  | no       | none                |
 | encoding                  | string  | no       | UTF-8               |
@@ -202,6 +207,14 @@ Only need to be configured when file_format is text.
 Field delimiter, used to tell connector how to slice and dice fields
 
 default `\001`, the same as hive's default delimiter
+
+### row_delimiter [string]
+
+Only need to be configured when file_format is text
+
+Row delimiter, used to tell connector how to slice and dice rows
+
+default `\n`
 
 ### parse_partition_from_path [boolean]
 

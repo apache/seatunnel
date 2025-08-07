@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.paimon.sink;
 
+import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
+
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.sink.SinkWriter;
@@ -28,6 +30,7 @@ import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.schema.handler.TableSchemaChangeEventDispatcher;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.seatunnel.paimon.catalog.PaimonCatalog;
 import org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonHadoopConfiguration;
@@ -36,6 +39,8 @@ import org.apache.seatunnel.connectors.seatunnel.paimon.exception.PaimonConnecto
 import org.apache.seatunnel.connectors.seatunnel.paimon.exception.PaimonConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.paimon.security.PaimonSecurityContext;
 import org.apache.seatunnel.connectors.seatunnel.paimon.sink.bucket.PaimonBucketAssigner;
+import org.apache.seatunnel.connectors.seatunnel.paimon.sink.bucket.PaimonBucketAssignerFactory;
+import org.apache.seatunnel.connectors.seatunnel.paimon.sink.bucket.RowAssignerChannelComputer;
 import org.apache.seatunnel.connectors.seatunnel.paimon.sink.commit.PaimonCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.paimon.sink.schema.handler.AlterPaimonTableSchemaEventHandler;
 import org.apache.seatunnel.connectors.seatunnel.paimon.sink.state.PaimonSinkState;
@@ -60,9 +65,11 @@ import lombok.extern.slf4j.Slf4j;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -90,9 +97,9 @@ public class PaimonSinkWriter
 
     private TableSchema sinkPaimonTableSchema;
 
-    private PaimonBucketAssigner bucketAssigner;
-
     private final boolean dynamicBucket;
+
+    private final PaimonBucketAssignerFactory paimonBucketAssignerFactory;
 
     private final PaimonCatalog paimonCatalog;
 
@@ -103,20 +110,32 @@ public class PaimonSinkWriter
     private final TableSchemaChangeEventDispatcher TABLE_SCHEMACHANGER =
             new TableSchemaChangeEventDispatcher();
 
+    private final JobContext jobContext;
+
+    private final RowAssignerChannelComputer rowAssignerChannelComputer;
+
+    private final int parallelism;
+
+    private final int taskIndex;
+
+    private final Set<PaimonBucketAssigner> bucketAssigners = new HashSet<>();
+
     public PaimonSinkWriter(
             Context context,
             ReadonlyConfig readonlyConfig,
             CatalogTable catalogTable,
-            Table paimonFileStoretable,
+            Table paimonTable,
             JobContext jobContext,
             PaimonSinkConfig paimonSinkConfig,
-            PaimonHadoopConfiguration paimonHadoopConfiguration) {
+            PaimonHadoopConfiguration paimonHadoopConfiguration,
+            PaimonBucketAssignerFactory paimonBucketAssignerFactory) {
         this.sourceTableSchema = catalogTable.getTableSchema();
         this.seaTunnelRowType = this.sourceTableSchema.toPhysicalRowDataType();
+        this.jobContext = jobContext;
         this.paimonTablePath = catalogTable.getTablePath();
         this.paimonCatalog = PaimonCatalog.loadPaimonCatalog(readonlyConfig);
         this.paimonCatalog.open();
-        this.paimonFileStoretable = (FileStoreTable) paimonFileStoretable;
+        this.paimonFileStoretable = (FileStoreTable) paimonTable;
         CoreOptions.ChangelogProducer changelogProducer =
                 this.paimonFileStoretable.coreOptions().changelogProducer();
         if (Objects.nonNull(paimonSinkConfig.getChangelogProducer())
@@ -124,22 +143,35 @@ public class PaimonSinkWriter
             log.warn(
                     "configured the props named 'changelog-producer' which is not compatible with the options in table , so it will use the table's 'changelog-producer'");
         }
+        this.rowAssignerChannelComputer =
+                new RowAssignerChannelComputer(
+                        paimonFileStoretable.schema(), context.getNumberOfParallelSubtasks());
+        rowAssignerChannelComputer.setup(context.getNumberOfParallelSubtasks());
+        this.paimonBucketAssignerFactory = paimonBucketAssignerFactory;
+        this.parallelism = context.getNumberOfParallelSubtasks();
+        this.taskIndex = context.getIndexOfSubtask();
         this.paimonSinkConfig = paimonSinkConfig;
         this.sinkPaimonTableSchema = this.paimonFileStoretable.schema();
         this.newTableWrite();
         BucketMode bucketMode = this.paimonFileStoretable.bucketMode();
-        this.dynamicBucket =
-                BucketMode.DYNAMIC == bucketMode || BucketMode.GLOBAL_DYNAMIC == bucketMode;
-        int bucket = ((FileStoreTable) paimonFileStoretable).coreOptions().bucket();
-        if (bucket == -1 && BucketMode.UNAWARE == bucketMode) {
+        // https://paimon.apache.org/docs/master/primary-key-table/data-distribution/#dynamic-bucket
+        // When you need cross partition upsert (primary keys not contain all partition fields),
+        // Dynamic Bucket mode directly maintains the mapping of keys to partition and bucket, uses
+        // local disks, and initializes indexes by reading all existing keys in the table when
+        // starting job. For tables with a large amount of data, there will be a significant loss in
+        // performance. Moreover, initialization takes a long time. This mode is not supported at
+        // this time.
+        if (BucketMode.CROSS_PARTITION == bucketMode) {
+            throw new UnsupportedOperationException(
+                    "Cross Partitions Upsert Dynamic Bucket Mode is not supported.");
+        }
+        this.dynamicBucket = BucketMode.HASH_DYNAMIC == bucketMode;
+        int bucket = ((FileStoreTable) paimonTable).coreOptions().bucket();
+        if (bucket == -1 && BucketMode.BUCKET_UNAWARE == bucketMode) {
             log.warn("Append only table currently do not support dynamic bucket");
         }
         if (dynamicBucket) {
-            this.bucketAssigner =
-                    new PaimonBucketAssigner(
-                            paimonFileStoretable,
-                            context.getNumberOfParallelSubtasks(),
-                            context.getIndexOfSubtask());
+            paimonBucketAssignerFactory.init(paimonTablePath, paimonFileStoretable, parallelism);
         }
         PaimonSecurityContext.shouldEnableKerberos(paimonHadoopConfiguration);
     }
@@ -152,7 +184,8 @@ public class PaimonSinkWriter
             List<PaimonSinkState> states,
             JobContext jobContext,
             PaimonSinkConfig paimonSinkConfig,
-            PaimonHadoopConfiguration paimonHadoopConfiguration) {
+            PaimonHadoopConfiguration paimonHadoopConfiguration,
+            PaimonBucketAssignerFactory paimonBucketAssignerFactory) {
         this(
                 context,
                 readonlyConfig,
@@ -160,7 +193,8 @@ public class PaimonSinkWriter
                 paimonFileStoretable,
                 jobContext,
                 paimonSinkConfig,
-                paimonHadoopConfiguration);
+                paimonHadoopConfiguration,
+                paimonBucketAssignerFactory);
         if (Objects.isNull(states) || states.isEmpty()) {
             return;
         }
@@ -193,8 +227,20 @@ public class PaimonSinkWriter
             PaimonSecurityContext.runSecured(
                     () -> {
                         if (dynamicBucket) {
-                            int bucket = bucketAssigner.assign(rowData);
-                            tableWrite.write(rowData, bucket);
+                            // The result of calculating the remainder of the parallelism using the
+                            // hash code of the primary key must be consistent with the task
+                            // sequence number.
+                            PaimonBucketAssigner bucketAssigner =
+                                    paimonBucketAssignerFactory.getBucketAssigner(
+                                            paimonTablePath,
+                                            rowAssignerChannelComputer.channel(rowData));
+                            // When multiple threads call assigner.assign() simultaneously, they can
+                            // corrupt the internal hash map structure, leading to the
+                            // ArrayIndexOutOfBoundsException during rehashing operations
+                            synchronized (bucketAssigner) {
+                                tableWrite.write(rowData, bucketAssigner.assign(rowData));
+                                bucketAssigners.add(bucketAssigner);
+                            }
                         } else {
                             tableWrite.write(rowData);
                         }
@@ -250,6 +296,11 @@ public class PaimonSinkWriter
             List<CommitMessage> fileCommittables =
                     ((StreamTableWrite) tableWrite).prepareCommit(waitCompaction(), checkpointId);
             committables.addAll(fileCommittables);
+            if (!bucketAssigners.isEmpty()) {
+                List<PaimonBucketAssigner> assigners = new ArrayList<>(bucketAssigners);
+                bucketAssigners.clear();
+                assigners.forEach(assigner -> assigner.prepareCommit(checkpointId));
+            }
             return Optional.of(new PaimonCommitInfo(fileCommittables, checkpointId));
         } catch (Exception e) {
             throw new PaimonConnectorException(
@@ -276,6 +327,7 @@ public class PaimonSinkWriter
             tableWriteClose(this.tableWrite);
         } finally {
             committables.clear();
+            paimonBucketAssignerFactory.clear(paimonTablePath, taskIndex);
             if (Objects.nonNull(paimonCatalog)) {
                 paimonCatalog.close();
             }
@@ -293,9 +345,16 @@ public class PaimonSinkWriter
         }
     }
 
-    private boolean waitCompaction() {
-        CoreOptions.ChangelogProducer changelogProducer =
-                this.paimonFileStoretable.coreOptions().changelogProducer();
+    @VisibleForTesting
+    public boolean waitCompaction() {
+        if (JobMode.BATCH.equals(jobContext.getJobMode())) {
+            return true;
+        }
+        CoreOptions coreOptions = this.paimonFileStoretable.coreOptions();
+        if (coreOptions.writeOnly()) {
+            return false;
+        }
+        CoreOptions.ChangelogProducer changelogProducer = coreOptions.changelogProducer();
         return changelogProducer == CoreOptions.ChangelogProducer.LOOKUP
                 || changelogProducer == CoreOptions.ChangelogProducer.FULL_COMPACTION;
     }

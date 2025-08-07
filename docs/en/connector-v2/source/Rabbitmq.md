@@ -25,8 +25,8 @@ The source must be non-parallel (parallelism set to 1) in order to achieve exact
 
 ## Options
 
-|            name            |  type   | required | default value |
-|----------------------------|---------|----------|---------------|
+| name                       | type    | required | default value |
+| -------------------------- | ------- | -------- | ------------- |
 | host                       | string  | yes      | -             |
 | port                       | int     | yes      | -             |
 | virtual_host               | string  | yes      | -             |
@@ -47,6 +47,9 @@ The source must be non-parallel (parallelism set to 1) in order to achieve exact
 | prefetch_count             | int     | no       | -             |
 | delivery_timeout           | long    | no       | -             |
 | common-options             |         | no       | -             |
+| durable                    | boolean | no       | true          |
+| exclusive                  | boolean | no       | false         |
+| auto_delete                | boolean | no       | false         |
 
 ### host [string]
 
@@ -131,6 +134,21 @@ deliveryTimeout maximum wait time, in milliseconds, for the next message deliver
 ### common options
 
 Source plugin common parameters, please refer to [Source Common Options](../source-common-options.md) for details
+
+### durable
+
+- true: The queue will survive on server restart.
+- false: The queue will be deleted on server restart.
+
+### exclusive
+
+- true: The queue is used only by the current connection and will be deleted when the connection closes.
+- false: The queue can be used by multiple connections.
+
+### auto-delete
+
+- true: The queue will be deleted automatically when the last consumer unsubscribes.
+- false: The queue will not be automatically deleted.
 
 ## Example
 

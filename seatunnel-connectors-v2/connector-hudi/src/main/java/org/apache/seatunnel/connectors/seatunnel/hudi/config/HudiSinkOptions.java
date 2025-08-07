@@ -160,4 +160,10 @@ public class HudiSinkOptions {
                     .intType()
                     .defaultValue(30)
                     .withDescription("hoodie.keep.max.commits");
+
+    public static Option<String> PRECOMBINE_FIELD =
+            Options.key("precombine_field")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("the precombine field of hudi table");
 }

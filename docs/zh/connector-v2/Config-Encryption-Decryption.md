@@ -58,7 +58,7 @@ Base64编码默认支持加密以下参数：
           password = "seatunnel_password"
           database-name = "inventory_vwyw0n"
           table-name = "products"
-          base-url = "jdbc:mysql://localhost:56725"
+          url = "jdbc:mysql://localhost:56725"
           f1 = "seatunnel"
           # custom shade options
           config1.f1 = "seatunnel"
@@ -101,7 +101,7 @@ Base64编码默认支持加密以下参数：
        },
        "source" : [
            {
-               "base-url" : "jdbc:mysql://localhost:56725",
+               "url" : "jdbc:mysql://localhost:56725",
                "hostname" : "127.0.0.1",
                "password" : "c2VhdHVubmVsX3Bhc3N3b3Jk",
                "port" : 56725,

@@ -18,7 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.pulsar.source;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
-import org.apache.seatunnel.connectors.seatunnel.pulsar.config.PulsarConfigUtil;
+import org.apache.seatunnel.connectors.seatunnel.pulsar.config.PulsarSourceOptions;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -29,7 +29,7 @@ public class PulsarSourceFactoryTest {
     void factoryIdentifier() {
         PulsarSourceFactory pulsarSourceFactory = new PulsarSourceFactory();
         Assertions.assertEquals(
-                PulsarConfigUtil.IDENTIFIER, pulsarSourceFactory.factoryIdentifier());
+                PulsarSourceOptions.IDENTIFIER, pulsarSourceFactory.factoryIdentifier());
     }
 
     @Test

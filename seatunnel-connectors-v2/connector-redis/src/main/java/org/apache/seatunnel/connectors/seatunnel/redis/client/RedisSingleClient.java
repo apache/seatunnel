@@ -115,7 +115,7 @@ public class RedisSingleClient extends RedisClient {
             Response<Map<String, String>> response = responses.get(i);
             Map<String, String> map = response.get();
             if (map != null) {
-                map.put("hash_key", keys.get(i));
+                map.put(redisParameters.getKeyFieldName(), keys.get(i));
             }
             resultList.add(map);
         }

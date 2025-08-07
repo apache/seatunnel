@@ -76,7 +76,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
@@ -118,17 +117,16 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
                                         DockerLoggerFactory.getLogger("elasticsearch:8.9.0")));
         Startables.deepStart(Stream.of(container)).join();
         log.info("Elasticsearch container started");
-        esRestClient =
-                EsRestClient.createInstance(
-                        Lists.newArrayList("https://" + container.getHttpHostAddress()),
-                        Optional.of("elastic"),
-                        Optional.of("elasticsearch"),
-                        false,
-                        false,
-                        Optional.empty(),
-                        Optional.empty(),
-                        Optional.empty(),
-                        Optional.empty());
+        // Create configuration for EsRestClient
+        Map<String, Object> configMap = new HashMap<>();
+        configMap.put("hosts", Lists.newArrayList("https://" + container.getHttpHostAddress()));
+        configMap.put("username", "elastic");
+        configMap.put("password", "elasticsearch");
+        configMap.put("tls_verify_certificate", false);
+        configMap.put("tls_verify_hostname", false);
+
+        ReadonlyConfig config = ReadonlyConfig.fromMap(configMap);
+        esRestClient = EsRestClient.createInstance(config);
         testDataset1 = generateTestDataSet1();
         testDataset2 = generateTestDataSet2();
         createIndexForResourceNull("st_index");

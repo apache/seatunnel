@@ -22,6 +22,7 @@ import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitReader;
 import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
+import org.apache.seatunnel.connectors.seatunnel.socket.config.SocketConfig;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -34,12 +35,12 @@ import java.net.Socket;
 @Slf4j
 public class SocketSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
     private static final int CHAR_BUFFER_SIZE = 8192;
-    private final SocketSourceParameter parameter;
+    private final SocketConfig parameter;
     private final SingleSplitReaderContext context;
     private Socket socket;
     private final String delimiter = "\n";
 
-    SocketSourceReader(SocketSourceParameter parameter, SingleSplitReaderContext context) {
+    SocketSourceReader(SocketConfig parameter, SingleSplitReaderContext context) {
         this.parameter = parameter;
         this.context = context;
     }
