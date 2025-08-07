@@ -124,7 +124,7 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
     }
 
     public void pollAndCollectData(Collector<SeaTunnelRow> output)
-            throws Exception, HttpConnectorException {
+            throws Exception {
         HttpResponse response =
                 httpClient.execute(
                         this.httpParameter.getUrl(),
