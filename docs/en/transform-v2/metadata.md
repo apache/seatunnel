@@ -17,7 +17,7 @@ Metadata transform plugin for adding metadata fields to data
 | Partition |  string  | Contains the partition field of the corresponding number table of the row, multiple using `,` join |
 
 ### note
-    `Delay` `Partition` only worked on cdc series connectors for now , except TiDB-CDC
+    `Delay` `EventTime` only worked on cdc series connectors for now , except TiDB-CDC
 
 ## Options
 
@@ -58,7 +58,7 @@ source {
         username = "root"
         password = "zdyk_Dev@2024"
         table-names = ["source.user"]
-        base-url = "jdbc:mysql://172.16.17.123:3306/source"
+        url = "jdbc:mysql://172.16.17.123:3306/source"
     }
 }
 

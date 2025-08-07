@@ -24,6 +24,8 @@ import org.apache.seatunnel.format.text.constant.TextFormatConstant;
 import java.util.List;
 
 public class FileBaseSourceOptions extends FileBaseOptions {
+    public static final String DEFAULT_ROW_DELIMITER = "\n";
+
     public static final Option<FileFormat> FILE_FORMAT_TYPE =
             Options.key("file_format_type")
                     .objectType(FileFormat.class)
@@ -38,6 +40,13 @@ public class FileBaseSourceOptions extends FileBaseOptions {
                     .withFallbackKeys("delimiter")
                     .withDescription(
                             "The separator between columns in a row of data. Only needed by `text` file format");
+
+    public static final Option<String> ROW_DELIMITER =
+            Options.key("row_delimiter")
+                    .stringType()
+                    .defaultValue(DEFAULT_ROW_DELIMITER)
+                    .withDescription(
+                            "The separator between rows in a file. Only needed by `text` file format");
 
     public static final Option<String> NULL_FORMAT =
             Options.key("null_format")

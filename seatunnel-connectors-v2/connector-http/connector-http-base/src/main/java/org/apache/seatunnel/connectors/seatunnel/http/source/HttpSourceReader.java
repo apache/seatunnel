@@ -76,6 +76,11 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
             Configuration.defaultConfiguration().addOptions(DEFAULT_OPTIONS);
     private boolean noMoreElementFlag = true;
     private Optional<PageInfo> pageInfoOptional = Optional.empty();
+    /**
+     * Holds the original request body template for placeholder replacement. This ensures that the
+     * state is not unintentionally mutated during pagination.
+     */
+    private String rawBody = null;
 
     public HttpSourceReader(
             HttpParameter httpParameter,
@@ -88,6 +93,7 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
         this.deserializationCollector = new DeserializationCollector(deserializationSchema);
         this.jsonField = jsonField;
         this.contentJson = contentJson;
+        this.rawBody = httpParameter.getBody();
     }
 
     public HttpSourceReader(
@@ -103,6 +109,7 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
         this.jsonField = jsonField;
         this.contentJson = contentJson;
         this.pageInfoOptional = Optional.ofNullable(pageInfo);
+        this.rawBody = httpParameter.getBody();
     }
 
     @Override
@@ -209,14 +216,10 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
         }
 
         // 2. param in body
-        if (!Strings.isNullOrEmpty(this.httpParameter.getBody())) {
+        if (!Strings.isNullOrEmpty(this.rawBody)) {
             String processedBody =
                     processBodyString(
-                            this.httpParameter.getBody(),
-                            pageField,
-                            pageValue,
-                            usePlaceholderReplacement);
-
+                            this.rawBody, pageField, pageValue, usePlaceholderReplacement);
             // Process cursor if available
             if (pageInfo.getPageCursorFieldName() != null && pageInfo.getCursor() != null) {
                 processedBody =
@@ -272,7 +275,7 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
                 }
             }
             map.putAll(updatedMap);
-        } else if (map.containsKey(pageField)) {
+        } else if (pageField != null && map.containsKey(pageField)) {
             // Key-based replacement
             map.put(pageField, pageValue);
         }
@@ -347,7 +350,6 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
                         pollAndCollectData(output);
                         Thread.sleep(10);
                     }
-
                 } else {
                     // default page number pagination
                     Long pageIndex = info.getPageIndex();

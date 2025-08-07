@@ -23,6 +23,7 @@ import lombok.Builder;
 import lombok.Data;
 
 import java.io.Serializable;
+import java.util.List;
 import java.util.Optional;
 
 @Data
@@ -37,6 +38,7 @@ public class TDengineSinkConfig implements Serializable {
     private String database;
     private String stable;
     private String timezone;
+    private String writeColumns;
 
     public static TDengineSinkConfig of(ReadonlyConfig config) {
         Builder builder = TDengineSinkConfig.builder();
@@ -50,7 +52,11 @@ public class TDengineSinkConfig implements Serializable {
         Optional<String> optionalTimezone = config.getOptional(TDengineSinkOptions.TIMEZONE);
 
         builder.timezone(optionalTimezone.orElseGet(TDengineSinkOptions.TIMEZONE::defaultValue));
-
+        Optional<List<String>> optionalWriteColumns =
+                config.getOptional(TDengineSinkOptions.WRITE_COLUMNS);
+        if (optionalWriteColumns.isPresent()) {
+            builder.writeColumns(String.join(",", optionalWriteColumns.get()));
+        }
         return builder.build();
     }
 }

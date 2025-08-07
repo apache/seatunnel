@@ -248,4 +248,48 @@ public class SqlToPaimonConverterTest {
         int[] expectedProjectionIndex = {4, 7, 0, 12, 2};
         assertArrayEquals(projectionIndex, expectedProjectionIndex);
     }
+
+    @Test
+    public void testConvertSqlWhereToPaimonLikePredicate() {
+        String query = "SELECT * FROM table WHERE varchar_col like 'te%'";
+
+        PlainSelect plainSelect = convertToPlainSelect(query);
+        Predicate predicate =
+                SqlToPaimonPredicateConverter.convertSqlWhereToPaimonPredicate(
+                        rowType, plainSelect);
+
+        assertNotNull(predicate);
+
+        PredicateBuilder builder = new PredicateBuilder(rowType);
+        Predicate expectedPredicate = PredicateBuilder.or(builder.startsWith(1, "te"));
+
+        assertEquals(expectedPredicate.toString(), predicate.toString());
+
+        query = "SELECT * FROM table WHERE varchar_col like '%st'";
+
+        plainSelect = convertToPlainSelect(query);
+        predicate =
+                SqlToPaimonPredicateConverter.convertSqlWhereToPaimonPredicate(
+                        rowType, plainSelect);
+
+        assertNotNull(predicate);
+
+        builder = new PredicateBuilder(rowType);
+        expectedPredicate = PredicateBuilder.or(builder.endsWith(1, "st"));
+
+        assertEquals(expectedPredicate.toString(), predicate.toString());
+
+        query = "SELECT * FROM table WHERE varchar_col like '%es%'";
+        plainSelect = convertToPlainSelect(query);
+        predicate =
+                SqlToPaimonPredicateConverter.convertSqlWhereToPaimonPredicate(
+                        rowType, plainSelect);
+
+        assertNotNull(predicate);
+
+        builder = new PredicateBuilder(rowType);
+        expectedPredicate = PredicateBuilder.or(builder.contains(1, "es"));
+
+        assertEquals(expectedPredicate.toString(), predicate.toString());
+    }
 }

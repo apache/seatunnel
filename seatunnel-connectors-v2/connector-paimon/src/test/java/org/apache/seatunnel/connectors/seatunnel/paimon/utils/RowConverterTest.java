@@ -28,6 +28,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
+import org.apache.seatunnel.connectors.seatunnel.paimon.exception.PaimonConnectorException;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.paimon.data.BinaryArray;
@@ -334,5 +335,35 @@ public class RowConverterTest {
         SeaTunnelRow convert =
                 RowConverter.convert(internalRow, seaTunnelRowType, getTableSchema(10, 10));
         Assertions.assertEquals(convert, seaTunnelRow);
+    }
+
+    @Test
+    public void decimalToPaimon() {
+        SeaTunnelRowType sourceType =
+                new SeaTunnelRowType(
+                        new String[] {"f0"}, new SeaTunnelDataType[] {new DecimalType(4, 1)});
+        TableSchema sinkSchema =
+                new TableSchema(
+                        0,
+                        TableSchema.newFields(RowType.of(DataTypes.DECIMAL(4, 2))),
+                        1,
+                        Collections.EMPTY_LIST,
+                        KEY_NAME_LIST,
+                        Collections.EMPTY_MAP,
+                        "");
+        SeaTunnelRow data = new SeaTunnelRow(new Object[] {new BigDecimal("123.4")});
+
+        Assertions.assertThrowsExactly(
+                PaimonConnectorException.class,
+                () -> {
+                    try {
+                        RowConverter.reconvert(data, sourceType, sinkSchema);
+                    } catch (Exception e) {
+                        Assertions.assertEquals(
+                                "ErrorCode:[PAIMON-11], ErrorDescription:[decimal type precision is incompatible. ] - `f0` field value is: 123.4, except field schema of sink is `f0` DECIMAL(4, 1), but the field in sink table with actual schema is `f0` DECIMAL(4, 2). Please check the schema of the sink table.",
+                                e.getMessage());
+                        throw e;
+                    }
+                });
     }
 }

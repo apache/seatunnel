@@ -78,9 +78,9 @@ public class PaimonSourceReader implements SourceReader<SeaTunnelRow, PaimonSour
             if (Objects.nonNull(split)) {
                 // read logic
                 try (final RecordReader<InternalRow> reader =
-                        tableRead.executeFilter().createReader(split.getSplit())) {
-                    final RecordReaderIterator<InternalRow> rowIterator =
-                            new RecordReaderIterator<>(reader);
+                                tableRead.executeFilter().createReader(split.getSplit());
+                        final RecordReaderIterator<InternalRow> rowIterator =
+                                new RecordReaderIterator<>(reader)) {
                     while (rowIterator.hasNext()) {
                         final InternalRow row = rowIterator.next();
                         final SeaTunnelRow seaTunnelRow =

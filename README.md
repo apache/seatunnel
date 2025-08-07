@@ -14,6 +14,7 @@
 - [SeaTunnel Workflow](#seatunnel-workflow)
 - [Supported Connectors](#supported-connectors)
 - [Getting Started](#getting-started)
+- [Multimodal Data Integration](#multimodal-data-integration)
 - [Use Cases](#use-cases)
 - [Code of Conduct](#code-of-conduct)
 - [Contributors](#contributors)
@@ -27,7 +28,7 @@
 
 ## Overview
 
-SeaTunnel is a next-generation, high-performance, distributed data integration tool, capable of synchronizing vast amounts of data daily. It's trusted by numerous companies for its efficiency and stability.
+SeaTunnel is a multimodal, high-performance, distributed data integration tool, capable of synchronizing vast amounts of data daily. It's trusted by numerous companies for its efficiency and stability.
 
 
 ## Why Choose SeaTunnel
@@ -35,7 +36,9 @@ SeaTunnel is a next-generation, high-performance, distributed data integration t
 SeaTunnel addresses common data integration challenges:
 
 - **Diverse Data Sources**: Seamlessly integrates with hundreds of evolving data sources.
-  
+
+- **Multimodal Data Integration**: Supports the integration of video, images, binary files, structured and unstructured text data.
+
 - **Complex Synchronization Scenarios**: Supports various synchronization methods, including real-time, CDC, and full database synchronization.
   
 - **Resource Efficiency**: Minimizes computing resources and JDBC connections for real-time synchronization.
@@ -80,6 +83,12 @@ Choose your runtime execution engine:
 - [SeaTunnel Zeta Engine](https://seatunnel.apache.org/docs/start-v2/locally/quick-start-seatunnel-engine/)
 - [Spark](https://seatunnel.apache.org/docs/start-v2/locally/quick-start-spark)
 - [Flink](https://seatunnel.apache.org/docs/start-v2/locally/quick-start-flink)
+
+## Multimodal Data Integration
+
+- Most data integration tools support structured and unstructured text data, and SeaTunnel does as well. Simply refer to the desired Source/Sink to use.
+
+- For integrating video, images, and binary files with SeaTunnel, please refer to the documentation for detailed instructions.
 
 ## Use Cases
 

@@ -39,7 +39,7 @@ import org.apache.seatunnel.engine.server.checkpoint.ActionStateKey;
 import org.apache.seatunnel.engine.server.checkpoint.ActionSubtaskState;
 import org.apache.seatunnel.engine.server.event.JobEventListener;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
-import org.apache.seatunnel.engine.server.metrics.TaskMetricsCalcContext;
+import org.apache.seatunnel.engine.server.metrics.ConnectorMetricsCalcContext;
 import org.apache.seatunnel.engine.server.task.SeaTunnelTask;
 import org.apache.seatunnel.engine.server.task.context.SinkWriterContext;
 import org.apache.seatunnel.engine.server.task.operation.GetTaskGroupAddressOperation;
@@ -91,15 +91,15 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
 
     private Optional<CommitInfoT> lastCommitInfo;
 
-    private MetricsContext metricsContext;
+    private final MetricsContext metricsContext;
 
-    private TaskMetricsCalcContext taskMetricsCalcContext;
+    private final ConnectorMetricsCalcContext connectorMetricsCalcContext;
 
     private final boolean containAggCommitter;
 
-    private EventListener eventListener;
+    private final EventListener eventListener;
 
-    /** Mapping relationship between upstream tablepath and downstream tablepath. */
+    /** Mapping relationship between upstream TablePath and downstream TablePath. */
     private final Map<TablePath, TablePath> tablesMaps = new HashMap<>();
 
     public SinkFlowLifeCycle(
@@ -139,8 +139,9 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
                 sinkTables.add(TablePath.DEFAULT);
             }
         }
-        this.taskMetricsCalcContext =
-                new TaskMetricsCalcContext(metricsContext, PluginType.SINK, isMulti, sinkTables);
+        this.connectorMetricsCalcContext =
+                new ConnectorMetricsCalcContext(
+                        metricsContext, PluginType.SINK, isMulti, sinkTables);
     }
 
     @Override
@@ -264,7 +265,7 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
                 if (prepareClose) {
                     return;
                 }
-                String tableId = "";
+                String tableId;
                 writer.write((T) record.getData());
                 if (record.getData() instanceof SeaTunnelRow) {
                     if (this.sinkAction.getSink() instanceof MultiTableSink) {
@@ -295,7 +296,7 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
                                         .orElseGet(TablePath.DEFAULT::getFullName);
                     }
 
-                    taskMetricsCalcContext.updateMetrics(record.getData(), tableId);
+                    connectorMetricsCalcContext.updateMetrics(record.getData(), tableId);
                 }
             }
         } catch (Exception e) {

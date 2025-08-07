@@ -23,7 +23,9 @@ public enum ErrorHandleWay {
     // Skip the data when error occurs
     SKIP,
     // Skip the row when error occurs
-    SKIP_ROW;
+    SKIP_ROW,
+    // Route invalid data to specified table
+    ROUTE_TO_TABLE;
 
     public boolean allowSkipThisRow() {
         return this == SKIP_ROW;
@@ -31,5 +33,9 @@ public enum ErrorHandleWay {
 
     public boolean allowSkip() {
         return this == SKIP;
+    }
+
+    public boolean allowRouteToTable() {
+        return this == ROUTE_TO_TABLE;
     }
 }

@@ -26,6 +26,7 @@ import java.util.List;
 import java.util.Map;
 
 public interface TableSchemaOptions {
+
     Option<Map<String, Object>> SCHEMA =
             Options.key("schema")
                     .type(new TypeReference<Map<String, Object>>() {})

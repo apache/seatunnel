@@ -17,20 +17,14 @@
 
 package org.apache.seatunnel.connectors.seatunnel.tdengine.config;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 
 import lombok.Data;
 
 import java.io.Serializable;
 import java.util.List;
-
-import static org.apache.seatunnel.connectors.seatunnel.tdengine.config.TDengineSourceConfig.ConfigNames.DATABASE;
-import static org.apache.seatunnel.connectors.seatunnel.tdengine.config.TDengineSourceConfig.ConfigNames.LOWER_BOUND;
-import static org.apache.seatunnel.connectors.seatunnel.tdengine.config.TDengineSourceConfig.ConfigNames.PASSWORD;
-import static org.apache.seatunnel.connectors.seatunnel.tdengine.config.TDengineSourceConfig.ConfigNames.STABLE;
-import static org.apache.seatunnel.connectors.seatunnel.tdengine.config.TDengineSourceConfig.ConfigNames.TIMEZONE;
-import static org.apache.seatunnel.connectors.seatunnel.tdengine.config.TDengineSourceConfig.ConfigNames.UPPER_BOUND;
-import static org.apache.seatunnel.connectors.seatunnel.tdengine.config.TDengineSourceConfig.ConfigNames.USERNAME;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Data
 public class TDengineSourceConfig implements Serializable {
@@ -42,48 +36,33 @@ public class TDengineSourceConfig implements Serializable {
     private String password;
     private String database;
     private String stable;
-    // param of timezone in 'jdbc:TAOS-RS' just effect on taosadapter side, other than the JDBC
-    // client side
-    // so this param represent the server-side timezone setting up
-    private String timezone;
     private String lowerBound;
     private String upperBound;
-    private List<String> fields;
     private List<String> tags;
+    private Set<String> subTables;
+    private Set<String> readColumns;
 
-    public static TDengineSourceConfig buildSourceConfig(Config pluginConfig) {
+    public static TDengineSourceConfig buildSourceConfig(ReadonlyConfig pluginConfig) {
         TDengineSourceConfig tdengineSourceConfig = new TDengineSourceConfig();
-        tdengineSourceConfig.setUrl(
-                pluginConfig.hasPath(ConfigNames.URL)
-                        ? pluginConfig.getString(ConfigNames.URL)
-                        : null);
-        tdengineSourceConfig.setDatabase(
-                pluginConfig.hasPath(DATABASE) ? pluginConfig.getString(DATABASE) : null);
-        tdengineSourceConfig.setStable(
-                pluginConfig.hasPath(STABLE) ? pluginConfig.getString(STABLE) : null);
-        tdengineSourceConfig.setUsername(
-                pluginConfig.hasPath(USERNAME) ? pluginConfig.getString(USERNAME) : null);
-        tdengineSourceConfig.setPassword(
-                pluginConfig.hasPath(PASSWORD) ? pluginConfig.getString(PASSWORD) : null);
-        tdengineSourceConfig.setUpperBound(
-                pluginConfig.hasPath(UPPER_BOUND) ? pluginConfig.getString(UPPER_BOUND) : null);
-        tdengineSourceConfig.setLowerBound(
-                pluginConfig.hasPath(LOWER_BOUND) ? pluginConfig.getString(LOWER_BOUND) : null);
-        tdengineSourceConfig.setTimezone(
-                pluginConfig.hasPath(TIMEZONE) ? pluginConfig.getString(TIMEZONE) : "UTC");
-
+        tdengineSourceConfig.setUrl(pluginConfig.get(TDengineSourceOptions.URL));
+        tdengineSourceConfig.setDatabase(pluginConfig.get(TDengineSourceOptions.DATABASE));
+        tdengineSourceConfig.setStable(pluginConfig.get(TDengineSourceOptions.STABLE));
+        tdengineSourceConfig.setUsername(pluginConfig.get(TDengineSourceOptions.USERNAME));
+        tdengineSourceConfig.setPassword(pluginConfig.get(TDengineSourceOptions.PASSWORD));
+        tdengineSourceConfig.setUpperBound(pluginConfig.get(TDengineSourceOptions.UPPER_BOUND));
+        tdengineSourceConfig.setLowerBound(pluginConfig.get(TDengineSourceOptions.LOWER_BOUND));
+        if (pluginConfig.getOptional(TDengineSourceOptions.SUB_TABLES).isPresent()) {
+            tdengineSourceConfig.setSubTables(
+                    pluginConfig.get(TDengineSourceOptions.SUB_TABLES).stream()
+                            .collect(Collectors.toSet()));
+        }
+        if (pluginConfig.getOptional(TDengineSourceOptions.READ_COLUMNS).isPresent()) {
+            tdengineSourceConfig.setReadColumns(
+                    pluginConfig.get(TDengineSourceOptions.READ_COLUMNS).stream()
+                            .collect(Collectors.toSet()));
+        } else {
+            tdengineSourceConfig.setReadColumns(null);
+        }
         return tdengineSourceConfig;
-    }
-
-    public static class ConfigNames {
-
-        public static String URL = "url";
-        public static String USERNAME = "username";
-        public static String PASSWORD = "password";
-        public static String DATABASE = "database";
-        public static String STABLE = "stable";
-        public static String TIMEZONE = "timezone";
-        public static String LOWER_BOUND = "lower_bound";
-        public static String UPPER_BOUND = "upper_bound";
     }
 }

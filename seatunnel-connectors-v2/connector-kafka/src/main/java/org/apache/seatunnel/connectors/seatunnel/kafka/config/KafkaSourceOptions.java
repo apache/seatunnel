@@ -101,6 +101,15 @@ public class KafkaSourceOptions extends KafkaBaseOptions {
                     .defaultValue(10000L)
                     .withDescription("The interval for poll message");
 
+    public static final Option<Boolean> IGNORE_NO_LEADER_PARTITION =
+            Options.key("ignore_no_leader_partition")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription(
+                            "Whether to ignore partitions that have no leader. "
+                                    + "If set to true, partitions without a leader will be skipped during partition discovery. "
+                                    + "If set to false (default), the connector will include all partitions regardless of leader status.");
+
     public static final Option<MessageFormatErrorHandleWay> MESSAGE_FORMAT_ERROR_HANDLE_WAY_OPTION =
             Options.key("format_error_handle_way")
                     .enumType(MessageFormatErrorHandleWay.class)

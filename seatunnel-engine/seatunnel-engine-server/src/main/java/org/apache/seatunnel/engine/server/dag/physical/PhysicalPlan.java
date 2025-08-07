@@ -231,6 +231,11 @@ public class PhysicalPlan {
         runningJobStateTimestampsIMap.set(jobId, stateTimestamps);
     }
 
+    public synchronized Long getStateTimestamp(@NonNull JobStatus jobStatus) {
+        Long[] stateTimestamps = runningJobStateTimestampsIMap.get(jobId);
+        return stateTimestamps[jobStatus.ordinal()];
+    }
+
     public synchronized void updateJobState(@NonNull JobStatus targetState) {
         try {
             JobStatus current = (JobStatus) runningJobStateIMap.get(jobId);
@@ -299,6 +304,7 @@ public class PhysicalPlan {
     public void startJob() {
         isRunning = true;
         log.info("{} state process is start", getJobFullName());
+        updateJobState(JobStatus.SCHEDULED);
         stateProcess();
     }
 

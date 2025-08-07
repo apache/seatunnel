@@ -2,6 +2,13 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
+|[Feature][Connector-V2] Jdbc mysql support read tinyint(1) to byte(tinyint) (#9373)|https://github.com/apache/seatunnel/commit/7b87aa6f12| dev |
+|[Improve][Oracle-CDC] Remove duplicate load table names (#9357)|https://github.com/apache/seatunnel/commit/90e88cafc5| dev |
+|[Improve][Oracle-CDC] Fix oracle rename ddl event missing column type (#9314)|https://github.com/apache/seatunnel/commit/11a23af64c|2.3.11|
+|[Feature][Connector-JDBC] Supprot read Oracle BLOB data as string instead of bytes (#9305)|https://github.com/apache/seatunnel/commit/454a88f81a|2.3.11|
+|[Feature][Checkpoint] Add check script for source/sink state class serialVersionUID missing (#9118)|https://github.com/apache/seatunnel/commit/4f5adeb1c7|2.3.11|
+|[Fix][Connector-V2] Fix postgres cdc with debezium_json format can not parse number without scale (#9052)|https://github.com/apache/seatunnel/commit/29cf3a76c7|2.3.11|
+|[Fix][JDBC] fix jdbc default connection parameter invalid (#8185)|https://github.com/apache/seatunnel/commit/f85eb78b37|2.3.11|
 |[Fix] [Mongo-cdc] Fallback to timestamp startup mode when resume token has expired (#8754)|https://github.com/apache/seatunnel/commit/afc990d84e|2.3.10|
 |[Improve][CDC] Filter ddl for snapshot phase (#8911)|https://github.com/apache/seatunnel/commit/641cc72f2f|2.3.10|
 |[Improve][Oracle-CDC] Support ReadOnlyLogWriterFlushStrategy (#8912)|https://github.com/apache/seatunnel/commit/6aebdc0384|2.3.10|

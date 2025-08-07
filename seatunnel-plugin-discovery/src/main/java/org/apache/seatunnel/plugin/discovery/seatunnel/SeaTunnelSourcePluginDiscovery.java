@@ -63,7 +63,7 @@ public class SeaTunnelSourcePluginDiscovery extends AbstractPluginDiscovery<SeaT
         return plugins;
     }
 
-    public SeaTunnelSourcePluginDiscovery(BiConsumer<ClassLoader, URL> addURLToClassLoader) {
+    public SeaTunnelSourcePluginDiscovery(BiConsumer<ClassLoader, List<URL>> addURLToClassLoader) {
         super(addURLToClassLoader);
     }
 

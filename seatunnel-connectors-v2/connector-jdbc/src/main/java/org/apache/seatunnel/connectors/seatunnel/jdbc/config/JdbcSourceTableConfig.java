@@ -63,13 +63,16 @@ public class JdbcSourceTableConfig implements Serializable {
     @JsonProperty("skip_analyze")
     private Boolean skipAnalyze;
 
+    @JsonProperty("use_regex")
+    private Boolean useRegex;
+
     @Tolerate
     public JdbcSourceTableConfig() {}
 
     public static List<JdbcSourceTableConfig> of(ReadonlyConfig connectorConfig) {
         List<JdbcSourceTableConfig> tableList;
         if (connectorConfig.getOptional(JdbcSourceOptions.TABLE_LIST).isPresent()) {
-            if (connectorConfig.getOptional(JdbcOptions.QUERY).isPresent()
+            if (connectorConfig.getOptional(JdbcSourceOptions.QUERY).isPresent()
                     || connectorConfig.getOptional(JdbcSourceOptions.TABLE_PATH).isPresent()) {
                 throw new IllegalArgumentException(
                         "Please configure either `table_list` or `table_path`/`query`, not both");
@@ -79,11 +82,15 @@ public class JdbcSourceTableConfig implements Serializable {
             JdbcSourceTableConfig tableProperty =
                     JdbcSourceTableConfig.builder()
                             .tablePath(connectorConfig.get(JdbcSourceOptions.TABLE_PATH))
-                            .query(connectorConfig.get(JdbcOptions.QUERY))
-                            .partitionColumn(connectorConfig.get(JdbcOptions.PARTITION_COLUMN))
-                            .partitionNumber(connectorConfig.get(JdbcOptions.PARTITION_NUM))
-                            .partitionStart(connectorConfig.get(JdbcOptions.PARTITION_LOWER_BOUND))
-                            .partitionEnd(connectorConfig.get(JdbcOptions.PARTITION_UPPER_BOUND))
+                            .query(connectorConfig.get(JdbcSourceOptions.QUERY))
+                            .partitionColumn(
+                                    connectorConfig.get(JdbcSourceOptions.PARTITION_COLUMN))
+                            .partitionNumber(connectorConfig.get(JdbcSourceOptions.PARTITION_NUM))
+                            .partitionStart(
+                                    connectorConfig.get(JdbcSourceOptions.PARTITION_LOWER_BOUND))
+                            .partitionEnd(
+                                    connectorConfig.get(JdbcSourceOptions.PARTITION_UPPER_BOUND))
+                            .useRegex(connectorConfig.get(JdbcSourceOptions.USE_REGEX))
                             .build();
             tableList = Collections.singletonList(tableProperty);
         }
@@ -96,6 +103,9 @@ public class JdbcSourceTableConfig implements Serializable {
                     tableConfig.setUseSelectCount(
                             connectorConfig.get(JdbcSourceOptions.USE_SELECT_COUNT));
                     tableConfig.setSkipAnalyze(connectorConfig.get(JdbcSourceOptions.SKIP_ANALYZE));
+                    if (tableConfig.getUseRegex() == null) {
+                        tableConfig.setUseRegex(connectorConfig.get(JdbcSourceOptions.USE_REGEX));
+                    }
                 });
 
         if (tableList.size() > 1) {

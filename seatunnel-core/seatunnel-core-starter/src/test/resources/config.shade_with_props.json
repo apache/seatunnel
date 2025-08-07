@@ -9,7 +9,7 @@
   "source" : [
     {
       "plugin_name" : "MySQL-CDC",
-      "base-url" : "jdbc:mysql://localhost:56725",
+      "url" : "jdbc:mysql://localhost:56725",
       "username" : "un666",
       "password" : "pd666",
       "hostname" : "127.0.0.1",

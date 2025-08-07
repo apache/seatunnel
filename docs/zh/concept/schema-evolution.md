@@ -59,7 +59,7 @@ source {
     username = "st_user_source"
     password = "mysqlpw"
     table-names = ["shop.products"]
-    base-url = "jdbc:mysql://mysql_cdc_e2e:3306/shop"
+    url = "jdbc:mysql://mysql_cdc_e2e:3306/shop"
     
     schema-changes.enabled = true
   }
@@ -99,7 +99,7 @@ source {
     database-names = ["ORCLCDB"]
     schema-names = ["DEBEZIUM"]
     table-names = ["ORCLCDB.DEBEZIUM.FULL_TYPES"]
-    base-url = "jdbc:oracle:thin:@oracle-host:1521/ORCLCDB"
+    url = "jdbc:oracle:thin:@oracle-host:1521/ORCLCDB"
     source.reader.close.timeout = 120000
     connection.pool.size = 1
     
@@ -142,7 +142,7 @@ source {
     database-names = ["ORCLCDB"]
     schema-names = ["DEBEZIUM"]
     table-names = ["ORCLCDB.DEBEZIUM.FULL_TYPES"]
-    base-url = "jdbc:oracle:thin:@oracle-host:1521/ORCLCDB"
+    url = "jdbc:oracle:thin:@oracle-host:1521/ORCLCDB"
     source.reader.close.timeout = 120000
     connection.pool.size = 1
     
@@ -180,7 +180,7 @@ source {
     username = "st_user_source"
     password = "mysqlpw"
     table-names = ["shop.products"]
-    base-url = "jdbc:mysql://mysql_cdc_e2e:3306/shop"
+    url = "jdbc:mysql://mysql_cdc_e2e:3306/shop"
     
     schema-changes.enabled = true
   }
@@ -193,7 +193,7 @@ sink {
     password = ""
     database = "shop"
     table = "${table_name}"
-    base-url = "jdbc:mysql://starrocks_cdc_e2e:9030/shop"
+    url = "jdbc:mysql://starrocks_cdc_e2e:9030/shop"
     max_retries = 3
     enable_upsert_delete = true
     schema_save_mode="RECREATE_SCHEMA"
@@ -232,7 +232,7 @@ source {
     username = "st_user_source"
     password = "mysqlpw"
     table-names = ["shop.products"]
-    base-url = "jdbc:mysql://mysql_cdc_e2e:3306/shop"
+    url = "jdbc:mysql://mysql_cdc_e2e:3306/shop"
     schema-changes.enabled = true
   }
 }
@@ -272,7 +272,7 @@ source {
     username = "st_user_source"
     password = "mysqlpw"
     table-names = ["shop.products"]
-    base-url = "jdbc:mysql://mysql_cdc_e2e:3306/shop"
+    url = "jdbc:mysql://mysql_cdc_e2e:3306/shop"
 
     schema-changes.enabled = true
   }
@@ -312,7 +312,7 @@ source {
     username = "st_user_source"
     password = "mysqlpw"
     table-names = ["shop.products"]
-    base-url = "jdbc:mysql://mysql_cdc_e2e:3306/shop"
+    url = "jdbc:mysql://mysql_cdc_e2e:3306/shop"
 
     schema-changes.enabled = true
   }
@@ -353,7 +353,7 @@ source {
     username = "st_user_source"
     password = "mysqlpw"
     table-names = ["shop.products"]
-    base-url = "jdbc:mysql://mysql_cdc_e2e:3306/shop"
+    url = "jdbc:mysql://mysql_cdc_e2e:3306/shop"
 
     schema-changes.enabled = true
   }

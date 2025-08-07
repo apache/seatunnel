@@ -50,6 +50,7 @@ import net.sf.jsqlparser.expression.operators.relational.GreaterThan;
 import net.sf.jsqlparser.expression.operators.relational.GreaterThanEquals;
 import net.sf.jsqlparser.expression.operators.relational.InExpression;
 import net.sf.jsqlparser.expression.operators.relational.IsNullExpression;
+import net.sf.jsqlparser.expression.operators.relational.LikeExpression;
 import net.sf.jsqlparser.expression.operators.relational.MinorThan;
 import net.sf.jsqlparser.expression.operators.relational.MinorThanEquals;
 import net.sf.jsqlparser.expression.operators.relational.NotEqualsTo;
@@ -68,6 +69,8 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.IntStream;
 
 public class SqlToPaimonPredicateConverter {
@@ -241,6 +244,39 @@ public class SqlToPaimonPredicateConverter {
             Object paimonEndVal =
                     convertValueByPaimonDataType(rowType, column.getColumnName(), jsqlEndVal);
             return builder.between(columnIndex, paimonStartVal, paimonEndVal);
+        } else if (expression instanceof LikeExpression) {
+            LikeExpression like = (LikeExpression) expression;
+            Column column = (Column) like.getLeftExpression();
+            int columnIndex = getColumnIndex(builder, column);
+            Object rightPredicate = getJSQLParserDataTypeValue(like.getRightExpression());
+            Object rightVal =
+                    convertValueByPaimonDataType(rowType, column.getColumnName(), rightPredicate);
+
+            Pattern BEGIN_PATTERN = Pattern.compile("([^%]+)%$");
+            Matcher beginMatcher = BEGIN_PATTERN.matcher(rightVal.toString());
+            if (beginMatcher.matches()) {
+                return builder.startsWith(
+                        columnIndex, BinaryString.fromString(beginMatcher.group(1)));
+            }
+
+            Pattern END_PATTERN = Pattern.compile("^%([^%]+)");
+            Matcher endMatcher = END_PATTERN.matcher(rightVal.toString());
+            if (endMatcher.matches()) {
+                return builder.endsWith(columnIndex, BinaryString.fromString(endMatcher.group(1)));
+            }
+
+            Pattern CONTAINS_PATTERN = Pattern.compile("^%([^%]+)%$");
+            Matcher containsMatcher = CONTAINS_PATTERN.matcher(rightVal.toString());
+            if (containsMatcher.matches()) {
+                return builder.contains(
+                        columnIndex, BinaryString.fromString(containsMatcher.group(1)));
+            }
+            throw new IllegalArgumentException(
+                    String.format(
+                            "Invalid LIKE pattern: '%s'. Supported patterns are: 'prefix%%', '%%suffix', and '%%substring%%'. "
+                                    + "Please ensure your pattern matches one of these formats.",
+                            rightVal.toString()));
+
         } else if (expression instanceof Parenthesis) {
             Parenthesis parenthesis = (Parenthesis) expression;
             return parseExpressionToPredicate(builder, rowType, parenthesis.getExpression());
