@@ -201,8 +201,10 @@ public class DorisCatalog implements Catalog {
             // Use specific driver (either specified or default for LDAP)
             return connectWithSpecificDriver(targetDriver, jdbcUrl, connectionInfo);
         } else {
-            // No driver specified and LDAP disabled, try all available drivers
-            return connectWithAnyAvailableDriver(jdbcUrl, connectionInfo);
+            // No driver specified and LDAP disabled, use DriverManager directly
+            LOG.debug(
+                    "No specific driver required and LDAP disabled, using DriverManager.getConnection");
+            return DriverManager.getConnection(jdbcUrl, username, password);
         }
     }
 
@@ -245,39 +247,6 @@ public class DorisCatalog implements Catalog {
                         targetDriverClass));
     }
 
-    /**
-     * Try connecting with any available driver (fallback when no driver specified and LDAP
-     * disabled)
-     */
-    private Connection connectWithAnyAvailableDriver(String jdbcUrl, Properties connectionInfo)
-            throws SQLException {
-
-        LOG.debug("No specific driver required, attempting connection with available drivers");
-
-        Enumeration<Driver> drivers = DriverManager.getDrivers();
-        StringBuilder attemptedDrivers = new StringBuilder();
-
-        while (drivers.hasMoreElements()) {
-            Driver driver = drivers.nextElement();
-            String driverClassName = driver.getClass().getName();
-
-            if (attemptedDrivers.length() > 0) {
-                attemptedDrivers.append(", ");
-            }
-            attemptedDrivers.append(driverClassName);
-
-            Connection connection = tryConnectWithDriver(driver, jdbcUrl, connectionInfo);
-            if (connection != null) {
-                LOG.info("Successfully connected using driver: {}", driverClassName);
-                return connection;
-            }
-        }
-
-        throw new SQLException(
-                String.format(
-                        "Failed to connect using any available drivers. Attempted drivers: [%s]",
-                        attemptedDrivers.toString()));
-    }
     /**
      * Attempt to connect using a specific driver with LDAP configuration if enabled.
      *
