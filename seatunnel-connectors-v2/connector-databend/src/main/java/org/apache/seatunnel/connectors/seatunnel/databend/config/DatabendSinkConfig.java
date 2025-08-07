@@ -153,11 +153,13 @@ public class DatabendSinkConfig implements Serializable {
     }
 
     public String getRawTableName() {
-        return table + "_raw_";
+        long timestamp = System.currentTimeMillis();
+        return table + "_raw_" + timestamp;
     }
 
     public String getStreamName() {
-        return table + "_stream_";
+        long timestamp = System.currentTimeMillis();
+        return table + "_stream_" + timestamp;
     }
 
     public Properties toProperties() {

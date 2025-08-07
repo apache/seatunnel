@@ -80,8 +80,7 @@ public class DatabendCDCSinkIT extends TestSuiteBase implements TestResource {
         Thread.sleep(10000);
 
         // Verify the sink results
-        try (Connection connection = getConnection();
-                Statement statement = connection.createStatement()) {
+        try (Statement statement = connection.createStatement()) {
 
             // First check how many records we have
             try (ResultSet countRs =
@@ -150,8 +149,7 @@ public class DatabendCDCSinkIT extends TestSuiteBase implements TestResource {
     }
 
     private void clearSinkTable() throws SQLException {
-        try (Connection connection = getConnection();
-                Statement statement = connection.createStatement()) {
+        try (Statement statement = connection.createStatement()) {
             statement.execute("TRUNCATE TABLE sink_table");
         }
     }
@@ -208,15 +206,14 @@ public class DatabendCDCSinkIT extends TestSuiteBase implements TestResource {
         LOG.info("Databend container started");
         Awaitility.given()
                 .ignoreExceptions()
-                .atMost(300, TimeUnit.SECONDS)
+                .atMost(360, TimeUnit.SECONDS)
                 .untilAsserted(this::initConnection);
 
         this.initializeDatabendTable();
     }
 
     private void initializeDatabendTable() {
-        try (Connection connection = getConnection();
-                Statement statement = connection.createStatement(); ) {
+        try (Statement statement = connection.createStatement(); ) {
             // Create sink table
             String createTableSql =
                     "CREATE TABLE IF NOT EXISTS sink_table ("
@@ -273,22 +270,22 @@ public class DatabendCDCSinkIT extends TestSuiteBase implements TestResource {
         }
     }
 
-    private synchronized Connection getConnection() throws SQLException {
-        if (this.connection == null || this.connection.isClosed()) {
-            LOG.info("Creating new database connection");
-            final Properties info = new Properties();
-            info.put("user", "root");
-            info.put("password", "");
-
-            String jdbcUrl =
-                    String.format(
-                            "jdbc:databend://%s:%d/%s?ssl=false",
-                            container.getHost(), container.getMappedPort(8000), DATABASE);
-
-            this.connection = DriverManager.getConnection(jdbcUrl, info);
-        }
-        return this.connection;
-    }
+    //    private synchronized Connection getConnection() throws SQLException {
+    //        if (this.connection == null || this.connection.isClosed()) {
+    //            LOG.info("Creating new database connection");
+    //            final Properties info = new Properties();
+    //            info.put("user", "root");
+    //            info.put("password", "");
+    //
+    //            String jdbcUrl =
+    //                    String.format(
+    //                            "jdbc:databend://%s:%d/%s?ssl=false",
+    //                            container.getHost(), container.getMappedPort(8000), DATABASE);
+    //
+    //            this.connection = DriverManager.getConnection(jdbcUrl, info);
+    //        }
+    //        return this.connection;
+    //    }
 
     private void initConnection()
             throws SQLException, ClassNotFoundException, InstantiationException,

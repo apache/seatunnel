@@ -295,8 +295,8 @@ public class DatabendSink
         log.info("Initializing CDC infrastructure for database: {}, table: {}", database, table);
         try (Connection connection = DatabendUtil.createConnection(databendSinkConfig)) {
             // Generate unique names for raw table and stream
-            String rawTableName = table + "_raw_";
-            String streamName = table + "_stream_";
+            String rawTableName = this.rawTableName;
+            String streamName = this.streamName;
 
             // Create raw table
             createRawTable(connection, rawTableName);

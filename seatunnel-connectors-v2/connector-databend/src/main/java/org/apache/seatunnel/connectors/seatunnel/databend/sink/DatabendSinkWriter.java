@@ -704,6 +704,42 @@ public class DatabendSinkWriter
         preparedStatement.addBatch();
         log.info("Added row to batch, current batch count: {}", batchCount + 1);
     }
+    // 在写入 raw table 后，立即查询验证
+    private void verifyRawTableData(String rawTableName, String database) throws SQLException {
+        try (Statement stmt = connection.createStatement();
+                ResultSet rs =
+                        stmt.executeQuery(
+                                "SELECT COUNT(*), COUNT(DISTINCT raw_data:id) FROM "
+                                        + database
+                                        + "."
+                                        + rawTableName)) {
+            if (rs.next()) {
+                log.info(
+                        "Raw table sjh {} has {} total rows, {} unique ids",
+                        rawTableName,
+                        rs.getInt(1),
+                        rs.getInt(2));
+            }
+        }
+
+        // 打印详细数据
+        try (Statement stmt = connection.createStatement();
+                ResultSet dataRs =
+                        stmt.executeQuery(
+                                "SELECT raw_data, action, add_time FROM "
+                                        + database
+                                        + "."
+                                        + rawTableName
+                                        + " ORDER BY add_time"); ) {
+            while (dataRs.next()) {
+                log.info(
+                        "Raw data ssj: {}, action: {}, time: {}",
+                        dataRs.getString(1),
+                        dataRs.getString(2),
+                        dataRs.getTimestamp(3));
+            }
+        }
+    }
 
     private void executeBatch() {
         if (batchCount > 0) {
@@ -718,6 +754,7 @@ public class DatabendSinkWriter
                     log.info(
                             "CDC batch executed successfully, total affected rows: {}",
                             totalAffected);
+                    verifyRawTableData(rawTableName, sinkTablePath.getDatabaseName());
                 } else {
                     int[] results = preparedStatement.executeBatch();
                     int totalAffected = 0;

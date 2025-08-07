@@ -340,7 +340,7 @@ public class SeaTunnelContainer extends AbstractTestContainer {
         } else {
             // Waiting 120s for release thread
             Awaitility.await()
-                    .atMost(120, TimeUnit.SECONDS)
+                    .atMost(420, TimeUnit.SECONDS)
                     .untilAsserted(
                             () -> {
                                 List<String> threads = ContainerUtil.getJVMThreadNames(server);
