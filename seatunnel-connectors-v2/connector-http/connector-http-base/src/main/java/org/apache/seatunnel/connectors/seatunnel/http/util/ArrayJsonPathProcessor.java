@@ -28,7 +28,7 @@ import java.util.List;
 import java.util.Map;
 
 /** Processor for handling JsonPath with array notation (using [*]). */
-public class ArrayJsonPathProcessor extends AbstractJsonPathProcessor {
+public class ArrayJsonPathProcessor extends JsonPathProcessorImpl {
     /**
      * Extract the common parent path from an array of JsonPaths.
      *

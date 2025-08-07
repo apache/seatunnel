@@ -132,7 +132,7 @@ public class JsonFieldMissedReturnNullTreeFeatureTest {
                         + "}";
 
         // Set json_filed_missed_return_null to true
-        httpParameter.setJsonFiledMissedReturnNull(true);
+        httpParameter.setJsonFiledMissedReturnNull(false);
 
         // Setup HTTP response
         when(httpResponse.getContent()).thenReturn(testJsonData);

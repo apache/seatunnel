@@ -27,8 +27,8 @@ import com.jayway.jsonpath.ReadContext;
 import java.util.ArrayList;
 import java.util.List;
 
-/** Abstract implementation of JsonPathProcessor providing common functionality. */
-public abstract class AbstractJsonPathProcessor implements JsonPathProcessor {
+/** Default implementation of JsonPathProcessor providing common functionality. */
+public class JsonPathProcessorImpl implements JsonPathProcessor {
 
     /** Flag to indicate whether to return null for missing fields */
     private boolean jsonFiledMissedReturnNull = false;

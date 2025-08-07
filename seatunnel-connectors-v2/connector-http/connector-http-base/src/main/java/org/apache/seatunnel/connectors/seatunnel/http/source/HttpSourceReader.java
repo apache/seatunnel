@@ -36,7 +36,6 @@ import org.apache.seatunnel.connectors.seatunnel.http.config.JsonField;
 import org.apache.seatunnel.connectors.seatunnel.http.config.PageInfo;
 import org.apache.seatunnel.connectors.seatunnel.http.exception.HttpConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.http.exception.HttpConnectorException;
-import org.apache.seatunnel.connectors.seatunnel.http.util.JsonPathProcessor;
 import org.apache.seatunnel.connectors.seatunnel.http.util.JsonPathProcessorFactory;
 import org.apache.seatunnel.connectors.seatunnel.http.util.JsonPathUtils;
 
@@ -124,7 +123,8 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
         }
     }
 
-    public void pollAndCollectData(Collector<SeaTunnelRow> output) throws Exception {
+    public void pollAndCollectData(Collector<SeaTunnelRow> output)
+            throws Exception, HttpConnectorException {
         HttpResponse response =
                 httpClient.execute(
                         this.httpParameter.getUrl(),
@@ -425,18 +425,9 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
 
     private List<List<String>> decodeJSON(String data) {
         ReadContext jsonReadContext = JsonPath.using(jsonConfiguration).parse(data);
-        boolean jsonFiledMissedReturnNull = httpParameter.isJsonFiledMissedReturnNull();
-        if (jsonFiledMissedReturnNull) {
-            // Get the appropriate processor for the JsonPaths, passing the
-            // jsonFiledMissedReturnNull flag
-            JsonPathProcessor processor =
-                    JsonPathProcessorFactory.getProcessor(this.jsonPaths, true);
-            return processor.processJsonData(jsonReadContext, this.jsonPaths);
-        } else {
-            // Standard processing for strict fields
-            return JsonPathProcessorFactory.getProcessor(this.jsonPaths)
-                    .processJsonData(jsonReadContext, this.jsonPaths);
-        }
+        return JsonPathProcessorFactory.getProcessor(
+                        this.jsonPaths, httpParameter.isJsonFiledMissedReturnNull())
+                .processJsonData(jsonReadContext, this.jsonPaths);
     }
 
     private List<Map<String, String>> parseToMap(List<List<String>> datas, JsonField jsonField) {

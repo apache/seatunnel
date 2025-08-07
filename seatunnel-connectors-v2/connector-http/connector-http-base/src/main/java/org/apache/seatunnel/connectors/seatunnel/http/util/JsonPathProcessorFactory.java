@@ -37,7 +37,7 @@ public class JsonPathProcessorFactory {
         PROCESSOR_MATCHERS.add(
                 new ProcessorMatcher(
                         path -> true, // Default matcher
-                        () -> new ObjectJsonPathProcessor()));
+                        () -> new JsonPathProcessorImpl()));
     }
 
     /**
@@ -63,8 +63,8 @@ public class JsonPathProcessorFactory {
             }
         }
 
-        // Default to ObjectJsonPathProcessor if no other processor matches
-        return new ObjectJsonPathProcessor();
+        // Default to JsonPathProcessorImpl if no other processor matches
+        return new JsonPathProcessorImpl();
     }
 
     /**
@@ -97,10 +97,10 @@ public class JsonPathProcessorFactory {
 
         JsonPathProcessor processor = getProcessor(paths[0]);
 
-        // If this processor is an AbstractJsonPathProcessor and jsonFiledMissedReturnNull is true,
+        // If this processor is a JsonPathProcessorImpl and jsonFiledMissedReturnNull is true,
         // we need to set the flag
-        if (processor instanceof AbstractJsonPathProcessor && jsonFiledMissedReturnNull) {
-            ((AbstractJsonPathProcessor) processor).setJsonFiledMissedReturnNull(true);
+        if (processor instanceof JsonPathProcessorImpl && jsonFiledMissedReturnNull) {
+            ((JsonPathProcessorImpl) processor).setJsonFiledMissedReturnNull(true);
         }
 
         return processor;
