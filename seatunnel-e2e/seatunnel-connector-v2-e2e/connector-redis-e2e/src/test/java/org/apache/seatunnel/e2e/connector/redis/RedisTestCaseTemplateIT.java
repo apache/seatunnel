@@ -434,6 +434,44 @@ public abstract class RedisTestCaseTemplateIT extends TestSuiteBase implements T
     }
 
     @TestTemplate
+    public void testScanHashTypeWriteRedisWithDefaultKey(TestContainer container)
+            throws IOException, InterruptedException {
+        testScanHashTypeWithKey(container, "/scan-hash-to-redis-with-default-key.conf");
+    }
+
+    @TestTemplate
+    public void testScanHashTypeWriteRedisWithKey(TestContainer container)
+            throws IOException, InterruptedException {
+        testScanHashTypeWithKey(container, "/scan-hash-to-redis-with-key.conf");
+    }
+
+    private void testScanHashTypeWithKey(TestContainer container, String confFile)
+            throws IOException, InterruptedException {
+        String hashKeyPrefix = "key-test-hash";
+        for (int i = 0; i < 100; i++) {
+            String setKey = hashKeyPrefix + i;
+            Map<String, String> map = new HashMap<>();
+            map.put("name", "dybyte");
+            jedis.hset(setKey, map);
+        }
+        Container.ExecResult execResult = container.executeJob(confFile);
+        Assertions.assertEquals(0, execResult.getExitCode());
+
+        for (int i = 0; i < 100; i++) {
+            Map<String, String> map = jedis.hgetAll("key-test-check:" + hashKeyPrefix + i);
+            Assertions.assertEquals(2, map.size());
+        }
+
+        for (int i = 0; i < 100; i++) {
+            String hashKey = hashKeyPrefix + i;
+            jedis.del(hashKey);
+        }
+        for (int i = 0; i < 100; i++) {
+            jedis.del("key-test-check:" + hashKeyPrefix + i);
+        }
+    }
+
+    @TestTemplate
     public void testScanZsetTypeWriteRedisWithKey(TestContainer container)
             throws IOException, InterruptedException {
         String zSetKeyPrefix = "key-test-zset";
@@ -471,7 +509,7 @@ public abstract class RedisTestCaseTemplateIT extends TestSuiteBase implements T
             Assertions.assertTrue(jedis.exists("redis-key-check:" + "key_test" + i));
         }
         for (int i = 0; i < 100; i++) {
-            jedis.del("redis-key-check:" + i);
+            jedis.del("redis-key-check:" + "key_test" + i);
         }
     }
 

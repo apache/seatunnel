@@ -51,6 +51,6 @@ public class RedisSourceOptions extends RedisBaseOptions {
     public static final Option<String> KEY_FIELD_NAME =
             Options.key("key_field_name")
                     .stringType()
-                    .defaultValue("key")
-                    .withDescription("The value of key you want to write to redis.");
+                    .noDefaultValue()
+                    .withDescription("Specifies the key field name to be used in the output row.");
 }
