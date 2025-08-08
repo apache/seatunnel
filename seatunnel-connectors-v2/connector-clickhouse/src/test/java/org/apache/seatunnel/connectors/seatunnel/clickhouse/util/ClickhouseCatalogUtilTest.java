@@ -18,11 +18,14 @@
 package org.apache.seatunnel.connectors.seatunnel.clickhouse.util;
 
 import org.apache.seatunnel.api.table.catalog.Column;
-import org.apache.seatunnel.api.table.type.*;
+import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.DecimalArrayType;
+import org.apache.seatunnel.api.table.type.DecimalType;
+import org.apache.seatunnel.api.table.type.MapType;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 
 import org.junit.jupiter.api.Test;
 
-import static org.apache.seatunnel.api.table.type.ArrayType.INT_ARRAY_TYPE;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -106,7 +109,8 @@ public class ClickhouseCatalogUtilTest {
     void returnsMapTypeWithoutNullableWrapper() {
         Column column = mock(Column.class);
         when(column.getName()).thenReturn("map_col");
-        when(column.getDataType()).thenReturn(new MapType(BasicType.STRING_TYPE, BasicType.INT_TYPE));
+        when(column.getDataType())
+                .thenReturn(new MapType(BasicType.STRING_TYPE, BasicType.INT_TYPE));
         when(column.isNullable()).thenReturn(true);
         when(column.getSinkType()).thenReturn(null);
         when(column.getComment()).thenReturn(null);
