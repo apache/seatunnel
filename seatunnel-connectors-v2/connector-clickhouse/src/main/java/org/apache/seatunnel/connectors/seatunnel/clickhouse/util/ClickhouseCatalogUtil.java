@@ -38,10 +38,13 @@ public class ClickhouseCatalogUtil extends CatalogUtil {
         } else {
             String reconvertedColumnType =
                     ClickhouseTypeConverter.INSTANCE.reconvert(column).getColumnType();
+            boolean isCompositeType = reconvertedColumnType.startsWith("Array(")
+                    || reconvertedColumnType.startsWith("Map(")
+                    || reconvertedColumnType.startsWith("Tuple(");
             columnType =
-                    column.isNullable()
-                            ? "Nullable(" + reconvertedColumnType + ")"
-                            : reconvertedColumnType;
+                    (isCompositeType || !column.isNullable())
+                            ? reconvertedColumnType
+                            : "Nullable(" + reconvertedColumnType + ")";
         }
         return String.format(
                 "`%s` %s %s",
@@ -50,8 +53,8 @@ public class ClickhouseCatalogUtil extends CatalogUtil {
                 StringUtils.isEmpty(column.getComment())
                         ? ""
                         : "COMMENT '"
-                                + column.getComment().replace("'", "''").replace("\\", "\\\\")
-                                + "'");
+                        + column.getComment().replace("'", "''").replace("\\", "\\\\")
+                        + "'");
     }
 
     public String getDropTableSql(TablePath tablePath, boolean ignoreIfNotExists) {
