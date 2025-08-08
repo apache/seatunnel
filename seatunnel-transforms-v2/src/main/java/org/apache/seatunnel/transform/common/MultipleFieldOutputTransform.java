@@ -137,6 +137,7 @@ public abstract class MultipleFieldOutputTransform extends AbstractCatalogSuppor
                             SeaTunnelRow outputRow = new SeaTunnelRow(outputFieldValues);
                             outputRow.setTableId(inputRow.getTableId());
                             outputRow.setRowKind(inputRow.getRowKind());
+                            outputRow.setOptions(inputRow.getOptions());
                             return outputRow;
                         }
                     };

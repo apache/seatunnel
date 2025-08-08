@@ -66,7 +66,7 @@ public class ZhipuModel extends AbstractModel {
     }
 
     @Override
-    public List<List<Double>> vector(Object[] fields) throws IOException {
+    public List<List<Float>> vector(Object[] fields) throws IOException {
         return vectorGeneration(fields);
     }
 
@@ -75,7 +75,7 @@ public class ZhipuModel extends AbstractModel {
         return dimension;
     }
 
-    private List<List<Double>> vectorGeneration(Object[] fields) throws IOException {
+    private List<List<Float>> vectorGeneration(Object[] fields) throws IOException {
 
         if (fields == null || fields.length > MAX_INPUT_SIZE) {
             throw new IOException(
@@ -98,14 +98,14 @@ public class ZhipuModel extends AbstractModel {
             throw new IOException("Failed to get vector from zhipu, response: " + responseStr);
         }
         JsonNode data = OBJECT_MAPPER.readTree(responseStr).get("data");
-        List<List<Double>> embeddings = new ArrayList<>();
+        List<List<Float>> embeddings = new ArrayList<>();
 
         if (data.isArray()) {
             for (JsonNode node : data) {
                 JsonNode embeddingNode = node.get("embedding");
-                List<Double> embedding =
+                List<Float> embedding =
                         OBJECT_MAPPER.readValue(
-                                embeddingNode.traverse(), new TypeReference<List<Double>>() {});
+                                embeddingNode.traverse(), new TypeReference<List<Float>>() {});
                 embeddings.add(embedding);
             }
         }

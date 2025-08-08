@@ -75,6 +75,13 @@ public class AssertExecutor {
                         Lists.newArrayList(rowType.getFieldNames()),
                         fieldName -> fieldName.equals(assertFieldRule.getFieldName()));
 
+        if (index == -1) {
+            throw new IllegalArgumentException(
+                    String.format(
+                            "Field name %s not found in row type %s",
+                            assertFieldRule.getFieldName(), rowType));
+        }
+
         SeaTunnelDataType<?> type = rowType.getFieldType(index);
         Object value = rowData.getField(index);
         String fieldName = rowType.getFieldName(index);

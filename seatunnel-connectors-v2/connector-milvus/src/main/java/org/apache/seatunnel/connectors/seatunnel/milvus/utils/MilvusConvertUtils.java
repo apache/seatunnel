@@ -21,12 +21,15 @@ import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.ConstraintKey;
+import org.apache.seatunnel.api.table.catalog.MetadataColumn;
+import org.apache.seatunnel.api.table.catalog.MetadataSchema;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.catalog.VectorIndex;
+import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.CommonOptions;
 import org.apache.seatunnel.connectors.seatunnel.milvus.catalog.MilvusOptions;
 import org.apache.seatunnel.connectors.seatunnel.milvus.config.MilvusSourceOptions;
@@ -196,14 +199,29 @@ public class MilvusConvertUtils {
         options.put(
                 MilvusOptions.ENABLE_DYNAMIC_FIELD, String.valueOf(schema.getEnableDynamicField()));
         options.put(MilvusOptions.SHARDS_NUM, String.valueOf(collectionResponse.getShardsNum()));
+        MetadataSchema.Builder metadataBuilder = MetadataSchema.builder();
         if (existPartitionKeyField) {
             options.put(MilvusOptions.PARTITION_KEY_FIELD, partitionKeyField);
+            metadataBuilder.column(
+                    MetadataColumn.of(
+                            CommonOptions.PARTITION.getName(),
+                            BasicType.STRING_TYPE,
+                            null,
+                            true,
+                            null,
+                            null));
         } else {
             fillPartitionNames(options, client, database, collection);
         }
 
         return CatalogTable.of(
-                tableId, tableSchema, options, new ArrayList<>(), schema.getDescription());
+                tableId,
+                tableSchema,
+                options,
+                new ArrayList<>(),
+                schema.getDescription(),
+                tableId.getCatalogName(),
+                metadataBuilder.build());
     }
 
     private static void fillPartitionNames(

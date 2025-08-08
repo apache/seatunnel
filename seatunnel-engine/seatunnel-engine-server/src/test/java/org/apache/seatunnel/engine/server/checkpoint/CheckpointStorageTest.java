@@ -17,24 +17,26 @@
 
 package org.apache.seatunnel.engine.server.checkpoint;
 
+import org.apache.seatunnel.common.utils.ReflectionUtils;
 import org.apache.seatunnel.engine.checkpoint.storage.PipelineState;
 import org.apache.seatunnel.engine.checkpoint.storage.api.CheckpointStorage;
-import org.apache.seatunnel.engine.checkpoint.storage.api.CheckpointStorageFactory;
 import org.apache.seatunnel.engine.checkpoint.storage.exception.CheckpointStorageException;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.config.server.CheckpointConfig;
-import org.apache.seatunnel.engine.common.utils.FactoryUtil;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.core.job.JobStatus;
 import org.apache.seatunnel.engine.server.AbstractSeaTunnelServerTest;
+import org.apache.seatunnel.engine.server.CheckpointService;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledOnOs;
 import org.junit.jupiter.api.condition.OS;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.awaitility.Awaitility.await;
 
@@ -45,6 +47,8 @@ public class CheckpointStorageTest extends AbstractSeaTunnelServerTest {
     public static String BATCH_CONF_PATH = "batch_fakesource_to_file.conf";
     public static String BATCH_CONF_WITH_CHECKPOINT_PATH =
             "batch_fakesource_to_file_with_checkpoint.conf";
+    public static String BATCH_CONF_WITHOUT_CHECKPOINT_INTERVAL_PATH =
+            "batch_fake_to_console_without_checkpoint_interval.conf";
 
     public static String STREAM_CONF_WITH_CHECKPOINT_PATH =
             "stream_fake_to_console_with_checkpoint.conf";
@@ -64,15 +68,8 @@ public class CheckpointStorageTest extends AbstractSeaTunnelServerTest {
     public void testGenerateFileWhenSavepoint()
             throws CheckpointStorageException, InterruptedException {
         long jobId = System.currentTimeMillis();
-        CheckpointConfig checkpointConfig =
-                server.getSeaTunnelConfig().getEngineConfig().getCheckpointConfig();
 
-        CheckpointStorage checkpointStorage =
-                FactoryUtil.discoverFactory(
-                                Thread.currentThread().getContextClassLoader(),
-                                CheckpointStorageFactory.class,
-                                checkpointConfig.getStorage().getStorage())
-                        .create(checkpointConfig.getStorage().getStoragePluginConfig());
+        CheckpointStorage checkpointStorage = server.getCheckpointService().getCheckpointStorage();
         startJob(jobId, STREAM_CONF_PATH, false);
         await().atMost(120000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
@@ -98,15 +95,8 @@ public class CheckpointStorageTest extends AbstractSeaTunnelServerTest {
     @Test
     public void testBatchJob() throws CheckpointStorageException {
         long jobId = System.currentTimeMillis();
-        CheckpointConfig checkpointConfig =
-                server.getSeaTunnelConfig().getEngineConfig().getCheckpointConfig();
 
-        CheckpointStorage checkpointStorage =
-                FactoryUtil.discoverFactory(
-                                Thread.currentThread().getContextClassLoader(),
-                                CheckpointStorageFactory.class,
-                                checkpointConfig.getStorage().getStorage())
-                        .create(checkpointConfig.getStorage().getStoragePluginConfig());
+        CheckpointStorage checkpointStorage = server.getCheckpointService().getCheckpointStorage();
         startJob(jobId, BATCH_CONF_PATH, false);
         await().atMost(120000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
@@ -126,12 +116,7 @@ public class CheckpointStorageTest extends AbstractSeaTunnelServerTest {
                 server.getSeaTunnelConfig().getEngineConfig().getCheckpointConfig();
         server.getSeaTunnelConfig().getEngineConfig().setCheckpointConfig(checkpointConfig);
 
-        CheckpointStorage checkpointStorage =
-                FactoryUtil.discoverFactory(
-                                Thread.currentThread().getContextClassLoader(),
-                                CheckpointStorageFactory.class,
-                                checkpointConfig.getStorage().getStorage())
-                        .create(checkpointConfig.getStorage().getStoragePluginConfig());
+        CheckpointStorage checkpointStorage = server.getCheckpointService().getCheckpointStorage();
         startJob(jobId, BATCH_CONF_WITH_CHECKPOINT_PATH, false);
         await().atMost(120000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
@@ -151,12 +136,7 @@ public class CheckpointStorageTest extends AbstractSeaTunnelServerTest {
                 server.getSeaTunnelConfig().getEngineConfig().getCheckpointConfig();
         server.getSeaTunnelConfig().getEngineConfig().setCheckpointConfig(checkpointConfig);
 
-        CheckpointStorage checkpointStorage =
-                FactoryUtil.discoverFactory(
-                                Thread.currentThread().getContextClassLoader(),
-                                CheckpointStorageFactory.class,
-                                checkpointConfig.getStorage().getStorage())
-                        .create(checkpointConfig.getStorage().getStoragePluginConfig());
+        CheckpointStorage checkpointStorage = server.getCheckpointService().getCheckpointStorage();
         startJob(jobId, STREAM_CONF_WITH_CHECKPOINT_PATH, false);
         await().atMost(120000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
@@ -176,5 +156,103 @@ public class CheckpointStorageTest extends AbstractSeaTunnelServerTest {
         List<PipelineState> allCheckpoints =
                 checkpointStorage.getAllCheckpoints(String.valueOf(jobId));
         Assertions.assertEquals(0, allCheckpoints.size());
+    }
+
+    @Test
+    public void testBatchJobResetCheckpointStorage() throws CheckpointStorageException {
+        long jobId = System.currentTimeMillis();
+        CheckpointConfig checkpointConfig =
+                server.getSeaTunnelConfig().getEngineConfig().getCheckpointConfig();
+        server.getSeaTunnelConfig().getEngineConfig().setCheckpointConfig(checkpointConfig);
+        final CheckpointStorage originalCheckpointStorage =
+                server.getCheckpointService().getCheckpointStorage();
+
+        // access checkpoint storage counter
+        AtomicInteger accessCounter = new AtomicInteger(0);
+        CheckpointStorage checkpointStorage =
+                new CheckpointStorage() {
+                    @Override
+                    public String storeCheckPoint(PipelineState pipelineState)
+                            throws CheckpointStorageException {
+                        accessCounter.incrementAndGet();
+                        return "";
+                    }
+
+                    @Override
+                    public void asyncStoreCheckPoint(PipelineState pipelineState)
+                            throws CheckpointStorageException {
+                        accessCounter.incrementAndGet();
+                    }
+
+                    @Override
+                    public List<PipelineState> getAllCheckpoints(String s)
+                            throws CheckpointStorageException {
+                        accessCounter.incrementAndGet();
+                        return Collections.emptyList();
+                    }
+
+                    @Override
+                    public List<PipelineState> getLatestCheckpoint(String s)
+                            throws CheckpointStorageException {
+                        accessCounter.incrementAndGet();
+                        return Collections.emptyList();
+                    }
+
+                    @Override
+                    public PipelineState getLatestCheckpointByJobIdAndPipelineId(
+                            String s, String s1) throws CheckpointStorageException {
+                        accessCounter.incrementAndGet();
+                        return null;
+                    }
+
+                    @Override
+                    public List<PipelineState> getCheckpointsByJobIdAndPipelineId(
+                            String s, String s1) throws CheckpointStorageException {
+                        accessCounter.incrementAndGet();
+                        return Collections.emptyList();
+                    }
+
+                    @Override
+                    public void deleteCheckpoint(String s) {
+                        accessCounter.incrementAndGet();
+                    }
+
+                    @Override
+                    public PipelineState getCheckpoint(String s, String s1, String s2)
+                            throws CheckpointStorageException {
+                        accessCounter.incrementAndGet();
+                        return null;
+                    }
+
+                    @Override
+                    public void deleteCheckpoint(String s, String s1, String s2)
+                            throws CheckpointStorageException {
+                        accessCounter.incrementAndGet();
+                    }
+
+                    @Override
+                    public void deleteCheckpoint(String s, String s1, List<String> list)
+                            throws CheckpointStorageException {
+                        accessCounter.incrementAndGet();
+                    }
+                };
+
+        // replace the checkpoint storage reused by the system
+        CheckpointService checkpointService = server.getCheckpointService();
+        ReflectionUtils.setField(checkpointService, "checkpointStorage", checkpointStorage);
+
+        startJob(jobId, BATCH_CONF_WITHOUT_CHECKPOINT_INTERVAL_PATH, false);
+        await().atMost(120000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        server.getCoordinatorService().getJobStatus(jobId),
+                                        JobStatus.FINISHED));
+
+        checkpointStorage.getAllCheckpoints(String.valueOf(jobId));
+        Assertions.assertEquals(1, accessCounter.get());
+
+        // restore the server's checkpointStorage to avoid affecting other unit cases
+        ReflectionUtils.setField(checkpointService, "checkpointStorage", originalCheckpointStorage);
     }
 }

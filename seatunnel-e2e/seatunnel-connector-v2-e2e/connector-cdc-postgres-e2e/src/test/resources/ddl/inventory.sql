@@ -216,6 +216,32 @@ CREATE TABLE sink_postgres_cdc_table_4
     PRIMARY KEY (id)
 );
 
+CREATE TABLE postgres_cdc_table_5
+(
+    id        INTEGER NOT NULL,
+    f_bytea   BYTEA,
+    f_small   SMALLINT,
+    f_interval INTERVAL,
+    ip        INET,
+    network   CIDR,
+    mac       MACADDR,
+    mac8      MACADDR8,
+    PRIMARY KEY (id)
+);
+
+CREATE TABLE sink_postgres_cdc_table_5
+(
+    id        INTEGER NOT NULL,
+    f_bytea   BYTEA,
+    f_small   SMALLINT,
+    f_interval INTERVAL,
+    ip        INET,
+    network   CIDR,
+    mac       MACADDR,
+    mac8      MACADDR8,
+    PRIMARY KEY (id)
+);
+
 ALTER TABLE postgres_cdc_table_1
     REPLICA IDENTITY FULL;
 
@@ -226,6 +252,9 @@ ALTER TABLE postgres_cdc_table_3
     REPLICA IDENTITY FULL;
 
 ALTER TABLE postgres_cdc_table_4
+    REPLICA IDENTITY FULL;
+
+ALTER TABLE postgres_cdc_table_5
     REPLICA IDENTITY FULL;
 
 ALTER TABLE sink_postgres_cdc_table_1
@@ -255,6 +284,9 @@ VALUES (1, '2', 32767, 65535);
 
 INSERT INTO postgres_cdc_table_4
 VALUES (1, '2', 32767, INTERVAL '2 days 3 hours');
+
+INSERT INTO postgres_cdc_table_5 (id, f_bytea, f_small, f_interval, ip, network, mac, mac8)
+VALUES (1, '2', 32767, INTERVAL '1 day 2 hours', '192.168.1.100', '192.168.1.0/24', '08:00:2b:01:02:03', '08:00:2b:01:02:03:04:05');
 
 INSERT INTO full_types_no_primary_key
 VALUES (1, '2', 32767, 65535, 2147483647, 5.5, 6.6, 123.12345, 404.4443, true,

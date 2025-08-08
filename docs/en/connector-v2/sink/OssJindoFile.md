@@ -24,9 +24,13 @@ It only supports hadoop version **2.9.X+**.
 
 ## Key features
 
+- [x] [multimodal](../../concept/connector-v2-features.md#multimodal)
+
+  Use binary file format to read and write files in any format, such as videos, pictures, etc. In short, any files can be synchronized to the target place.
+
 - [x] [exactly-once](../../concept/connector-v2-features.md)
 
-By default, we use 2PC commit to ensure `exactly-once`
+  By default, we use 2PC commit to ensure `exactly-once`
 
 - [x] file format type
   - [x] text

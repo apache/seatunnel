@@ -57,26 +57,37 @@ public class CustomModel extends AbstractModel {
             Map<String, Object> body,
             String parse,
             Integer vectorizedNumber) {
+        this(model, apiPath, header, body, parse, vectorizedNumber, HttpClients.createDefault());
+    }
+
+    public CustomModel(
+            String model,
+            String apiPath,
+            Map<String, String> header,
+            Map<String, Object> body,
+            String parse,
+            Integer vectorizedNumber,
+            CloseableHttpClient client) {
         super(vectorizedNumber);
         this.apiPath = apiPath;
         this.model = model;
         this.header = header;
         this.body = body;
         this.parse = parse;
-        this.client = HttpClients.createDefault();
+        this.client = client;
     }
 
     @Override
-    protected List<List<Double>> vector(Object[] fields) throws IOException {
+    protected List<List<Float>> vector(Object[] fields) throws IOException {
         return vectorGeneration(fields);
     }
 
     @Override
     public Integer dimension() throws IOException {
-        return vectorGeneration(new Object[] {DIMENSION_EXAMPLE}).size();
+        return vectorGeneration(new Object[] {DIMENSION_EXAMPLE}).get(0).size();
     }
 
-    private List<List<Double>> vectorGeneration(Object[] fields) throws IOException {
+    private List<List<Float>> vectorGeneration(Object[] fields) throws IOException {
         HttpPost post = new HttpPost(apiPath);
         // Construct a request with custom parameters
         for (Map.Entry<String, String> entry : header.entrySet()) {
@@ -96,7 +107,7 @@ public class CustomModel extends AbstractModel {
         }
 
         return OBJECT_MAPPER.convertValue(
-                parseResponse(responseStr), new TypeReference<List<List<Double>>>() {});
+                parseResponse(responseStr), new TypeReference<List<List<Float>>>() {});
     }
 
     @VisibleForTesting

@@ -60,6 +60,7 @@ public class FtpFileSourceFactory implements TableSourceFactory {
                 .conditional(
                         FileBaseSourceOptions.FILE_FORMAT_TYPE,
                         FileFormat.TEXT,
+                        FileBaseSourceOptions.ROW_DELIMITER,
                         FileBaseSourceOptions.FIELD_DELIMITER,
                         FileBaseSourceOptions.SKIP_HEADER_ROW_NUMBER)
                 .conditional(

@@ -82,9 +82,7 @@ public class RedshiftCatalogTest {
                                 ReadonlyConfig.fromMap(
                                         new HashMap<String, Object>() {
                                             {
-                                                put(
-                                                        "base-url",
-                                                        "jdbc:redshift://localhost:5432/test");
+                                                put("url", "jdbc:redshift://localhost:5432/test");
                                                 put("username", "test");
                                                 put("password", "test");
                                             }

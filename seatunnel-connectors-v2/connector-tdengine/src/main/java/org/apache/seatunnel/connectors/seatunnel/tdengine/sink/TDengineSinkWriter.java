@@ -103,10 +103,13 @@ public class TDengineSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
                 conn.createStatement(ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY)) {
             String sql =
                     String.format(
-                            "INSERT INTO %s using %s tags ( %s ) VALUES ( %s );",
+                            "INSERT INTO %s using %s tags ( %s ) %s VALUES ( %s );",
                             element.getField(0),
                             config.getStable(),
                             tagValues,
+                            StringUtils.isEmpty(config.getWriteColumns())
+                                    ? ""
+                                    : "( " + config.getWriteColumns() + " )",
                             StringUtils.join(convertDataType(metrics), ","));
             final int rowCount = statement.executeUpdate(sql);
             if (rowCount == 0) {
@@ -140,6 +143,7 @@ public class TDengineSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
                             if (object == null) {
                                 return null;
                             }
+
                             if (LocalDateTime.class.equals(object.getClass())) {
                                 // transform timezone according to the config
                                 return "'"

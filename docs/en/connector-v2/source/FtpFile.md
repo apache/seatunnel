@@ -14,6 +14,10 @@ import ChangeLog from '../changelog/connector-file-ftp.md';
 
 - [x] [batch](../../concept/connector-v2-features.md)
 - [ ] [stream](../../concept/connector-v2-features.md)
+- [x] [multimodal](../../concept/connector-v2-features.md#multimodal)
+
+  Use binary file format to read and write files in any format, such as videos, pictures, etc. In short, any files can be synchronized to the target place.
+
 - [ ] [exactly-once](../../concept/connector-v2-features.md)
 - [x] [column projection](../../concept/connector-v2-features.md)
 - [x] [parallelism](../../concept/connector-v2-features.md)
@@ -51,6 +55,7 @@ If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you
 | connection_mode             | string  | no       | active_local        |
 | remote_verification_enabled | boolean | no       | true                |
 | delimiter/field_delimiter   | string  | no       | \001                |
+| row_delimiter               | string  | no       | \n                  |
 | read_columns                | list    | no       | -                   |
 | parse_partition_from_path   | boolean | no       | true                |
 | date_format                 | string  | no       | yyyy-MM-dd          |
@@ -267,6 +272,14 @@ Only need to be configured when file_format is text.
 Field delimiter, used to tell connector how to slice and dice fields.
 
 default `\001`, the same as hive's default delimiter
+
+### row_delimiter [string]
+
+Only need to be configured when file_format is text
+
+Row delimiter, used to tell connector how to slice and dice rows
+
+default `\n`
 
 ### parse_partition_from_path [boolean]
 
