@@ -167,8 +167,7 @@ public class PaimonSinkWithSchemaEvolutionIT extends AbstractPaimonIT implements
                         throw new RuntimeException(e);
                     }
                 });
-
-        vertifyJobStatus(container, jobId);
+        verifyJobStatus(container, jobId);
 
         await().atMost(30, TimeUnit.SECONDS)
                 .untilAsserted(
@@ -184,7 +183,7 @@ public class PaimonSinkWithSchemaEvolutionIT extends AbstractPaimonIT implements
         // with default value at same time, the history data in paimon has no value.
         List<ImmutableTriple<String[], Integer, Integer>> idRangesWithFiledProjection1 =
                 getIdRangesWithFiledProjectionImmutableTriplesCase1();
-        vertifySchemaAndData(container, idRangesWithFiledProjection1);
+        verifySchemaAndData(container, idRangesWithFiledProjection1);
 
         // savepoint job
         Container.ExecResult execResult = container.savepointJob(jobId);
@@ -199,28 +198,28 @@ public class PaimonSinkWithSchemaEvolutionIT extends AbstractPaimonIT implements
                         throw new RuntimeException(e);
                     }
                 });
-        vertifyJobStatus(container, jobId);
+        verifyJobStatus(container, jobId);
 
         // Case 2: Drop columns with data at same time
         shopDatabase.setTemplateName("drop_columns").createAndInitialize();
         List<ImmutableTriple<String[], Integer, Integer>> idRangesWithFiledProjection2 =
                 getIdRangesWithFiledProjectionImmutableTriplesCase2();
-        vertifySchemaAndData(container, idRangesWithFiledProjection2);
+        verifySchemaAndData(container, idRangesWithFiledProjection2);
 
         // Case 3: Change columns with data at same time
         shopDatabase.setTemplateName("change_columns").createAndInitialize();
         List<ImmutableTriple<String[], Integer, Integer>> idRangesWithFiledProjection3 =
                 getIdRangesWithFiledProjectionImmutableTriplesCase3();
-        vertifySchemaAndData(container, idRangesWithFiledProjection3);
+        verifySchemaAndData(container, idRangesWithFiledProjection3);
 
         // Case 4: Modify columns with data at same time
         shopDatabase.setTemplateName("modify_columns").createAndInitialize();
         List<ImmutableTriple<String[], Integer, Integer>> idRangesWithFiledProjection4 =
                 getIdRangesWithFiledProjectionImmutableTriplesCase4();
-        vertifySchemaAndData(container, idRangesWithFiledProjection4);
+        verifySchemaAndData(container, idRangesWithFiledProjection4);
     }
 
-    private void vertifyJobStatus(TestContainer container, String jobId) {
+    private void verifyJobStatus(TestContainer container, String jobId) {
         await().pollDelay(30, TimeUnit.SECONDS)
                 .atMost(45, TimeUnit.SECONDS)
                 .untilAsserted(
@@ -355,7 +354,7 @@ public class PaimonSinkWithSchemaEvolutionIT extends AbstractPaimonIT implements
         };
     }
 
-    private void vertifySchemaAndData(
+    private void verifySchemaAndData(
             TestContainer container,
             List<ImmutableTriple<String[], Integer, Integer>> idRangesWithFiledProjection) {
         await().pollDelay(5, TimeUnit.SECONDS)
@@ -363,7 +362,7 @@ public class PaimonSinkWithSchemaEvolutionIT extends AbstractPaimonIT implements
                 .untilAsserted(
                         () -> {
                             // 1. Vertify the schema
-                            vertifySchema();
+                            verifySchema();
 
                             // 2. Vertify the data
                             idRangesWithFiledProjection.forEach(
@@ -389,7 +388,7 @@ public class PaimonSinkWithSchemaEvolutionIT extends AbstractPaimonIT implements
                         });
     }
 
-    private void vertifySchema() {
+    private void verifySchema() {
         try (MySqlCatalog mySqlCatalog =
                 new MySqlCatalog(
                         "mysql",

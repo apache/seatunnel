@@ -27,7 +27,6 @@ import org.apache.seatunnel.connectors.seatunnel.paimon.security.PaimonSecurityC
 import org.apache.paimon.table.FileStoreTable;
 import org.apache.paimon.table.Table;
 import org.apache.paimon.table.sink.CommitMessage;
-import org.apache.paimon.table.sink.TableCommit;
 import org.apache.paimon.table.sink.TableCommitImpl;
 
 import lombok.extern.slf4j.Slf4j;
@@ -50,18 +49,69 @@ public class PaimonAggregatedCommitter
 
     private final FileStoreTable table;
 
-    private final String commitUser;
-
     public PaimonAggregatedCommitter(
-            Table table, PaimonHadoopConfiguration paimonHadoopConfiguration, String commitUser) {
+            Table table, PaimonHadoopConfiguration paimonHadoopConfiguration) {
         this.table = (FileStoreTable) table;
-        this.commitUser = commitUser;
         PaimonSecurityContext.shouldEnableKerberos(paimonHadoopConfiguration);
     }
 
     @Override
     public List<PaimonAggregatedCommitInfo> commit(
             List<PaimonAggregatedCommitInfo> aggregatedCommitInfo) throws IOException {
+        aggregatedCommitInfo.stream()
+                .collect(Collectors.groupingBy(PaimonAggregatedCommitInfo::getCommitUser))
+                .forEach(this::commit);
+        return Collections.emptyList();
+    }
+
+    private void commit(String commitUser, List<PaimonAggregatedCommitInfo> aggregatedCommitInfo) {
+        try (TableCommitImpl tableCommit = table.newCommit(commitUser)) {
+            PaimonSecurityContext.runSecured(
+                    () -> {
+                        log.debug("Trying to commit states streaming mode");
+                        Map<Long, List<CommitMessage>> committablesMap =
+                                aggregatedCommitInfo.stream()
+                                        .flatMap(
+                                                paimonAggregatedCommitInfo ->
+                                                        paimonAggregatedCommitInfo
+                                                                .getCommittablesMap().entrySet()
+                                                                .stream())
+                                        .collect(
+                                                Collectors.toMap(
+                                                        Map.Entry::getKey, Map.Entry::getValue));
+                        if (!committablesMap.isEmpty()) {
+                            tableCommit.filterAndCommit(committablesMap);
+                        }
+                        return null;
+                    });
+        } catch (Exception e) {
+            throw new PaimonConnectorException(
+                    PaimonConnectorErrorCode.TABLE_WRITE_COMMIT_FAILED, e);
+        }
+    }
+
+    @Override
+    public PaimonAggregatedCommitInfo combine(List<PaimonCommitInfo> commitInfos) {
+        String commitUser = commitInfos.get(0).getCommitUser();
+        Map<Long, List<CommitMessage>> commitTables = new HashMap<>();
+        commitInfos.forEach(
+                commitInfo ->
+                        commitTables
+                                .computeIfAbsent(
+                                        commitInfo.getCheckpointId(),
+                                        id -> new CopyOnWriteArrayList<>())
+                                .addAll(commitInfo.getCommittables()));
+        return new PaimonAggregatedCommitInfo(commitTables, commitUser);
+    }
+
+    @Override
+    public void abort(List<PaimonAggregatedCommitInfo> aggregatedCommitInfo) throws Exception {
+        aggregatedCommitInfo.stream()
+                .collect(Collectors.groupingBy(PaimonAggregatedCommitInfo::getCommitUser))
+                .forEach(this::abort);
+    }
+
+    private void abort(String commitUser, List<PaimonAggregatedCommitInfo> aggregatedCommitInfo) {
         try (TableCommitImpl tableCommit = table.newCommit(commitUser)) {
             PaimonSecurityContext.runSecured(
                     () -> {
@@ -84,43 +134,6 @@ public class PaimonAggregatedCommitter
         } catch (Exception e) {
             throw new PaimonConnectorException(
                     PaimonConnectorErrorCode.TABLE_WRITE_COMMIT_FAILED, e);
-        }
-        return Collections.emptyList();
-    }
-
-    @Override
-    public PaimonAggregatedCommitInfo combine(List<PaimonCommitInfo> commitInfos) {
-        Map<Long, List<CommitMessage>> committables = new HashMap<>();
-        commitInfos.forEach(
-                commitInfo ->
-                        committables
-                                .computeIfAbsent(
-                                        commitInfo.getCheckpointId(),
-                                        id -> new CopyOnWriteArrayList<>())
-                                .addAll(commitInfo.getCommittables()));
-        return new PaimonAggregatedCommitInfo(committables);
-    }
-
-    @Override
-    public void abort(List<PaimonAggregatedCommitInfo> aggregatedCommitInfo) throws Exception {
-        try (TableCommit tableCommit = table.newCommit(commitUser)) {
-            PaimonSecurityContext.runSecured(
-                    () -> {
-                        log.debug("Trying to abort states streaming mode");
-                        List<CommitMessage> commitMessageList =
-                                aggregatedCommitInfo.stream()
-                                        .flatMap(
-                                                paimonAggregatedCommitInfo ->
-                                                        paimonAggregatedCommitInfo
-                                                                .getCommittablesMap().values()
-                                                                .stream())
-                                        .flatMap(List::stream)
-                                        .collect(Collectors.toList());
-                        if (!commitMessageList.isEmpty()) {
-                            tableCommit.abort(commitMessageList);
-                        }
-                        return null;
-                    });
         }
     }
 

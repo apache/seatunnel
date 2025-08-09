@@ -299,7 +299,7 @@ public class PaimonSinkWriter
                 bucketAssigners.clear();
                 assigners.forEach(assigner -> assigner.prepareCommit(checkpointId));
             }
-            return Optional.of(new PaimonCommitInfo(fileCommittables, checkpointId));
+            return Optional.of(new PaimonCommitInfo(fileCommittables, checkpointId, commitUser));
         } catch (Exception e) {
             throw new PaimonConnectorException(
                     PaimonConnectorErrorCode.TABLE_PRE_COMMIT_FAILED,
