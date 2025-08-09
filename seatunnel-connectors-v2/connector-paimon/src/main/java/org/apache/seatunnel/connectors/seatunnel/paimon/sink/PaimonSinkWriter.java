@@ -204,7 +204,7 @@ public class PaimonSinkWriter
                             .collect(
                                     Collectors.toMap(
                                             PaimonSinkState::getCheckpointId,
-                                            PaimonSinkState::getCommittables));
+                                            PaimonSinkState::getCommitTables));
             // batch mode without checkpoint has no state to commit
             if (commitMessagesMap.isEmpty()) {
                 return;
