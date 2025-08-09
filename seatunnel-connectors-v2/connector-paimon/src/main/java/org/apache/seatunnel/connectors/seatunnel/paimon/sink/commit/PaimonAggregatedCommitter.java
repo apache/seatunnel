@@ -127,7 +127,7 @@ public class PaimonAggregatedCommitter
                                                 Collectors.toMap(
                                                         Map.Entry::getKey, Map.Entry::getValue));
                         if (!committablesMap.isEmpty()) {
-                            committablesMap.forEach(tableCommit::commit);
+                            committablesMap.values().forEach(tableCommit::abort);
                         }
                         return null;
                     });
