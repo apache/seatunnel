@@ -1182,7 +1182,7 @@ jobs:
 
   kudu-connector-it:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'true' || contains(needs.changes.outputs.it-modules, 'connector-kudu-e2e')
+    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true' || contains(needs.changes.outputs.it-modules, 'connector-kudu-e2e')
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -1207,7 +1207,7 @@ jobs:
 
   amazonSqs-connector-it:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'true' || contains(needs.changes.outputs.it-modules, 'connector-amazonsqs-e2e')
+    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true' || contains(needs.changes.outputs.it-modules, 'connector-amazonsqs-e2e')
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -1232,7 +1232,7 @@ jobs:
 
   kafka-connector-it:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'true' || contains(needs.changes.outputs.it-modules, 'connector-kafka-e2e')
+    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true' || contains(needs.changes.outputs.it-modules, 'connector-kafka-e2e')
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -1257,7 +1257,7 @@ jobs:
 
   rocketmq-connector-it:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'true' || contains(needs.changes.outputs.it-modules, 'connector-rocketmq-e2e')
+    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true' || contains(needs.changes.outputs.it-modules, 'connector-rocketmq-e2e')
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -1283,7 +1283,7 @@ jobs:
 
   doris-connector-it:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'true' || contains(needs.changes.outputs.it-modules, 'connector-doris-e2e')
+    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true' || contains(needs.changes.outputs.it-modules, 'connector-doris-e2e')
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -1308,7 +1308,7 @@ jobs:
 
   paimon-connector-it:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'true' || contains(needs.changes.outputs.it-modules, 'connector-paimon-e2e')
+    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true' || contains(needs.changes.outputs.it-modules, 'connector-paimon-e2e')
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -1333,7 +1333,7 @@ jobs:
 
   oracle-cdc-connector-it:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'true' || contains(needs.changes.outputs.it-modules, 'connector-cdc-oracle-e2e')
+    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true' || contains(needs.changes.outputs.it-modules, 'connector-cdc-oracle-e2e')
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -1363,7 +1363,7 @@ jobs:
 
   connector-file-local-it:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'true' || contains(needs.changes.outputs.it-modules, 'connector-file-local-e2e')
+    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true' || contains(needs.changes.outputs.it-modules, 'connector-file-local-e2e')
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -1388,7 +1388,7 @@ jobs:
 
   connector-file-sftp-it:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'true' || contains(needs.changes.outputs.it-modules, 'connector-file-sftp-e2e')
+    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true' || contains(needs.changes.outputs.it-modules, 'connector-file-sftp-e2e')
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -1413,7 +1413,7 @@ jobs:
 
   connector-redis-it:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'true' || contains(needs.changes.outputs.it-modules, 'connector-redis-e2e')
+    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true' || contains(needs.changes.outputs.it-modules, 'connector-redis-e2e')
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
