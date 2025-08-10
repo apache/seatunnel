@@ -118,7 +118,6 @@ public class PaimonSink
                 readonlyConfig,
                 catalogTable,
                 paimonTable,
-                states,
                 jobContext,
                 paimonSinkConfig,
                 paimonHadoopConfiguration,

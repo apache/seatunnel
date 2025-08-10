@@ -39,7 +39,6 @@ import org.apache.seatunnel.connectors.seatunnel.paimon.exception.PaimonConnecto
 import org.apache.seatunnel.connectors.seatunnel.paimon.sink.PaimonSink;
 import org.apache.seatunnel.connectors.seatunnel.paimon.utils.SchemaUtil;
 
-import org.apache.paimon.CoreOptions;
 import org.apache.paimon.catalog.Identifier;
 import org.apache.paimon.schema.Schema;
 import org.apache.paimon.schema.SchemaChange;
@@ -53,8 +52,6 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.io.Closeable;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -107,8 +104,7 @@ public class PaimonCatalog implements Catalog, PaimonTable {
 
     @Override
     public boolean databaseExists(String databaseName) throws CatalogException {
-        List<String> listDatabases = catalog.listDatabases();
-        return listDatabases.contains(databaseName);
+        return catalog.databaseExists(databaseName);
     }
 
     @Override
@@ -128,16 +124,7 @@ public class PaimonCatalog implements Catalog, PaimonTable {
 
     @Override
     public boolean tableExists(TablePath tablePath) throws CatalogException {
-        Identifier identifier = toIdentifier(tablePath);
-        List<String> tables = new ArrayList<>();
-        try {
-            if (databaseExists(identifier.getDatabaseName())) {
-                tables = catalog.listTables(identifier.getDatabaseName());
-            }
-        } catch (org.apache.paimon.catalog.Catalog.DatabaseNotExistException e) {
-            return false;
-        }
-        return tables.contains(identifier.getTableName());
+        return catalog.tableExists(toIdentifier(tablePath));
     }
 
     @Override
@@ -232,9 +219,7 @@ public class PaimonCatalog implements Catalog, PaimonTable {
         Schema.Builder builder = Schema.newBuilder();
         schema.fields()
                 .forEach(field -> builder.column(field.name(), field.type(), field.description()));
-        Map<String, String> options = new HashMap<>(schema.options());
-        options.remove(CoreOptions.PATH.key());
-        builder.options(options);
+        builder.options(schema.options());
         builder.primaryKey(schema.primaryKeys());
         builder.partitionKeys(schema.partitionKeys());
         builder.comment(schema.comment());
@@ -318,9 +303,7 @@ public class PaimonCatalog implements Catalog, PaimonTable {
             }
         } else if (cause instanceof RuntimeException) {
             String message = cause.getMessage();
-            // https://github.com/apache/paimon/pull/3320/files#diff-d3e068ea8caf83d2371f0eaa1cbf3d02ff06e1c1cdceec5fab2e065cecd96230
-            if (message.contains(
-                    "Cannot define 'bucket-key' with bucket -1, please specify a bucket number.")) {
+            if (message.contains("Cannot define 'bucket-key' in unaware or dynamic bucket mode.")) {
                 throw new PaimonConnectorException(
                         PaimonConnectorErrorCode.WRITE_PROPS_BUCKET_KEY_ERROR, message);
             }

@@ -21,7 +21,6 @@ import org.apache.paimon.data.InternalRow;
 import org.apache.paimon.index.HashBucketAssigner;
 import org.apache.paimon.table.FileStoreTable;
 import org.apache.paimon.table.Table;
-import org.apache.paimon.table.sink.FixedBucketRowKeyExtractor;
 
 public class PaimonBucketAssigner {
 
@@ -35,7 +34,6 @@ public class PaimonBucketAssigner {
         FileStoreTable fileStoreTable = (FileStoreTable) table;
         this.extractor = new FixedBucketRowKeyExtractor(fileStoreTable.schema());
         long dynamicBucketTargetRowNum = fileStoreTable.coreOptions().dynamicBucketTargetRowNum();
-        Integer maxBucketsNum = fileStoreTable.coreOptions().dynamicBucketMaxBuckets();
         this.hashBucketAssigner =
                 new HashBucketAssigner(
                         fileStoreTable.snapshotManager(),
@@ -44,8 +42,7 @@ public class PaimonBucketAssigner {
                         numAssigners,
                         numAssigners,
                         assignId,
-                        dynamicBucketTargetRowNum,
-                        maxBucketsNum);
+                        dynamicBucketTargetRowNum);
         this.isRunning = true;
     }
 

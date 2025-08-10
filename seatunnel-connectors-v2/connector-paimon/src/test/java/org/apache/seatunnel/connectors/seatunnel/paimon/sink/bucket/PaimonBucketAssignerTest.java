@@ -58,8 +58,7 @@ public class PaimonBucketAssignerTest {
         Catalog catalog = CatalogFactory.createCatalog(CatalogContext.create(options));
         catalog.createDatabase(DATABASE_NAME, true);
         Identifier identifier = Identifier.create(DATABASE_NAME, TABLE_NAME);
-        List<String> tables = catalog.listTables(DATABASE_NAME);
-        if (!tables.contains(identifier.getTableName())) {
+        if (!catalog.tableExists(identifier)) {
             Schema.Builder schemaBuilder = Schema.newBuilder();
             schemaBuilder.column("id", DataTypes.INT(), "primary Key");
             schemaBuilder.column("name", DataTypes.STRING(), "name");

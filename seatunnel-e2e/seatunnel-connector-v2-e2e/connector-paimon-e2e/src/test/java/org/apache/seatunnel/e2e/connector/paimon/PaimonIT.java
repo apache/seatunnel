@@ -36,9 +36,8 @@ import java.io.IOException;
 import java.nio.file.Path;
 
 @DisabledOnContainer(
-        value = {TestContainerId.FLINK_1_13, TestContainerId.SPARK_2_4},
-        disabledReason =
-                "Paimon does not support flink 1.13, Spark 2.4.6 has a jar package(zstd-jni-version.jar) version compatibility issue.")
+        value = TestContainerId.FLINK_1_13,
+        disabledReason = "Paimon does not support flink 1.13")
 public class PaimonIT extends TestSuiteBase implements TestResource {
 
     @TestContainerExtension
