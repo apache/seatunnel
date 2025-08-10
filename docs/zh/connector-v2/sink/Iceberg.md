@@ -180,6 +180,33 @@ sink {
 
 ```
 
+### AWS S3 Tables REST Catalog
+
+Amazon S3 表类数据存储服务提供针对分析工作负载进行优化的 S3 存储，其功能旨在持续提高查询性能并降低表的存储成本。S3 表类数据存储服务专为存储表数据而设计，例如每日购买交易、流传感器数据或广告展示次数。表数据以列和行表示数据，就像在数据库表中一样。
+
+您可以将 Iceberg REST 客户端连接到 Amazon S3 表类数据存储服务 Iceberg REST 端点，然后进行 REST API 调用来创建、更新或查询 S3 表存储桶中的表。该端点实现了 Apache Iceberg REST Catalog Open API specification 中指定的一组标准化 Iceberg REST API。该端点的工作原理是将 Iceberg REST API 操作转换为相应的 S3 表类数据存储服务操作。
+
+S3 表类数据存储服务中的数据存储在新的存储桶类型中：表存储桶，它将表存储为子资源。表存储桶支持以 Apache Iceberg 格式存储表。使用标准 SQL 语句，您可以通过支持 Iceberg 的查询引擎来查询表，例如 Amazon Athena、Amazon Redshift 和 Apache Spark。
+
+```hocon
+sink {
+  Iceberg {
+    catalog_name = "s3_tables_catalog"
+    namespace = "s3_tables_catalog"
+    table = "user_data"
+
+    iceberg.catalog.config = {
+      type: "rest"
+      warehouse: "arn:aws:s3tables:<Region>:<accountID>:bucket/<bucketname>"
+      uri: "https://s3tables.<Region>.amazonaws.com/iceberg"
+      rest.sigv4-enabled: "true"
+      rest.signing-name: "s3tables"
+      rest.signing-region: "<Region>"
+    }
+  }
+}
+```
+
 ### Multiple table（多表写入）
 
 #### 示例1
