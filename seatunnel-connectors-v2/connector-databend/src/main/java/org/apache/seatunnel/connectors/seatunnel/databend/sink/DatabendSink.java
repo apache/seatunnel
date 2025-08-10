@@ -33,7 +33,6 @@ import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.connectors.seatunnel.databend.catalog.DatabendCatalog;
 import org.apache.seatunnel.connectors.seatunnel.databend.catalog.DatabendCatalogFactory;
 import org.apache.seatunnel.connectors.seatunnel.databend.config.DatabendOptions;
@@ -282,9 +281,8 @@ public class DatabendSink
         this.jobContext = jobContext;
 
         // Only initialize CDC infrastructure on coordinator node in BATCH mode
-        if (jobContext.getJobMode() == JobMode.BATCH
-                && databendSinkConfig.isCdcMode()
-                && !isCdcInfrastructureInitialized) {
+        // jobContext.getJobMode() == JobMode.BATCH
+        if (databendSinkConfig.isCdcMode() && !isCdcInfrastructureInitialized) {
             initializeCdcInfrastructure();
             isCdcInfrastructureInitialized = true;
         }
