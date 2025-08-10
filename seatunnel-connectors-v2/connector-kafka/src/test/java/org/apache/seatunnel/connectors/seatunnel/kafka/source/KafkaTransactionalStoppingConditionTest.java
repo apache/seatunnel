@@ -17,14 +17,15 @@
 
 package org.apache.seatunnel.connectors.seatunnel.kafka.source;
 
-import org.apache.kafka.clients.consumer.KafkaConsumer;
-import org.apache.seatunnel.api.source.SourceReader;
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.connectors.seatunnel.common.source.reader.RecordsWithSplitIds;
+import org.apache.seatunnel.connectors.seatunnel.common.source.reader.splitreader.SplitsAddition;
 import org.apache.seatunnel.connectors.seatunnel.kafka.config.StartMode;
 
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
+import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.consumer.MockConsumer;
 import org.apache.kafka.clients.consumer.OffsetResetStrategy;
 import org.apache.kafka.common.TopicPartition;
@@ -37,7 +38,6 @@ import org.mockito.MockitoAnnotations;
 
 import java.io.IOException;
 import java.time.Duration;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -60,16 +60,17 @@ public class KafkaTransactionalStoppingConditionTest {
 
     private MockConsumer<byte[], byte[]> mockConsumer;
 
-    @Mock private SourceReader.Context readerContext;
-
     @Mock private KafkaSourceConfig kafkaSourceConfig;
+
+    ConsumerRecord<byte[], byte[]> consumerRecord1 =
+            new ConsumerRecord<>(TOPIC, PARTITION, 13L, "key1".getBytes(), "value1".getBytes());
+    ConsumerRecord<byte[], byte[]> consumerRecord2 =
+            new ConsumerRecord<>(TOPIC, PARTITION, 14L, "key2".getBytes(), "value2".getBytes());
 
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
-
         mockConsumer = new MockConsumer<>(OffsetResetStrategy.EARLIEST);
-        // Setup mock config
         Properties properties = new Properties();
         properties.setProperty(ConsumerConfig.GROUP_ID_CONFIG, "test-group");
         properties.setProperty(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, "localhost:9092");
@@ -80,61 +81,22 @@ public class KafkaTransactionalStoppingConditionTest {
         when(kafkaSourceConfig.isCommitOnCheckpoint()).thenReturn(false);
         when(kafkaSourceConfig.getPollTimeout()).thenReturn(1000L);
 
-        Map<String, ConsumerMetadata> mapMetadata = new HashMap<>();
+        Map<TablePath, ConsumerMetadata> mapMetadata = new HashMap<>();
         ConsumerMetadata metadata = new ConsumerMetadata();
         metadata.setTopic(TOPIC);
         metadata.setStartMode(StartMode.EARLIEST);
-        mapMetadata.put(TOPIC, metadata);
+        TablePath tablePath = TablePath.of("default", TOPIC);
+        mapMetadata.put(tablePath, metadata);
+
+        when(kafkaSourceConfig.getMapMetadata()).thenReturn(mapMetadata);
     }
 
-
     @Test
-    @DisplayName("Test KafkaPartitionSplitReader with Mockito mocked KafkaConsumer")
-    void testFetchWithMockitoConsumer() throws IOException {
+    @DisplayName("Test StoppingConditionWithControlMessages")
+    void testStoppingConditionWithControlMessages() throws IOException {
 
-        KafkaConsumer<byte[], byte[]> mockConsumer = mock(KafkaConsumer.class);
-        ConsumerRecords<byte[], byte[]> records = new ConsumerRecords<>(
-                Collections.singletonMap(TOPIC_PARTITION, Arrays.asList(
-                        new ConsumerRecord<>(TOPIC, PARTITION, 0L, "key1".getBytes(), "value1".getBytes()),
-                        new ConsumerRecord<>(TOPIC, PARTITION, 1L, "key2".getBytes(), "value2".getBytes())
-                ))
-        );
+        KafkaConsumer<byte[], byte[]> kafkaConsumer = mock(KafkaConsumer.class);
 
-        when(mockConsumer.poll(any(Duration.class))).thenReturn(records);
-        when(mockConsumer.assignment()).thenReturn(Collections.singleton(TOPIC_PARTITION));
-        when(mockConsumer.position(TOPIC_PARTITION)).thenReturn(2L);
-        mockConsumer.seek(TOPIC_PARTITION, 0L);
-
-        long stoppingOffset = 15L;
-
-        mockConsumer.seek(TOPIC_PARTITION, 16L);
-        KafkaPartitionSplitReader reader = new KafkaPartitionSplitReader(kafkaSourceConfig, mockConsumer);
-        RecordsWithSplitIds<ConsumerRecord<byte[], byte[]>> result = reader.fetch();
-        assertNotNull(result);
-
-        // Find the last visible record offset (what old approach used)
-        long lastRecordOffset = -1;
-        for (ConsumerRecord<byte[], byte[]> record : records) {
-            lastRecordOffset = Math.max(lastRecordOffset, record.offset());
-        }
-
-        assertEquals(14L, lastRecordOffset, "Last visible record should be at offset 14");
-
-
-    }
-
-
-    /**
-     * Test the core issue: control messages can cause infinite blocking when using last record
-     * offset as stopping condition.
-     *
-     * <p>Note: MockConsumer cannot directly simulate control messages since they are invisible to
-     * consumers. Instead, we simulate the EFFECT of control messages: consumer position advancing
-     * beyond the last visible record.
-     */
-    @Test
-    @DisplayName("Test stopping condition with control messages - demonstrates the fix")
-    void testStoppingConditionWithControlMessages() {
         // Setup scenario: records at offsets 13, 14 and control message at offset 15
         mockConsumer.assign(Collections.singletonList(TOPIC_PARTITION));
         mockConsumer.updateBeginningOffsets(Collections.singletonMap(TOPIC_PARTITION, 13L));
@@ -143,12 +105,8 @@ public class KafkaTransactionalStoppingConditionTest {
         // Add visible records at offsets 13 and 14
         // Note: We cannot add a control message at offset 15 because control messages
         // are not visible to consumers and MockConsumer.addRecord() only adds visible records
-        mockConsumer.addRecord(
-                new ConsumerRecord<>(
-                        TOPIC, PARTITION, 13L, "key1".getBytes(), "value1".getBytes()));
-        mockConsumer.addRecord(
-                new ConsumerRecord<>(
-                        TOPIC, PARTITION, 14L, "key2".getBytes(), "value2".getBytes()));
+        mockConsumer.addRecord(consumerRecord1);
+        mockConsumer.addRecord(consumerRecord2);
 
         long stoppingOffset = 15L;
 
@@ -159,12 +117,19 @@ public class KafkaTransactionalStoppingConditionTest {
                 records.count(),
                 "Should have 2 visible records (control message at offset 15 is invisible)");
 
+        when(kafkaConsumer.poll(any(Duration.class))).thenReturn(records);
+
         // Find the last visible record offset (what old approach used)
         long lastRecordOffset = -1;
         for (ConsumerRecord<byte[], byte[]> record : records) {
             lastRecordOffset = Math.max(lastRecordOffset, record.offset());
         }
         assertEquals(14L, lastRecordOffset, "Last visible record should be at offset 14");
+        // Test old approach (problematic)
+        boolean shouldStopOldApproach = lastRecordOffset >= stoppingOffset;
+        assertFalse(
+                shouldStopOldApproach,
+                "Old approach fails: last record offset (14) < stopping offset (15), would continue polling indefinitely");
 
         // Simulate the EFFECT of control message at offset 15:
         // In real Kafka, after polling, the consumer position would advance to 16
@@ -172,19 +137,41 @@ public class KafkaTransactionalStoppingConditionTest {
         // returned
         mockConsumer.seek(TOPIC_PARTITION, 16L);
         long consumerPosition = mockConsumer.position(TOPIC_PARTITION);
-        assertEquals(
-                16L, consumerPosition, "Consumer position advances past control message to 16");
-
-        // Test old approach (problematic)
-        boolean shouldStopOldApproach = lastRecordOffset >= stoppingOffset;
-        assertFalse(
-                shouldStopOldApproach,
-                "Old approach fails: last record offset (14) < stopping offset (15), would continue polling indefinitely");
-
         // Test new approach (fixed)
         boolean shouldStopNewApproach = consumerPosition >= stoppingOffset;
         assertTrue(
                 shouldStopNewApproach,
                 "New approach works: consumer position (16) >= stopping offset (15), correctly stops");
+
+        when(kafkaConsumer.position(TOPIC_PARTITION)).thenReturn(consumerPosition);
+        when(kafkaConsumer.assignment()).thenReturn(mockConsumer.assignment());
+
+        KafkaPartitionSplitReader reader =
+                new KafkaPartitionSplitReader(kafkaSourceConfig, kafkaConsumer);
+
+        // Create a KafkaSourceSplit with the stopping offset and add it to the reader
+        TablePath tablePath = TablePath.of("default", "test-topic");
+        KafkaSourceSplit split =
+                new KafkaSourceSplit(tablePath, TOPIC_PARTITION, 13L, stoppingOffset);
+        SplitsAddition<KafkaSourceSplit> splitsAddition =
+                new SplitsAddition<>(Collections.singletonList(split));
+        reader.handleSplitsChanges(splitsAddition);
+        RecordsWithSplitIds<ConsumerRecord<byte[], byte[]>> result = reader.fetch();
+        assertNotNull(result, "Fetch result should not be null");
+
+        // Verify the result contains the expected finished splits due to stopping condition
+        assertTrue(
+                result.finishedSplits().contains(TOPIC_PARTITION.toString()),
+                "Result should contain finished split when consumer position >= stopping offset");
+
+        String splitId = result.nextSplit();
+        if (splitId != null) {
+            int recordCount = 0;
+            ConsumerRecord<byte[], byte[]> record;
+            while ((record = result.nextRecordFromSplit()) != null) {
+                recordCount++;
+            }
+            assertEquals(2, recordCount, "Should return 2 visible records (offsets 13, 14)");
+        }
     }
 }
