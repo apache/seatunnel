@@ -53,6 +53,7 @@ import org.apache.seatunnel.engine.core.job.JobResult;
 import org.apache.seatunnel.engine.core.job.JobStatus;
 import org.apache.seatunnel.engine.core.job.PipelineStatus;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
+import org.apache.seatunnel.engine.server.checkpoint.CheckpointCoordinator;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointManager;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointPlan;
 import org.apache.seatunnel.engine.server.checkpoint.CompletedCheckpoint;
@@ -101,6 +102,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -168,6 +170,8 @@ public class JobMaster {
 
     private final IMap<Long, HashMap<TaskLocation, SeaTunnelMetricsContext>> metricsImap;
 
+    private final BlockingQueue<PipelineLocation> metricsCleanupRetryQueue;
+
     /** If the job or pipeline cancel by user, needRestore will be false */
     @Getter private volatile boolean needRestore = true;
 
@@ -193,6 +197,7 @@ public class JobMaster {
             @NonNull IMap ownedSlotProfilesIMap,
             @NonNull IMap<Long, JobInfo> runningJobInfoIMap,
             @NonNull IMap<Long, HashMap<TaskLocation, SeaTunnelMetricsContext>> metricsImap,
+            @NonNull BlockingQueue<PipelineLocation> metricsCleanupRetryQueue,
             EngineConfig engineConfig,
             SeaTunnelServer seaTunnelServer) {
         this.jobId = jobId;
@@ -211,6 +216,7 @@ public class JobMaster {
         this.runningJobInfoIMap = runningJobInfoIMap;
         this.engineConfig = engineConfig;
         this.metricsImap = metricsImap;
+        this.metricsCleanupRetryQueue = metricsCleanupRetryQueue;
         this.seaTunnelServer = seaTunnelServer;
         this.releasedSlotWhenTaskGroupFinished = new ConcurrentHashMap<>();
     }
@@ -623,6 +629,10 @@ public class JobMaster {
                                                 runningJobStateTimestampsIMap.remove(
                                                         task.getTaskGroupLocation());
                                             });
+
+                            runningJobStateIMap.remove(
+                                    CheckpointCoordinator.getCheckpointStateImapKey(
+                                            jobId, pipeline.getPipelineId()));
                         });
 
         runningJobStateIMap.remove(jobId);
@@ -891,6 +901,10 @@ public class JobMaster {
                         metricsImap.tryLock(
                                 Constant.IMAP_RUNNING_JOB_METRICS_KEY, 5, TimeUnit.SECONDS);
                 if (!lockedIMap) {
+                    boolean offer = metricsCleanupRetryQueue.offer(pipelineLocation);
+                    if (!offer) {
+                        LOGGER.warning("failed to add pipelineLocation to retry queue");
+                    }
                     LOGGER.severe("lock imap failed in update metrics");
                     return;
                 }

@@ -131,6 +131,14 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
                         getIntegerValue(
                                 ServerConfigOptions.MasterServerConfigOptions.CORE_THREAD_NUM.key(),
                                 getTextContent(node)));
+            } else if (ServerConfigOptions.MasterServerConfigOptions.CLEANUP_RETRY_INTERVAL
+                    .key()
+                    .equals(name)) {
+                coordinatorServiceConfig.setCleanupRetryInterval(
+                        getIntegerValue(
+                                ServerConfigOptions.MasterServerConfigOptions.CLEANUP_RETRY_INTERVAL
+                                        .key(),
+                                getTextContent(node)));
             } else {
                 LOGGER.warning("Unrecognized element: " + name);
             }

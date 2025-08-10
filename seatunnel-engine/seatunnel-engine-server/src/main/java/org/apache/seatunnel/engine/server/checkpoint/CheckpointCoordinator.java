@@ -171,7 +171,7 @@ public class CheckpointCoordinator {
         this.checkpointStorage = checkpointStorage;
         this.jobId = jobId;
         this.pipelineId = plan.getPipelineId();
-        this.checkpointStateImapKey = "checkpoint_state_" + jobId + "_" + pipelineId;
+        this.checkpointStateImapKey = getCheckpointStateImapKey(jobId, this.pipelineId);
         this.runningJobStateIMap = runningJobStateIMap;
         this.plan = plan;
         this.coordinatorConfig = checkpointConfig;
@@ -236,6 +236,10 @@ public class CheckpointCoordinator {
                 updateStatus(CheckpointCoordinatorStatus.RUNNING);
             }
         }
+    }
+
+    public static String getCheckpointStateImapKey(long jobId, int pipelineId) {
+        return "checkpoint_state_" + jobId + "_" + pipelineId;
     }
 
     public int getPipelineId() {

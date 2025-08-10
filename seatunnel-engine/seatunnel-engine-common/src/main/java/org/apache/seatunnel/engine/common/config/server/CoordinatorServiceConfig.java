@@ -32,6 +32,9 @@ public class CoordinatorServiceConfig implements Serializable {
     private int maxThreadNum =
             ServerConfigOptions.MasterServerConfigOptions.MAX_THREAD_NUM.defaultValue();
 
+    private int cleanupRetryInterval =
+            ServerConfigOptions.MasterServerConfigOptions.CLEANUP_RETRY_INTERVAL.defaultValue();
+
     public void setCoreThreadNum(int coreThreadNum) {
         checkPositive(
                 coreThreadNum,
@@ -44,5 +47,13 @@ public class CoordinatorServiceConfig implements Serializable {
                 maxThreadNum,
                 ServerConfigOptions.MasterServerConfigOptions.MAX_THREAD_NUM + " must be > 0");
         this.maxThreadNum = maxThreadNum;
+    }
+
+    public void setCleanupRetryInterval(int cleanupRetryInterval) {
+        checkPositive(
+                cleanupRetryInterval,
+                ServerConfigOptions.MasterServerConfigOptions.CLEANUP_RETRY_INTERVAL
+                        + " must be > 0");
+        this.cleanupRetryInterval = cleanupRetryInterval;
     }
 }
