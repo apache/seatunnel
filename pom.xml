@@ -919,6 +919,26 @@
                             <searchRegex>import\s+org\.junit\.[^jupiter][^\*\s]*(|\*);(\r\n|\r|\n)</searchRegex>
                             <replacement>$1</replacement>
                         </replaceRegex>
+                        <replaceRegex>
+                            <name>Convert Google Guava imports to shade</name>
+                            <searchRegex>import\s+(static\s+)?com\.google\.common\.([^;]+);(\r\n|\r|\n)</searchRegex>
+                            <replacement>import $1org.apache.seatunnel.shade.com.google.common.$2;$3</replacement>
+                        </replaceRegex>
+                        <replaceRegex>
+                            <name>Convert Jetty imports to shade</name>
+                            <searchRegex>import\s+(static\s+)?org\.eclipse\.jetty\.([^;]+);(\r\n|\r|\n)</searchRegex>
+                            <replacement>import $1org.apache.seatunnel.shade.org.eclipse.jetty.$2;$3</replacement>
+                        </replaceRegex>
+                        <replaceRegex>
+                            <name>Convert Hikari imports to shade</name>
+                            <searchRegex>import\s+(static\s+)?com\.zaxxer\.hikari\.([^;]+);(\r\n|\r|\n)</searchRegex>
+                            <replacement>import $1org.apache.seatunnel.shade.com.zaxxer.hikari.$2;$3</replacement>
+                        </replaceRegex>
+                        <replaceRegex>
+                            <name>Convert Janino imports to shade</name>
+                            <searchRegex>import\s+(static\s+)?org\.codehaus\.(janino|commons)\.([^;]+);(\r\n|\r|\n)</searchRegex>
+                            <replacement>import $1org.apache.seatunnel.shade.org.codehaus.$2.$3;$4</replacement>
+                        </replaceRegex>
                     </java>
                     <pom>
                         <sortPom>

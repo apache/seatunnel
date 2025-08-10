@@ -477,6 +477,12 @@ public class PaimonSinkCDCIT extends AbstractPaimonIT implements TestResource {
         Container.ExecResult readResult8 =
                 container.executeJob("/paimon_to_assert_with_filter8.conf");
         Assertions.assertEquals(0, readResult8.getExitCode());
+        Container.ExecResult readResult9 =
+                container.executeJob("/paimon_to_assert_with_filter9.conf");
+        Assertions.assertEquals(0, readResult9.getExitCode());
+        Container.ExecResult readResult10 =
+                container.executeJob("/paimon_to_assert_with_filter10.conf");
+        Assertions.assertEquals(0, readResult10.getExitCode());
     }
 
     @TestTemplate

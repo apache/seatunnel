@@ -46,11 +46,20 @@ public class DoubaoModel extends AbstractModel {
     private final String apiPath;
 
     public DoubaoModel(String apiKey, String model, String apiPath, Integer vectorizedNumber) {
+        this(apiKey, model, apiPath, vectorizedNumber, HttpClients.createDefault());
+    }
+
+    public DoubaoModel(
+            String apiKey,
+            String model,
+            String apiPath,
+            Integer vectorizedNumber,
+            CloseableHttpClient client) {
         super(vectorizedNumber);
         this.apiKey = apiKey;
         this.model = model;
         this.apiPath = apiPath;
-        this.client = HttpClients.createDefault();
+        this.client = client;
     }
 
     @Override
@@ -60,7 +69,7 @@ public class DoubaoModel extends AbstractModel {
 
     @Override
     public Integer dimension() throws IOException {
-        return vectorGeneration(new Object[] {DIMENSION_EXAMPLE}).size();
+        return vectorGeneration(new Object[] {DIMENSION_EXAMPLE}).get(0).size();
     }
 
     private List<List<Float>> vectorGeneration(Object[] fields) throws IOException {

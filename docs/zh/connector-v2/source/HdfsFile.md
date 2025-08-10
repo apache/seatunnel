@@ -12,11 +12,15 @@ import ChangeLog from '../changelog/connector-file-hadoop.md';
 
 ## 主要特性
 
+- [x] [多模态](../../concept/connector-v2-features.md#多模态multimodal)
+
+  使用二进制文件格式读取和写入任何格式的文件，例如视频、图片等。简而言之，任何文件都可以同步到目标位置。
+
 - [x] [批处理](../../concept/connector-v2-features.md)
 - [ ] [流处理](../../concept/connector-v2-features.md)
 - [x] [精确一次](../../concept/connector-v2-features.md)
 
-在 pollNext 调用中读取分片中的所有数据。读取的分片将保存在快照中。
+  在 pollNext 调用中读取分片中的所有数据。读取的分片将保存在快照中。
 
 - [x] [列投影](../../concept/connector-v2-features.md)
 - [x] [并行度](../../concept/connector-v2-features.md)
