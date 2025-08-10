@@ -298,8 +298,8 @@ public class CoordinatorService {
                 return;
             } else {
                 queueRemove(jobMaster);
-                pendingJobMasterMap.remove(jobId);
                 completeFailJob(jobMaster);
+                pendingJobMasterMap.remove(jobId);
                 return;
             }
         }
