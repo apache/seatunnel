@@ -92,13 +92,14 @@ public class KafkaSourceSplitEnumerator
     @VisibleForTesting
     public KafkaSourceSplitEnumerator(
             AdminClient adminClient,
+            KafkaSourceConfig kafkaSourceConfig,
             Map<TopicPartition, KafkaSourceSplit> pendingSplit,
             Map<TopicPartition, KafkaSourceSplit> assignedSplit) {
         this.tablePathMetadataMap = new HashMap<>();
         this.context = null;
         this.discoveryIntervalMillis = -1;
         this.adminClient = adminClient;
-        this.kafkaSourceConfig = null;
+        this.kafkaSourceConfig = kafkaSourceConfig;
         this.pendingSplit = pendingSplit;
         this.assignedSplit = assignedSplit;
     }
@@ -109,7 +110,7 @@ public class KafkaSourceSplitEnumerator
             Map<TopicPartition, KafkaSourceSplit> pendingSplit,
             Map<TopicPartition, KafkaSourceSplit> assignedSplit,
             boolean isStreamingMode) {
-        this(adminClient, pendingSplit, assignedSplit);
+        this(adminClient, null, pendingSplit, assignedSplit);
         this.isStreamingMode = isStreamingMode;
     }
 
@@ -333,10 +334,25 @@ public class KafkaSourceSplitEnumerator
         }
         log.info("Discovered topics: {}", topics);
         Collection<TopicPartition> partitions =
-                adminClient.describeTopics(topics).all().get().values().stream()
+                adminClient.describeTopics(topics).allTopicNames().get().values().stream()
                         .flatMap(
                                 t ->
                                         t.partitions().stream()
+                                                .filter(
+                                                        partitionInfo -> {
+                                                            if (kafkaSourceConfig != null
+                                                                    && kafkaSourceConfig
+                                                                            .isIgnoreNoLeaderPartition()
+                                                                    && partitionInfo.leader()
+                                                                            == null) {
+                                                                log.warn(
+                                                                        "Partition {} of topic {} has no leader, skipping due to ignore_no_leader_partition=true.",
+                                                                        partitionInfo.partition(),
+                                                                        t.name());
+                                                                return false;
+                                                            }
+                                                            return true;
+                                                        })
                                                 .map(
                                                         p ->
                                                                 new TopicPartition(

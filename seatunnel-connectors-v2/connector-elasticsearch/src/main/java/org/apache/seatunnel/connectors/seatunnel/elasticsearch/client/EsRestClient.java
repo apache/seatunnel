@@ -26,6 +26,8 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.TextNode;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
 import org.apache.seatunnel.common.utils.JsonUtils;
+import org.apache.seatunnel.connectors.seatunnel.elasticsearch.client.auth.AuthenticationProvider;
+import org.apache.seatunnel.connectors.seatunnel.elasticsearch.client.auth.AuthenticationProviderFactory;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.ElasticsearchBaseOptions;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.BulkResponse;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.ElasticsearchClusterInfo;
@@ -34,19 +36,11 @@ import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.source.PointI
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.source.ScrollResult;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.exception.ElasticsearchConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.exception.ElasticsearchConnectorException;
-import org.apache.seatunnel.connectors.seatunnel.elasticsearch.util.SSLUtils;
 
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.http.HttpHost;
 import org.apache.http.HttpStatus;
-import org.apache.http.auth.AuthScope;
-import org.apache.http.auth.UsernamePasswordCredentials;
-import org.apache.http.client.CredentialsProvider;
-import org.apache.http.conn.ssl.NoopHostnameVerifier;
-import org.apache.http.conn.ssl.TrustAllStrategy;
-import org.apache.http.impl.client.BasicCredentialsProvider;
-import org.apache.http.ssl.SSLContexts;
 import org.apache.http.util.Asserts;
 import org.apache.http.util.EntityUtils;
 
@@ -56,8 +50,6 @@ import org.elasticsearch.client.RestClient;
 import org.elasticsearch.client.RestClientBuilder;
 
 import lombok.extern.slf4j.Slf4j;
-
-import javax.net.ssl.SSLContext;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -98,117 +90,33 @@ public class EsRestClient implements Closeable {
 
     public static EsRestClient createInstance(ReadonlyConfig config) {
         List<String> hosts = config.get(ElasticsearchBaseOptions.HOSTS);
-        Optional<String> username = config.getOptional(ElasticsearchBaseOptions.USERNAME);
-        Optional<String> password = config.getOptional(ElasticsearchBaseOptions.PASSWORD);
-        Optional<String> keystorePath = Optional.empty();
-        Optional<String> keystorePassword = Optional.empty();
-        Optional<String> truststorePath = Optional.empty();
-        Optional<String> truststorePassword = Optional.empty();
-        boolean tlsVerifyCertificate = config.get(ElasticsearchBaseOptions.TLS_VERIFY_CERTIFICATE);
-        if (tlsVerifyCertificate) {
-            keystorePath = config.getOptional(ElasticsearchBaseOptions.TLS_KEY_STORE_PATH);
-            keystorePassword = config.getOptional(ElasticsearchBaseOptions.TLS_KEY_STORE_PASSWORD);
-            truststorePath = config.getOptional(ElasticsearchBaseOptions.TLS_TRUST_STORE_PATH);
-            truststorePassword =
-                    config.getOptional(ElasticsearchBaseOptions.TLS_TRUST_STORE_PASSWORD);
-        }
 
-        boolean tlsVerifyHostnames = config.get(ElasticsearchBaseOptions.TLS_VERIFY_HOSTNAME);
-        return createInstance(
-                hosts,
-                username,
-                password,
-                tlsVerifyCertificate,
-                tlsVerifyHostnames,
-                keystorePath,
-                keystorePassword,
-                truststorePath,
-                truststorePassword);
-    }
+        // Create basic RestClient builder
+        RestClientBuilder restClientBuilder = createRestClientBuilder(hosts);
 
-    public static EsRestClient createInstance(
-            List<String> hosts,
-            Optional<String> username,
-            Optional<String> password,
-            boolean tlsVerifyCertificate,
-            boolean tlsVerifyHostnames,
-            Optional<String> keystorePath,
-            Optional<String> keystorePassword,
-            Optional<String> truststorePath,
-            Optional<String> truststorePassword) {
-        RestClientBuilder restClientBuilder =
-                getRestClientBuilder(
-                        hosts,
-                        username,
-                        password,
-                        tlsVerifyCertificate,
-                        tlsVerifyHostnames,
-                        keystorePath,
-                        keystorePassword,
-                        truststorePath,
-                        truststorePassword);
+        // Configure authentication and TLS using the new authentication system
+        AuthenticationProvider authProvider = AuthenticationProviderFactory.createProvider(config);
+        authProvider.configure(restClientBuilder, config);
+
         return new EsRestClient(restClientBuilder.build());
     }
 
-    private static RestClientBuilder getRestClientBuilder(
-            List<String> hosts,
-            Optional<String> username,
-            Optional<String> password,
-            boolean tlsVerifyCertificate,
-            boolean tlsVerifyHostnames,
-            Optional<String> keystorePath,
-            Optional<String> keystorePassword,
-            Optional<String> truststorePath,
-            Optional<String> truststorePassword) {
+    /**
+     * Create a basic RestClientBuilder with hosts and request configuration. Authentication and TLS
+     * configuration will be handled by AuthenticationProvider.
+     */
+    private static RestClientBuilder createRestClientBuilder(List<String> hosts) {
         HttpHost[] httpHosts = new HttpHost[hosts.size()];
         for (int i = 0; i < hosts.size(); i++) {
             httpHosts[i] = HttpHost.create(hosts.get(i));
         }
 
-        RestClientBuilder restClientBuilder =
-                RestClient.builder(httpHosts)
-                        .setRequestConfigCallback(
-                                requestConfigBuilder ->
-                                        requestConfigBuilder
-                                                .setConnectionRequestTimeout(
-                                                        CONNECTION_REQUEST_TIMEOUT)
-                                                .setSocketTimeout(SOCKET_TIMEOUT));
-
-        restClientBuilder.setHttpClientConfigCallback(
-                httpClientBuilder -> {
-                    if (username.isPresent()) {
-                        CredentialsProvider credentialsProvider = new BasicCredentialsProvider();
-                        credentialsProvider.setCredentials(
-                                AuthScope.ANY,
-                                new UsernamePasswordCredentials(username.get(), password.get()));
-                        httpClientBuilder.setDefaultCredentialsProvider(credentialsProvider);
-                    }
-
-                    try {
-                        if (tlsVerifyCertificate) {
-                            Optional<SSLContext> sslContext =
-                                    SSLUtils.buildSSLContext(
-                                            keystorePath,
-                                            keystorePassword,
-                                            truststorePath,
-                                            truststorePassword);
-                            sslContext.ifPresent(httpClientBuilder::setSSLContext);
-                        } else {
-                            SSLContext sslContext =
-                                    SSLContexts.custom()
-                                            .loadTrustMaterial(new TrustAllStrategy())
-                                            .build();
-                            httpClientBuilder.setSSLContext(sslContext);
-                        }
-                        if (!tlsVerifyHostnames) {
-                            httpClientBuilder.setSSLHostnameVerifier(NoopHostnameVerifier.INSTANCE);
-                        }
-                    } catch (Exception e) {
-                        throw new RuntimeException(e);
-                    }
-                    return httpClientBuilder;
-                });
-        return restClientBuilder;
+        return RestClient.builder(httpHosts)
+                .setRequestConfigCallback(
+                        requestConfigBuilder ->
+                                requestConfigBuilder
+                                        .setConnectionRequestTimeout(CONNECTION_REQUEST_TIMEOUT)
+                                        .setSocketTimeout(SOCKET_TIMEOUT));
     }
 
     public BulkResponse bulk(String requestBody) {

@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.e2e.connector.paimon;
 
+import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
@@ -25,12 +26,7 @@ import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 import org.apache.seatunnel.e2e.common.util.ContainerUtil;
 
-import org.apache.paimon.catalog.Catalog;
-import org.apache.paimon.catalog.CatalogContext;
-import org.apache.paimon.catalog.CatalogFactory;
-import org.apache.paimon.catalog.Identifier;
-import org.apache.paimon.options.Options;
-
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.Container;
@@ -40,9 +36,10 @@ import java.io.IOException;
 import java.nio.file.Path;
 
 @DisabledOnContainer(
-        value = TestContainerId.FLINK_1_13,
-        disabledReason = "Paimon does not support flink 1.13")
-public class PaimonIT extends TestSuiteBase {
+        value = {TestContainerId.FLINK_1_13, TestContainerId.SPARK_2_4},
+        disabledReason =
+                "Paimon does not support flink 1.13, Spark 2.4.6 has a jar package(zstd-jni-version.jar) version compatibility issue.")
+public class PaimonIT extends TestSuiteBase implements TestResource {
 
     @TestContainerExtension
     private final ContainerExtendedFactory extendedFactory =
@@ -50,8 +47,8 @@ public class PaimonIT extends TestSuiteBase {
                 Path schemaPath = ContainerUtil.getResourcesFile("/schema-0.json").toPath();
                 container.copyFileToContainer(
                         MountableFile.forHostPath(schemaPath),
-                        "/opt/seatunnel_mounts/paimon/default.db/st_test/schema/schema-0");
-                container.execInContainer("chmod", "777", "-R", "/opt/seatunnel_mounts/paimon");
+                        "/tmp/seatunnel_mnt/paimon/default.db/st_test/schema/schema-0");
+                container.execInContainer("chmod", "777", "-R", "/tmp/seatunnel_mnt/");
             };
 
     @TestTemplate
@@ -64,17 +61,12 @@ public class PaimonIT extends TestSuiteBase {
         Container.ExecResult readProjectionResult =
                 container.executeJob("/paimon_projection_to_assert.conf");
         Assertions.assertEquals(0, readProjectionResult.getExitCode());
-        deleteTable();
     }
 
-    private void deleteTable() {
-        Options options = new Options();
-        options.set("warehouse", "file://" + "/opt/seatunnel_mounts/paimon");
-        try {
-            CatalogFactory.createCatalog(CatalogContext.create(options))
-                    .dropTable(Identifier.create("default", "st_test"), true);
-        } catch (Catalog.TableNotExistException e) {
-            throw new RuntimeException(e);
-        }
-    }
+    @Override
+    public void startUp() throws Exception {}
+
+    @Override
+    @AfterEach
+    public void tearDown() throws Exception {}
 }

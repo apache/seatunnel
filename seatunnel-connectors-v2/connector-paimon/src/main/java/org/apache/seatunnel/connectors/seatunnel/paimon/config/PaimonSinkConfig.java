@@ -79,12 +79,5 @@ public class PaimonSinkConfig extends PaimonConfig {
         this.changelogTmpPath =
                 writeProps.getOrDefault(
                         PaimonSinkOptions.CHANGELOG_TMP_PATH, System.getProperty("java.io.tmpdir"));
-        checkConfig();
-    }
-
-    private void checkConfig() {
-        if (this.primaryKeys.isEmpty() && "-1".equals(this.writeProps.get("bucket"))) {
-            log.warn("Append only table currently do not support dynamic bucket");
-        }
     }
 }

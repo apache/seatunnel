@@ -6,6 +6,8 @@
 
 `Embedding` 转换插件利用 embedding 模型将文本数据转换为向量化表示。此转换可以应用于各种字段。该插件支持多种模型提供商，并且可以与不同的API集成。
 
+> **重要提示：** 当前 embedding 精确度仅支持 float32 
+
 ## 配置选项
 
 | 名称                             | 类型     | 是否必填 | 默认值    | 描述                                                               |
@@ -24,6 +26,13 @@
 | custom_response_parse          | string | 否    |        | 使用 JsonPath 解析模型响应的方式。示例：`$.choices[*].message.content`。         |
 | custom_request_headers         | map    | 否    |        | 发送到模型的请求的自定义头信息。                                                 |
 | custom_request_body            | map    | 否    |        | 请求体的自定义配置。支持占位符如 `${model}`、`${input}`。                          |
+
+## 精度支持
+
+**重要：** 当前版本的 Embedding 插件仅支持 **float32** 精度的向量数据。
+
+- 所有生成的 embedding 向量将以 float32 格式存储
+- 如果您的模型或API返回其他精度格式（如 float64），插件会自动转换为 float32
 
 ### embedding_model_provider
 
