@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.engine.core.parse;
 
+import org.apache.seatunnel.api.metalake.MetalakeClient;
+import org.apache.seatunnel.api.metalake.MetalakeClientFactory;
 import org.apache.seatunnel.shade.com.google.common.base.Preconditions;
 import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
@@ -77,6 +79,7 @@ import org.apache.commons.lang3.tuple.ImmutablePair;
 import lombok.extern.slf4j.Slf4j;
 import scala.Tuple2;
 
+import java.io.IOException;
 import java.io.Serializable;
 import java.net.MalformedURLException;
 import java.net.URL;
@@ -166,66 +169,8 @@ public class MultipleTableJobConfigParser {
         boolean metalakeEnabled = Boolean.parseBoolean(System.getenv().getOrDefault("METALAKE_ENABLED", "false"));
         if (metalakeEnabled) {
             Config jobConfigTmp = ConfigBuilder.of(Paths.get(jobDefineFilePath), variables);
-            Map<String, Object> metalakeConfigMap = new LinkedHashMap<>();
-
-            String metalakeType = System.getenv("METALAKE_TYPE");
-            String metalakeUrl = System.getenv("METALAKE_URL");
-
-            ConfigObject sourceObj = jobConfigTmp.getObject("source");
-            Set<String> sourceKeys = sourceObj.keySet();
-            for (String key : sourceKeys) {
-                if (jobConfigTmp.hasPath("source."+key+".sourceId")){
-                    String sourceId = jobConfigTmp.getString("source."+key+".sourceId");
-                    JsonNode metalakeJson = ...
-                    ConfigObject subConfig = jobConfigTmp.getObject("source." + key);
-                    for (Map.Entry<String, ConfigValue> entry : subConfig.entrySet()) {
-                        String subKey = entry.getKey();
-                        ConfigValue value = entry.getValue();
-
-                        if (value.valueType() == ConfigValueType.STRING) {
-                            String strValue = (String) value.unwrapped();
-                            if (strValue.startsWith("${") && strValue.endsWith("}")) {
-                                String placeholder = strValue.substring(2, strValue.length() - 1);
-
-                                if (metalakeJson.has(placeholder)) {
-                                    String replaced = metalakeJson.get(placeholder).asText();
-                                    String finalPath = "source." + key + "." + subKey;
-                                    metalakeConfigMap.put(finalPath, replaced);
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            ConfigObject sinkObj = jobConfigTmp.getObject("sink");
-            Set<String> sinkKeys = sinkObj.keySet();
-            for (String key : sinkKeys) {
-                if (jobConfigTmp.hasPath("sink."+key+".sourceId")){
-                    String sourceId = jobConfigTmp.getString("source."+key+".sourceId");
-                    JsonNode metalakeJson = ...
-                    ConfigObject subConfig = jobConfigTmp.getObject("sink." + key);
-                    for (Map.Entry<String, ConfigValue> entry : subConfig.entrySet()) {
-                        String subKey = entry.getKey();
-                        ConfigValue value = entry.getValue();
-
-                        if (value.valueType() == ConfigValueType.STRING) {
-                            String strValue = (String) value.unwrapped();
-                            if (strValue.startsWith("${") && strValue.endsWith("}")) {
-                                String placeholder = strValue.substring(2, strValue.length() - 1);
-
-                                if (metalakeJson.has(placeholder)) {
-                                    String replaced = metalakeJson.get(placeholder).asText();
-                                    String finalPath = "sink." + key + "." + subKey;
-                                    metalakeConfigMap.put(finalPath, replaced);
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            Config metalakeConfig = ConfigBuilder.of(metalakeConfigMap);
-            this.seaTunnelJobConfig = metalakeConfig.withFallback(ConfigBuilder.of(Paths.get(jobDefineFilePath), variables));
+            Config metalakeConfig = getMetalakeConfig(jobConfigTmp);
+            this.seaTunnelJobConfig = metalakeConfig.withFallback(jobConfigTmp);
         } else {
             this.seaTunnelJobConfig = ConfigBuilder.of(Paths.get(jobDefineFilePath), variables);
         }
@@ -883,5 +828,77 @@ public class MultipleTableJobConfigParser {
                                                         : Stream.of(state.getState()))
                         .collect(Collectors.toList());
         return new ChangeStreamTableSourceCheckpoint(coordinatorState, subtaskState);
+    }
+
+    private Config getMetalakeConfig(Config jobConfigTmp) {
+        Map<String, Object> metalakeConfigMap = new LinkedHashMap<>();
+        String metalakeType = System.getenv("METALAKE_TYPE");
+        String metalakeUrl = System.getenv("METALAKE_URL");
+
+        MetalakeClient metalakeClient = MetalakeClientFactory.create(metalakeType, metalakeUrl);
+
+        try {
+            ConfigObject sourceObj = jobConfigTmp.getObject("source");
+            Set<String> sourceKeys = sourceObj.keySet();
+
+            for (String key : sourceKeys) {
+                if (jobConfigTmp.hasPath("source." + key + ".sourceId")) {
+                    String sourceId = jobConfigTmp.getString("source." + key + ".sourceId");
+                    JsonNode metalakeJson = metalakeClient.getMetaInfo(sourceId);
+                    ConfigObject subConfig = jobConfigTmp.getObject("source." + key);
+                    for (Map.Entry<String, ConfigValue> entry : subConfig.entrySet()) {
+                        String subKey = entry.getKey();
+                        ConfigValue value = entry.getValue();
+
+                        if (value.valueType() == ConfigValueType.STRING) {
+                            String strValue = (String) value.unwrapped();
+                            if (strValue.startsWith("${") && strValue.endsWith("}")) {
+                                String placeholder = strValue.substring(2, strValue.length() - 1);
+
+                                if (metalakeJson.has(placeholder)) {
+                                    String replaced = metalakeJson.get(placeholder).asText();
+                                    String finalPath = "source." + key + "." + subKey;
+                                    metalakeConfigMap.put(finalPath, replaced);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (IOException e){
+            log.error("Fail to get MetaInfo, metalakeUrl: {}", metalakeUrl, e);
+        }
+
+        try {
+            ConfigObject sinkObj = jobConfigTmp.getObject("sink");
+            Set<String> sinkKeys = sinkObj.keySet();
+            for (String key : sinkKeys) {
+                if (jobConfigTmp.hasPath("sink." + key + ".sourceId")) {
+                    String sourceId = jobConfigTmp.getString("source." + key + ".sourceId");
+                    JsonNode metalakeJson = metalakeClient.getMetaInfo(sourceId);
+                    ConfigObject subConfig = jobConfigTmp.getObject("sink." + key);
+                    for (Map.Entry<String, ConfigValue> entry : subConfig.entrySet()) {
+                        String subKey = entry.getKey();
+                        ConfigValue value = entry.getValue();
+
+                        if (value.valueType() == ConfigValueType.STRING) {
+                            String strValue = (String) value.unwrapped();
+                            if (strValue.startsWith("${") && strValue.endsWith("}")) {
+                                String placeholder = strValue.substring(2, strValue.length() - 1);
+
+                                if (metalakeJson.has(placeholder)) {
+                                    String replaced = metalakeJson.get(placeholder).asText();
+                                    String finalPath = "sink." + key + "." + subKey;
+                                    metalakeConfigMap.put(finalPath, replaced);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (IOException e){
+            log.error("Fail to get MetaInfo, metalakeUrl: {}", metalakeUrl, e);
+        }
+        return ConfigBuilder.of(metalakeConfigMap);
     }
 }
