@@ -630,9 +630,17 @@ public class JobMaster {
                                                         task.getTaskGroupLocation());
                                             });
 
-                            runningJobStateIMap.remove(
+                            String checkpointStateImapKey =
                                     CheckpointCoordinator.getCheckpointStateImapKey(
-                                            jobId, pipeline.getPipelineId()));
+                                            jobId, pipeline.getPipelineId());
+                            Object removedState =
+                                    runningJobStateIMap.remove(checkpointStateImapKey);
+                            if (removedState != null) {
+                                LOGGER.info(
+                                        String.format(
+                                                "Successfully removed checkpoint coordinator state: %s",
+                                                checkpointStateImapKey));
+                            }
                         });
 
         runningJobStateIMap.remove(jobId);
@@ -901,11 +909,11 @@ public class JobMaster {
                         metricsImap.tryLock(
                                 Constant.IMAP_RUNNING_JOB_METRICS_KEY, 5, TimeUnit.SECONDS);
                 if (!lockedIMap) {
+                    LOGGER.severe("lock imap failed in update metrics");
                     boolean offer = metricsCleanupRetryQueue.offer(pipelineLocation);
                     if (!offer) {
                         LOGGER.warning("failed to add pipelineLocation to retry queue");
                     }
-                    LOGGER.severe("lock imap failed in update metrics");
                     return;
                 }
 

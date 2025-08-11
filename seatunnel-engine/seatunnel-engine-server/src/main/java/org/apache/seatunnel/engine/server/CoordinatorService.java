@@ -176,11 +176,7 @@ public class CoordinatorService {
     private final BlockingQueue<PipelineLocation> metricsCleanupRetryQueue =
             new LinkedBlockingQueue<>();
 
-    private volatile boolean running = true;
-
     private final int cleanUpRetryInterval;
-
-    private Thread cleanerThread;
 
     /** If this node is a master node */
     private volatile boolean isActive = false;
@@ -300,6 +296,10 @@ public class CoordinatorService {
                 queueRemove(jobMaster);
                 completeFailJob(jobMaster);
                 pendingJobMasterMap.remove(jobId);
+                logger.info(
+                        String.format(
+                                "PendingJobMasterMap size after cleanup: %d",
+                                pendingJobMasterMap.size()));
                 return;
             }
         }
@@ -609,8 +609,6 @@ public class CoordinatorService {
         } catch (Exception e) {
             throw new SeaTunnelEngineException("close event processor error", e);
         }
-
-        stopCleanerThread();
     }
 
     /** Lazy load for resource manager */
@@ -1099,42 +1097,40 @@ public class CoordinatorService {
     }
 
     private void startMetricsCleanupWorker() {
-        cleanerThread =
-                new Thread(
-                        () -> {
-                            while (running || !metricsCleanupRetryQueue.isEmpty()) {
-                                try {
-                                    PipelineLocation pipelineLocation =
-                                            metricsCleanupRetryQueue.poll(
-                                                    cleanUpRetryInterval, TimeUnit.SECONDS);
-                                    if (pipelineLocation != null) {
-                                        JobMaster jobMaster =
-                                                getJobMaster(pipelineLocation.getJobId());
-                                        if (jobMaster != null) {
-                                            jobMaster.removeMetricsContext(
-                                                    pipelineLocation,
-                                                    (PipelineStatus)
-                                                            runningJobStateIMap.get(
-                                                                    pipelineLocation));
-                                        } else {
-                                            retryRemoveMetricsContext(pipelineLocation);
-                                        }
-                                    }
-                                } catch (InterruptedException e) {
-                                    Thread.currentThread().interrupt();
-                                    logger.warning(
-                                            "Metrics cleanup worker interrupted but still running...");
-                                } catch (Exception e) {
-                                    logger.warning(
-                                            String.format(
-                                                    "metrics cleanup retry failed: %s",
-                                                    e.getMessage()));
+        Runnable cleanupTask =
+                () -> {
+                    Thread.currentThread().setName("metrics-cleanup-worker");
+                    while (!Thread.currentThread().isInterrupted()
+                            && !metricsCleanupRetryQueue.isEmpty()) {
+                        try {
+                            PipelineLocation pipelineLocation =
+                                    metricsCleanupRetryQueue.poll(
+                                            cleanUpRetryInterval, TimeUnit.SECONDS);
+
+                            if (pipelineLocation != null) {
+                                JobMaster jobMaster = getJobMaster(pipelineLocation.getJobId());
+                                if (jobMaster != null) {
+                                    jobMaster.removeMetricsContext(
+                                            pipelineLocation,
+                                            (PipelineStatus)
+                                                    runningJobStateIMap.get(pipelineLocation));
+                                } else {
+                                    retryRemoveMetricsContext(pipelineLocation);
                                 }
                             }
-                        },
-                        "Metrics-Cleanup-Retry");
-        cleanerThread.setDaemon(true);
-        cleanerThread.start();
+
+                        } catch (InterruptedException e) {
+                            Thread.currentThread().interrupt();
+                            logger.info("Metrics cleanup worker interrupted, exiting...");
+                        } catch (Exception e) {
+                            logger.warning(
+                                    String.format(
+                                            "Metrics cleanup retry failed: %s", e.getMessage()));
+                        }
+                    }
+                };
+
+        executorService.submit(cleanupTask);
     }
 
     private void retryRemoveMetricsContext(PipelineLocation pipelineLocation) {
@@ -1162,16 +1158,6 @@ public class CoordinatorService {
                             "Metrics cleanup via compute for pipeline: %s", pipelineLocation));
         } catch (Exception e) {
             logger.warning("failed to remove metrics context via compute", e);
-        }
-    }
-
-    private void stopCleanerThread() {
-        running = false;
-        cleanerThread.interrupt();
-        try {
-            cleanerThread.join(5000);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
         }
     }
 }
