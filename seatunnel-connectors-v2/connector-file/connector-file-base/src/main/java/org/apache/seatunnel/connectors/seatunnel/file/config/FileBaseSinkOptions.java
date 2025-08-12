@@ -108,6 +108,12 @@ public class FileBaseSinkOptions extends FileBaseOptions {
                     .withDescription(
                             "The separator between columns in a row of data. Only needed by `text` and `csv` file format");
 
+    public static final Option<Integer> SHEET_MAX_ROWS =
+            Options.key("sheet_max_rows")
+                    .intType()
+                    .defaultValue(1048576)
+                    .withDescription("Only needed by `excel` file format");
+
     public static final Option<String> ROW_DELIMITER =
             Options.key("row_delimiter")
                     .stringType()

@@ -64,32 +64,32 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 ## 参数
 
-|                   名称                    |  类型   | 是否必填 |           默认值            |                                                                                                                  描述                                                                                                                   |
-|-------------------------------------------|---------|----------|------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| url                                       | String  | 是      | -                            | JDBC 连接的 URL。参见示例: jdbc:oracle:thin:@datasource01:1523:xe                                                                                                                                                        |
-| driver                                    | String  | 是      | -                            | 用于连接远程数据源的 JDBC 类名，<br/> 如果使用 Oracle，值为 `oracle.jdbc.OracleDriver`。                                                                                                                 |
-| user                                      | String  | 否       | -                            | 连接实例用户名。                                                                                                                                                                                                                  |
-| password                                  | String  | 否       | -                            | 连接实例密码。                                                                                                                                                                                                                   |
-| query                                     | String  | 否       | -                            | 使用此sql将上游输入数据写入数据库。例如： `INSERT ...`,`query` 具有更高的优先级                                                                                                                                           |
-| database                                  | String  | 否       | -                            | 使用此 `database` 和 `table-name` 自动生成sql并接收上游输入数据写入数据库。<br/>此选项与`query` 互斥，具有更高的优先级                                                       |
-| table                                     | String  | 否       | -                            | 使用数据库和此表名自动生成sql并接收上游输入数据写入数据库。<br/>此选项与`query` 互斥，具有更高的优先级                                                           |
-| primary_keys                              | Array   | 否       | -                            | 此选项用于支持以下操作，例如 `insert`, `delete`, 和 `update` 当自动生成sql.                                                                                                                                    |
-| connection_check_timeout_sec              | Int     | 否       | 30                           | 等待用于验证连接的数据库操作完成的时间（秒）。                                                                                                                                            |
-| max_retries                               | Int     | 否       | 0                            | 提交失败的重试次数（executeBatch）                                                                                                                                                                                          |
-| batch_size                                | Int     | 否       | 1000                         | 对于批量写入，当缓冲记录的数量达到“batch_size”的数量或时间达到“checkpoint.interval”<br/>时，数据将被刷新到数据库中。                                                                  |
-| batch_interval_ms                         | Int     | 否       | 1000                         | 对于批写入，当缓冲区的数量达到“batch_size”的数量或时间达到“batch-interval_ms”时，数据将被刷新到数据库中。                                                                           |
-| is_exactly_once                           | Boolean | 否       | false                        | 是否启用精确一次语义，这将使用Xa事务。如果启用，则需要<br/>设置`xa_data_source_class_name`。                                                                                                              |
-| generate_sink_sql                         | Boolean | 否       | false                        | 根据要写入的数据库表生成sql语句                                                                                                                                                                        |
-| xa_data_source_class_name                 | String  | 否       | -                            | 数据库Driver的xa数据源类名，例如Oracle，是`Oracle.jdbc.xa.client。OracleXADataSource和<br/>请参阅附录了解其他数据源                                                               |
-| max_commit_attempts                       | Int     | 否       | 3                            | 事务提交失败的重试次数                                                                                                                                                                                          |
-| transaction_timeout_sec                   | Int     | 否       | -1                           | 事务打开后的超时，默认值为-1（永不超时）。请注意，设置超时可能会影响＜br/＞精确一次语义                                                                                            |
-| auto_commit                               | Boolean | 否       | true                         | 默认情况下启用自动事务提交                                                                                                                                                                                              |
-| properties                                | Map     | 否       | -                            | 其他连接配置参数，当属性和URL具有相同的参数时，优先级由驱动程序的特定实现决定。例如，在MySQL中，属性优先于URL。 |
-| common-options                            |         | 否       | -                            | Sink插件常用参数，请参考 [Sink Common Options](../sink-common-options.md)                                                                                                                                     |
-| schema_save_mode                          | Enum    | 否       | CREATE_SCHEMA_WHEN_NOT_EXIST | 在启动同步任务之前，对目标侧的现有表面结构选择不同的处理方案。                                                                                                      |
-| data_save_mode                            | Enum    | 否       | APPEND_DATA                  | 在启动同步任务之前，对目标端的现有数据选择不同的处理方案。                                                                                                                 |
-| custom_sql                                | String  | 否       | -                            | 当data_save_mode选择CUSTOM_PROCESSING时，您应该填写CUSTOM_SQL参数。此参数通常填充可以执行的SQL。SQL将在同步任务之前执行。                                       |
-| enable_upsert                             | Boolean | 否       | true                         | 通过primary_keys存在启用upstart，如果任务只有“插入”，将此参数设置为“false”可以加快数据导入                                                                                                          |
+| 名称                           |  类型   | 是否必填 |           默认值            |                                                                                                                  描述                                                                                                                   |
+|------------------------------|---------|----------|------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| url                          | String  | 是      | -                            | JDBC 连接的 URL。参见示例: jdbc:oracle:thin:@datasource01:1523:xe                                                                                                                                                        |
+| driver                       | String  | 是      | -                            | 用于连接远程数据源的 JDBC 类名，<br/> 如果使用 Oracle，值为 `oracle.jdbc.OracleDriver`。                                                                                                                 |
+| username                     | String  | 否       | -                            | 连接实例用户名。                                                                                                                                                                                                                  |
+| password                     | String  | 否       | -                            | 连接实例密码。                                                                                                                                                                                                                   |
+| query                        | String  | 否       | -                            | 使用此sql将上游输入数据写入数据库。例如： `INSERT ...`,`query` 具有更高的优先级                                                                                                                                           |
+| database                     | String  | 否       | -                            | 使用此 `database` 和 `table-name` 自动生成sql并接收上游输入数据写入数据库。<br/>此选项与`query` 互斥，具有更高的优先级                                                       |
+| table                        | String  | 否       | -                            | 使用数据库和此表名自动生成sql并接收上游输入数据写入数据库。<br/>此选项与`query` 互斥，具有更高的优先级                                                           |
+| primary_keys                 | Array   | 否       | -                            | 此选项用于支持以下操作，例如 `insert`, `delete`, 和 `update` 当自动生成sql.                                                                                                                                    |
+| connection_check_timeout_sec | Int     | 否       | 30                           | 等待用于验证连接的数据库操作完成的时间（秒）。                                                                                                                                            |
+| max_retries                  | Int     | 否       | 0                            | 提交失败的重试次数（executeBatch）                                                                                                                                                                                          |
+| batch_size                   | Int     | 否       | 1000                         | 对于批量写入，当缓冲记录的数量达到“batch_size”的数量或时间达到“checkpoint.interval”<br/>时，数据将被刷新到数据库中。                                                                  |
+| batch_interval_ms            | Int     | 否       | 1000                         | 对于批写入，当缓冲区的数量达到“batch_size”的数量或时间达到“batch-interval_ms”时，数据将被刷新到数据库中。                                                                           |
+| is_exactly_once              | Boolean | 否       | false                        | 是否启用精确一次语义，这将使用Xa事务。如果启用，则需要<br/>设置`xa_data_source_class_name`。                                                                                                              |
+| generate_sink_sql            | Boolean | 否       | false                        | 根据要写入的数据库表生成sql语句                                                                                                                                                                        |
+| xa_data_source_class_name    | String  | 否       | -                            | 数据库Driver的xa数据源类名，例如Oracle，是`Oracle.jdbc.xa.client。OracleXADataSource和<br/>请参阅附录了解其他数据源                                                               |
+| max_commit_attempts          | Int     | 否       | 3                            | 事务提交失败的重试次数                                                                                                                                                                                          |
+| transaction_timeout_sec      | Int     | 否       | -1                           | 事务打开后的超时，默认值为-1（永不超时）。请注意，设置超时可能会影响＜br/＞精确一次语义                                                                                            |
+| auto_commit                  | Boolean | 否       | true                         | 默认情况下启用自动事务提交                                                                                                                                                                                              |
+| properties                   | Map     | 否       | -                            | 其他连接配置参数，当属性和URL具有相同的参数时，优先级由驱动程序的特定实现决定。例如，在MySQL中，属性优先于URL。 |
+| common-options               |         | 否       | -                            | Sink插件常用参数，请参考 [Sink Common Options](../sink-common-options.md)                                                                                                                                     |
+| schema_save_mode             | Enum    | 否       | CREATE_SCHEMA_WHEN_NOT_EXIST | 在启动同步任务之前，对目标侧的现有表面结构选择不同的处理方案。                                                                                                      |
+| data_save_mode               | Enum    | 否       | APPEND_DATA                  | 在启动同步任务之前，对目标端的现有数据选择不同的处理方案。                                                                                                                 |
+| custom_sql                   | String  | 否       | -                            | 当data_save_mode选择CUSTOM_PROCESSING时，您应该填写CUSTOM_SQL参数。此参数通常填充可以执行的SQL。SQL将在同步任务之前执行。                                       |
+| enable_upsert                | Boolean | 否       | true                         | 通过primary_keys存在启用upstart，如果任务只有“插入”，将此参数设置为“false”可以加快数据导入                                                                                                          |
 
 ### 提示
 
@@ -133,7 +133,7 @@ sink {
     jdbc {
         url = "jdbc:oracle:thin:@datasource01:1523:xe"
         driver = "oracle.jdbc.OracleDriver"
-        user = root
+        username = root
         password = 123456
         query = "INSERT INTO TEST.TEST_TABLE(NAME,AGE) VALUES(?,?)"
      }
@@ -151,7 +151,7 @@ sink {
     Jdbc {
         url = "jdbc:oracle:thin:@datasource01:1523:xe"
         driver = "oracle.jdbc.OracleDriver"
-        user = root
+        username = root
         password = 123456
         
         generate_sink_sql = true
@@ -172,7 +172,7 @@ sink {
         driver = "oracle.jdbc.OracleDriver"
     
         max_retries = 0
-        user = root
+        username = root
         password = 123456
         query = "INSERT INTO TEST.TEST_TABLE(NAME,AGE) VALUES(?,?)"
     
@@ -192,7 +192,7 @@ sink {
     jdbc {
         url = "jdbc:oracle:thin:@datasource01:1523:xe"
         driver = "oracle.jdbc.OracleDriver"
-        user = root
+        username = root
         password = 123456
         
         generate_sink_sql = true

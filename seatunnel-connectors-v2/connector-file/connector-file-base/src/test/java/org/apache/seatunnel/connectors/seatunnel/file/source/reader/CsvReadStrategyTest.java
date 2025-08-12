@@ -71,6 +71,37 @@ public class CsvReadStrategyTest {
         Assertions.assertEquals(100, testCollector.getRows().get(1).getField(2));
     }
 
+    @Test
+    public void testReadComplexCsv() throws Exception {
+        URL resource = CsvReadStrategyTest.class.getResource("/test-csv.csv");
+        String path = Paths.get(resource.toURI()).toString();
+        CsvReadStrategy csvReadStrategy = new CsvReadStrategy();
+        LocalConf localConf = new LocalConf(FS_DEFAULT_NAME_DEFAULT);
+        csvReadStrategy.init(localConf);
+        csvReadStrategy.getFileNamesByPath(path);
+        System.setProperty("field_delimiter", ";");
+        csvReadStrategy.setPluginConfig(ConfigFactory.systemProperties());
+        csvReadStrategy.setCatalogTable(
+                CatalogTableUtil.getCatalogTable(
+                        "test",
+                        new SeaTunnelRowType(
+                                new String[] {"id", "name", "age"},
+                                new SeaTunnelDataType[] {
+                                    BasicType.INT_TYPE, BasicType.STRING_TYPE, BasicType.INT_TYPE
+                                })));
+        TestCollector testCollector = new TestCollector();
+        csvReadStrategy.read(path, "", testCollector);
+
+        Assertions.assertEquals(2, testCollector.getRows().size());
+        Assertions.assertEquals(1, testCollector.getRows().get(0).getField(0));
+        Assertions.assertEquals(
+                "b" + System.lineSeparator() + "a", testCollector.getRows().get(0).getField(1));
+        Assertions.assertEquals(10, testCollector.getRows().get(0).getField(2));
+        Assertions.assertEquals(2, testCollector.getRows().get(1).getField(0));
+        Assertions.assertEquals("b", testCollector.getRows().get(1).getField(1));
+        Assertions.assertEquals(100, testCollector.getRows().get(1).getField(2));
+    }
+
     public static class TestCollector implements Collector<SeaTunnelRow> {
 
         private final List<SeaTunnelRow> rows = new ArrayList<>();

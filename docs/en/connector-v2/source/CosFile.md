@@ -51,35 +51,35 @@ To use this connector you need put hadoop-cos-{hadoop.version}-{version}.jar and
 
 ## Options
 
-| name                      | type    | required | default value       |
-|---------------------------|---------|----------|---------------------|
-| path                      | string  | yes      | -                   |
-| file_format_type          | string  | yes      | -                   |
-| bucket                    | string  | yes      | -                   |
-| secret_id                 | string  | yes      | -                   |
-| secret_key                | string  | yes      | -                   |
-| region                    | string  | yes      | -                   |
-| read_columns              | list    | yes      | -                   |
-| delimiter/field_delimiter | string  | no       | \001                |
-| row_delimiter             | string  | no       | \n                  |
-| parse_partition_from_path | boolean | no       | true                |
-| skip_header_row_number    | long    | no       | 0                   |
-| date_format               | string  | no       | yyyy-MM-dd          |
-| datetime_format           | string  | no       | yyyy-MM-dd HH:mm:ss |
-| time_format               | string  | no       | HH:mm:ss            |
-| schema                    | config  | no       | -                   |
-| sheet_name                | string  | no       | -                   |
-| xml_row_tag               | string  | no       | -                   |
-| xml_use_attr_format       | boolean | no       | -                   |
-| csv_use_header_line       | boolean | no       | false               |
-| file_filter_pattern       | string  | no       | -                   |
-| filename_extension        | string  | no       | -                   |
-| compress_codec            | string  | no       | none                |
-| archive_compress_codec    | string  | no       | none                |
-| encoding                  | string  | no       | UTF-8               |
-| binary_chunk_size         | int     | no       | 1024                |
-| binary_complete_file_mode | boolean | no       | false               |
-| common-options            |         | no       | -                   |
+| name                      | type    | required | default value               |
+|---------------------------|---------|----------|-----------------------------|
+| path                      | string  | yes      | -                           |
+| file_format_type          | string  | yes      | -                           |
+| bucket                    | string  | yes      | -                           |
+| secret_id                 | string  | yes      | -                           |
+| secret_key                | string  | yes      | -                           |
+| region                    | string  | yes      | -                           |
+| read_columns              | list    | yes      | -                           |
+| delimiter/field_delimiter | string  | no       | \001 for text and , for csv |
+| row_delimiter             | string  | no       | \n                          |
+| parse_partition_from_path | boolean | no       | true                        |
+| skip_header_row_number    | long    | no       | 0                           |
+| date_format               | string  | no       | yyyy-MM-dd                  |
+| datetime_format           | string  | no       | yyyy-MM-dd HH:mm:ss         |
+| time_format               | string  | no       | HH:mm:ss                    |
+| schema                    | config  | no       | -                           |
+| sheet_name                | string  | no       | -                           |
+| xml_row_tag               | string  | no       | -                           |
+| xml_use_attr_format       | boolean | no       | -                           |
+| csv_use_header_line       | boolean | no       | false                       |
+| file_filter_pattern       | string  | no       | -                           |
+| filename_extension        | string  | no       | -                           |
+| compress_codec            | string  | no       | none                        |
+| archive_compress_codec    | string  | no       | none                        |
+| encoding                  | string  | no       | UTF-8                       |
+| binary_chunk_size         | int     | no       | 1024                        |
+| binary_complete_file_mode | boolean | no       | false                       |
+| common-options            |         | no       | -                           |
 
 ### path [string]
 

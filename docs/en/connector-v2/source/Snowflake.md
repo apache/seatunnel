@@ -62,7 +62,7 @@ Read external data source data through JDBC.
 |------------------------------|------------|----------|-----------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | url                          | String     | Yes      | -               | The URL of the JDBC connection. Refer to a case: jdbc&#58;snowflake://<account_name>.snowflakecomputing.com                                                                                                                                                       |
 | driver                       | String     | Yes      | -               | The jdbc class name used to connect to the remote data source,<br/> if you use Snowflake the value is `net.snowflake.client.jdbc.SnowflakeDriver`.                                                                                                                |
-| user                         | String     | No       | -               | Connection instance user name                                                                                                                                                                                                                                     |
+| username                         | String     | No       | -               | Connection instance user name                                                                                                                                                                                                                                     |
 | password                     | String     | No       | -               | Connection instance password                                                                                                                                                                                                                                      |
 | query                        | String     | Yes      | -               | Query statement                                                                                                                                                                                                                                                   |
 | connection_check_timeout_sec | Int        | No       | 30              | The time in seconds to wait for the database operation used to validate the connection to complete                                                                                                                                                                |
@@ -85,73 +85,73 @@ Read external data source data through JDBC.
 ### simple
 
 > This example queries type_bin 'table' 16 data in your test "database" in single parallel and queries all of its fields. You can also specify which fields to query for final output to the console.
->
-> ```
-> # Defining the runtime environment
-> env {
-> parallelism = 2
-> job.mode = "BATCH"
-> }
-> source{
-> Jdbc {
-> url = "jdbc:snowflake://<account_name>.snowflakecomputing.com"
-> driver = "net.snowflake.client.jdbc.SnowflakeDriver"
-> connection_check_timeout_sec = 100
-> user = "root"
-> password = "123456"
-> query = "select * from type_bin limit 16"
-> }
-> }
-> transform {
-> # If you would like to get more information about how to configure seatunnel and see full list of transform plugins,
-> # please go to https://seatunnel.apache.org/docs/transform-v2/sql
-> }
-> sink {
-> Console {}
-> }
-> ```
+
+ ```
+ # Defining the runtime environment
+ env {
+     parallelism = 2
+    job.mode = "BATCH"
+ }
+ source {
+     Jdbc {
+         url = "jdbc:snowflake://<account_name>.snowflakecomputing.com"
+         driver = "net.snowflake.client.jdbc.SnowflakeDriver"
+         connection_check_timeout_sec = 100
+         username = "root"
+         password = "123456"
+         query = "select * from type_bin limit 16"
+     }
+ }
+ transform {
+ # If you would like to get more information about how to configure seatunnel and see full list of transform plugins,
+ # please go to https://seatunnel.apache.org/docs/transform-v2/sql
+ }
+ sink {
+    Console {}
+ }
+ ```
 
 ### parallel
 
 > Read your query table in parallel with the shard field you configured and the shard data  You can do this if you want to read the whole table
->
-> ```
-> Jdbc {
-> url = "jdbc:snowflake://<account_name>.snowflakecomputing.com"
-> driver = "net.snowflake.client.jdbc.SnowflakeDriver"
-> connection_check_timeout_sec = 100
-> user = "root"
-> password = "123456"
-> # Define query logic as required
-> query = "select * from type_bin"
-> # Parallel sharding reads fields
-> partition_column = "id"
-> # Number of fragments
-> partition_num = 10
-> }
-> ```
+
+ ```
+ Jdbc {
+     url = "jdbc:snowflake://<account_name>.snowflakecomputing.com"
+     driver = "net.snowflake.client.jdbc.SnowflakeDriver"
+     connection_check_timeout_sec = 100
+     username = "root"
+     password = "123456"
+     # Define query logic as required
+     query = "select * from type_bin"
+     # Parallel sharding reads fields
+     partition_column = "id"
+     # Number of fragments
+     partition_num = 10
+ }
+ ```
 
 ### parallel boundary
 
 > It is more efficient to specify the data within the upper and lower bounds of the query It is more efficient to read your data source according to the upper and lower boundaries you configured
->
-> ```
-> Jdbc {
-> url = "jdbc:snowflake://<account_name>.snowflakecomputing.com"
-> driver = "net.snowflake.client.jdbc.SnowflakeDriver"
-> connection_check_timeout_sec = 100
-> user = "root"
-> password = "123456"
-> # Define query logic as required
-> query = "select * from type_bin"
-> partition_column = "id"
-> # Read start boundary
-> partition_lower_bound = 1
-> # Read end boundary
-> partition_upper_bound = 500
-> partition_num = 10
-> }
-> ```
+
+ ```
+ Jdbc {
+     url = "jdbc:snowflake://<account_name>.snowflakecomputing.com"
+     driver = "net.snowflake.client.jdbc.SnowflakeDriver"
+     connection_check_timeout_sec = 100
+     username = "root"
+     password = "123456"
+     # Define query logic as required
+     query = "select * from type_bin"
+     partition_column = "id"
+     # Read start boundary
+     partition_lower_bound = 1
+     # Read end boundary
+     partition_upper_bound = 500
+     partition_num = 10
+ }
+ ```
 
 ## Changelog
 

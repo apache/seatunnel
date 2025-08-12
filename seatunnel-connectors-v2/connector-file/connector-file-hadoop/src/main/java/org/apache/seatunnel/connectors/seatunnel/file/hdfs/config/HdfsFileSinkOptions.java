@@ -15,26 +15,8 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.paimon.sink.state;
+package org.apache.seatunnel.connectors.seatunnel.file.hdfs.config;
 
-import org.apache.paimon.table.sink.CommitMessage;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSinkOptions;
 
-import lombok.AllArgsConstructor;
-import lombok.Data;
-
-import java.io.Serializable;
-import java.util.List;
-
-/** Paimon sink state class, save the list of has pre committed messages. */
-@Data
-@AllArgsConstructor
-public class PaimonSinkState implements Serializable {
-
-    private static final long serialVersionUID = 1L;
-
-    private List<CommitMessage> commitTables;
-
-    private String commitUser;
-
-    private long checkpointId;
-}
+public class HdfsFileSinkOptions extends FileBaseSinkOptions {}
