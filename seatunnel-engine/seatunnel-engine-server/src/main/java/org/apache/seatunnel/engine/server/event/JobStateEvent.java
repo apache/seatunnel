@@ -36,14 +36,14 @@ public class JobStateEvent implements Event {
     private long createdTime;
 
     public JobStateEvent(Long jobId, String jobName, JobStatus jobStatus) {
-        this.jobName = jobName;
         this.jobId = String.valueOf(jobId);
+        this.jobName = jobName;
         this.jobStatus = jobStatus;
         this.createdTime = System.currentTimeMillis();
     }
 
     @Override
     public EventType getEventType() {
-        return null;
+        return EventType.JOB_STATUS;
     }
 }

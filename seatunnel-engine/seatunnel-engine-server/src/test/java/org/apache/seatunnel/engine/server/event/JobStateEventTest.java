@@ -18,6 +18,7 @@
 package org.apache.seatunnel.engine.server.event;
 
 import org.apache.seatunnel.api.event.EventHandler;
+import org.apache.seatunnel.api.event.EventType;
 import org.apache.seatunnel.common.utils.ReflectionUtils;
 import org.apache.seatunnel.engine.core.job.JobStatus;
 import org.apache.seatunnel.engine.server.AbstractSeaTunnelServerTest;
@@ -29,6 +30,7 @@ import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import static org.apache.seatunnel.engine.server.checkpoint.CheckpointErrorRestoreEndTest.STREAM_CONF_WITH_ERROR_PATH;
 import static org.awaitility.Awaitility.await;
 
 public class JobStateEventTest extends AbstractSeaTunnelServerTest {
@@ -42,23 +44,46 @@ public class JobStateEventTest extends AbstractSeaTunnelServerTest {
         AtomicInteger accessCounter = new AtomicInteger(0);
         EventHandler eventHandler =
                 event -> {
-                    if (event instanceof JobStateEvent) {
-                        accessCounter.incrementAndGet();
+                    if (event.getEventType() != EventType.JOB_STATUS) {
+                        return;
+                    }
+                    JobStatus status = ((JobStateEvent) event).getJobStatus();
+                    switch (status) {
+                        case FAILED:
+                        case CANCELED:
+                        case SAVEPOINT_DONE:
+                        case FINISHED:
+                            accessCounter.incrementAndGet();
+                            break;
+                        default:
+                            break;
                     }
                 };
         // register the event handler
         List<EventHandler> handlers =
                 (List<EventHandler>) ReflectionUtils.getField(eventProcessor, "handlers").get();
         handlers.add(eventHandler);
-        long jobId = System.currentTimeMillis();
-        startJob(jobId, "fake_to_console.conf", false);
+        long jobId_finished = System.currentTimeMillis();
+        startJob(jobId_finished, "fake_to_console.conf", false);
         await().atMost(120000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () ->
                                 Assertions.assertEquals(
                                         JobStatus.FINISHED,
-                                        server.getCoordinatorService().getJobStatus(jobId)));
+                                        server.getCoordinatorService()
+                                                .getJobStatus(jobId_finished)));
         // check whether the event handler is executed
         Assertions.assertEquals(1, accessCounter.get());
+
+        long jobId_failed = System.currentTimeMillis();
+        startJob(jobId_failed, STREAM_CONF_WITH_ERROR_PATH, false);
+        await().atMost(120, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        JobStatus.FAILED,
+                                        server.getCoordinatorService().getJobStatus(jobId_failed)));
+
+        Assertions.assertEquals(2, accessCounter.get());
     }
 }

@@ -167,8 +167,8 @@ public class CustomJobStateEventHandler implements EventHandler {
 
     @Override
     public void handle(Event event) {
-        // Only process events of type JobStateEvent
-        if (!(event instanceof JobStateEvent)) {
+        // Only process events of type JOB_STATUS
+        if (event.getEventType() != EventType.JOB_STATUS) {
             return;
         }
 

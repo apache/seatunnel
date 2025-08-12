@@ -165,9 +165,9 @@ public class CustomJobStateEventHandler implements EventHandler {
     @Override
     public void handle(Event event) {
         // 仅处理JobStateEvent类型的事件
-        if (!(event instanceof JobStateEvent)) {
-            return;
-        }
+       if (event.getEventType() != EventType.JOB_STATUS) {
+          return;
+       }
 
         JobStateEvent jobEvent = (JobStateEvent) event;
         String jobId = jobEvent.getJobId();

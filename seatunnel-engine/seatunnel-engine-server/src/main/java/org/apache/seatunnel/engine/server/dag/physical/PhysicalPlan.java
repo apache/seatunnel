@@ -192,11 +192,11 @@ public class PhysicalPlan {
     }
 
     public void cancelJob() {
-        if (getJobStatus().isEndState()) {
+        JobStatus jobStatus = getJobStatus();
+        if (jobStatus.isEndState()) {
             log.warn(
                     String.format(
-                            "%s is in end state %s, can not be cancel",
-                            jobFullName, getJobStatus()));
+                            "%s is in end state %s, can not be cancel", jobFullName, jobStatus));
             return;
         }
 
@@ -210,11 +210,11 @@ public class PhysicalPlan {
     }
 
     public void savepointJob() {
-        if (getJobStatus().isEndState()) {
+        JobStatus jobStatus = getJobStatus();
+        if (jobStatus.isEndState()) {
             log.warn(
                     String.format(
-                            "%s is in end state %s, can not do savepoint",
-                            jobFullName, getJobStatus()));
+                            "%s is in end state %s, can not do savepoint", jobFullName, jobStatus));
             return;
         }
         updateJobState(JobStatus.DOING_SAVEPOINT);
@@ -319,7 +319,8 @@ public class PhysicalPlan {
             log.warn(String.format("%s state process is stopped", jobFullName));
             return;
         }
-        switch (getJobStatus()) {
+        JobStatus jobStatus = getJobStatus();
+        switch (jobStatus) {
             case CREATED:
                 updateJobState(JobStatus.SCHEDULED);
                 break;
@@ -355,11 +356,11 @@ public class PhysicalPlan {
                                 new JobStateEvent(
                                         jobImmutableInformation.getJobId(),
                                         jobImmutableInformation.getJobConfig().getName(),
-                                        getJobStatus()));
-                jobEndFuture.complete(new JobResult(getJobStatus(), errorBySubPlan.get()));
+                                        jobStatus));
+                jobEndFuture.complete(new JobResult(jobStatus, errorBySubPlan.get()));
                 return;
             default:
-                throw new IllegalArgumentException("Unknown Job State: " + getJobStatus());
+                throw new IllegalArgumentException("Unknown Job State: " + jobStatus);
         }
     }
 
