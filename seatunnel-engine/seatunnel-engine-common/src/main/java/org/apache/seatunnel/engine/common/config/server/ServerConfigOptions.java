@@ -366,7 +366,7 @@ public class ServerConfigOptions {
         public static final Option<Integer> CLEANUP_RETRY_INTERVAL =
                 Options.key("cleanup-retry-interval")
                         .intType()
-                        .defaultValue(10)
+                        .defaultValue(60)
                         .withDescription(
                                 "Interval in seconds between attempts to retry metrics cleanup "
                                         + "when previous cleanup fails due to lock contention or other issues.");
