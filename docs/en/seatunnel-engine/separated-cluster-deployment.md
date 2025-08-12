@@ -312,12 +312,18 @@ The corePoolSize of seatunnel coordinator job's executor cached thread pool
 
 The max job count can be executed at same time
 
+**cleanup-retry-interval**
+
+Interval in seconds between attempts to retry metrics cleanup when previous cleanup fails due to lock contention or other issues.
+Default value is 60 seconds.
+
 Example
 
 ```yaml
 coordinator-service:
   core-thread-num: 30
   max-thread-num: 1000
+  cleanup-retry-interval: 60
 ```
 
 

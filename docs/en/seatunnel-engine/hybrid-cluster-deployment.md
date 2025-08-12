@@ -171,7 +171,7 @@ The max job count can be executed at same time
 **cleanup-retry-interval**
 
 Interval in seconds between attempts to retry metrics cleanup when previous cleanup fails due to lock contention or other issues.
-Default value is 10 seconds.
+Default value is 60 seconds.
 
 Example
 
@@ -179,7 +179,7 @@ Example
 coordinator-service:
    core-thread-num: 30
    max-thread-num: 1000
-   cleanup-retry-interval: 10
+   cleanup-retry-interval: 60
 ```
 
 ## 5. Configure The SeaTunnel Engine Network Service

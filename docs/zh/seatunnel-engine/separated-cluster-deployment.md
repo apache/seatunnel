@@ -314,12 +314,18 @@ CoordinatorService 提供了每个作业从 LogicalDag 到 ExecutionDag，再到
 
 同时可执行的最大作业数量
 
+**cleanup-retry-interval**
+
+当之前的指标清理因锁竞争或其他问题失败时，重试指标清理的间隔时间，单位为秒。
+默认值为60秒。
+
 Example
 
 ```yaml
 coordinator-service:
   core-thread-num: 30
   max-thread-num: 1000
+  cleanup-retry-interval: 60
 ```
 
 ## 5. 配置 SeaTunnel Engine 网络服务
