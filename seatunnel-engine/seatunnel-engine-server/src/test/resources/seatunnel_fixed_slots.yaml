@@ -14,35 +14,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-######
-###### This config file is a demonstration of streaming processing in seatunnel config
-######
 
-env {
-  # You can set engine configuration here
-  job.mode = "BATCH"
-  #execution.checkpoint.data-uri = "hdfs://localhost:9000/checkpoint"
-}
-
-source {
-  # This is a example source plugin **only for test and demonstrate the feature source plugin**
-  FakeSource {
-    plugin_output = "fake"
-    parallelism = 2
-    schema = {
-      fields {
-        name = "string"
-        age = "int"
-      }
-    }
-  }
-}
-
-transform {
-}
-
-sink {
-  console {
-    plugin_input="fake"
-  }
-}
+seatunnel:
+  engine:
+    backup-count: 1
+    print-execution-info-interval: 10
+    slot-service:
+      dynamic-slot: false
+      slot-num: 5
+    checkpoint:
+      interval: 6000
+      timeout: 7000
+      storage:
+        type: hdfs
+        max-retained: 3
+        plugin-config:
+          namespace: /tmp/seatunnel/checkpoint_snapshot
+          storage.type: hdfs
+          fs.defaultFS: file:/// # Ensure that the directory has written permission

@@ -65,6 +65,7 @@ import org.apache.seatunnel.engine.server.service.jar.ConnectorPackageService;
 import org.apache.seatunnel.engine.server.task.operation.GetMetricsOperation;
 import org.apache.seatunnel.engine.server.telemetry.metrics.entity.JobCounter;
 import org.apache.seatunnel.engine.server.telemetry.metrics.entity.ThreadPoolStatus;
+import org.apache.seatunnel.engine.server.utils.MetricsCleanupUtils;
 import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
 import org.apache.seatunnel.engine.server.utils.PeekBlockingQueue;
 
@@ -296,10 +297,6 @@ public class CoordinatorService {
                 queueRemove(jobMaster);
                 completeFailJob(jobMaster);
                 pendingJobMasterMap.remove(jobId);
-                logger.info(
-                        String.format(
-                                "PendingJobMasterMap size after cleanup: %d",
-                                pendingJobMasterMap.size()));
                 return;
             }
         }
@@ -1099,7 +1096,7 @@ public class CoordinatorService {
     private void startMetricsCleanupWorker() {
         Runnable cleanupTask =
                 () -> {
-                    Thread.currentThread().setName("metrics-cleanup-worker");
+                    Thread.currentThread().setName("metrics-cleanup-runner");
                     while (!Thread.currentThread().isInterrupted()
                             && !metricsCleanupRetryQueue.isEmpty()) {
                         try {
@@ -1138,19 +1135,7 @@ public class CoordinatorService {
             metricsImap.compute(
                     Constant.IMAP_RUNNING_JOB_METRICS_KEY,
                     (key, centralMap) -> {
-                        if (centralMap == null) {
-                            return null;
-                        }
-                        List<TaskLocation> collect =
-                                centralMap.keySet().stream()
-                                        .filter(
-                                                taskLocation ->
-                                                        taskLocation
-                                                                .getTaskGroupLocation()
-                                                                .getPipelineLocation()
-                                                                .equals(pipelineLocation))
-                                        .collect(Collectors.toList());
-                        collect.forEach(centralMap::remove);
+                        MetricsCleanupUtils.removeMetricsEntries(pipelineLocation, centralMap);
                         return centralMap;
                     });
             logger.info(

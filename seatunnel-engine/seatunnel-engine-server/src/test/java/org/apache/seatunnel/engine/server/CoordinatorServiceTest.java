@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.server;
 
+import com.hazelcast.map.IMap;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
@@ -37,6 +38,8 @@ import org.junitpioneer.jupiter.SetEnvironmentVariable;
 import com.hazelcast.instance.impl.HazelcastInstanceImpl;
 import com.hazelcast.internal.serialization.Data;
 
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Collections;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.TimeUnit;
@@ -149,11 +152,85 @@ public class CoordinatorServiceTest {
     }
 
     @Test
-    public void testClearCoordinatorService() {
+    void testCleanupPendingJobMasterMapAfterJobFailed() {
+        setAnotherConfigFile();
+
+        JobInformation jobInformation =
+                submitJob(
+                        "CoordinatorServiceTest_testCleanupPendingJobMasterMapAfterJobFailed",
+                        "batch_slot_not_enough.conf",
+                        "test_cleanup_pending_job_master_map_after_job_failed");
+
+        Assertions.assertNotNull(jobInformation.coordinatorService.pendingJobMasterMap.get(jobInformation.jobId));
+
+        // waiting for job status turn to running
+        await().atMost(10000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        JobStatus.FAILED,
+                                        jobInformation.coordinatorService.getJobStatus(
+                                                jobInformation.jobId)));
+
+        try {
+            Thread.sleep(5000);
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
+
+        Assertions.assertNull(jobInformation.coordinatorService.pendingJobMasterMap.get(jobInformation.jobId));
+
+        jobInformation.coordinatorService.clearCoordinatorService();
+        jobInformation.coordinatorServiceTest.shutdown();
+    }
+
+    @Test
+    void testCleanupRunningJobStateIMap() {
+        JobInformation jobInformation =
+                submitJob(
+                        "CoordinatorServiceTest_testCleanupRunningJobStateIMap",
+                        "batch_fakesource_to_file.conf",
+                        "test_cleanup_running_job_state_imap");
+        CoordinatorService coordinatorService = jobInformation.coordinatorService;
+        IMap<Object, Object> runningJobStateIMap =
+                coordinatorService.getJobMaster(jobInformation.jobId).getRunningJobStateIMap();
+        Assertions.assertTrue(!runningJobStateIMap.isEmpty());
+
+        // waiting for job status turn to running
+        await().atMost(10000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        JobStatus.RUNNING,
+                                        jobInformation.coordinatorService.getJobStatus(
+                                                jobInformation.jobId)));
+
+        try {
+            Thread.sleep(5000);
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
+        Assertions.assertTrue(runningJobStateIMap.isEmpty());
+
+        jobInformation.coordinatorService.clearCoordinatorService();
+        jobInformation.coordinatorServiceTest.shutdown();
+    }
+
+    private void setAnotherConfigFile() {
+        String rootModuleDir = "seatunnel-engine";
+        Path path = Paths.get(System.getProperty("user.dir"));
+        while (!path.endsWith(Paths.get(rootModuleDir))) {
+            path = path.getParent();
+        }
+        String rootPath =  path.getParent().toString();
+        System.setProperty("seatunnel.config", rootPath
+                + "/seatunnel-engine/seatunnel-engine-server/src/test/resources/seatunnel_fixed_slots.yaml");
+    }
+
+    private JobInformation submitJob(String testClassName, String jobConfigFile, String jobName) {
         HazelcastInstanceImpl coordinatorServiceTest =
                 SeaTunnelServerStarter.createHazelcastInstance(
-                        TestUtils.getClusterName(
-                                "CoordinatorServiceTest_testClearCoordinatorService"));
+                        TestUtils.getClusterName(testClassName));
         SeaTunnelServer server1 =
                 coordinatorServiceTest
                         .node
@@ -166,9 +243,7 @@ public class CoordinatorServiceTest {
                 coordinatorServiceTest
                         .getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME)
                         .newId();
-        LogicalDag testLogicalDag =
-                TestUtils.createTestLogicalPlan(
-                        "stream_fake_to_console.conf", "test_clear_coordinator_service", jobId);
+        LogicalDag testLogicalDag = TestUtils.createTestLogicalPlan(jobConfigFile, jobName, jobId);
 
         JobImmutableInformation jobImmutableInformation =
                 new JobImmutableInformation(
@@ -185,6 +260,20 @@ public class CoordinatorServiceTest {
         coordinatorService
                 .submitJob(jobId, data, jobImmutableInformation.isStartWithSavePoint())
                 .join();
+        return new JobInformation(coordinatorServiceTest, coordinatorService, jobId);
+    }
+
+    @Test
+    public void testClearCoordinatorService() {
+        JobInformation jobInformation =
+                submitJob(
+                        "CoordinatorServiceTest_testClearCoordinatorService",
+                        "stream_fake_to_console.conf",
+                        "test_clear_coordinator_service");
+
+        CoordinatorService coordinatorService = jobInformation.coordinatorService;
+        Long jobId = jobInformation.jobId;
+        HazelcastInstanceImpl coordinatorServiceTest = jobInformation.coordinatorServiceTest;
 
         // waiting for job status turn to running
         await().atMost(10000, TimeUnit.MILLISECONDS)
@@ -347,6 +436,21 @@ public class CoordinatorServiceTest {
                             .getTcpIpConfig()
                             .getMembers()
                             .size());
+        }
+    }
+
+    private static class JobInformation {
+        public final HazelcastInstanceImpl coordinatorServiceTest;
+        public final CoordinatorService coordinatorService;
+        public final Long jobId;
+
+        public JobInformation(
+                HazelcastInstanceImpl coordinatorServiceTest,
+                CoordinatorService coordinatorService,
+                Long jobId) {
+            this.coordinatorServiceTest = coordinatorServiceTest;
+            this.coordinatorService = coordinatorService;
+            this.jobId = jobId;
         }
     }
 }

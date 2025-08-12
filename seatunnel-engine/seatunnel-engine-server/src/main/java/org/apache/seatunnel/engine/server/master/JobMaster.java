@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.server.master;
 
+import com.google.common.annotations.VisibleForTesting;
 import org.apache.seatunnel.api.common.metrics.JobMetrics;
 import org.apache.seatunnel.api.common.metrics.RawJobMetrics;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
@@ -76,6 +77,7 @@ import org.apache.seatunnel.engine.server.resourcemanager.allocation.strategy.Sy
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
 import org.apache.seatunnel.engine.server.task.operation.CleanTaskGroupContextOperation;
 import org.apache.seatunnel.engine.server.task.operation.GetTaskGroupMetricsOperation;
+import org.apache.seatunnel.engine.server.utils.MetricsCleanupUtils;
 import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
 
 import com.hazelcast.cluster.Address;
@@ -633,14 +635,7 @@ public class JobMaster {
                             String checkpointStateImapKey =
                                     CheckpointCoordinator.getCheckpointStateImapKey(
                                             jobId, pipeline.getPipelineId());
-                            Object removedState =
-                                    runningJobStateIMap.remove(checkpointStateImapKey);
-                            if (removedState != null) {
-                                LOGGER.info(
-                                        String.format(
-                                                "Successfully removed checkpoint coordinator state: %s",
-                                                checkpointStateImapKey));
-                            }
+                             runningJobStateIMap.remove(checkpointStateImapKey);
                         });
 
         runningJobStateIMap.remove(jobId);
@@ -919,20 +914,9 @@ public class JobMaster {
 
                 HashMap<TaskLocation, SeaTunnelMetricsContext> centralMap =
                         metricsImap.get(Constant.IMAP_RUNNING_JOB_METRICS_KEY);
-                if (centralMap != null) {
-                    List<TaskLocation> collect =
-                            centralMap.keySet().stream()
-                                    .filter(
-                                            taskLocation -> {
-                                                return taskLocation
-                                                        .getTaskGroupLocation()
-                                                        .getPipelineLocation()
-                                                        .equals(pipelineLocation);
-                                            })
-                                    .collect(Collectors.toList());
-                    collect.forEach(centralMap::remove);
-                    metricsImap.put(Constant.IMAP_RUNNING_JOB_METRICS_KEY, centralMap);
-                }
+                MetricsCleanupUtils.removeMetricsEntries(pipelineLocation, centralMap);
+                metricsImap.put(Constant.IMAP_RUNNING_JOB_METRICS_KEY, centralMap);
+
             } catch (Exception e) {
                 LOGGER.warning("failed to remove metrics context", e);
             } finally {
@@ -1100,5 +1084,10 @@ public class JobMaster {
 
     public EngineConfig getEngineConfig() {
         return this.engineConfig;
+    }
+
+    @VisibleForTesting
+    public IMap<Object, Object> getRunningJobStateIMap() {
+        return runningJobStateIMap;
     }
 }

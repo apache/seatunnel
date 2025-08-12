@@ -183,22 +183,4 @@ public class JobClientJobProxyIT extends SeaTunnelEngineContainer {
                                 .contains(
                                         "org.apache.seatunnel.engine.server.resourcemanager.NoEnoughResourceException"));
     }
-
-    @Test
-    public void testCleanupPendingJobMasterMapAfterJobFailed()
-            throws IOException, InterruptedException {
-        Container.ExecResult execResult = executeJob(server, "/batch_slot_not_enough.conf");
-        Assertions.assertNotEquals(0, execResult.getExitCode());
-        String serverLogs = server.getLogs();
-        Assertions.assertTrue(serverLogs.contains("PendingJobMasterMap size after cleanup: 0"));
-    }
-
-    @Test
-    public void testCleanupCheckPointCoordinatorStatus() throws IOException, InterruptedException {
-        Container.ExecResult execResult = executeJob(server, "/batch_slot_enough.conf");
-        Assertions.assertEquals(0, execResult.getExitCode());
-        String serverLogs = server.getLogs();
-        Assertions.assertTrue(
-                serverLogs.contains("Successfully removed checkpoint coordinator state:"));
-    }
 }
