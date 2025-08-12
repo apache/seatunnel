@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.engine.server;
 
-import com.hazelcast.map.IMap;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
@@ -37,6 +36,7 @@ import org.junitpioneer.jupiter.SetEnvironmentVariable;
 
 import com.hazelcast.instance.impl.HazelcastInstanceImpl;
 import com.hazelcast.internal.serialization.Data;
+import com.hazelcast.map.IMap;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -161,7 +161,8 @@ public class CoordinatorServiceTest {
                         "batch_slot_not_enough.conf",
                         "test_cleanup_pending_job_master_map_after_job_failed");
 
-        Assertions.assertNotNull(jobInformation.coordinatorService.pendingJobMasterMap.get(jobInformation.jobId));
+        Assertions.assertNotNull(
+                jobInformation.coordinatorService.pendingJobMasterMap.get(jobInformation.jobId));
 
         // waiting for job status turn to running
         await().atMost(10000, TimeUnit.MILLISECONDS)
@@ -178,7 +179,8 @@ public class CoordinatorServiceTest {
             throw new RuntimeException(e);
         }
 
-        Assertions.assertNull(jobInformation.coordinatorService.pendingJobMasterMap.get(jobInformation.jobId));
+        Assertions.assertNull(
+                jobInformation.coordinatorService.pendingJobMasterMap.get(jobInformation.jobId));
 
         jobInformation.coordinatorService.clearCoordinatorService();
         jobInformation.coordinatorServiceTest.shutdown();
@@ -222,9 +224,11 @@ public class CoordinatorServiceTest {
         while (!path.endsWith(Paths.get(rootModuleDir))) {
             path = path.getParent();
         }
-        String rootPath =  path.getParent().toString();
-        System.setProperty("seatunnel.config", rootPath
-                + "/seatunnel-engine/seatunnel-engine-server/src/test/resources/seatunnel_fixed_slots.yaml");
+        String rootPath = path.getParent().toString();
+        System.setProperty(
+                "seatunnel.config",
+                rootPath
+                        + "/seatunnel-engine/seatunnel-engine-server/src/test/resources/seatunnel_fixed_slots.yaml");
     }
 
     private JobInformation submitJob(String testClassName, String jobConfigFile, String jobName) {

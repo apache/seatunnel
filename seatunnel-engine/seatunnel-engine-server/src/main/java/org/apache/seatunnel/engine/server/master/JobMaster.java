@@ -17,7 +17,8 @@
 
 package org.apache.seatunnel.engine.server.master;
 
-import com.google.common.annotations.VisibleForTesting;
+import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
+
 import org.apache.seatunnel.api.common.metrics.JobMetrics;
 import org.apache.seatunnel.api.common.metrics.RawJobMetrics;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
@@ -635,7 +636,7 @@ public class JobMaster {
                             String checkpointStateImapKey =
                                     CheckpointCoordinator.getCheckpointStateImapKey(
                                             jobId, pipeline.getPipelineId());
-                             runningJobStateIMap.remove(checkpointStateImapKey);
+                            runningJobStateIMap.remove(checkpointStateImapKey);
                         });
 
         runningJobStateIMap.remove(jobId);
