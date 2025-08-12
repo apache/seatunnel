@@ -30,7 +30,6 @@ import org.apache.seatunnel.engine.core.job.JobStatus;
 import org.apache.seatunnel.engine.core.job.PipelineExecutionState;
 import org.apache.seatunnel.engine.core.job.PipelineStatus;
 import org.apache.seatunnel.engine.server.event.JobStateEvent;
-import org.apache.seatunnel.engine.server.event.JobStateEventListner;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.master.JobMaster;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
@@ -89,8 +88,6 @@ public class PhysicalPlan {
 
     private volatile boolean isRunning = false;
 
-    private final JobStateEventListner jobStateEventListner;
-
     public PhysicalPlan(
             @NonNull List<SubPlan> pipelineList,
             @NonNull ExecutorService executorService,
@@ -131,7 +128,6 @@ public class PhysicalPlan {
 
         this.runningJobStateIMap = runningJobStateIMap;
         this.runningJobStateTimestampsIMap = runningJobStateTimestampsIMap;
-        this.jobStateEventListner = new JobStateEventListner();
     }
 
     public void setJobMaster(JobMaster jobMaster) {
@@ -352,7 +348,14 @@ public class PhysicalPlan {
             case SAVEPOINT_DONE:
             case FINISHED:
                 stopJobStateProcess();
-                jobStateEventListner.onEvent(new JobStateEvent(jobFullName, getJobStatus()));
+                jobMaster
+                        .getCoordinatorService()
+                        .getEventProcessor()
+                        .process(
+                                new JobStateEvent(
+                                        jobImmutableInformation.getJobId(),
+                                        jobImmutableInformation.getJobConfig().getName(),
+                                        getJobStatus()));
                 jobEndFuture.complete(new JobResult(getJobStatus(), errorBySubPlan.get()));
                 return;
             default:

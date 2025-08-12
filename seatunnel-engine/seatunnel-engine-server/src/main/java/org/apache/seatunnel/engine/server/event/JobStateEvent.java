@@ -25,27 +25,19 @@ import lombok.Getter;
 import lombok.Setter;
 import lombok.ToString;
 
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-
 @Getter
 @Setter
 @ToString
 public class JobStateEvent implements Event {
 
-    private String jobName;
     private String jobId;
+    private String jobName;
     private JobStatus jobStatus;
     private long createdTime;
 
-    public JobStateEvent(String fullJobName, JobStatus jobStatus) {
-        Pattern compile = Pattern.compile("Job\\s+(\\S+)\\s+\\(([^)]+)\\)");
-        Matcher matcher = compile.matcher(fullJobName);
-        if (!matcher.find()) {
-            throw new IllegalArgumentException("Invalid job name format: " + fullJobName);
-        }
-        this.jobName = matcher.group(1);
-        this.jobId = matcher.group(2);
+    public JobStateEvent(Long jobId, String jobName, JobStatus jobStatus) {
+        this.jobName = jobName;
+        this.jobId = String.valueOf(jobId);
         this.jobStatus = jobStatus;
         this.createdTime = System.currentTimeMillis();
     }
