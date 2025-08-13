@@ -164,6 +164,7 @@
         <enableSourceJarCreation>true</enableSourceJarCreation>
 
         <hadoop-aws.version>3.1.4</hadoop-aws.version>
+        <software.amazon.awssdk.version>2.31.30</software.amazon.awssdk.version>
         <arrow.version>15.0.1</arrow.version>
 
     </properties>
