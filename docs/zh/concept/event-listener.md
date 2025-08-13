@@ -122,7 +122,7 @@ seatunnel:
 `JobStateEvent` 包含以下关键属性（可通过对应 getter 方法获取）：
 - `jobId`：任务唯一标识
 - `jobName`：任务名称
-- `jobStatus`：任务状态（枚举值，如 `FAILED`/`FINISHED`/`CANCELED`/`SAVEPOINT_DONE`）
+- `jobStatus`：任务状态（枚举值。 支持的状态有： `FAILED`/`FINISHED`/`CANCELED`/`SAVEPOINT_DONE`）
 - `createdTime`：事件创建时间戳（毫秒级）
 
 ### 自定义事件处理器实现步骤

@@ -124,7 +124,7 @@ You can define the implementation class of `org.apache.seatunnel.api.event.Event
 `JobStateEvent` contains the following key attributes (which can be obtained through corresponding getter methods):
 - `jobId`: Unique identifier of the task
 - `jobName`: Name of the task
-- `jobStatus`: Task status (enumerated values such as `FAILED`/`FINISHED`/`CANCELED`/`SAVEPOINT_DONE`.)
+- `jobStatus`: Task status (enumerated values. Supported statuses include: `FAILED`/`FINISHED`/`CANCELED`/`SAVEPOINT_DONE`.)
 - `createdTime`: Timestamp of event creation (in milliseconds)
 
 
