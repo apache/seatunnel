@@ -25,6 +25,7 @@ import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.core.job.JobStatus;
 import org.apache.seatunnel.engine.core.job.PipelineStatus;
+import org.apache.seatunnel.engine.server.dag.physical.PipelineLocation;
 import org.apache.seatunnel.engine.server.operation.PrintMessageOperation;
 import org.apache.seatunnel.engine.server.operation.ReturnRetryTimesOperation;
 import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
@@ -41,6 +42,7 @@ import com.hazelcast.map.IMap;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Collections;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.TimeUnit;
 
@@ -213,6 +215,38 @@ public class CoordinatorServiceTest {
             throw new RuntimeException(e);
         }
         Assertions.assertTrue(runningJobStateIMap.isEmpty());
+
+        jobInformation.coordinatorService.clearCoordinatorService();
+        jobInformation.coordinatorServiceTest.shutdown();
+    }
+
+    @Test
+    void testRetryCleanupMetricsImap() {
+        JobInformation jobInformation =
+                submitJob(
+                        "CoordinatorServiceTest_testRetryCleanupMetricsImap",
+                        "batch_fakesource_to_file.conf",
+                        "test_retry_cleanup_metrics_imap");
+        CoordinatorService coordinatorService = jobInformation.coordinatorService;
+        BlockingQueue<PipelineLocation> cleanupRetryQueue =
+                coordinatorService.getMetricsCleanupRetryQueue();
+        cleanupRetryQueue.offer(new PipelineLocation(jobInformation.jobId, 1));
+
+        // waiting for job status turn to running
+        await().atMost(10000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        JobStatus.RUNNING,
+                                        jobInformation.coordinatorService.getJobStatus(
+                                                jobInformation.jobId)));
+
+        try {
+            Thread.sleep(5000);
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
+        Assertions.assertEquals(1, cleanupRetryQueue.size());
 
         jobInformation.coordinatorService.clearCoordinatorService();
         jobInformation.coordinatorServiceTest.shutdown();

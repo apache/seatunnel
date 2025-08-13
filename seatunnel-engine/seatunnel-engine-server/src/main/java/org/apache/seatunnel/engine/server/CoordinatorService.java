@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.server;
 
+import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
 import org.apache.seatunnel.shade.com.google.common.util.concurrent.ThreadFactoryBuilder;
 
 import org.apache.seatunnel.api.common.metrics.JobMetrics;
@@ -56,6 +57,7 @@ import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.master.JobHistoryService;
 import org.apache.seatunnel.engine.server.master.JobMaster;
 import org.apache.seatunnel.engine.server.metrics.JobMetricsUtil;
+import org.apache.seatunnel.engine.server.metrics.MetricsCleanupScheduler;
 import org.apache.seatunnel.engine.server.metrics.SeaTunnelMetricsContext;
 import org.apache.seatunnel.engine.server.resourcemanager.NoEnoughResourceException;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManager;
@@ -177,12 +179,12 @@ public class CoordinatorService {
     private final BlockingQueue<PipelineLocation> metricsCleanupRetryQueue =
             new LinkedBlockingQueue<>();
 
-    private final int cleanUpRetryInterval;
-
     /** If this node is a master node */
     private volatile boolean isActive = false;
 
     private ExecutorService executorService;
+
+    private final MetricsCleanupScheduler metricsCleanupScheduler;
 
     private final SeaTunnelServer seaTunnelServer;
 
@@ -220,13 +222,17 @@ public class CoordinatorService {
                                 .setNameFormat("seatunnel-coordinator-service-%d")
                                 .build(),
                         new ThreadPoolStatus.RejectionCountingHandler());
+        this.metricsCleanupScheduler =
+                new MetricsCleanupScheduler(
+                        engineConfig.getCoordinatorServiceConfig().getCleanupRetryInterval(),
+                        metricsCleanupRetryQueue);
+
         this.seaTunnelServer = seaTunnelServer;
         masterActiveListener = Executors.newSingleThreadScheduledExecutor();
         masterActiveListener.scheduleAtFixedRate(
                 this::checkNewActiveMaster, 0, 100, TimeUnit.MILLISECONDS);
         scheduleStrategy = engineConfig.getScheduleStrategy();
         isWaitStrategy = scheduleStrategy.equals(ScheduleStrategy.WAIT);
-        cleanUpRetryInterval = engineConfig.getCoordinatorServiceConfig().getCleanupRetryInterval();
         logger.info("Start pending job schedule thread");
         // start pending job schedule thread
         startPendingJobScheduleThread();
@@ -453,7 +459,7 @@ public class CoordinatorService {
                         CompletableFuture.runAsync(
                                 this::restoreAllRunningJobFromMasterNodeSwitch, executorService));
 
-        startMetricsCleanupWorker();
+        metricsCleanupScheduler.start(this::cleanupMetrics);
     }
 
     private void restoreAllRunningJobFromMasterNodeSwitch() {
@@ -533,7 +539,7 @@ public class CoordinatorService {
                         ownedSlotProfilesIMap,
                         runningJobInfoIMap,
                         metricsImap,
-                        metricsCleanupRetryQueue,
+                        metricsCleanupScheduler,
                         engineConfig,
                         seaTunnelServer);
 
@@ -588,6 +594,8 @@ public class CoordinatorService {
         }
         executorService.shutdownNow();
         runningJobMasterMap.clear();
+
+        metricsCleanupScheduler.stop();
 
         try {
             executorService.awaitTermination(20, TimeUnit.SECONDS);
@@ -654,7 +662,7 @@ public class CoordinatorService {
                         ownedSlotProfilesIMap,
                         runningJobInfoIMap,
                         metricsImap,
-                        metricsCleanupRetryQueue,
+                        metricsCleanupScheduler,
                         engineConfig,
                         seaTunnelServer);
         mdcExecutorService.submit(
@@ -1093,56 +1101,40 @@ public class CoordinatorService {
         return connectorPackageService;
     }
 
-    private void startMetricsCleanupWorker() {
-        Runnable cleanupTask =
-                () -> {
-                    Thread.currentThread().setName("metrics-cleanup-runner");
-                    while (!Thread.currentThread().isInterrupted()
-                            && !metricsCleanupRetryQueue.isEmpty()) {
-                        try {
-                            PipelineLocation pipelineLocation =
-                                    metricsCleanupRetryQueue.poll(
-                                            cleanUpRetryInterval, TimeUnit.SECONDS);
-
-                            if (pipelineLocation != null) {
-                                JobMaster jobMaster = getJobMaster(pipelineLocation.getJobId());
-                                if (jobMaster != null) {
-                                    jobMaster.removeMetricsContext(
-                                            pipelineLocation,
-                                            (PipelineStatus)
-                                                    runningJobStateIMap.get(pipelineLocation));
-                                } else {
-                                    retryRemoveMetricsContext(pipelineLocation);
-                                }
-                            }
-
-                        } catch (InterruptedException e) {
-                            Thread.currentThread().interrupt();
-                            logger.info("Metrics cleanup worker interrupted, exiting...");
-                        } catch (Exception e) {
-                            logger.warning(
-                                    String.format(
-                                            "Metrics cleanup retry failed: %s", e.getMessage()));
-                        }
+    private void cleanupMetrics() {
+        try {
+            PipelineLocation pipelineLocation;
+            while (!metricsCleanupRetryQueue.isEmpty()) {
+                pipelineLocation = metricsCleanupRetryQueue.poll();
+                try {
+                    JobMaster jobMaster = getJobMaster(pipelineLocation.getJobId());
+                    if (jobMaster != null) {
+                        jobMaster.removeMetricsContext(
+                                pipelineLocation,
+                                (PipelineStatus) runningJobStateIMap.get(pipelineLocation));
+                    } else {
+                        MetricsCleanupUtils.cleanupMetrics(
+                                pipelineLocation, metricsImap, metricsCleanupScheduler);
                     }
-                };
-
-        executorService.submit(cleanupTask);
+                } catch (Exception e) {
+                    logger.warning(
+                            String.format(
+                                    "Metrics cleanup retry for pipeline [%s] failed: %s",
+                                    pipelineLocation, e.getMessage()));
+                }
+            }
+        } catch (Exception e) {
+            logger.severe(String.format("Unexpected error in metrics cleanup: %s", e.getMessage()));
+        }
     }
 
-    private void retryRemoveMetricsContext(PipelineLocation pipelineLocation) {
-        try {
-            metricsImap.compute(
-                    Constant.IMAP_RUNNING_JOB_METRICS_KEY,
-                    (key, centralMap) -> {
-                        MetricsCleanupUtils.removeMetricsEntries(pipelineLocation, centralMap);
-                        return centralMap;
-                    });
-            logger.info(
-                    String.format(
-                            "Metrics cleanup via compute for pipeline: %s", pipelineLocation));
-        } catch (Exception e) {
-            logger.warning("failed to remove metrics context via compute", e);
-        }
+    @VisibleForTesting
+    protected IMap<Long, HashMap<TaskLocation, SeaTunnelMetricsContext>> getMetricsImap() {
+        return metricsImap;
+    }
+
+    @VisibleForTesting
+    protected BlockingQueue<PipelineLocation> getMetricsCleanupRetryQueue() {
+        return metricsCleanupRetryQueue;
     }
 }

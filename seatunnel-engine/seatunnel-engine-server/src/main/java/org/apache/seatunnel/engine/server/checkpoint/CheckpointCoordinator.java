@@ -171,7 +171,7 @@ public class CheckpointCoordinator {
         this.checkpointStorage = checkpointStorage;
         this.jobId = jobId;
         this.pipelineId = plan.getPipelineId();
-        this.checkpointStateImapKey = getCheckpointStateImapKey(jobId, this.pipelineId);
+        this.checkpointStateImapKey = "checkpoint_state_" + jobId + "_" + pipelineId;
         this.runningJobStateIMap = runningJobStateIMap;
         this.plan = plan;
         this.coordinatorConfig = checkpointConfig;
@@ -236,10 +236,6 @@ public class CheckpointCoordinator {
                 updateStatus(CheckpointCoordinatorStatus.RUNNING);
             }
         }
-    }
-
-    public static String getCheckpointStateImapKey(long jobId, int pipelineId) {
-        return "checkpoint_state_" + jobId + "_" + pipelineId;
     }
 
     public int getPipelineId() {
@@ -1071,6 +1067,10 @@ public class CheckpointCoordinator {
                             "schema-change-after checkpoint(%s/%s@%s) is already completed.",
                             checkpoint.getCheckpointId(), pipelineId, jobId));
         }
+    }
+
+    public String getCheckpointStateImapKey() {
+        return checkpointStateImapKey;
     }
 
     /** Only for test */

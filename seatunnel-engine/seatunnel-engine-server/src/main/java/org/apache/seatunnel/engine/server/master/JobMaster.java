@@ -55,7 +55,6 @@ import org.apache.seatunnel.engine.core.job.JobResult;
 import org.apache.seatunnel.engine.core.job.JobStatus;
 import org.apache.seatunnel.engine.core.job.PipelineStatus;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
-import org.apache.seatunnel.engine.server.checkpoint.CheckpointCoordinator;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointManager;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointPlan;
 import org.apache.seatunnel.engine.server.checkpoint.CompletedCheckpoint;
@@ -69,6 +68,7 @@ import org.apache.seatunnel.engine.server.execution.TaskExecutionState;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.metrics.JobMetricsUtil;
+import org.apache.seatunnel.engine.server.metrics.MetricsCleanupScheduler;
 import org.apache.seatunnel.engine.server.metrics.SeaTunnelMetricsContext;
 import org.apache.seatunnel.engine.server.resourcemanager.AbstractResourceManager;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManager;
@@ -83,7 +83,6 @@ import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
 
 import com.hazelcast.cluster.Address;
 import com.hazelcast.core.HazelcastInstanceNotActiveException;
-import com.hazelcast.core.OperationTimeoutException;
 import com.hazelcast.flakeidgen.FlakeIdGenerator;
 import com.hazelcast.internal.serialization.Data;
 import com.hazelcast.jet.datamodel.Tuple2;
@@ -105,12 +104,10 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 import static com.hazelcast.jet.impl.util.ExceptionUtil.withTryCatch;
@@ -173,7 +170,7 @@ public class JobMaster {
 
     private final IMap<Long, HashMap<TaskLocation, SeaTunnelMetricsContext>> metricsImap;
 
-    private final BlockingQueue<PipelineLocation> metricsCleanupRetryQueue;
+    private final MetricsCleanupScheduler metricsCleanupScheduler;
 
     /** If the job or pipeline cancel by user, needRestore will be false */
     @Getter private volatile boolean needRestore = true;
@@ -200,7 +197,7 @@ public class JobMaster {
             @NonNull IMap ownedSlotProfilesIMap,
             @NonNull IMap<Long, JobInfo> runningJobInfoIMap,
             @NonNull IMap<Long, HashMap<TaskLocation, SeaTunnelMetricsContext>> metricsImap,
-            @NonNull BlockingQueue<PipelineLocation> metricsCleanupRetryQueue,
+            @NonNull MetricsCleanupScheduler metricsCleanupScheduler,
             EngineConfig engineConfig,
             SeaTunnelServer seaTunnelServer) {
         this.jobId = jobId;
@@ -219,7 +216,7 @@ public class JobMaster {
         this.runningJobInfoIMap = runningJobInfoIMap;
         this.engineConfig = engineConfig;
         this.metricsImap = metricsImap;
-        this.metricsCleanupRetryQueue = metricsCleanupRetryQueue;
+        this.metricsCleanupScheduler = metricsCleanupScheduler;
         this.seaTunnelServer = seaTunnelServer;
         this.releasedSlotWhenTaskGroupFinished = new ConcurrentHashMap<>();
     }
@@ -634,8 +631,9 @@ public class JobMaster {
                                             });
 
                             String checkpointStateImapKey =
-                                    CheckpointCoordinator.getCheckpointStateImapKey(
-                                            jobId, pipeline.getPipelineId());
+                                    checkpointManager
+                                            .getCheckpointCoordinator(pipeline.getPipelineId())
+                                            .getCheckpointStateImapKey();
                             runningJobStateIMap.remove(checkpointStateImapKey);
                         });
 
@@ -899,40 +897,8 @@ public class JobMaster {
                         && !checkpointManager.isPipelineSavePointEnd(pipelineLocation))
                 || pipelineStatus.equals(PipelineStatus.CANCELED)) {
 
-            boolean lockedIMap = false;
-            try {
-                lockedIMap =
-                        metricsImap.tryLock(
-                                Constant.IMAP_RUNNING_JOB_METRICS_KEY, 5, TimeUnit.SECONDS);
-                if (!lockedIMap) {
-                    LOGGER.severe("lock imap failed in update metrics");
-                    boolean offer = metricsCleanupRetryQueue.offer(pipelineLocation);
-                    if (!offer) {
-                        LOGGER.warning("failed to add pipelineLocation to retry queue");
-                    }
-                    return;
-                }
-
-                HashMap<TaskLocation, SeaTunnelMetricsContext> centralMap =
-                        metricsImap.get(Constant.IMAP_RUNNING_JOB_METRICS_KEY);
-                MetricsCleanupUtils.removeMetricsEntries(pipelineLocation, centralMap);
-                metricsImap.put(Constant.IMAP_RUNNING_JOB_METRICS_KEY, centralMap);
-
-            } catch (Exception e) {
-                LOGGER.warning("failed to remove metrics context", e);
-            } finally {
-                if (lockedIMap) {
-                    boolean unLockedIMap = false;
-                    while (!unLockedIMap) {
-                        try {
-                            metricsImap.unlock(Constant.IMAP_RUNNING_JOB_METRICS_KEY);
-                            unLockedIMap = true;
-                        } catch (OperationTimeoutException e) {
-                            LOGGER.warning("unlock imap failed in update metrics", e);
-                        }
-                    }
-                }
-            }
+            MetricsCleanupUtils.cleanupMetrics(
+                    pipelineLocation, metricsImap, metricsCleanupScheduler);
         }
     }
 
