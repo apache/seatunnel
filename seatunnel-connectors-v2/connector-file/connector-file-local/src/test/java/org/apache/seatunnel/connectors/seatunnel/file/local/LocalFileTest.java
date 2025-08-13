@@ -349,7 +349,7 @@ public class LocalFileTest {
                         "comment");
 
         Map<String, Object> rowOptions = new HashMap<>();
-        rowOptions.put(EVENT_TIME.getName(), 1);
+        rowOptions.put(EVENT_TIME.getName(), 1L);
 
         SeaTunnelRow row1 = new SeaTunnelRow(new Object[] {1L, "A", 100});
         row1.setRowKind(RowKind.INSERT);
@@ -455,7 +455,7 @@ public class LocalFileTest {
                         "comment");
 
         Map<String, Object> rowOptions = new HashMap<>();
-        rowOptions.put(EVENT_TIME.getName(), 1);
+        rowOptions.put(EVENT_TIME.getName(), 1L);
 
         SeaTunnelRow row1 = new SeaTunnelRow(new Object[] {1L, "A", 100});
         row1.setRowKind(RowKind.INSERT);
@@ -560,7 +560,7 @@ public class LocalFileTest {
                         Collections.emptyList(),
                         "comment");
         Map<String, Object> rowOptions = new HashMap<>();
-        rowOptions.put(EVENT_TIME.getName(), 1);
+        rowOptions.put(EVENT_TIME.getName(), 1L);
 
         SeaTunnelRow row1 = new SeaTunnelRow(new Object[] {1L, "A", 100});
         row1.setRowKind(RowKind.INSERT);
