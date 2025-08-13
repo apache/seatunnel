@@ -15,22 +15,34 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.core.job;
+package org.apache.seatunnel.engine.common.job;
 
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import org.apache.seatunnel.api.event.Event;
+import org.apache.seatunnel.api.event.EventType;
 
-import java.io.Serializable;
+import lombok.Getter;
+import lombok.Setter;
+import lombok.ToString;
 
-@AllArgsConstructor
-@Data
-@NoArgsConstructor
-public final class JobStatusData implements Serializable {
-    private Long jobId;
+@Getter
+@Setter
+@ToString
+public class JobStateEvent implements Event {
+
+    private String jobId;
     private String jobName;
     private JobStatus jobStatus;
-    private long submitTime;
-    private Long startTime;
-    private Long finishTime;
+    private long createdTime;
+
+    public JobStateEvent(Long jobId, String jobName, JobStatus jobStatus) {
+        this.jobId = String.valueOf(jobId);
+        this.jobName = jobName;
+        this.jobStatus = jobStatus;
+        this.createdTime = System.currentTimeMillis();
+    }
+
+    @Override
+    public EventType getEventType() {
+        return EventType.JOB_STATUS;
+    }
 }

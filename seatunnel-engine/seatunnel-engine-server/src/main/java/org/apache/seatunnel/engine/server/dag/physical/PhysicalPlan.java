@@ -21,15 +21,15 @@ import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.common.utils.RetryUtils;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
+import org.apache.seatunnel.engine.common.job.JobResult;
+import org.apache.seatunnel.engine.common.job.JobStateEvent;
+import org.apache.seatunnel.engine.common.job.JobStatus;
 import org.apache.seatunnel.engine.common.utils.ExceptionUtil;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
-import org.apache.seatunnel.engine.core.job.JobResult;
-import org.apache.seatunnel.engine.core.job.JobStatus;
 import org.apache.seatunnel.engine.core.job.PipelineExecutionState;
 import org.apache.seatunnel.engine.core.job.PipelineStatus;
-import org.apache.seatunnel.engine.server.event.JobStateEvent;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.master.JobMaster;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
@@ -349,6 +349,7 @@ public class PhysicalPlan {
             case SAVEPOINT_DONE:
             case FINISHED:
                 stopJobStateProcess();
+                jobEndFuture.complete(new JobResult(jobStatus, errorBySubPlan.get()));
                 jobMaster
                         .getCoordinatorService()
                         .getEventProcessor()
@@ -357,7 +358,6 @@ public class PhysicalPlan {
                                         jobImmutableInformation.getJobId(),
                                         jobImmutableInformation.getJobConfig().getName(),
                                         jobStatus));
-                jobEndFuture.complete(new JobResult(jobStatus, errorBySubPlan.get()));
                 return;
             default:
                 throw new IllegalArgumentException("Unknown Job State: " + jobStatus);

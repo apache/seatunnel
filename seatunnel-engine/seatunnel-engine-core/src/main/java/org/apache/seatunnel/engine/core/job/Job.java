@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.engine.core.job;
 
+import org.apache.seatunnel.engine.common.job.JobResult;
+import org.apache.seatunnel.engine.common.job.JobStatus;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 
 /** Job interface define the Running job apis */

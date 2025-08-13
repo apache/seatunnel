@@ -138,7 +138,7 @@ seatunnel:
 </dependency>
 <dependency>
     <groupId>org.apache.seatunnel</groupId>
-    <artifactId>seatunnel-engine-server</artifactId>
+    <artifactId>seatunnel-engine-common</artifactId>
     <version>${seatunnel.version}</version>
     <scope>provided</scope>
 </dependency>
@@ -153,8 +153,8 @@ seatunnel:
 import lombok.extern.slf4j.Slf4j;
 import org.apache.seatunnel.api.event.Event;
 import org.apache.seatunnel.api.event.EventHandler;
-import org.apache.seatunnel.engine.core.job.JobStatus;
-import org.apache.seatunnel.engine.server.event.JobStateEvent;
+import org.apache.seatunnel.engine.common.job.JobStatus;
+import org.apache.seatunnel.engine.common.job.JobStateEvent;
 
 /**
  * 自定义Job状态事件处理器，示例包含日志记录和异常告警逻辑
