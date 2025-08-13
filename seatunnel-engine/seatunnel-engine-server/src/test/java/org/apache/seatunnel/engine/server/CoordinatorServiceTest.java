@@ -246,7 +246,7 @@ public class CoordinatorServiceTest {
         } catch (InterruptedException e) {
             throw new RuntimeException(e);
         }
-        Assertions.assertEquals(1, cleanupRetryQueue.size());
+        Assertions.assertEquals(0, cleanupRetryQueue.size());
 
         jobInformation.coordinatorService.clearCoordinatorService();
         jobInformation.coordinatorServiceTest.shutdown();
