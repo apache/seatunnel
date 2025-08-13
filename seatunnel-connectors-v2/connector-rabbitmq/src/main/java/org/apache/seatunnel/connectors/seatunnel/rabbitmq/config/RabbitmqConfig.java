@@ -114,15 +114,9 @@ public class RabbitmqConfig implements Serializable {
         if (config.getOptional(RabbitmqSourceOptions.USE_CORRELATION_ID).isPresent()) {
             this.usesCorrelationId = config.get(RabbitmqSourceOptions.USE_CORRELATION_ID);
         }
-        if (config.getOptional(RabbitmqBaseOptions.DURABLE).isPresent()) {
-            this.durable = config.get(RabbitmqBaseOptions.DURABLE);
-        }
-        if (config.getOptional(RabbitmqBaseOptions.EXCLUSIVE).isPresent()) {
-            this.exclusive = config.get(RabbitmqBaseOptions.EXCLUSIVE);
-        }
-        if (config.getOptional(RabbitmqBaseOptions.AUTO_DELETE).isPresent()) {
-            this.autoDelete = config.get(RabbitmqBaseOptions.AUTO_DELETE);
-        }
+        this.durable = config.get(RabbitmqBaseOptions.DURABLE);
+        this.exclusive = config.get(RabbitmqBaseOptions.EXCLUSIVE);
+        this.autoDelete = config.get(RabbitmqBaseOptions.AUTO_DELETE);
         this.sinkOptionProps = config.get(RabbitmqSinkOptions.RABBITMQ_CONFIG);
     }
 }

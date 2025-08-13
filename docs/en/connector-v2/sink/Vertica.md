@@ -70,7 +70,7 @@ semantics (using XA transaction guarantee).
 |-------------------------------------------|---------|----------|---------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | url                                       | String  | Yes      | -       | The URL of the JDBC connection. Refer to a case: jdbc:vertica://localhost:5433/vertica                                                                                                                                                         |
 | driver                                    | String  | Yes      | -       | The jdbc class name used to connect to the remote data source,<br/> if you use Vertical the value is `com.vertica.jdbc.Driver`.                                                                                                                |
-| user                                      | String  | No       | -       | Connection instance user name                                                                                                                                                                                                                  |
+| username                                      | String  | No       | -       | Connection instance user name                                                                                                                                                                                                                  |
 | password                                  | String  | No       | -       | Connection instance password                                                                                                                                                                                                                   |
 | query                                     | String  | No       | -       | Use this sql write upstream input datas to database. e.g `INSERT ...`,`query` have the higher priority                                                                                                                                         |
 | database                                  | String  | No       | -       | Use this `database` and `table-name` auto-generate sql and receive upstream input datas write to database.<br/>This option is mutually exclusive with `query` and has a higher priority.                                                       |
@@ -132,7 +132,7 @@ sink {
     jdbc {
         url = "jdbc:vertica://localhost:5433/vertica"
         driver = "com.vertica.jdbc.Driver"
-        user = "root"
+        username = "root"
         password = "123456"
         query = "insert into test_table(name,age) values(?,?)"
         }
@@ -150,7 +150,7 @@ sink {
     jdbc {
         url = "jdbc:vertica://localhost:5433/vertica"
         driver = "com.vertica.jdbc.Driver"
-        user = "root"
+        username = "root"
         password = "123456"
         # Automatically generate sql statements based on database table names
         generate_sink_sql = true
@@ -171,7 +171,7 @@ sink {
         driver = "com.vertica.jdbc.Driver"
     
         max_retries = 0
-        user = "root"
+        username = "root"
         password = "123456"
         query = "insert into test_table(name,age) values(?,?)"
     

@@ -112,10 +112,12 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
     private static final String SOURCE_TABLE_2 = "postgres_cdc_table_2";
     private static final String SOURCE_TABLE_3 = "postgres_cdc_table_3";
     private static final String SOURCE_TABLE_4 = "postgres_cdc_table_4";
+    private static final String SOURCE_TABLE_5 = "postgres_cdc_table_5";
     private static final String SINK_TABLE_1 = "sink_postgres_cdc_table_1";
     private static final String SINK_TABLE_2 = "sink_postgres_cdc_table_2";
     private static final String SINK_TABLE_3 = "sink_postgres_cdc_table_3";
     private static final String SINK_TABLE_4 = "sink_postgres_cdc_table_4";
+    private static final String SINK_TABLE_5 = "sink_postgres_cdc_table_5";
 
     private static final String SOURCE_TABLE_NO_PRIMARY_KEY = "full_types_no_primary_key";
 
@@ -801,6 +803,35 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
         } finally {
             clearTable(POSTGRESQL_SCHEMA, SOURCE_TABLE_4);
             clearTable(POSTGRESQL_SCHEMA, SINK_TABLE_4);
+        }
+    }
+
+    @TestTemplate
+    public void testPostgresCdcCheckDataWithNetworkAddressTypes(TestContainer container) {
+        try {
+            CompletableFuture.supplyAsync(
+                    () -> {
+                        try {
+                            container.executeJob(
+                                    "/postgrescdc_to_postgres_with_network_address_types.conf");
+                        } catch (Exception e) {
+                            log.error("Commit task exception :" + e.getMessage());
+                            throw new RuntimeException(e);
+                        }
+                        return null;
+                    });
+
+            // stream stage
+            await().atMost(60000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () -> {
+                                Assertions.assertIterableEquals(
+                                        query(getQuerySQL(POSTGRESQL_SCHEMA, SOURCE_TABLE_5)),
+                                        query(getQuerySQL(POSTGRESQL_SCHEMA, SINK_TABLE_5)));
+                            });
+        } finally {
+            clearTable(POSTGRESQL_SCHEMA, SOURCE_TABLE_5);
+            clearTable(POSTGRESQL_SCHEMA, SINK_TABLE_5);
         }
     }
 

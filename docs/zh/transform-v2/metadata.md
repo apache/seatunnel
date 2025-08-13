@@ -17,7 +17,7 @@
 | Partition |  string  | 包含该行对应数表的分区字段，多个使用`,`连接 |
 
 ### 注意事项
-    `Delay` `Partition`目前只适用于cdc系列连接器，除外TiDB-CDC
+    `Delay` `EventTime`目前只适用于cdc系列连接器，TiDB-CDC除外
 
 ## 配置选项
 

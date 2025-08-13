@@ -30,6 +30,7 @@ import org.apache.seatunnel.engine.server.checkpoint.ActionStateKey;
 import org.apache.seatunnel.engine.server.checkpoint.ActionSubtaskState;
 import org.apache.seatunnel.engine.server.checkpoint.CompletedCheckpoint;
 
+import lombok.Getter;
 import lombok.SneakyThrows;
 
 import java.io.IOException;
@@ -45,7 +46,7 @@ import java.util.stream.Collectors;
  * <p>The service provides the APIs to get the latest checkpoint data of a job.
  */
 public class CheckpointService {
-    private CheckpointStorage checkpointStorage;
+    @Getter private CheckpointStorage checkpointStorage;
     private Serializer serializer = new ProtoStuffSerializer();
 
     @SneakyThrows

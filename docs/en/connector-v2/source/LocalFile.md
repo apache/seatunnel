@@ -14,9 +14,13 @@ import ChangeLog from '../changelog/connector-file-local.md';
 
 - [x] [batch](../../concept/connector-v2-features.md)
 - [ ] [stream](../../concept/connector-v2-features.md)
+- [x] [multimodal](../../concept/connector-v2-features.md#multimodal)
+
+  Use binary file format to read and write files in any format, such as videos, pictures, etc. In short, any files can be synchronized to the target place.
+
 - [x] [exactly-once](../../concept/connector-v2-features.md)
 
-Read all the data in a split in a pollNext call. What splits are read will be saved in snapshot.
+  Read all the data in a split in a pollNext call. What splits are read will be saved in snapshot.
 
 - [ ] [column projection](../../concept/connector-v2-features.md)
 - [x] [parallelism](../../concept/connector-v2-features.md)
@@ -50,7 +54,7 @@ If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you
 | path                      | string  | yes      | -                                    |
 | file_format_type          | string  | yes      | -                                    |
 | read_columns              | list    | no       | -                                    |
-| delimiter/field_delimiter | string  | no       | \001                                 |
+| delimiter/field_delimiter | string  | no       | \001 for text and , for csv          |
 | parse_partition_from_path | boolean | no       | true                                 |
 | date_format               | string  | no       | yyyy-MM-dd                           |
 | datetime_format           | string  | no       | yyyy-MM-dd HH:mm:ss                  |

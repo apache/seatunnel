@@ -9,6 +9,7 @@ Connector V2 is a connector defined based on the SeaTunnel Connector API interfa
 * **Multi Engine Version Support** Decoupling the connector from the engine through the translation layer solves the problem that most connectors need to modify the code in order to support a new version of the underlying engine.
 * **Unified Batch And Stream** Connector V2 can perform batch processing or streaming processing. We do not need to develop connectors for batch and stream separately.
 * **Multiplexing JDBC/Log connection.** Connector V2 supports JDBC resource reuse and sharing database log parsing.
+* **Multimodal Data Integration** Connector V2 supports multimodal data integration, including structured and unstructured text data, video, images, binary files, etc.
 
 ## Source Connector Features
 
@@ -45,6 +46,10 @@ Streaming Job Mode, The data read is unbounded and the job never stop.
 Parallelism Source Connector support config `parallelism`, every parallelism will create a task to read the data.
 In the **Parallelism Source Connector**, the source will be split into multiple splits, and then the enumerator will allocate the splits to the SourceReader for processing.
 
+### multimodal
+
+Support multimodal data integration, including structured and unstructured text data, video, images, binary files, etc.
+
 ### support user-defined split
 
 User can config the split rule.
@@ -73,3 +78,7 @@ If a sink connector supports writing row kinds(INSERT/UPDATE_BEFORE/UPDATE_AFTER
 ### support multiple table write
 
 Supports write multiple tables in one SeaTunnel job, users can dynamically specify the table's identifier by [configuring placeholders](./sink-options-placeholders.md).
+
+### multimodal
+
+Support multimodal data integration, including structured and unstructured text data, video, images, binary files, etc.

@@ -16,9 +16,13 @@ import ChangeLog from '../changelog/connector-file-obs.md';
 
 - [x] [batch](../../concept/connector-v2-features.md)
 - [ ] [stream](../../concept/connector-v2-features.md)
+- [x] [multimodal](../../concept/connector-v2-features.md#multimodal)
+
+  Use binary file format to read and write files in any format, such as videos, pictures, etc. In short, any files can be synchronized to the target place.
+
 - [x] [exactly-once](../../concept/connector-v2-features.md)
 
-Read all the data in a split in a pollNext call. What splits are read will be saved in snapshot.
+  Read all the data in a split in a pollNext call. What splits are read will be saved in snapshot.
 
 - [x] [column projection](../../concept/connector-v2-features.md)
 - [x] [parallelism](../../concept/connector-v2-features.md)
@@ -57,25 +61,26 @@ It only supports hadoop version **2.9.X+**.
 
 ## Options
 
-| name                      | type    | required | default             | description                                                                                                             |
-|---------------------------|---------|----------|---------------------|-------------------------------------------------------------------------------------------------------------------------|
-| path                      | string  | yes      | -                   | The target dir path                                                                                                     |
-| file_format_type          | string  | yes      | -                   | File type.[Tips](#file_format_type)                                                                                     |
-| bucket                    | string  | yes      | -                   | The bucket address of obs file system, for example: `obs://obs-bucket-name`                                             |
-| access_key                | string  | yes      | -                   | The access key of obs file system                                                                                       |
-| access_secret             | string  | yes      | -                   | The access secret of obs file system                                                                                    |
-| endpoint                  | string  | yes      | -                   | The endpoint of obs file system                                                                                         |
-| read_columns              | list    | yes      | -                   | The read column list of the data source, user can use it to implement field projection.[Tips](#read_columns)            |
-| delimiter                 | string  | no       | \001                | Field delimiter, used to tell connector how to slice and dice fields when reading text files                            |
-| parse_partition_from_path | boolean | no       | true                | Control whether parse the partition keys and values from file path. [Tips](#parse_partition_from_path)                  |
-| skip_header_row_number    | long    | no       | 0                   | Skip the first few lines, but only for the txt and csv.                                                                 |
-| date_format               | string  | no       | yyyy-MM-dd          | Date type format, used to tell the connector how to convert string to date.[Tips](#date_format)                         |
-| datetime_format           | string  | no       | yyyy-MM-dd HH:mm:ss | Datetime type format, used to tell the connector how to convert string to datetime.[Tips](#datetime_format)             |
-| time_format               | string  | no       | HH:mm:ss            | Time type format, used to tell the connector how to convert string to time.[Tips](#time_format)                         |
-| filename_extension        | string  | no       | -                   | Filter filename extension, which used for filtering files with specific extension. Example: `csv` `.txt` `json` `.xml`. |
-| schema                    | config  | no       | -                   | [Tips](#schema)                                                                                                         |
-| common-options            |         | no       | -                   | [Tips](#common_options)                                                                                                 |
-| sheet_name                | string  | no       | -                   | Reader the sheet of the workbook,Only used when file_format is excel.                                                   |
+| name                      | type    | required | default             | description                                                                                                               |
+|---------------------------|---------|----------|---------------------|---------------------------------------------------------------------------------------------------------------------------|
+| path                      | string  | yes      | -                   | The target dir path                                                                                                       |
+| file_format_type          | string  | yes      | -                   | File type.[Tips](#file_format_type)                                                                                       |
+| bucket                    | string  | yes      | -                   | The bucket address of obs file system, for example: `obs://obs-bucket-name`                                               |
+| access_key                | string  | yes      | -                   | The access key of obs file system                                                                                         |
+| access_secret             | string  | yes      | -                   | The access secret of obs file system                                                                                      |
+| endpoint                  | string  | yes      | -                   | The endpoint of obs file system                                                                                           |
+| read_columns              | list    | yes      | -                   | The read column list of the data source, user can use it to implement field projection.[Tips](#read_columns)              |
+| delimiter                 | string  | no       | \001                | Field delimiter, used to tell connector how to slice and dice fields when reading text files                              |
+| row_delimiter             | string  | no       | \n                  | Row delimiter, used to tell connector how to slice and dice rows when reading text files. Default is `\n` for text files. |
+| parse_partition_from_path | boolean | no       | true                | Control whether parse the partition keys and values from file path. [Tips](#parse_partition_from_path)                    |
+| skip_header_row_number    | long    | no       | 0                   | Skip the first few lines, but only for the txt and csv.                                                                   |
+| date_format               | string  | no       | yyyy-MM-dd          | Date type format, used to tell the connector how to convert string to date.[Tips](#date_format)                           |
+| datetime_format           | string  | no       | yyyy-MM-dd HH:mm:ss | Datetime type format, used to tell the connector how to convert string to datetime.[Tips](#datetime_format)               |
+| time_format               | string  | no       | HH:mm:ss            | Time type format, used to tell the connector how to convert string to time.[Tips](#time_format)                           |
+| filename_extension        | string  | no       | -                   | Filter filename extension, which used for filtering files with specific extension. Example: `csv` `.txt` `json` `.xml`.   |
+| schema                    | config  | no       | -                   | [Tips](#schema)                                                                                                           |
+| common-options            |         | no       | -                   | [Tips](#common_options)                                                                                                   |
+| sheet_name                | string  | no       | -                   | Reader the sheet of the workbook,Only used when file_format is excel.                                                     |
 
 ### Tips
 

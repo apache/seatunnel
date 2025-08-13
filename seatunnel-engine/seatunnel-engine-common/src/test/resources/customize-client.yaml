@@ -16,7 +16,7 @@
 #
 
 hazelcast-client:
-  cluster-name: custmoize
+  cluster-name: customize
   connection-strategy:
     connection-retry:
       cluster-connect-timeout-millis: 3000

@@ -20,6 +20,8 @@ package org.apache.seatunnel.connectors.seatunnel.tdengine.config;
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 
+import java.util.List;
+
 public class TDengineSourceOptions extends TDengineCommonOptions {
 
     public static final Option<String> LOWER_BOUND =
@@ -33,4 +35,21 @@ public class TDengineSourceOptions extends TDengineCommonOptions {
                     .stringType()
                     .noDefaultValue()
                     .withDescription("The upper bound for data query range");
+
+    public static final Option<List<String>> SUB_TABLES =
+            Options.key("sub_tables")
+                    .listType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "The sub table names to query data from, separated by comma , "
+                                    + "if not specified, all sub tables will be queried");
+
+    public static final Option<List<String>> READ_COLUMNS =
+            Options.key("read_columns")
+                    .listType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "The field names to be read from TDengine "
+                                    + "If not specified, all columns will be read. "
+                                    + "This option is useful for selecting specific columns when querying data from TDengine.");
 }

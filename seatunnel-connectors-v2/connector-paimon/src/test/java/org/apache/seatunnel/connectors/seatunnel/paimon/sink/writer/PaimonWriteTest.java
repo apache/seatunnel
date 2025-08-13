@@ -37,6 +37,7 @@ import org.apache.seatunnel.connectors.seatunnel.paimon.catalog.PaimonCatalog;
 import org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonHadoopConfiguration;
 import org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.paimon.sink.PaimonSinkWriter;
+import org.apache.seatunnel.connectors.seatunnel.paimon.sink.bucket.PaimonBucketAssignerFactory;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
@@ -46,6 +47,7 @@ import org.junit.jupiter.api.Test;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
 
 public class PaimonWriteTest {
 
@@ -57,6 +59,7 @@ public class PaimonWriteTest {
     private PaimonSinkWriter paimonSinkWriter;
     private ReadonlyConfig readonlyConfig;
     private SinkWriter.Context context;
+    private final String commitUser = UUID.randomUUID().toString();
 
     @BeforeEach
     public void before() {
@@ -236,9 +239,11 @@ public class PaimonWriteTest {
                         readonlyConfig,
                         paimonCatalog.getTable(tablePath),
                         paimonCatalog.getPaimonTable(tablePath),
+                        commitUser,
                         jobContext,
                         new PaimonSinkConfig(readonlyConfig),
-                        new PaimonHadoopConfiguration());
+                        new PaimonHadoopConfiguration(),
+                        new PaimonBucketAssignerFactory());
         Assertions.assertFalse(paimonSinkWriter.waitCompaction());
 
         jobContext.setJobMode(JobMode.BATCH);
@@ -248,9 +253,11 @@ public class PaimonWriteTest {
                         readonlyConfig,
                         paimonCatalog.getTable(tablePath),
                         paimonCatalog.getPaimonTable(tablePath),
+                        commitUser,
                         jobContext,
                         new PaimonSinkConfig(readonlyConfig),
-                        new PaimonHadoopConfiguration());
+                        new PaimonHadoopConfiguration(),
+                        new PaimonBucketAssignerFactory());
         Assertions.assertTrue(paimonSinkWriter.waitCompaction());
 
         Map<String, Object> properties = new HashMap<>();
@@ -268,9 +275,11 @@ public class PaimonWriteTest {
                         readonlyConfig,
                         paimonCatalog.getTable(tablePath),
                         paimonCatalog.getPaimonTable(tablePath),
+                        commitUser,
                         jobContext,
                         new PaimonSinkConfig(readonlyConfig),
-                        new PaimonHadoopConfiguration());
+                        new PaimonHadoopConfiguration(),
+                        new PaimonBucketAssignerFactory());
         Assertions.assertTrue(paimonSinkWriter.waitCompaction());
 
         writeProps.put("changelog-producer", "full-compaction");
@@ -281,9 +290,11 @@ public class PaimonWriteTest {
                         readonlyConfig,
                         paimonCatalog.getTable(tablePath),
                         paimonCatalog.getPaimonTable(tablePath),
+                        commitUser,
                         jobContext,
                         new PaimonSinkConfig(readonlyConfig),
-                        new PaimonHadoopConfiguration());
+                        new PaimonHadoopConfiguration(),
+                        new PaimonBucketAssignerFactory());
         Assertions.assertTrue(paimonSinkWriter.waitCompaction());
     }
 

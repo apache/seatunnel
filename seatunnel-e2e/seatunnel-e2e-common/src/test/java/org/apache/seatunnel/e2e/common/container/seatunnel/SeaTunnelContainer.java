@@ -497,7 +497,10 @@ public class SeaTunnelContainer extends AbstractTestContainer {
                 // JNA Cleaner
                 || threadName.startsWith("JNA Cleaner")
                 // GRPC client
-                || threadName.startsWith("grpc");
+                || threadName.startsWith("grpc")
+                // Paimon
+                || threadName.startsWith("AsyncOutputStream")
+                || threadName.startsWith("MANIFEST-READ-THREAD-POOL");
     }
 
     @Override

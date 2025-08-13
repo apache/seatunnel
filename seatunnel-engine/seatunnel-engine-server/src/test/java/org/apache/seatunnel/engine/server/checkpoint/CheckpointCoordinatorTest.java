@@ -64,6 +64,7 @@ public class CheckpointCoordinatorTest
                         null,
                         planMap,
                         checkpointConfig,
+                        server.getCheckpointService().getCheckpointStorage(),
                         instance.getExecutorService("test"),
                         nodeEngine.getHazelcastInstance().getMap(IMAP_RUNNING_JOB_STATE));
         checkpointManager.acknowledgeTask(
@@ -100,6 +101,7 @@ public class CheckpointCoordinatorTest
                             null,
                             planMap,
                             checkpointConfig,
+                            server.getCheckpointService().getCheckpointStorage(),
                             executorService,
                             nodeEngine.getHazelcastInstance().getMap(IMAP_RUNNING_JOB_STATE)) {
 
@@ -144,6 +146,7 @@ public class CheckpointCoordinatorTest
                             null,
                             planMap,
                             checkpointConfig,
+                            server.getCheckpointService().getCheckpointStorage(),
                             executorService,
                             nodeEngine.getHazelcastInstance().getMap(IMAP_RUNNING_JOB_STATE)) {
                         @Override

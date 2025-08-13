@@ -18,21 +18,41 @@
 
 package org.apache.seatunnel.connectors.seatunnel.tdengine.source;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.tdengine.exception.TDengineConnectorException;
 
+import org.apache.commons.lang3.StringUtils;
+
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.MockedStatic;
 
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Properties;
 import java.util.Random;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
+
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.when;
 
 class TDengineSourceReaderTest {
     Logger logger;
@@ -101,6 +121,62 @@ class TDengineSourceReaderTest {
         }
 
         pool.awaitTermination(3, TimeUnit.SECONDS);
+    }
+
+    @Test
+    public void testGetStableMetadata() throws SQLException {
+
+        try (MockedStatic<DriverManager> dm = mockStatic(DriverManager.class)) {
+
+            Connection mockConn = mock(Connection.class);
+            Statement mockStatement = mock(Statement.class);
+            ResultSet metadataResultSet = mock(ResultSet.class);
+            ResultSet tableResultSet = mock(ResultSet.class);
+
+            dm.when(() -> DriverManager.getConnection(anyString(), any(Properties.class)))
+                    .thenReturn(mockConn);
+
+            when(mockConn.createStatement()).thenReturn(mockStatement);
+
+            when(mockStatement.executeQuery(
+                            argThat(
+                                    sql ->
+                                            StringUtils.isNotEmpty(sql)
+                                                    && sql.trim()
+                                                            .toLowerCase()
+                                                            .startsWith("desc"))))
+                    .thenReturn(metadataResultSet);
+            when(metadataResultSet.next()).thenReturn(true, true, false);
+            when(metadataResultSet.getString(1)).thenReturn("ts", "col1", "col1", "col2");
+            when(metadataResultSet.getString(2)).thenReturn("INT", "VARCHAR(20)");
+
+            when(mockStatement.executeQuery(
+                            argThat(
+                                    sql ->
+                                            sql.trim()
+                                                    .toLowerCase()
+                                                    .startsWith(
+                                                            "select table_name from information_schema.ins_tables"))))
+                    .thenReturn(tableResultSet);
+            when(tableResultSet.next()).thenReturn(true, true, false);
+            when(tableResultSet.getString(1)).thenReturn("sub_table_1", "sub_table_2");
+            Map<String, Object> map = new HashMap<>();
+            map.put("url", "jdbc:TAOS-RS://localhost:6041/");
+            map.put("database", "test_db");
+            map.put("username", "root");
+            map.put("password", "taosdata");
+            map.put("stable", "stable");
+            map.put("sub_tables", "sub_table_1");
+            map.put("read_columns", "col1");
+
+            ReadonlyConfig config = ReadonlyConfig.fromMap(map);
+            TDengineSource source = new TDengineSource(config);
+            StableMetadata stableMetadata = source.getStableMetadata();
+            Assertions.assertEquals(1, stableMetadata.getSubTableNames().size());
+            Assertions.assertEquals("sub_table_1", stableMetadata.getSubTableNames().get(0));
+            Assertions.assertEquals(2, stableMetadata.getRowType().getFieldNames().length);
+            Assertions.assertEquals("col1", stableMetadata.getRowType().getFieldNames()[1]);
+        }
     }
 
     private static class TestCollector implements Collector<SeaTunnelRow> {

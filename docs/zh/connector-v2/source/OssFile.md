@@ -23,11 +23,15 @@ import ChangeLog from '../changelog/connector-file-oss.md';
 
 ## 主要特性
 
+- [x] [多模态](../../concept/connector-v2-features.md#多模态multimodal)
+
+  使用二进制文件格式读取和写入任何格式的文件，例如视频、图片等。简而言之，任何文件都可以同步到目标位置。
+
 - [x] [批处理](../../concept/connector-v2-features.md)
 - [ ] [流处理](../../concept/connector-v2-features.md)
 - [x] [精确一次](../../concept/connector-v2-features.md)
 
-在一次pollNext调用中读取分片中的所有数据。将读取的分片保存在快照中。
+  在一次pollNext调用中读取分片中的所有数据。将读取的分片保存在快照中。
 
 - [x] [列投影](../../concept/connector-v2-features.md)
 - [x] [并行度](../../concept/connector-v2-features.md)
@@ -188,6 +192,7 @@ schema {
 | access_key                | string  | 否       | -                   |                                                                                                                                                                                                                                                                                                                                     |
 | access_secret             | string  | 否       | -                   |                                                                                                                                                                                                                                                                                                                                     |
 | delimiter                 | string  | 否       | \001                | 字段分隔符，用于告诉连接器在读取文本文件时如何切分字段。默认`\001`，与hive的默认分隔符相同。                                                                                                                                                                                 |
+| row_delimiter             | string  | 否    | \n                  | 行分隔符，用于告诉连接器在读取文本文件时如何切分行。默认`\n`。                                                                                                                                                                                                 |
 | parse_partition_from_path | boolean | 否       | true                | 控制是否从文件路径解析分区键和值。例如，如果您从路径`oss://hadoop-cluster/tmp/seatunnel/parquet/name=tyrantlucifer/age=26`读取文件。文件中的每条记录数据都将添加这两个字段：name="tyrantlucifer"，age=16                                                       |
 | date_format               | string  | 否       | yyyy-MM-dd          | 日期类型格式，用于告诉连接器如何将字符串转换为日期，支持以下格式：`yyyy-MM-dd` `yyyy.MM.dd` `yyyy/MM/dd`。默认`yyyy-MM-dd`                                                                                                                                                             |
 | datetime_format           | string  | 否       | yyyy-MM-dd HH:mm:ss | 日期时间类型格式，用于告诉连接器如何将字符串转换为日期时间，支持以下格式：`yyyy-MM-dd HH:mm:ss` `yyyy.MM.dd HH:mm:ss` `yyyy/MM/dd HH:mm:ss` `yyyyMMddHHmmss`                                                                                                               |

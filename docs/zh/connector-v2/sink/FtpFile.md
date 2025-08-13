@@ -18,6 +18,10 @@ import ChangeLog from '../changelog/connector-file-ftp.md';
 
 ## 主要特性
 
+- [x] [多模态](../../concept/connector-v2-features.md#多模态multimodal)
+
+  使用二进制文件格式读取和写入任何格式的文件，例如视频、图片等。简而言之，任何文件都可以同步到目标位置。
+
 - [x] [精确一次](../../concept/connector-v2-features.md)
 
   默认情况下，我们使用两阶段提交（2PC）来确保`精确一次`

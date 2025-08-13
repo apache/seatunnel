@@ -142,11 +142,26 @@ schema {
 
 ### key_field_name [string]
 
-Specifies the field name to store the Redis key in the output record  when `read_key_enabled = true`.
+Specifies the field name to store the Redis key in the output record  when `read_key_enabled = true` or `data_type = hash`.
 
-If not set, the default field name `key` will be used.
+- When read_key_enabled = true, the default field name will be `key`.
 
-This field is useful when the default `key` field name conflicts with existing schema fields, or if a more descriptive name is preferred.
+- When data_type = hash and this option is not set, the default field name will be `hash_key`.
+
+This field is useful when the default field name conflicts with existing schema fields, or if a more descriptive name is preferred.
+
+Example :
+```hocon
+key_field_name = custom_key
+hash_key_parse_mode = kv
+format = "json"
+schema = {
+  fields {
+      custom_key = string
+      name = string
+  }
+}
+```
 
 ### batch_size [int]
 
@@ -269,6 +284,7 @@ This name is used in the schema to map the value field.
 Example :
 ```hocon
 read_key_enabled = true
+key_field_name = key
 single_field_name = value
 schema {
   fields {
