@@ -30,7 +30,9 @@ import org.apache.seatunnel.format.json.exception.SeaTunnelJsonFormatException;
 
 import java.nio.charset.Charset;
 
+import static org.apache.seatunnel.api.table.type.BasicType.LONG_TYPE;
 import static org.apache.seatunnel.api.table.type.BasicType.STRING_TYPE;
+import static org.apache.seatunnel.api.table.type.CommonOptions.EVENT_TIME;
 
 public class MaxWellJsonSerializationSchema implements SerializationSchema {
 
@@ -47,12 +49,12 @@ public class MaxWellJsonSerializationSchema implements SerializationSchema {
 
     public MaxWellJsonSerializationSchema(SeaTunnelRowType rowType) {
         this.jsonSerializer = new JsonSerializationSchema(createJsonRowType(rowType));
-        this.reuse = new SeaTunnelRow(2);
+        this.reuse = new SeaTunnelRow(4);
     }
 
     public MaxWellJsonSerializationSchema(SeaTunnelRowType rowType, Charset charset) {
         this.jsonSerializer = new JsonSerializationSchema(createJsonRowType(rowType), charset);
-        this.reuse = new SeaTunnelRow(2);
+        this.reuse = new SeaTunnelRow(4);
     }
 
     @Override
@@ -61,6 +63,13 @@ public class MaxWellJsonSerializationSchema implements SerializationSchema {
             String opType = rowKind2String(row.getRowKind());
             reuse.setField(0, row);
             reuse.setField(1, opType);
+            reuse.setField(2, row.getTableId());
+
+            if (row.getOptions() != null && row.getOptions().containsKey(EVENT_TIME.getName())) {
+                reuse.setField(3, row.getOptions().get(EVENT_TIME.getName()));
+            } else {
+                reuse.setField(3, null);
+            }
             return jsonSerializer.serialize(reuse);
         } catch (Throwable t) {
             throw CommonError.jsonOperationError(FORMAT, row.toString(), t);
@@ -87,7 +96,7 @@ public class MaxWellJsonSerializationSchema implements SerializationSchema {
         // but we don't need them
         // and we don't need "old" , because can not support UPDATE_BEFORE,UPDATE_AFTER
         return new SeaTunnelRowType(
-                new String[] {"data", "type"},
-                new SeaTunnelDataType[] {databaseSchema, STRING_TYPE});
+                new String[] {"data", "type", "tableId", "ts"},
+                new SeaTunnelDataType[] {databaseSchema, STRING_TYPE, STRING_TYPE, LONG_TYPE});
     }
 }
