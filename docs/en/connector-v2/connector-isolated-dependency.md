@@ -37,6 +37,8 @@ SEATUNNEL_HOME/
 ## Limitations
 
 - For the Zeta engine, please ensure that the `${SEATUNNEL_HOME}/plugins/connector-xxx` directory structure is consistent across all nodes. Each node must contain the same subdirectories and dependency jars.
+- Any directory or jar that does not start with `connector-` will be treated as a common dependency directory, and all engines and connectors will load such jars.
+- In the Zeta engine, you can achieve shared dependencies for all connectors by placing common jars in the `${SEATUNNEL_HOME}/lib/` directory.
 
 ## Verification
 

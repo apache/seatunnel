@@ -36,7 +36,9 @@ SEATUNNEL_HOME/
 
 ## 限制说明
 
-- 在Zeta引擎中，请确保所有节点的 `${SEATUNNEL_HOME}/plugins/connector-xxx` 目录结构一致。都需要包含相同的子目录和依赖 jar。
+- 在Zeta引擎中，请确保所有节点的 `${SEATUNNEL_HOME}/plugins/` 目录结构一致。都需要包含相同的子目录和依赖 jar。
+- 任何没有以`connector-`开头的目录或者jar都将被当作通用依赖目录处理，所有引擎和connector都会加载此类jar。
+- 在Zeta引擎中，可以通过将通用的jar放到 `${SEATUNNEL_HOME}/lib/` 目录下来实现所有 connector 的共享依赖。
 
 ## 验证
 
