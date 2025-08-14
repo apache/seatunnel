@@ -170,7 +170,8 @@ public class CoordinatorServiceTest {
                 .untilAsserted(
                         () ->
                                 Assertions.assertNull(
-                                        jobInformation.coordinatorService.pendingJobMasterMap.get(jobInformation.jobId)));
+                                        jobInformation.coordinatorService.pendingJobMasterMap.get(
+                                                jobInformation.jobId)));
 
         jobInformation.coordinatorService.clearCoordinatorService();
         jobInformation.coordinatorServiceTest.shutdown();
@@ -191,8 +192,7 @@ public class CoordinatorServiceTest {
         Assertions.assertTrue(!runningJobStateIMap.isEmpty());
 
         await().atMost(10000, TimeUnit.MILLISECONDS)
-                .untilAsserted(
-                        () -> Assertions.assertTrue(runningJobStateIMap.isEmpty()));
+                .untilAsserted(() -> Assertions.assertTrue(runningJobStateIMap.isEmpty()));
 
         jobInformation.coordinatorService.clearCoordinatorService();
         jobInformation.coordinatorServiceTest.shutdown();
