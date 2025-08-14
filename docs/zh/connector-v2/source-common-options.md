@@ -2,7 +2,7 @@
 sidebar_position: 3
 ---
 
-# Source Common Options
+# Source 常用选项
 
 > Source connector 的常用参数
 
