@@ -317,6 +317,17 @@ The max job count can be executed at same time
 Interval in seconds between attempts to retry metrics cleanup when previous cleanup fails due to lock contention or other issues.
 Default value is 60 seconds.
 
+**cleanup-retry-queue-size**
+
+Maximum number of retry tasks allowed in the metrics cleanup retry queue.
+Older entries will be removed when the queue is full.
+Default value is 100.
+
+**cleanup-retry-batch-size**
+
+Maximum number of tasks processed in a single cleanup attempt.
+Default value is 100.
+
 Example
 
 ```yaml
@@ -324,6 +335,8 @@ coordinator-service:
   core-thread-num: 30
   max-thread-num: 1000
   cleanup-retry-interval: 60
+  cleanup-retry-queue-size: 100
+  cleanup-retry-batch-size: 100
 ```
 
 

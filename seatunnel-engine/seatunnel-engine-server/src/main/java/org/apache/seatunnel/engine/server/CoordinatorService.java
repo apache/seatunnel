@@ -176,8 +176,9 @@ public class CoordinatorService {
 
     private IMap<Long, HashMap<TaskLocation, SeaTunnelMetricsContext>> metricsImap;
 
-    private final BlockingQueue<PipelineLocation> metricsCleanupRetryQueue =
-            new LinkedBlockingQueue<>();
+    private final BlockingQueue<PipelineLocation> metricsCleanupRetryQueue;
+
+    private final int cleanupRetryBatchSize;
 
     /** If this node is a master node */
     private volatile boolean isActive = false;
@@ -222,10 +223,14 @@ public class CoordinatorService {
                                 .setNameFormat("seatunnel-coordinator-service-%d")
                                 .build(),
                         new ThreadPoolStatus.RejectionCountingHandler());
+        this.metricsCleanupRetryQueue
+                = new LinkedBlockingQueue<>(engineConfig.getCoordinatorServiceConfig().getCleanupRetryQueueSize());
         this.metricsCleanupScheduler =
                 new MetricsCleanupScheduler(
                         engineConfig.getCoordinatorServiceConfig().getCleanupRetryInterval(),
                         metricsCleanupRetryQueue);
+        this.cleanupRetryBatchSize =
+                engineConfig.getCoordinatorServiceConfig().getCleanupRetryBatchSize();
 
         this.seaTunnelServer = seaTunnelServer;
         masterActiveListener = Executors.newSingleThreadScheduledExecutor();
@@ -1104,33 +1109,32 @@ public class CoordinatorService {
     private void cleanupMetrics() {
         try {
             PipelineLocation pipelineLocation;
-            while (!metricsCleanupRetryQueue.isEmpty()) {
+            for (int i = 0; i < cleanupRetryBatchSize && !metricsCleanupRetryQueue.isEmpty(); i++) {
                 pipelineLocation = metricsCleanupRetryQueue.poll();
-                try {
-                    JobMaster jobMaster = getJobMaster(pipelineLocation.getJobId());
-                    if (jobMaster != null) {
-                        jobMaster.removeMetricsContext(
-                                pipelineLocation,
-                                (PipelineStatus) runningJobStateIMap.get(pipelineLocation));
-                    } else {
-                        MetricsCleanupUtils.cleanupMetrics(
-                                pipelineLocation, metricsImap, metricsCleanupScheduler);
-                    }
-                } catch (Exception e) {
-                    logger.warning(
-                            String.format(
-                                    "Metrics cleanup retry for pipeline [%s] failed: %s",
-                                    pipelineLocation, e.getMessage()));
-                }
+                cleanupSinglePipeline(pipelineLocation);
             }
         } catch (Exception e) {
             logger.severe(String.format("Unexpected error in metrics cleanup: %s", e.getMessage()));
         }
     }
 
-    @VisibleForTesting
-    protected IMap<Long, HashMap<TaskLocation, SeaTunnelMetricsContext>> getMetricsImap() {
-        return metricsImap;
+    private void cleanupSinglePipeline(PipelineLocation pipelineLocation) {
+        try {
+            JobMaster jobMaster = getJobMaster(pipelineLocation.getJobId());
+            if (jobMaster != null) {
+                jobMaster.removeMetricsContext(
+                        pipelineLocation,
+                        (PipelineStatus) runningJobStateIMap.get(pipelineLocation));
+            } else {
+                MetricsCleanupUtils.cleanupMetrics(
+                        pipelineLocation, metricsImap, metricsCleanupScheduler);
+            }
+        } catch (Exception e) {
+            logger.warning(
+                    String.format(
+                            "Metrics cleanup retry for pipeline [%s] failed: %s",
+                            pipelineLocation, e.getMessage()));
+        }
     }
 
     @VisibleForTesting
