@@ -72,7 +72,7 @@ public class DebeziumJsonWriteStrategy extends AbstractWriteStrategy<FSDataOutpu
         try {
             byte[] rowBytes =
                     serializationSchema.serialize(
-                            seaTunnelRow.copy(
+                            seaTunnelRow.copyWithOptions(
                                     sinkColumnsIndexInRow.stream()
                                             .mapToInt(Integer::intValue)
                                             .toArray()));
