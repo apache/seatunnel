@@ -124,6 +124,8 @@ seatunnel:
 - `jobName`：任务名称
 - `jobStatus`：任务状态（枚举值。 支持的状态有： `FAILED`/`FINISHED`/`CANCELED`/`SAVEPOINT_DONE`）
 - `createdTime`：事件创建时间戳（毫秒级）
+- **事件类型标识**：`JobStateEvent` 对应的 `EventType` 为 `EventType.JOB_STATUS`，用于在事件处理流程中区分该事件类型（见下文处理器实现说明）。
+
 
 ### 自定义事件处理器实现步骤
 
@@ -147,12 +149,14 @@ seatunnel:
 
 
 #### 2. 实现事件处理器
-自定义类实现 `org.apache.seatunnel.api.event.EventHandler` 接口，并重写 `handle` 方法，针对 `JobStateEvent` 进行业务逻辑处理：
+自定义类实现 `org.apache.seatunnel.api.event.EventHandler` 接口，并重写 `handle` 方法，针对 `JobStateEvent` 进行业务逻辑处理。  
+**核心逻辑**：通过 `EventType.JOB_STATUS` 过滤事件——由于 SeaTunnel 引擎会分发多种类型的事件（如资源事件、metrics 事件等），需显式判断事件类型是否为 `EventType.JOB_STATUS`，以确保仅处理 `JobStateEvent`。
 
 ```java
 import lombok.extern.slf4j.Slf4j;
 import org.apache.seatunnel.api.event.Event;
 import org.apache.seatunnel.api.event.EventHandler;
+import org.apache.seatunnel.api.event.EventType;
 import org.apache.seatunnel.engine.common.job.JobStatus;
 import org.apache.seatunnel.engine.common.job.JobStateEvent;
 
@@ -164,11 +168,12 @@ public class CustomJobStateEventHandler implements EventHandler {
 
     @Override
     public void handle(Event event) {
-        // 仅处理JobStateEvent类型的事件
-       if (event.getEventType() != EventType.JOB_STATUS) {
-          return;
-       }
+        // 仅处理事件类型为EventType.JOB_STATUS的事件（即JobStateEvent）
+        if (event.getEventType() != EventType.JOB_STATUS) {
+            return;
+        }
 
+        // 确认事件类型后，安全转换为JobStateEvent
         JobStateEvent jobEvent = (JobStateEvent) event;
         String jobId = jobEvent.getJobId();
         String jobName = jobEvent.getJobName();
@@ -233,4 +238,5 @@ public class CustomJobStateEventHandler implements EventHandler {
 ### 注意事项
 - 处理器逻辑应尽量轻量，避免阻塞事件处理线程
 - 若需网络调用（如发送告警），建议使用异步方式实现，防止超时影响任务本身
-- 仅 Zeta 引擎支持 `JobStateEvent`，Flink/Spark 引擎暂不支持此事件类型
+- 仅 Zeta 引擎支持 `JobStateEvent`（对应 `EventType.JOB_STATUS`），Flink/Spark 引擎暂不支持此事件类型
+- `EventType.JOB_STATUS` 是 `JobStateEvent` 的唯一标识，务必在处理器中通过该类型过滤事件，避免处理非预期事件导致的异常。

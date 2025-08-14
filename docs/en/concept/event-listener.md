@@ -126,6 +126,7 @@ You can define the implementation class of `org.apache.seatunnel.api.event.Event
 - `jobName`: Name of the task
 - `jobStatus`: Task status (enumerated values. Supported statuses include: `FAILED`/`FINISHED`/`CANCELED`/`SAVEPOINT_DONE`.)
 - `createdTime`: Timestamp of event creation (in milliseconds)
+- **Event type identifier**: The `EventType` corresponding to `JobStateEvent` is `EventType.JOB_STATUS`, which is used to distinguish this event type in the event processing flow (see the handler implementation description below).
 
 
 ### Steps to Implement a Custom Event Handler
@@ -150,12 +151,14 @@ Introduce the necessary dependencies in the project's `pom.xml`:
 
 
 #### 2. Implement the Event Handler
-Create a custom class that implements the `org.apache.seatunnel.api.event.EventHandler` interface and override the `handle` method to handle business logic for `JobStateEvent`:
+Create a custom class that implements the `org.apache.seatunnel.api.event.EventHandler` interface and override the `handle` method to perform business logic processing for `JobStateEvent`.  
+**Core logic**: Filter events through `EventType.JOB_STATUS` — since the SeaTunnel engine distributes various types of events (such as resource events, metrics events, etc.), it is necessary to explicitly determine whether the event type is `EventType.JOB_STATUS` to ensure that only `JobStateEvent` is processed.
 
 ```java
 import lombok.extern.slf4j.Slf4j;
 import org.apache.seatunnel.api.event.Event;
 import org.apache.seatunnel.api.event.EventHandler;
+import org.apache.seatunnel.api.event.EventType;
 import org.apache.seatunnel.engine.common.job.JobStatus;
 import org.apache.seatunnel.engine.common.job.JobStateEvent;
 
@@ -167,11 +170,12 @@ public class CustomJobStateEventHandler implements EventHandler {
 
     @Override
     public void handle(Event event) {
-        // Only process events of type JOB_STATUS
+        // Only process events of type EventType.JOB_STATUS (i.e., JobStateEvent)
         if (event.getEventType() != EventType.JOB_STATUS) {
             return;
         }
 
+        // After confirming the event type, safely cast to JobStateEvent
         JobStateEvent jobEvent = (JobStateEvent) event;
         String jobId = jobEvent.getJobId();
         String jobName = jobEvent.getJobName();
@@ -216,13 +220,12 @@ public class CustomJobStateEventHandler implements EventHandler {
 }
 ```
 
-
 #### 3. Configure SPI Loading
 To enable the engine to automatically discover and load the custom processor, add an SPI configuration file in the project's resource directory:
 
 1. Create the directory: `src/main/resources/META-INF/services/`
 2. Create a new file: `org.apache.seatunnel.api.event.EventHandler`
-3. Add the fully qualified class name of the custom processor in the file:
+3. Add the fully qualified class name of the custom handler in the file:
    ```
    com.example.CustomJobStateEventHandler
    ```
@@ -235,6 +238,7 @@ To enable the engine to automatically discover and load the custom processor, ad
 
 
 ### Notes
-- The processor logic should be as lightweight as possible to avoid blocking the event processing thread
+- The handler logic should be as lightweight as possible to avoid blocking the event processing thread
 - For network calls (e.g., sending alerts), it is recommended to implement them asynchronously to prevent timeouts from affecting the task itself
 - Only the Zeta engine supports `JobStateEvent`; Flink/Spark engines do not currently support this event type
+- `EventType.JOB_STATUS` is the unique identifier of `JobStateEvent`. It is essential to filter events by this type in the handler to avoid exceptions caused by processing unexpected events.
