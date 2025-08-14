@@ -200,7 +200,7 @@ public class ServerConfigOptions {
                         .withDescription("Whether to enable the https server.");
 
         public static final Option<Integer> HTTPS_PORT =
-                Options.key("port")
+                Options.key("https-port")
                         .intType()
                         .defaultValue(8443)
                         .withDescription("The port of the https server.");
