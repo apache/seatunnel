@@ -172,7 +172,7 @@ sink {
     allow_delete = true
   }
 }
-``
+```
 
 ## 相关链接
 
