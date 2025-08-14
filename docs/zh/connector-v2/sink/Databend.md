@@ -12,9 +12,9 @@ import ChangeLog from '../changelog/connector-databend.md';
 
 ## 主要特性
 
-- [ ] [精确一次](../../concept/connector-v2-features.md)
 - [ ] [支持多表写入](../../concept/connector-v2-features.md)
-- [ ] [cdc](../../concept/connector-v2-features.md)
+- [x] [精确一次](../../concept/connector-v2-features.md)
+- [x] [cdc](../../concept/connector-v2-features.md)
 - [x] [并行度](../../concept/connector-v2-features.md)
 
 ## 描述
@@ -49,6 +49,8 @@ Databend sink 内部通过 stage attachment 实现数据的批量导入。
 | custom_sql | String | 否 | - | 自定义写入 SQL，通常用于复杂的写入场景              |
 | execute_timeout_sec | Integer | 否 | 300 | 执行SQL的超时时间（秒）                      |
 | jdbc_config | Map | 否 | - | 额外的 JDBC 连接配置，如连接超时参数等             |
+| conflict_key | String | 否 | - | cdc 模式下的冲突键，用于确定冲突解决的主键 |
+| allow_delete | Boolean | 否 | false | cdc 模式下是否允许删除操作 |
 
 ### schema_save_mode[Enum]
 
@@ -151,6 +153,26 @@ sink {
   }
 }
 ```
+
+### CDC mode
+
+```hocon
+sink {
+  Databend {
+    url = "jdbc:databend://databend:8000/default?ssl=false"
+    user = "root"
+    password = ""
+    database = "default"
+    table = "sink_table"
+    
+    # Enable CDC mode
+    batch_size = 1
+    interval = 3
+    conflict_key = "id"
+    allow_delete = true
+  }
+}
+``
 
 ## 相关链接
 
