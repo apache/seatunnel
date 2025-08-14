@@ -12,9 +12,9 @@ import ChangeLog from '../changelog/connector-databend.md';
 
 ## Key Features
 
-- [ ] [Exactly-Once](../../concept/connector-v2-features.md)
 - [ ] [Support Multi-table Writing](../../concept/connector-v2-features.md)
-- [ ] [CDC](../../concept/connector-v2-features.md)
+- [x] [Exactly-Once](../../concept/connector-v2-features.md)
+- [x] [CDC](../../concept/connector-v2-features.md)
 - [x] [Parallelism](../../concept/connector-v2-features.md)
 
 ## Description
@@ -37,7 +37,7 @@ The Databend sink internally implements bulk data import through stage attachmen
 | Name | Type | Required | Default Value | Description                                 |
 |------|------|----------|---------------|---------------------------------------------|
 | url | String | Yes | - | Databend JDBC connection URL               |
-| username | String | Yes | - | Databend database username                    |
+| user | String | Yes | - | Databend database username                    |
 | password | String | Yes | - | Databend database password                     |
 | database | String | No | - | Databend database name, defaults to the database name specified in the connection URL |
 | table | String | No | - | Databend table name                       |
@@ -49,6 +49,8 @@ The Databend sink internally implements bulk data import through stage attachmen
 | custom_sql | String | No | - | Custom write SQL, typically used for complex write scenarios              |
 | execute_timeout_sec | Integer | No | 300 | SQL execution timeout (seconds)                      |
 | jdbc_config | Map | No | - | Additional JDBC connection configuration, such as connection timeout parameters             |
+| conflict_key | String | No | - | Conflict key for CDC mode, used to determine the primary key for conflict resolution |
+| allow_delete | Boolean | No | false | Whether to allow delete operations in CDC mode |
 
 ### schema_save_mode[Enum]
 
@@ -112,7 +114,7 @@ source {
 sink {
   Databend {
     url = "jdbc:databend://localhost:8000"
-    username = "root"
+    user = "root"
     password = ""
     database = "default"
     table = "target_table"
@@ -127,7 +129,7 @@ sink {
 sink {
   Databend {
     url = "jdbc:databend://localhost:8000"
-    username = "root"
+    user = "root"
     password = ""
     database = "default"
     table = "target_table"
@@ -142,12 +144,32 @@ sink {
 sink {
   Databend {
     url = "jdbc:databend://localhost:8000"
-    username = "root"
+    user = "root"
     password = ""
     database = "default"
     table = "target_table"
     schema_save_mode = "RECREATE_SCHEMA"
     data_save_mode = "APPEND_DATA"
+  }
+}
+```
+
+### CDC mode
+
+```hocon
+sink {
+  Databend {
+    url = "jdbc:databend://databend:8000/default?ssl=false"
+    user = "root"
+    password = ""
+    database = "default"
+    table = "sink_table"
+    
+    # Enable CDC mode
+    batch_size = 1
+    interval = 3
+    conflict_key = "id"
+    allow_delete = true
   }
 }
 ```
