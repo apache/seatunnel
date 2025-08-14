@@ -65,27 +65,27 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 ## 接收器选项
 
-| 名称                              | 类型    | 是否必填 | 默认值  | 描述                                                                                                                                                                                                 |
-|-----------------------------------|---------|----------|---------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| url                               | String  | 是       | -       | JDBC 连接的 URL。参考示例：`jdbc:sqlserver://localhost:1433;databaseName=mydatabase`                                                                                                                |
-| driver                            | String  | 是       | -       | 用于连接远程数据源的 JDBC 类名，如果使用 SQL Server，值为 `com.microsoft.sqlserver.jdbc.SQLServerDriver`。                                                                                           |
-| user                              | String  | 否       | -       | 连接实例的用户名                                                                                                                                                                                     |
-| password                          | String  | 否       | -       | 连接实例的密码                                                                                                                                                                                       |
-| query                             | String  | 否       | -       | 使用此 SQL 将上游输入数据写入数据库。例如 `INSERT ...`，`query` 优先级更高。                                                                                                                         |
-| database                          | String  | 否       | -       | 使用此 `database` 和 `table-name` 自动生成 SQL 并接收上游输入数据写入数据库。此选项与 `query` 互斥，且优先级更高。                                                                                   |
-| table                             | String  | 否       | -       | 使用 `database` 和此 `table-name` 自动生成 SQL 并接收上游输入数据写入数据库。此选项与 `query` 互斥，且优先级更高。                                                                                   |
-| primary_keys                      | Array    | 否       | -       | 此选项用于在自动生成 SQL 时支持 `insert`、`delete` 和 `update` 等操作。                                                                                                                              |
-| connection_check_timeout_sec      | Int    | 否       | 30      | 用于验证连接完成的数据库操作的等待时间（秒）。                                                                                                                                                       |
-| max_retries                       | Int    | 否       | 0       | 提交失败（executeBatch）的重试次数。                                                                                                                                                                 |
-| batch_size                        | Int    | 否       | 1000    | 对于批量写入，当缓冲的记录数达到 `batch_size` 或时间达到 `checkpoint.interval` 时，数据将被刷新到数据库中。                                                                                           |
-| is_exactly_once                   | Boolean  | 否       | false   | 是否启用精确一次语义，将使用 Xa 事务。如果启用，需要设置 `xa_data_source_class_name`。                                                                                                               |
-| generate_sink_sql                 | Boolean  | 否       | false   | 根据要写入的数据库表生成 SQL 语句。                                                                                                                                                                  |
-| xa_data_source_class_name         | String  | 否       | -       | 数据库驱动的 XA 数据源类名，例如 SQL Server 为 `com.microsoft.sqlserver.jdbc.SQLServerXADataSource`，其他数据源请参考附录。                                                                          |
-| max_commit_attempts               | Int    | 否       | 3       | 事务提交失败的重试次数。                                                                                                                                                                             |
-| transaction_timeout_sec           | Int    | 否       | -1      | 事务打开后的超时时间，默认为 -1（永不超时）。注意：设置超时可能会影响精确一次语义。                                                                                                                  |
-| auto_commit                       | Boolean  | 否       | true    | 默认启用自动事务提交。                                                                                                                                                                               |
-| common-options                    |         | 否       | -       | 接收器插件通用参数，详情请参考 [Sink Common Options](../sink-common-options.md)。                                                                                                                    |
-| enable_upsert                     | Boolean  | 否       | true    | 通过主键存在启用 upsert。如果任务中没有键重复数据，将此参数设置为 `false` 可以加快数据导入速度。                                                                                                     |
+| 名称                           | 类型    | 是否必填 | 默认值  | 描述                                                                                                                                                                                                 |
+|------------------------------|---------|----------|---------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| url                          | String  | 是       | -       | JDBC 连接的 URL。参考示例：`jdbc:sqlserver://localhost:1433;databaseName=mydatabase`                                                                                                                |
+| driver                       | String  | 是       | -       | 用于连接远程数据源的 JDBC 类名，如果使用 SQL Server，值为 `com.microsoft.sqlserver.jdbc.SQLServerDriver`。                                                                                           |
+| username                     | String  | 否       | -       | 连接实例的用户名                                                                                                                                                                                     |
+| password                     | String  | 否       | -       | 连接实例的密码                                                                                                                                                                                       |
+| query                        | String  | 否       | -       | 使用此 SQL 将上游输入数据写入数据库。例如 `INSERT ...`，`query` 优先级更高。                                                                                                                         |
+| database                     | String  | 否       | -       | 使用此 `database` 和 `table-name` 自动生成 SQL 并接收上游输入数据写入数据库。此选项与 `query` 互斥，且优先级更高。                                                                                   |
+| table                        | String  | 否       | -       | 使用 `database` 和此 `table-name` 自动生成 SQL 并接收上游输入数据写入数据库。此选项与 `query` 互斥，且优先级更高。                                                                                   |
+| primary_keys                 | Array    | 否       | -       | 此选项用于在自动生成 SQL 时支持 `insert`、`delete` 和 `update` 等操作。                                                                                                                              |
+| connection_check_timeout_sec | Int    | 否       | 30      | 用于验证连接完成的数据库操作的等待时间（秒）。                                                                                                                                                       |
+| max_retries                  | Int    | 否       | 0       | 提交失败（executeBatch）的重试次数。                                                                                                                                                                 |
+| batch_size                   | Int    | 否       | 1000    | 对于批量写入，当缓冲的记录数达到 `batch_size` 或时间达到 `checkpoint.interval` 时，数据将被刷新到数据库中。                                                                                           |
+| is_exactly_once              | Boolean  | 否       | false   | 是否启用精确一次语义，将使用 Xa 事务。如果启用，需要设置 `xa_data_source_class_name`。                                                                                                               |
+| generate_sink_sql            | Boolean  | 否       | false   | 根据要写入的数据库表生成 SQL 语句。                                                                                                                                                                  |
+| xa_data_source_class_name    | String  | 否       | -       | 数据库驱动的 XA 数据源类名，例如 SQL Server 为 `com.microsoft.sqlserver.jdbc.SQLServerXADataSource`，其他数据源请参考附录。                                                                          |
+| max_commit_attempts          | Int    | 否       | 3       | 事务提交失败的重试次数。                                                                                                                                                                             |
+| transaction_timeout_sec      | Int    | 否       | -1      | 事务打开后的超时时间，默认为 -1（永不超时）。注意：设置超时可能会影响精确一次语义。                                                                                                                  |
+| auto_commit                  | Boolean  | 否       | true    | 默认启用自动事务提交。                                                                                                                                                                               |
+| common-options               |         | 否       | -       | 接收器插件通用参数，详情请参考 [Sink Common Options](../sink-common-options.md)。                                                                                                                    |
+| enable_upsert                | Boolean  | 否       | true    | 通过主键存在启用 upsert。如果任务中没有键重复数据，将此参数设置为 `false` 可以加快数据导入速度。                                                                                                     |
 
 ## 提示
 
@@ -108,7 +108,7 @@ source {
   Jdbc {
     driver = com.microsoft.sqlserver.jdbc.SQLServerDriver
     url = "jdbc:sqlserver://localhost:1433;databaseName=column_type_test"
-    user = SA
+    username = SA
     password = "Y.sa123456"
     query = "select * from column_type_test.dbo.full_types_jdbc"
     # 并行分片读取字段
@@ -129,7 +129,7 @@ sink {
   Jdbc {
     driver = com.microsoft.sqlserver.jdbc.SQLServerDriver
     url = "jdbc:sqlserver://localhost:1433;databaseName=column_type_test"
-    user = SA
+    username = SA
     password = "Y.sa123456"
     query = "insert into full_types_jdbc_sink( id, val_char, val_varchar, val_text, val_nchar, val_nvarchar, val_ntext, val_decimal, val_numeric, val_float, val_real, val_smallmoney, val_money, val_bit, val_tinyint, val_smallint, val_int, val_bigint, val_date, val_time, val_datetime2, val_datetime, val_smalldatetime ) values( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? )"
   }
@@ -147,7 +147,7 @@ Jdbc {
   plugin_input = "customers"
   driver = com.microsoft.sqlserver.jdbc.SQLServerDriver
   url = "jdbc:sqlserver://localhost:1433;databaseName=column_type_test"
-  user = SA
+  username = SA
   password = "Y.sa123456"
   generate_sink_sql = true
   database = "column_type_test"
@@ -165,7 +165,7 @@ Jdbc {
 Jdbc {
   driver = com.microsoft.sqlserver.jdbc.SQLServerDriver
   url = "jdbc:sqlserver://localhost:1433;databaseName=column_type_test"
-  user = SA
+  username = SA
   password = "Y.sa123456"
   query = "insert into full_types_jdbc_sink( id, val_char, val_varchar, val_text, val_nchar, val_nvarchar, val_ntext, val_decimal, val_numeric, val_float, val_real, val_smallmoney, val_money, val_bit, val_tinyint, val_smallint, val_int, val_bigint, val_date, val_time, val_datetime2, val_datetime, val_smalldatetime ) values( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? )"
   is_exactly_once = "true"

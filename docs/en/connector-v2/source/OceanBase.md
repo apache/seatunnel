@@ -81,7 +81,7 @@ Read external data source data through JDBC.
 |------------------------------|------------|----------|-----------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | url                          | String     | Yes      | -               | The URL of the JDBC connection. Refer to a case: jdbc:oceanbase://localhost:2883/test                                                                                                                                                                                 |
 | driver                       | String     | Yes      | -               | The jdbc class name used to connect to the remote data source, should be `com.oceanbase.jdbc.Driver`.                                                                                                                                                                 |
-| user                         | String     | No       | -               | Connection instance user name                                                                                                                                                                                                                                         |
+| username                         | String     | No       | -               | Connection instance user name                                                                                                                                                                                                                                         |
 | password                     | String     | No       | -               | Connection instance password                                                                                                                                                                                                                                          |
 | compatible_mode              | String     | Yes      | -               | The compatible mode of OceanBase, can be 'mysql' or 'oracle'.                                                                                                                                                                                                         |
 | query                        | String     | Yes      | -               | Query statement                                                                                                                                                                                                                                                       |
@@ -112,7 +112,7 @@ source {
   Jdbc {
     driver = "com.oceanbase.jdbc.Driver"
     url = "jdbc:oceanbase://localhost:2883/test?useUnicode=true&characterEncoding=UTF-8&rewriteBatchedStatements=true"
-    user = "root"
+    username = "root"
     password = ""
     compatible_mode = "mysql"
     query = "select * from source"
@@ -142,7 +142,7 @@ source {
   Jdbc {
     driver = "com.oceanbase.jdbc.Driver"
     url = "jdbc:oceanbase://localhost:2883/test?useUnicode=true&characterEncoding=UTF-8&rewriteBatchedStatements=true"
-    user = "root"
+    username = "root"
     password = ""
     compatible_mode = "mysql"
     query = "select * from source"
@@ -166,7 +166,7 @@ source {
   Jdbc {
     driver = "com.oceanbase.jdbc.Driver"
     url = "jdbc:oceanbase://localhost:2883/test?useUnicode=true&characterEncoding=UTF-8&rewriteBatchedStatements=true"
-    user = "root"
+    username = "root"
     password = ""
     compatible_mode = "mysql"
     query = "select * from source"

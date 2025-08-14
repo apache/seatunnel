@@ -66,7 +66,7 @@ sink {
     jdbc {
         url = "jdbc:redshift://localhost:5439/mydatabase"
         driver = "com.amazon.redshift.jdbc.Driver"
-        user = "myUser"
+        username = "myUser"
         password = "myPassword"
         
         generate_sink_sql = true
@@ -85,7 +85,7 @@ sink {
     jdbc {
         url = "jdbc:redshift://localhost:5439/mydatabase"
         driver = "com.amazon.redshift.jdbc.Driver"
-        user = "myUser"
+        username = "myUser"
         password = "mypassword"
         
         generate_sink_sql = true
