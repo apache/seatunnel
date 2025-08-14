@@ -376,8 +376,8 @@ public class ServerConfigOptions {
                         .intType()
                         .defaultValue(100)
                         .withDescription(
-                                "Maximum number of retry tasks allowed in the metrics cleanup retry queue. " +
-                                        "Older entries will be removed when the queue is full.");
+                                "Maximum number of retry tasks allowed in the metrics cleanup retry queue. "
+                                        + "Older entries will be removed when the queue is full.");
 
         public static final Option<Integer> CLEANUP_RETRY_BATCH_SIZE =
                 Options.key("cleanup-retry-batch-size")

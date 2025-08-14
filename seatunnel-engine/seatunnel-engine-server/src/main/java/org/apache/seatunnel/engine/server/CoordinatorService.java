@@ -223,8 +223,9 @@ public class CoordinatorService {
                                 .setNameFormat("seatunnel-coordinator-service-%d")
                                 .build(),
                         new ThreadPoolStatus.RejectionCountingHandler());
-        this.metricsCleanupRetryQueue
-                = new LinkedBlockingQueue<>(engineConfig.getCoordinatorServiceConfig().getCleanupRetryQueueSize());
+        this.metricsCleanupRetryQueue =
+                new LinkedBlockingQueue<>(
+                        engineConfig.getCoordinatorServiceConfig().getCleanupRetryQueueSize());
         this.metricsCleanupScheduler =
                 new MetricsCleanupScheduler(
                         engineConfig.getCoordinatorServiceConfig().getCleanupRetryInterval(),

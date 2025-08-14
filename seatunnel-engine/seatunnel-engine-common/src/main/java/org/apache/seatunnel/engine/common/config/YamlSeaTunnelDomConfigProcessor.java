@@ -144,7 +144,8 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
                     .equals(name)) {
                 coordinatorServiceConfig.setCleanupRetryQueueSize(
                         getIntegerValue(
-                                ServerConfigOptions.MasterServerConfigOptions.CLEANUP_RETRY_QUEUE_SIZE
+                                ServerConfigOptions.MasterServerConfigOptions
+                                        .CLEANUP_RETRY_QUEUE_SIZE
                                         .key(),
                                 getTextContent(node)));
             } else if (ServerConfigOptions.MasterServerConfigOptions.CLEANUP_RETRY_BATCH_SIZE
@@ -152,7 +153,8 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
                     .equals(name)) {
                 coordinatorServiceConfig.setCleanupRetryBatchSize(
                         getIntegerValue(
-                                ServerConfigOptions.MasterServerConfigOptions.CLEANUP_RETRY_BATCH_SIZE
+                                ServerConfigOptions.MasterServerConfigOptions
+                                        .CLEANUP_RETRY_BATCH_SIZE
                                         .key(),
                                 getTextContent(node)));
             } else {

@@ -66,7 +66,7 @@ public class MetricsCleanupScheduler {
     }
 
     public boolean offerRetryQueue(PipelineLocation pipelineLocation) {
-        if(metricsCleanupRetryQueue.remainingCapacity() == 0){
+        if (metricsCleanupRetryQueue.remainingCapacity() == 0) {
             PipelineLocation removedData = metricsCleanupRetryQueue.poll();
             log.info("Removed old pipelineLocation from retry queue: {}", removedData);
         }
