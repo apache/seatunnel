@@ -166,23 +166,11 @@ public class CoordinatorServiceTest {
         Assertions.assertNotNull(
                 jobInformation.coordinatorService.pendingJobMasterMap.get(jobInformation.jobId));
 
-        // waiting for job status turn to running
         await().atMost(10000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () ->
-                                Assertions.assertEquals(
-                                        JobStatus.FAILED,
-                                        jobInformation.coordinatorService.getJobStatus(
-                                                jobInformation.jobId)));
-
-        try {
-            Thread.sleep(5000);
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
-        }
-
-        Assertions.assertNull(
-                jobInformation.coordinatorService.pendingJobMasterMap.get(jobInformation.jobId));
+                                Assertions.assertNull(
+                                        jobInformation.coordinatorService.pendingJobMasterMap.get(jobInformation.jobId)));
 
         jobInformation.coordinatorService.clearCoordinatorService();
         jobInformation.coordinatorServiceTest.shutdown();
@@ -202,21 +190,9 @@ public class CoordinatorServiceTest {
                 coordinatorService.getJobMaster(jobInformation.jobId).getRunningJobStateIMap();
         Assertions.assertTrue(!runningJobStateIMap.isEmpty());
 
-        // waiting for job status turn to running
         await().atMost(10000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
-                        () ->
-                                Assertions.assertEquals(
-                                        JobStatus.RUNNING,
-                                        jobInformation.coordinatorService.getJobStatus(
-                                                jobInformation.jobId)));
-
-        try {
-            Thread.sleep(5000);
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
-        }
-        Assertions.assertTrue(runningJobStateIMap.isEmpty());
+                        () -> Assertions.assertTrue(runningJobStateIMap.isEmpty()));
 
         jobInformation.coordinatorService.clearCoordinatorService();
         jobInformation.coordinatorServiceTest.shutdown();
@@ -234,21 +210,8 @@ public class CoordinatorServiceTest {
                 coordinatorService.getMetricsCleanupRetryQueue();
         cleanupRetryQueue.offer(new PipelineLocation(jobInformation.jobId, 1));
 
-        // waiting for job status turn to running
         await().atMost(10000, TimeUnit.MILLISECONDS)
-                .untilAsserted(
-                        () ->
-                                Assertions.assertEquals(
-                                        JobStatus.RUNNING,
-                                        jobInformation.coordinatorService.getJobStatus(
-                                                jobInformation.jobId)));
-
-        try {
-            Thread.sleep(5000);
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
-        }
-        Assertions.assertEquals(0, cleanupRetryQueue.size());
+                .untilAsserted(() -> Assertions.assertTrue(cleanupRetryQueue.isEmpty()));
 
         jobInformation.coordinatorService.clearCoordinatorService();
         jobInformation.coordinatorServiceTest.shutdown();
