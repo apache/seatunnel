@@ -186,6 +186,8 @@ public class CoordinatorServiceTest {
 
         jobInformation.coordinatorService.clearCoordinatorService();
         jobInformation.coordinatorServiceTest.shutdown();
+
+        setDefaultConfigFile();
     }
 
     @Test
@@ -263,6 +265,19 @@ public class CoordinatorServiceTest {
                 "seatunnel.config",
                 rootPath
                         + "/seatunnel-engine/seatunnel-engine-server/src/test/resources/seatunnel_fixed_slots.yaml");
+    }
+
+    private void setDefaultConfigFile() {
+        String rootModuleDir = "seatunnel-engine";
+        Path path = Paths.get(System.getProperty("user.dir"));
+        while (!path.endsWith(Paths.get(rootModuleDir))) {
+            path = path.getParent();
+        }
+        String rootPath = path.getParent().toString();
+        System.setProperty(
+                "seatunnel.config",
+                rootPath
+                        + "/seatunnel-engine/seatunnel-engine-server/src/test/resources/seatunnel.yaml");
     }
 
     private JobInformation submitJob(String testClassName, String jobConfigFile, String jobName) {
