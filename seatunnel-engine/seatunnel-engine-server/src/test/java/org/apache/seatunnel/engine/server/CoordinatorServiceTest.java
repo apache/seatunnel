@@ -184,7 +184,7 @@ public class CoordinatorServiceTest {
         JobInformation jobInformation =
                 submitJob(
                         "CoordinatorServiceTest_testCleanupRunningJobStateIMap",
-                        "batch_fakesource_to_file.conf",
+                        "batch_fake_to_console.conf",
                         "test_cleanup_running_job_state_imap");
         CoordinatorService coordinatorService = jobInformation.coordinatorService;
         IMap<Object, Object> runningJobStateIMap =
@@ -203,7 +203,7 @@ public class CoordinatorServiceTest {
         JobInformation jobInformation =
                 submitJob(
                         "CoordinatorServiceTest_testRetryCleanupMetricsImap",
-                        "batch_fakesource_to_file.conf",
+                        "batch_fake_to_console.conf",
                         "test_retry_cleanup_metrics_imap");
         CoordinatorService coordinatorService = jobInformation.coordinatorService;
         BlockingQueue<PipelineLocation> cleanupRetryQueue =
