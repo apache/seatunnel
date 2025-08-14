@@ -109,6 +109,12 @@ public final class SeaTunnelRow implements Serializable {
         return newRow;
     }
 
+    public SeaTunnelRow copyWithOptions(int[] indexMapping) {
+        SeaTunnelRow newRow = copy(indexMapping);
+        newRow.setOptions(this.getOptions());
+        return newRow;
+    }
+
     public boolean isNullAt(int pos) {
         return this.fields[pos] == null;
     }
