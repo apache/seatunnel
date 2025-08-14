@@ -26,6 +26,7 @@ import org.apache.seatunnel.engine.server.dag.physical.PipelineLocation;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -34,17 +35,20 @@ import java.util.concurrent.TimeUnit;
 public class MetricsCleanupScheduler {
     private final int cleanupRetryIntervalSeconds;
     private long lastCleanupTime = 0L;
+    private final ExecutorService executorService;
     private final ScheduledExecutorService cleanupScheduler;
     private final BlockingQueue<PipelineLocation> metricsCleanupRetryQueue;
 
     public MetricsCleanupScheduler(
             int cleanupRetryIntervalSeconds,
+            ExecutorService executorService,
             BlockingQueue<PipelineLocation> metricsCleanupRetryQueue) {
         if (cleanupRetryIntervalSeconds <= 0) {
             CommonError.illegalArgument(
                     "cleanupRetryInterval", "Cleanup retry interval must be positive");
         }
         this.cleanupRetryIntervalSeconds = cleanupRetryIntervalSeconds;
+        this.executorService = executorService;
         this.metricsCleanupRetryQueue = metricsCleanupRetryQueue;
         this.cleanupScheduler =
                 Executors.newScheduledThreadPool(
@@ -56,7 +60,7 @@ public class MetricsCleanupScheduler {
 
     public void start(Runnable cleaner) {
         cleanupScheduler.scheduleWithFixedDelay(
-                () -> scheduledCleanupWithDelayCheck(cleaner),
+                () -> executorService.submit(() -> scheduledCleanupWithDelayCheck(cleaner)),
                 0,
                 cleanupRetryIntervalSeconds,
                 TimeUnit.SECONDS);

@@ -229,6 +229,7 @@ public class CoordinatorService {
         this.metricsCleanupScheduler =
                 new MetricsCleanupScheduler(
                         engineConfig.getCoordinatorServiceConfig().getCleanupRetryInterval(),
+                        executorService,
                         metricsCleanupRetryQueue);
         this.cleanupRetryBatchSize =
                 engineConfig.getCoordinatorServiceConfig().getCleanupRetryBatchSize();
