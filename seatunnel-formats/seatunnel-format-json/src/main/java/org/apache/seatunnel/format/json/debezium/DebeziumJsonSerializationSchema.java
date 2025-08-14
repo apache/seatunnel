@@ -26,7 +26,9 @@ import org.apache.seatunnel.format.json.JsonSerializationSchema;
 
 import java.nio.charset.Charset;
 
+import static org.apache.seatunnel.api.table.type.BasicType.LONG_TYPE;
 import static org.apache.seatunnel.api.table.type.BasicType.STRING_TYPE;
+import static org.apache.seatunnel.api.table.type.CommonOptions.EVENT_TIME;
 import static org.apache.seatunnel.format.json.debezium.DebeziumJsonFormatOptions.GENERATE_ROW_SIZE;
 
 public class DebeziumJsonSerializationSchema implements SerializationSchema {
@@ -59,12 +61,26 @@ public class DebeziumJsonSerializationSchema implements SerializationSchema {
                     genericRow.setField(0, null);
                     genericRow.setField(1, row);
                     genericRow.setField(2, OP_INSERT);
+                    genericRow.setField(3, row.getTableId());
+                    if (row.getOptions() != null
+                            && row.getOptions().containsKey(EVENT_TIME.getName())) {
+                        genericRow.setField(4, row.getOptions().get(EVENT_TIME.getName()));
+                    } else {
+                        genericRow.setField(4, null);
+                    }
                     return jsonSerializer.serialize(genericRow);
                 case UPDATE_BEFORE:
                 case DELETE:
                     genericRow.setField(0, row);
                     genericRow.setField(1, null);
                     genericRow.setField(2, OP_DELETE);
+                    genericRow.setField(3, row.getTableId());
+                    if (row.getOptions() != null
+                            && row.getOptions().containsKey(EVENT_TIME.getName())) {
+                        genericRow.setField(4, row.getOptions().get(EVENT_TIME.getName()));
+                    } else {
+                        genericRow.setField(4, null);
+                    }
                     return jsonSerializer.serialize(genericRow);
                 default:
                     throw new UnsupportedOperationException(
@@ -78,7 +94,9 @@ public class DebeziumJsonSerializationSchema implements SerializationSchema {
 
     private static SeaTunnelRowType createJsonRowType(SeaTunnelRowType databaseSchema) {
         return new SeaTunnelRowType(
-                new String[] {"before", "after", "op"},
-                new SeaTunnelDataType[] {databaseSchema, databaseSchema, STRING_TYPE});
+                new String[] {"before", "after", "op", "tableId", "ts_ms"},
+                new SeaTunnelDataType[] {
+                    databaseSchema, databaseSchema, STRING_TYPE, STRING_TYPE, LONG_TYPE
+                });
     }
 }
