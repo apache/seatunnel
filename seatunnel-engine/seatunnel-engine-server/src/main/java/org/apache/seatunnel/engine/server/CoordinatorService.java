@@ -178,8 +178,6 @@ public class CoordinatorService {
 
     private final BlockingQueue<PipelineLocation> metricsCleanupRetryQueue;
 
-    private final int cleanupRetryBatchSize;
-
     /** If this node is a master node */
     private volatile boolean isActive = false;
 
@@ -231,8 +229,6 @@ public class CoordinatorService {
                         engineConfig.getCoordinatorServiceConfig().getCleanupRetryInterval(),
                         executorService,
                         metricsCleanupRetryQueue);
-        this.cleanupRetryBatchSize =
-                engineConfig.getCoordinatorServiceConfig().getCleanupRetryBatchSize();
 
         this.seaTunnelServer = seaTunnelServer;
         masterActiveListener = Executors.newSingleThreadScheduledExecutor();
@@ -1111,7 +1107,7 @@ public class CoordinatorService {
     private void cleanupMetrics() {
         try {
             PipelineLocation pipelineLocation;
-            for (int i = 0; i < cleanupRetryBatchSize && !metricsCleanupRetryQueue.isEmpty(); i++) {
+            while (!metricsCleanupRetryQueue.isEmpty()) {
                 pipelineLocation = metricsCleanupRetryQueue.poll();
                 cleanupSinglePipeline(pipelineLocation);
             }

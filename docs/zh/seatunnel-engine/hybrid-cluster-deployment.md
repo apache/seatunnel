@@ -177,10 +177,6 @@ CoordinatorService 提供了每个作业从 LogicalDag 到 ExecutionDag，再到
 当队列已满时，旧条目将被移除。
 默认值为 100。
 
-**cleanup-retry-batch-size**
-
-单次清理尝试中处理的最大任务数量。
-默认值为 100。
 Example
 
 ```yaml
@@ -189,7 +185,6 @@ coordinator-service:
   max-thread-num: 1000
   cleanup-retry-interval: 60
   cleanup-retry-queue-size: 100
-  cleanup-retry-batch-size: 100
 ```
 
 

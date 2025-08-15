@@ -148,15 +148,6 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
                                         .CLEANUP_RETRY_QUEUE_SIZE
                                         .key(),
                                 getTextContent(node)));
-            } else if (ServerConfigOptions.MasterServerConfigOptions.CLEANUP_RETRY_BATCH_SIZE
-                    .key()
-                    .equals(name)) {
-                coordinatorServiceConfig.setCleanupRetryBatchSize(
-                        getIntegerValue(
-                                ServerConfigOptions.MasterServerConfigOptions
-                                        .CLEANUP_RETRY_BATCH_SIZE
-                                        .key(),
-                                getTextContent(node)));
             } else {
                 LOGGER.warning("Unrecognized element: " + name);
             }

@@ -38,9 +38,6 @@ public class CoordinatorServiceConfig implements Serializable {
     private int cleanupRetryQueueSize =
             ServerConfigOptions.MasterServerConfigOptions.CLEANUP_RETRY_QUEUE_SIZE.defaultValue();
 
-    private int cleanupRetryBatchSize =
-            ServerConfigOptions.MasterServerConfigOptions.CLEANUP_RETRY_BATCH_SIZE.defaultValue();
-
     public void setCoreThreadNum(int coreThreadNum) {
         checkPositive(
                 coreThreadNum,
@@ -69,13 +66,5 @@ public class CoordinatorServiceConfig implements Serializable {
                 ServerConfigOptions.MasterServerConfigOptions.CLEANUP_RETRY_QUEUE_SIZE
                         + " must be > 0");
         this.cleanupRetryQueueSize = cleanupRetryQueueSize;
-    }
-
-    public void setCleanupRetryBatchSize(int cleanupRetryBatchSize) {
-        checkPositive(
-                cleanupRetryBatchSize,
-                ServerConfigOptions.MasterServerConfigOptions.CLEANUP_RETRY_BATCH_SIZE
-                        + " must be > 0");
-        this.cleanupRetryBatchSize = cleanupRetryBatchSize;
     }
 }

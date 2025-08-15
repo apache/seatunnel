@@ -379,13 +379,6 @@ public class ServerConfigOptions {
                                 "Maximum number of retry tasks allowed in the metrics cleanup retry queue. "
                                         + "Older entries will be removed when the queue is full.");
 
-        public static final Option<Integer> CLEANUP_RETRY_BATCH_SIZE =
-                Options.key("cleanup-retry-batch-size")
-                        .intType()
-                        .defaultValue(100)
-                        .withDescription(
-                                "Maximum number of tasks processed in a single cleanup attempt.");
-
         public static final Option<CoordinatorServiceConfig> COORDINATOR_SERVICE =
                 Options.key("coordinator-service")
                         .type(new TypeReference<CoordinatorServiceConfig>() {})
