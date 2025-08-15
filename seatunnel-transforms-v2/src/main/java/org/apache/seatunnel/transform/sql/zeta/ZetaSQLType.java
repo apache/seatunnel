@@ -435,8 +435,8 @@ public class ZetaSQLType {
             case ZetaSQLFunction.TIMESTAMPADD:
             case ZetaSQLFunction.ROUND:
             case ZetaSQLFunction.NULLIF:
-            case ZetaSQLFunction.IFNULL:
                 return getExpressionType(function.getParameters().getExpressions().get(0));
+            case ZetaSQLFunction.IFNULL:
             case ZetaSQLFunction.COALESCE:
                 List<Expression> expressions = getExpressions(function);
 
@@ -503,7 +503,7 @@ public class ZetaSQLType {
         }
     }
 
-    private static List<Expression> getParametersExpressions(Function function) {
+    private static List<Expression> getExpressions(Function function) {
         ExpressionList parameters = function.getParameters();
         if (parameters == null) {
             throw new TransformException(
