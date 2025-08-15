@@ -128,7 +128,7 @@ public class MaxWellJsonDeserializationSchema implements DeserializationSchema<S
             SeaTunnelRow rowInsert = convertJsonNode(dataNode);
             rowInsert.setRowKind(RowKind.INSERT);
             if (tsNode != null) {
-                MetadataUtil.setEventTime(rowInsert, tsNode.asLong());
+                MetadataUtil.setEventTime(rowInsert, tsNode.asLong()*1000);
             }
             out.collect(rowInsert);
         } else if (OP_UPDATE.equals(type)) {
@@ -150,8 +150,8 @@ public class MaxWellJsonDeserializationSchema implements DeserializationSchema<S
             assert rowAfter != null;
             rowAfter.setRowKind(RowKind.UPDATE_AFTER);
             if (tsNode != null) {
-                MetadataUtil.setEventTime(rowBefore, tsNode.asLong());
-                MetadataUtil.setEventTime(rowAfter, tsNode.asLong());
+                MetadataUtil.setEventTime(rowBefore, tsNode.asLong()*1000);
+                MetadataUtil.setEventTime(rowAfter, tsNode.asLong()*1000);
             }
             out.collect(rowBefore);
             out.collect(rowAfter);
@@ -159,7 +159,7 @@ public class MaxWellJsonDeserializationSchema implements DeserializationSchema<S
             SeaTunnelRow rowDelete = convertJsonNode(dataNode);
             rowDelete.setRowKind(RowKind.DELETE);
             if (tsNode != null) {
-                MetadataUtil.setEventTime(rowDelete, tsNode.asLong());
+                MetadataUtil.setEventTime(rowDelete, tsNode.asLong()*1000);
             }
             out.collect(rowDelete);
         } else {
