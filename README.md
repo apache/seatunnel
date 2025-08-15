@@ -15,6 +15,7 @@
 - [Supported Connectors](#supported-connectors)
 - [Getting Started](#getting-started)
 - [Multimodal Data Integration](#multimodal-data-integration)
+- [Apache SeaTunnel Tools](#apache-seatunnel-tools)
 - [Use Cases](#use-cases)
 - [Code of Conduct](#code-of-conduct)
 - [Contributors](#contributors)
