@@ -390,34 +390,22 @@ public class LocalFileTest {
         String dataStr = FileUtils.readFileToStr(path);
         Assertions.assertTrue(
                 dataStr.contains(
-                        "{\"data\":[{\"a\":1,\"b\":\"A\",\"c\":100}],\"type\":\"INSERT\",\"tableId\":\""
-                                + TablePath.DEFAULT.getFullName()
-                                + "\",\"ts\":1}"));
+                        "{\"data\":[{\"a\":1,\"b\":\"A\",\"c\":100}],\"type\":\"INSERT\",\"database\":\"default\",\"table\":\"default\",\"ts\":1}"));
         Assertions.assertTrue(
                 dataStr.contains(
-                        "{\"data\":[{\"a\":2,\"b\":\"B\",\"c\":100}],\"type\":\"INSERT\",\"tableId\":\""
-                                + TablePath.DEFAULT.getFullName()
-                                + "\",\"ts\":1}"));
+                        "{\"data\":[{\"a\":2,\"b\":\"B\",\"c\":100}],\"type\":\"INSERT\",\"database\":\"default\",\"table\":\"default\",\"ts\":1}"));
         Assertions.assertTrue(
                 dataStr.contains(
-                        "{\"data\":[{\"a\":3,\"b\":\"C\",\"c\":100}],\"type\":\"INSERT\",\"tableId\":\""
-                                + TablePath.DEFAULT.getFullName()
-                                + "\",\"ts\":1}"));
+                        "{\"data\":[{\"a\":3,\"b\":\"C\",\"c\":100}],\"type\":\"INSERT\",\"database\":\"default\",\"table\":\"default\",\"ts\":1}"));
         Assertions.assertTrue(
                 dataStr.contains(
-                        "{\"data\":[{\"a\":1,\"b\":\"A\",\"c\":100}],\"type\":\"DELETE\",\"tableId\":\""
-                                + TablePath.DEFAULT.getFullName()
-                                + "\",\"ts\":1}"));
+                        "{\"data\":[{\"a\":1,\"b\":\"A\",\"c\":100}],\"type\":\"DELETE\",\"database\":\"default\",\"table\":\"default\",\"ts\":1}"));
         Assertions.assertTrue(
                 dataStr.contains(
-                        "{\"data\":[{\"a\":1,\"b\":\"A_1\",\"c\":100}],\"type\":\"INSERT\",\"tableId\":\""
-                                + TablePath.DEFAULT.getFullName()
-                                + "\",\"ts\":1}"));
+                        "{\"data\":[{\"a\":1,\"b\":\"A_1\",\"c\":100}],\"type\":\"INSERT\",\"database\":\"default\",\"table\":\"default\",\"ts\":1}"));
         Assertions.assertTrue(
                 dataStr.contains(
-                        "{\"data\":[{\"a\":2,\"b\":\"B\",\"c\":100}],\"type\":\"DELETE\",\"tableId\":\""
-                                + TablePath.DEFAULT.getFullName()
-                                + "\",\"ts\":1}"));
+                        "{\"data\":[{\"a\":2,\"b\":\"B\",\"c\":100}],\"type\":\"DELETE\",\"database\":\"default\",\"table\":\"default\",\"ts\":1}"));
     }
 
     @Test
@@ -496,34 +484,22 @@ public class LocalFileTest {
         String dataStr = FileUtils.readFileToStr(path);
         Assertions.assertTrue(
                 dataStr.contains(
-                        "{\"before\":null,\"after\":{\"a\":1,\"b\":\"A\",\"c\":100},\"op\":\"c\",\"tableId\":\""
-                                + TablePath.DEFAULT.getFullName()
-                                + "\",\"ts_ms\":1}"));
+                        "{\"before\":null,\"after\":{\"a\":1,\"b\":\"A\",\"c\":100},\"op\":\"c\",\"source\":{\"schema\":\"default\",\"database\":\"default\",\"table\":\"default\"},\"ts_ms\":1}"));
         Assertions.assertTrue(
                 dataStr.contains(
-                        "{\"before\":null,\"after\":{\"a\":2,\"b\":\"B\",\"c\":100},\"op\":\"c\",\"tableId\":\""
-                                + TablePath.DEFAULT.getFullName()
-                                + "\",\"ts_ms\":1}"));
+                        "{\"before\":null,\"after\":{\"a\":2,\"b\":\"B\",\"c\":100},\"op\":\"c\",\"source\":{\"schema\":\"default\",\"database\":\"default\",\"table\":\"default\"},\"ts_ms\":1}"));
         Assertions.assertTrue(
                 dataStr.contains(
-                        "{\"before\":null,\"after\":{\"a\":3,\"b\":\"C\",\"c\":100},\"op\":\"c\",\"tableId\":\""
-                                + TablePath.DEFAULT.getFullName()
-                                + "\",\"ts_ms\":1}"));
+                        "{\"before\":null,\"after\":{\"a\":3,\"b\":\"C\",\"c\":100},\"op\":\"c\",\"source\":{\"schema\":\"default\",\"database\":\"default\",\"table\":\"default\"},\"ts_ms\":1}"));
         Assertions.assertTrue(
                 dataStr.contains(
-                        "{\"before\":{\"a\":1,\"b\":\"A\",\"c\":100},\"after\":null,\"op\":\"d\",\"tableId\":\""
-                                + TablePath.DEFAULT.getFullName()
-                                + "\",\"ts_ms\":1}"));
+                        "{\"before\":{\"a\":1,\"b\":\"A\",\"c\":100},\"after\":null,\"op\":\"d\",\"source\":{\"schema\":\"default\",\"database\":\"default\",\"table\":\"default\"},\"ts_ms\":1}"));
         Assertions.assertTrue(
                 dataStr.contains(
-                        "{\"before\":null,\"after\":{\"a\":1,\"b\":\"A_1\",\"c\":100},\"op\":\"c\",\"tableId\":\""
-                                + TablePath.DEFAULT.getFullName()
-                                + "\",\"ts_ms\":1}"));
+                        "{\"before\":null,\"after\":{\"a\":1,\"b\":\"A_1\",\"c\":100},\"op\":\"c\",\"source\":{\"schema\":\"default\",\"database\":\"default\",\"table\":\"default\"},\"ts_ms\":1}"));
         Assertions.assertTrue(
                 dataStr.contains(
-                        "{\"before\":{\"a\":2,\"b\":\"B\",\"c\":100},\"after\":null,\"op\":\"d\",\"tableId\":\""
-                                + TablePath.DEFAULT.getFullName()
-                                + "\",\"ts_ms\":1}"));
+                        "{\"before\":{\"a\":2,\"b\":\"B\",\"c\":100},\"after\":null,\"op\":\"d\",\"source\":{\"schema\":\"default\",\"database\":\"default\",\"table\":\"default\"},\"ts_ms\":1}"));
     }
 
     @Test
@@ -601,33 +577,21 @@ public class LocalFileTest {
         String dataStr = FileUtils.readFileToStr(path);
         Assertions.assertTrue(
                 dataStr.contains(
-                        "{\"data\":{\"a\":1,\"b\":\"A\",\"c\":100},\"type\":\"INSERT\",\"tableId\":\""
-                                + TablePath.DEFAULT.getFullName()
-                                + "\",\"ts\":1}"));
+                        "{\"data\":{\"a\":1,\"b\":\"A\",\"c\":100},\"type\":\"INSERT\",\"database\":\"default\",\"table\":\"default\",\"ts\":1}"));
         Assertions.assertTrue(
                 dataStr.contains(
-                        "{\"data\":{\"a\":2,\"b\":\"B\",\"c\":100},\"type\":\"INSERT\",\"tableId\":\""
-                                + TablePath.DEFAULT.getFullName()
-                                + "\",\"ts\":1}"));
+                        "{\"data\":{\"a\":2,\"b\":\"B\",\"c\":100},\"type\":\"INSERT\",\"database\":\"default\",\"table\":\"default\",\"ts\":1}"));
         Assertions.assertTrue(
                 dataStr.contains(
-                        "{\"data\":{\"a\":3,\"b\":\"C\",\"c\":100},\"type\":\"INSERT\",\"tableId\":\""
-                                + TablePath.DEFAULT.getFullName()
-                                + "\",\"ts\":1}"));
+                        "{\"data\":{\"a\":3,\"b\":\"C\",\"c\":100},\"type\":\"INSERT\",\"database\":\"default\",\"table\":\"default\",\"ts\":1}"));
         Assertions.assertTrue(
                 dataStr.contains(
-                        "{\"data\":{\"a\":1,\"b\":\"A\",\"c\":100},\"type\":\"DELETE\",\"tableId\":\""
-                                + TablePath.DEFAULT.getFullName()
-                                + "\",\"ts\":1}"));
+                        "{\"data\":{\"a\":1,\"b\":\"A\",\"c\":100},\"type\":\"DELETE\",\"database\":\"default\",\"table\":\"default\",\"ts\":1}"));
         Assertions.assertTrue(
                 dataStr.contains(
-                        "{\"data\":{\"a\":1,\"b\":\"A_1\",\"c\":100},\"type\":\"INSERT\",\"tableId\":\""
-                                + TablePath.DEFAULT.getFullName()
-                                + "\",\"ts\":1}"));
+                        "{\"data\":{\"a\":1,\"b\":\"A_1\",\"c\":100},\"type\":\"INSERT\",\"database\":\"default\",\"table\":\"default\",\"ts\":1}"));
         Assertions.assertTrue(
                 dataStr.contains(
-                        "{\"data\":{\"a\":2,\"b\":\"B\",\"c\":100},\"type\":\"DELETE\",\"tableId\":\""
-                                + TablePath.DEFAULT.getFullName()
-                                + "\",\"ts\":1}"));
+                        "{\"data\":{\"a\":2,\"b\":\"B\",\"c\":100},\"type\":\"DELETE\",\"database\":\"default\",\"table\":\"default\",\"ts\":1}"));
     }
 }
