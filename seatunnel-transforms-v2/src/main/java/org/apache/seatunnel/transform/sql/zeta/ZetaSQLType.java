@@ -503,7 +503,7 @@ public class ZetaSQLType {
         }
     }
 
-    private static List<Expression> getExpressions(Function function) {
+    private static List<Expression> getParametersExpressions(Function function) {
         ExpressionList parameters = function.getParameters();
         if (parameters == null) {
             throw new TransformException(
