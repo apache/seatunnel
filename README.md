@@ -123,6 +123,10 @@ SeaTunnel enriches the [CNCF CLOUD NATIVE Landscape](https://landscape.cncf.io/?
 SeaTunnel Web is a web project that provides visual management of jobs, scheduling, running and monitoring capabilities. It is developed based on the SeaTunnel Connector API and the SeaTunnel Zeta Engine. It is a web project that can be deployed independently. It is also a sub-project of SeaTunnel.
 For more information, please refer to [SeaTunnel Web](https://github.com/apache/seatunnel-web)
 
+## Apache SeaTunnel Tools
+
+SeaTunnel Tools provides a range of peripheral tools, including Apache SeaTunnel Mcp Server, etc,please refer to [SeaTunnel Tools](https://github.com/apache/seatunnel-tools)
+
 ## Our Users
 
 Companies and organizations worldwide use SeaTunnel for research, production, and commercial products. Visit our [Users](https://seatunnel.apache.org/user) for more information.
