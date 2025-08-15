@@ -28,6 +28,8 @@ import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.format.json.JsonSerializationSchema;
 import org.apache.seatunnel.format.json.exception.SeaTunnelJsonFormatException;
 
+import org.apache.commons.lang3.StringUtils;
+
 import static org.apache.seatunnel.api.table.type.BasicType.LONG_TYPE;
 import static org.apache.seatunnel.api.table.type.BasicType.STRING_TYPE;
 import static org.apache.seatunnel.api.table.type.CommonOptions.EVENT_TIME;
@@ -55,12 +57,12 @@ public class OggJsonSerializationSchema implements SerializationSchema {
             String opType = rowKind2String(row.getRowKind());
             reuse.setField(0, row);
             reuse.setField(1, opType);
-            reuse.setField(2, row.getTableId());
+            if (!StringUtils.isEmpty(row.getTableId())) {
+                reuse.setField(2, row.getTableId());
+            }
 
             if (row.getOptions() != null && row.getOptions().containsKey(EVENT_TIME.getName())) {
                 reuse.setField(3, row.getOptions().get(EVENT_TIME.getName()));
-            } else {
-                reuse.setField(3, null);
             }
             return jsonSerializer.serialize(reuse);
         } catch (Throwable t) {
@@ -88,7 +90,7 @@ public class OggJsonSerializationSchema implements SerializationSchema {
         // but we don't need them
         // and we don't need "old" , because can not support UPDATE_BEFORE,UPDATE_AFTER
         return new SeaTunnelRowType(
-                new String[] {"data", "type", "tableId", "op_ts"},
+                new String[] {"data", "type", "table", "op_ts"},
                 new SeaTunnelDataType[] {databaseSchema, STRING_TYPE, STRING_TYPE, LONG_TYPE});
     }
 }

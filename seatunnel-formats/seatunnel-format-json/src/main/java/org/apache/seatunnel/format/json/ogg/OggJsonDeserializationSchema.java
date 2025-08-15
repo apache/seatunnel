@@ -161,7 +161,7 @@ public class OggJsonDeserializationSchema implements DeserializationSchema<SeaTu
             long ts = 0;
             if (tsNode != null) {
                 String tsDateTime = tsNode.asText();
-                ts = DateTimeUtils.parse(tsDateTime).toEpochSecond(ZoneOffset.UTC)*1000;
+                ts = DateTimeUtils.parse(tsDateTime).toEpochSecond(ZoneOffset.UTC) * 1000;
             }
             switch (op) {
                 case OP_INSERT:
