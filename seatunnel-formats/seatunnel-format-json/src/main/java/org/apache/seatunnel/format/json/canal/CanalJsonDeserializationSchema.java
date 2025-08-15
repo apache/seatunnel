@@ -18,7 +18,6 @@
 
 package org.apache.seatunnel.format.json.canal;
 
-import org.apache.seatunnel.api.table.type.MetadataUtil;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ArrayNode;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode;
@@ -27,6 +26,7 @@ import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.type.MetadataUtil;
 import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -158,7 +158,7 @@ public class CanalJsonDeserializationSchema implements DeserializationSchema<Sea
                         if (tablePath != null && !tablePath.toString().isEmpty()) {
                             row.setTableId(tablePath.toString());
                         }
-                        if(tsNode != null){
+                        if (tsNode != null) {
                             MetadataUtil.setEventTime(row, tsNode.asLong());
                         }
                         out.collect(row);
@@ -185,7 +185,7 @@ public class CanalJsonDeserializationSchema implements DeserializationSchema<Sea
                         if (tablePath != null && !tablePath.toString().isEmpty()) {
                             after.setTableId(tablePath.toString());
                         }
-                        if(tsNode != null){
+                        if (tsNode != null) {
                             MetadataUtil.setEventTime(before, tsNode.asLong());
                             MetadataUtil.setEventTime(after, tsNode.asLong());
                         }
@@ -200,7 +200,7 @@ public class CanalJsonDeserializationSchema implements DeserializationSchema<Sea
                         if (tablePath != null && !tablePath.toString().isEmpty()) {
                             row.setTableId(tablePath.toString());
                         }
-                        if(tsNode != null){
+                        if (tsNode != null) {
                             MetadataUtil.setEventTime(row, tsNode.asLong());
                         }
                         out.collect(row);

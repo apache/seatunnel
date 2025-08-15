@@ -18,8 +18,6 @@
 
 package org.apache.seatunnel.format.json.ogg;
 
-import org.apache.seatunnel.api.table.type.MetadataUtil;
-import org.apache.seatunnel.common.utils.DateTimeUtils;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode;
 
@@ -27,12 +25,14 @@ import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.type.MetadataUtil;
 import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
+import org.apache.seatunnel.common.utils.DateTimeUtils;
 import org.apache.seatunnel.format.json.JsonDeserializationSchema;
 
 import lombok.NonNull;
@@ -157,9 +157,9 @@ public class OggJsonDeserializationSchema implements DeserializationSchema<SeaTu
 
             String op = jsonNode.get(FIELD_TYPE).asText().trim();
             JsonNode tsNode = jsonNode.get(FIELD_TS);
-            //ogg json ts is date, eg "2020-05-13 15:40:07.000000"
+            // ogg json ts is date, eg "2020-05-13 15:40:07.000000"
             long ts = 0;
-            if(tsNode != null){
+            if (tsNode != null) {
                 String tsDateTime = tsNode.asText();
                 ts = DateTimeUtils.parse(tsDateTime).toEpochSecond(ZoneOffset.UTC);
             }
@@ -171,7 +171,7 @@ public class OggJsonDeserializationSchema implements DeserializationSchema<SeaTu
                     if (tablePath != null) {
                         row.setTableId(tablePath.toString());
                     }
-                    if(tsNode != null){
+                    if (tsNode != null) {
                         MetadataUtil.setEventTime(row, ts);
                     }
                     out.collect(row);
@@ -192,7 +192,7 @@ public class OggJsonDeserializationSchema implements DeserializationSchema<SeaTu
                     if (tablePath != null) {
                         before.setTableId(tablePath.toString());
                     }
-                    if(tsNode != null){
+                    if (tsNode != null) {
                         MetadataUtil.setEventTime(before, ts);
                     }
                     out.collect(before);
@@ -201,7 +201,7 @@ public class OggJsonDeserializationSchema implements DeserializationSchema<SeaTu
                     if (tablePath != null) {
                         after.setTableId(tablePath.toString());
                     }
-                    if(tsNode != null){
+                    if (tsNode != null) {
                         MetadataUtil.setEventTime(after, ts);
                     }
                     out.collect(after);
@@ -222,7 +222,7 @@ public class OggJsonDeserializationSchema implements DeserializationSchema<SeaTu
                     if (tablePath != null) {
                         beforeDelete.setTableId(tablePath.toString());
                     }
-                    if(tsNode != null){
+                    if (tsNode != null) {
                         MetadataUtil.setEventTime(beforeDelete, ts);
                     }
                     out.collect(beforeDelete);

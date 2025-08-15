@@ -18,13 +18,13 @@
 
 package org.apache.seatunnel.format.json.maxwell;
 
-import org.apache.seatunnel.api.table.type.MetadataUtil;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode;
 
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.type.MetadataUtil;
 import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -127,7 +127,7 @@ public class MaxWellJsonDeserializationSchema implements DeserializationSchema<S
         if (OP_INSERT.equals(type)) {
             SeaTunnelRow rowInsert = convertJsonNode(dataNode);
             rowInsert.setRowKind(RowKind.INSERT);
-            if(tsNode != null){
+            if (tsNode != null) {
                 MetadataUtil.setEventTime(rowInsert, tsNode.asLong());
             }
             out.collect(rowInsert);
@@ -149,7 +149,7 @@ public class MaxWellJsonDeserializationSchema implements DeserializationSchema<S
             rowBefore.setRowKind(RowKind.UPDATE_BEFORE);
             assert rowAfter != null;
             rowAfter.setRowKind(RowKind.UPDATE_AFTER);
-            if(tsNode != null){
+            if (tsNode != null) {
                 MetadataUtil.setEventTime(rowBefore, tsNode.asLong());
                 MetadataUtil.setEventTime(rowAfter, tsNode.asLong());
             }
@@ -158,7 +158,7 @@ public class MaxWellJsonDeserializationSchema implements DeserializationSchema<S
         } else if (OP_DELETE.equals(type)) {
             SeaTunnelRow rowDelete = convertJsonNode(dataNode);
             rowDelete.setRowKind(RowKind.DELETE);
-            if(tsNode != null){
+            if (tsNode != null) {
                 MetadataUtil.setEventTime(rowDelete, tsNode.asLong());
             }
             out.collect(rowDelete);

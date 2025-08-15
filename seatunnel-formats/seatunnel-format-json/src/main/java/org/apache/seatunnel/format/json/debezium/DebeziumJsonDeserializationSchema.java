@@ -17,13 +17,13 @@
 
 package org.apache.seatunnel.format.json.debezium;
 
-import org.apache.seatunnel.api.table.type.MetadataUtil;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
 
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.type.MetadataUtil;
 import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -129,7 +129,7 @@ public class DebeziumJsonDeserializationSchema implements DeserializationSchema<
                 if (tablePath != null) {
                     insert.setTableId(tablePath.toString());
                 }
-                if(tsNode != null){
+                if (tsNode != null) {
                     MetadataUtil.setEventTime(insert, tsNode.asLong());
                 }
                 out.collect(insert);
@@ -144,7 +144,7 @@ public class DebeziumJsonDeserializationSchema implements DeserializationSchema<
                 if (tablePath != null) {
                     before.setTableId(tablePath.toString());
                 }
-                if(tsNode != null){
+                if (tsNode != null) {
                     MetadataUtil.setEventTime(before, tsNode.asLong());
                 }
                 out.collect(before);
@@ -155,7 +155,7 @@ public class DebeziumJsonDeserializationSchema implements DeserializationSchema<
                 if (tablePath != null) {
                     after.setTableId(tablePath.toString());
                 }
-                if(tsNode != null){
+                if (tsNode != null) {
                     MetadataUtil.setEventTime(after, tsNode.asLong());
                 }
                 out.collect(after);
@@ -170,7 +170,7 @@ public class DebeziumJsonDeserializationSchema implements DeserializationSchema<
                 if (tablePath != null) {
                     delete.setTableId(tablePath.toString());
                 }
-                if(tsNode != null){
+                if (tsNode != null) {
                     MetadataUtil.setEventTime(delete, tsNode.asLong());
                 }
                 out.collect(delete);
