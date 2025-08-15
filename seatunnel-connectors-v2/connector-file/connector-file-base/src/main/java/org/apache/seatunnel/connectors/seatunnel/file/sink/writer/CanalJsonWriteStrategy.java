@@ -72,7 +72,7 @@ public class CanalJsonWriteStrategy extends AbstractWriteStrategy<FSDataOutputSt
         try {
             byte[] rowBytes =
                     serializationSchema.serialize(
-                            seaTunnelRow.copyWithOptions(
+                            seaTunnelRow.copy(
                                     sinkColumnsIndexInRow.stream()
                                             .mapToInt(Integer::intValue)
                                             .toArray()));

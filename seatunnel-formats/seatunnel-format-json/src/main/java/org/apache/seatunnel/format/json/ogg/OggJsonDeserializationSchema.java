@@ -18,6 +18,8 @@
 
 package org.apache.seatunnel.format.json.ogg;
 
+import org.apache.seatunnel.api.table.type.MetadataUtil;
+import org.apache.seatunnel.common.utils.DateTimeUtils;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode;
 
@@ -36,6 +38,7 @@ import org.apache.seatunnel.format.json.JsonDeserializationSchema;
 import lombok.NonNull;
 
 import java.io.IOException;
+import java.time.ZoneOffset;
 import java.util.Optional;
 import java.util.regex.Pattern;
 
@@ -48,6 +51,8 @@ public class OggJsonDeserializationSchema implements DeserializationSchema<SeaTu
     private static final String FIELD_TYPE = "op_type";
 
     private static final String FIELD_DATABASE_TABLE = "table";
+
+    private static final String FIELD_TS = "op_ts";
 
     private static final String DATA_BEFORE = "before"; // BEFORE
 
@@ -151,7 +156,13 @@ public class OggJsonDeserializationSchema implements DeserializationSchema<SeaTu
             }
 
             String op = jsonNode.get(FIELD_TYPE).asText().trim();
-
+            JsonNode tsNode = jsonNode.get(FIELD_TS);
+            //ogg json ts is date, eg "2020-05-13 15:40:07.000000"
+            long ts = 0;
+            if(tsNode != null){
+                String tsDateTime = tsNode.asText();
+                ts = DateTimeUtils.parse(tsDateTime).toEpochSecond(ZoneOffset.UTC);
+            }
             switch (op) {
                 case OP_INSERT:
                     // Gets the data for the INSERT operation
@@ -159,6 +170,9 @@ public class OggJsonDeserializationSchema implements DeserializationSchema<SeaTu
                     SeaTunnelRow row = convertJsonNode(dataInsert);
                     if (tablePath != null) {
                         row.setTableId(tablePath.toString());
+                    }
+                    if(tsNode != null){
+                        MetadataUtil.setEventTime(row, ts);
                     }
                     out.collect(row);
                     break;
@@ -178,11 +192,17 @@ public class OggJsonDeserializationSchema implements DeserializationSchema<SeaTu
                     if (tablePath != null) {
                         before.setTableId(tablePath.toString());
                     }
+                    if(tsNode != null){
+                        MetadataUtil.setEventTime(before, ts);
+                    }
                     out.collect(before);
 
                     after.setRowKind(RowKind.UPDATE_AFTER);
                     if (tablePath != null) {
                         after.setTableId(tablePath.toString());
+                    }
+                    if(tsNode != null){
+                        MetadataUtil.setEventTime(after, ts);
                     }
                     out.collect(after);
                     break;
@@ -201,6 +221,9 @@ public class OggJsonDeserializationSchema implements DeserializationSchema<SeaTu
                     beforeDelete.setRowKind(RowKind.DELETE);
                     if (tablePath != null) {
                         beforeDelete.setTableId(tablePath.toString());
+                    }
+                    if(tsNode != null){
+                        MetadataUtil.setEventTime(beforeDelete, ts);
                     }
                     out.collect(beforeDelete);
                     break;

@@ -72,7 +72,7 @@ public class MaxWellJsonWriteStrategy extends AbstractWriteStrategy<FSDataOutput
         try {
             byte[] rowBytes =
                     serializationSchema.serialize(
-                            seaTunnelRow.copyWithOptions(
+                            seaTunnelRow.copy(
                                     sinkColumnsIndexInRow.stream()
                                             .mapToInt(Integer::intValue)
                                             .toArray()));

@@ -95,6 +95,7 @@ public final class SeaTunnelRow implements Serializable {
         SeaTunnelRow newRow = new SeaTunnelRow(newFields);
         newRow.setRowKind(this.getRowKind());
         newRow.setTableId(this.getTableId());
+        newRow.setOptions(this.getOptions());
         return newRow;
     }
 
@@ -106,11 +107,6 @@ public final class SeaTunnelRow implements Serializable {
         SeaTunnelRow newRow = new SeaTunnelRow(newFields);
         newRow.setRowKind(this.getRowKind());
         newRow.setTableId(this.getTableId());
-        return newRow;
-    }
-
-    public SeaTunnelRow copyWithOptions(int[] indexMapping) {
-        SeaTunnelRow newRow = copy(indexMapping);
         newRow.setOptions(this.getOptions());
         return newRow;
     }
