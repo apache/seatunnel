@@ -1004,7 +1004,7 @@ SELECT COALESCE(A, B) as result FROM my_table
 
 ```IFNULL(aValue, bValue)```
 
-返回第一个非空值。
+返回第一个非空值。如果后续参数与第一个参数的数据类型不同，则会自动转换为第一个参数的类型。
 
 示例:
 
