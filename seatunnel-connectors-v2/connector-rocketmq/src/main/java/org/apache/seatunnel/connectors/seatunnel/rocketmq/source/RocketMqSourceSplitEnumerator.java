@@ -58,6 +58,7 @@ public class RocketMqSourceSplitEnumerator
     private final Map<MessageQueue, RocketMqSourceSplit> pendingSplit;
     private ScheduledExecutorService executor;
     private ScheduledFuture scheduledFuture;
+    private final Object lock = new Object();
     // ms
     private long discoveryIntervalMillis;
 
@@ -118,9 +119,14 @@ public class RocketMqSourceSplitEnumerator
 
     @Override
     public void run() throws Exception {
-        fetchPendingPartitionSplit();
-        setPartitionStartOffset();
-        assignSplit();
+        synchronized (lock) {
+            fetchPendingPartitionSplit();
+            setPartitionStartOffset();
+        }
+
+        synchronized (lock) {
+            assignSplit();
+        }
     }
 
     @Override
@@ -159,7 +165,8 @@ public class RocketMqSourceSplitEnumerator
                         split.setEndOffset(listOffsets.get(split.getMessageQueue()));
                     });
             return splits.stream()
-                    .collect(Collectors.toMap(split -> split.getMessageQueue(), split -> split));
+                    .collect(
+                            Collectors.toMap(RocketMqSourceSplit::getMessageQueue, split -> split));
         } catch (Exception e) {
             throw new RocketMqConnectorException(
                     RocketMqConnectorErrorCode.ADD_SPLIT_BACK_TO_ENUMERATOR_FAILED, e);
@@ -180,7 +187,9 @@ public class RocketMqSourceSplitEnumerator
 
     @Override
     public RocketMqSourceState snapshotState(long checkpointId) throws Exception {
-        return new RocketMqSourceState(assignedSplit.values().stream().collect(Collectors.toSet()));
+        synchronized (lock) {
+            return new RocketMqSourceState(new HashSet<>(assignedSplit.values()));
+        }
     }
 
     @Override
@@ -189,8 +198,12 @@ public class RocketMqSourceSplitEnumerator
     }
 
     private void discoverySplits() {
-        fetchPendingPartitionSplit();
-        assignSplit();
+        synchronized (lock) {
+            fetchPendingPartitionSplit();
+        }
+        synchronized (lock) {
+            assignSplit();
+        }
     }
 
     private void fetchPendingPartitionSplit() {
