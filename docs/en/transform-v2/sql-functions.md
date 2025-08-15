@@ -1009,7 +1009,7 @@ SELECT COALESCE(A, B) as result FROM my_table
 
 ```IFNULL(aValue, bValue)```
 
-Returns the first value that is not null.
+Returns the first value that is not null. If subsequent arguments have different data types from the first argument, they will be automatically converted to the type of the first argument.
 
 Example:
 
