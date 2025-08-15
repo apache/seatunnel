@@ -344,7 +344,7 @@ public class ZetaSQLFunction {
                     functionArgs.add(computeForValue(funcArgExpression, inputFields));
                 }
             }
-            return executeFunctionExpr(function.getName(), functionArgs, expression);
+            return executeFunctionExpr(functionName, functionArgs, expression);
         }
         if (expression instanceof TimeKeyExpression) {
             return executeTimeKeyExpr(((TimeKeyExpression) expression).getStringValue());
