@@ -90,6 +90,10 @@ Choose your runtime execution engine:
 
 - For integrating video, images, and binary files with SeaTunnel, please refer to the documentation for detailed instructions.
 
+## Apache SeaTunnel Tools
+
+SeaTunnel Tools provides a range of peripheral tools, including Apache SeaTunnel Mcp Server, etc,please refer to [SeaTunnel Tools](https://github.com/apache/seatunnel-tools).
+
 ## Use Cases
 
 Explore real-world use cases of SeaTunnel, such as Weibo, Tencent Cloud, Sina, Sogou, and Yonghui Superstores. More use cases can be found on the [SeaTunnel Blog](https://seatunnel.apache.org/blog).
@@ -122,10 +126,6 @@ SeaTunnel enriches the [CNCF CLOUD NATIVE Landscape](https://landscape.cncf.io/?
 
 SeaTunnel Web is a web project that provides visual management of jobs, scheduling, running and monitoring capabilities. It is developed based on the SeaTunnel Connector API and the SeaTunnel Zeta Engine. It is a web project that can be deployed independently. It is also a sub-project of SeaTunnel.
 For more information, please refer to [SeaTunnel Web](https://github.com/apache/seatunnel-web)
-
-## Apache SeaTunnel Tools
-
-SeaTunnel Tools provides a range of peripheral tools, including Apache SeaTunnel Mcp Server, etc,please refer to [SeaTunnel Tools](https://github.com/apache/seatunnel-tools)
 
 ## Our Users
 
