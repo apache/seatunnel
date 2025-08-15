@@ -38,7 +38,6 @@ import org.apache.commons.lang3.StringUtils;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
-import io.milvus.common.utils.JacksonUtils;
 import io.milvus.grpc.DataType;
 import io.milvus.param.collection.FieldType;
 
@@ -83,7 +82,7 @@ public class MilvusSinkConverter {
                 ByteBuffer binaryVector = (ByteBuffer) value;
                 return gson.toJsonTree(binaryVector.array());
             case SPARSE_FLOAT_VECTOR:
-                return JsonParser.parseString(JacksonUtils.toJsonString(value)).getAsJsonObject();
+                return JsonParser.parseString(JsonUtils.toJsonString(value)).getAsJsonObject();
             case FLOAT:
                 return Float.parseFloat(value.toString());
             case BOOLEAN:
@@ -119,7 +118,7 @@ public class MilvusSinkConverter {
                 SeaTunnelRow row = (SeaTunnelRow) value;
                 return JsonUtils.toJsonString(row.getFields());
             case MAP:
-                return JacksonUtils.toJsonString(value);
+                return JsonUtils.toJsonString(value);
             default:
                 throw new MilvusConnectorException(
                         MilvusConnectionErrorCode.NOT_SUPPORT_TYPE, sqlType.name());
