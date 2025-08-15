@@ -19,6 +19,23 @@ SeaTunnel提供了丰富的事件监听器功能，用于管理数据同步时�
 - `org.apache.seatunnel.api.event.Event` - 事件数据的接口。
 - `org.apache.seatunnel.api.event.EventType` - 事件数据的枚举值。
 
+#### EventType 枚举说明
+`EventType`枚举定义了系统中所有可能的事件类型，主要包括：
+
+| 事件类型                           | 说明       | 关联事件类                         |
+|--------------------------------|----------|-------------------------------|
+| `JOB_STATUS`                   | 作业状态变更事件 | `JobStateEvent`               |
+| `SCHEMA_CHANGE_UPDATE_COLUMNS` | 表结构更新事件  | `AlterTableColumnsEvent`      |
+| `SCHEMA_CHANGE_ADD_COLUMN`     | 表添加列事件   | `AlterTableAddColumnEvent`    |
+| `SCHEMA_CHANGE_DROP_COLUMN`    | 表删除列事件   | `AlterTableDropColumnEvent`   |
+| `SCHEMA_CHANGE_MODIFY_COLUMN`  | 表修改列事件   | `AlterTableModifyColumnEvent` |
+| `READER_OPEN`                  | 读取器打开事件  | `ReaderOpenEvent`             |
+| `READER_CLOSE`                 | 读取器关闭事件  | `ReaderCloseEvent`            |
+| `WRITER_OPEN`                  | 写入器打开事件  | `WriterOpenEvent`             |
+| `WRITER_CLOSE`                 | 写入器关闭事件  | `WriterCloseEvent`            |
+
+> 注意：不同事件类型对应不同的事件数据结构，在自定义事件处理器时需通过`event.getEventType()`进行类型判断，以确保类型安全转换。
+
 ### Event Listener API
 
 您可以自定义事件处理器，例如将事件发送到外部系统。

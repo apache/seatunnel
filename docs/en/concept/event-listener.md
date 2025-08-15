@@ -21,6 +21,23 @@ The event API is defined in the `org.apache.seatunnel.api.event` package.
 - `org.apache.seatunnel.api.event.Event` - The interface for event data.
 - `org.apache.seatunnel.api.event.EventType` - The enum for event type.
 
+#### EventType Enumeration Description
+The `EventType` enumeration defines all possible event types in the system, including:
+
+| Event Type                     | Description                  | Associated Event Class        |
+|--------------------------------|------------------------------|-------------------------------|
+| `JOB_STATUS`                   | Job status change event      | `JobStateEvent`               |
+| `SCHEMA_CHANGE_UPDATE_COLUMNS` | Table structure update event | `AlterTableColumnsEvent`      |
+| `SCHEMA_CHANGE_ADD_COLUMN`     | Table add column event       | `AlterTableAddColumnEvent`    |
+| `SCHEMA_CHANGE_DROP_COLUMN`    | Table drop column event      | `AlterTableDropColumnEvent`   |
+| `SCHEMA_CHANGE_MODIFY_COLUMN`  | Table modify column event    | `AlterTableModifyColumnEvent` |
+| `READER_OPEN`                  | Source reader open event     | `ReaderOpenEvent`             |
+| `READER_CLOSE`                 | Source reader close event    | `ReaderCloseEvent`            |
+| `WRITER_OPEN`                  | Writer open event            | `WriterOpenEvent`             |
+| `WRITER_CLOSE`                 | Writer close event           | `WriterCloseEvent`            |
+
+> Note: Different event types correspond to different event data structures. When implementing custom event handlers, use `event.getEventType()` to check the type before performing type-safe conversions.
+
 ### Event Listener API
 
 You can customize event handler, such as sending events to external systems
