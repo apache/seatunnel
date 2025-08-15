@@ -323,7 +323,7 @@ CoordinatorService 提供了每个作业从 LogicalDag 到 ExecutionDag，再到
 
 指标清理重试队列中允许的最大重试任务数量。
 当队列已满时，旧条目将被移除。
-默认值为 100。
+默认值为 1024。
 
 Example
 
@@ -332,7 +332,7 @@ coordinator-service:
   core-thread-num: 30
   max-thread-num: 1000
   cleanup-retry-interval: 60
-  cleanup-retry-queue-size: 100
+  cleanup-retry-queue-size: 1024
 ```
 
 ## 5. 配置 SeaTunnel Engine 网络服务

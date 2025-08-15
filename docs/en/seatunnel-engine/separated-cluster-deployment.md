@@ -321,7 +321,7 @@ Default value is 60 seconds.
 
 Maximum number of retry tasks allowed in the metrics cleanup retry queue.
 Older entries will be removed when the queue is full.
-Default value is 100.
+Default value is 1024.
 
 Example
 
@@ -330,7 +330,7 @@ coordinator-service:
   core-thread-num: 30
   max-thread-num: 1000
   cleanup-retry-interval: 60
-  cleanup-retry-queue-size: 100
+  cleanup-retry-queue-size: 1024
 ```
 
 
