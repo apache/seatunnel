@@ -102,10 +102,10 @@ public class JsonPathTransformConfig implements Serializable {
         List<ColumnConfig> configs = new ArrayList<>(columns.size());
         for (Map<String, String> map : columns) {
             checkColumnConfig(map);
-            String path = map.get(PATH.key());
+            String paths = map.get(PATH.key());
             String srcField = map.get(SRC_FIELD.key());
-            String destField = map.get(DEST_FIELD.key());
-            String type = map.getOrDefault(DEST_TYPE.key(), DEST_TYPE.defaultValue());
+            String destFields = map.get(DEST_FIELD.key());
+            String types = map.getOrDefault(DEST_TYPE.key(), DEST_TYPE.defaultValue());
             ErrorHandleWay columnErrorHandleWay =
                     Optional.ofNullable(
                                     map.get(
@@ -114,24 +114,42 @@ public class JsonPathTransformConfig implements Serializable {
                             .map(ErrorHandleWay::valueOf)
                             .orElse(null);
 
-            SeaTunnelDataType<?> srcFieldDataType =
-                    SeaTunnelDataTypeConvertorUtil.deserializeSeaTunnelDataType(srcField, type);
+            String[] pathArray = paths.split(";");
+            String[] destFieldArray = destFields.split(";");
+            String[] typeArray = types.split(";");
+
+            if (pathArray.length != destFieldArray.length || pathArray.length != typeArray.length) {
+                throw new TransformException(
+                        COLUMNS_MUST_NOT_EMPTY,
+                        "Path, dest_field, and dest_type arrays must have the same length");
+            }
+
             if (!table.getTableSchema().contains(srcField)) {
                 throw TransformCommonError.cannotFindInputFieldError("JsonPath", srcField);
             }
             Column srcFieldColumn = table.getTableSchema().getColumn(srcField);
-            Column destFieldColumn =
-                    PhysicalColumn.of(
-                            destField,
-                            srcFieldDataType,
-                            srcFieldColumn.getColumnLength(),
-                            true,
-                            null,
-                            null);
-            ColumnConfig columnConfig =
-                    new ColumnConfig(
-                            path, srcField, destField, destFieldColumn, columnErrorHandleWay);
-            configs.add(columnConfig);
+
+            for (int i = 0; i < pathArray.length; i++) {
+                String path = pathArray[i].trim();
+                String destField = destFieldArray[i].trim();
+                String type = typeArray[i].trim();
+
+                SeaTunnelDataType<?> srcFieldDataType =
+                        SeaTunnelDataTypeConvertorUtil.deserializeSeaTunnelDataType(srcField, type);
+
+                Column destFieldColumn =
+                        PhysicalColumn.of(
+                                destField,
+                                srcFieldDataType,
+                                srcFieldColumn.getColumnLength(),
+                                true,
+                                null,
+                                null);
+                ColumnConfig columnConfig =
+                        new ColumnConfig(
+                                path, srcField, destField, destFieldColumn, columnErrorHandleWay);
+                configs.add(columnConfig);
+            }
         }
         return new JsonPathTransformConfig(configs, rowErrorHandleWay);
     }
