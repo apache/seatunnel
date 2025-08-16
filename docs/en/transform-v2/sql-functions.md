@@ -647,6 +647,16 @@ Example:
 
 TRUNC(N, 2)
 
+### TRIM_SCALE
+
+```TRIM_SCALE(numeric)```
+
+Reduce the scale of a number by removing trailing zeroes. This method returns a value of string, and with adjusted scale.
+
+Example:
+
+TRIM_SCALE(N)
+
 ## Time and Date Functions
 
 ### CURRENT_DATE

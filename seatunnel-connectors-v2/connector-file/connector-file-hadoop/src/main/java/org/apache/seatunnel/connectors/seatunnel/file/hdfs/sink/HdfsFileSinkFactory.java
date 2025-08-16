@@ -17,20 +17,39 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.hdfs.sink;
 
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
+import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.options.SinkConnectorCommonOptions;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
-import org.apache.seatunnel.api.table.factory.TableSinkFactory;
+import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.common.config.CheckConfigUtil;
+import org.apache.seatunnel.common.config.CheckResult;
+import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
+import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
+import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.file.factory.BaseMultipleTableFileSinkFactory;
 import org.apache.seatunnel.connectors.seatunnel.file.hdfs.source.config.HdfsSourceConfigOptions;
+import org.apache.seatunnel.connectors.seatunnel.file.sink.commit.FileAggregatedCommitInfo;
+import org.apache.seatunnel.connectors.seatunnel.file.sink.commit.FileCommitInfo;
+import org.apache.seatunnel.connectors.seatunnel.file.sink.state.FileSinkState;
 
 import com.google.auto.service.AutoService;
 
 import java.util.Arrays;
 
+import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.FS_DEFAULT_NAME_KEY;
+
 @AutoService(Factory.class)
-public class HdfsFileSinkFactory implements TableSinkFactory {
+public class HdfsFileSinkFactory extends BaseMultipleTableFileSinkFactory {
     @Override
     public String factoryIdentifier() {
         return FileSystemType.HDFS.getFileSystemPluginName();
@@ -42,6 +61,7 @@ public class HdfsFileSinkFactory implements TableSinkFactory {
                 .required(HdfsSourceConfigOptions.DEFAULT_FS)
                 .required(FileBaseSinkOptions.FILE_PATH)
                 .optional(FileBaseSinkOptions.FILE_FORMAT_TYPE)
+                .optional(SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA)
                 .conditional(
                         FileBaseSinkOptions.FILE_FORMAT_TYPE,
                         FileFormat.TEXT,
@@ -110,5 +130,53 @@ public class HdfsFileSinkFactory implements TableSinkFactory {
                 .optional(FileBaseSinkOptions.FILENAME_EXTENSION)
                 .optional(FileBaseSinkOptions.TMP_PATH)
                 .build();
+    }
+
+    @Override
+    public TableSink<SeaTunnelRow, FileSinkState, FileCommitInfo, FileAggregatedCommitInfo>
+            createSink(TableSinkFactoryContext context) {
+        ReadonlyConfig readonlyConfig = context.getOptions();
+        CatalogTable catalogTable = context.getCatalogTable();
+        HadoopConf hadoopConf = initHadoopConf(readonlyConfig);
+        return () -> new HdfsFileSink(hadoopConf, readonlyConfig, catalogTable);
+    }
+
+    public HadoopConf initHadoopConf(ReadonlyConfig readonlyConfig) {
+        Config pluginConfig = readonlyConfig.toConfig();
+        CheckResult result =
+                CheckConfigUtil.checkAllExists(readonlyConfig.toConfig(), FS_DEFAULT_NAME_KEY);
+        if (!result.isSuccess()) {
+            throw new FileConnectorException(
+                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                    String.format(
+                            "PluginName: %s, PluginType: %s, Message: %s",
+                            factoryIdentifier(), PluginType.SINK, result.getMsg()));
+        }
+
+        HadoopConf hadoopConf = new HadoopConf(pluginConfig.getString(FS_DEFAULT_NAME_KEY));
+
+        if (pluginConfig.hasPath(FileBaseSinkOptions.HDFS_SITE_PATH.key())) {
+            hadoopConf.setHdfsSitePath(
+                    pluginConfig.getString(FileBaseSinkOptions.HDFS_SITE_PATH.key()));
+        }
+
+        if (pluginConfig.hasPath(FileBaseSinkOptions.REMOTE_USER.key())) {
+            hadoopConf.setRemoteUser(pluginConfig.getString(FileBaseSinkOptions.REMOTE_USER.key()));
+        }
+
+        if (pluginConfig.hasPath(FileBaseSinkOptions.KRB5_PATH.key())) {
+            hadoopConf.setKrb5Path(pluginConfig.getString(FileBaseSinkOptions.KRB5_PATH.key()));
+        }
+
+        if (pluginConfig.hasPath(FileBaseSinkOptions.KERBEROS_PRINCIPAL.key())) {
+            hadoopConf.setKerberosPrincipal(
+                    pluginConfig.getString(FileBaseSinkOptions.KERBEROS_PRINCIPAL.key()));
+        }
+        if (pluginConfig.hasPath(FileBaseSinkOptions.KERBEROS_KEYTAB_PATH.key())) {
+            hadoopConf.setKerberosKeytabPath(
+                    pluginConfig.getString(FileBaseSinkOptions.KERBEROS_KEYTAB_PATH.key()));
+        }
+
+        return hadoopConf;
     }
 }

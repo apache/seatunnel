@@ -44,11 +44,15 @@ import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
+import static org.awaitility.Awaitility.await;
 import static org.awaitility.Awaitility.given;
 
 @Slf4j
 public class AmazonsqsIT extends TestSuiteBase implements TestResource {
-    private static final String LOCALSTACK_DOCKER_IMAGE = "localstack/localstack:0.11.2";
+
+    private static final String LOCALSTACK_DOCKER_IMAGE_VERSION = "3.7";
+    private static final String LOCALSTACK_DOCKER_IMAGE =
+            "localstack/localstack:" + LOCALSTACK_DOCKER_IMAGE_VERSION;
     private static final String AMAZONSQS_JOB_CONFIG = "/amazonsqsIT_source_to_sink.conf";
     private static final String AMAZONSQS_CONTAINER_HOST = "sqs-host";
     private static final int AMAZONSQS_CONTAINER_PORT = 4566;
@@ -66,7 +70,7 @@ public class AmazonsqsIT extends TestSuiteBase implements TestResource {
     public void startUp() throws Exception {
         // start a localstack docker container
         localstack =
-                new LocalStackContainer()
+                new LocalStackContainer(LOCALSTACK_DOCKER_IMAGE_VERSION)
                         .withServices(LocalStackContainer.Service.SQS)
                         .withEnv("AWS_DEFAULT_REGION", "us-east-1")
                         .withEnv("AWS_ACCESS_KEY_ID", "1234")
@@ -97,7 +101,8 @@ public class AmazonsqsIT extends TestSuiteBase implements TestResource {
         // create a sqs client
         sqsClient =
                 SqsClient.builder()
-                        .endpointOverride(localstack.getEndpoint())
+                        .endpointOverride(
+                                localstack.getEndpointOverride(LocalStackContainer.Service.SQS))
                         .region(Region.US_EAST_1)
                         .credentialsProvider(
                                 StaticCredentialsProvider.create(
@@ -107,12 +112,23 @@ public class AmazonsqsIT extends TestSuiteBase implements TestResource {
         // create source and sink queue
         sqsClient.createQueue(r -> r.queueName(SOURCE_QUEUE));
         sqsClient.createQueue(r -> r.queueName(SINK_QUEUE));
+        // wait for create complete
+        await().atMost(10, TimeUnit.SECONDS)
+                .pollInterval(1, TimeUnit.SECONDS)
+                .ignoreExceptionsInstanceOf(Exception.class)
+                .untilAsserted(
+                        () -> {
+                            getQueueUrl(SOURCE_QUEUE);
+                            getQueueUrl(SINK_QUEUE);
+                        });
 
         // insert message to source queue
-        sqsClient.sendMessage(
-                r ->
-                        r.queueUrl(sqsClient.listQueues().queueUrls().get(0))
-                                .messageBody(TEST_MESSAGE));
+        String sourceQueueUrl = getQueueUrl(SOURCE_QUEUE);
+        sqsClient.sendMessage(r -> r.queueUrl(sourceQueueUrl).messageBody(TEST_MESSAGE));
+    }
+
+    private String getQueueUrl(String queueName) {
+        return sqsClient.getQueueUrl(r -> r.queueName(queueName)).queueUrl();
     }
 
     @AfterAll
@@ -134,10 +150,8 @@ public class AmazonsqsIT extends TestSuiteBase implements TestResource {
         // check if there is message in sink queue, and compare the sink record with the source
         // record
         // the message is invisible after reception, so don't call it twice.
-        List<Message> messages =
-                sqsClient
-                        .receiveMessage(r -> r.queueUrl(sqsClient.listQueues().queueUrls().get(1)))
-                        .messages();
+        String sinkQueueUrl = getQueueUrl(SINK_QUEUE);
+        List<Message> messages = sqsClient.receiveMessage(r -> r.queueUrl(sinkQueueUrl)).messages();
         Assertions.assertEquals(1, messages.size());
         Assertions.assertEquals(TEST_MESSAGE, messages.get(0).body());
     }

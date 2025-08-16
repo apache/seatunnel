@@ -67,8 +67,8 @@ public class ObjectUtils {
             return BigDecimal.valueOf((long) minuend)
                     .subtract(BigDecimal.valueOf((long) subtrahend));
         } else if (minuend instanceof Float) {
-            return BigDecimal.valueOf((float) minuend)
-                    .subtract(BigDecimal.valueOf((float) subtrahend));
+            return new BigDecimal(minuend.toString())
+                    .subtract(new BigDecimal(subtrahend.toString()));
         } else if (minuend instanceof Double) {
             return BigDecimal.valueOf((double) minuend)
                     .subtract(BigDecimal.valueOf((double) subtrahend));

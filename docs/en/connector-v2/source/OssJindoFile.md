@@ -55,33 +55,33 @@ It only supports hadoop version **2.9.X+**.
 
 ## Options
 
-| name                      | type    | required | default value       |
-|---------------------------|---------|----------|---------------------|
-| path                      | string  | yes      | -                   |
-| file_format_type          | string  | yes      | -                   |
-| bucket                    | string  | yes      | -                   |
-| access_key                | string  | yes      | -                   |
-| access_secret             | string  | yes      | -                   |
-| endpoint                  | string  | yes      | -                   |
-| read_columns              | list    | no       | -                   |
-| delimiter/field_delimiter | string  | no       | \001                |
-| row_delimiter             | string  | no       | \n                  |
-| parse_partition_from_path | boolean | no       | true                |
-| date_format               | string  | no       | yyyy-MM-dd          |
-| datetime_format           | string  | no       | yyyy-MM-dd HH:mm:ss |
-| time_format               | string  | no       | HH:mm:ss            |
-| skip_header_row_number    | long    | no       | 0                   |
-| schema                    | config  | no       | -                   |
-| sheet_name                | string  | no       | -                   |
-| xml_row_tag               | string  | no       | -                   |
-| xml_use_attr_format       | boolean | no       | -                   |
-| csv_use_header_line       | boolean | no       | false               |
-| file_filter_pattern       | string  | no       |                     |
-| compress_codec            | string  | no       | none                |
-| archive_compress_codec    | string  | no       | none                |
-| encoding                  | string  | no       | UTF-8               |
-| null_format               | string  | no       | -                   |
-| common-options            |         | no       | -                   |
+| name                      | type    | required | default value               |
+|---------------------------|---------|----------|-----------------------------|
+| path                      | string  | yes      | -                           |
+| file_format_type          | string  | yes      | -                           |
+| bucket                    | string  | yes      | -                           |
+| access_key                | string  | yes      | -                           |
+| access_secret             | string  | yes      | -                           |
+| endpoint                  | string  | yes      | -                           |
+| read_columns              | list    | no       | -                           |
+| delimiter/field_delimiter | string  | no       | \001 for text and , for csv |
+| row_delimiter             | string  | no       | \n                          |
+| parse_partition_from_path | boolean | no       | true                        |
+| date_format               | string  | no       | yyyy-MM-dd                  |
+| datetime_format           | string  | no       | yyyy-MM-dd HH:mm:ss         |
+| time_format               | string  | no       | HH:mm:ss                    |
+| skip_header_row_number    | long    | no       | 0                           |
+| schema                    | config  | no       | -                           |
+| sheet_name                | string  | no       | -                           |
+| xml_row_tag               | string  | no       | -                           |
+| xml_use_attr_format       | boolean | no       | -                           |
+| csv_use_header_line       | boolean | no       | false                       |
+| file_filter_pattern       | string  | no       |                             |
+| compress_codec            | string  | no       | none                        |
+| archive_compress_codec    | string  | no       | none                        |
+| encoding                  | string  | no       | UTF-8                       |
+| null_format               | string  | no       | -                           |
+| common-options            |         | no       | -                           |
 
 ### path [string]
 

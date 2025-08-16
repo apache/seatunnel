@@ -270,9 +270,9 @@ seatunnel:
 
 #### 参数
 
-> | 参数名称  |   是否必传   |  参数类型  |                               参数描述                               |
-> |-------|----------|--------|------------------------------------------------------------------|
-> | state | optional | string | finished job status. `FINISHED`,`CANCELED`,`FAILED`,`UNKNOWABLE` |
+> | 参数名称  |   是否必传   |  参数类型  | 参数描述                                                                              |
+> |-------|----------|--------|-----------------------------------------------------------------------------------|
+> | state | optional | string | finished job status. `FINISHED`,`CANCELED`,`FAILED`,`SAVEPOINT_DONE`,`UNKNOWABLE` |
 
 #### 响应
 

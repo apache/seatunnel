@@ -145,22 +145,16 @@ public class CoordinatedSource<T, SplitT extends SourceSplit, StateT extends Ser
                 (subtaskId, splits) -> {
                     splitEnumerator.addSplitsBack(splits, subtaskId);
                 });
-        readerMap
-                .entrySet()
-                .parallelStream()
-                .forEach(
-                        entry -> {
-                            try {
-                                entry.getValue().open();
-                                readerContextMap
-                                        .get(entry.getKey())
-                                        .getEventListener()
-                                        .onEvent(new ReaderOpenEvent());
-                                splitEnumerator.registerReader(entry.getKey());
-                            } catch (Exception e) {
-                                throw new RuntimeException(e);
-                            }
-                        });
+        readerMap.forEach(
+                (key, value) -> {
+                    try {
+                        value.open();
+                        readerContextMap.get(key).getEventListener().onEvent(new ReaderOpenEvent());
+                        splitEnumerator.registerReader(key);
+                    } catch (Exception e) {
+                        throw new RuntimeException(e);
+                    }
+                });
     }
 
     @Override

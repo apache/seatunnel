@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.engine.common.config;
 
+import org.apache.seatunnel.common.utils.ReflectionUtils;
+
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -78,6 +80,7 @@ public class YamlSeaTunnelConfigParserTest {
         Assertions.assertTrue(config.getEngineConfig().getHttpConfig().isEnableDynamicPort());
         Assertions.assertEquals(8080, config.getEngineConfig().getHttpConfig().getPort());
         Assertions.assertEquals(200, config.getEngineConfig().getHttpConfig().getPortRange());
+        Assertions.assertEquals(8443, config.getEngineConfig().getHttpConfig().getHttpsPort());
         Assertions.assertEquals(
                 30, config.getEngineConfig().getCoordinatorServiceConfig().getCoreThreadNum());
         Assertions.assertEquals(
@@ -128,5 +131,21 @@ public class YamlSeaTunnelConfigParserTest {
         Assertions.assertEquals(
                 Runtime.getRuntime().availableProcessors() * 2,
                 config.getEngineConfig().getSlotServiceConfig().getSlotNum());
+    }
+
+    @Test
+    public void testCustomizeHttpsServerConfig() throws IOException {
+        YamlSeaTunnelConfigLocator yamlConfigLocator = new YamlSeaTunnelConfigLocator();
+        ReflectionUtils.invoke(
+                yamlConfigLocator, "loadDefaultConfigurationFromClasspath", "seatunnel-https.yaml");
+        SeaTunnelConfig config =
+                new YamlSeaTunnelConfigBuilder(yamlConfigLocator).setProperties(null).build();
+        Assertions.assertTrue(config.getEngineConfig().getHttpConfig().isEnableHttps());
+        Assertions.assertEquals(18443, config.getEngineConfig().getHttpConfig().getHttpsPort());
+        Assertions.assertEquals(
+                "/seatunnel/seatunnel.keystore",
+                config.getEngineConfig().getHttpConfig().getKeyStorePath());
+        Assertions.assertEquals(
+                "123456", config.getEngineConfig().getHttpConfig().getKeyStorePassword());
     }
 }
