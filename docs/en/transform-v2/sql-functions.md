@@ -1075,9 +1075,6 @@ SELECT
   END AS c_boolean_0
 FROM dual;
 ```
-
-It is used to determine whether the condition is valid and return different values according to different judgments. This method returns the **type of the selected value**.
-
 Example:
 
 ```sql
