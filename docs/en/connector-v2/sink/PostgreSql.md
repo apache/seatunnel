@@ -77,7 +77,7 @@ semantics (using XA transaction guarantee).
 |-------------------------------------------|---------|----------|------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | url                                       | String  | Yes      | -                            | The URL of the JDBC connection. Refer to a case: jdbc:postgresql://localhost:5432/test <br/>  if you would use json or jsonb type insert please add jdbc url stringtype=unspecified option                                                                                                                                                                                                                                                                                                                                                                                        |
 | driver                                    | String  | Yes      | -                            | The jdbc class name used to connect to the remote data source,<br/> if you use PostgreSQL the value is `org.postgresql.Driver`.                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
-| user                                      | String  | No       | -                            | Connection instance user name                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| username                                      | String  | No       | -                            | Connection instance user name                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | password                                  | String  | No       | -                            | Connection instance password                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | query                                     | String  | No       | -                            | Use this sql write upstream input datas to database. e.g `INSERT ...`,`query` have the higher priority                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | database                                  | String  | No       | -                            | Use this `database` and `table-name` auto-generate sql and receive upstream input datas write to database.<br/>This option is mutually exclusive with `query` and has a higher priority.                                                                                                                                                                                                                                                                                                                                                                                          |
@@ -178,7 +178,7 @@ sink {
        # if you would use json or jsonb type insert please add jdbc url stringtype=unspecified option
         url = "jdbc:postgresql://localhost:5432/test"
         driver = "org.postgresql.Driver"
-        user = root
+        username = root
         password = 123456
         query = "insert into test_table(name,age) values(?,?)"
      }
@@ -197,7 +197,7 @@ sink {
         # if you would use json or jsonb type insert please add jdbc url stringtype=unspecified option
         url = "jdbc:postgresql://localhost:5432/test"
         driver = org.postgresql.Driver
-        user = root
+        username = root
         password = 123456
         
         generate_sink_sql = true
@@ -219,7 +219,7 @@ sink {
         driver = "org.postgresql.Driver"
     
         max_retries = 0
-        user = root
+        username = root
         password = 123456
         query = "insert into test_table(name,age) values(?,?)"
     
@@ -240,7 +240,7 @@ sink {
         # if you would use json or jsonb type insert please add jdbc url stringtype=unspecified option
         url = "jdbc:postgresql://localhost:5432/test"
         driver = "org.postgresql.Driver"
-        user = root
+        username = root
         password = 123456
         
         generate_sink_sql = true
@@ -261,7 +261,7 @@ sink {
         # if you would use json or jsonb type insert please add jdbc url stringtype=unspecified option
         url = "jdbc:postgresql://localhost:5432/test"
         driver = org.postgresql.Driver
-        user = root
+        username = root
         password = 123456
         
         generate_sink_sql = true

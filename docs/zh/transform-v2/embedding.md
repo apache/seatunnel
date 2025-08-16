@@ -17,7 +17,7 @@
 | secret_key                     | string | 是    | -      | 用于额外验证的密钥。一些提供商可能需要此密钥进行安全的API请求。                                |
 | aws_region                     | string | 否    |        | 用于使用Amazon Bedrock 模型，需要指定模型请求区域.                                |
 | single_vectorized_input_number | int    | 否    | 1      | 单次请求向量化的输入数量。默认值为1。                                              |
-| vectorization_fields           | map    | 是    | -      | 输入字段和相应的输出向量字段之间的映射。支持使用 `field_name:modality_type` 格式的多模态字段规范。 |
+| vectorization_fields           | map    | 是    | -      | 输入字段和相应的输出向量字段之间的映射。                                             |
 | model                          | string | 是    | -      | 要使用的具体embedding模型。例如，如果提供商为OPENAI，可以指定 `text-embedding-3-small`。 |
 | api_path                       | string | 否    | -      | embedding服务的API。通常由模型提供商提供。                                      |
 | dimension                      | int    | 否    | 2048   | 向量维度默认为 2048，Embedding-3模型支持自定义向量维度，建议选择256、512、1024或2048维度。     |
@@ -66,20 +66,54 @@ vectorization_fields {
 **多模态向量化：**
 ```hocon
 vectorization_fields {
-    text_vector = text_field:text          # 显式指定文本类型
-    image_vector = image_url:image         # 图片模态
-    video_vector = video_path:video        # 视频模态
-    mixed_vector = content_field           # 如果未指定类型则默认为文本
+    # 基本文本字段
+    text_vector = text_field
+
+    # 显式指定模态类型的配置
+    product_image_vector = {
+        field = product_image_url
+        modality = jpeg
+        format = url
+    }
+
+    # 自动检测模态类型（根据文件后缀）
+    thumbnail_vector = {
+        field = thumbnail_image  # 如果值为 "image.png"，会自动检测为 PNG 模态
+        format = url
+    }
+
+    # 视频字段配置
+    demo_video_vector = {
+        field = product_video_url
+        modality = mp4
+        format = url
+    }
+
+    # 二进制数据配置
+    binary_image_vector = {
+        field = image_data
+        modality = jpeg
+        format = binary
+    }
 }
 ```
 
 **字段规范格式：**
-- `field_name` - 默认使用文本模态
-- `field_name:text` - 显式指定文本模态
-- `field_name:image` - 为图片 URL 指定图片模态
-- `field_name:video` - 为视频 URL 指定视频模态
 
-> **重要：** 使用多模态字段（图片或视频）时，请确保您的模型提供商支持多模态 embedding。图片和视频字段必须包含有效的 URL。目前，`DOUBAO` 提供商支持多模态数据处理。
+**支持的模态类型：**
+- **图片：** `jpeg` (jpg, jpeg), `png` (png, apng), `gif`, `webp`, `bmp` (bmp, dib), `tiff` (tiff, tif), `ico`, `icns`, `sgi`, `jpeg2000` (j2c, j2k, jp2, jpc, jpf, jpx)
+- **视频：** `mp4`, `avi`, `mov`
+- **文本：** `text`（默认）
+
+**数据格式：**
+- `text` - 文本格式（默认）
+- `url` - URL 格式
+- `binary` - 二进制数据格式
+
+**自动模态检测：**
+当未显式指定 `modality` 且 `format` 不是 `binary` 时，系统会根据字段值的文件后缀自动检测模态类型：
+
+> **重要：** 使用多模态字段（图片或视频）时，请确保您的模型提供商支持多模态 embedding。图片和视频字段必须包含有效的 URL 或二进制数据。目前，`DOUBAO` 提供商支持多模态数据处理。
 
 ### model
 
@@ -271,6 +305,166 @@ sink {
           ]
         }
     }
+}
+```
+
+### 多模态 Embedding（火山引擎豆包）
+
+```hocon
+env {
+  job.mode = "BATCH"
+}
+
+source {
+  FakeSource {
+    row.num = 5
+    schema = {
+      fields {
+        id = "int"
+        product_name = "string"
+        description = "string"
+        product_image_url = "string"
+        product_video_url = "string"
+        thumbnail_image = "string"
+        promotional_video = "string"
+        category = "string"
+        price = "decimal(10,2)"
+        created_at = "timestamp"
+      }
+    }
+    rows = [
+      {
+        fields = [
+          1,
+          "iPhone 15 Pro",
+          "Latest iPhone with advanced camera system and A17 Pro chip",
+          "https://example.com/images/iphone15pro.jpg",
+          "https://example.com/videos/iphone15pro_demo.mp4",
+          "https://example.com/thumbnails/iphone15pro_thumb.png",
+          "https://example.com/videos/iphone15pro_promo.mov",
+          "Electronics",
+          999.99,
+          "2024-01-15T10:30:00"
+        ],
+        kind = INSERT
+      },
+      {
+        fields = [
+          2,
+          "MacBook Air M3",
+          "Ultra-thin laptop with M3 chip for incredible performance",
+          "https://example.com/images/macbook_air_m3.jpeg",
+          "https://example.com/videos/macbook_air_review.avi",
+          "https://example.com/thumbnails/macbook_thumb.webp",
+          "https://example.com/videos/macbook_commercial.mp4",
+          "Computers",
+          1299.99,
+          "2024-02-20T14:15:00"
+        ],
+        kind = INSERT
+      }
+    ]
+    plugin_output = "fake"
+  }
+}
+
+transform {
+  Embedding {
+    plugin_input = "fake"
+    model_provider = DOUBAO
+    model = "doubao-embedding-vision"
+    api_key = "your-api-key"
+    api_path = "https://ark.cn-beijing.volces.com/api/v3/embeddings/multimodal"
+    single_vectorized_input_number = 1
+
+    vectorization_fields {
+      # 文本字段 - 默认文本模态
+      description_vector = description
+
+      # 显式指定图片模态
+      product_image_vector = {
+        field = product_image_url
+        modality = jpeg
+        format = url
+      }
+
+      thumbnail_vector = {
+        field = thumbnail_image
+        format = url
+      }
+
+      # 视频字段
+      demo_video_vector = {
+        field = product_video_url
+        modality = mp4
+        format = url
+      }
+
+      promo_video_vector = {
+        field = promotional_video  # 如果值为 "promo.mov"，自动检测为 MOV
+        format = url
+      }
+
+      product_name_vector = product_name
+    }
+
+    plugin_output = "multimodal_embedding_output"
+  }
+}
+
+sink {
+  Assert {
+    plugin_input = "multimodal_embedding_output"
+    rules = {
+      field_rules = [
+        {
+          field_name = id
+          field_type = int
+          field_value = [
+            {
+              rule_type = NOT_NULL
+            }
+          ]
+        },
+        {
+          field_name = description_vector
+          field_type = float_vector
+          field_value = [
+            {
+              rule_type = NOT_NULL
+            }
+          ]
+        },
+        {
+          field_name = product_image_vector
+          field_type = float_vector
+          field_value = [
+            {
+              rule_type = NOT_NULL
+            }
+          ]
+        },
+        {
+          field_name = thumbnail_vector
+          field_type = float_vector
+          field_value = [
+            {
+              rule_type = NOT_NULL
+            }
+          ]
+        },
+        {
+          field_name = demo_video_vector
+          field_type = float_vector
+          field_value = [
+            {
+              rule_type = NOT_NULL
+            }
+          ]
+        }
+      ]
+    }
+  }
 }
 ```
 

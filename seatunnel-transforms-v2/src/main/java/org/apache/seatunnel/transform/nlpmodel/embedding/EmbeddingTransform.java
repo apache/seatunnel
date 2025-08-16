@@ -30,8 +30,7 @@ import org.apache.seatunnel.transform.common.MultipleFieldOutputTransform;
 import org.apache.seatunnel.transform.exception.TransformCommonError;
 import org.apache.seatunnel.transform.nlpmodel.ModelProvider;
 import org.apache.seatunnel.transform.nlpmodel.ModelTransformConfig;
-import org.apache.seatunnel.transform.nlpmodel.embedding.multimodal.ModalityType;
-import org.apache.seatunnel.transform.nlpmodel.embedding.multimodal.MultimodalField;
+import org.apache.seatunnel.transform.nlpmodel.embedding.multimodal.MultimodalFieldValue;
 import org.apache.seatunnel.transform.nlpmodel.embedding.multimodal.MultimodalModel;
 import org.apache.seatunnel.transform.nlpmodel.embedding.remote.Model;
 import org.apache.seatunnel.transform.nlpmodel.embedding.remote.amazon.BedrockModel;
@@ -49,7 +48,6 @@ import java.io.IOException;
 import java.net.URISyntaxException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -58,20 +56,18 @@ import java.util.Set;
 public class EmbeddingTransform extends MultipleFieldOutputTransform {
 
     private final ReadonlyConfig config;
-    private List<String> fieldNames;
     private List<Integer> fieldOriginalIndexes;
     private transient Model model;
     private Integer dimension;
     private boolean isMultimodalFields = false;
-    private Map<Integer, String> fieldModalitys;
+    private Map<Integer, FieldSpec> fieldSpecMap;
+    private List<String> fieldNames;
 
     public EmbeddingTransform(
             @NonNull ReadonlyConfig config, @NonNull CatalogTable inputCatalogTable) {
         super(inputCatalogTable);
         this.config = config;
-        initOutputFields(
-                inputCatalogTable.getTableSchema().toPhysicalRowDataType(),
-                config.get(EmbeddingTransformConfig.VECTORIZATION_FIELDS));
+        initOutputFields(inputCatalogTable.getTableSchema().toPhysicalRowDataType(), config);
     }
 
     private void tryOpen() {
@@ -133,7 +129,8 @@ public class EmbeddingTransform extends MultipleFieldOutputTransform {
                                     apiPath,
                                     config.get(
                                             EmbeddingTransformConfig
-                                                    .SINGLE_VECTORIZED_INPUT_NUMBER));
+                                                    .SINGLE_VECTORIZED_INPUT_NUMBER),
+                                    isMultimodalFields);
                     break;
                 case QIANFAN:
                     model =
@@ -190,50 +187,49 @@ public class EmbeddingTransform extends MultipleFieldOutputTransform {
         }
     }
 
-    private void initOutputFields(SeaTunnelRowType inputRowType, Map<String, String> fields) {
+    private void initOutputFields(SeaTunnelRowType inputRowType, ReadonlyConfig config) {
+        Map<Integer, FieldSpec> fieldSpecMap = new HashMap<>();
         List<String> fieldNames = new ArrayList<>();
-        Map<Integer, String> fieldModalitys = new HashMap<>();
+        Map<String, Object> fieldsConfig =
+                config.get(EmbeddingTransformConfig.VECTORIZATION_FIELDS);
+        if (fieldsConfig == null || fieldsConfig.isEmpty()) {
+            throw new IllegalArgumentException("vectorization_fields configuration is required");
+        }
 
-        for (Map.Entry<String, String> field : fields.entrySet()) {
-            String outputField = field.getKey();
-            String inputFieldSpec = field.getValue();
-            MultimodalField multimodalField = new MultimodalField(inputFieldSpec);
-            String srcField = multimodalField.getFieldName();
+        for (Map.Entry<String, Object> field : fieldsConfig.entrySet()) {
+            FieldSpec fieldSpec = new FieldSpec(field);
+            String srcField = fieldSpec.getFieldName();
             int srcFieldIndex;
             try {
                 srcFieldIndex = inputRowType.indexOf(srcField);
             } catch (IllegalArgumentException e) {
                 throw TransformCommonError.cannotFindInputFieldError(getPluginName(), srcField);
             }
-            if (!ModalityType.TEXT.equals(multimodalField.getModalityType())) {
+            if (fieldSpec.isMultimodalField()) {
                 isMultimodalFields = true;
             }
-
+            fieldSpecMap.put(srcFieldIndex, fieldSpec);
             fieldNames.add(field.getKey());
-            fieldModalitys.put(srcFieldIndex, multimodalField.getModalityType().getName());
         }
-
+        this.fieldSpecMap = fieldSpecMap;
         this.fieldNames = fieldNames;
-        this.fieldModalitys = fieldModalitys;
     }
 
     @Override
     protected Object[] getOutputFieldValues(SeaTunnelRowAccessor inputRow) {
         tryOpen();
         try {
-            Set<Integer> fieldOriginalIndexes = fieldModalitys.keySet();
-            Object[] fieldArray = new Object[fieldOriginalIndexes.size()];
+            Set<Integer> fieldOriginalIndexes = fieldSpecMap.keySet();
+            Object[] fieldValues = new Object[fieldOriginalIndexes.size()];
             List<ByteBuffer> vectorization;
             int i = 0;
             for (Integer fieldOriginalIndex : fieldOriginalIndexes) {
-                Object field = inputRow.getField(fieldOriginalIndex);
-                fieldArray[i++] =
-                        isMultimodalFields
-                                ? Collections.singletonMap(
-                                        fieldModalitys.get(fieldOriginalIndex), field)
-                                : field;
+                FieldSpec fieldSpec = fieldSpecMap.get(fieldOriginalIndex);
+                Object value = inputRow.getField(fieldOriginalIndex);
+                fieldValues[i++] =
+                        isMultimodalFields ? new MultimodalFieldValue(fieldSpec, value) : value;
             }
-            vectorization = model.vectorization(fieldArray);
+            vectorization = model.vectorization(fieldValues);
             return vectorization.toArray();
         } catch (Exception e) {
             throw new RuntimeException("Failed to data vectorization", e);

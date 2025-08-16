@@ -109,4 +109,67 @@ public class CsvWriteStrategyTest {
         Assertions.assertEquals(1, readRows.size());
         readStrategy.close();
     }
+
+    @DisabledOnOs(OS.WINDOWS)
+    @Test
+    public void testCsv2() throws Exception {
+        Map<String, Object> writeConfig = new HashMap<>();
+        writeConfig.put("tmp_path", TMP_PATH);
+        writeConfig.put("path", "file:///tmp/seatunnel/csv/int96");
+        writeConfig.put("file_format_type", FileFormat.CSV.name());
+        writeConfig.put("field_delimiter", ",");
+
+        SeaTunnelRowType writeRowType =
+                new SeaTunnelRowType(
+                        new String[] {"id", "name", "age"},
+                        new SeaTunnelDataType[] {
+                            BasicType.INT_TYPE, BasicType.STRING_TYPE, BasicType.INT_TYPE
+                        });
+        FileSinkConfig writeSinkConfig =
+                new FileSinkConfig(ConfigFactory.parseMap(writeConfig), writeRowType);
+        CsvWriteStrategy writeStrategy = new CsvWriteStrategy(writeSinkConfig);
+        ParquetReadStrategyTest.LocalConf hadoopConf =
+                new ParquetReadStrategyTest.LocalConf(FS_DEFAULT_NAME_DEFAULT);
+        writeStrategy.setCatalogTable(
+                CatalogTableUtil.getCatalogTable("test", null, null, "test", writeRowType));
+        writeStrategy.init(hadoopConf, "test1", "test1", 0);
+        writeStrategy.beginTransaction(1L);
+        writeStrategy.write(new SeaTunnelRow(new Object[] {1, "a", 20}));
+        writeStrategy.finishAndCloseFile();
+        writeStrategy.close();
+
+        CsvReadStrategy readStrategy = new CsvReadStrategy();
+        readStrategy.init(hadoopConf);
+        List<String> readFiles = readStrategy.getFileNamesByPath(TMP_PATH);
+        readStrategy.setPluginConfig(ConfigFactory.empty());
+        readStrategy.setCatalogTable(
+                CatalogTableUtil.getCatalogTable(
+                        "test",
+                        new SeaTunnelRowType(
+                                new String[] {"id", "name", "age"},
+                                new SeaTunnelDataType[] {
+                                    BasicType.INT_TYPE, BasicType.STRING_TYPE, BasicType.INT_TYPE
+                                })));
+        Assertions.assertEquals(1, readFiles.size());
+        String readFilePath = readFiles.get(0);
+        List<SeaTunnelRow> readRows = new ArrayList<>();
+        Collector<SeaTunnelRow> readCollector =
+                new Collector<SeaTunnelRow>() {
+                    @Override
+                    public void collect(SeaTunnelRow record) {
+                        Assertions.assertEquals(1, record.getField(0));
+                        Assertions.assertEquals("a", record.getField(1));
+                        Assertions.assertEquals(20, record.getField(2));
+                        readRows.add(record);
+                    }
+
+                    @Override
+                    public Object getCheckpointLock() {
+                        return null;
+                    }
+                };
+        readStrategy.read(readFilePath, "test", readCollector);
+        Assertions.assertEquals(1, readRows.size());
+        readStrategy.close();
+    }
 }

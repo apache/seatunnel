@@ -44,38 +44,38 @@ If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you
 
 ## Options
 
-| name                        | type    | required | default value       |
-|-----------------------------|---------|----------|---------------------|
-| host                        | string  | yes      | -                   |
-| port                        | int     | yes      | -                   |
-| user                        | string  | yes      | -                   |
-| password                    | string  | yes      | -                   |
-| path                        | string  | yes      | -                   |
-| file_format_type            | string  | yes      | -                   |
-| connection_mode             | string  | no       | active_local        |
-| remote_verification_enabled | boolean | no       | true                |
-| delimiter/field_delimiter   | string  | no       | \001                |
-| row_delimiter               | string  | no       | \n                  |
-| read_columns                | list    | no       | -                   |
-| parse_partition_from_path   | boolean | no       | true                |
-| date_format                 | string  | no       | yyyy-MM-dd          |
-| datetime_format             | string  | no       | yyyy-MM-dd HH:mm:ss |
-| time_format                 | string  | no       | HH:mm:ss            |
-| skip_header_row_number      | long    | no       | 0                   |
-| schema                      | config  | no       | -                   |
-| sheet_name                  | string  | no       | -                   |
-| xml_row_tag                 | string  | no       | -                   |
-| xml_use_attr_format         | boolean | no       | -                   |
-| csv_use_header_line         | boolean | no       | -                   |
-| file_filter_pattern         | string  | no       | -                   |
-| filename_extension          | string  | no       | -                   |
-| compress_codec              | string  | no       | none                |
-| archive_compress_codec      | string  | no       | none                |
-| encoding                    | string  | no       | UTF-8               |
-| null_format                 | string  | no       | -                   |
-| binary_chunk_size           | int     | no       | 1024                |
-| binary_complete_file_mode   | boolean | no       | false               |
-| common-options              |         | no       | -                   |
+| name                        | type    | required | default value               |
+|-----------------------------|---------|----------|-----------------------------|
+| host                        | string  | yes      | -                           |
+| port                        | int     | yes      | -                           |
+| user                        | string  | yes      | -                           |
+| password                    | string  | yes      | -                           |
+| path                        | string  | yes      | -                           |
+| file_format_type            | string  | yes      | -                           |
+| connection_mode             | string  | no       | active_local                |
+| remote_verification_enabled | boolean | no       | true                        |
+| delimiter/field_delimiter   | string  | no       | \001 for text and , for csv |
+| row_delimiter               | string  | no       | \n                          |
+| read_columns                | list    | no       | -                           |
+| parse_partition_from_path   | boolean | no       | true                        |
+| date_format                 | string  | no       | yyyy-MM-dd                  |
+| datetime_format             | string  | no       | yyyy-MM-dd HH:mm:ss         |
+| time_format                 | string  | no       | HH:mm:ss                    |
+| skip_header_row_number      | long    | no       | 0                           |
+| schema                      | config  | no       | -                           |
+| sheet_name                  | string  | no       | -                           |
+| xml_row_tag                 | string  | no       | -                           |
+| xml_use_attr_format         | boolean | no       | -                           |
+| csv_use_header_line         | boolean | no       | -                           |
+| file_filter_pattern         | string  | no       | -                           |
+| filename_extension          | string  | no       | -                           |
+| compress_codec              | string  | no       | none                        |
+| archive_compress_codec      | string  | no       | none                        |
+| encoding                    | string  | no       | UTF-8                       |
+| null_format                 | string  | no       | -                           |
+| binary_chunk_size           | int     | no       | 1024                        |
+| binary_complete_file_mode   | boolean | no       | false                       |
+| common-options              |         | no       | -                           |
 
 ### host [string]
 

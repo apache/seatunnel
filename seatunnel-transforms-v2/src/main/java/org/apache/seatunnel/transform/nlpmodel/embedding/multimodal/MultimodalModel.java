@@ -23,7 +23,6 @@ import org.apache.seatunnel.transform.nlpmodel.embedding.remote.AbstractModel;
 
 import java.io.IOException;
 import java.util.List;
-import java.util.Map;
 
 /**
  * Abstract base class for multimodal embedding models that can handle text, image, and video data
@@ -53,7 +52,7 @@ public abstract class MultimodalModel extends AbstractModel {
         if (fields == null || fields.length == 0) {
             return false;
         }
-        if (fields[0] instanceof Map) {
+        if (fields[0] instanceof MultimodalFieldValue) {
             return true;
         }
         return false;

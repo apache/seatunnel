@@ -21,35 +21,37 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.ToString;
 
-@Getter
+/** Enumeration for data formats supported by multimodal embedding models */
 @AllArgsConstructor
+@Getter
 @ToString
-public class MultimodalField {
+public enum PayloadFormat {
+    URL("url"),
+    TEXT("text"),
+    BINARY("binary");
 
-    private String fieldName;
-    private ModalityType modalityType;
+    private final String name;
 
-    public MultimodalField(String fieldSpec) {
-        if (fieldSpec == null || fieldSpec.trim().isEmpty()) {
-            throw new IllegalArgumentException("Field specification cannot be null or empty");
+    public static PayloadFormat ofName(String name) {
+        if (name == null || name.trim().isEmpty()) {
+            return URL;
         }
-
-        String trimmedSpec = fieldSpec.trim();
-        if (trimmedSpec.contains(":")) {
-            String[] parts = trimmedSpec.split(":", 2);
-            String fieldName = parts[0].trim();
-
-            if (fieldName.isEmpty()) {
-                throw new IllegalArgumentException(
-                        "Field name cannot be empty in specification: " + fieldSpec);
+        for (PayloadFormat format : PayloadFormat.values()) {
+            if (format.name.equalsIgnoreCase(name.trim().toLowerCase())) {
+                return format;
             }
-            this.modalityType = ModalityType.ofName(parts[1]);
-            this.fieldName = fieldName;
-
-        } else {
-            // No type specified, default to text
-            this.modalityType = ModalityType.TEXT;
-            this.fieldName = trimmedSpec;
         }
+        String supportedFormats =
+                String.join(
+                        ", ",
+                        java.util.Arrays.stream(PayloadFormat.values())
+                                .map(PayloadFormat::getName)
+                                .toArray(String[]::new));
+
+        throw new IllegalArgumentException(
+                "Unsupported data format: "
+                        + name.trim()
+                        + ". Supported formats: "
+                        + supportedFormats);
     }
 }

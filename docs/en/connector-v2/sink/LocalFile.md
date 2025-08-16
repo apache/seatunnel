@@ -48,8 +48,8 @@ By default, we use 2PC commit to ensure `exactly-once`
 | filename_time_format                  | string  | no       | "yyyy.MM.dd"                               | Only used when custom_filename is true                                                                                                                                 |
 | file_format_type                      | string  | no       | "csv"                                      |                                                                                                                                                                        |
 | filename_extension                    | string  | no       | -                                          | Override the default file name extensions with custom file name extensions. E.g. `.xml`, `.json`, `dat`, `.customtype`                                                 |
-| field_delimiter                       | string  | no       | '\001'                                     | Only used when file_format_type is text                                                                                                                                |
-| row_delimiter                         | string  | no       | "\n"                                       | Only used when file_format_type is `text`, `csv` and `json`                                                                                                             |
+| field_delimiter                       | string  | no       | '\001' for text and ',' for csv            | Only used when file_format_type is text  and csv                                                                                                                       |
+| row_delimiter                         | string  | no       | "\n"                                       | Only used when file_format_type is `text`, `csv` and `json`                                                                                                            |
 | have_partition                        | boolean | no       | false                                      | Whether you need processing partitions.                                                                                                                                |
 | partition_by                          | array   | no       | -                                          | Only used then have_partition is true                                                                                                                                  |
 | partition_dir_expression              | string  | no       | "${k0}=${v0}/${k1}=${v1}/.../${kn}=${vn}/" | Only used then have_partition is true                                                                                                                                  |
@@ -60,6 +60,7 @@ By default, we use 2PC commit to ensure `exactly-once`
 | compress_codec                        | string  | no       | none                                       |                                                                                                                                                                        |
 | common-options                        | object  | no       | -                                          |                                                                                                                                                                        |
 | max_rows_in_memory                    | int     | no       | -                                          | Only used when file_format_type is excel.                                                                                                                              |
+| sheet_max_rows                        | int     | no       | 1048576                                    | Only used when file_format_type is excel.                                                                                                                              |
 | sheet_name                            | string  | no       | Sheet${Random number}                      | Only used when file_format_type is excel.                                                                                                                              |
 | csv_string_quote_mode                 | enum    | no       | MINIMAL                                    | Only used when file_format is csv.                                                                                                                                     |
 | xml_root_tag                          | string  | no       | RECORDS                                    | Only used when file_format is xml.                                                                                                                                     |
@@ -116,7 +117,7 @@ Please note that, The final file name will end with the file_format_type's suffi
 
 ### field_delimiter [string]
 
-The separator between columns in a row of data. Only needed by `text` file format.
+The separator between columns in a row of data. Only needed by `text` and `csv` file format.
 
 ### row_delimiter [string]
 
@@ -184,6 +185,10 @@ Sink plugin common parameters, please refer to [Sink Common Options](../sink-com
 ### max_rows_in_memory [int]
 
 When File Format is Excel,The maximum number of data items that can be cached in the memory.
+
+### sheet_max_rows [int]
+
+When file format is Excel, the maximum number of rows per sheet.
 
 ### sheet_name [string]
 

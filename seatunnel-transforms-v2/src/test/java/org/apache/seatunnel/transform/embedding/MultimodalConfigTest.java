@@ -37,8 +37,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 
-/** Test class for EmbeddingTransform multimodal data detection and model validation */
-public class MultimodalDetectionTest {
+public class MultimodalConfigTest {
 
     private CatalogTable createTestCatalogTable() {
         Column[] columns = {
@@ -68,17 +67,20 @@ public class MultimodalDetectionTest {
         configMap.put(ModelTransformConfig.API_PATH.key(), "https://api.test.com/embeddings");
 
         // Only text fields - should not be multimodal
-        Map<String, String> vectorizationFields = new HashMap<>();
+        Map<String, Object> vectorizationFields = new HashMap<>();
         vectorizationFields.put("text_vector", "text_field"); // Default to text type
-        vectorizationFields.put("text_vector2", "mixed_field:text"); // Explicitly text type
+
+        // Explicitly text type using object format
+        Map<String, Object> textFieldConfig = new HashMap<>();
+        textFieldConfig.put("field", "mixed_field");
+        textFieldConfig.put("modality", "text");
+        vectorizationFields.put("text_vector2", textFieldConfig);
+
         configMap.put(EmbeddingTransformConfig.VECTORIZATION_FIELDS.key(), vectorizationFields);
 
         ReadonlyConfig config = ReadonlyConfig.fromMap(configMap);
-
-        // This should not throw an exception since it's text-only
         EmbeddingTransform transform = new EmbeddingTransform(config, catalogTable);
 
-        // The transform should be created successfully without multimodal detection
         Assertions.assertNotNull(transform);
         Assertions.assertFalse(transform.isMultimodalFields());
     }
@@ -94,9 +96,16 @@ public class MultimodalDetectionTest {
         configMap.put(ModelTransformConfig.API_PATH.key(), "https://api.test.com/embeddings");
 
         // Include image field - should be multimodal
-        Map<String, String> vectorizationFields = new HashMap<>();
+        Map<String, Object> vectorizationFields = new HashMap<>();
         vectorizationFields.put("text_vector", "text_field");
-        vectorizationFields.put("image_vector", "image_field:image"); // Image type
+
+        // Image type using object format (use specific image format)
+        Map<String, Object> imageFieldConfig = new HashMap<>();
+        imageFieldConfig.put("field", "image_field");
+        imageFieldConfig.put("modality", "jpeg");
+        imageFieldConfig.put("format", "url");
+        vectorizationFields.put("image_vector", imageFieldConfig);
+
         configMap.put(EmbeddingTransformConfig.VECTORIZATION_FIELDS.key(), vectorizationFields);
 
         ReadonlyConfig config = ReadonlyConfig.fromMap(configMap);
@@ -116,14 +125,20 @@ public class MultimodalDetectionTest {
         configMap.put(ModelTransformConfig.API_PATH.key(), "https://api.test.com/embeddings");
 
         // Include video field - should be multimodal
-        Map<String, String> vectorizationFields = new HashMap<>();
+        Map<String, Object> vectorizationFields = new HashMap<>();
         vectorizationFields.put("text_vector", "text_field");
-        vectorizationFields.put("video_vector", "video_field:video"); // Video type
+
+        // Video type using object format (use specific video format)
+        Map<String, Object> videoFieldConfig = new HashMap<>();
+        videoFieldConfig.put("field", "video_field");
+        videoFieldConfig.put("modality", "mp4");
+        videoFieldConfig.put("format", "url");
+        vectorizationFields.put("video_vector", videoFieldConfig);
+
         configMap.put(EmbeddingTransformConfig.VECTORIZATION_FIELDS.key(), vectorizationFields);
 
         ReadonlyConfig config = ReadonlyConfig.fromMap(configMap);
 
-        // This should work since DOUBAO supports multimodal
         EmbeddingTransform transform = new EmbeddingTransform(config, catalogTable);
         Assertions.assertNotNull(transform);
         Assertions.assertTrue(transform.isMultimodalFields());
@@ -140,10 +155,28 @@ public class MultimodalDetectionTest {
         configMap.put(ModelTransformConfig.API_PATH.key(), "https://api.test.com/embeddings");
 
         // Include multiple modality types - should be multimodal
-        Map<String, String> vectorizationFields = new HashMap<>();
-        vectorizationFields.put("text_vector", "text_field:text");
-        vectorizationFields.put("image_vector", "image_field:image");
-        vectorizationFields.put("video_vector", "video_field:video");
+        Map<String, Object> vectorizationFields = new HashMap<>();
+
+        // Text field using object format
+        Map<String, Object> textFieldConfig = new HashMap<>();
+        textFieldConfig.put("field", "text_field");
+        textFieldConfig.put("modality", "text");
+        vectorizationFields.put("text_vector", textFieldConfig);
+
+        // Image field using object format (use specific image format)
+        Map<String, Object> imageFieldConfig = new HashMap<>();
+        imageFieldConfig.put("field", "image_field");
+        imageFieldConfig.put("modality", "png");
+        imageFieldConfig.put("format", "url");
+        vectorizationFields.put("image_vector", imageFieldConfig);
+
+        // Video field using object format (use specific video format)
+        Map<String, Object> videoFieldConfig = new HashMap<>();
+        videoFieldConfig.put("field", "video_field");
+        videoFieldConfig.put("modality", "avi");
+        videoFieldConfig.put("format", "url");
+        vectorizationFields.put("video_vector", videoFieldConfig);
+
         configMap.put(EmbeddingTransformConfig.VECTORIZATION_FIELDS.key(), vectorizationFields);
 
         ReadonlyConfig config = ReadonlyConfig.fromMap(configMap);
@@ -165,9 +198,13 @@ public class MultimodalDetectionTest {
         configMap.put(ModelTransformConfig.API_KEY.key(), "test-api-key");
         configMap.put(ModelTransformConfig.API_PATH.key(), "https://api.openai.com/v1/embeddings");
 
-        // Use multimodal fields with a provider that doesn't support multimodal
-        Map<String, String> vectorizationFields = new HashMap<>();
-        vectorizationFields.put("image_vector", "image_field:image");
+        Map<String, Object> vectorizationFields = new HashMap<>();
+        Map<String, Object> imageFieldConfig = new HashMap<>();
+        imageFieldConfig.put("field", "image_field");
+        imageFieldConfig.put("modality", "webp");
+        imageFieldConfig.put("format", "url");
+        vectorizationFields.put("image_vector", imageFieldConfig);
+
         configMap.put(EmbeddingTransformConfig.VECTORIZATION_FIELDS.key(), vectorizationFields);
 
         ReadonlyConfig config = ReadonlyConfig.fromMap(configMap);
@@ -175,10 +212,9 @@ public class MultimodalDetectionTest {
         // Should throw IllegalArgumentException when opening
         EmbeddingTransform transform = new EmbeddingTransform(config, catalogTable);
         IllegalArgumentException exception =
-                Assertions.assertThrows(IllegalArgumentException.class, () -> transform.open());
+                Assertions.assertThrows(IllegalArgumentException.class, transform::open);
 
-        Assertions.assertTrue(
-                exception.getMessage().contains("Model provider does not support multimodal"));
+        Assertions.assertTrue(exception.getMessage().contains("does not support multimodal"));
     }
 
     @Test
@@ -186,17 +222,15 @@ public class MultimodalDetectionTest {
         CatalogTable catalogTable = createTestCatalogTable();
 
         Map<String, Object> configMap = new HashMap<>();
-        configMap.put(ModelTransformConfig.MODEL_PROVIDER.key(), ModelProvider.DOUBAO.name());
+        configMap.put(ModelTransformConfig.MODEL_PROVIDER.key(), ModelProvider.OPENAI.name());
         configMap.put(ModelTransformConfig.MODEL.key(), "doubao-embedding-vision");
         configMap.put(ModelTransformConfig.API_KEY.key(), "test-api-key");
         configMap.put(ModelTransformConfig.API_PATH.key(), "https://api.test.com/embeddings");
 
         // Fields without explicit type specification default to text
-        Map<String, String> vectorizationFields = new HashMap<>();
-        vectorizationFields.put(
-                "text_vector1", "text_field"); // No type specified, defaults to text
-        vectorizationFields.put(
-                "text_vector2", "mixed_field"); // No type specified, defaults to text
+        Map<String, Object> vectorizationFields = new HashMap<>();
+        vectorizationFields.put("text_vector1", "text_field");
+        vectorizationFields.put("text_vector2", "mixed_field");
         configMap.put(EmbeddingTransformConfig.VECTORIZATION_FIELDS.key(), vectorizationFields);
 
         ReadonlyConfig config = ReadonlyConfig.fromMap(configMap);
@@ -217,9 +251,14 @@ public class MultimodalDetectionTest {
         configMap.put(ModelTransformConfig.API_KEY.key(), "test-api-key");
         configMap.put(ModelTransformConfig.API_PATH.key(), "https://api.test.com/embeddings");
 
-        // Invalid modality type should throw exception
-        Map<String, String> vectorizationFields = new HashMap<>();
-        vectorizationFields.put("invalid_vector", "text_field:audio"); // audio is not supported
+        Map<String, Object> vectorizationFields = new HashMap<>();
+
+        // Invalid modality type using object format
+        Map<String, Object> invalidFieldConfig = new HashMap<>();
+        invalidFieldConfig.put("field", "text_field");
+        invalidFieldConfig.put("modality", "audio");
+        vectorizationFields.put("invalid_vector", invalidFieldConfig);
+
         configMap.put(EmbeddingTransformConfig.VECTORIZATION_FIELDS.key(), vectorizationFields);
 
         ReadonlyConfig config = ReadonlyConfig.fromMap(configMap);
@@ -229,7 +268,7 @@ public class MultimodalDetectionTest {
                 Assertions.assertThrows(
                         IllegalArgumentException.class,
                         () -> new EmbeddingTransform(config, catalogTable));
-        Assertions.assertTrue(exception.getMessage().contains("Unsupported modality type:"));
+        Assertions.assertTrue(exception.getMessage().contains("Invalid field spec"));
     }
 
     @Test
@@ -242,14 +281,17 @@ public class MultimodalDetectionTest {
         configMap.put(ModelTransformConfig.API_KEY.key(), "test-api-key");
         configMap.put(ModelTransformConfig.API_PATH.key(), "https://api.test.com/embeddings");
 
-        // Reference non-existent field
-        Map<String, String> vectorizationFields = new HashMap<>();
-        vectorizationFields.put("nonexistent_vector", "nonexistent_field:image");
+        Map<String, Object> vectorizationFields = new HashMap<>();
+
+        Map<String, Object> nonExistentFieldConfig = new HashMap<>();
+        nonExistentFieldConfig.put("field", "nonexistent_field");
+        nonExistentFieldConfig.put("modality", "gif");
+        vectorizationFields.put("nonexistent_vector", nonExistentFieldConfig);
+
         configMap.put(EmbeddingTransformConfig.VECTORIZATION_FIELDS.key(), vectorizationFields);
 
         ReadonlyConfig config = ReadonlyConfig.fromMap(configMap);
 
-        // Should throw exception when trying to find non-existent field
         RuntimeException exception =
                 Assertions.assertThrows(
                         RuntimeException.class, () -> new EmbeddingTransform(config, catalogTable));
@@ -270,10 +312,24 @@ public class MultimodalDetectionTest {
         configMap.put(ModelTransformConfig.API_PATH.key(), "https://api.test.com/embeddings");
 
         // Test case insensitive modality type parsing
-        Map<String, String> vectorizationFields = new HashMap<>();
-        vectorizationFields.put("image_vector1", "image_field:IMAGE"); // Uppercase
-        vectorizationFields.put("image_vector2", "image_field:Image"); // Mixed case
-        vectorizationFields.put("video_vector", "video_field:VIDEO"); // Uppercase
+        Map<String, Object> vectorizationFields = new HashMap<>();
+
+        // Uppercase modality (use specific format)
+        Map<String, Object> imageFieldConfig1 = new HashMap<>();
+        imageFieldConfig1.put("field", "image_field");
+        imageFieldConfig1.put("modality", "JPEG");
+        vectorizationFields.put("image_vector1", imageFieldConfig1);
+
+        Map<String, Object> imageFieldConfig2 = new HashMap<>();
+        imageFieldConfig2.put("field", "image_field");
+        imageFieldConfig2.put("modality", "Png");
+        vectorizationFields.put("image_vector2", imageFieldConfig2);
+
+        Map<String, Object> videoFieldConfig = new HashMap<>();
+        videoFieldConfig.put("field", "video_field");
+        videoFieldConfig.put("modality", "MP4");
+        vectorizationFields.put("video_vector", videoFieldConfig);
+
         configMap.put(EmbeddingTransformConfig.VECTORIZATION_FIELDS.key(), vectorizationFields);
 
         ReadonlyConfig config = ReadonlyConfig.fromMap(configMap);
@@ -296,14 +352,21 @@ public class MultimodalDetectionTest {
         configMap.put(ModelTransformConfig.API_PATH.key(), "https://api.test.com/embeddings");
 
         // Test field specifications with whitespace
-        Map<String, String> vectorizationFields = new HashMap<>();
-        vectorizationFields.put("image_vector1", " image_field : image "); // Spaces around
-        vectorizationFields.put("video_vector", "  video_field:video  "); // Leading/trailing spaces
+        Map<String, Object> vectorizationFields = new HashMap<>();
+        Map<String, Object> imageFieldConfig = new HashMap<>();
+        imageFieldConfig.put("field", " image_field ");
+        imageFieldConfig.put("modality", "bmp");
+        vectorizationFields.put("image_vector1", imageFieldConfig);
+
+        // Field with whitespace in modality
+        Map<String, Object> videoFieldConfig = new HashMap<>();
+        videoFieldConfig.put("field", "video_field");
+        videoFieldConfig.put("modality", "  mov  ");
+        vectorizationFields.put("video_vector", videoFieldConfig);
+
         configMap.put(EmbeddingTransformConfig.VECTORIZATION_FIELDS.key(), vectorizationFields);
 
         ReadonlyConfig config = ReadonlyConfig.fromMap(configMap);
-
-        // Should handle whitespace correctly
         Assertions.assertDoesNotThrow(
                 () -> {
                     EmbeddingTransform transform = new EmbeddingTransform(config, catalogTable);

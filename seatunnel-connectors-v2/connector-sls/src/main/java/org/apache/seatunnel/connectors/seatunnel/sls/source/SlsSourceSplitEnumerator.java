@@ -56,6 +56,7 @@ public class SlsSourceSplitEnumerator
     private final Map<Integer, SlsSourceSplit> pendingSplit;
     private final Map<Integer, SlsSourceSplit> assignedSplit;
 
+    private final Object lock = new Object();
     private SlsSourceState slsSourceState;
 
     private ScheduledExecutorService executor;
@@ -124,8 +125,7 @@ public class SlsSourceSplitEnumerator
 
     @Override
     public void run() throws Exception {
-        fetchPendingShardSplit();
-        assignSplit();
+        discoverySplits();
     }
 
     @Override
@@ -157,8 +157,12 @@ public class SlsSourceSplitEnumerator
     public void notifyCheckpointComplete(long checkpointId) throws Exception {}
 
     private void discoverySplits() throws LogException {
-        fetchPendingShardSplit();
-        assignSplit();
+        synchronized (lock) {
+            fetchPendingShardSplit();
+        }
+        synchronized (lock) {
+            assignSplit();
+        }
     }
 
     private void fetchPendingShardSplit() throws LogException {
@@ -296,7 +300,9 @@ public class SlsSourceSplitEnumerator
 
     @Override
     public SlsSourceState snapshotState(long checkpointId) throws Exception {
-        return new SlsSourceState(new HashSet<>(assignedSplit.values()));
+        synchronized (lock) {
+            return new SlsSourceState(new HashSet<>(assignedSplit.values()));
+        }
     }
 
     public boolean checkConsumerGroupExists(String project, String logstore, String consumerGroup)

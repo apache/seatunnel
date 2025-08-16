@@ -649,6 +649,16 @@ SIGN(N)
 
 TRUNC(N, 2)
 
+### TRIM_SCALE
+
+```TRIM_SCALE(numeric)```
+
+通过删除尾数部分的零来降低值的刻度（小数位数）。此方法返回一个字符串值，并调整小数位数。
+
+示例:
+
+TRIM_SCALE(N)
+
 ## Time and Date Functions
 
 ### CURRENT_DATE

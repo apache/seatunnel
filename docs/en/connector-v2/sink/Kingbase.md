@@ -59,7 +59,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 |-------------------------------------------|---------|----------|---------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | url                                       | String  | Yes      | -       | The URL of the JDBC connection. Refer to a case: jdbc:db2://127.0.0.1:50000/dbname                                                                                                                                                           |
 | driver                                    | String  | Yes      | -       | The jdbc class name used to connect to the remote data source,<br/> if you use DB2 the value is `com.ibm.db2.jdbc.app.DB2Driver`.                                                                                                            |
-| user                                      | String  | No       | -       | Connection instance user name                                                                                                                                                                                                                |
+| username                                      | String  | No       | -       | Connection instance user name                                                                                                                                                                                                                |
 | password                                  | String  | No       | -       | Connection instance password                                                                                                                                                                                                                 |
 | query                                     | String  | No       | -       | Use this sql write upstream input datas to database. e.g `INSERT ...`,`query` have the higher priority                                                                                                                                       |
 | database                                  | String  | No       | -       | Use this `database` and `table-name` auto-generate sql and receive upstream input datas write to database.<br/>This option is mutually exclusive with `query` and has a higher priority.                                                     |
@@ -138,7 +138,7 @@ sink {
     jdbc {
         url = "jdbc:kingbase8://127.0.0.1:54321/dbname"
         driver = "com.kingbase8.Driver"
-        user = "root"
+        username = "root"
         password = "123456"
         query = "insert into test_table(c_string,c_boolean,c_tinyint,c_smallint,c_int,c_bigint,c_float,c_double,c_decimal,c_date,c_time,c_timestamp) values(?,?,?,?,?,?,?,?,?,?,?,?)"
         }
@@ -157,7 +157,7 @@ sink {
     jdbc {
         url = "jdbc:kingbase8://127.0.0.1:54321/dbname"
         driver = "com.kingbase8.Driver"
-        user = "root"
+        username = "root"
         password = "123456"
         # Automatically generate sql statements based on database table names
         generate_sink_sql = true
