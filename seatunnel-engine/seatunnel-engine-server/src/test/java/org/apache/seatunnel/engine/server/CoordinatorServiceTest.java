@@ -155,7 +155,7 @@ public class CoordinatorServiceTest {
 
     @Test
     void testCleanupPendingJobMasterMapAfterJobFailed() {
-        setAnotherConfigFile();
+        setConfigFile("seatunnel_fixed_slots.yaml");
 
         JobInformation jobInformation =
                 submitJob(
@@ -217,20 +217,11 @@ public class CoordinatorServiceTest {
         jobInformation.coordinatorServiceTest.shutdown();
     }
 
-    private void setAnotherConfigFile() {
-        String rootModuleDir = "seatunnel-engine";
-        Path path = Paths.get(System.getProperty("user.dir"));
-        while (!path.endsWith(Paths.get(rootModuleDir))) {
-            path = path.getParent();
-        }
-        String rootPath = path.getParent().toString();
-        System.setProperty(
-                "seatunnel.config",
-                rootPath
-                        + "/seatunnel-engine/seatunnel-engine-server/src/test/resources/seatunnel_fixed_slots.yaml");
+    private void setDefaultConfigFile() {
+        setConfigFile("seatunnel.yaml");
     }
 
-    private void setDefaultConfigFile() {
+    private void setConfigFile(String fileName) {
         String rootModuleDir = "seatunnel-engine";
         Path path = Paths.get(System.getProperty("user.dir"));
         while (!path.endsWith(Paths.get(rootModuleDir))) {
@@ -240,7 +231,7 @@ public class CoordinatorServiceTest {
         System.setProperty(
                 "seatunnel.config",
                 rootPath
-                        + "/seatunnel-engine/seatunnel-engine-server/src/test/resources/seatunnel.yaml");
+                        + "/seatunnel-engine/seatunnel-engine-server/src/test/resources/" + fileName);
     }
 
     private JobInformation submitJob(String testClassName, String jobConfigFile, String jobName) {
