@@ -32,6 +32,8 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hive.conf.HiveConf;
 import org.apache.hadoop.hive.metastore.HiveMetaStoreClient;
 import org.apache.hadoop.hive.metastore.api.AlreadyExistsException;
+import org.apache.hadoop.hive.metastore.api.Database;
+import org.apache.hadoop.hive.metastore.api.MetaException;
 import org.apache.hadoop.hive.metastore.api.Table;
 import org.apache.thrift.TException;
 
@@ -155,6 +157,36 @@ public class HiveMetaStoreProxy implements Closeable, Serializable {
             String msg = String.format("Failed to get table %s.%s", dbName, tableName);
             throw new HiveConnectorException(
                     HiveConnectorErrorCode.GET_HIVE_TABLE_INFORMATION_FAILED, msg, e);
+        }
+    }
+
+    public void createDatabaseIfNotExists(String db) throws TException {
+        List<String> databases = getClient().getAllDatabases();
+        if (databases.contains(db)) {
+            return;
+        }
+        Database database = new Database();
+        database.setName(db);
+        getClient().createDatabase(database);
+    }
+
+    public void createTableIfNotExists(@NonNull Table tbl) throws TException {
+        if (getClient().tableExists(tbl.getDbName(), tbl.getTableName())) {
+            return;
+        }
+        try {
+            log.info("尝试去创建表: {}.{}", tbl.getDbName(), tbl.getTableName());
+            log.info("表结构信息: {}", tbl.getSd().getCols());
+            getClient().createTable(tbl);
+            log.info("表创建成功: {}.{}", tbl.getDbName(), tbl.getTableName());
+        } catch (TException e) {
+            log.error(
+                    "创建表失败: {}.{}, 错误信息: {}", tbl.getDbName(), tbl.getTableName(), e.getMessage());
+            String errorMsg =
+                    String.format(
+                            "Failed to create table [%s.%s]", tbl.getDbName(), tbl.getTableName());
+            throw new HiveConnectorException(
+                    HiveConnectorErrorCode.CREATE_HIVE_TABLE_FAILED, errorMsg, e);
         }
     }
 

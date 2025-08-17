@@ -32,6 +32,8 @@ import org.apache.seatunnel.connectors.seatunnel.file.sink.state.FileSinkState;
 import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConfig;
 import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConstants;
 
+import org.apache.thrift.TException;
+
 import com.google.auto.service.AutoService;
 
 @AutoService(Factory.class)
@@ -59,7 +61,13 @@ public class HiveSinkFactory
             createSink(TableSinkFactoryContext context) {
         ReadonlyConfig readonlyConfig = context.getOptions();
         CatalogTable catalogTable = context.getCatalogTable();
-        return () -> new HiveSink(readonlyConfig, catalogTable);
+        return () -> {
+            try {
+                return new HiveSink(readonlyConfig, catalogTable);
+            } catch (TException e) {
+                throw new RuntimeException(e);
+            }
+        };
     }
 
     @Override

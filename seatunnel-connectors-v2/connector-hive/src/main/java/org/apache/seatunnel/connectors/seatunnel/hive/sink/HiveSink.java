@@ -29,6 +29,8 @@ import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SupportMultiTableSink;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
@@ -45,11 +47,20 @@ import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveOptions;
 import org.apache.seatunnel.connectors.seatunnel.hive.exception.HiveConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.hive.sink.writter.HiveSinkWriter;
 import org.apache.seatunnel.connectors.seatunnel.hive.storage.StorageFactory;
+import org.apache.seatunnel.connectors.seatunnel.hive.utils.HiveMetaStoreProxy;
 import org.apache.seatunnel.connectors.seatunnel.hive.utils.HiveTableUtils;
+import org.apache.seatunnel.connectors.seatunnel.hive.utils.HiveTypeConvertor;
 
 import org.apache.hadoop.hive.metastore.api.FieldSchema;
+import org.apache.hadoop.hive.metastore.api.SerDeInfo;
+import org.apache.hadoop.hive.metastore.api.StorageDescriptor;
 import org.apache.hadoop.hive.metastore.api.Table;
+import org.apache.thrift.TException;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -68,7 +79,7 @@ public class HiveSink
         implements SeaTunnelSink<
                         SeaTunnelRow, FileSinkState, FileCommitInfo, FileAggregatedCommitInfo>,
                 SupportMultiTableSink {
-
+    private static final Logger LOGGER = LoggerFactory.getLogger(HiveSink.class);
     // Since Table might contain some unserializable fields, we need to make it transient
     // And use getTableInformation to get the Table object
     private transient Table tableInformation;
@@ -79,9 +90,10 @@ public class HiveSink
     private transient WriteStrategy writeStrategy;
     private String jobId;
 
-    public HiveSink(ReadonlyConfig readonlyConfig, CatalogTable catalogTable) {
+    public HiveSink(ReadonlyConfig readonlyConfig, CatalogTable catalogTable) throws TException {
         this.readonlyConfig = readonlyConfig;
         this.catalogTable = catalogTable;
+        createDatabaseAndTableIfNotExists();
         this.tableInformation = getTableInformation();
         this.hadoopConf = createHadoopConf(readonlyConfig);
         this.fileSinkConfig = generateFileSinkConfig(readonlyConfig, catalogTable);
@@ -92,6 +104,37 @@ public class HiveSink
             ReadonlyConfig readonlyConfig, CatalogTable catalogTable) {
         Table tableInformation = getTableInformation();
         Config pluginConfig = readonlyConfig.toConfig();
+
+        // 如果表信息为空，创建默认配置
+        if (tableInformation == null) {
+            LOGGER.info("Table information is null, creating default config");
+            // 从tableSchema中获取列信息
+            List<String> sinkFields =
+                    catalogTable.getTableSchema().getColumns().stream()
+                            .map(column -> column.getName())
+                            .collect(Collectors.toList());
+
+            pluginConfig =
+                    pluginConfig
+                            .withValue(
+                                    FILE_FORMAT_TYPE.key(),
+                                    ConfigValueFactory.fromAnyRef(FileFormat.PARQUET.toString()))
+                            .withValue(
+                                    IS_PARTITION_FIELD_WRITE_IN_FILE.key(),
+                                    ConfigValueFactory.fromAnyRef(false))
+                            .withValue(
+                                    FILE_NAME_EXPRESSION.key(),
+                                    ConfigValueFactory.fromAnyRef("${transactionId}"))
+                            .withValue(
+                                    SINK_COLUMNS.key(), ConfigValueFactory.fromAnyRef(sinkFields))
+                            .withValue(
+                                    PARTITION_BY.key(),
+                                    ConfigValueFactory.fromAnyRef(new ArrayList<>()));
+
+            return new FileSinkConfig(pluginConfig, catalogTable.getSeaTunnelRowType());
+        }
+
+        // 原有的处理逻辑保持不变
         List<String> sinkFields =
                 tableInformation.getSd().getCols().stream()
                         .map(FieldSchema::getName)
@@ -212,6 +255,9 @@ public class HiveSink
          * Schema and FsHdfsImpl that can be filled into hadoop configuration in {@link
          * org.apache.seatunnel.connectors.seatunnel.file.hadoop.HadoopFileSystemProxy#createConfiguration()}
          */
+        if (getTableInformation() != null) {
+            hdfsLocation = getTableInformation().getSd().getLocation();
+        }
         HadoopConf hadoopConf =
                 StorageFactory.getStorageType(hdfsLocation)
                         .buildHadoopConfWithReadOnlyConfig(readonlyConfig);
@@ -247,5 +293,59 @@ public class HiveSink
     @Override
     public Optional<CatalogTable> getWriteCatalogTable() {
         return Optional.ofNullable(catalogTable);
+    }
+
+    private void createDatabaseAndTableIfNotExists() throws TException {
+        TablePath tablePath = TablePath.of(readonlyConfig.get(HiveOptions.TABLE_NAME));
+        String dbName = tablePath.getDatabaseName();
+        String tableName = tablePath.getTableName();
+        TableSchema tableSchema = catalogTable.getTableSchema();
+        LOGGER.info("表 {}.{} 不存在，正在尝试去创建表 createTable ......", dbName, tableName);
+        HiveMetaStoreProxy hiveMetaStoreProxy = HiveMetaStoreProxy.getInstance(readonlyConfig);
+        try {
+            // 1. 数据库不存在则自动建库
+            hiveMetaStoreProxy.createDatabaseIfNotExists(dbName);
+            // 2. 构建表对象
+            Table table = new Table();
+            table.setDbName(dbName);
+            table.setTableName(tableName);
+            table.setOwner(System.getProperty("user.name"));
+            table.setCreateTime((int) (System.currentTimeMillis() / 1000));
+            // 3. 设置存储描述符
+            StorageDescriptor sd = new StorageDescriptor();
+            // 4. 设置存储位置，系统默认
+
+            // 5. 设置列信息（添加类型转换）
+            List<FieldSchema> cols = new ArrayList<>();
+            tableSchema
+                    .getColumns()
+                    .forEach(
+                            column -> {
+                                String hiveType =
+                                        HiveTypeConvertor.seatunnelToHiveOrcType(
+                                                column.getDataType());
+                                cols.add(
+                                        new FieldSchema(
+                                                column.getName(), hiveType, column.getComment()));
+                            });
+            sd.setCols(cols);
+            // 6. 设置存储格式（使用 Parquet）
+            sd.setInputFormat("org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat");
+            sd.setOutputFormat("org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat");
+
+            // 7. 设置 SerDe 信息
+            SerDeInfo serDeInfo = new SerDeInfo();
+            serDeInfo.setName(table.getTableName());
+            serDeInfo.setSerializationLib(
+                    "org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe");
+            sd.setSerdeInfo(serDeInfo);
+
+            table.setSd(sd);
+            // 8. 创建表
+            hiveMetaStoreProxy.createTableIfNotExists(table);
+            LOGGER.info("Successfully created table {}.{}", dbName, tableName);
+        } finally {
+            hiveMetaStoreProxy.close();
+        }
     }
 }
