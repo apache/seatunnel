@@ -231,7 +231,8 @@ public class CoordinatorServiceTest {
         System.setProperty(
                 "seatunnel.config",
                 rootPath
-                        + "/seatunnel-engine/seatunnel-engine-server/src/test/resources/" + fileName);
+                        + "/seatunnel-engine/seatunnel-engine-server/src/test/resources/"
+                        + fileName);
     }
 
     private JobInformation submitJob(String testClassName, String jobConfigFile, String jobName) {
