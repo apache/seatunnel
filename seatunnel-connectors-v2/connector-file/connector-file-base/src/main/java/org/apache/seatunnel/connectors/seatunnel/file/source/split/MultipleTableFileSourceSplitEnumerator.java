@@ -46,6 +46,7 @@ public class MultipleTableFileSourceSplitEnumerator
     private final Set<FileSourceSplit> assignedSplit;
     private final Map<String, List<String>> filePathMap;
     private final AtomicInteger assignCount = new AtomicInteger(0);
+    private final Object lock = new Object();
 
     public MultipleTableFileSourceSplitEnumerator(
             Context<FileSourceSplit> context,
@@ -107,7 +108,9 @@ public class MultipleTableFileSourceSplitEnumerator
 
     @Override
     public FileSourceState snapshotState(long checkpointId) {
-        return new FileSourceState(assignedSplit);
+        synchronized (lock) {
+            return new FileSourceState(assignedSplit);
+        }
     }
 
     @Override
@@ -155,7 +158,9 @@ public class MultipleTableFileSourceSplitEnumerator
     public void run() throws Exception {
         for (int i = 0; i < context.currentParallelism(); i++) {
             log.info("Assigned splits to reader [{}]", i);
-            assignSplit(i);
+            synchronized (lock) {
+                assignSplit(i);
+            }
         }
     }
 

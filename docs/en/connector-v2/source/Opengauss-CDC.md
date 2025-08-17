@@ -131,7 +131,7 @@ sink {
     plugin_input = "customers_opengauss_cdc"
     url = "jdbc:postgresql://opengauss_cdc_e2e:5432/opengauss_cdc"
     driver = "org.postgresql.Driver"
-    user = "dailai"
+    username = "dailai"
     password = "openGauss@123"
 
     compatible_mode="postgresLow"

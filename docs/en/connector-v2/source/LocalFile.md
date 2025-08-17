@@ -54,7 +54,7 @@ If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you
 | path                      | string  | yes      | -                                    |
 | file_format_type          | string  | yes      | -                                    |
 | read_columns              | list    | no       | -                                    |
-| delimiter/field_delimiter | string  | no       | \001                                 |
+| delimiter/field_delimiter | string  | no       | \001 for text and , for csv          |
 | parse_partition_from_path | boolean | no       | true                                 |
 | date_format               | string  | no       | yyyy-MM-dd                           |
 | datetime_format           | string  | no       | yyyy-MM-dd HH:mm:ss                  |

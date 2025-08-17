@@ -73,7 +73,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 |--------------------------------------------|------------|------|-------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | url                                        | String     | 是    | -     | JDBC 连接的 URL。参见示例: <br/>`jdbc:mysql://localhost:3306:3306/test`。                                                                                                                                                       |
 | driver                                     | String     | 是    | -     | 用于连接远程数据源的 JDBC 类名，<br/>如果使用 MySQL，值为 `com.mysql.cj.jdbc.Driver`。                                                                                                                                                      |
-| user                                       | String     | 否    | -     | 连接实例用户名。                                                                                                                                                                                                               |
+| username                                   | String     | 否    | -     | 连接实例用户名。                                                                                                                                                                                                               |
 | password                                   | String     | 否    | -     | 连接实例密码。                                                                                                                                                                                                                |
 | query                                      | String     | 是    | -     | 查询语句。                                                                                                                                                                                                                  |
 | connection_check_timeout_sec               | Int        | 否    | 30    | 验证数据库连接所使用的操作完成的等待时间（秒）。                                                                                                                                                                                               |
@@ -195,7 +195,7 @@ source{
         url = "jdbc:mysql://localhost:3306/test?serverTimezone=GMT%2b8&useUnicode=true&characterEncoding=UTF-8&rewriteBatchedStatements=true"
         driver = "com.mysql.cj.jdbc.Driver"
         connection_check_timeout_sec = 100
-        user = "root"
+        username = "root"
         password = "123456"
         query = "select * from type_bin limit 16"
     }
@@ -223,7 +223,7 @@ source {
         url = "jdbc:mysql://localhost/test?serverTimezone=GMT%2b8"
         driver = "com.mysql.cj.jdbc.Driver"
         connection_check_timeout_sec = 100
-        user = "root"
+        username = "root"
         password = "123456"
         query = "select * from type_bin"
         partition_column = "id"
@@ -254,7 +254,7 @@ source {
         url = "jdbc:mysql://localhost/test?serverTimezone=GMT%2b8"
         driver = "com.mysql.cj.jdbc.Driver"
         connection_check_timeout_sec = 100
-        user = "root"
+        username = "root"
         password = "123456"
         table_path = "testdb.table1"
         query = "select * from testdb.table1"
@@ -277,7 +277,7 @@ source {
         url = "jdbc:mysql://localhost:3306/test?serverTimezone=GMT%2b8&useUnicode=true&characterEncoding=UTF-8&rewriteBatchedStatements=true"
         driver = "com.mysql.cj.jdbc.Driver"
         connection_check_timeout_sec = 100
-        user = "root"
+        username = "root"
         password = "123456"
         # Define query logic as required
         query = "select * from type_bin"
@@ -308,7 +308,7 @@ source {
     url = "jdbc:mysql://localhost/test?serverTimezone=GMT%2b8"
     driver = "com.mysql.cj.jdbc.Driver"
     connection_check_timeout_sec = 100
-    user = "root"
+    username = "root"
     password = "123456"
 
     table_list = [
