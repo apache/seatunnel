@@ -56,8 +56,6 @@ Support SeatunnelDateType
 
 > the type of dest field
 
-**Important:** When using batch field extraction (multiple paths, dest_fields, and dest_types separated by semicolons), the `dest_type` parameter is **required** and cannot be omitted. Each extracted field must have a corresponding type specified.
-
 #### path
 
 > Jsonpath
