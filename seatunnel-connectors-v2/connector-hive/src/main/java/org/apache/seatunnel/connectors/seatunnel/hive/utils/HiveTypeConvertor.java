@@ -58,6 +58,12 @@ public class HiveTypeConvertor {
         return SeaTunnelDataTypeConvertorUtil.deserializeSeaTunnelDataType(name, hiveType);
     }
 
+    /**
+     * Convert SeaTunnel data type to Hive type
+     *
+     * @param seaTunnelType SeaTunnel data type
+     * @return Hive type string
+     */
     public static String seatunnelToHiveType(SeaTunnelDataType<?> seaTunnelType) {
         switch (seaTunnelType.getSqlType()) {
             case STRING:
@@ -86,11 +92,14 @@ public class HiveTypeConvertor {
             case BYTES:
                 return "binary";
             case DATE:
-                return "date";
+                // Hive doesn't have native DATE type, use STRING with date format
+                return "string";
             case TIME:
-                return "timestamp"; // 需要考虑时区问题,参考示例代码中的时区处理
+                // Hive doesn't have native TIME type, use STRING with time format
+                return "string";
             case TIMESTAMP:
-                return "timestamp"; // 需要考虑时区问题,参考示例代码中的时区处理
+                // Use TIMESTAMP for timestamp data with timezone handling
+                return "timestamp";
             case ROW:
                 return "struct"; // SeaTunnel ROW -> Hive STRUCT
             case ARRAY:
@@ -104,6 +113,73 @@ public class HiveTypeConvertor {
                         String.format(
                                 "Unsupported type conversion from %s to Hive ORC type",
                                 seaTunnelType.getSqlType()));
+        }
+    }
+
+    /**
+     * Convert SeaTunnel data value to Hive compatible value with timezone handling This method uses
+     * HiveTimezoneUtils for proper timezone conversion
+     */
+    public static Object convertDataValue(Object value, SeaTunnelDataType<?> seaTunnelType) {
+        if (value == null) {
+            return null;
+        }
+
+        switch (seaTunnelType.getSqlType()) {
+            case DATE:
+                // Convert date to string format 'YYYY-MM-DD'
+                if (value instanceof java.time.LocalDate) {
+                    return value.toString(); // LocalDate.toString() returns 'YYYY-MM-DD'
+                } else if (value instanceof java.util.Date) {
+                    return new java.sql.Date(((java.util.Date) value).getTime()).toString();
+                }
+                return value.toString();
+
+            case TIME:
+                // Convert time to string format 'HH:mm:ss'
+                if (value instanceof java.time.LocalTime) {
+                    return value.toString(); // LocalTime.toString() returns 'HH:mm:ss'
+                }
+                return value.toString();
+
+            case TIMESTAMP:
+                // Use HiveTimezoneUtils for proper timezone conversion
+                try {
+                    return HiveTimezoneUtils.convertToOffsetDateTime(value);
+                } catch (Exception e) {
+                    // Fallback to original value if conversion fails
+                    return value;
+                }
+
+            default:
+                // For other types, return as-is
+                return value;
+        }
+    }
+
+    /** Get column comment with timezone information for temporal types */
+    public static String getColumnCommentWithTimezone(
+            String originalComment, SeaTunnelDataType<?> seaTunnelType) {
+        if (originalComment == null) {
+            originalComment = "";
+        }
+
+        switch (seaTunnelType.getSqlType()) {
+            case DATE:
+                return originalComment.isEmpty()
+                        ? "Date stored as string (YYYY-MM-DD)"
+                        : originalComment + " (Date format: YYYY-MM-DD)";
+            case TIME:
+                return originalComment.isEmpty()
+                        ? "Time stored as string (HH:mm:ss)"
+                        : originalComment + " (Time format: HH:mm:ss)";
+            case TIMESTAMP:
+                String timezone = java.time.ZoneId.systemDefault().getId();
+                return originalComment.isEmpty()
+                        ? "Timestamp with system timezone: " + timezone
+                        : originalComment + " (Timezone: " + timezone + ")";
+            default:
+                return originalComment;
         }
     }
 }

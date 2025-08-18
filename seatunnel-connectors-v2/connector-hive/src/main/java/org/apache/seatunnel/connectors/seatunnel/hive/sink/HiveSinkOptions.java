@@ -57,12 +57,19 @@ public class HiveSinkOptions extends HiveOptions {
                             "CREATE TABLE IF NOT EXISTS `${database}`.`${table}` (\n"
                                     + "  ${rowtype_fields}\n"
                                     + ") \n"
-                                    + "STORED AS PARQUET\n"
+                                    + "STORED AS ${table_format}\n"
                                     + "LOCATION '${table_location}'\n"
                                     + "TBLPROPERTIES (\n"
-                                    + "  'parquet.compression'='SNAPPY'\n"
+                                    + "  ${table_properties}\n"
                                     + ")")
                     .withDescription(
                             "Template for creating Hive tables. "
                                     + "Supported variables: ${database}, ${table}, ${rowtype_fields}, ${table_location}, ${table_format}, ${table_properties}");
+
+    public static final Option<String> TABLE_FORMAT =
+            Options.key("table_format")
+                    .stringType()
+                    .defaultValue("PARQUET")
+                    .withDescription(
+                            "Storage format for Hive table. Supported formats: PARQUET, ORC, TEXTFILE");
 }

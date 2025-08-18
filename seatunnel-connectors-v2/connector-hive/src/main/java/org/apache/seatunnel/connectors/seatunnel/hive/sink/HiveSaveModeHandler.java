@@ -28,11 +28,12 @@ import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveOptions;
 import org.apache.seatunnel.connectors.seatunnel.hive.exception.HiveConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.hive.exception.HiveConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.hive.utils.HiveFormatUtils;
 import org.apache.seatunnel.connectors.seatunnel.hive.utils.HiveMetaStoreProxy;
+import org.apache.seatunnel.connectors.seatunnel.hive.utils.HiveTimezoneUtils;
 import org.apache.seatunnel.connectors.seatunnel.hive.utils.HiveTypeConvertor;
 
 import org.apache.hadoop.hive.metastore.api.FieldSchema;
-import org.apache.hadoop.hive.metastore.api.SerDeInfo;
 import org.apache.hadoop.hive.metastore.api.StorageDescriptor;
 import org.apache.hadoop.hive.metastore.api.Table;
 import org.apache.thrift.TException;
@@ -216,13 +217,25 @@ public class HiveSaveModeHandler implements SaveModeHandler, AutoCloseable {
     }
 
     private String processCreateTemplate() {
-        // Simplified template processing - just replace basic variables
+        // Simplified template processing with format support
         String sql = createTemplate;
+        String tableFormat = readonlyConfig.get(HiveSinkOptions.TABLE_FORMAT);
+
+        // Validate format
+        HiveFormatUtils.validateFormat(tableFormat);
+
         sql = sql.replace("${database}", dbName);
         sql = sql.replace("${table}", tableName);
         sql = sql.replace("${table_location}", getDefaultTableLocation());
         sql = sql.replace("${partition_by_clause}", "");
         sql = sql.replace("${rowtype_fields}", generateColumnDefinitions());
+        sql = sql.replace("${table_format}", tableFormat);
+        sql =
+                sql.replace(
+                        "${table_properties}",
+                        HiveFormatUtils.getDefaultTableProperties(tableFormat)
+                                + ",\n  "
+                                + HiveTimezoneUtils.getTimezoneTableProperties());
         return sql;
     }
 
@@ -237,9 +250,15 @@ public class HiveSaveModeHandler implements SaveModeHandler, AutoCloseable {
             org.apache.seatunnel.api.table.catalog.Column column = columns.get(i);
             String hiveType = HiveTypeConvertor.seatunnelToHiveType(column.getDataType());
             sb.append("`").append(column.getName()).append("` ").append(hiveType);
-            if (column.getComment() != null && !column.getComment().isEmpty()) {
-                sb.append(" COMMENT '").append(column.getComment().replace("'", "\\'")).append("'");
+
+            // Add timezone-aware comment for temporal types
+            String comment =
+                    HiveTypeConvertor.getColumnCommentWithTimezone(
+                            column.getComment(), column.getDataType());
+            if (comment != null && !comment.isEmpty()) {
+                sb.append(" COMMENT '").append(comment.replace("'", "\\'")).append("'");
             }
+
             if (i < columns.size() - 1) {
                 sb.append(",\n  ");
             }
@@ -266,9 +285,10 @@ public class HiveSaveModeHandler implements SaveModeHandler, AutoCloseable {
                         column -> {
                             String hiveType =
                                     HiveTypeConvertor.seatunnelToHiveType(column.getDataType());
-                            cols.add(
-                                    new FieldSchema(
-                                            column.getName(), hiveType, column.getComment()));
+                            String comment =
+                                    HiveTypeConvertor.getColumnCommentWithTimezone(
+                                            column.getComment(), column.getDataType());
+                            cols.add(new FieldSchema(column.getName(), hiveType, comment));
                         });
         sd.setCols(cols);
 
@@ -276,26 +296,31 @@ public class HiveSaveModeHandler implements SaveModeHandler, AutoCloseable {
         String tableLocation = getDefaultTableLocation();
         sd.setLocation(tableLocation);
 
-        // Set storage format (default to Parquet)
-        sd.setInputFormat("org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat");
-        sd.setOutputFormat("org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat");
+        // Set storage format dynamically based on configuration
+        String tableFormat = readonlyConfig.get(HiveSinkOptions.TABLE_FORMAT);
+        HiveFormatUtils.validateFormat(tableFormat);
+        HiveFormatUtils.configureStorageDescriptor(sd, tableFormat);
 
-        // Set SerDe info
-        SerDeInfo serDeInfo = new SerDeInfo();
-        serDeInfo.setName(table.getTableName());
-        serDeInfo.setSerializationLib(
-                "org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe");
-        sd.setSerdeInfo(serDeInfo);
+        // Set SerDe name
+        sd.getSerdeInfo().setName(table.getTableName());
 
-        // Set compression
-        sd.setCompressed(false);
+        // Set compression and storage settings
+        sd.setCompressed(HiveFormatUtils.shouldEnableCompression(tableFormat));
         sd.setStoredAsSubDirectories(false);
 
         table.setSd(sd);
 
-        // Set table properties
-        table.putToParameters("parquet.compression", "SNAPPY");
-        table.putToParameters("created_by", "seatunnel");
+        // Set table properties with timezone info
+        String[] properties = HiveFormatUtils.getDefaultTableProperties(tableFormat).split(",\n  ");
+        for (String property : properties) {
+            String[] keyValue = property.replace("'", "").split("=");
+            if (keyValue.length == 2) {
+                table.putToParameters(keyValue[0], keyValue[1]);
+            }
+        }
+
+        // Add timezone information
+        table.putToParameters("seatunnel.timezone", java.time.ZoneId.systemDefault().getId());
 
         return table;
     }
