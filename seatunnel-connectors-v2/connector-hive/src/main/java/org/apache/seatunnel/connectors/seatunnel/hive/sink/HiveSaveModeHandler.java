@@ -235,7 +235,7 @@ public class HiveSaveModeHandler implements SaveModeHandler, AutoCloseable {
         List<org.apache.seatunnel.api.table.catalog.Column> columns = tableSchema.getColumns();
         for (int i = 0; i < columns.size(); i++) {
             org.apache.seatunnel.api.table.catalog.Column column = columns.get(i);
-            String hiveType = HiveTypeConvertor.seatunnelToHiveOrcType(column.getDataType());
+            String hiveType = HiveTypeConvertor.seatunnelToHiveType(column.getDataType());
             sb.append("`").append(column.getName()).append("` ").append(hiveType);
             if (column.getComment() != null && !column.getComment().isEmpty()) {
                 sb.append(" COMMENT '").append(column.getComment().replace("'", "\\'")).append("'");
@@ -265,7 +265,7 @@ public class HiveSaveModeHandler implements SaveModeHandler, AutoCloseable {
                 .forEach(
                         column -> {
                             String hiveType =
-                                    HiveTypeConvertor.seatunnelToHiveOrcType(column.getDataType());
+                                    HiveTypeConvertor.seatunnelToHiveType(column.getDataType());
                             cols.add(
                                     new FieldSchema(
                                             column.getName(), hiveType, column.getComment()));

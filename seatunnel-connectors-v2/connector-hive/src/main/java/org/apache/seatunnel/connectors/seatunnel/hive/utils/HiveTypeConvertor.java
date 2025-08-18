@@ -58,7 +58,7 @@ public class HiveTypeConvertor {
         return SeaTunnelDataTypeConvertorUtil.deserializeSeaTunnelDataType(name, hiveType);
     }
 
-    public static String seatunnelToHiveOrcType(SeaTunnelDataType<?> seaTunnelType) {
+    public static String seatunnelToHiveType(SeaTunnelDataType<?> seaTunnelType) {
         switch (seaTunnelType.getSqlType()) {
             case STRING:
                 return "string";
@@ -103,55 +103,6 @@ public class HiveTypeConvertor {
                 throw new UnsupportedOperationException(
                         String.format(
                                 "Unsupported type conversion from %s to Hive ORC type",
-                                seaTunnelType.getSqlType()));
-        }
-    }
-
-    public static String seatunnelToHiveParquetType(SeaTunnelDataType<?> seaTunnelType) {
-        switch (seaTunnelType.getSqlType()) {
-            case STRING:
-                return "string";
-            case BOOLEAN:
-                return "boolean";
-            case TINYINT:
-                return "tinyint"; // INT_8 in Parquet
-            case SMALLINT:
-                return "smallint"; // INT_16 in Parquet
-            case INT:
-                return "int"; // INT32 in Parquet
-            case BIGINT:
-                return "bigint"; // INT64 in Parquet
-            case FLOAT:
-                return "float";
-            case DOUBLE:
-                return "double";
-            case DECIMAL:
-                if (seaTunnelType instanceof DecimalType) {
-                    DecimalType decimalType = (DecimalType) seaTunnelType;
-                    return String.format(
-                            "decimal(%d,%d)", decimalType.getPrecision(), decimalType.getScale());
-                }
-                return "decimal(38,18)"; // 设置默认精度
-            case BYTES:
-                return "binary";
-            case DATE:
-                return "date";
-            case TIME:
-                return "timestamp"; // Hive不直接支持TIME类型
-            case TIMESTAMP:
-                return "timestamp"; // TIMESTAMP_MILLIS in Parquet
-            case ROW:
-                return "struct"; // GroupType in Parquet
-            case ARRAY:
-                return "array"; // LIST in Parquet
-            case MAP:
-                return "map"; // Map in Parquet
-            case NULL:
-                throw new UnsupportedOperationException("Parquet does not support NULL type");
-            default:
-                throw new UnsupportedOperationException(
-                        String.format(
-                                "Unsupported type conversion from %s to Hive Parquet type",
                                 seaTunnelType.getSqlType()));
         }
     }

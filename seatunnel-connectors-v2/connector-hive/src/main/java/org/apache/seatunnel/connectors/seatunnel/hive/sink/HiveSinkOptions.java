@@ -57,37 +57,12 @@ public class HiveSinkOptions extends HiveOptions {
                             "CREATE TABLE IF NOT EXISTS `${database}`.`${table}` (\n"
                                     + "  ${rowtype_fields}\n"
                                     + ") \n"
-                                    + "STORED AS ${table_format}\n"
+                                    + "STORED AS PARQUET\n"
                                     + "LOCATION '${table_location}'\n"
                                     + "TBLPROPERTIES (\n"
-                                    + "  ${table_properties}\n"
+                                    + "  'parquet.compression'='SNAPPY'\n"
                                     + ")")
                     .withDescription(
                             "Template for creating Hive tables. "
                                     + "Supported variables: ${database}, ${table}, ${rowtype_fields}, ${table_location}, ${table_format}, ${table_properties}");
-
-    // 新增存储格式配置选项
-    public static final Option<String> TABLE_FORMAT =
-            Options.key("table_format")
-                    .stringType()
-                    .defaultValue("PARQUET")
-                    .withDescription(
-                            "Storage format for Hive table. Supported formats: PARQUET, ORC, TEXTFILE, AVRO, SEQUENCEFILE, RCFILE");
-
-    public static final Option<String> COMPRESSION_CODEC =
-            Options.key("compression_codec")
-                    .stringType()
-                    .defaultValue("SNAPPY")
-                    .withDescription(
-                            "Compression codec for the table format. "
-                                    + "For PARQUET: UNCOMPRESSED, SNAPPY, GZIP, LZO, BROTLI, LZ4, ZSTD. "
-                                    + "For ORC: NONE, ZLIB, SNAPPY, LZO, LZ4, ZSTD");
-
-    public static final Option<String> TIMEZONE =
-            Options.key("timezone")
-                    .stringType()
-                    .defaultValue("UTC")
-                    .withDescription(
-                            "Timezone for timestamp data conversion. Default is UTC. "
-                                    + "Examples: UTC, Asia/Shanghai, America/New_York");
 }
