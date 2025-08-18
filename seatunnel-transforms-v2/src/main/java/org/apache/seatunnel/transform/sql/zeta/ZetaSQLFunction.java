@@ -155,6 +155,7 @@ public class ZetaSQLFunction {
     public static final String TRUNCATE = "TRUNCATE";
     public static final String ARRAY_MAX = "ARRAY_MAX";
     public static final String ARRAY_MIN = "ARRAY_MIN";
+    public static final String TRIM_SCALE = "TRIM_SCALE";
 
     // -------------------------time and date functions----------------------------
     public static final String CURRENT_DATE = "CURRENT_DATE";
@@ -532,6 +533,8 @@ public class ZetaSQLFunction {
             case TRUNC:
             case TRUNCATE:
                 return NumericFunction.trunc(args);
+            case TRIM_SCALE:
+                return NumericFunction.trimScale(args);
             case NOW:
                 return DateTimeFunction.currentTimestamp();
             case DATEADD:
