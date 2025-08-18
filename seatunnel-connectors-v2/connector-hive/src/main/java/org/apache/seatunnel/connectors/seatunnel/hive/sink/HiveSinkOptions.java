@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.hive.sink;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
+import org.apache.seatunnel.api.sink.SchemaSaveMode;
 import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveOptions;
 
 public class HiveSinkOptions extends HiveOptions {
@@ -36,4 +37,57 @@ public class HiveSinkOptions extends HiveOptions {
                     .defaultValue(false)
                     .withDescription(
                             "Flag to decide whether to use overwrite mode when inserting data into Hive. If set to true, for non-partitioned tables, the existing data in the table will be deleted before inserting new data. For partitioned tables, the data in the relevant partition will be deleted before inserting new data.");
+
+    // SaveMode related options
+    public static final Option<SchemaSaveMode> SCHEMA_SAVE_MODE =
+            Options.key("schema_save_mode")
+                    .enumType(SchemaSaveMode.class)
+                    .defaultValue(SchemaSaveMode.CREATE_SCHEMA_WHEN_NOT_EXIST)
+                    .withDescription(
+                            "Before starting the synchronization task, different processing schemes are selected for the existing table structure on the target side. "
+                                    + "RECREATE_SCHEMA: Will create when the table does not exist, delete and rebuild when the table exists. "
+                                    + "CREATE_SCHEMA_WHEN_NOT_EXIST: Will create when the table does not exist, skip when the table exists. "
+                                    + "ERROR_WHEN_SCHEMA_NOT_EXIST: Error will be reported when the table does not exist. "
+                                    + "IGNORE: Ignore the treatment of the table.");
+
+    public static final Option<String> SAVE_MODE_CREATE_TEMPLATE =
+            Options.key("save_mode_create_template")
+                    .stringType()
+                    .defaultValue(
+                            "CREATE TABLE IF NOT EXISTS `${database}`.`${table}` (\n"
+                                    + "  ${rowtype_fields}\n"
+                                    + ") \n"
+                                    + "STORED AS ${table_format}\n"
+                                    + "LOCATION '${table_location}'\n"
+                                    + "TBLPROPERTIES (\n"
+                                    + "  ${table_properties}\n"
+                                    + ")")
+                    .withDescription(
+                            "Template for creating Hive tables. "
+                                    + "Supported variables: ${database}, ${table}, ${rowtype_fields}, ${table_location}, ${table_format}, ${table_properties}");
+
+    // 新增存储格式配置选项
+    public static final Option<String> TABLE_FORMAT =
+            Options.key("table_format")
+                    .stringType()
+                    .defaultValue("PARQUET")
+                    .withDescription(
+                            "Storage format for Hive table. Supported formats: PARQUET, ORC, TEXTFILE, AVRO, SEQUENCEFILE, RCFILE");
+
+    public static final Option<String> COMPRESSION_CODEC =
+            Options.key("compression_codec")
+                    .stringType()
+                    .defaultValue("SNAPPY")
+                    .withDescription(
+                            "Compression codec for the table format. "
+                                    + "For PARQUET: UNCOMPRESSED, SNAPPY, GZIP, LZO, BROTLI, LZ4, ZSTD. "
+                                    + "For ORC: NONE, ZLIB, SNAPPY, LZO, LZ4, ZSTD");
+
+    public static final Option<String> TIMEZONE =
+            Options.key("timezone")
+                    .stringType()
+                    .defaultValue("UTC")
+                    .withDescription(
+                            "Timezone for timestamp data conversion. Default is UTC. "
+                                    + "Examples: UTC, Asia/Shanghai, America/New_York");
 }

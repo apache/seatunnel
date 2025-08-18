@@ -31,8 +31,8 @@ import org.apache.seatunnel.connectors.seatunnel.file.sink.commit.FileCommitInfo
 import org.apache.seatunnel.connectors.seatunnel.file.sink.state.FileSinkState;
 import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConfig;
 import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConstants;
-
-import org.apache.thrift.TException;
+import org.apache.seatunnel.connectors.seatunnel.hive.exception.HiveConnectorErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.hive.exception.HiveConnectorException;
 
 import com.google.auto.service.AutoService;
 
@@ -53,6 +53,9 @@ public class HiveSinkFactory
                 .optional(HiveConfig.HADOOP_CONF)
                 .optional(HiveConfig.HADOOP_CONF_PATH)
                 .optional(FileBaseSinkOptions.PARQUET_AVRO_WRITE_TIMESTAMP_AS_INT96)
+                // SaveMode related options
+                .optional(HiveSinkOptions.SCHEMA_SAVE_MODE)
+                .optional(HiveSinkOptions.SAVE_MODE_CREATE_TEMPLATE)
                 .build();
     }
 
@@ -61,13 +64,31 @@ public class HiveSinkFactory
             createSink(TableSinkFactoryContext context) {
         ReadonlyConfig readonlyConfig = context.getOptions();
         CatalogTable catalogTable = context.getCatalogTable();
+
+        // Validate SaveMode configuration
+        validateSaveModeConfiguration(readonlyConfig);
+
         return () -> {
             try {
                 return new HiveSink(readonlyConfig, catalogTable);
-            } catch (TException e) {
-                throw new RuntimeException(e);
+            } catch (Exception e) {
+                throw new HiveConnectorException(
+                        HiveConnectorErrorCode.CREATE_HIVE_TABLE_FAILED,
+                        "Failed to create HiveSink: " + e.getMessage(),
+                        e);
             }
         };
+    }
+
+    /** Validate SaveMode related configuration */
+    private void validateSaveModeConfiguration(ReadonlyConfig config) {
+        // Validate template is not empty
+        String template = config.get(HiveSinkOptions.SAVE_MODE_CREATE_TEMPLATE);
+        if (template == null || template.trim().isEmpty()) {
+            throw new HiveConnectorException(
+                    HiveConnectorErrorCode.CREATE_HIVE_TABLE_FAILED,
+                    "save_mode_create_template cannot be empty");
+        }
     }
 
     @Override

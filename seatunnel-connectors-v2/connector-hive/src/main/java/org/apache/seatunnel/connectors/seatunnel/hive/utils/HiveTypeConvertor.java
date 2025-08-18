@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.hive.utils;
 
 import org.apache.seatunnel.api.table.catalog.SeaTunnelDataTypeConvertorUtil;
 import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.common.constants.PluginType;
@@ -76,6 +77,11 @@ public class HiveTypeConvertor {
             case DOUBLE:
                 return "double";
             case DECIMAL:
+                if (seaTunnelType instanceof DecimalType) {
+                    DecimalType decimalType = (DecimalType) seaTunnelType;
+                    return String.format(
+                            "decimal(%d,%d)", decimalType.getPrecision(), decimalType.getScale());
+                }
                 return "decimal(38,18)"; // 设置默认精度
             case BYTES:
                 return "binary";
@@ -120,6 +126,11 @@ public class HiveTypeConvertor {
             case DOUBLE:
                 return "double";
             case DECIMAL:
+                if (seaTunnelType instanceof DecimalType) {
+                    DecimalType decimalType = (DecimalType) seaTunnelType;
+                    return String.format(
+                            "decimal(%d,%d)", decimalType.getPrecision(), decimalType.getScale());
+                }
                 return "decimal(38,18)"; // 设置默认精度
             case BYTES:
                 return "binary";

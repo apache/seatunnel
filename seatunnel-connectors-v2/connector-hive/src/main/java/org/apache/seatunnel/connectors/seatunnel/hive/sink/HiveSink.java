@@ -24,13 +24,14 @@ import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.serialization.DefaultSerializer;
 import org.apache.seatunnel.api.serialization.Serializer;
+import org.apache.seatunnel.api.sink.SaveModeHandler;
+import org.apache.seatunnel.api.sink.SchemaSaveMode;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SupportMultiTableSink;
+import org.apache.seatunnel.api.sink.SupportSaveMode;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
-import org.apache.seatunnel.api.table.catalog.TablePath;
-import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
@@ -47,13 +48,9 @@ import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveOptions;
 import org.apache.seatunnel.connectors.seatunnel.hive.exception.HiveConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.hive.sink.writter.HiveSinkWriter;
 import org.apache.seatunnel.connectors.seatunnel.hive.storage.StorageFactory;
-import org.apache.seatunnel.connectors.seatunnel.hive.utils.HiveMetaStoreProxy;
 import org.apache.seatunnel.connectors.seatunnel.hive.utils.HiveTableUtils;
-import org.apache.seatunnel.connectors.seatunnel.hive.utils.HiveTypeConvertor;
 
 import org.apache.hadoop.hive.metastore.api.FieldSchema;
-import org.apache.hadoop.hive.metastore.api.SerDeInfo;
-import org.apache.hadoop.hive.metastore.api.StorageDescriptor;
 import org.apache.hadoop.hive.metastore.api.Table;
 import org.apache.thrift.TException;
 
@@ -78,7 +75,8 @@ import static org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSink
 public class HiveSink
         implements SeaTunnelSink<
                         SeaTunnelRow, FileSinkState, FileCommitInfo, FileAggregatedCommitInfo>,
-                SupportMultiTableSink {
+                SupportMultiTableSink,
+                SupportSaveMode {
     private static final Logger LOGGER = LoggerFactory.getLogger(HiveSink.class);
     // Since Table might contain some unserializable fields, we need to make it transient
     // And use getTableInformation to get the Table object
@@ -90,10 +88,9 @@ public class HiveSink
     private transient WriteStrategy writeStrategy;
     private String jobId;
 
-    public HiveSink(ReadonlyConfig readonlyConfig, CatalogTable catalogTable) throws TException {
+    public HiveSink(ReadonlyConfig readonlyConfig, CatalogTable catalogTable) {
         this.readonlyConfig = readonlyConfig;
         this.catalogTable = catalogTable;
-        createDatabaseAndTableIfNotExists();
         this.tableInformation = getTableInformation();
         this.hadoopConf = createHadoopConf(readonlyConfig);
         this.fileSinkConfig = generateFileSinkConfig(readonlyConfig, catalogTable);
@@ -295,57 +292,55 @@ public class HiveSink
         return Optional.ofNullable(catalogTable);
     }
 
+    @Override
+    public Optional<SaveModeHandler> getSaveModeHandler() {
+        // Check if SaveMode is configured
+        if (readonlyConfig.getOptional(HiveSinkOptions.SCHEMA_SAVE_MODE).isPresent()) {
+
+            SchemaSaveMode schemaSaveMode = readonlyConfig.get(HiveSinkOptions.SCHEMA_SAVE_MODE);
+            String createTemplate = readonlyConfig.get(HiveSinkOptions.SAVE_MODE_CREATE_TEMPLATE);
+
+            return Optional.of(
+                    new HiveSaveModeHandler(
+                            readonlyConfig, catalogTable, schemaSaveMode, createTemplate));
+        }
+
+        // For backward compatibility, if no SaveMode is configured,
+        // return a handler with default CREATE_SCHEMA_WHEN_NOT_EXIST behavior
+        return Optional.of(
+                new HiveSaveModeHandler(
+                        readonlyConfig,
+                        catalogTable,
+                        SchemaSaveMode.CREATE_SCHEMA_WHEN_NOT_EXIST,
+                        readonlyConfig.get(HiveSinkOptions.SAVE_MODE_CREATE_TEMPLATE)));
+    }
+
+    /**
+     * @deprecated This method is deprecated and replaced by SaveModeHandler. It's kept for backward
+     *     compatibility but will be removed in future versions.
+     */
+    @Deprecated
     private void createDatabaseAndTableIfNotExists() throws TException {
-        TablePath tablePath = TablePath.of(readonlyConfig.get(HiveOptions.TABLE_NAME));
-        String dbName = tablePath.getDatabaseName();
-        String tableName = tablePath.getTableName();
-        TableSchema tableSchema = catalogTable.getTableSchema();
-        LOGGER.info("表 {}.{} 不存在，正在尝试去创建表 createTable ......", dbName, tableName);
-        HiveMetaStoreProxy hiveMetaStoreProxy = HiveMetaStoreProxy.getInstance(readonlyConfig);
-        try {
-            // 1. 数据库不存在则自动建库
-            hiveMetaStoreProxy.createDatabaseIfNotExists(dbName);
-            // 2. 构建表对象
-            Table table = new Table();
-            table.setDbName(dbName);
-            table.setTableName(tableName);
-            table.setOwner(System.getProperty("user.name"));
-            table.setCreateTime((int) (System.currentTimeMillis() / 1000));
-            // 3. 设置存储描述符
-            StorageDescriptor sd = new StorageDescriptor();
-            // 4. 设置存储位置，系统默认
+        LOGGER.warn(
+                "createDatabaseAndTableIfNotExists() is deprecated. "
+                        + "Please use SaveMode configuration instead.");
 
-            // 5. 设置列信息（添加类型转换）
-            List<FieldSchema> cols = new ArrayList<>();
-            tableSchema
-                    .getColumns()
-                    .forEach(
-                            column -> {
-                                String hiveType =
-                                        HiveTypeConvertor.seatunnelToHiveOrcType(
-                                                column.getDataType());
-                                cols.add(
-                                        new FieldSchema(
-                                                column.getName(), hiveType, column.getComment()));
-                            });
-            sd.setCols(cols);
-            // 6. 设置存储格式（使用 Parquet）
-            sd.setInputFormat("org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat");
-            sd.setOutputFormat("org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat");
+        // For backward compatibility, create a temporary SaveModeHandler and execute it
+        try (HiveSaveModeHandler handler =
+                new HiveSaveModeHandler(
+                        readonlyConfig,
+                        catalogTable,
+                        SchemaSaveMode.CREATE_SCHEMA_WHEN_NOT_EXIST,
+                        readonlyConfig.get(HiveSinkOptions.SAVE_MODE_CREATE_TEMPLATE))) {
 
-            // 7. 设置 SerDe 信息
-            SerDeInfo serDeInfo = new SerDeInfo();
-            serDeInfo.setName(table.getTableName());
-            serDeInfo.setSerializationLib(
-                    "org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe");
-            sd.setSerdeInfo(serDeInfo);
-
-            table.setSd(sd);
-            // 8. 创建表
-            hiveMetaStoreProxy.createTableIfNotExists(table);
-            LOGGER.info("Successfully created table {}.{}", dbName, tableName);
-        } finally {
-            hiveMetaStoreProxy.close();
+            handler.open();
+            handler.handleSchemaSaveMode();
+            handler.handleDataSaveMode();
+        } catch (Exception e) {
+            if (e instanceof TException) {
+                throw (TException) e;
+            }
+            throw new RuntimeException("Failed to create database and table", e);
         }
     }
 }

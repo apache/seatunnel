@@ -33,7 +33,6 @@ import org.apache.hadoop.hive.conf.HiveConf;
 import org.apache.hadoop.hive.metastore.HiveMetaStoreClient;
 import org.apache.hadoop.hive.metastore.api.AlreadyExistsException;
 import org.apache.hadoop.hive.metastore.api.Database;
-import org.apache.hadoop.hive.metastore.api.MetaException;
 import org.apache.hadoop.hive.metastore.api.Table;
 import org.apache.thrift.TException;
 
@@ -208,6 +207,41 @@ public class HiveMetaStoreProxy implements Closeable, Serializable {
         for (String partition : partitions) {
             getClient().dropPartition(dbName, tableName, partition, false);
         }
+    }
+
+    public boolean tableExists(@NonNull String dbName, @NonNull String tableName) {
+        try {
+            return getClient().tableExists(dbName, tableName);
+        } catch (TException e) {
+            String msg = String.format("Failed to check if table %s.%s exists", dbName, tableName);
+            throw new HiveConnectorException(
+                    HiveConnectorErrorCode.GET_HIVE_TABLE_INFORMATION_FAILED, msg, e);
+        }
+    }
+
+    public boolean databaseExists(@NonNull String dbName) {
+        try {
+            List<String> databases = getClient().getAllDatabases();
+            return databases.contains(dbName);
+        } catch (TException e) {
+            String msg = String.format("Failed to check if database %s exists", dbName);
+            throw new HiveConnectorException(
+                    HiveConnectorErrorCode.GET_HIVE_TABLE_INFORMATION_FAILED, msg, e);
+        }
+    }
+
+    public void dropTable(@NonNull String dbName, @NonNull String tableName) {
+        try {
+            getClient().dropTable(dbName, tableName, true, true);
+        } catch (TException e) {
+            String msg = String.format("Failed to drop table %s.%s", dbName, tableName);
+            throw new HiveConnectorException(
+                    HiveConnectorErrorCode.CREATE_HIVE_TABLE_FAILED, msg, e);
+        }
+    }
+
+    public static HiveMetaStoreProxy getInstance(ReadonlyConfig config) {
+        return new HiveMetaStoreProxy(config);
     }
 
     @Override
