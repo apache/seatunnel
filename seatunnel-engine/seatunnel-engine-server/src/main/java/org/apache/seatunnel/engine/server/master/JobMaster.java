@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.server.master;
 
+import com.hazelcast.core.OperationTimeoutException;
 import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
 
 import org.apache.seatunnel.api.common.metrics.JobMetrics;
@@ -68,7 +69,6 @@ import org.apache.seatunnel.engine.server.execution.TaskExecutionState;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.metrics.JobMetricsUtil;
-import org.apache.seatunnel.engine.server.metrics.MetricsCleanupScheduler;
 import org.apache.seatunnel.engine.server.metrics.SeaTunnelMetricsContext;
 import org.apache.seatunnel.engine.server.resourcemanager.AbstractResourceManager;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManager;
@@ -78,7 +78,6 @@ import org.apache.seatunnel.engine.server.resourcemanager.allocation.strategy.Sy
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
 import org.apache.seatunnel.engine.server.task.operation.CleanTaskGroupContextOperation;
 import org.apache.seatunnel.engine.server.task.operation.GetTaskGroupMetricsOperation;
-import org.apache.seatunnel.engine.server.utils.MetricsCleanupUtils;
 import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
 
 import com.hazelcast.cluster.Address;
@@ -108,6 +107,7 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 import static com.hazelcast.jet.impl.util.ExceptionUtil.withTryCatch;
@@ -170,8 +170,6 @@ public class JobMaster {
 
     private final IMap<Long, HashMap<TaskLocation, SeaTunnelMetricsContext>> metricsImap;
 
-    private final MetricsCleanupScheduler metricsCleanupScheduler;
-
     /** If the job or pipeline cancel by user, needRestore will be false */
     @Getter private volatile boolean needRestore = true;
 
@@ -197,7 +195,6 @@ public class JobMaster {
             @NonNull IMap ownedSlotProfilesIMap,
             @NonNull IMap<Long, JobInfo> runningJobInfoIMap,
             @NonNull IMap<Long, HashMap<TaskLocation, SeaTunnelMetricsContext>> metricsImap,
-            @NonNull MetricsCleanupScheduler metricsCleanupScheduler,
             EngineConfig engineConfig,
             SeaTunnelServer seaTunnelServer) {
         this.jobId = jobId;
@@ -216,7 +213,6 @@ public class JobMaster {
         this.runningJobInfoIMap = runningJobInfoIMap;
         this.engineConfig = engineConfig;
         this.metricsImap = metricsImap;
-        this.metricsCleanupScheduler = metricsCleanupScheduler;
         this.seaTunnelServer = seaTunnelServer;
         this.releasedSlotWhenTaskGroupFinished = new ConcurrentHashMap<>();
     }
@@ -897,8 +893,47 @@ public class JobMaster {
                         && !checkpointManager.isPipelineSavePointEnd(pipelineLocation))
                 || pipelineStatus.equals(PipelineStatus.CANCELED)) {
 
-            MetricsCleanupUtils.cleanupMetrics(
-                    pipelineLocation, metricsImap, metricsCleanupScheduler);
+            boolean lockedIMap = false;
+            try {
+                lockedIMap =
+                        metricsImap.tryLock(
+                                Constant.IMAP_RUNNING_JOB_METRICS_KEY, 5, TimeUnit.SECONDS);
+                if (!lockedIMap) {
+                    LOGGER.severe("lock imap failed in update metrics");
+                    return;
+                }
+
+                HashMap<TaskLocation, SeaTunnelMetricsContext> centralMap =
+                        metricsImap.get(Constant.IMAP_RUNNING_JOB_METRICS_KEY);
+                if (centralMap != null) {
+                    List<TaskLocation> collect =
+                            centralMap.keySet().stream()
+                                    .filter(
+                                            taskLocation -> {
+                                                return taskLocation
+                                                        .getTaskGroupLocation()
+                                                        .getPipelineLocation()
+                                                        .equals(pipelineLocation);
+                                            })
+                                    .collect(Collectors.toList());
+                    collect.forEach(centralMap::remove);
+                    metricsImap.put(Constant.IMAP_RUNNING_JOB_METRICS_KEY, centralMap);
+                }
+            } catch (Exception e) {
+                LOGGER.warning("failed to remove metrics context", e);
+            } finally {
+                if (lockedIMap) {
+                    boolean unLockedIMap = false;
+                    while (!unLockedIMap) {
+                        try {
+                            metricsImap.unlock(Constant.IMAP_RUNNING_JOB_METRICS_KEY);
+                            unLockedIMap = true;
+                        } catch (OperationTimeoutException e) {
+                            LOGGER.warning("unlock imap failed in update metrics", e);
+                        }
+                    }
+                }
+            }
         }
     }
 

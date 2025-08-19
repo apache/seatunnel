@@ -198,25 +198,6 @@ public class CoordinatorServiceTest {
         jobInformation.coordinatorServiceTest.shutdown();
     }
 
-    @Test
-    void testRetryCleanupMetricsImap() {
-        JobInformation jobInformation =
-                submitJob(
-                        "CoordinatorServiceTest_testRetryCleanupMetricsImap",
-                        "batch_fake_to_console.conf",
-                        "test_retry_cleanup_metrics_imap");
-        CoordinatorService coordinatorService = jobInformation.coordinatorService;
-        BlockingQueue<PipelineLocation> cleanupRetryQueue =
-                coordinatorService.getMetricsCleanupRetryQueue();
-        cleanupRetryQueue.offer(new PipelineLocation(jobInformation.jobId, 1));
-
-        await().atMost(10000, TimeUnit.MILLISECONDS)
-                .untilAsserted(() -> Assertions.assertTrue(cleanupRetryQueue.isEmpty()));
-
-        jobInformation.coordinatorService.clearCoordinatorService();
-        jobInformation.coordinatorServiceTest.shutdown();
-    }
-
     private void setDefaultConfigFile() {
         setConfigFile("seatunnel.yaml");
     }
