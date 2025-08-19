@@ -30,7 +30,6 @@ import org.apache.seatunnel.connectors.seatunnel.hive.exception.HiveConnectorErr
 import org.apache.seatunnel.connectors.seatunnel.hive.exception.HiveConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.hive.utils.HiveFormatUtils;
 import org.apache.seatunnel.connectors.seatunnel.hive.utils.HiveMetaStoreProxy;
-
 import org.apache.seatunnel.connectors.seatunnel.hive.utils.HiveTypeConvertor;
 
 import org.apache.hadoop.hive.metastore.api.FieldSchema;
@@ -79,18 +78,21 @@ public class HiveSaveModeHandler implements SaveModeHandler, AutoCloseable {
 
         // Initialize partition fields and validation
         this.partitionFields = readonlyConfig.get(HiveSinkOptions.PARTITION_FIELDS);
-        this.sourceFieldNames = tableSchema.getColumns().stream()
-                .map(org.apache.seatunnel.api.table.catalog.Column::getName)
-                .collect(Collectors.toList());
+        this.sourceFieldNames =
+                tableSchema.getColumns().stream()
+                        .map(org.apache.seatunnel.api.table.catalog.Column::getName)
+                        .collect(Collectors.toList());
 
         // Validate and categorize partition fields
         validatePartitionFields();
-        this.partitionFieldsFromSource = partitionFields.stream()
-                .filter(sourceFieldNames::contains)
-                .collect(Collectors.toList());
-        this.nonPartitionFields = sourceFieldNames.stream()
-                .filter(field -> !partitionFieldsFromSource.contains(field))
-                .collect(Collectors.toList());
+        this.partitionFieldsFromSource =
+                partitionFields.stream()
+                        .filter(sourceFieldNames::contains)
+                        .collect(Collectors.toList());
+        this.nonPartitionFields =
+                sourceFieldNames.stream()
+                        .filter(field -> !partitionFieldsFromSource.contains(field))
+                        .collect(Collectors.toList());
     }
 
     @Override
@@ -336,7 +338,8 @@ public class HiveSaveModeHandler implements SaveModeHandler, AutoCloseable {
         return generateColumnDefinitions(nonPartitionColumns);
     }
 
-    private String generateColumnDefinitions(List<org.apache.seatunnel.api.table.catalog.Column> columns) {
+    private String generateColumnDefinitions(
+            List<org.apache.seatunnel.api.table.catalog.Column> columns) {
         StringBuilder sb = new StringBuilder();
         for (int i = 0; i < columns.size(); i++) {
             org.apache.seatunnel.api.table.catalog.Column column = columns.get(i);
@@ -369,9 +372,7 @@ public class HiveSaveModeHandler implements SaveModeHandler, AutoCloseable {
 
         // Set columns (exclude partition fields from regular columns)
         List<FieldSchema> cols = new ArrayList<>();
-        tableSchema
-                .getColumns()
-                .stream()
+        tableSchema.getColumns().stream()
                 .filter(column -> !partitionFields.contains(column.getName()))
                 .forEach(
                         column -> {
@@ -423,9 +424,7 @@ public class HiveSaveModeHandler implements SaveModeHandler, AutoCloseable {
         return table;
     }
 
-    /**
-     * Validate partition fields configuration
-     */
+    /** Validate partition fields configuration */
     private void validatePartitionFields() {
         if (partitionFields == null || partitionFields.isEmpty()) {
             log.info("No partition fields configured, creating non-partitioned table");
@@ -444,38 +443,36 @@ public class HiveSaveModeHandler implements SaveModeHandler, AutoCloseable {
         }
 
         // Log which partition fields are from source and which are new
-        List<String> fieldsFromSource = partitionFields.stream()
-                .filter(sourceFieldNames::contains)
-                .collect(Collectors.toList());
-        List<String> newFields = partitionFields.stream()
-                .filter(field -> !sourceFieldNames.contains(field))
-                .collect(Collectors.toList());
+        List<String> fieldsFromSource =
+                partitionFields.stream()
+                        .filter(sourceFieldNames::contains)
+                        .collect(Collectors.toList());
+        List<String> newFields =
+                partitionFields.stream()
+                        .filter(field -> !sourceFieldNames.contains(field))
+                        .collect(Collectors.toList());
 
         if (!fieldsFromSource.isEmpty()) {
-            log.info("Partition fields from source table (will be removed from data rows): {}", fieldsFromSource);
+            log.info(
+                    "Partition fields from source table (will be removed from data rows): {}",
+                    fieldsFromSource);
         }
         if (!newFields.isEmpty()) {
             log.info("New partition fields (should be provided in data): {}", newFields);
         }
     }
 
-    /**
-     * Get list of partition fields that exist in source table
-     */
+    /** Get list of partition fields that exist in source table */
     public List<String> getPartitionFieldsFromSource() {
         return partitionFieldsFromSource;
     }
 
-    /**
-     * Get list of non-partition fields (regular table columns)
-     */
+    /** Get list of non-partition fields (regular table columns) */
     public List<String> getNonPartitionFields() {
         return nonPartitionFields;
     }
 
-    /**
-     * Check if table should be partitioned
-     */
+    /** Check if table should be partitioned */
     public boolean isPartitionedTable() {
         return partitionFields != null && !partitionFields.isEmpty();
     }

@@ -112,6 +112,4 @@ public class HiveTypeConvertor {
                                 seaTunnelType.getSqlType()));
         }
     }
-
-
 }

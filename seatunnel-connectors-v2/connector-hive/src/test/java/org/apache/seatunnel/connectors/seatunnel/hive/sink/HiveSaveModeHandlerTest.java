@@ -362,7 +362,9 @@ public class HiveSaveModeHandlerTest {
         // Test partition field validation methods
         assertTrue(handler.isPartitionedTable());
         assertEquals(Arrays.asList("age", "created_at"), handler.getPartitionFieldsFromSource());
-        assertEquals(Arrays.asList("id", "name", "salary", "birth_date"), handler.getNonPartitionFields());
+        assertEquals(
+                Arrays.asList("id", "name", "salary", "birth_date"),
+                handler.getNonPartitionFields());
     }
 
     @Test
@@ -384,7 +386,9 @@ public class HiveSaveModeHandlerTest {
         // Test partition field validation methods
         assertTrue(handler.isPartitionedTable());
         assertEquals(Collections.emptyList(), handler.getPartitionFieldsFromSource());
-        assertEquals(Arrays.asList("id", "name", "age", "salary", "birth_date", "created_at"), handler.getNonPartitionFields());
+        assertEquals(
+                Arrays.asList("id", "name", "age", "salary", "birth_date", "created_at"),
+                handler.getNonPartitionFields());
     }
 
     @Test
@@ -406,7 +410,9 @@ public class HiveSaveModeHandlerTest {
         // Test non-partitioned table
         assertFalse(handler.isPartitionedTable());
         assertEquals(Collections.emptyList(), handler.getPartitionFieldsFromSource());
-        assertEquals(Arrays.asList("id", "name", "age", "salary", "birth_date", "created_at"), handler.getNonPartitionFields());
+        assertEquals(
+                Arrays.asList("id", "name", "age", "salary", "birth_date", "created_at"),
+                handler.getNonPartitionFields());
     }
 
     @Test
@@ -427,7 +433,8 @@ public class HiveSaveModeHandlerTest {
 
         // Use reflection to access private method
         java.lang.reflect.Method method =
-                HiveSaveModeHandler.class.getDeclaredMethod("generateNonPartitionColumnDefinitions");
+                HiveSaveModeHandler.class.getDeclaredMethod(
+                        "generateNonPartitionColumnDefinitions");
         method.setAccessible(true);
         String result = (String) method.invoke(handler);
 
@@ -466,8 +473,8 @@ public class HiveSaveModeHandlerTest {
 
         // Verify partition clause
         assertTrue(result.contains("PARTITIONED BY"));
-        assertTrue(result.contains("`age` int"));  // age is from source schema
-        assertTrue(result.contains("`year` string"));  // year is new field, defaults to string
+        assertTrue(result.contains("`age` int")); // age is from source schema
+        assertTrue(result.contains("`year` string")); // year is new field, defaults to string
     }
 
     @Test

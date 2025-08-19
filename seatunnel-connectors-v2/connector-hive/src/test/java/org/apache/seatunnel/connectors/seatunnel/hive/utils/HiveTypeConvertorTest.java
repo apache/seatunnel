@@ -29,7 +29,6 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class HiveTypeConvertorTest {
 
@@ -73,9 +72,10 @@ class HiveTypeConvertorTest {
 
         // Test time types
         assertEquals("date", HiveTypeConvertor.seatunnelToHiveType(LocalTimeType.LOCAL_DATE_TYPE));
-        assertEquals("string", HiveTypeConvertor.seatunnelToHiveType(LocalTimeType.LOCAL_TIME_TYPE));
-        assertEquals("timestamp", HiveTypeConvertor.seatunnelToHiveType(LocalTimeType.LOCAL_DATE_TIME_TYPE));
+        assertEquals(
+                "string", HiveTypeConvertor.seatunnelToHiveType(LocalTimeType.LOCAL_TIME_TYPE));
+        assertEquals(
+                "timestamp",
+                HiveTypeConvertor.seatunnelToHiveType(LocalTimeType.LOCAL_DATE_TIME_TYPE));
     }
-
-
 }
