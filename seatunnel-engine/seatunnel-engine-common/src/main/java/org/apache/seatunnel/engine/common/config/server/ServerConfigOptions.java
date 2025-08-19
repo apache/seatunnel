@@ -363,22 +363,6 @@ public class ServerConfigOptions {
                         .defaultValue(Integer.MAX_VALUE)
                         .withDescription("The max thread num of coordinator service");
 
-        public static final Option<Integer> CLEANUP_RETRY_INTERVAL =
-                Options.key("cleanup-retry-interval")
-                        .intType()
-                        .defaultValue(60)
-                        .withDescription(
-                                "Interval in seconds between attempts to retry metrics cleanup "
-                                        + "when previous cleanup fails due to lock contention or other issues.");
-
-        public static final Option<Integer> CLEANUP_RETRY_QUEUE_SIZE =
-                Options.key("cleanup-retry-queue-size")
-                        .intType()
-                        .defaultValue(1024)
-                        .withDescription(
-                                "Maximum number of retry tasks allowed in the metrics cleanup retry queue. "
-                                        + "Older entries will be removed when the queue is full.");
-
         public static final Option<CoordinatorServiceConfig> COORDINATOR_SERVICE =
                 Options.key("coordinator-service")
                         .type(new TypeReference<CoordinatorServiceConfig>() {})
