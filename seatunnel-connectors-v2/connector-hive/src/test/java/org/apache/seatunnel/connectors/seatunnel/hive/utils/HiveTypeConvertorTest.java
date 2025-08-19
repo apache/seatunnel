@@ -18,6 +18,8 @@
 package org.apache.seatunnel.connectors.seatunnel.hive.utils;
 
 import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.DecimalType;
+import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.table.type.SqlType;
@@ -27,6 +29,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class HiveTypeConvertorTest {
 
@@ -51,4 +54,28 @@ class HiveTypeConvertorTest {
         assertEquals(BasicType.STRING_TYPE, seaTunnelRowType.getFieldType(0));
         assertEquals(BasicType.STRING_TYPE, seaTunnelRowType.getFieldType(0));
     }
+
+    @Test
+    void testSeatunnelToHiveTypeConversion() {
+        // Test basic types
+        assertEquals("string", HiveTypeConvertor.seatunnelToHiveType(BasicType.STRING_TYPE));
+        assertEquals("boolean", HiveTypeConvertor.seatunnelToHiveType(BasicType.BOOLEAN_TYPE));
+        assertEquals("tinyint", HiveTypeConvertor.seatunnelToHiveType(BasicType.BYTE_TYPE));
+        assertEquals("smallint", HiveTypeConvertor.seatunnelToHiveType(BasicType.SHORT_TYPE));
+        assertEquals("int", HiveTypeConvertor.seatunnelToHiveType(BasicType.INT_TYPE));
+        assertEquals("bigint", HiveTypeConvertor.seatunnelToHiveType(BasicType.LONG_TYPE));
+        assertEquals("float", HiveTypeConvertor.seatunnelToHiveType(BasicType.FLOAT_TYPE));
+        assertEquals("double", HiveTypeConvertor.seatunnelToHiveType(BasicType.DOUBLE_TYPE));
+
+        // Test decimal type
+        DecimalType decimalType = new DecimalType(10, 2);
+        assertEquals("decimal(10,2)", HiveTypeConvertor.seatunnelToHiveType(decimalType));
+
+        // Test time types
+        assertEquals("date", HiveTypeConvertor.seatunnelToHiveType(LocalTimeType.LOCAL_DATE_TYPE));
+        assertEquals("string", HiveTypeConvertor.seatunnelToHiveType(LocalTimeType.LOCAL_TIME_TYPE));
+        assertEquals("timestamp", HiveTypeConvertor.seatunnelToHiveType(LocalTimeType.LOCAL_DATE_TIME_TYPE));
+    }
+
+
 }

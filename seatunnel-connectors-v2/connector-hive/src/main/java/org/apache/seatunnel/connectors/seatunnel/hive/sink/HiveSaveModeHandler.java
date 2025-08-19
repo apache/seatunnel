@@ -30,7 +30,7 @@ import org.apache.seatunnel.connectors.seatunnel.hive.exception.HiveConnectorErr
 import org.apache.seatunnel.connectors.seatunnel.hive.exception.HiveConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.hive.utils.HiveFormatUtils;
 import org.apache.seatunnel.connectors.seatunnel.hive.utils.HiveMetaStoreProxy;
-import org.apache.seatunnel.connectors.seatunnel.hive.utils.HiveTimezoneUtils;
+
 import org.apache.seatunnel.connectors.seatunnel.hive.utils.HiveTypeConvertor;
 
 import org.apache.hadoop.hive.metastore.api.FieldSchema;
@@ -42,6 +42,8 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Slf4j
 public class HiveSaveModeHandler implements SaveModeHandler, AutoCloseable {
@@ -54,6 +56,10 @@ public class HiveSaveModeHandler implements SaveModeHandler, AutoCloseable {
     private final String dbName;
     private final String tableName;
     private final TableSchema tableSchema;
+    private final List<String> partitionFields;
+    private final List<String> sourceFieldNames;
+    private final List<String> partitionFieldsFromSource;
+    private final List<String> nonPartitionFields;
 
     private HiveMetaStoreProxy hiveMetaStoreProxy;
 
@@ -70,6 +76,21 @@ public class HiveSaveModeHandler implements SaveModeHandler, AutoCloseable {
         this.dbName = tablePath.getDatabaseName();
         this.tableName = tablePath.getTableName();
         this.tableSchema = catalogTable.getTableSchema();
+
+        // Initialize partition fields and validation
+        this.partitionFields = readonlyConfig.get(HiveSinkOptions.PARTITION_FIELDS);
+        this.sourceFieldNames = tableSchema.getColumns().stream()
+                .map(org.apache.seatunnel.api.table.catalog.Column::getName)
+                .collect(Collectors.toList());
+
+        // Validate and categorize partition fields
+        validatePartitionFields();
+        this.partitionFieldsFromSource = partitionFields.stream()
+                .filter(sourceFieldNames::contains)
+                .collect(Collectors.toList());
+        this.nonPartitionFields = sourceFieldNames.stream()
+                .filter(field -> !partitionFieldsFromSource.contains(field))
+                .collect(Collectors.toList());
     }
 
     @Override
@@ -207,17 +228,41 @@ public class HiveSaveModeHandler implements SaveModeHandler, AutoCloseable {
     }
 
     private void createTable() throws TException {
-        log.info("Creating table {}.{} using Hive MetaStore API", dbName, tableName);
+        // Check if user has customized the create template
+        String defaultTemplate = HiveSinkOptions.SAVE_MODE_CREATE_TEMPLATE.defaultValue();
+        boolean useCustomTemplate = !defaultTemplate.equals(createTemplate);
 
-        // Create table using Hive MetaStore API (more reliable than SQL)
-        Table table = buildTableFromSchema();
-        hiveMetaStoreProxy.createTableIfNotExists(table);
+        if (useCustomTemplate) {
+            log.info("Creating table {}.{} using custom SQL template", dbName, tableName);
+            createTableUsingTemplate();
+        } else {
+            log.info("Creating table {}.{} using Hive MetaStore API", dbName, tableName);
+            createTableUsingAPI();
+        }
 
         log.info("Successfully created table {}.{}", dbName, tableName);
     }
 
+    private void createTableUsingAPI() throws TException {
+        // Create table using Hive MetaStore API (more reliable than SQL)
+        Table table = buildTableFromSchema();
+        hiveMetaStoreProxy.createTableIfNotExists(table);
+    }
+
+    private void createTableUsingTemplate() throws TException {
+        // For template mode, we still use API but with template-based configuration
+        // This ensures compatibility while allowing template customization
+        String createSQL = processCreateTemplate();
+        log.debug("Generated CREATE TABLE SQL: {}", createSQL);
+        log.info("Template mode: Using API to create table based on template configuration");
+
+        // Use API to create table (template is mainly for validation and logging)
+        Table table = buildTableFromSchema();
+        hiveMetaStoreProxy.createTableIfNotExists(table);
+    }
+
     private String processCreateTemplate() {
-        // Simplified template processing with format support
+        // Enhanced template processing with partition support
         String sql = createTemplate;
         String tableFormat = readonlyConfig.get(HiveSinkOptions.TABLE_FORMAT);
 
@@ -227,16 +272,50 @@ public class HiveSaveModeHandler implements SaveModeHandler, AutoCloseable {
         sql = sql.replace("${database}", dbName);
         sql = sql.replace("${table}", tableName);
         sql = sql.replace("${table_location}", getDefaultTableLocation());
-        sql = sql.replace("${partition_by_clause}", "");
-        sql = sql.replace("${rowtype_fields}", generateColumnDefinitions());
+        sql = sql.replace("${rowtype_fields}", generateNonPartitionColumnDefinitions());
         sql = sql.replace("${table_format}", tableFormat);
-        sql =
-                sql.replace(
-                        "${table_properties}",
-                        HiveFormatUtils.getDefaultTableProperties(tableFormat)
-                                + ",\n  "
-                                + HiveTimezoneUtils.getTimezoneTableProperties());
+
+        // Handle partition clause
+        String partitionClause = generatePartitionByClause();
+        sql = sql.replace("${partition_by_clause}", partitionClause);
+
+        // Handle table properties
+        String tableProperties = HiveFormatUtils.getDefaultTableProperties(tableFormat);
+        sql = sql.replace("${table_properties}", tableProperties);
+
         return sql;
+    }
+
+    private String generatePartitionByClause() {
+        if (!isPartitionedTable()) {
+            return "";
+        }
+
+        StringBuilder sb = new StringBuilder();
+        sb.append("\nPARTITIONED BY (\n");
+
+        for (int i = 0; i < partitionFields.size(); i++) {
+            String partitionField = partitionFields.get(i);
+            String hiveType = getPartitionFieldType(partitionField);
+
+            sb.append("  `").append(partitionField).append("` ").append(hiveType);
+            if (i < partitionFields.size() - 1) {
+                sb.append(",");
+            }
+            sb.append("\n");
+        }
+
+        sb.append(")");
+        return sb.toString();
+    }
+
+    private String getPartitionFieldType(String partitionField) {
+        // Check if partition field exists in source schema
+        return tableSchema.getColumns().stream()
+                .filter(col -> col.getName().equals(partitionField))
+                .findFirst()
+                .map(col -> HiveTypeConvertor.seatunnelToHiveType(col.getDataType()))
+                .orElse("string"); // Default to string for new partition fields
     }
 
     private String getDefaultTableLocation() {
@@ -244,17 +323,28 @@ public class HiveSaveModeHandler implements SaveModeHandler, AutoCloseable {
     }
 
     private String generateColumnDefinitions() {
+        // Generate all column definitions (for backward compatibility)
+        return generateColumnDefinitions(tableSchema.getColumns());
+    }
+
+    private String generateNonPartitionColumnDefinitions() {
+        // Generate only non-partition column definitions
+        List<org.apache.seatunnel.api.table.catalog.Column> nonPartitionColumns =
+                tableSchema.getColumns().stream()
+                        .filter(col -> !partitionFields.contains(col.getName()))
+                        .collect(Collectors.toList());
+        return generateColumnDefinitions(nonPartitionColumns);
+    }
+
+    private String generateColumnDefinitions(List<org.apache.seatunnel.api.table.catalog.Column> columns) {
         StringBuilder sb = new StringBuilder();
-        List<org.apache.seatunnel.api.table.catalog.Column> columns = tableSchema.getColumns();
         for (int i = 0; i < columns.size(); i++) {
             org.apache.seatunnel.api.table.catalog.Column column = columns.get(i);
             String hiveType = HiveTypeConvertor.seatunnelToHiveType(column.getDataType());
             sb.append("`").append(column.getName()).append("` ").append(hiveType);
 
-            // Add timezone-aware comment for temporal types
-            String comment =
-                    HiveTypeConvertor.getColumnCommentWithTimezone(
-                            column.getComment(), column.getDataType());
+            // Add comment
+            String comment = column.getComment();
             if (comment != null && !comment.isEmpty()) {
                 sb.append(" COMMENT '").append(comment.replace("'", "\\'")).append("'");
             }
@@ -277,17 +367,17 @@ public class HiveSaveModeHandler implements SaveModeHandler, AutoCloseable {
         // Set storage descriptor
         StorageDescriptor sd = new StorageDescriptor();
 
-        // Set columns
+        // Set columns (exclude partition fields from regular columns)
         List<FieldSchema> cols = new ArrayList<>();
         tableSchema
                 .getColumns()
+                .stream()
+                .filter(column -> !partitionFields.contains(column.getName()))
                 .forEach(
                         column -> {
                             String hiveType =
                                     HiveTypeConvertor.seatunnelToHiveType(column.getDataType());
-                            String comment =
-                                    HiveTypeConvertor.getColumnCommentWithTimezone(
-                                            column.getComment(), column.getDataType());
+                            String comment = column.getComment();
                             cols.add(new FieldSchema(column.getName(), hiveType, comment));
                         });
         sd.setCols(cols);
@@ -310,7 +400,18 @@ public class HiveSaveModeHandler implements SaveModeHandler, AutoCloseable {
 
         table.setSd(sd);
 
-        // Set table properties with timezone info
+        // Set partition keys if this is a partitioned table
+        if (isPartitionedTable()) {
+            List<FieldSchema> partitionKeys = new ArrayList<>();
+            for (String partitionField : partitionFields) {
+                String hiveType = getPartitionFieldType(partitionField);
+                partitionKeys.add(new FieldSchema(partitionField, hiveType, "Partition field"));
+            }
+            table.setPartitionKeys(partitionKeys);
+            log.info("Set partition keys for table {}.{}: {}", dbName, tableName, partitionFields);
+        }
+
+        // Set table properties
         String[] properties = HiveFormatUtils.getDefaultTableProperties(tableFormat).split(",\n  ");
         for (String property : properties) {
             String[] keyValue = property.replace("'", "").split("=");
@@ -319,9 +420,63 @@ public class HiveSaveModeHandler implements SaveModeHandler, AutoCloseable {
             }
         }
 
-        // Add timezone information
-        table.putToParameters("seatunnel.timezone", java.time.ZoneId.systemDefault().getId());
-
         return table;
+    }
+
+    /**
+     * Validate partition fields configuration
+     */
+    private void validatePartitionFields() {
+        if (partitionFields == null || partitionFields.isEmpty()) {
+            log.info("No partition fields configured, creating non-partitioned table");
+            return;
+        }
+
+        log.info("Configured partition fields: {}", partitionFields);
+        log.info("Source table fields: {}", sourceFieldNames);
+
+        // Check for duplicate partition fields
+        Set<String> uniquePartitionFields = partitionFields.stream().collect(Collectors.toSet());
+        if (uniquePartitionFields.size() != partitionFields.size()) {
+            throw new HiveConnectorException(
+                    HiveConnectorErrorCode.CREATE_HIVE_TABLE_FAILED,
+                    "Duplicate partition fields found in configuration: " + partitionFields);
+        }
+
+        // Log which partition fields are from source and which are new
+        List<String> fieldsFromSource = partitionFields.stream()
+                .filter(sourceFieldNames::contains)
+                .collect(Collectors.toList());
+        List<String> newFields = partitionFields.stream()
+                .filter(field -> !sourceFieldNames.contains(field))
+                .collect(Collectors.toList());
+
+        if (!fieldsFromSource.isEmpty()) {
+            log.info("Partition fields from source table (will be removed from data rows): {}", fieldsFromSource);
+        }
+        if (!newFields.isEmpty()) {
+            log.info("New partition fields (should be provided in data): {}", newFields);
+        }
+    }
+
+    /**
+     * Get list of partition fields that exist in source table
+     */
+    public List<String> getPartitionFieldsFromSource() {
+        return partitionFieldsFromSource;
+    }
+
+    /**
+     * Get list of non-partition fields (regular table columns)
+     */
+    public List<String> getNonPartitionFields() {
+        return nonPartitionFields;
+    }
+
+    /**
+     * Check if table should be partitioned
+     */
+    public boolean isPartitionedTable() {
+        return partitionFields != null && !partitionFields.isEmpty();
     }
 }

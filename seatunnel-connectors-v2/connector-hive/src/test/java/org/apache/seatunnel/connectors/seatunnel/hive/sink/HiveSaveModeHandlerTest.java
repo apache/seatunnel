@@ -43,12 +43,14 @@ import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -339,5 +341,171 @@ public class HiveSaveModeHandlerTest {
 
         // Verify that single quotes are escaped
         assertTrue(result.contains("Comment with \\'single quotes\\'"));
+    }
+
+    @Test
+    void testPartitionFieldsValidation() {
+        // Test with partition fields from source
+        Map<String, Object> configMap = new HashMap<>();
+        configMap.put(HiveOptions.TABLE_NAME.key(), "test_db.user_table");
+        configMap.put(HiveOptions.METASTORE_URI.key(), "thrift://localhost:9083");
+        configMap.put(HiveSinkOptions.PARTITION_FIELDS.key(), Arrays.asList("age", "created_at"));
+        ReadonlyConfig configWithPartitions = ReadonlyConfig.fromMap(configMap);
+
+        HiveSaveModeHandler handler =
+                new HiveSaveModeHandler(
+                        configWithPartitions,
+                        catalogTable,
+                        SchemaSaveMode.CREATE_SCHEMA_WHEN_NOT_EXIST,
+                        "CREATE TABLE ${database}.${table} (${rowtype_fields})");
+
+        // Test partition field validation methods
+        assertTrue(handler.isPartitionedTable());
+        assertEquals(Arrays.asList("age", "created_at"), handler.getPartitionFieldsFromSource());
+        assertEquals(Arrays.asList("id", "name", "salary", "birth_date"), handler.getNonPartitionFields());
+    }
+
+    @Test
+    void testPartitionFieldsWithNewFields() {
+        // Test with new partition fields not in source
+        Map<String, Object> configMap = new HashMap<>();
+        configMap.put(HiveOptions.TABLE_NAME.key(), "test_db.user_table");
+        configMap.put(HiveOptions.METASTORE_URI.key(), "thrift://localhost:9083");
+        configMap.put(HiveSinkOptions.PARTITION_FIELDS.key(), Arrays.asList("year", "month"));
+        ReadonlyConfig configWithNewPartitions = ReadonlyConfig.fromMap(configMap);
+
+        HiveSaveModeHandler handler =
+                new HiveSaveModeHandler(
+                        configWithNewPartitions,
+                        catalogTable,
+                        SchemaSaveMode.CREATE_SCHEMA_WHEN_NOT_EXIST,
+                        "CREATE TABLE ${database}.${table} (${rowtype_fields})");
+
+        // Test partition field validation methods
+        assertTrue(handler.isPartitionedTable());
+        assertEquals(Collections.emptyList(), handler.getPartitionFieldsFromSource());
+        assertEquals(Arrays.asList("id", "name", "age", "salary", "birth_date", "created_at"), handler.getNonPartitionFields());
+    }
+
+    @Test
+    void testNonPartitionedTable() {
+        // Test without partition fields
+        Map<String, Object> configMap = new HashMap<>();
+        configMap.put(HiveOptions.TABLE_NAME.key(), "test_db.user_table");
+        configMap.put(HiveOptions.METASTORE_URI.key(), "thrift://localhost:9083");
+        configMap.put(HiveSinkOptions.PARTITION_FIELDS.key(), Collections.emptyList());
+        ReadonlyConfig configNonPartitioned = ReadonlyConfig.fromMap(configMap);
+
+        HiveSaveModeHandler handler =
+                new HiveSaveModeHandler(
+                        configNonPartitioned,
+                        catalogTable,
+                        SchemaSaveMode.CREATE_SCHEMA_WHEN_NOT_EXIST,
+                        "CREATE TABLE ${database}.${table} (${rowtype_fields})");
+
+        // Test non-partitioned table
+        assertFalse(handler.isPartitionedTable());
+        assertEquals(Collections.emptyList(), handler.getPartitionFieldsFromSource());
+        assertEquals(Arrays.asList("id", "name", "age", "salary", "birth_date", "created_at"), handler.getNonPartitionFields());
+    }
+
+    @Test
+    void testGenerateNonPartitionColumnDefinitions() throws Exception {
+        // Test with partition fields
+        Map<String, Object> configMap = new HashMap<>();
+        configMap.put(HiveOptions.TABLE_NAME.key(), "test_db.user_table");
+        configMap.put(HiveOptions.METASTORE_URI.key(), "thrift://localhost:9083");
+        configMap.put(HiveSinkOptions.PARTITION_FIELDS.key(), Arrays.asList("age", "created_at"));
+        ReadonlyConfig configWithPartitions = ReadonlyConfig.fromMap(configMap);
+
+        HiveSaveModeHandler handler =
+                new HiveSaveModeHandler(
+                        configWithPartitions,
+                        catalogTable,
+                        SchemaSaveMode.CREATE_SCHEMA_WHEN_NOT_EXIST,
+                        "CREATE TABLE ${database}.${table} (${rowtype_fields})");
+
+        // Use reflection to access private method
+        java.lang.reflect.Method method =
+                HiveSaveModeHandler.class.getDeclaredMethod("generateNonPartitionColumnDefinitions");
+        method.setAccessible(true);
+        String result = (String) method.invoke(handler);
+
+        // Verify that partition fields are excluded
+        assertTrue(result.contains("`id` bigint COMMENT 'Primary key'"));
+        assertTrue(result.contains("`name` string COMMENT 'User name'"));
+        assertTrue(result.contains("`salary` decimal(10,2) COMMENT 'User salary'"));
+        assertTrue(result.contains("`birth_date` date COMMENT 'Birth date'"));
+
+        // Verify that partition fields are NOT included
+        assertFalse(result.contains("`age` int"));
+        assertFalse(result.contains("`created_at` timestamp"));
+    }
+
+    @Test
+    void testGeneratePartitionByClause() throws Exception {
+        // Test with partition fields
+        Map<String, Object> configMap = new HashMap<>();
+        configMap.put(HiveOptions.TABLE_NAME.key(), "test_db.user_table");
+        configMap.put(HiveOptions.METASTORE_URI.key(), "thrift://localhost:9083");
+        configMap.put(HiveSinkOptions.PARTITION_FIELDS.key(), Arrays.asList("age", "year"));
+        ReadonlyConfig configWithPartitions = ReadonlyConfig.fromMap(configMap);
+
+        HiveSaveModeHandler handler =
+                new HiveSaveModeHandler(
+                        configWithPartitions,
+                        catalogTable,
+                        SchemaSaveMode.CREATE_SCHEMA_WHEN_NOT_EXIST,
+                        "CREATE TABLE ${database}.${table} (${rowtype_fields})");
+
+        // Use reflection to access private method
+        java.lang.reflect.Method method =
+                HiveSaveModeHandler.class.getDeclaredMethod("generatePartitionByClause");
+        method.setAccessible(true);
+        String result = (String) method.invoke(handler);
+
+        // Verify partition clause
+        assertTrue(result.contains("PARTITIONED BY"));
+        assertTrue(result.contains("`age` int"));  // age is from source schema
+        assertTrue(result.contains("`year` string"));  // year is new field, defaults to string
+    }
+
+    @Test
+    void testBuildTableFromSchemaWithPartitions() throws Exception {
+        // Test with partition fields
+        Map<String, Object> configMap = new HashMap<>();
+        configMap.put(HiveOptions.TABLE_NAME.key(), "test_db.user_table");
+        configMap.put(HiveOptions.METASTORE_URI.key(), "thrift://localhost:9083");
+        configMap.put(HiveSinkOptions.PARTITION_FIELDS.key(), Arrays.asList("age", "year"));
+        ReadonlyConfig configWithPartitions = ReadonlyConfig.fromMap(configMap);
+
+        HiveSaveModeHandler handler =
+                new HiveSaveModeHandler(
+                        configWithPartitions,
+                        catalogTable,
+                        SchemaSaveMode.CREATE_SCHEMA_WHEN_NOT_EXIST,
+                        "CREATE TABLE ${database}.${table} (${rowtype_fields})");
+
+        // Use reflection to access private method
+        java.lang.reflect.Method method =
+                HiveSaveModeHandler.class.getDeclaredMethod("buildTableFromSchema");
+        method.setAccessible(true);
+        Table table = (Table) method.invoke(handler);
+
+        // Verify regular columns (should exclude partition fields)
+        List<FieldSchema> cols = table.getSd().getCols();
+        assertEquals(5, cols.size()); // 6 original columns - 1 partition field (age)
+
+        // Verify partition keys
+        List<FieldSchema> partitionKeys = table.getPartitionKeys();
+        assertEquals(2, partitionKeys.size());
+
+        FieldSchema agePartition = partitionKeys.get(0);
+        assertEquals("age", agePartition.getName());
+        assertEquals("int", agePartition.getType());
+
+        FieldSchema yearPartition = partitionKeys.get(1);
+        assertEquals("year", yearPartition.getName());
+        assertEquals("string", yearPartition.getType());
     }
 }

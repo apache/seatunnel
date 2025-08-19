@@ -22,6 +22,9 @@ import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.api.sink.SchemaSaveMode;
 import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveOptions;
 
+import java.util.ArrayList;
+import java.util.List;
+
 public class HiveSinkOptions extends HiveOptions {
 
     public static final Option<Boolean> ABORT_DROP_PARTITION_METADATA =
@@ -56,7 +59,7 @@ public class HiveSinkOptions extends HiveOptions {
                     .defaultValue(
                             "CREATE TABLE IF NOT EXISTS `${database}`.`${table}` (\n"
                                     + "  ${rowtype_fields}\n"
-                                    + ") \n"
+                                    + ") ${partition_by_clause}\n"
                                     + "STORED AS ${table_format}\n"
                                     + "LOCATION '${table_location}'\n"
                                     + "TBLPROPERTIES (\n"
@@ -64,7 +67,8 @@ public class HiveSinkOptions extends HiveOptions {
                                     + ")")
                     .withDescription(
                             "Template for creating Hive tables. "
-                                    + "Supported variables: ${database}, ${table}, ${rowtype_fields}, ${table_location}, ${table_format}, ${table_properties}");
+                                    + "Supported variables: ${database}, ${table}, ${rowtype_fields}, ${partition_by_clause}, ${table_location}, ${table_format}, ${table_properties}. "
+                                    + "The ${partition_by_clause} will be replaced with 'PARTITIONED BY (...)' for partitioned tables or empty string for non-partitioned tables.");
 
     public static final Option<String> TABLE_FORMAT =
             Options.key("table_format")
@@ -72,4 +76,14 @@ public class HiveSinkOptions extends HiveOptions {
                     .defaultValue("PARQUET")
                     .withDescription(
                             "Storage format for Hive table. Supported formats: PARQUET, ORC, TEXTFILE");
+
+    public static final Option<List<String>> PARTITION_FIELDS =
+            Options.key("partition_fields")
+                    .listType()
+                    .defaultValue(new ArrayList<>())
+                    .withDescription(
+                            "List of partition fields for Hive table. If empty, the table will be created as a non-partitioned table. "
+                                    + "If specified, these fields will be used as partition columns. "
+                                    + "The fields can be either existing source fields (which will be removed from data rows) "
+                                    + "or new fields (which should be provided in the data).");
 }
