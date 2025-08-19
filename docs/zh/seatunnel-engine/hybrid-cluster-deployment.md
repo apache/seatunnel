@@ -170,8 +170,8 @@ Example
 
 ```yaml
 coordinator-service:
-  core-thread-num: 30
-  max-thread-num: 1000
+   core-thread-num: 30
+   max-thread-num: 1000
 ```
 
 
