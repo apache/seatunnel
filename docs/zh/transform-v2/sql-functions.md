@@ -8,9 +8,10 @@
 
 ```ASCII(string) -> INT```
 
-返回字符串中第一个字符的 ASCII 值。
+返回字符串中第一个字符的ASCII值。
 
-示例:  
+示例:
+
 ASCII('Hi')
 
 ### BIT_LENGTH
@@ -19,7 +20,8 @@ ASCII('Hi')
 
 返回二进制字符串中的位数。
 
-示例:  
+示例:
+
 BIT_LENGTH(NAME)
 
 ### CHAR_LENGTH / LENGTH
@@ -28,192 +30,248 @@ BIT_LENGTH(NAME)
 
 返回字符串中的字符数量。
 
-示例:  
+示例:
+
 CHAR_LENGTH(NAME)
 
 ### OCTET_LENGTH
 
 ```OCTET_LENGTH(bytes) -> LONG```
 
-返回二进制字符串中的字节数量。
+返回二进制字符串中字节的数量。
 
-示例:  
+示例:
+
 OCTET_LENGTH(NAME)
 
 ### CHAR / CHR
 
 ```CHAR | CHR (int) -> STRING```
 
-返回表示该 ASCII 值的字符。
+返回表示ASCII值的字符。
 
-示例:  
+示例:
+
 CHAR(65)
 
 ### CONCAT
 
-```CONCAT(string, string[, string ...]) -> STRING```
+```CONCAT(string, string[, string ...] ) -> STRING```
 
-连接字符串。与运算符 `||` 不同，**NULL** 参数会被忽略，不会使结果变为 **NULL**。
+组合字符串。与运算符 `||` 不同，**NULL** 参数会被忽略，不会导致结果变为 **NULL**。如果所有参数都是 NULL，则结果是一个空字符串。
 
-示例:  
+示例:
+
 CONCAT(NAME, '_')
 
 ### CONCAT_WS
 
-```CONCAT_WS(separatorString, string, string[, string ...]) -> STRING```
+```CONCAT_WS(separatorString, string, string[, string ...] ) -> STRING```
 
-使用分隔符连接字符串。分隔符为 **NULL** 时视为空字符串；其他 **NULL** 参数会被忽略。
+使用分隔符组合字符串。如果分隔符为 **NULL**，则会被视为空字符串。其他 **NULL** 参数会被忽略。剩余的 **非NULL** 参数（如果有）将用指定的分隔符连接起来。如果没有剩余参数，则结果是一个空字符串。
 
-示例:  
+示例:
+
 CONCAT_WS(',', NAME, '_')
 
 ### HEXTORAW
 
 ```HEXTORAW(string) -> STRING```
 
-将字符串的十六进制表示转换为字符串（每个字符 4 个十六进制字符）。
+将字符串的十六进制表示转换为字符串。每个字符串字符使用4个十六进制字符。
 
-示例:  
+示例:
+
 HEXTORAW(DATA)
 
 ### RAWTOHEX
 
 ```RAWTOHEX(string | bytes) -> STRING```
 
-将字符串或字节转换为十六进制表示（每个字符 4 个十六进制字符）。
+将字符串或字节转换为十六进制表示。每个字符串字符使用4个十六进制字符。
 
-示例:  
+示例:
+
 RAWTOHEX(DATA)
 
 ### INSERT
 
 ```INSERT(originalString, startInt, lengthInt, addString) -> STRING```
 
-在原始字符串的指定起始位置插入额外的字符串。`lengthInt` 指定需在该位置删除的字符数。
+在原始字符串的指定起始位置插入额外的字符串。长度参数指定在原始字符串的起始位置删除的字符数。
 
-示例:  
+示例:
+
 INSERT(NAME, 1, 1, ' ')
 
 ### LOWER / LCASE
 
 ```LOWER | LCASE (string) -> STRING```
 
-将字符串转换为小写。
+将字符串转换为小写形式。
 
-示例:  
+示例:
+
 LOWER(NAME)
 
 ### UPPER / UCASE
 
 ```UPPER | UCASE (string) -> STRING```
 
-将字符串转换为大写。
+将字符串转换为大写形式。
 
-示例:  
+示例:
+
 UPPER(NAME)
 
 ### LEFT
 
 ```LEFT(string, int) -> STRING```
 
-返回最左边的若干字符。
+返回最左边的一定数量的字符。
 
-示例:  
+示例:
+
 LEFT(NAME, 3)
 
 ### RIGHT
 
 ```RIGHT(string, int) -> STRING```
 
-返回最右边的若干字符。
+返回最右边的一定数量的字符。
 
-示例:  
+示例:
+
 RIGHT(NAME, 3)
 
 ### LOCATE / INSTR / POSITION
 
-```LOCATE(searchString, string[, startInt]) -> INT```  
-```INSTR(string, searchString[, startInt]) -> INT```  
+```LOCATE(searchString, string[, startInit]) -> INT```
+
+```INSTR(string, searchString[, startInit]) -> INT```
+
 ```POSITION(searchString, string) -> INT```
 
-返回 `searchString` 在 `string` 中的位置；若提供 `startInt`，则忽略其之前的字符；`startInt` 为负表示从右侧开始搜索；未找到返回 0。大小写敏感。
+返回字符串中搜索字符串的位置。如果使用了起始位置参数，则忽略它之前的字符。如果位置参数是负数，则返回最右边的位置。如果未找到搜索字符串，则返回 0。请注意，即使参数不区分大小写，此函数也区分大小写。
 
-示例:  
+示例:
+
 LOCATE('.', NAME)
 
 ### LPAD
 
-```LPAD(string, int[, string]) -> STRING```
+```LPAD(string ,int[, string]) -> STRING```
 
-在左侧填充到指定长度。若长度更短，则在末尾截断；未提供填充串则使用空格。
+将字符串左侧填充到指定的长度。如果长度比字符串短，则字符串将在末尾被截断。如果未设置填充字符串，则使用空格填充。
 
-示例:  
+示例:
+
 LPAD(AMOUNT, 10, '*')
 
 ### RPAD
 
 ```RPAD(string, int[, string]) -> STRING```
 
-在右侧填充到指定长度。若长度更短，则截断；未提供填充串则使用空格。
+将字符串右侧填充到指定的长度。如果长度比字符串短，则字符串将被截断。如果未设置填充字符串，则使用空格填充。
 
-示例:  
+示例:
+
 RPAD(TEXT, 10, '-')
 
 ### LTRIM
 
 ```LTRIM(string[, characterToTrimString]) -> STRING```
 
-去除前导空格或指定字符。
+移除字符串中所有前导空格或其他指定的字符。
 
-示例:  
+示例:
+
 LTRIM(NAME)
 
 ### RTRIM
 
 ```RTRIM(string[, characterToTrimString]) -> STRING```
 
-去除尾随空格或指定字符。
+移除字符串中所有尾随空格或其他指定的字符。
 
-示例:  
+示例:
+
 RTRIM(NAME)
 
 ### TRIM
 
 ```TRIM(string[, characterToTrimString]) -> STRING```
 
-去除前后空格或指定字符。
+移除字符串中所有前导空格和尾随空格或其他指定的字符。
 
-示例:  
+示例:
+
 TRIM(NAME)
 
 ### REGEXP_REPLACE
 
 ```REGEXP_REPLACE(inputString, regexString, replacementString[, flagsString]) -> STRING```
 
-将匹配正则的子串替换为指定内容（参见 Java `String.replaceAll()`）。任一必要参数为 NULL 时返回 NULL。`flagsString` 仅支持：  
-`i` 不区分大小写；`c` 取消不区分大小写；`n` 点号匹配换行；`m` 多行模式。可组合使用，如 `im`。
+替换与正则表达式匹配的每个子字符串。详情请参阅 Java String.replaceAll() 方法。如果任何参数为 null（除了可选的 flagsString 参数），则结果为 null。
 
-示例:  
-REGEXP_REPLACE('Hello    World', ' +', ' ')  
+标志值限于 'i'、'c'、'n'、'm'。其他符号会引发异常。可以在一个 flagsString 参数中使用多个符号（例如 'im'）。后面的标志会覆盖前面的标志，例如 'ic' 等同于区分大小写匹配 'c'。
+
+'i' 启用不区分大小写匹配（Pattern.CASE_INSENSITIVE）
+
+'c' 禁用不区分大小写匹配（Pattern.CASE_INSENSITIVE）
+
+'n' 允许句点匹配换行符（Pattern.DOTALL）
+
+'m' 启用多行模式（Pattern.MULTILINE）
+
+示例:
+
+REGEXP_REPLACE('Hello    World', ' +', ' ')
 REGEXP_REPLACE('Hello WWWWorld', 'w+', 'W', 'i')
 
 ### REGEXP_LIKE
 
 ```REGEXP_LIKE(inputString, regexString[, flagsString]) -> BOOLEAN```
 
-判断是否匹配正则（参见 Java `Matcher.find()`）。必要参数为 NULL 时返回 NULL。`flagsString` 同上（`i`/`c`/`n`/`m`）。
+将字符串与正则表达式匹配。详情请参阅 Java Matcher.find() 方法。如果任何参数为 null（除了可选的 flagsString 参数），则结果为 null。
 
-示例:  
+标志值限于 'i'、'c'、'n'、'm'。其他符号会引发异常。可以在一个 flagsString 参数中使用多个符号（例如 'im'）。后面的标志会覆盖前面的标志，例如 'ic' 等同于区分大小写匹配 'c'。
+
+'i' 启用不区分大小写匹配（Pattern.CASE_INSENSITIVE）
+
+'c' 禁用不区分大小写匹配（Pattern.CASE_INSENSITIVE）
+
+'n' 允许句点匹配换行符（Pattern.DOTALL）
+
+'m' 启用多行模式（Pattern.MULTILINE）
+
+示例:
+
 REGEXP_LIKE('Hello    World', '[A-Z ]*', 'i')
 
 ### REGEXP_SUBSTR
 
 ```REGEXP_SUBSTR(inputString, regexString[, positionInt, occurrenceInt, flagsString, groupInt]) -> STRING```
 
-返回匹配正则的子串；`positionInt` 为起始位置，`occurrenceInt` 为第几次匹配；可用 `groupInt` 指定返回的分组。`flagsString` 同上。
+将字符串与正则表达式匹配，并返回匹配的子字符串。详情请参阅 java.util.regex.Pattern 和相关功能。
 
-示例:  
-REGEXP_SUBSTR('2020-10-01', '\d{4}')  
+参数 position 指定匹配应该从 inputString 的哪里开始。Occurrence 指示在 inputString 中搜索 pattern 的哪个出现。
+
+标志值限于 'i'、'c'、'n'、'm'。其他符号会引发异常。可以在一个 flagsString 参数中使用多个符号（例如 'im'）。后面的标志会覆盖前面的标志，例如 'ic' 等同于区分大小写匹配 'c'。
+
+'i' 启用不区分大小写匹配（Pattern.CASE_INSENSITIVE）
+
+'c' 禁用不区分大小写匹配（Pattern.CASE_INSENSITIVE）
+
+'n' 允许句点匹配换行符（Pattern.DOTALL）
+
+'m' 启用多行模式（Pattern.MULTILINE）
+
+如果模式具有组，则可以使用 group 参数指定要返回的组。
+
+示例:
+
+REGEXP_SUBSTR('2020-10-01', '\d{4}')
 REGEXP_SUBSTR('2020-10-01', '(\d{4})-(\d{2})-(\d{2})', 1, 1, NULL, 2)
 
 ### REPEAT
@@ -222,644 +280,760 @@ REGEXP_SUBSTR('2020-10-01', '(\d{4})-(\d{2})-(\d{2})', 1, 1, NULL, 2)
 
 返回重复若干次后的字符串。
 
-示例:  
+示例:
+
 REPEAT(NAME || ' ', 10)
 
 ### REPLACE
 
 ```REPLACE(string, searchString[, replacementString]) -> STRING```
 
-将所有出现的 `searchString` 替换为 `replacementString`；未提供时将其删除。任一参数为 NULL 返回 NULL。
+在文本中替换所有出现的搜索字符串为另一个字符串。如果没有指定替换字符串，则从原始字符串中移除搜索字符串。如果任何参数为 null，则结果为 null。
 
-示例:  
+示例:
+
 REPLACE(NAME, ' ')
+
 
 ### SPLIT
 
 ```SPLIT(string, delimiterString) -> ARRAY<STRING>```
 
-将字符串按分隔符切分为数组。
+将字符串切分成数组。
 
-示例:  
-SELECT SPLIT(test, ';') AS arrays
+示例:
+
+select SPLIT(test,';') as arrays
 
 ### SOUNDEX
 
 ```SOUNDEX(string) -> STRING```
 
-返回表示发音的四字符代码（见维基百科 *Soundex*）。
+表示字符串发音，如果参数为 null，则返回 null。有关更多信息，请参阅 https://en.wikipedia.org/wiki/Soundex 。
 
-示例:  
+示例:
+
 SOUNDEX(NAME)
 
 ### SPACE
 
 ```SPACE(int) -> STRING```
 
-返回由指定数量空格组成的字符串。
+返回由一定数量的空格组成的字符串。
 
-示例:  
+示例:
+
 SPACE(80)
 
 ### SUBSTRING / SUBSTR
 
-```SUBSTRING | SUBSTR (string, startInt[, lengthInt]) -> STRING```
+```SUBSTRING | SUBSTR (string, startInt[, lengthInt ]) -> STRING```
 
-返回从 `startInt` 开始的子串；`startInt` 为负时自右向左计数；`lengthInt` 可选。
+返回从指定位置开始的字符串的子串。如果起始索引为负数，则相对于字符串的末尾计算起始索引。长度是可选的。
 
-示例:  
-CALL SUBSTRING('[Hello]', 2);  
+示例:
+
+CALL SUBSTRING('[Hello]', 2);
 CALL SUBSTRING('hour', 3, 2);
 
 ### TO_CHAR
 
 ```TO_CHAR(value[, formatString]) -> STRING```
 
-Oracle 兼容格式化：时间戳、数字或文本。
+Oracle 兼容的 TO_CHAR 函数可用于格式化时间戳、数字或文本。
 
-示例:  
+示例:
+
 CALL TO_CHAR(SYS_TIME, 'yyyy-MM-dd HH:mm:ss')
 
 ### TRANSLATE
 
 ```TRANSLATE(value, searchString, replacementString) -> STRING```
 
-将字符串中的一组字符映射替换为另一组字符。
+Oracle 兼容的 TRANSLATE 函数用于将字符串中的一系列字符替换为另一组字符。
 
-示例:  
+示例:
+
 CALL TRANSLATE('Hello world', 'eo', 'EO')
 
----
-
-## 数值函数
+## Numeric Functions
 
 ### ABS
 
 ```ABS(numeric) -> numeric (same type)```
 
-返回绝对值（与参数同类型）。注意整型最小负值的绝对值可能溢出，应先提升类型。
+返回指定值的绝对值。
 
-示例:  
+请注意，TINYINT、SMALLINT、INT 和 BIGINT 数据类型无法表示它们的最小负值的绝对值，因为它们的负值比正值多。例如，对于 INT 数据类型，允许的值范围是从 -2147483648 到 2147483647。ABS(-2147483648) 应该是 2147483648，但是这个值对于这个数据类型是不允许的。这会导致异常。为了避免这种情况，请将此函数的参数转换为更高的数据类型。
+
+示例:
+
 ABS(I)
 
 ### ACOS
 
 ```ACOS(numeric) -> DOUBLE```
 
-反余弦。
+计算反余弦值。另请参阅 Java Math.acos。
 
-示例:  
+示例:
+
 ACOS(D)
 
 ### ARRAY_MAX
 
-```ARRAY_MAX(array) -> type(array element)```
+```ARRAY_MAX(ARRAY) -> type(array element)```
 
-返回数组中的最大值。
+MAX 函数返回表达式的最大值。
 
-示例:  
+示例:
+
 ARRAY_MAX(I)
 
 ### ARRAY_MIN
 
-```ARRAY_MIN(array) -> type(array element)```
+```ARRAY_MIN(ARRAY) -> type(array element)```
 
-返回数组中的最小值。
+MIN 函数返回表达式的最小值。
 
-示例:  
+示例:
+
 ARRAY_MIN(I)
+
 
 ### ASIN
 
 ```ASIN(numeric) -> DOUBLE```
 
-反正弦。
+计算反正弦值。另请参阅 Java Math.asin。
 
-示例:  
+示例:
+
 ASIN(D)
 
 ### ATAN
 
 ```ATAN(numeric) -> DOUBLE```
 
-反正切。
+计算反正切值。另请参阅 Java Math.atan。
 
-示例:  
+示例:
+
 ATAN(D)
 
 ### COS
 
 ```COS(numeric) -> DOUBLE```
 
-三角余弦。
+计算三角余弦值。另请参阅 Java Math.cos。
 
-示例:  
+示例:
+
 COS(ANGLE)
 
 ### COSH
 
 ```COSH(numeric) -> DOUBLE```
 
-双曲余弦。
+计算双曲余弦值。另请参阅 Java Math.cosh。
 
-示例:  
+示例:
+
 COSH(X)
 
 ### COT
 
 ```COT(numeric) -> DOUBLE```
 
-三角余切（1 / TAN(ANGLE)）。
+计算三角余切值（1/TAN(角度)）。另请参阅 Java Math.* 函数。
 
-示例:  
+示例:
+
 COT(ANGLE)
 
 ### SIN
 
 ```SIN(numeric) -> DOUBLE```
 
-三角正弦。
+计算三角正弦值。另请参阅 Java Math.sin。
 
-示例:  
+示例:
+
 SIN(ANGLE)
 
 ### SINH
 
 ```SINH(numeric) -> DOUBLE```
 
-双曲正弦。
+计算双曲正弦值。另请参阅 Java Math.sinh。
 
-示例:  
+示例:
+
 SINH(ANGLE)
 
 ### TAN
 
 ```TAN(numeric) -> DOUBLE```
 
-三角正切。
+计算三角正切值。另请参阅 Java Math.tan。
 
-示例:  
+示例:
+
 TAN(ANGLE)
 
 ### TANH
 
 ```TANH(numeric) -> DOUBLE```
 
-双曲正切。
+计算双曲正切值。另请参阅 Java Math.tanh。
 
-示例:  
+示例:
+
 TANH(X)
 
 ### MOD
 
-```MOD(dividendNumeric, divisorNumeric) -> type(divisorNumeric)```
+```MOD(dividendNumeric, divisorNumeric ) -> type(divisorNumeric)```
 
-取模。任一参数为 NULL 返回 NULL；除数为 0 抛异常；结果与被除数同符号或为 0。
+取模运算表达式。
 
-示例:  
+如果任一参数为 NULL，则结果为 NULL。如果除数为 0，则会引发异常。结果与被除数的符号相同，或者等于 0。
+
+通常情况下，参数应具有标度 0，但 H2 并不要求。
+
+示例:
+
 MOD(A, B)
 
 ### CEIL / CEILING
 
 ```CEIL | CEILING (numeric) -> numeric (same type, scale 0)```
 
-向上取整（标度置 0，如适用调整精度）。
+返回大于或等于参数的最小整数值，但标度设置为 0，并且如果适用，则调整精度。
 
-示例:  
+示例:
+
 CEIL(A)
 
 ### EXP
 
 ```EXP(numeric) -> DOUBLE```
 
-指数（`Math.exp`）。
+请参阅 Java Math.exp。
 
-示例:  
+示例:
+
 EXP(A)
 
 ### FLOOR
 
 ```FLOOR(numeric) -> numeric (same type, scale 0)```
 
-向下取整（标度置 0）。
+返回小于或等于参数的最大整数值，但标度设置为 0，并且如果适用，则调整精度。
 
-示例:  
+示例:
+
 FLOOR(A)
 
 ### LN
 
 ```LN(numeric) -> DOUBLE```
 
-自然对数（底 e）。
+计算自然对数（以 e 为底）的双精度浮点数值。参数必须是一个正数值。
 
-示例:  
+示例:
+
 LN(A)
 
 ### LOG
 
 ```LOG(baseNumeric, numeric) -> DOUBLE```
 
-指定底对数；参数与底均需为正，底不可为 1。单参数形式已弃用，请用 `LN` 或 `LOG10`。
+计算以指定底数的对数，返回一个双精度浮点数。参数和底数必须是正数值。底数不能等于1。
 
-示例:  
+默认底数是 e（自然对数），在 PostgreSQL 模式下，默认底数是 10。在 MSSQLServer 模式下，可选的底数在参数之后指定。
+
+LOG 函数的单参数变体已被弃用，请使用 LN 或 LOG10 替代。
+
+示例:
+
 LOG(2, A)
 
 ### LOG10
 
 ```LOG10(numeric) -> DOUBLE```
 
-以 10 为底的对数。
+计算以 10 为底的对数，返回一个双精度浮点数。参数必须是一个正数值。
 
-示例:  
+示例:
+
 LOG10(A)
 
 ### RADIANS
 
 ```RADIANS(numeric) -> DOUBLE```
 
-角度转弧度（`Math.toRadians`）。
+请参阅 Java Math.toRadians。
 
-示例:  
+示例:
+
 RADIANS(A)
 
 ### SQRT
 
 ```SQRT(numeric) -> DOUBLE```
 
-平方根（`Math.sqrt`）。
+请参阅 Java Math.sqrt。
 
-示例:  
+示例:
+
 SQRT(A)
 
 ### PI
 
 ```PI() -> DOUBLE```
 
-圆周率（`Math.PI`）。
+请参阅 Java Math.PI。
 
-示例:  
+示例:
+
 PI()
 
 ### POWER
 
 ```POWER(numeric, numeric) -> DOUBLE```
 
-乘幂（`Math.pow`）。
+请参阅 Java Math.pow。
 
-示例:  
+示例:
+
 POWER(A, B)
 
 ### RAND / RANDOM
 
-```RAND | RANDOM([int]) -> DOUBLE```
+```RAND | RANDOM([ int ]) -> DOUBLE```
 
-不带参返回区间 [0, 1) 的伪随机数；带整型参数时设置会话随机种子。
+如果不带参数调用该函数，则返回下一个伪随机数。如果带有参数调用，则将会给该会话的随机数生成器设定种子。
 
-示例:  
+示例:
+
 RAND()
 
 ### ROUND
 
 ```ROUND(numeric[, digitsInt]) -> numeric (same type)```
 
-按指定位数四舍五入（如适用调整精度/标度）。
+四舍五入到指定的小数位数，但如果适用，则调整精度和标度。
 
-示例:  
+示例:
+
 ROUND(N, 2)
 
 ### SIGN
 
 ```SIGN(numeric) -> INT```
 
-小于 0 返回 -1；等于 0 或 NaN 返回 0；否则返回 1。
+如果值小于 0，则返回 -1；如果值为零或 NaN，则返回 0；否则返回 1。
 
-示例:  
+示例:
+
 SIGN(N)
 
 ### TRUNC
 
 ```TRUNC | TRUNCATE(numeric[, digitsInt]) -> numeric (same type)```
 
-按指定位数截断（趋近 0）。
+当指定了一个数值参数时，将其截断为指定的数字位数（接近0的下一个值），但如果适用，则调整精度和标度。
 
-示例:  
+示例:
+
 TRUNC(N, 2)
 
 ### TRIM_SCALE
 
 ```TRIM_SCALE(numeric) -> STRING```
 
-去除小数部分尾随 0 并降低标度，返回字符串。
+通过删除尾数部分的零来降低值的刻度（小数位数），并调整小数位数。
 
-示例:  
+示例:
+
 TRIM_SCALE(N)
 
----
-
-## 时间与日期函数
+## Time and Date Functions
 
 ### CURRENT_DATE
 
-```CURRENT_DATE -> DATE```
+```CURRENT_DATE [()] -> DATE```
 
-返回当前日期（在一次事务或一次命令内值不变，取决于数据库模式）。
+返回当前日期。
 
-示例:  
+这些函数在事务（默认）或命令内部返回相同的值，具体取决于数据库模式。
+
+示例:
+
 CURRENT_DATE
 
 ### CURRENT_TIME
 
-```CURRENT_TIME -> TIME```
+```CURRENT_TIME [()] -> TIME```
 
-返回当前时间（不含日期）。
+返回带有系统时区的当前时间。实际可用的最大精度取决于操作系统和 JVM，可以是 3（毫秒）或更高。在 Java 9 之前不支持更高的精度。
 
-示例:  
+示例:
+
 CURRENT_TIME
 
 ### CURRENT_TIMESTAMP / NOW
 
-```CURRENT_TIMESTAMP | NOW() -> TIMESTAMP```
+```CURRENT_TIMESTAMP[()] | NOW() -> TIMESTAMP```
 
-返回当前时间戳。
+返回带有系统时区的当前时间戳。实际可用的最大精度取决于操作系统和 JVM，可以是 3（毫秒）或更高。在 Java 9 之前不支持更高的精度。
 
-示例:  
+示例:
+
 CURRENT_TIMESTAMP
 
 ### DATEADD / TIMESTAMPADD
 
-```DATEADD | TIMESTAMPADD(dateAndTime, addIntLong, datetimeFieldString) -> dateAndTime (same type)```
+```DATEADD| TIMESTAMPADD(dateAndTime, addIntLong, datetimeFieldString) -> dateAndTime (same type)```
 
-为日期时间加上指定单位（负值为相减）。`datetimeFieldString` 表示单位。**注意**：当对 `DATE` 值添加 HOUR/MINUTE/SECOND/MILLISECOND/MICROSECOND/NANOSECOND 等时间字段时，可能返回 `TIMESTAMP`。
+将单位添加到日期时间值中。datetimeFieldString 表示单位。使用负值来减去单位。当操作毫秒、微秒或纳秒时，addIntLong 可能是一个 long 值，否则其范围被限制为 int。如果单位与指定值兼容。如果指定的字段是 HOUR、MINUTE、SECOND、MILLISECOND 等，而值是 DATE 值，结果为组合后的日期与时间。对于 TIME 值，不允许使用 DAY、MONTH、YEAR、WEEK 等字段。
 
-示例:  
+示例:
+
 DATEADD(CREATED, 1, 'MONTH')
 
 ### DATEDIFF
 
 ```DATEDIFF(aDateAndTime, bDateAndTime, datetimeFieldString) -> LONG```
 
-返回两个日期时间值之间跨越的单位边界数。`datetimeFieldString` 表示单位。
+返回两个日期时间值之间跨越的单位边界数。datetimeField 表示单位。
 
-示例:  
+示例:
+
 DATEDIFF(T1.CREATED, T2.CREATED, 'MONTH')
 
 ### DATE_TRUNC
 
-```DATE_TRUNC(dateAndTime, datetimeFieldString) -> dateAndTime (same type)```
+```DATE_TRUNC (dateAndTime, datetimeFieldString) -> dateAndTime (same type)```
 
-将日期时间截断到指定字段。
+将指定的日期时间值截断到指定的字段。
 
-示例:  
+示例:
+
 DATE_TRUNC(CREATED, 'DAY');
 
 ### DAYNAME
 
 ```DAYNAME(dateAndTime) -> STRING```
 
-返回星期名称（英文）。
+返回星期几的名称（英文）。
 
-示例:  
+示例:
+
 DAYNAME(CREATED)
 
 ### DAY_OF_MONTH
 
 ```DAY_OF_MONTH(dateAndTime) -> INT```
 
-返回当月第几天（1-31）。
+返回月份中的日期（1-31）。
 
-示例:  
+示例:
+
 DAY_OF_MONTH(CREATED)
 
 ### DAY_OF_WEEK
 
 ```DAY_OF_WEEK(dateAndTime) -> INT```
 
-返回星期几（1-7，周一至周日，随本地化）。
+返回星期几的数值（1-7）（星期一至星期日），根据本地化设置。
 
-示例:  
+示例:
+
 DAY_OF_WEEK(CREATED)
 
 ### DAY_OF_YEAR
 
 ```DAY_OF_YEAR(dateAndTime) -> INT```
 
-返回当年第几天（1-366）。
+返回一年中的日期（1-366）。
 
-示例:  
+示例:
+
 DAY_OF_YEAR(CREATED)
 
 ### EXTRACT
 
-```EXTRACT(datetimeField FROM dateAndTime) -> INT```
+```EXTRACT ( datetimeField FROM dateAndTime) -> INT```
 
-从日期/时间提取指定字段的值（`EPOCH` 通常表示自 1970-01-01 起的秒数，具体实现可能返回更宽的整数）。
+从日期/时间值中返回特定时间单位的值。
 
-EXTRACT 支持以下四种 DateTime 字面量类型：
-- `DATE`：EXTRACT(YEAR FROM DATE '2025-05-21')
-- `TIME`：EXTRACT(HOUR FROM TIME '17:57:40')
-- `TIMESTAMP`：EXTRACT(YEAR FROM TIMESTAMP '2025-05-21T17:57:40')
-- `TIMESTAMP WITH TIMEZONE`：EXTRACT(HOUR FROM TIMESTAMPTZ '2025-05-21T17:57:40+08:00')
+EXTRACT函数支持以下字段名：
 
-示例:  
-EXTRACT(YEAR FROM TIMESTAMP '2001-02-16 20:38:40')  
-EXTRACT(HOUR FROM TIMESTAMP '2001-02-16 20:38:40')  
-EXTRACT(DOW FROM TIMESTAMP '2001-02-16 20:38:40')  
-EXTRACT(YEAR FROM eventTime)  
-EXTRACT(HOUR FROM eventTime)  
+- `CENTURY`：世纪；对于interval值，年份字段除以100
+- `DAY`：月份中的日期（1-31）；对于interval值，表示天数
+- `DECADE`：年份字段除以10
+- `DOW` 或 `DAYOFWEEK`：星期几，从周日（0）到周六（6）
+- `DOY`：一年中的第几天（1-365/366）
+- `EPOCH`：对于timestamp值，表示自1970-01-01 00:00:00以来的秒数；对于interval值，表示总秒数
+- `HOUR`：小时字段（0-23）
+- `ISODOW`：星期几，从周一（1）到周日（7），符合ISO 8601标准
+- `ISOYEAR`：ISO 8601周编号年份
+- `MICROSECONDS`：秒字段（包括小数部分）乘以1,000,000
+- `MILLENNIUM`：千年；对于interval值，年份字段除以1000
+- `MILLISECONDS`：秒字段（包括小数部分）乘以1,000
+- `MINUTE`：分钟字段（0-59）
+- `MONTH`：年份中的月份（1-12）；对于interval值，月份对12取模（0-11）
+- `QUARTER`：日期所在的季度（1-4）
+- `SECOND`：秒字段，包括任何小数秒
+- `WEEK`：ISO 8601周编号年份中的周数（1-53）
+- `YEAR`：年份字段
+
+EXTRACT函数支持以下四种DateTime字面量类型：
+
+- `DATE`：用于从日期字面量中提取日期组件
+  ```sql
+  EXTRACT(YEAR FROM DATE '2025-05-21')
+  ```
+
+- `TIME`：用于从时间字面量中提取时间组件
+  ```sql
+  EXTRACT(HOUR FROM TIME '17:57:40')
+  ```
+
+- `TIMESTAMP`：用于从时间戳字面量中提取日期和时间组件
+  ```sql
+  EXTRACT(YEAR FROM TIMESTAMP '2025-05-21T17:57:40')
+  ```
+
+- `TIMESTAMP WITH TIMEZONE`：用于从带时区的时间戳字面量中提取组件
+  ```sql
+  EXTRACT(HOUR FROM TIMESTAMPTZ '2025-05-21T17:57:40+08:00')
+  ```
+
+示例：
+
+```sql
+EXTRACT(YEAR FROM TIMESTAMP '2001-02-16 20:38:40')
+EXTRACT(HOUR FROM TIMESTAMP '2001-02-16 20:38:40')
+EXTRACT(DOW FROM TIMESTAMP '2001-02-16 20:38:40')
+EXTRACT(YEAR FROM eventTime)
+EXTRACT(HOUR FROM eventTime)
 EXTRACT(DOW FROM eventTime)
+```
 
 ### FORMATDATETIME
 
-```FORMATDATETIME(dateAndTime, formatString) -> STRING```
+```FORMATDATETIME (dateAndTime, formatString) -> STRING```
 
-按给定模式格式化日期/时间/时间戳（参见 `java.time.format.DateTimeFormatter`）。
+将日期、时间或时间戳格式化为字符串。最重要的格式字符包括：y（年）、M（月）、d（日）、H（时）、m（分）、s（秒）。有关格式的详细信息，请参阅 java.time.format.DateTimeFormatter。
 
-示例:  
+
+
+示例:
+
 CALL FORMATDATETIME(CREATED, 'yyyy-MM-dd HH:mm:ss')
 
 ### HOUR
 
 ```HOUR(dateAndTime) -> INT```
 
-返回小时（0-23）。
+从日期/时间值中返回小时（0-23）。
 
-示例:  
+示例:
+
 HOUR(CREATED)
 
 ### MINUTE
 
 ```MINUTE(dateAndTime) -> INT```
 
-返回分钟（0-59）（已弃用；请用 `EXTRACT`）。
+从日期/时间值中返回分钟（0-59）。
 
-示例:  
+该函数已经被弃用，请使用 EXTRACT 替代。
+
+示例:
+
 MINUTE(CREATED)
 
 ### MONTH
 
 ```MONTH(dateAndTime) -> INT```
 
-返回月份（1-12）（已弃用；请用 `EXTRACT`）。
+从日期/时间值中返回月份（1-12）。
 
-示例:  
+该函数已经被弃用，请使用 EXTRACT 替代。
+
+示例:
+
 MONTH(CREATED)
 
 ### MONTHNAME
 
 ```MONTHNAME(dateAndTime) -> STRING```
 
-返回月份名称（英文）。
+返回月份的名称（英文）。
 
-示例:  
+示例:
+
 MONTHNAME(CREATED)
-
-### IS_DATE
-
-```IS_DATE(string, formatString) -> BOOLEAN```
-
-判断字符串是否能按给定格式解析为日期/时间。
-
-示例:  
-CALL IS_DATE('2021-04-08 13:34:45','yyyy-MM-dd HH:mm:ss')
 
 ### PARSEDATETIME / TO_DATE
 
 ```PARSEDATETIME | TO_DATE(string, formatString) -> TIMESTAMP```
+最重要的格式字符包括：y（年）、M（月）、d（日）、H（时）、m（分）、s（秒）。有关格式的详细信息，请参阅 java.time.format.DateTimeFormatter。
 
-按给定格式解析字符串为时间戳（参见 `java.time.format.DateTimeFormatter`）。在 SQL 文本中填写 `'` 需写作 `''` 进行转义。
+示例:
 
-示例:  
-CALL PARSEDATETIME('2021-04-08 13:34:45','yyyy-MM-dd HH:mm:ss')  
-CALL TO_DATE('2021-04-08''T''13:34:45','yyyy-MM-dd''T''HH:mm:ss')
+CALL PARSEDATETIME('2021-04-08 13:34:45','yyyy-MM-dd HH:mm:ss')
+CALL TO_DATE('2021-04-08T13:34:45','yyyy-MM-dd''T''HH:mm:ss')
+注意SQL函数中的`'`填写时需要转义为`''`。
 
 ### QUARTER
 
 ```QUARTER(dateAndTime) -> INT```
 
-返回季度（1-4）。
+从日期/时间值中返回季度（1-4）。
 
-示例:  
+示例:
+
 QUARTER(CREATED)
 
 ### SECOND
 
 ```SECOND(dateAndTime) -> INT```
 
-返回秒（0-59）（已弃用；请用 `EXTRACT`）。
+从日期/时间值中返回秒数（0-59）。
 
-示例:  
+该函数已经被弃用，请使用 EXTRACT 替代。
+
+示例:
+
 SECOND(CREATED)
 
 ### WEEK
 
 ```WEEK(dateAndTime) -> INT```
 
-返回周数（1-53），依赖系统区域设置。
+返回日期/时间值中的周数（1-53）。
 
-示例:  
+该函数使用当前系统的区域设置。
+
+示例:
+
 WEEK(CREATED)
 
 ### YEAR
 
 ```YEAR(dateAndTime) -> INT```
 
-返回年份。
+返回日期/时间值中的年份。
 
-示例:  
+示例:
+
 YEAR(CREATED)
 
 ### FROM_UNIXTIME
 
-```FROM_UNIXTIME(unixtime, formatString[, timeZone]) -> STRING```
+```FROM_UNIXTIME (unixtime, formatString,timeZone) -> STRING```
 
-将自 UNIX 纪元起的秒数格式化为时间戳字符串；`timeZone` 可选（如 `UTC+8`）。
+将从 UNIX 纪元（1970-01-01 00:00:00 UTC）开始的秒数转换为表示该时刻时间戳的字符串。
 
-示例:  
-// 使用默认时区  
-CALL FROM_UNIXTIME(1672502400, 'yyyy-MM-dd HH:mm:ss')  
-// 使用指定时区  
+最重要的格式字符包括：y（年）、M（月）、d（日）、H（时）、m（分）、s（秒）。有关格式的详细信息，请参阅 `java.time.format.DateTimeFormatter`。
+
+`timeZone` 是可选的，默认值为系统的时区。`timezone` 的值可以是一个 `UTC+ 时区偏移`，例如，`UTC+8` 表示亚洲/上海时区，请参阅 `java.time.ZoneId`。
+
+示例:
+
+// 使用默认时区
+
+CALL FROM_UNIXTIME(1672502400, 'yyyy-MM-dd HH:mm:ss')
+
+or
+
+// 使用指定时区
+
 CALL FROM_UNIXTIME(1672502400, 'yyyy-MM-dd HH:mm:ss','UTC+6')
 
----
-
-## 系统函数
+## System Functions
 
 ### CAST
 
-```CAST(value AS dataType) -> dataType```
+```CAST(value as dataType) -> dataType```
 
-将值转换为其他数据类型。  
-支持：STRING | VARCHAR, TINYINT, SMALLINT, INT | INTEGER, LONG | BIGINT, BYTE, FLOAT, DOUBLE, DECIMAL(p,s), TIMESTAMP, DATE, TIME, BYTES, BOOLEAN
+将一个值转换为另一个数据类型。
 
-示例:  
-CAST(NAME AS INT)  
+支持的数据类型有：STRING | VARCHAR，TINYINT，SMALLINT，INT | INTEGER，LONG | BIGINT，BYTE，FLOAT，DOUBLE，DECIMAL(p,s)，TIMESTAMP，DATE，TIME，BYTES
+
+示例:
+
+CAST(NAME AS INT)
+
 CAST(FLAG AS BOOLEAN)
 
-注意（转换为 BOOLEAN 时）：
-1) `'true'` / `'false'` → 对应布尔值；
-2) 数值 `1` / `0` → `true` / `false`；
-3) 无法解析则抛出 `TransformException`。
+注意：将值转换为布尔数据类型时，遵循以下规则：
+
+1.  如果值可以被解释为布尔字符串（'true' 或 'false'），则返回相应的布尔值。
+2.  如果值可以被解释为数值（1 或 0），则对于 1 返回 true，对于 0 返回 false。
+3.  如果值无法根据以上规则进行解释，则抛出 TransformException 异常。
 
 ### TRY_CAST
 
-```TRY_CAST(value AS dataType) -> dataType | NULL```
+```TRY_CAST(value as dataType) -> dataType | NULL```
 
-与 CAST 类似，但失败时返回 NULL。  
-支持：STRING | VARCHAR, TINYINT, SMALLINT, INT | INTEGER, LONG | BIGINT, BYTE, FLOAT, DOUBLE, DECIMAL(p,s), TIMESTAMP, DATE, TIME, BYTES
+该函数类似于 CAST，但当转换失败时，它返回 NULL 而不是抛出异常。
 
-示例:  
+支持的数据类型有：STRING | VARCHAR，TINYINT，SMALLINT，INT | INTEGER，LONG | BIGINT，BYTE，FLOAT，DOUBLE，DECIMAL(p,s)，TIMESTAMP，DATE，TIME，BYTES
+
+示例:
+
 TRY_CAST(NAME AS INT)
 
 ### COALESCE
 
-```COALESCE(aValue, bValue[, ...]) -> type(of first non-null arg)```
+```COALESCE(aValue, bValue [,...]) -> type(of first non-null arg)```
 
-返回第一个非 NULL 的参数。
+返回第一个非空值。
 
-示例:  
+示例:
+
 COALESCE(A, B, C)
 
 ### IFNULL
 
 ```IFNULL(aValue, bValue) -> type(common of args)```
 
-返回第一个非 NULL 的参数。
+返回第一个非空值。
 
-示例:  
+示例:
+
 IFNULL(A, B)
 
 ### NULLIF
 
 ```NULLIF(aValue, bValue) -> type(aValue) | NULL```
 
-功能：若 aValue = bValue 返回 NULL，否则返回 aValue。  
-返回：type(aValue) 或 NULL。
+如果 'a' 等于 'b'，则返回 NULL，否则返回 'a'。
 
-示例:  
+示例:
+
 NULLIF(A, B)
-
----
 
 ### MULTI_IF
 
 ```MULTI_IF(condition1, value1, condition2, value2, ... conditionN, valueN, bValue) -> type(of values)```
 
-功能：返回第一个条件为真的对应值；若都为假，返回最后一个值。  
-返回：与各 value 的公共类型（type(of values)）。
+返回第一个满足相应条件的值。如果所有条件均为假，则返回最后一个值。
 
-示例:  
+示例:
+
 MULTI_IF(A > 1, 'A', B > 1, 'B', C > 1, 'C', 'D')
-
----
 
 ### CASE WHEN
 
 ```CASE WHEN <condition> THEN <expr> [WHEN ...] [ELSE <expr>] END -> type(of result expressions)```
 
-功能：按条件返回不同结果。  
-返回：由 THEN/ELSE 的结果表达式共同决定的类型。
-
-示例（完整）:
 ```
 select
   case
@@ -898,50 +1072,55 @@ select
     else 0
   end as c_number_0
 from
-  dual
+  fake
 ```
 
-示例（简洁）:
-case when c_string in ('c_string') then 1 else 0 end  
-case when c_string in ('c_string') then true else false end
+用于确定条件是否有效，并根据不同的判断返回不同的值
 
----
+示例:
+
+case when c_string in ('c_string') then 1 else 0 end
+
+case when c_string in ('c_string') then true else false end
 
 ### UUID
 
 ```UUID() -> STRING```
 
-功能：通过 Java 函数生成 UUID。  
-返回：STRING。
+通过java函数生成uuid
 
-示例:  
-SELECT UUID() AS seatunnel_uuid
+示例:
 
----
+select UUID() as seatunnel_uuid
+
 
 ### ARRAY
 
 ```ARRAY<T> array(T, ...) -> ARRAY<T>```
+创建一个由可变参数元素组成的数组并返回它。这里，T 可以是“列”或“常量”。。
 
-功能：创建由可变参数元素组成的数组；T 可为“列”或“常量”。  
-返回：ARRAY<T>。  
-注意：目前仅支持 STRING、DOUBLE、LONG、INT。
+示例:
 
-示例:  
-SELECT ARRAY(1,2,3) AS arrays  
-SELECT ARRAY('c_1',2,3.12) AS arrays  
-SELECT ARRAY(column1,column2,column3) AS arrays
+select ARRAY(1,2,3) as arrays
+select ARRAY('c_1',2,3.12) as arrays
+select ARRAY(column1,column2,column3) as arrays
 
----
+注意：目前仅支持string、double、long、int几种类型
 
 ### LATERAL VIEW
 #### EXPLODE
+```EXPLODE(array of T) -> rows(value: T)```  
+```OUTER EXPLODE(array of T) -> rows(value: T | NULL)```
 
-```EXPLODE(array) -> 多行（每行一元素；列类型 = 数组元素类型）  ```
-```OUTER EXPLODE(array) -> 至少一行；数组为 NULL/空时返回单行 NULL```
+用于将数组列展开成多行。它通过对数组应用 EXPLODE 函数，为数组中的每个元素生成一个新行。
 
-功能：将数组列展开为多行；常与 LATERAL VIEW 联用。  
-返回：把输入数组拆分为多行结果集，列类型为元素类型。
+EXPLODE：将数组列转换为多行。如果数组为 NULL 或为空，则不生成行。
+
+OUTER EXPLODE：当数组为 NULL 或为空时返回 NULL，确保至少生成一行。
+
+EXPLODE(SPLIT(字段名, 分隔符))：使用指定的分隔符将字符串拆分为数组，然后将其展开为多行。
+
+EXPLODE(ARRAY(值1, 值2, ...))：将自定义数组展开为多行。
 
 示例:
 ```
