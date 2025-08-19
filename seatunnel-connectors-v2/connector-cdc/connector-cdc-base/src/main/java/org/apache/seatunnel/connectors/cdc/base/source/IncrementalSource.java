@@ -66,6 +66,7 @@ import org.apache.seatunnel.format.compatible.debezium.json.CompatibleDebeziumJs
 
 import io.debezium.relational.TableId;
 import lombok.NoArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 import java.sql.DriverManager;
 import java.util.ArrayList;
@@ -84,6 +85,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 @NoArgsConstructor
+@Slf4j
 public abstract class IncrementalSource<T, C extends SourceConfig>
         implements SeaTunnelSource<T, SourceSplitBase, PendingSplitsState> {
 
@@ -218,7 +220,11 @@ public abstract class IncrementalSource<T, C extends SourceConfig>
             throws Exception {
         // Load the JDBC driver in to DriverManager
         if (driverName().isPresent()) {
-            Class.forName(driverName().get());
+            try {
+                Class.forName(driverName().get());
+            } catch (Exception e) {
+                log.warn("Failed to load JDBC driver: {}", driverName().get(), e);
+            }
         }
         // create source config for the given subtask (e.g. unique server id)
         C sourceConfig = configFactory.create(readerContext.getIndexOfSubtask());
@@ -254,7 +260,11 @@ public abstract class IncrementalSource<T, C extends SourceConfig>
             SourceSplitEnumerator.Context<SourceSplitBase> enumeratorContext) throws Exception {
         // Load the JDBC driver in to DriverManager
         if (driverName().isPresent()) {
-            Class.forName(driverName().get());
+            try {
+                Class.forName(driverName().get());
+            } catch (Exception e) {
+                log.warn("Failed to load JDBC driver: {}", driverName().get(), e);
+            }
         }
         C sourceConfig = configFactory.create(0);
         final List<TableId> remainingTables =
@@ -299,7 +309,11 @@ public abstract class IncrementalSource<T, C extends SourceConfig>
             throws Exception {
         // Load the JDBC driver in to DriverManager
         if (driverName().isPresent()) {
-            Class.forName(driverName().get());
+            try {
+                Class.forName(driverName().get());
+            } catch (Exception e) {
+                log.warn("Failed to load JDBC driver: {}", driverName().get(), e);
+            }
         }
         C sourceConfig = configFactory.create(0);
         Set<TableId> capturedTables =

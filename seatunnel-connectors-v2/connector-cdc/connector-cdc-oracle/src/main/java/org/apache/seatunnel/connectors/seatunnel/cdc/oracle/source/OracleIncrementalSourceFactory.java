@@ -38,12 +38,14 @@ import org.apache.seatunnel.connectors.seatunnel.cdc.oracle.config.OracleSourceC
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcCommonOptions;
 
 import com.google.auto.service.AutoService;
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.Serializable;
 import java.util.List;
 import java.util.Optional;
 
 @AutoService(Factory.class)
+@Slf4j
 public class OracleIncrementalSourceFactory extends BaseChangeStreamTableSourceFactory {
     @Override
     public String factoryIdentifier() {
@@ -108,8 +110,8 @@ public class OracleIncrementalSourceFactory extends BaseChangeStreamTableSourceF
             // Load the JDBC driver in to DriverManager
             try {
                 Class.forName("oracle.jdbc.OracleDriver");
-            } catch (ClassNotFoundException e) {
-                throw new RuntimeException(e);
+            } catch (Exception e) {
+                log.warn("Failed to load JDBC driver {}", "oracle.jdbc.OracleDriver", e);
             }
             List<CatalogTable> catalogTables =
                     CatalogTableUtil.getCatalogTables(

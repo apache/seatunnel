@@ -36,12 +36,14 @@ import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.option.PostgresOpt
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcCommonOptions;
 
 import com.google.auto.service.AutoService;
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.Serializable;
 import java.util.List;
 import java.util.Optional;
 
 @AutoService(Factory.class)
+@Slf4j
 public class PostgresIncrementalSourceFactory implements TableSourceFactory {
     @Override
     public String factoryIdentifier() {
@@ -88,8 +90,8 @@ public class PostgresIncrementalSourceFactory implements TableSourceFactory {
             // Load the JDBC driver in to DriverManager
             try {
                 Class.forName("org.postgresql.Driver");
-            } catch (ClassNotFoundException e) {
-                throw new RuntimeException(e);
+            } catch (Exception e) {
+                log.warn("Failed to load JDBC driver {}", "org.postgresql.Driver", e);
             }
             List<CatalogTable> catalogTables =
                     CatalogTableUtil.getCatalogTables(

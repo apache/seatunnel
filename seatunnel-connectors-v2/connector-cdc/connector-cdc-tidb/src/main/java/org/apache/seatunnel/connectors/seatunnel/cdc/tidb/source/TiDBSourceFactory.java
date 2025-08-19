@@ -32,10 +32,12 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.tidb.TiDBCatalog;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.tidb.TiDBCatalogFactory;
 
 import com.google.auto.service.AutoService;
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.Serializable;
 
 @AutoService(Factory.class)
+@Slf4j
 public class TiDBSourceFactory implements TableSourceFactory {
     /**
      * Returns a unique identifier among same factory interfaces.
@@ -90,8 +92,8 @@ public class TiDBSourceFactory implements TableSourceFactory {
             // Load the JDBC driver in to DriverManager
             try {
                 Class.forName("com.mysql.cj.jdbc.Driver");
-            } catch (ClassNotFoundException e) {
-                throw new RuntimeException(e);
+            } catch (Exception e) {
+                log.warn("Failed to load JDBC driver com.mysql.cj.jdbc.Driver ", e);
             }
             ReadonlyConfig config = context.getOptions();
             TiDBCatalogFactory catalogFactory = new TiDBCatalogFactory();

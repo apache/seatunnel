@@ -58,12 +58,6 @@ public class StarRocksSource
 
     @Override
     public SourceReader createReader(SourceReader.Context readerContext) {
-        // Load the JDBC driver in to DriverManager
-        try {
-            Class.forName("com.mysql.cj.jdbc.Driver");
-        } catch (ClassNotFoundException e) {
-            throw new RuntimeException(e);
-        }
         return new StarRocksSourceReader(readerContext, sourceConfig);
     }
 
@@ -72,24 +66,12 @@ public class StarRocksSource
             SourceSplitEnumerator.Context<StarRocksSourceSplit> enumeratorContext,
             StarRocksSourceState checkpointState)
             throws Exception {
-        // Load the JDBC driver in to DriverManager
-        try {
-            Class.forName("com.mysql.cj.jdbc.Driver");
-        } catch (ClassNotFoundException e) {
-            throw new RuntimeException(e);
-        }
         return new StartRocksSourceSplitEnumerator(
                 enumeratorContext, sourceConfig, checkpointState);
     }
 
     @Override
     public SourceSplitEnumerator createEnumerator(SourceSplitEnumerator.Context enumeratorContext) {
-        // Load the JDBC driver in to DriverManager
-        try {
-            Class.forName("com.mysql.cj.jdbc.Driver");
-        } catch (ClassNotFoundException e) {
-            throw new RuntimeException(e);
-        }
         return new StartRocksSourceSplitEnumerator(enumeratorContext, sourceConfig);
     }
 }

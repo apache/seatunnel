@@ -55,8 +55,11 @@ public class JdbcSource
         // Load the JDBC driver in to DriverManager
         try {
             Class.forName(jdbcSourceConfig.getJdbcConnectionConfig().getDriverName());
-        } catch (ClassNotFoundException e) {
-            throw new RuntimeException(e);
+        } catch (Exception e) {
+            LOG.warn(
+                    "Failed to load JDBC driver {}",
+                    jdbcSourceConfig.getJdbcConnectionConfig().getDriverName(),
+                    e);
         }
         this.jdbcSourceConfig = jdbcSourceConfig;
         this.jdbcSourceTables =
@@ -88,8 +91,11 @@ public class JdbcSource
         // Load the JDBC driver in to DriverManager
         try {
             Class.forName(jdbcSourceConfig.getJdbcConnectionConfig().getDriverName());
-        } catch (ClassNotFoundException e) {
-            throw new RuntimeException(e);
+        } catch (Exception e) {
+            LOG.warn(
+                    "Failed to load JDBC driver {}",
+                    jdbcSourceConfig.getJdbcConnectionConfig().getDriverName(),
+                    e);
         }
         Map<TablePath, CatalogTable> tables = new HashMap<>();
         for (TablePath tablePath : jdbcSourceTables.keySet()) {
@@ -109,8 +115,11 @@ public class JdbcSource
         // Load the JDBC driver in to DriverManager
         try {
             Class.forName(jdbcSourceConfig.getJdbcConnectionConfig().getDriverName());
-        } catch (ClassNotFoundException e) {
-            throw new RuntimeException(e);
+        } catch (Exception e) {
+            LOG.warn(
+                    "Failed to load JDBC driver {}",
+                    jdbcSourceConfig.getJdbcConnectionConfig().getDriverName(),
+                    e);
         }
         return new JdbcSourceSplitEnumerator(
                 enumeratorContext, jdbcSourceConfig, jdbcSourceTables, null);
@@ -124,8 +133,11 @@ public class JdbcSource
         // Load the JDBC driver in to DriverManager
         try {
             Class.forName(jdbcSourceConfig.getJdbcConnectionConfig().getDriverName());
-        } catch (ClassNotFoundException e) {
-            throw new RuntimeException(e);
+        } catch (Exception e) {
+            LOG.warn(
+                    "Failed to load JDBC driver {}",
+                    jdbcSourceConfig.getJdbcConnectionConfig().getDriverName(),
+                    e);
         }
         return new JdbcSourceSplitEnumerator(
                 enumeratorContext, jdbcSourceConfig, jdbcSourceTables, checkpointState);

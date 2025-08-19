@@ -37,12 +37,14 @@ import org.apache.seatunnel.connectors.cdc.base.utils.CatalogTableUtils;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcCommonOptions;
 
 import com.google.auto.service.AutoService;
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.Serializable;
 import java.util.List;
 import java.util.Optional;
 
 @AutoService(Factory.class)
+@Slf4j
 public class SqlServerIncrementalSourceFactory implements TableSourceFactory {
 
     @Override
@@ -104,8 +106,11 @@ public class SqlServerIncrementalSourceFactory implements TableSourceFactory {
             // Load the JDBC driver in to DriverManager
             try {
                 Class.forName("com.microsoft.sqlserver.jdbc.SQLServerDriver");
-            } catch (ClassNotFoundException e) {
-                throw new RuntimeException(e);
+            } catch (Exception e) {
+                log.warn(
+                        "Failed to load JDBC driver {}",
+                        "com.microsoft.sqlserver.jdbc.SQLServerDriver",
+                        e);
             }
             List<CatalogTable> catalogTables =
                     CatalogTableUtil.getCatalogTables(

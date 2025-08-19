@@ -106,8 +106,8 @@ public class MySqlIncrementalSourceFactory extends BaseChangeStreamTableSourceFa
             // Load the JDBC driver in to DriverManager
             try {
                 Class.forName("com.mysql.cj.jdbc.Driver");
-            } catch (ClassNotFoundException e) {
-                throw new RuntimeException(e);
+            } catch (Exception e) {
+                log.warn("Failed to load JDBC driver com.mysql.cj.jdbc.Driver ", e);
             }
             ReadonlyConfig config = context.getOptions();
             List<CatalogTable> catalogTables =
