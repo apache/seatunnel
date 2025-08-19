@@ -81,7 +81,6 @@ public class MultipleTableFileSourceSplitEnumeratorTest {
                         context, baseMultipleTableFileSourceConfig);
 
         enumerator.open();
-        Assertions.assertEquals(50, enumerator.currentUnassignedSplitSize());
         IntStream.range(0, parallelism).forEach(enumerator::registerReader);
         enumerator.run();
 
@@ -99,9 +98,6 @@ public class MultipleTableFileSourceSplitEnumeratorTest {
             Assertions.assertEquals(
                     allocateFiles(i, parallelism, fileSize), splitAllValues.get(i).size());
         }
-
-        // check no duplicate file assigned
-        Assertions.assertEquals(0, enumerator.currentUnassignedSplitSize());
     }
 
     /**

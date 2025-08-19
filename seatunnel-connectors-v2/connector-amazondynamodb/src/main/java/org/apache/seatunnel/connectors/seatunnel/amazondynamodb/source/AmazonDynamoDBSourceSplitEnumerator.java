@@ -144,11 +144,6 @@ public class AmazonDynamoDBSourceSplitEnumerator
     }
 
     @Override
-    public int currentUnassignedSplitSize() {
-        return pendingSplits.size();
-    }
-
-    @Override
     public void handleSplitRequest(int subtaskId) {}
 
     @Override

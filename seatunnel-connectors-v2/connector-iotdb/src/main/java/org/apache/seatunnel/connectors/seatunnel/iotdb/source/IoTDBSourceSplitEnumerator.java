@@ -189,11 +189,6 @@ public class IoTDBSourceSplitEnumerator
     }
 
     @Override
-    public int currentUnassignedSplitSize() {
-        return pendingSplit.size();
-    }
-
-    @Override
     public void registerReader(int subtaskId) {
         log.debug("Register reader {} to IoTDBSourceSplitEnumerator.", subtaskId);
         if (!pendingSplit.isEmpty()) {

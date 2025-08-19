@@ -157,11 +157,6 @@ public class TypesenseSourceSplitEnumerator
     }
 
     @Override
-    public int currentUnassignedSplitSize() {
-        return pendingSplit.size();
-    }
-
-    @Override
     public void handleSplitRequest(int subtaskId) {
         throw new TypesenseConnectorException(
                 CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,

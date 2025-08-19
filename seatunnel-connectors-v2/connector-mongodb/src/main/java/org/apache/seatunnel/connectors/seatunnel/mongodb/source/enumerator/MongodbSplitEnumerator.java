@@ -100,11 +100,6 @@ public class MongodbSplitEnumerator
     }
 
     @Override
-    public int currentUnassignedSplitSize() {
-        return pendingSplits.size();
-    }
-
-    @Override
     public void handleSplitRequest(int subtaskId) {
         throw new MongodbConnectorException(
                 CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,

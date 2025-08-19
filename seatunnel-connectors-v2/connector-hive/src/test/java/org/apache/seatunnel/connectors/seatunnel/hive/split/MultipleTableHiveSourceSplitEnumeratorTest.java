@@ -82,7 +82,6 @@ public class MultipleTableHiveSourceSplitEnumeratorTest {
                 new MultipleTableHiveSourceSplitEnumerator(context, mockConfig);
 
         enumerator.open();
-        Assertions.assertEquals(50, enumerator.currentUnassignedSplitSize());
         IntStream.range(0, parallelism).forEach(enumerator::registerReader);
         enumerator.run();
 
@@ -101,8 +100,6 @@ public class MultipleTableHiveSourceSplitEnumeratorTest {
                     allocateFiles(i, parallelism, fileSize), splitAllValues.get(i).size());
         }
 
-        // check no duplicate file assigned
-        Assertions.assertEquals(0, enumerator.currentUnassignedSplitSize());
     }
 
     /**

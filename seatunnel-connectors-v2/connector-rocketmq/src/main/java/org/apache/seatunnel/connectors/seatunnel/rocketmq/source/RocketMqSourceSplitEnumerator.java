@@ -167,11 +167,6 @@ public class RocketMqSourceSplitEnumerator
     }
 
     @Override
-    public int currentUnassignedSplitSize() {
-        return pendingSplit.size();
-    }
-
-    @Override
     public void handleSplitRequest(int subtaskId) {
         // No-op
     }

@@ -119,11 +119,6 @@ public class JdbcSourceSplitEnumerator
     }
 
     @Override
-    public int currentUnassignedSplitSize() {
-        return pendingTables.isEmpty() && pendingSplits.isEmpty() ? 0 : 1;
-    }
-
-    @Override
     public void handleSplitRequest(int subtaskId) {
         throw new JdbcConnectorException(
                 CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,

@@ -118,11 +118,6 @@ public abstract class AbstractSplitEnumerator
     }
 
     @Override
-    public int currentUnassignedSplitSize() {
-        return pendingSplits.size();
-    }
-
-    @Override
     public void registerReader(int subtaskId) {
         readersAwaitingSplit.add(subtaskId);
     }

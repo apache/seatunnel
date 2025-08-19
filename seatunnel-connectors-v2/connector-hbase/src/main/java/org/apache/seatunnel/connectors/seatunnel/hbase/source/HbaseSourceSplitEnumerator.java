@@ -95,11 +95,6 @@ public class HbaseSourceSplitEnumerator
     }
 
     @Override
-    public int currentUnassignedSplitSize() {
-        return pendingSplit.size();
-    }
-
-    @Override
     public void registerReader(int subtaskId) {
         pendingSplit = getTableSplits();
         assignSplit(subtaskId);

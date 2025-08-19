@@ -90,11 +90,6 @@ public class IncrementalSourceEnumerator
     }
 
     @Override
-    public int currentUnassignedSplitSize() {
-        return 0;
-    }
-
-    @Override
     public void registerReader(int subtaskId) {
         // do nothing
     }

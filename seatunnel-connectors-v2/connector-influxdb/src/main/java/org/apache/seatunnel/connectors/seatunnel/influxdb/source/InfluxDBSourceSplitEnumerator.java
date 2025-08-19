@@ -94,11 +94,6 @@ public class InfluxDBSourceSplitEnumerator
     }
 
     @Override
-    public int currentUnassignedSplitSize() {
-        return pendingSplit.size();
-    }
-
-    @Override
     public void registerReader(int subtaskId) {
         log.debug("Register reader {} to InfluxDBSourceSplitEnumerator.", subtaskId);
         if (!pendingSplit.isEmpty()) {

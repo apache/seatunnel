@@ -138,11 +138,6 @@ public class TableStoreSourceSplitEnumerator
     }
 
     @Override
-    public int currentUnassignedSplitSize() {
-        return pendingSplits.size();
-    }
-
-    @Override
     public void handleSplitRequest(int subtaskId) {}
 
     @Override

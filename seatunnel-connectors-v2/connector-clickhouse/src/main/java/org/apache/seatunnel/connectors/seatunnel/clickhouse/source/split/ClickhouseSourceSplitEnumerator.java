@@ -137,11 +137,6 @@ public class ClickhouseSourceSplitEnumerator
     }
 
     @Override
-    public int currentUnassignedSplitSize() {
-        return this.pendingSplit.size();
-    }
-
-    @Override
     public void handleSplitRequest(int subtaskId) {
         throw new ClickhouseConnectorException(
                 CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,

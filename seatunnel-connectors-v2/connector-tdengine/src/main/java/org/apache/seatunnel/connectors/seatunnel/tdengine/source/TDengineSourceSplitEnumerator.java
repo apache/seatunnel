@@ -151,11 +151,6 @@ public class TDengineSourceSplitEnumerator
     }
 
     @Override
-    public int currentUnassignedSplitSize() {
-        return pendingSplits.size();
-    }
-
-    @Override
     public void registerReader(int subtaskId) {
         log.info("Register reader {} to TDengineSourceSplitEnumerator.", subtaskId);
         if (!pendingSplits.isEmpty()) {

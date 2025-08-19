@@ -97,9 +97,6 @@ public class DorisSourceSplitEnumeratorTest {
             Assertions.assertEquals(
                     allocateFiles(i, PARALLELISM, PARTITION_NUMS), splitAllValues.get(i).size());
         }
-
-        // check no duplicate file assigned
-        Assertions.assertEquals(0, dorisSourceSplitEnumerator.currentUnassignedSplitSize());
     }
 
     private List<PartitionDefinition> buildPartitionDefinitions() {

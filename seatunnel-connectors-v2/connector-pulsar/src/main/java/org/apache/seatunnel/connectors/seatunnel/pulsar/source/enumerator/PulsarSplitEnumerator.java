@@ -279,11 +279,6 @@ public class PulsarSplitEnumerator
     }
 
     @Override
-    public int currentUnassignedSplitSize() {
-        return pendingPartitionSplits.size();
-    }
-
-    @Override
     public void handleSplitRequest(int subtaskId) {
         // Do nothing because Pulsar source push split.
     }

@@ -71,11 +71,6 @@ public class SingleSplitEnumerator
     }
 
     @Override
-    public int currentUnassignedSplitSize() {
-        return 0;
-    }
-
-    @Override
     public void handleSplitRequest(int subtaskId) {
         // nothing
     }
