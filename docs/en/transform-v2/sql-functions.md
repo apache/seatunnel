@@ -6,1127 +6,917 @@
 
 ### ASCII
 
-```ASCII(string)```
+ ```ASCII(string) -> INT```
 
-Returns the `ASCII` value of the first character in the string. This method returns an **INT**.
+ Returns the `ASCII` value of the first character in the string.
 
 Example:
-
-```ASCII('Hi')```
+ASCII('Hi')
 
 ### BIT_LENGTH
 
-```BIT_LENGTH(bytes)```
+ ```BIT_LENGTH(bytes) -> LONG```
 
-Returns the number of bits in a binary string. This method returns a **LONG**.
+ Returns the number of bits in a binary string.
 
 Example:
-
-```BIT_LENGTH(NAME)```
+BIT_LENGTH(NAME)
 
 ### CHAR_LENGTH / LENGTH
 
-```CHAR_LENGTH | LENGTH (string)```
+ ```CHAR_LENGTH | LENGTH (string) -> LONG```
 
-Returns the number of characters in a character string. This method returns a **LONG**.
+ Returns the number of characters in a character string.
 
 Example:
-
-```CHAR_LENGTH(NAME)```
+CHAR_LENGTH(NAME)
 
 ### OCTET_LENGTH
 
-```OCTET_LENGTH(bytes)```
+ ```OCTET_LENGTH(bytes) -> LONG```
 
-Returns the number of bytes in a binary string. This method returns a **LONG**.
+ Returns the number of bytes in a binary string.
 
 Example:
-
-```OCTET_LENGTH(NAME)```
+OCTET_LENGTH(NAME)
 
 ### CHAR / CHR
 
-```CHAR | CHR (int)```
+ ```CHAR | CHR (int) -> STRING```
 
-Returns the character that represents the ASCII value. This method returns a **STRING**.
+ Returns the character that represents the ASCII value.
 
 Example:
-
-```CHAR(65)```
+CHAR(65)
 
 ### CONCAT
 
-```CONCAT(string, string[, string ...])```
+ ```CONCAT(string, string[, string ...]) -> STRING```
 
-Combines strings. Unlike with the operator `||`, **NULL** parameters are ignored, and do not cause the result to become **NULL**. If all parameters are NULL the result is an empty string. This method returns a **STRING**.
+ Combines strings. Unlike with the operator `||`, **NULL** parameters are ignored and do not cause the result to become **NULL**.
 
 Example:
-
-```CONCAT(NAME, '_')```
+CONCAT(NAME, '_')
 
 ### CONCAT_WS
 
-```CONCAT_WS(separatorString, string, string[, string ...])```
-
-Combines strings with separator. If separator is **NULL** it is treated like an empty string. Other **NULL** parameters are ignored. Remaining **non-NULL** parameters, if any, are concatenated with the specified separator. If there are no remaining parameters the result is an empty string. This method returns a **STRING**.
+ ```CONCAT_WS(separatorString, string, string[, string ...]) -> STRING```
 
 Example:
-
-```CONCAT_WS(',', NAME, '_')```
+CONCAT_WS(',', NAME, '_')
 
 ### HEXTORAW
 
-```HEXTORAW(string)```
+ ```HEXTORAW(string) -> STRING```
 
-Converts a hex representation of a string to a string. 4 hex characters per string character are used. This method returns a **STRING**.
+ Converts a hex representation of a string to a string. 4 hex characters per string character are used.
 
 Example:
-
-```HEXTORAW(DATA)```
+HEXTORAW(DATA)
 
 ### RAWTOHEX
 
-```RAWTOHEX(string)```
+ ```RAWTOHEX(string | bytes) -> STRING```
 
-```RAWTOHEX(bytes)```
-
-Converts a string or bytes to the hex representation. 4 hex characters per string character are used. This method returns a **STRING**.
+ Converts a string or bytes to the hex representation. 4 hex characters per string character are used.
 
 Example:
-
-```RAWTOHEX(DATA)```
+RAWTOHEX(DATA)
 
 ### INSERT
 
-```INSERT(originalString, startInt, lengthInt, addString)```
-
-Inserts an additional string into the original string at a specified start position. The length specifies the number of characters that are removed at the start position in the original string. This method returns a **STRING**.
+ ```INSERT(originalString, startInt, lengthInt, addString) -> STRING```
 
 Example:
-
-```INSERT(NAME, 1, 1, ' ')```
+INSERT(NAME, 1, 1, ' ')
 
 ### LOWER / LCASE
 
-```LOWER | LCASE (string)```
+ ```LOWER | LCASE (string) -> STRING```
 
-Converts a string to lowercase. This method returns a **STRING**.
+ Converts a string to lowercase.
 
 Example:
-
-```LOWER(NAME)```
+LOWER(NAME)
 
 ### UPPER / UCASE
 
-```UPPER | UCASE (string)```
+ ```UPPER | UCASE (string) -> STRING```
 
-Converts a string to uppercase. This method returns a **STRING**.
+ Converts a string to uppercase.
 
 Example:
-
-```UPPER(NAME)```
+UPPER(NAME)
 
 ### LEFT
 
-```LEFT(string, int)```
+ ```LEFT(string, int) -> STRING```
 
-Returns the leftmost number of characters. This method returns a **STRING**.
+ Returns the leftmost number of characters.
 
 Example:
-
-```LEFT(NAME, 3)```
+LEFT(NAME, 3)
 
 ### RIGHT
 
-```RIGHT(string, int)```
+ ```RIGHT(string, int) -> STRING```
 
-Returns the rightmost number of characters. This method returns a **STRING**.
+ Returns the rightmost number of characters.
 
 Example:
-
-```RIGHT(NAME, 3)```
+RIGHT(NAME, 3)
 
 ### LOCATE / INSTR / POSITION
 
-```LOCATE(searchString, string[, startInt])```
-
-```INSTR(string, searchString[, startInt])```
-
-```POSITION(searchString, string)```
-
-Returns the location of a search string in a string. If a start position is used, the characters before it are ignored. If position is negative, the rightmost location is returned. `0` is returned if the search string is not found. Please note this function is case sensitive, even if the parameters are not. This method returns an **INT**.
+ ```LOCATE(searchString, string[, startInt]) -> INT```
+ ```INSTR(string, searchString[, startInt]) -> INT```
+ ```POSITION(searchString, string) -> INT```
 
 Example:
-
-```LOCATE('.', NAME)```
+LOCATE('.', NAME)
 
 ### LPAD
 
-```LPAD(string, int[, string])```
+ ```LPAD(string, int[, string]) -> STRING```
 
-Left pad the string to the specified length. If the length is shorter than the string, it will be truncated at the end. If the padding string is not set, spaces will be used. This method returns a **STRING**.
+ Left pad the string to the specified length. If the length is shorter than the string, it will be truncated at the end. If the padding string is not set, spaces will be used.
 
 Example:
-
-```LPAD(AMOUNT, 10, '*')```
+LPAD(AMOUNT, 10, '*')
 
 ### RPAD
 
-```RPAD(string, int[, string])```
+ ```RPAD(string, int[, string]) -> STRING```
 
-Right pad the string to the specified length. If the length is shorter than the string, it will be truncated. If the padding string is not set, spaces will be used. This method returns a **STRING**.
+ Right pad the string to the specified length. If the length is shorter than the string, it will be truncated. If the padding string is not set, spaces will be used.
 
 Example:
-
-```RPAD(TEXT, 10, '-')```
+RPAD(TEXT, 10, '-')
 
 ### LTRIM
 
-```LTRIM(string[, characterToTrimString])```
+ ```LTRIM(string[, characterToTrimString]) -> STRING```
 
-Removes all leading spaces or other specified characters from a string. This method returns a **STRING**.
+ Removes all leading spaces or other specified characters from a string.
 
 Example:
-
-```LTRIM(NAME)```
+LTRIM(NAME)
 
 ### RTRIM
 
-```RTRIM(string[, characterToTrimString])```
+ ```RTRIM(string[, characterToTrimString]) -> STRING```
 
-Removes all trailing spaces or other specified characters from a string. This method returns a **STRING**.
+ Removes all trailing spaces or other specified characters from a string.
 
 Example:
-
-```RTRIM(NAME)```
+RTRIM(NAME)
 
 ### TRIM
 
-```TRIM(string[, characterToTrimString])```
+ ```TRIM(string[, characterToTrimString]) -> STRING```
 
-Removes all leading spaces and trailing spaces or other specified characters from a string. This method returns a **STRING**.
+ Removes all leading and trailing spaces or other specified characters from a string.
 
 Example:
-
-```TRIM(NAME)```
+TRIM(NAME)
 
 ### REGEXP_REPLACE
 
-```REGEXP_REPLACE(inputString, regexString, replacementString[, flagsString])```
+ ```REGEXP_REPLACE(inputString, regexString, replacementString[, flagsString]) -> STRING```
 
-Replaces each substring that matches a regular expression. For details, see the Java `String.replaceAll()` method. If any parameter is null (except optional `flagsString` parameter), the result is null.
+ Replaces each substring that matches a regular expression. For details, see the Java `String.replaceAll()` method. If any parameter is null (except optional `flagsString`), the result is null.
 
-Flags values are limited to `'i'`, `'c'`, `'n'`, `'m'`. Other symbols cause exception. Multiple symbols could be used in one `flagsString` parameter (like `'im'`). Later flags override first ones, for example `'ic'` is equivalent to case sensitive matching `'c'`.
-
-- `'i'` enables case insensitive matching (`Pattern.CASE_INSENSITIVE`)
-- `'c'` disables case insensitive matching (`Pattern.CASE_INSENSITIVE`)
-- `'n'` allows the period to match the newline character (`Pattern.DOTALL`)
-- `'m'` enables multiline mode (`Pattern.MULTILINE`)
-
-This method returns a **STRING**.
+ `i` enables case insensitive matching (Pattern.CASE_INSENSITIVE)  
+ `c` disables case insensitive matching (Pattern.CASE_INSENSITIVE)  
+ `n` allows the period to match the newline character (Pattern.DOTALL)
+ `m` enables multiline mode (Pattern.MULTILINE)
 
 Example:
-
-```REGEXP_REPLACE('Hello    World', ' +', ' ')```
-
-```REGEXP_REPLACE('Hello WWWWorld', 'w+', 'W', 'i')```
+REGEXP_REPLACE('Hello    World', ' +', ' ')
+REGEXP_REPLACE('Hello WWWWorld', 'w+', 'W', 'i')
 
 ### REGEXP_LIKE
 
-```REGEXP_LIKE(inputString, regexString[, flagsString])```
+ ```REGEXP_LIKE(inputString, regexString[, flagsString]) -> BOOLEAN```
 
-Matches string to a regular expression. For details, see the Java `Matcher.find()` method. If any parameter is null (except optional `flagsString` parameter), the result is null.
+ Matches string to a regular expression. For details, see the Java `Matcher.find()` method. If any parameter is null (except optional `flagsString`), the result is null.
 
-Flags values are limited to `'i'`, `'c'`, `'n'`, `'m'`. Other symbols cause exception. Multiple symbols could be used in one `flagsString` parameter (like `'im'`). Later flags override first ones, for example `'ic'` is equivalent to case sensitive matching `'c'`.
+ `i` enables case insensitive matching (Pattern.CASE_INSENSITIVE)  
+ `c` disables case insensitive matching (Pattern.CASE_INSENSITIVE)  
+ `n` allows the period to match the newline character (Pattern.DOTALL)
+ `m` enables multiline mode (Pattern.MULTILINE)
 
-- `'i'` enables case insensitive matching (`Pattern.CASE_INSENSITIVE`)
-- `'c'` disables case insensitive matching (`Pattern.CASE_INSENSITIVE`)
-- `'n'` allows the period to match the newline character (`Pattern.DOTALL`)
-- `'m'` enables multiline mode (`Pattern.MULTILINE`)
-
-This method returns a **BOOLEAN**.
 
 Example:
-
-```REGEXP_LIKE('Hello    World', '[A-Z ]*', 'i')```
+REGEXP_LIKE('Hello    World', '[A-Z ]*', 'i')
 
 ### REGEXP_SUBSTR
 
-```REGEXP_SUBSTR(inputString, regexString[, positionInt, occurrenceInt, flagsString, groupInt])```
+ ```REGEXP_SUBSTR(inputString, regexString[, positionInt, occurrenceInt, flagsString, groupInt]) -> STRING```
 
-Matches string to a regular expression and returns the matched substring. For details, see the `java.util.regex.Pattern` and related functionality.
+ Matches string to a regular expression and returns the matched substring. For details, see the `java.util.regex.Pattern` and related functionality.
 
-The parameter `position` specifies where in `inputString` the match should start. `Occurrence` indicates which occurrence of pattern in `inputString` to search for.
+ The parameter `position` specifies where in `inputString` the match should start. `Occurrence` indicates which occurrence of `pattern` in `inputString` to search for.
 
-Flags values are limited to `'i'`, `'c'`, `'n'`, `'m'`. Other symbols cause exception. Multiple symbols could be used in one `flagsString` parameter (like `'im'`). Later flags override first ones, for example `'ic'` is equivalent to case sensitive matching `'c'`.
+ `i` enables case insensitive matching (Pattern.CASE_INSENSITIVE)  
+ `c` disables case insensitive matching (Pattern.CASE_INSENSITIVE)  
+ `n` allows the period to match the newline character (Pattern.DOTALL)  
+ `m` enables multiline mode (Pattern.MULTILINE)
 
-- `'i'` enables case insensitive matching (`Pattern.CASE_INSENSITIVE`)
-- `'c'` disables case insensitive matching (`Pattern.CASE_INSENSITIVE`)
-- `'n'` allows the period to match the newline character (`Pattern.DOTALL`)
-- `'m'` enables multiline mode (`Pattern.MULTILINE`)
-
-If the pattern has groups, the `group` parameter can be used to specify which group to return.
-
-This method returns a **STRING**.
+ If the pattern has groups, the `group` parameter can be used to specify which group to return.
 
 Example:
-
-```REGEXP_SUBSTR('2020-10-01', '\d{4}')```
-
-```REGEXP_SUBSTR('2020-10-01', '(\d{4})-(\d{2})-(\d{2})', 1, 1, NULL, 2)```
+REGEXP_SUBSTR('2020-10-01', '\d{4}')
+REGEXP_SUBSTR('2020-10-01', '(\d{4})-(\d{2})-(\d{2})', 1, 1, NULL, 2)
 
 ### REPEAT
 
-```REPEAT(string, int)```
+ ```REPEAT(string, int) -> STRING```
 
-Returns a string repeated some number of times. This method returns a **STRING**.
+ Returns a string repeated some number of times.
 
 Example:
-
-```REPEAT(NAME || ' ', 10)```
+REPEAT(NAME || ' ', 10)
 
 ### REPLACE
 
-```REPLACE(string, searchString[, replacementString])```
-
-Replaces all occurrences of a search string in a text with another string. If no replacement is specified, the search string is removed from the original string. If any parameter is null, the result is null. This method returns a **STRING**.
+ ```REPLACE(string, searchString[, replacementString]) -> STRING```
 
 Example:
-
-```REPLACE(NAME, ' ')```
+REPLACE(NAME, ' ')
 
 ### SPLIT
 
-```SPLIT(string, delimiterString)```
+ ```SPLIT(string, delimiterString) -> ARRAY<STRING>```
 
-Splits a string into an array. This method returns an **ARRAY**.
+ Split a string into an array.
 
 Example:
-
-```SELECT SPLIT(test, ';') AS arrays```
+SELECT SPLIT(test,';') AS arrays
 
 ### SOUNDEX
 
-```SOUNDEX(string)```
+ ```SOUNDEX(string) -> STRING```
 
-Returns a four character code representing the sound of a string, or null if parameter is null. See [Soundex](https://en.wikipedia.org/wiki/Soundex) for more information. This method returns a **STRING**.
+ Returns a four-character code representing the sound of a string. See https://en.wikipedia.org/wiki/Soundex
 
 Example:
-
-```SOUNDEX(NAME)```
+SOUNDEX(NAME)
 
 ### SPACE
 
-```SPACE(int)```
+ ```SPACE(int) -> STRING```
 
-Returns a string consisting of a number of spaces. This method returns a **STRING**.
+ Returns a string consisting of a number of spaces.
 
 Example:
-
-```SPACE(80)```
+SPACE(80)
 
 ### SUBSTRING / SUBSTR
 
-```SUBSTRING | SUBSTR (string, startInt[, lengthInt])```
+ ```SUBSTRING | SUBSTR (string, startInt[, lengthInt]) -> STRING```
 
-Returns a substring of a string starting at a position. If the start index is negative, then the start index is relative to the end of the string. The length is optional. This method returns a **STRING**.
+ Returns a substring of a string starting at a position. If the start index is negative, then the start index is relative to the end of the string. The length is optional.
 
 Example:
-
-```sql
 CALL SUBSTRING('[Hello]', 2);
-
 CALL SUBSTRING('hour', 3, 2);
-```
+
 ### TO_CHAR
 
-```TO_CHAR(value[, formatString])```
+ ```TO_CHAR(value[, formatString]) -> STRING```
 
-Oracle-compatible `TO_CHAR` function that can format a timestamp, a number, or text. This method returns a **STRING**.
+ Oracle-compatible TO_CHAR function that can format a timestamp, a number, or text.
 
 Example:
-
-```CALL TO_CHAR(SYS_TIME, 'yyyy-MM-dd HH:mm:ss')```
+CALL TO_CHAR(SYS_TIME, 'yyyy-MM-dd HH:mm:ss')
 
 ### TRANSLATE
 
-```TRANSLATE(value, searchString, replacementString)```
-
-Oracle-compatible `TRANSLATE` function that replaces a sequence of characters in a string with another set of characters. This method returns a **STRING**.
+ ```TRANSLATE(value, searchString, replacementString) -> STRING```
 
 Example:
-
-```CALL TRANSLATE('Hello world', 'eo', 'EO')```
+CALL TRANSLATE('Hello world', 'eo', 'EO')
 
 ## Numeric Functions
 
 ### ABS
 
-```ABS(numeric)```
+ ```ABS(numeric) -> numeric (same type)```
 
-Returns the absolute value of a specified value. The returned value is of the same data type as the parameter.
-
-Note that TINYINT, SMALLINT, INT, and BIGINT data types cannot represent absolute values of their minimum negative values, because they have more negative values than positive. For example, for INT data type allowed values are from -2147483648 to 2147483647. `ABS(-2147483648)` should be 2147483648, but this value is not allowed for this data type. It leads to an exception. To avoid it cast the argument of this function to a higher data type.
-
-This method returns a **NUMERIC** type (same as input).
+ Returns the absolute value of a specified value.
 
 Example:
-
-```ABS(I)```
+ABS(I)
 
 ### ACOS
 
-```ACOS(numeric)```
+ ```ACOS(numeric) -> DOUBLE```
 
-Calculates the arc cosine. See also Java `Math.acos`. This method returns a **DOUBLE**.
+ Calculate the arc cosine. See also Java `Math.acos`.
 
 Example:
-
-```ACOS(D)```
+ACOS(D)
 
 ### ARRAY_MAX
 
-```ARRAY_MAX(array)```
+ ```ARRAY_MAX(array) -> type(array element)```
 
-Returns the maximum value of the expression. This method returns the **same type as the array element**.
+ Returns the maximum value of the array expression.
 
 Example:
-
-```ARRAY_MAX(I)```
+ARRAY_MAX(I)
 
 ### ARRAY_MIN
 
-```ARRAY_MIN(array)```
+ ```ARRAY_MIN(array) -> type(array element)```
 
-Returns the minimum value of the expression. This method returns the **same type as the array element**.
+ Returns the minimum value of the array expression.
 
 Example:
-
-```ARRAY_MIN(I)```
+ARRAY_MIN(I)
 
 ### ASIN
 
-```ASIN(numeric)```
+ ```ASIN(numeric) -> DOUBLE```
 
-Calculates the arc sine. See also Java `Math.asin`. This method returns a **DOUBLE**.
+ Calculate the arc sine. See also Java `Math.asin`.
 
 Example:
-
-```ASIN(D)```
+ASIN(D)
 
 ### ATAN
 
-```ATAN(numeric)```
+ ```ATAN(numeric) -> DOUBLE```
 
-Calculates the arc tangent. See also Java `Math.atan`. This method returns a **DOUBLE**.
+ Calculate the arc tangent. See also Java `Math.atan`.
 
 Example:
-
-```ATAN(D)```
+ATAN(D)
 
 ### COS
 
-```COS(numeric)```
+ ```COS(numeric) -> DOUBLE```
 
-Calculates the trigonometric cosine. See also Java `Math.cos`. This method returns a **DOUBLE**.
+ Calculate the trigonometric cosine. See also Java `Math.cos`.
 
 Example:
-
-```COS(ANGLE)```
+COS(ANGLE)
 
 ### COSH
 
-```COSH(numeric)```
+ ```COSH(numeric) -> DOUBLE```
 
-Calculates the hyperbolic cosine. See also Java `Math.cosh`. This method returns a **DOUBLE**.
+ Calculate the hyperbolic cosine. See also Java `Math.cosh`.
 
 Example:
-
-```COSH(X)```
+COSH(X)
 
 ### COT
 
-```COT(numeric)```
+ ```COT(numeric) -> DOUBLE```
 
-Calculates the trigonometric cotangent (`1/TAN(ANGLE)`). See also Java Math.* functions. This method returns a **DOUBLE**.
+ Calculate the trigonometric cotangent (1/TAN(ANGLE)).
 
 Example:
-
-```COT(ANGLE)```
+COT(ANGLE)
 
 ### SIN
 
-```SIN(numeric)```
+ ```SIN(numeric) -> DOUBLE```
 
-Calculates the trigonometric sine. See also Java `Math.sin`. This method returns a **DOUBLE**.
+ Calculate the trigonometric sine. See also Java `Math.sin`.
 
 Example:
-
-```SIN(ANGLE)```
+SIN(ANGLE)
 
 ### SINH
 
-```SINH(numeric)```
+ ```SINH(numeric) -> DOUBLE```
 
-Calculates the hyperbolic sine. See also Java `Math.sinh`. This method returns a **DOUBLE**.
+ Calculate the hyperbolic sine. See also Java `Math.sinh`.
 
 Example:
-
-```SINH(ANGLE)```
+SINH(ANGLE)
 
 ### TAN
 
-```TAN(numeric)```
+ ```TAN(numeric) -> DOUBLE```
 
-Calculates the trigonometric tangent. See also Java `Math.tan`. This method returns a **DOUBLE**.
+ Calculate the trigonometric tangent. See also Java `Math.tan`.
 
 Example:
-
-```TAN(ANGLE)```
+TAN(ANGLE)
 
 ### TANH
 
-```TANH(numeric)```
+ ```TANH(numeric) -> DOUBLE```
 
-Calculates the hyperbolic tangent. See also Java `Math.tanh`. This method returns a **DOUBLE**.
+ Calculate the hyperbolic tangent. See also Java `Math.tanh`.
 
 Example:
-
-```TANH(X)```
+TANH(X)
 
 ### MOD
 
-```MOD(dividendNumeric, divisorNumeric)```
+ ```MOD(dividendNumeric, divisorNumeric) -> type(divisorNumeric)```
 
-The modulus expression.
-
-Result has the same type as divisor. Result is NULL if either of arguments is NULL. If divisor is 0, an exception is raised. Result has the same sign as dividend or is equal to 0.
-
-Usually arguments should have scale 0, but it isn't required by H2.
-
-This method returns a **NUMERIC** type (same as divisor).
+ The modulus expression. Result is NULL if either argument is NULL; if divisor is 0, an exception is raised. Result has the same sign as dividend or is equal to 0.
 
 Example:
-
-```MOD(A, B)```
+MOD(A, B)
 
 ### CEIL / CEILING
 
-```CEIL | CEILING (numeric)```
+ ```CEIL | CEILING (numeric) -> numeric (same type, scale 0)```
 
-Returns the smallest integer value that is greater than or equal to the argument. This method returns a **NUMERIC** type (same as input) with scale set to 0 and adjusted precision, if applicable.
+ Returns the smallest integer value that is greater than or equal to the argument (scale set to 0).
 
 Example:
-
-```CEIL(A)```
+CEIL(A)
 
 ### EXP
 
-```EXP(numeric)```
+ ```EXP(numeric) -> DOUBLE```
 
-See also Java `Math.exp`. This method returns a **DOUBLE**.
+ See also Java `Math.exp`.
 
 Example:
-
-```EXP(A)```
+EXP(A)
 
 ### FLOOR
 
-```FLOOR(numeric)```
+ ```FLOOR(numeric) -> numeric (same type, scale 0)```
 
-Returns the largest integer less than or equal to the argument. This method returns the **same type as the argument** with scale set to 0.
+ Returns the largest integer value that is less than or equal to the argument (scale set to 0).
 
 Example:
-
-```FLOOR(A)```
+FLOOR(A)
 
 ### LN
 
-```LN(numeric)```
+ ```LN(numeric) -> DOUBLE```
 
-Calculates the natural (base e) logarithm as a double value. Argument must be a positive numeric value. This method returns a **DOUBLE**.
+ Calculates the natural (base e) logarithm.
 
 Example:
-
-```LN(A)```
+LN(A)
 
 ### LOG
 
-```LOG(baseNumeric, numeric)```
+ ```LOG(baseNumeric, numeric) -> DOUBLE```
 
-Calculates the logarithm with the specified base as a double value. Argument and base must be positive numeric values. Base cannot be equal to 1.
-
-The default base is e (natural logarithm); in PostgreSQL mode the default base is base 10. In MSSQLServer mode the optional base is specified after the argument.
-
-Single-argument variant of `LOG` function is deprecated; use `LN` or `LOG10` instead.
-
-This method returns a **DOUBLE**.
+ Calculates the logarithm with specified base. Arguments must be positive; base cannot be 1.
 
 Example:
-
-```LOG(2, A)```
+LOG(2, A)
 
 ### LOG10
 
-```LOG10(numeric)```
+ ```LOG10(numeric) -> DOUBLE```
 
-Calculates the base 10 logarithm as a double value. Argument must be a positive numeric value. This method returns a **DOUBLE**.
+ Calculates the base 10 logarithm.
 
 Example:
-
-```LOG10(A)```
+LOG10(A)
 
 ### RADIANS
 
-```RADIANS(numeric)```
+ ```RADIANS(numeric) -> DOUBLE```
 
-See also Java `Math.toRadians`. This method returns a **DOUBLE**.
+ See also Java `Math.toRadians`.
 
 Example:
-
-```RADIANS(A)```
+RADIANS(A)
 
 ### SQRT
 
-```SQRT(numeric)```
+ ```SQRT(numeric) -> DOUBLE```
 
-See also Java `Math.sqrt`. This method returns a **DOUBLE**.
+ See also Java `Math.sqrt`.
 
 Example:
-
-```SQRT(A)```
+SQRT(A)
 
 ### PI
 
-```PI()```
+ ```PI() -> DOUBLE```
 
-See also Java `Math.PI`. This method returns a **DOUBLE**.
+ See also Java `Math.PI`.
 
 Example:
-
-```PI()```
+PI()
 
 ### POWER
 
-```POWER(numeric, numeric)```
+ ```POWER(numeric, numeric) -> DOUBLE```
 
-See also Java `Math.pow`. This method returns a **DOUBLE**.
+ See also Java `Math.pow`.
 
 Example:
-
-```POWER(A, B)```
+POWER(A, B)
 
 ### RAND / RANDOM
 
-```RAND | RANDOM([ int ])```
-
-Calling the function without a parameter returns the next pseudo-random number. Calling it with a parameter seeds the session's random number generator. This method returns a **DOUBLE** between 0 (inclusive) and 1 (exclusive).
+ ```RAND | RANDOM([int]) -> DOUBLE```
 
 Example:
-
-```RAND()```
+RAND()
 
 ### ROUND
 
-```ROUND(numeric[, digitsInt])```
+ ```ROUND(numeric[, digitsInt]) -> numeric (same type)```
 
-Rounds to a number of fractional digits. This method returns a value of the same type as the argument, but with adjusted precision and scale, if applicable.
+ Rounds to a number of fractional digits (precision/scale adjusted if applicable).
 
 Example:
-
-```ROUND(N, 2)```
+ROUND(N, 2)
 
 ### SIGN
 
-```SIGN(numeric)```
+ ```SIGN(numeric) -> INT```
 
-Returns `-1` if the value is smaller than 0, `0` if zero or NaN, and otherwise `1`. This method returns an **INT**.
+ Returns -1 if the value is smaller than 0, 0 if zero or NaN, and otherwise 1.
 
 Example:
-
-```SIGN(N)```
+SIGN(N)
 
 ### TRUNC
 
-```TRUNC | TRUNCATE(numeric[, digitsInt])```
-
-Truncates a numeric value to the specified number of digits (toward zero). This method returns the **same type as the argument** with adjusted precision and scale, if applicable.
+ ```TRUNC | TRUNCATE(numeric[, digitsInt]) -> numeric (same type)```
 
 Example:
-
-```TRUNC(N, 2)```
+TRUNC(N, 2)
 
 ### TRIM_SCALE
 
-```TRIM_SCALE(numeric)```
+ ```TRIM_SCALE(numeric) -> STRING```
 
-Reduces the scale of a number by removing trailing zeroes. This method returns a **STRING** with adjusted scale.
+ Reduce the scale of a number by removing trailing zeroes.
 
 Example:
-
-```TRIM_SCALE(N)```
+TRIM_SCALE(N)
 
 ## Time and Date Functions
 
 ### CURRENT_DATE
 
-```CURRENT_DATE [()]```
+ ```CURRENT_DATE -> DATE```
 
-Returns the current date. These functions return the same value within a transaction (default) or within a command depending on database mode. This method returns a **DATE**.
+ Returns the current date. These functions return the same value within a transaction (default) or within a command depending on database mode.
 
 Example:
-
-```CURRENT_DATE```
+CURRENT_DATE
 
 ### CURRENT_TIME
 
-```CURRENT_TIME [()]```
-
-Returns the current time with system time zone. The actual maximum available precision depends on the operating system and JVM and can be 3 (milliseconds) or higher. Higher precision is not available before Java 9. This method returns a **TIME WITH TIME ZONE**.
+ ```CURRENT_TIME -> TIME```
 
 Example:
-
-```CURRENT_TIME```
+CURRENT_TIME
 
 ### CURRENT_TIMESTAMP / NOW
 
-```CURRENT_TIMESTAMP[()] | NOW()```
-
-Returns the current timestamp with system time zone. The actual maximum available precision depends on the operating system and JVM and can be 3 (milliseconds) or higher. Higher precision is not available before Java 9. This method returns a **TIMESTAMP WITH TIME ZONE**.
+ ```CURRENT_TIMESTAMP | NOW() -> TIMESTAMP```
 
 Example:
-
-```CURRENT_TIMESTAMP```
+CURRENT_TIMESTAMP
 
 ### DATEADD / TIMESTAMPADD
 
-```DATEADD | TIMESTAMPADD(dateAndTime, addIntLong, datetimeFieldString)```
+ ```DATEADD | TIMESTAMPADD(dateAndTime, addIntLong, datetimeFieldString) -> dateAndTime (same type)```
 
-Adds units to a date-time value. The `datetimeFieldString` indicates the unit. Use negative values to subtract units. `addIntLong` may be a long value when manipulating milliseconds, microseconds, or nanoseconds; otherwise its range is restricted to int.  
-This method returns a **DATE**, **TIME**, or **TIMESTAMP** depending on the specified value and unit. If the specified field is HOUR, MINUTE, SECOND, MILLISECOND, etc., and value is a DATE, `DATEADD` returns a combined TIMESTAMP. Fields DAY, MONTH, YEAR, WEEK, etc., are not allowed for TIME values.
+ Adds units to a date-time value; use negative values to subtract. The `datetimeFieldString` indicates the unit.  
+ **Note:** Adding time-based fields (HOUR/MINUTE/SECOND/MILLISECOND/MICROSECOND/NANOSECOND) to a `DATE` value may return a `TIMESTAMP`.
 
 Example:
-
-```DATEADD(CREATED, 1, 'MONTH')```
+DATEADD(CREATED, 1, 'MONTH')
 
 ### DATEDIFF
 
-```DATEDIFF(aDateAndTime, bDateAndTime, datetimeFieldString)```
+ ```DATEDIFF(aDateAndTime, bDateAndTime, datetimeFieldString) -> LONG```
 
-Returns the number of crossed unit boundaries between two date-time values. This method returns a **LONG**. The `datetimeField` indicates the unit.
+ Returns the number of crossed unit boundaries between two date-time values. The `datetimeField` indicates the unit.
 
 Example:
-
-```DATEDIFF(T1.CREATED, T2.CREATED, 'MONTH')```
+DATEDIFF(T1.CREATED, T2.CREATED, 'MONTH')
 
 ### DATE_TRUNC
 
-```DATE_TRUNC(dateAndTime, datetimeFieldString)```
+ ```DATE_TRUNC(dateAndTime, datetimeFieldString) -> dateAndTime (same type)```
 
-Truncates the specified date-time value to the specified field. This method returns the **same type as the input date/time**.
+ Truncates the specified date-time value to the specified field.
 
 Example:
-
-```DATE_TRUNC(CREATED, 'DAY')```
+DATE_TRUNC(CREATED, 'DAY');
 
 ### DAYNAME
 
-```DAYNAME(dateAndTime)```
+ ```DAYNAME(dateAndTime) -> STRING```
 
-Returns the name of the day (in English). This method returns a **STRING**.
+ Returns the name of the day (in English).
 
 Example:
-
-```DAYNAME(CREATED)```
+DAYNAME(CREATED)
 
 ### DAY_OF_MONTH
 
-```DAY_OF_MONTH(dateAndTime)```
+ ```DAY_OF_MONTH(dateAndTime) -> INT```
 
-Returns the day of the month (1-31). This method returns an **INT**.
+ Returns the day of the month (1-31).
 
 Example:
-
-```DAY_OF_MONTH(CREATED)```
+DAY_OF_MONTH(CREATED)
 
 ### DAY_OF_WEEK
 
-```DAY_OF_WEEK(dateAndTime)```
+ ```DAY_OF_WEEK(dateAndTime) -> INT```
 
-Returns the day of the week (1-7) (Monday-Sunday), locale-specific. This method returns an **INT**.
+ Returns the day of the week (1-7) (Monday-Sunday), locale-specific.
 
 Example:
-
-```DAY_OF_WEEK(CREATED)```
+DAY_OF_WEEK(CREATED)
 
 ### DAY_OF_YEAR
 
-```DAY_OF_YEAR(dateAndTime)```
+ ```DAY_OF_YEAR(dateAndTime) -> INT```
 
-Returns the day of the year (1-366). This method returns an **INT**.
+ Returns the day of the year (1-366).
 
 Example:
-
-```DAY_OF_YEAR(CREATED)```
+DAY_OF_YEAR(CREATED)
 
 ### EXTRACT
 
-```EXTRACT(datetimeField FROM dateAndTime)```
+ ```EXTRACT(datetimeField FROM dateAndTime) -> INT```
 
-Returns a value of the specific time unit from a date/time value. This method returns a **NUMERIC** value with `EPOCH` field and an **INT** for all other fields.
+ Returns a value of the specific time unit from a date/time value. (Note: `EPOCH` may be represented as seconds since epoch; implementations may return a wider integer.)
 
-The following are valid field names for `EXTRACT`:
+ The EXTRACT function supports all four DateTime literal types:
 
-- `CENTURY`: The century; for interval values, the year field divided by 100  
-- `DAY`: The day of the month (1-31); for interval values, the number of days  
-- `DECADE`: The year field divided by 10  
-- `DOW` or `DAYOFWEEK`: The day of the week as Sunday (0) to Saturday (6)  
-- `DOY`: The day of the year (1-365/366)  
-- `EPOCH`: For timestamp values, the number of seconds since 1970-01-01 00:00:00; for interval values, the total number of seconds  
-- `HOUR`: The hour field (0-23)  
-- `ISODOW`: The day of the week as Monday (1) to Sunday (7), matching ISO 8601  
-- `ISOYEAR`: The ISO 8601 week-numbering year  
-- `MICROSECONDS`: The seconds field, including fractional parts, multiplied by 1,000,000  
-- `MILLENNIUM`: The millennium; for interval values, the year field divided by 1000  
-- `MILLISECONDS`: The seconds field, including fractional parts, multiplied by 1,000  
-- `MINUTE`: The minutes field (0-59)  
-- `MONTH`: The number of the month within the year (1-12); for interval values, the number of months modulo 12 (0-11)  
-- `QUARTER`: The quarter of the year (1-4) that the date is in  
-- `SECOND`: The seconds field, including any fractional seconds  
-- `WEEK`: The number of the ISO 8601 week-numbering week of the year (1-53)  
-- `YEAR`: The year field  
+ - `DATE`: For extracting date components from a date literal
+   EXTRACT(YEAR FROM DATE '2025-05-21')
+
+ - `TIME`: For extracting time components from a time literal
+   EXTRACT(HOUR FROM TIME '17:57:40')
+
+ - `TIMESTAMP`: For extracting date and time components from a timestamp literal
+   EXTRACT(YEAR FROM TIMESTAMP '2025-05-21T17:57:40')
+
+ - `TIMESTAMP WITH TIMEZONE`: For extracting components from a timestamp with timezone literal
+   EXTRACT(HOUR FROM TIMESTAMPTZ '2025-05-21T17:57:40+08:00')
 
 Examples:
-```sql
 EXTRACT(YEAR FROM TIMESTAMP '2001-02-16 20:38:40')
-
 EXTRACT(HOUR FROM TIMESTAMP '2001-02-16 20:38:40')
-
 EXTRACT(DOW FROM TIMESTAMP '2001-02-16 20:38:40')
-
 EXTRACT(YEAR FROM eventTime)
-
 EXTRACT(HOUR FROM eventTime)
-
 EXTRACT(DOW FROM eventTime)
-```
 
 ### FORMATDATETIME
 
-```FORMATDATETIME(dateAndTime, formatString)```
-
-Formats a date, time, or timestamp as a string. The most important format characters are: y year, M month, d day, H hour, m minute, s second. For details of the format, see `java.time.format.DateTimeFormatter`. This method returns a **STRING**.
+ ```FORMATDATETIME(dateAndTime, formatString) -> STRING```
 
 Example:
-
-```CALL FORMATDATETIME(CREATED, 'yyyy-MM-dd HH:mm:ss')```
+CALL FORMATDATETIME(CREATED, 'yyyy-MM-dd HH:mm:ss')
 
 ### HOUR
 
-```HOUR(dateAndTime)```
+ ```HOUR(dateAndTime) -> INT```
 
-Returns the hour (0-23) from a date/time value. This method returns an **INT**.
+ Returns the hour (0-23) from a date/time value.
 
 Example:
-
-```HOUR(CREATED)```
+HOUR(CREATED)
 
 ### MINUTE
 
-```MINUTE(dateAndTime)```
+ ```MINUTE(dateAndTime) -> INT```
 
-Returns the minute (0-59) from a date/time value. This method returns an **INT**.
-
-This function is deprecated; use `EXTRACT` instead.
+ Returns the minute (0-59) from a date/time value. (Deprecated; use `EXTRACT`.)
 
 Example:
-
-```MINUTE(CREATED)```
+MINUTE(CREATED)
 
 ### MONTH
 
-```MONTH(dateAndTime)```
+ ```MONTH(dateAndTime) -> INT```
 
-Returns the month (1-12) from a date/time value. This method returns an **INT**.
-
-This function is deprecated; use `EXTRACT` instead.
+ Returns the month (1-12) from a date/time value. (Deprecated; use `EXTRACT`.)
 
 Example:
-
-```MONTH(CREATED)```
+MONTH(CREATED)
 
 ### MONTHNAME
 
-```MONTHNAME(dateAndTime)```
+ ```MONTHNAME(dateAndTime) -> STRING```
 
-Returns the name of the month (in English). This method returns a **STRING**.
+ Returns the name of the month (in English).
 
 Example:
-
-```MONTHNAME(CREATED)```
+MONTHNAME(CREATED)
 
 ### IS_DATE
 
-```IS_DATE(string, formatString)```
-
-Parses a string and returns a boolean value. The most important format characters are: y year, M month, d day, H hour, m minute, s second. For details of the format, see `java.time.format.DateTimeFormatter`. This method returns a **BOOLEAN**.
+ ```IS_DATE(string, formatString) -> BOOLEAN```
 
 Example:
-
-```CALL IS_DATE('2021-04-08 13:34:45', 'yyyy-MM-dd HH:mm:ss')```
+CALL IS_DATE('2021-04-08 13:34:45','yyyy-MM-dd HH:mm:ss')
 
 ### PARSEDATETIME / TO_DATE
 
-```PARSEDATETIME | TO_DATE(string, formatString)```
-
-Parses a string and returns a **TIMESTAMP WITH TIME ZONE** value. The most important format characters are: y year, M month, d day, H hour, m minute, s second. For details of the format, see `java.time.format.DateTimeFormatter`.
+ ```PARSEDATETIME | TO_DATE(string, formatString) -> TIMESTAMP```
 
 Example:
-
-```CALL PARSEDATETIME('2021-04-08 13:34:45', 'yyyy-MM-dd HH:mm:ss')```
-
-```CALL TO_DATE('2021-04-08'T'13:34:45', 'yyyy-MM-dd''T''HH:mm:ss')```
-
-Note: When filling in `'` in SQL functions, it needs to be escaped to `''`.
+CALL PARSEDATETIME('2021-04-08 13:34:45','yyyy-MM-dd HH:mm:ss')
+CALL TO_DATE('2021-04-08''T''13:34:45','yyyy-MM-dd''T''HH:mm:ss')
+Note that when filling in `'` in SQL functions, it needs to be escaped to `''`.
 
 ### QUARTER
 
-```QUARTER(dateAndTime)```
+ ```QUARTER(dateAndTime) -> INT```
 
-Returns the quarter (1-4) from a date/time value. This method returns an **INT**.
+ Returns the quarter (1-4) from a date/time value.
 
 Example:
-
-```QUARTER(CREATED)```
+QUARTER(CREATED)
 
 ### SECOND
 
-```SECOND(dateAndTime)```
+ ```SECOND(dateAndTime) -> INT```
 
-Returns the second (0-59) from a date/time value. This method returns an **INT**.
-
-This function is deprecated; use `EXTRACT` instead.
+ Returns the second (0-59) from a date/time value. (Deprecated; use `EXTRACT`.)
 
 Example:
-
-```SECOND(CREATED)```
+SECOND(CREATED)
 
 ### WEEK
 
-```WEEK(dateAndTime)```
+ ```WEEK(dateAndTime) -> INT```
 
-Returns the week (1-53) from a date/time value. This method returns an **INT**.
-
-This function uses the current system locale.
+ Returns the week (1-53) from a date/time value. This function uses the current system locale.
 
 Example:
-
-```WEEK(CREATED)```
+WEEK(CREATED)
 
 ### YEAR
 
-```YEAR(dateAndTime)```
+ ```YEAR(dateAndTime) -> INT```
 
-Returns the year from a date/time value. This method returns an **INT**.
+ Returns the year from a date/time value.
 
 Example:
-
-```YEAR(CREATED)```
+YEAR(CREATED)
 
 ### FROM_UNIXTIME
 
-```FROM_UNIXTIME(unixtime, formatString, timeZone)```
+ ```FROM_UNIXTIME(unixtime, formatString[, timeZone]) -> STRING```
 
-Converts the number of seconds from the UNIX epoch (1970-01-01 00:00:00 UTC) to a string representing the timestamp of that moment.
-
-The most important format characters are: y year, M month, d day, H hour, m minute, s second. For details of the format, see `java.time.format.DateTimeFormatter`.
-
-`timeZone` is optional; the default value is the system's time zone. `timeZone` value can be a `UTC+` timezone offset, for example, `UTC+8` represents the Asia/Shanghai time zone, see `java.time.ZoneId`.
-
-This method returns a **STRING**.
+ Convert the number of seconds from the UNIX epoch (1970-01-01 00:00:00 UTC) to a string representing the timestamp of that moment. `timeZone` is optional; e.g., `UTC+8`.
 
 Example:
-
-```CALL FROM_UNIXTIME(1672502400, 'yyyy-MM-dd HH:mm:ss')```  
-```CALL FROM_UNIXTIME(1672502400, 'yyyy-MM-dd HH:mm:ss', 'UTC+6')```
+// use default zone
+CALL FROM_UNIXTIME(1672502400, 'yyyy-MM-dd HH:mm:ss')
+// use given zone
+CALL FROM_UNIXTIME(1672502400, 'yyyy-MM-dd HH:mm:ss','UTC+6')
 
 ## System Functions
 
 ### CAST
 
-```CAST(value AS dataType)```
+ ```CAST(value AS dataType) -> dataType```
 
-Converts a value to another data type.
+ Converts a value to another data type.
 
-Supported data types: STRING | VARCHAR, TINYINT, SMALLINT, INT | INTEGER, LONG | BIGINT, BYTE, FLOAT, DOUBLE, DECIMAL(p,s), TIMESTAMP, DATE, TIME, BYTES, BOOLEAN
-
-This method returns the specified **DATA TYPE**.
+ Supported data types: STRING | VARCHAR, TINYINT, SMALLINT, INT | INTEGER, LONG | BIGINT, BYTE, FLOAT, DOUBLE, DECIMAL(p,s), TIMESTAMP, DATE, TIME, BYTES, BOOLEAN
 
 Example:
+* CAST(NAME AS INT)
+* CAST(FLAG AS BOOLEAN)
 
-```CAST(NAME AS INT)```  
-```CAST(FLAG AS BOOLEAN)```
-
-Note: Converts a value to a BOOLEAN data type according to the following rules:  
-1. If the value can be interpreted as a boolean string (`'true'` or `'false'`), it returns the corresponding boolean value.  
-2. If the value can be interpreted as a numeric value (`1` or `0`), it returns `true` for `1` and `false` for `0`.  
-3. If the value cannot be interpreted according to the above rules, it throws a `TransformException`.
+ NOTE:  
+ Converts a value to a BOOLEAN data type according to the following rules:
+ 1. If the value can be interpreted as a boolean string (`'true'` or `'false'`), it returns the corresponding boolean value.  
+ 2. If the value can be interpreted as a numeric value (`1` or `0`), it returns `true` for `1` and `false` for `0`.  
+ 3. If the value cannot be interpreted according to the above rules, it throws a `TransformException`.
 
 ### TRY_CAST
 
-```TRY_CAST(value AS dataType)```
+ ```TRY_CAST(value AS dataType) -> dataType | NULL```
 
-This function is similar to `CAST`, but when the conversion fails, it returns `NULL` instead of throwing an exception.
+ Similar to CAST, but returns NULL instead of throwing an exception when the conversion fails.
 
-Supported data types: STRING | VARCHAR, TINYINT, SMALLINT, INT | INTEGER, LONG | BIGINT, BYTE, FLOAT, DOUBLE, DECIMAL(p,s), TIMESTAMP, DATE, TIME, BYTES
-
-This method returns the specified **DATA TYPE** or **NULL**.
+ Supported data types: STRING | VARCHAR, TINYINT, SMALLINT, INT | INTEGER, LONG | BIGINT, BYTE, FLOAT, DOUBLE, DECIMAL(p,s), TIMESTAMP, DATE, TIME, BYTES
 
 Example:
-
-```TRY_CAST(NAME AS INT)```
+TRY_CAST(NAME AS INT)
 
 ### COALESCE
 
-```COALESCE(aValue, bValue [,...])```
+ ```COALESCE(aValue, bValue[, ...]) -> type(of first non-null arg)```
 
-Returns the first value that is not null. This method returns the **same type as the first non-null value**.
+ Returns the first value that is not null.
 
 Example:
-
-```COALESCE(A, B, C)```
+COALESCE(A, B, C)
 
 ### IFNULL
 
-```IFNULL(aValue, bValue)```
+ ```IFNULL(aValue, bValue) -> type(common of args)```
 
-Returns the first value that is not null. This method returns the **same type as the first non-null value**.
+ Returns the first value that is not null.
 
 Example:
-
-```IFNULL(A, B)```
+IFNULL(A, B)
 
 ### NULLIF
 
-```NULLIF(aValue, bValue)```
+ ```NULLIF(aValue, bValue) -> type(aValue) | NULL```
 
-Returns NULL if `a` is equal to `b`, otherwise returns `a`. This method returns the **same type as aValue**.
+ Returns NULL if `a` is equal to `b`, otherwise `a`.
 
 Example:
-
-```NULLIF(A, B)```
+NULLIF(A, B)
 
 ### MULTI_IF
 
-```MULTI_IF(condition1, value1, condition2, value2, ... conditionN, valueN, bValue)```
+ ```MULTI_IF(condition1, value1, condition2, value2, ... conditionN, valueN, bValue) -> type(of values)```
 
-Returns the first value for which the corresponding condition is true. If all conditions are false, it returns the last value. This method returns the **type of the matched value**.
+ Returns the first value for which the corresponding condition is true. If all conditions are false, it returns the last value.
 
 Example:
-
-```MULTI_IF(A > 1, 'A', B > 1, 'B', C > 1, 'C', 'D')```
+MULTI_IF(A > 1, 'A', B > 1, 'B', C > 1, 'C', 'D')
 
 ### CASE WHEN
 
-Used to determine whether the condition is valid and return different values according to different judgments. This method returns the **type of the selected value**.
+Returns the type determined by result expressions.
+
+```
+select
+  case when c_string in ('c_string') then 1 else 0 end as c_string_1,
+  case when c_string not in ('c_string') then 1 else 0 end as c_string_0,
+  case when c_tinyint = 117 and TO_CHAR(c_boolean) = 'true' then 1 else 0 end as c_tinyint_boolean_1,
+  case when c_tinyint != 117 and TO_CHAR(c_boolean) = 'true' then 1 else 0 end as c_tinyint_boolean_0,
+  case when c_tinyint != 117 or TO_CHAR(c_boolean) = 'true' then 1 else 0 end as c_tinyint_boolean_or_1,
+  case
+    when c_int > 1
+     and c_bigint > 1
+     and c_float > 1
+     and c_double > 1
+     and c_decimal > 1 then 1
+    else 0
+  end as c_number_1,
+  case when c_tinyint <> 117 then 1 else 0 end as c_number_0,
+  case when c_boolean then 1 else 0 end as c_boolean_0
+from dual
+```
+
+ It is used to determine whether the condition is valid and return different values according to different judgments.
 
 Example:
-
-```sql
-SELECT
-  CASE
-    WHEN c_string IN ('c_string') THEN 1
-    ELSE 0
-  END AS c_string_1,
-  CASE
-    WHEN c_string NOT IN ('c_string') THEN 1
-    ELSE 0
-  END AS c_string_0,
-  CASE
-    WHEN c_tinyint = 117
-      AND TO_CHAR(c_boolean) = 'true' THEN 1
-    ELSE 0
-  END AS c_tinyint_boolean_1,
-  CASE
-    WHEN c_tinyint != 117
-      AND TO_CHAR(c_boolean) = 'true' THEN 1
-    ELSE 0
-  END AS c_tinyint_boolean_0,
-  CASE
-    WHEN c_tinyint != 117
-      OR TO_CHAR(c_boolean) = 'true' THEN 1
-    ELSE 0
-  END AS c_tinyint_boolean_or_1,
-  CASE
-    WHEN c_int > 1
-      AND c_bigint > 1
-      AND c_float > 1
-      AND c_double > 1
-      AND c_decimal > 1 THEN 1
-    ELSE 0
-  END AS c_number_1,
-  CASE
-    WHEN c_tinyint <> 117 THEN 1
-    ELSE 0
-  END AS c_number_0,
-  CASE
-    WHEN c_boolean THEN 1
-    ELSE 0
-  END AS c_boolean_0
-FROM dual;
-```
-Example:
-
-```sql
-CASE WHEN c_string IN ('c_string') THEN 1 ELSE 0 END
-CASE WHEN c_string IN ('c_string') THEN TRUE ELSE FALSE END
-```
+case when c_string in ('c_string') then 1 else 0 end
+case when c_string in ('c_string') then true else false end
 
 ### UUID
 
-```UUID()```
+ ```UUID() -> STRING```
 
-Generates a UUID through a Java function. This method returns a **STRING**.
+ Generates a UUID.
 
 Example:
+SELECT UUID() AS seatunnel_uuid
 
-```sql
-SELECT UUID() AS seatunnel_uuid;
-```
 ### ARRAY
 
-```ARRAY<T> array(T, ...)```
+ ```ARRAY<T> array(T, ...) -> ARRAY<T>```
 
-Creates an array consisting of variadic elements and returns it. Here, `T` can be either “column” or “literal”. This method returns an **ARRAY**.
+ Create an array consisting of variadic elements and return it. Here, `T` can be either “column” or “literal”.
 
 Example:
+SELECT ARRAY(1,2,3) AS arrays
+SELECT ARRAY('c_1',2,3.12) AS arrays
+SELECT ARRAY(column1,column2,column3) AS arrays
 
-```sql
-SELECT ARRAY(1, 2, 3) AS arrays;
-SELECT ARRAY('c_1', 2, 3.12) AS arrays;
-SELECT ARRAY(column1, column2, column3) AS arrays;
-```
-Note: Currently only string, double, long, int types are supported.
+ Notes: Currently only STRING, DOUBLE, LONG, INT types are supported
 
 ### LATERAL VIEW
-
 #### EXPLODE
 
-Used to flatten array columns into multiple rows. It applies the `EXPLODE` function to an array and generates a new row for each element.
+ Used to flatten array columns into multiple rows. It applies the EXPLODE function to an array and generates a new row for each element.
 
-- **EXPLODE**: Converts an array column into multiple rows. No rows are generated if the array is NULL or empty.  
-- **OUTER EXPLODE**: Returns NULL when the array is NULL or empty, ensuring at least one row is generated.  
-- `EXPLODE(SPLIT(field_name, separator))`: Splits a string into an array using the specified separator, then explodes it into rows.  
-- `EXPLODE(ARRAY(value1, value2, ...))`: Explodes a custom-defined array into multiple rows.  
-
-This method returns multiple rows, each containing an **element of the array**.
+ - EXPLODE: Converts an array column into multiple rows. No rows generated if array is NULL or empty.  
+ - OUTER EXPLODE: Returns NULL when array is NULL or empty, ensuring at least one row is generated.  
+ - EXPLODE(SPLIT(field_name, separator)): Splits a string into an array using the specified separator, then explodes it into rows.  
+ - EXPLODE(ARRAY(value1, value2, ...)): Explodes a custom-defined array into multiple rows.
 
 Example:
-
-```sql
-SELECT * FROM dual
-  LATERAL VIEW EXPLODE(SPLIT(NAME, ',')) AS NAME
-  LATERAL VIEW EXPLODE(SPLIT(pk_id, ';')) AS pk_id
-  LATERAL VIEW OUTER EXPLODE(age) AS age
-  LATERAL VIEW OUTER EXPLODE(ARRAY(1, 1)) AS num;
 ```
+SELECT * FROM dual
+        LATERAL VIEW EXPLODE ( SPLIT ( NAME, ',' ) ) AS NAME
+        LATERAL VIEW EXPLODE ( SPLIT ( pk_id, ';' ) ) AS pk_id
+        LATERAL VIEW OUTER EXPLODE ( age ) AS age
+        LATERAL VIEW OUTER EXPLODE ( ARRAY(1,1) ) AS num
+```
+
+
