@@ -77,7 +77,7 @@ public class MySqlConnectionUtils {
         final String showMasterStmt =
                 ((MySqlConnection) jdbc).binaryLogStatusStatement().startsWith("SHOW BINARY")
                         ? "SHOW BINARY LOGS"
-                        : "SHOW MASTER STATUS";
+                        : "SHOW MASTER LOGS";
         JdbcConnection.ResultSetMapper<BinlogOffset> getCurrentBinlogOffset =
                 rs -> {
                     final String binlogFilename = rs.getString(1);
