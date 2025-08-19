@@ -62,6 +62,8 @@ CONCAT(NAME, '_')
 
  ```CONCAT_WS(separatorString, string, string[, string ...]) -> STRING```
 
+ Concatenates strings using the given separator. A NULL separator is treated as an empty string; other NULL arguments are ignored.
+
 Example:
 CONCAT_WS(',', NAME, '_')
 
@@ -87,8 +89,11 @@ RAWTOHEX(DATA)
 
  ```INSERT(originalString, startInt, lengthInt, addString) -> STRING```
 
+ Inserts an additional string into the original string at the specified start position. `lengthInt` is the number of characters removed starting at that position.
+
 Example:
 INSERT(NAME, 1, 1, ' ')
+
 
 ### LOWER / LCASE
 
@@ -131,6 +136,9 @@ RIGHT(NAME, 3)
  ```LOCATE(searchString, string[, startInt]) -> INT```
  ```INSTR(string, searchString[, startInt]) -> INT```
  ```POSITION(searchString, string) -> INT```
+
+ Returns the location of a search string in a string. If a start position is used, the characters before it are ignored. If position is negative, the rightmost location is returned. 0 is returned if the search string is not found. Please note this function is case sensitive, even if the parameters are not.
+
 
 Example:
 LOCATE('.', NAME)
@@ -188,7 +196,7 @@ TRIM(NAME)
 
  `i` enables case insensitive matching (Pattern.CASE_INSENSITIVE)  
  `c` disables case insensitive matching (Pattern.CASE_INSENSITIVE)  
- `n` allows the period to match the newline character (Pattern.DOTALL)
+ `n` allows the period to match the newline character (Pattern.DOTALL)  
  `m` enables multiline mode (Pattern.MULTILINE)
 
 Example:
@@ -203,7 +211,7 @@ REGEXP_REPLACE('Hello WWWWorld', 'w+', 'W', 'i')
 
  `i` enables case insensitive matching (Pattern.CASE_INSENSITIVE)  
  `c` disables case insensitive matching (Pattern.CASE_INSENSITIVE)  
- `n` allows the period to match the newline character (Pattern.DOTALL)
+ `n` allows the period to match the newline character (Pattern.DOTALL)  
  `m` enables multiline mode (Pattern.MULTILINE)
 
 
@@ -241,6 +249,9 @@ REPEAT(NAME || ' ', 10)
 ### REPLACE
 
  ```REPLACE(string, searchString[, replacementString]) -> STRING```
+
+ Replaces all occurrences of the search string in the input string with the replacement string.  
+ If the replacement string is omitted, all occurrences of the search string are removed.  
 
 Example:
 REPLACE(NAME, ' ')
@@ -295,6 +306,8 @@ CALL TO_CHAR(SYS_TIME, 'yyyy-MM-dd HH:mm:ss')
 
  ```TRANSLATE(value, searchString, replacementString) -> STRING```
 
+ Oracle-compatible TRANSLATE function that replaces a sequence of characters in a string with another set of characters.
+
 Example:
 CALL TRANSLATE('Hello world', 'eo', 'EO')
 
@@ -302,9 +315,9 @@ CALL TRANSLATE('Hello world', 'eo', 'EO')
 
 ### ABS
 
- ```ABS(numeric) -> numeric (same type)```
+```ABS(numeric) -> numeric (same type)```
 
- Returns the absolute value of a specified value.
+ Returns the absolute value of the input. For signed integers, `ABS(MIN_VALUE)` overflows (e.g., `INT -2147483648`) and can raise an  error—cast to a wider type to avoid this.
 
 Example:
 ABS(I)
@@ -464,9 +477,9 @@ LN(A)
 
 ### LOG
 
- ```LOG(baseNumeric, numeric) -> DOUBLE```
+```LOG(baseNumeric, numeric) -> DOUBLE```
 
- Calculates the logarithm with specified base. Arguments must be positive; base cannot be 1.
+ Computes the logarithm with the specified base. Arguments must be positive; base cannot be 1. The single-argument form is deprecated—use `LN` or `LOG10`.
 
 Example:
 LOG(2, A)
@@ -520,6 +533,8 @@ POWER(A, B)
 
  ```RAND | RANDOM([int]) -> DOUBLE```
 
+ Returns a pseudorandom number in the range [0, 1). With an integer argument, seeds the session's random number generator.
+
 Example:
 RAND()
 
@@ -544,6 +559,8 @@ SIGN(N)
 ### TRUNC
 
  ```TRUNC | TRUNCATE(numeric[, digitsInt]) -> numeric (same type)```
+
+ Truncates the value to the specified number of fractional digits (toward zero). Precision/scale may be adjusted if applicable.
 
 Example:
 TRUNC(N, 2)
@@ -572,12 +589,16 @@ CURRENT_DATE
 
  ```CURRENT_TIME -> TIME```
 
+ Returns the current time of day.
+
 Example:
 CURRENT_TIME
 
 ### CURRENT_TIMESTAMP / NOW
 
  ```CURRENT_TIMESTAMP | NOW() -> TIMESTAMP```
+
+ Returns the current timestamp.
 
 Example:
 CURRENT_TIMESTAMP
@@ -678,6 +699,8 @@ EXTRACT(DOW FROM eventTime)
 
  ```FORMATDATETIME(dateAndTime, formatString) -> STRING```
 
+ Formats a date/time/timestamp value as a string using a Java `DateTimeFormatter` pattern.
+
 Example:
 CALL FORMATDATETIME(CREATED, 'yyyy-MM-dd HH:mm:ss')
 
@@ -721,6 +744,8 @@ MONTHNAME(CREATED)
 
  ```IS_DATE(string, formatString) -> BOOLEAN```
 
+ Returns whether the string can be parsed as a date/time using the given format.
+
 Example:
 CALL IS_DATE('2021-04-08 13:34:45','yyyy-MM-dd HH:mm:ss')
 
@@ -728,10 +753,11 @@ CALL IS_DATE('2021-04-08 13:34:45','yyyy-MM-dd HH:mm:ss')
 
  ```PARSEDATETIME | TO_DATE(string, formatString) -> TIMESTAMP```
 
+ Parses a string into a timestamp using the given format. In SQL text, single quotes must be escaped as `''`.
+
 Example:
 CALL PARSEDATETIME('2021-04-08 13:34:45','yyyy-MM-dd HH:mm:ss')
 CALL TO_DATE('2021-04-08''T''13:34:45','yyyy-MM-dd''T''HH:mm:ss')
-Note that when filling in `'` in SQL functions, it needs to be escaped to `''`.
 
 ### QUARTER
 
@@ -918,5 +944,4 @@ SELECT * FROM dual
         LATERAL VIEW OUTER EXPLODE ( age ) AS age
         LATERAL VIEW OUTER EXPLODE ( ARRAY(1,1) ) AS num
 ```
-
 

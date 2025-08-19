@@ -136,7 +136,7 @@ RIGHT(NAME, 3)
 ```INSTR(string, searchString[, startInt]) -> INT```  
 ```POSITION(searchString, string) -> INT```
 
-返回 `searchString` 在 `string` 中的位置；若提供 `startInt`，则忽略其之前的字符；负值表示从右侧开始搜索；未找到返回 0。大小写敏感。
+返回 `searchString` 在 `string` 中的位置；若提供 `startInt`，则忽略其之前的字符；`startInt` 为负表示从右侧开始搜索；未找到返回 0。大小写敏感。
 
 示例:  
 LOCATE('.', NAME)
@@ -247,7 +247,7 @@ SELECT SPLIT(test, ';') AS arrays
 
 ```SOUNDEX(string) -> STRING```
 
-返回表示发音的四字符代码（见维基 Soundex）。
+返回表示发音的四字符代码（见维基百科 *Soundex*）。
 
 示例:  
 SOUNDEX(NAME)
@@ -450,7 +450,7 @@ FLOOR(A)
 
 ```LN(numeric) -> DOUBLE```
 
-自然对数（底 e）；参数需为正。
+自然对数（底 e）。
 
 示例:  
 LN(A)
@@ -459,7 +459,7 @@ LN(A)
 
 ```LOG(baseNumeric, numeric) -> DOUBLE```
 
-指定底对数；参数与底均需为正，底不可为 1。
+指定底对数；参数与底均需为正，底不可为 1。单参数形式已弃用，请用 `LN` 或 `LOG10`。
 
 示例:  
 LOG(2, A)
@@ -513,7 +513,7 @@ POWER(A, B)
 
 ```RAND | RANDOM([int]) -> DOUBLE```
 
-不带参返回下一伪随机数；带参设置会话随机种子。返回区间 [0,1)。
+不带参返回区间 [0, 1) 的伪随机数；带整型参数时设置会话随机种子。
 
 示例:  
 RAND()
@@ -580,7 +580,7 @@ CURRENT_TIME
 
 ```CURRENT_TIMESTAMP | NOW() -> TIMESTAMP```
 
-返回当前时间戳（含系统时区）。
+返回当前时间戳。
 
 示例:  
 CURRENT_TIMESTAMP
@@ -589,7 +589,7 @@ CURRENT_TIMESTAMP
 
 ```DATEADD | TIMESTAMPADD(dateAndTime, addIntLong, datetimeFieldString) -> dateAndTime (same type)```
 
-为日期时间加上指定单位（负值为相减）。当对 HOUR/MINUTE/SECOND/MILLISECOND/MICROSECOND/NANOSECOND 等时间字段作用于 `DATE` 值时，可能返回 `TIMESTAMP`。
+为日期时间加上指定单位（负值为相减）。`datetimeFieldString` 表示单位。**注意**：当对 `DATE` 值添加 HOUR/MINUTE/SECOND/MILLISECOND/MICROSECOND/NANOSECOND 等时间字段时，可能返回 `TIMESTAMP`。
 
 示例:  
 DATEADD(CREATED, 1, 'MONTH')
@@ -598,7 +598,7 @@ DATEADD(CREATED, 1, 'MONTH')
 
 ```DATEDIFF(aDateAndTime, bDateAndTime, datetimeFieldString) -> LONG```
 
-返回两个日期时间值之间跨越的单位边界数。
+返回两个日期时间值之间跨越的单位边界数。`datetimeFieldString` 表示单位。
 
 示例:  
 DATEDIFF(T1.CREATED, T2.CREATED, 'MONTH')
@@ -652,7 +652,7 @@ DAY_OF_YEAR(CREATED)
 
 ```EXTRACT(datetimeField FROM dateAndTime) -> INT```
 
-从日期/时间提取指定字段的值（`EPOCH` 可能表示自 1970-01-01 起的秒数，具体实现可能返回更宽的整数）。
+从日期/时间提取指定字段的值（`EPOCH` 通常表示自 1970-01-01 起的秒数，具体实现可能返回更宽的整数）。
 
 EXTRACT 支持以下四种 DateTime 字面量类型：
 - `DATE`：EXTRACT(YEAR FROM DATE '2025-05-21')
@@ -672,7 +672,7 @@ EXTRACT(DOW FROM eventTime)
 
 ```FORMATDATETIME(dateAndTime, formatString) -> STRING```
 
-按指定格式化日期/时间/时间戳（参见 `java.time.format.DateTimeFormatter`）。
+按给定模式格式化日期/时间/时间戳（参见 `java.time.format.DateTimeFormatter`）。
 
 示例:  
 CALL FORMATDATETIME(CREATED, 'yyyy-MM-dd HH:mm:ss')
@@ -690,7 +690,7 @@ HOUR(CREATED)
 
 ```MINUTE(dateAndTime) -> INT```
 
-返回分钟（0-59）（已弃用；请用 EXTRACT）。
+返回分钟（0-59）（已弃用；请用 `EXTRACT`）。
 
 示例:  
 MINUTE(CREATED)
@@ -699,7 +699,7 @@ MINUTE(CREATED)
 
 ```MONTH(dateAndTime) -> INT```
 
-返回月份（1-12）（已弃用；请用 EXTRACT）。
+返回月份（1-12）（已弃用；请用 `EXTRACT`）。
 
 示例:  
 MONTH(CREATED)
@@ -726,7 +726,7 @@ CALL IS_DATE('2021-04-08 13:34:45','yyyy-MM-dd HH:mm:ss')
 
 ```PARSEDATETIME | TO_DATE(string, formatString) -> TIMESTAMP```
 
-按给定格式解析字符串为时间戳（参见 `java.time.format.DateTimeFormatter`）。在 SQL 中填写 `'` 需写作 `''` 进行转义。
+按给定格式解析字符串为时间戳（参见 `java.time.format.DateTimeFormatter`）。在 SQL 文本中填写 `'` 需写作 `''` 进行转义。
 
 示例:  
 CALL PARSEDATETIME('2021-04-08 13:34:45','yyyy-MM-dd HH:mm:ss')  
@@ -745,7 +745,7 @@ QUARTER(CREATED)
 
 ```SECOND(dateAndTime) -> INT```
 
-返回秒（0-59）（已弃用；请用 EXTRACT）。
+返回秒（0-59）（已弃用；请用 `EXTRACT`）。
 
 示例:  
 SECOND(CREATED)
@@ -754,7 +754,7 @@ SECOND(CREATED)
 
 ```WEEK(dateAndTime) -> INT```
 
-返回周数（1-53，依赖系统区域设置）。
+返回周数（1-53），依赖系统区域设置。
 
 示例:  
 WEEK(CREATED)
@@ -775,7 +775,9 @@ YEAR(CREATED)
 将自 UNIX 纪元起的秒数格式化为时间戳字符串；`timeZone` 可选（如 `UTC+8`）。
 
 示例:  
+// 使用默认时区  
 CALL FROM_UNIXTIME(1672502400, 'yyyy-MM-dd HH:mm:ss')  
+// 使用指定时区  
 CALL FROM_UNIXTIME(1672502400, 'yyyy-MM-dd HH:mm:ss','UTC+6')
 
 ---
@@ -794,8 +796,8 @@ CAST(NAME AS INT)
 CAST(FLAG AS BOOLEAN)
 
 注意（转换为 BOOLEAN 时）：
-1) `'true'`/`'false'` → 对应布尔值；
-2) 数值 `1`/`0` → `true`/`false`；
+1) `'true'` / `'false'` → 对应布尔值；
+2) 数值 `1` / `0` → `true` / `false`；
 3) 无法解析则抛出 `TransformException`。
 
 ### TRY_CAST
@@ -846,68 +848,97 @@ MULTI_IF(A > 1, 'A', B > 1, 'B', C > 1, 'C', 'D')
 
 ### CASE WHEN
 
-用于根据条件返回不同结果。
-
-示例:  
-case when c_string in ('c_string') then 1 else 0 end  
-case when c_string in ('c_string') then true else false end
-
-（完整示例）
 ```
 select
-  case when c_string in ('c_string') then 1 else 0 end as c_string_1,
-  case when c_string not in ('c_string') then 1 else 0 end as c_string_0,
-  case when c_tinyint = 117 and TO_CHAR(c_boolean) = 'true' then 1 else 0 end as c_tinyint_boolean_1,
-  case when c_tinyint != 117 and TO_CHAR(c_boolean) = 'true' then 1 else 0 end as c_tinyint_boolean_0,
-  case when c_tinyint != 117 or TO_CHAR(c_boolean) = 'true' then 1 else 0 end as c_tinyint_boolean_or_1,
+  case
+    when c_string in ('c_string') then 1
+    else 0
+  end as c_string_1,
+  case
+    when c_string not in ('c_string') then 1
+    else 0
+  end as c_string_0,
+  case
+    when c_tinyint = 117
+    and TO_CHAR(c_boolean) = 'true' then 1
+    else 0
+  end as c_tinyint_boolean_1,
+  case
+    when c_tinyint != 117
+    and TO_CHAR(c_boolean) = 'true' then 1
+    else 0
+  end as c_tinyint_boolean_0,
+  case
+    when c_tinyint != 117
+    or TO_CHAR(c_boolean) = 'true' then 1
+    else 0
+  end as c_tinyint_boolean_or_1,
   case
     when c_int > 1
-     and c_bigint > 1
-     and c_float > 1
-     and c_double > 1
-     and c_decimal > 1 then 1
+    and c_bigint > 1
+    and c_float > 1
+    and c_double > 1
+    and c_decimal > 1 then 1
     else 0
   end as c_number_1,
-  case when c_tinyint <> 117 then 1 else 0 end as c_number_0,
-  case when c_boolean then 1 else 0 end as c_boolean_0
-from dual
+  case
+    when c_tinyint <> 117 then 1
+    else 0
+  end as c_number_0
+from
+  fake
 ```
+
+用于确定条件是否有效，并根据不同的判断返回不同的值
+
+示例:
+
+case when c_string in ('c_string') then 1 else 0 end
+
+case when c_string in ('c_string') then true else false end
 
 ### UUID
 
-```UUID() -> STRING```
+```UUID()```
 
-生成 UUID。
+通过java函数生成uuid
 
-示例:  
-SELECT UUID() AS seatunnel_uuid
+示例:
+
+select UUID() as seatunnel_uuid
+
 
 ### ARRAY
 
-```ARRAY<T> array(T, ...) -> ARRAY<T>```
+```ARRAY<T> array(T, ...)```
+创建一个由可变参数元素组成的数组并返回它。这里，T 可以是“列”或“常量”。。
 
-创建由可变参数元素组成的数组并返回；`T` 可为“列”或“字面量”。  
-注意：当前仅支持 STRING、DOUBLE、LONG、INT。
+示例:
 
-示例:  
-SELECT ARRAY(1,2,3) AS arrays  
-SELECT ARRAY('c_1',2,3.12) AS arrays  
-SELECT ARRAY(column1,column2,column3) AS arrays
+select ARRAY(1,2,3) as arrays
+select ARRAY('c_1',2,3.12) as arrays
+select ARRAY(column1,column2,column3) as arrays
+
+注意：目前仅支持string、double、long、int几种类型
 
 ### LATERAL VIEW
 #### EXPLODE
 
-将数组列展开为多行：
-- **EXPLODE**：数组为 NULL 或空则不产生行；
-- **OUTER EXPLODE**：数组为 NULL 或空时返回 NULL，至少产生一行；
-- **EXPLODE(SPLIT(field_name, sep))**：先按分隔符切分，再展开；
-- **EXPLODE(ARRAY(...))**：展开自定义数组。
+用于将数组列展开成多行。它通过对数组应用 EXPLODE 函数，为数组中的每个元素生成一个新行。
+
+EXPLODE：将数组列转换为多行。如果数组为 NULL 或为空，则不生成行。
+
+OUTER EXPLODE：当数组为 NULL 或为空时返回 NULL，确保至少生成一行。
+
+EXPLODE(SPLIT(字段名, 分隔符))：使用指定的分隔符将字符串拆分为数组，然后将其展开为多行。
+
+EXPLODE(ARRAY(值1, 值2, ...))：将自定义数组展开为多行。
 
 示例:
 ```
 SELECT * FROM dual
-        LATERAL VIEW EXPLODE ( SPLIT ( NAME, ',' ) ) AS NAME
-        LATERAL VIEW EXPLODE ( SPLIT ( pk_id, ';' ) ) AS pk_id
-        LATERAL VIEW OUTER EXPLODE ( age ) AS age
-        LATERAL VIEW OUTER EXPLODE ( ARRAY(1,1) ) AS num
+	LATERAL VIEW EXPLODE ( SPLIT ( NAME, ',' ) ) AS NAME
+	LATERAL VIEW EXPLODE ( SPLIT ( pk_id, ';' ) ) AS pk_id
+	LATERAL VIEW OUTER EXPLODE ( age ) AS age
+	LATERAL VIEW OUTER EXPLODE ( ARRAY(1,1) ) AS num
 ```
