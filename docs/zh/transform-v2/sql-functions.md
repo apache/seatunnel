@@ -571,7 +571,7 @@ CURRENT_DATE
 
 ```CURRENT_TIME -> TIME```
 
-返回当前时间（含系统时区）。
+返回当前时间（不含日期）。
 
 示例:  
 CURRENT_TIME
@@ -832,22 +832,34 @@ IFNULL(A, B)
 
 ```NULLIF(aValue, bValue) -> type(aValue) | NULL```
 
-若 `aValue = bValue` 返回 NULL，否则返回 `aValue`。
+功能：若 aValue = bValue 返回 NULL，否则返回 aValue。  
+返回：type(aValue) 或 NULL。
 
 示例:  
 NULLIF(A, B)
+
+---
 
 ### MULTI_IF
 
 ```MULTI_IF(condition1, value1, condition2, value2, ... conditionN, valueN, bValue) -> type(of values)```
 
-返回第一个条件为真的对应值；若都为假，返回最后一个值。
+功能：返回第一个条件为真的对应值；若都为假，返回最后一个值。  
+返回：与各 value 的公共类型（type(of values)）。
 
 示例:  
 MULTI_IF(A > 1, 'A', B > 1, 'B', C > 1, 'C', 'D')
 
+---
+
 ### CASE WHEN
 
+```CASE WHEN <condition> THEN <expr> [WHEN ...] [ELSE <expr>] END -> type(of result expressions)```
+
+功能：按条件返回不同结果。  
+返回：由 THEN/ELSE 的结果表达式共同决定的类型。
+
+示例（完整）:
 ```
 select
   case
@@ -886,53 +898,50 @@ select
     else 0
   end as c_number_0
 from
-  fake
+  dual
 ```
 
-用于确定条件是否有效，并根据不同的判断返回不同的值
-
-示例:
-
-case when c_string in ('c_string') then 1 else 0 end
-
+示例（简洁）:
+case when c_string in ('c_string') then 1 else 0 end  
 case when c_string in ('c_string') then true else false end
+
+---
 
 ### UUID
 
-```UUID()```
+```UUID() -> STRING```
 
-通过java函数生成uuid
+功能：通过 Java 函数生成 UUID。  
+返回：STRING。
 
-示例:
+示例:  
+SELECT UUID() AS seatunnel_uuid
 
-select UUID() as seatunnel_uuid
-
+---
 
 ### ARRAY
 
-```ARRAY<T> array(T, ...)```
-创建一个由可变参数元素组成的数组并返回它。这里，T 可以是“列”或“常量”。。
+```ARRAY<T> array(T, ...) -> ARRAY<T>```
 
-示例:
+功能：创建由可变参数元素组成的数组；T 可为“列”或“常量”。  
+返回：ARRAY<T>。  
+注意：目前仅支持 STRING、DOUBLE、LONG、INT。
 
-select ARRAY(1,2,3) as arrays
-select ARRAY('c_1',2,3.12) as arrays
-select ARRAY(column1,column2,column3) as arrays
+示例:  
+SELECT ARRAY(1,2,3) AS arrays  
+SELECT ARRAY('c_1',2,3.12) AS arrays  
+SELECT ARRAY(column1,column2,column3) AS arrays
 
-注意：目前仅支持string、double、long、int几种类型
+---
 
 ### LATERAL VIEW
 #### EXPLODE
 
-用于将数组列展开成多行。它通过对数组应用 EXPLODE 函数，为数组中的每个元素生成一个新行。
+```EXPLODE(array) -> 多行（每行一元素；列类型 = 数组元素类型）  ```
+```OUTER EXPLODE(array) -> 至少一行；数组为 NULL/空时返回单行 NULL```
 
-EXPLODE：将数组列转换为多行。如果数组为 NULL 或为空，则不生成行。
-
-OUTER EXPLODE：当数组为 NULL 或为空时返回 NULL，确保至少生成一行。
-
-EXPLODE(SPLIT(字段名, 分隔符))：使用指定的分隔符将字符串拆分为数组，然后将其展开为多行。
-
-EXPLODE(ARRAY(值1, 值2, ...))：将自定义数组展开为多行。
+功能：将数组列展开为多行；常与 LATERAL VIEW 联用。  
+返回：把输入数组拆分为多行结果集，列类型为元素类型。
 
 示例:
 ```
