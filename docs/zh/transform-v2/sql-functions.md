@@ -994,17 +994,25 @@ TRY_CAST(NAME AS INT)
 
 ```COALESCE(aValue, bValue [,...]) -> type(of first non-null arg)```
 
-返回第一个非空值。
+返回第一个非空值。如果后续参数与第一个参数的数据类型不同，则会自动转换为第一个参数的类型。
 
 示例:
 
 COALESCE(A, B, C)
 
+类型转换示例:
+
+```
+-- 如果A是字符串类型而B是整数类型
+-- 当A为空时，B会被转换为字符串类型
+SELECT COALESCE(A, B) as result FROM my_table
+```
+
 ### IFNULL
 
 ```IFNULL(aValue, bValue) -> type(common of args)```
 
-返回第一个非空值。
+返回第一个非空值。如果后续参数与第一个参数的数据类型不同，则会自动转换为第一个参数的类型。
 
 示例:
 

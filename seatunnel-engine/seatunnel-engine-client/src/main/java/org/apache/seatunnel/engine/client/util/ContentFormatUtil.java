@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.engine.client.util;
 
-import org.apache.seatunnel.engine.core.job.JobStatusData;
+import org.apache.seatunnel.engine.common.job.JobStatusData;
 
 import org.apache.commons.lang3.StringUtils;
 

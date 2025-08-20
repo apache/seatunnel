@@ -998,17 +998,25 @@ TRY_CAST(NAME AS INT)
 
 ```COALESCE(aValue, bValue [,...]) -> type(of first non-null arg)```
 
-Returns the first value that is not null.
+Returns the first value that is not null. If subsequent arguments have different data types from the first argument, they will be automatically converted to the type of the first argument.
 
 Example:
 
 COALESCE(A, B, C)
 
+Example with type conversion:
+
+```
+-- If A is a string field and B is an integer field
+-- B will be converted to string when A is null
+SELECT COALESCE(A, B) as result FROM my_table
+```
+
 ### IFNULL
 
 ```IFNULL(aValue, bValue) -> type(common of args)```
 
-Returns the first value that is not null.
+Returns the first value that is not null. If subsequent arguments have different data types from the first argument, they will be automatically converted to the type of the first argument.
 
 Example:
 
