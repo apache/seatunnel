@@ -43,6 +43,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import static org.apache.seatunnel.engine.server.rest.RestConstant.CONFIG_FORMAT;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.HOCON;
@@ -93,7 +94,7 @@ public class JobInfoService extends BaseService {
 
         SeaTunnelServer seaTunnelServer = getSeaTunnelServer(true);
 
-        return finishedJob.values().stream()
+        return finishedJob.values().parallelStream()
                 .filter(
                         jobState -> {
                             if (state.isEmpty()) {
@@ -123,14 +124,16 @@ public class JobInfoService extends BaseService {
                             return getJobInfoJson(
                                     jobState, jobMetrics, finishedJobDAGInfo.get(jobId));
                         })
+                .collect(Collectors.toList()).stream()
                 .collect(JsonArray::new, JsonArray::add, JsonArray::add);
     }
 
     public JsonArray getRunningJobsJson() {
         IMap<Long, JobInfo> values =
                 nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_INFO);
-        return values.entrySet().stream()
+        return values.entrySet().parallelStream()
                 .map(jobInfoEntry -> convertToJson(jobInfoEntry.getValue(), jobInfoEntry.getKey()))
+                .collect(Collectors.toList()).stream()
                 .collect(JsonArray::new, JsonArray::add, JsonArray::add);
     }
 
@@ -186,7 +189,7 @@ public class JobInfoService extends BaseService {
         List<Tuple2<Map<String, String>, Config>> configTuples =
                 RestUtil.buildConfigList(requestHandle(requestBody), false);
 
-        return configTuples.stream()
+        return configTuples.parallelStream()
                 .map(
                         tuple -> {
                             String urlParams = mapToUrlParams(tuple._1);
@@ -196,6 +199,7 @@ public class JobInfoService extends BaseService {
                             return submitJobInternal(
                                     tuple._2, requestParams, seaTunnelServer, nodeEngine.getNode());
                         })
+                .collect(Collectors.toList()).stream()
                 .collect(JsonArray::new, JsonArray::add, JsonArray::add);
     }
 }
