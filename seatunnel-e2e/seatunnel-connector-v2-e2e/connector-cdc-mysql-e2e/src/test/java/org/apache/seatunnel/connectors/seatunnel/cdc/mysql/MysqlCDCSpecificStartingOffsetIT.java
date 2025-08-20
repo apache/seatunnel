@@ -47,6 +47,7 @@ import org.testcontainers.utility.DockerLoggerFactory;
 import com.github.shyiko.mysql.binlog.BinaryLogClient;
 import com.github.shyiko.mysql.binlog.event.EventData;
 import com.github.shyiko.mysql.binlog.event.EventHeaderV4;
+import com.github.shyiko.mysql.binlog.event.FormatDescriptionEventData;
 import com.github.shyiko.mysql.binlog.event.RotateEventData;
 import io.debezium.jdbc.JdbcConnection;
 import lombok.extern.slf4j.Slf4j;
@@ -63,6 +64,7 @@ import java.util.List;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static org.awaitility.Awaitility.await;
@@ -613,8 +615,7 @@ public class MysqlCDCSpecificStartingOffsetIT extends TestSuiteBase implements T
                 String.format("PURGE BINARY LOGS TO '%s'", getCurrentBinlogOffset().getFilename()));
     }
 
-    private long getCurrentBinlogTimestamp() throws IOException, InterruptedException {
-
+    private long getCurrentBinlogTimestamp() {
         BinlogOffset binlogOffset = getCurrentBinlogOffset();
 
         JdbcSourceConfigFactory configFactory =
@@ -625,39 +626,63 @@ public class MysqlCDCSpecificStartingOffsetIT extends TestSuiteBase implements T
                         .password(MYSQL_CONTAINER.getPassword())
                         .databaseList(MYSQL_CONTAINER.getDatabaseName());
         JdbcSourceConfig jdbcSourceConfig = configFactory.create(0);
+        MySqlDialect mySqlDialect =
+                new MySqlDialect((MySqlSourceConfigFactory) configFactory, Collections.emptyList());
         BinaryLogClient client =
                 MySqlConnectionUtils.createBinaryClient(jdbcSourceConfig.getDbzConfiguration());
 
-        ArrayBlockingQueue<Long> binlogTimestamps = new ArrayBlockingQueue<>(1);
-        BinaryLogClient.EventListener eventListener =
-                event -> {
-                    EventData data = event.getData();
-                    if (data instanceof RotateEventData) {
-                        // We skip RotateEventData because it does not contain the timestamp we are
-                        // interested in.
-                        return;
-                    }
-
-                    EventHeaderV4 header = event.getHeader();
-                    long timestamp = header.getTimestamp();
-                    if (timestamp > 0) {
-                        binlogTimestamps.offer(timestamp);
-                        try {
-                            client.disconnect();
-                        } catch (IOException e) {
-                            throw new RuntimeException(e);
-                        }
+        final String showBinaryLogStmt =
+                "SHOW BINLOG EVENTS IN '" + binlogOffset.getFilename() + "'";
+        List<Long> logPosList = new ArrayList<>();
+        JdbcConnection.ResultSetConsumer rsc =
+                rs -> {
+                    while (rs.next()) {
+                        logPosList.add(rs.getLong(5));
                     }
                 };
+        try (JdbcConnection jdbc = mySqlDialect.openJdbcConnection(jdbcSourceConfig)) {
+            jdbc.query(showBinaryLogStmt, rsc);
+            if (logPosList.isEmpty()) {
+                return System.currentTimeMillis();
+            }
+            log.info("SHOW BINLOG EVENTS result :{}", logPosList);
+            Long pos = logPosList.stream().distinct().sorted(Collections.reverseOrder()).collect(Collectors.toList()).get(1);
 
-        try {
-            client.registerEventListener(eventListener);
-            client.setBinlogFilename(binlogOffset.getFilename());
-            client.setBinlogPosition(binlogOffset.getPosition());
-            client.connect();
-        } finally {
-            client.unregisterEventListener(eventListener);
+            ArrayBlockingQueue<Long> binlogTimestamps = new ArrayBlockingQueue<>(1);
+            BinaryLogClient.EventListener eventListener =
+                    event -> {
+                        EventData data = event.getData();
+                        if (data instanceof RotateEventData
+                                || data instanceof FormatDescriptionEventData) {
+                            // We skip RotateEventData because it does not contain the timestamp we
+                            // are
+                            // interested in.
+                            return;
+                        }
+
+                        EventHeaderV4 header = event.getHeader();
+                        long timestamp = header.getTimestamp();
+                        if (timestamp > 0) {
+                            binlogTimestamps.offer(timestamp);
+                            try {
+                                client.disconnect();
+                            } catch (IOException e) {
+                                throw new RuntimeException(e);
+                            }
+                        }
+                    };
+
+            try {
+                client.registerEventListener(eventListener);
+                client.setBinlogFilename(binlogOffset.getFilename());
+                client.setBinlogPosition(pos);
+                client.connect();
+            } finally {
+                client.unregisterEventListener(eventListener);
+            }
+            return binlogTimestamps.take();
+        } catch (Exception e) {
+            throw new RuntimeException(e);
         }
-        return binlogTimestamps.take();
     }
 }
