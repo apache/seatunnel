@@ -454,7 +454,7 @@ public class MysqlCDCSpecificStartingOffsetIT extends TestSuiteBase implements T
 
         // get latest binlog timestamp
         String[] variables = {
-            "timestamp=" + getCurrentBinlogTimestamp() + 1000L,
+            "timestamp=" + (getCurrentBinlogTimestamp() + 1000L),
         };
         log.info("offset start with timestamp :{}", variables[0]);
 
