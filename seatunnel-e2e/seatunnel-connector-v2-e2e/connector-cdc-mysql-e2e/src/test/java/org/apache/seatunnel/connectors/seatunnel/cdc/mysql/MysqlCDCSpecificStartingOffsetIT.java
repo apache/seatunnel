@@ -70,7 +70,7 @@ import static org.awaitility.Awaitility.await;
 @Slf4j
 @DisabledOnContainer(
         value = {},
-        type = {EngineType.SPARK, EngineType.SEATUNNEL},
+        type = {EngineType.SPARK, EngineType.FLINK},
         disabledReason = "Currently SPARK and FLINK do not support restore")
 public class MysqlCDCSpecificStartingOffsetIT extends TestSuiteBase implements TestResource {
 
@@ -454,7 +454,7 @@ public class MysqlCDCSpecificStartingOffsetIT extends TestSuiteBase implements T
 
         // get latest binlog timestamp
         String[] variables = {
-            "timestamp=" + (getCurrentBinlogTimestamp() + 1000L),
+            "timestamp=" + (getCurrentBinlogTimestamp() + 2000L),
         };
         log.info("offset start with timestamp :{}", variables[0]);
 
