@@ -203,12 +203,23 @@ public class MysqlCDCWithBinlogDeleteIT extends TestSuiteBase implements TestRes
                                     query(getSourceQuerySQL(MYSQL_DATABASE, SOURCE_TABLE)),
                                     query(getSinkQuerySQL(MYSQL_DATABASE, SINK_TABLE)));
                         });
+        // check job status is not failed
+        await().pollDelay(20, TimeUnit.SECONDS)
+                .atMost(60, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertNotEquals(
+                                        "FAILED", container.getJobStatus(String.valueOf(jobId))));
+
         // check no error
         log.info("****************** container logs start ******************");
         String containerLogs = container.getServerLogs();
         log.info(containerLogs);
         Assertions.assertFalse(containerLogs.contains("ERROR"));
         log.info("****************** container logs end ******************");
+
+        // cancel task
+        Assertions.assertEquals(0, container.cancelJob(String.valueOf(jobId)).getExitCode());
     }
 
     private void clearTable(String database, String tableName) {

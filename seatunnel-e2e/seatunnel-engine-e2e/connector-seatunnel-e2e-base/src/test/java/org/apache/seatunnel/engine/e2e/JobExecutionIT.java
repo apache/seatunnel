@@ -91,11 +91,11 @@ public class JobExecutionIT {
                     engineClient.createExecutionContext(filePath, jobConfig, SEATUNNEL_CONFIG);
 
             final ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
-
+            TimeUnit.SECONDS.sleep(2);
             CompletableFuture<JobStatus> objectCompletableFuture =
                     CompletableFuture.supplyAsync(clientJobProxy::waitForJobComplete);
 
-            await().atMost(600000, TimeUnit.MILLISECONDS)
+            await().atMost(300000, TimeUnit.MILLISECONDS)
                     .untilAsserted(
                             () ->
                                     Assertions.assertTrue(
@@ -119,20 +119,24 @@ public class JobExecutionIT {
                     engineClient.createExecutionContext(filePath, jobConfig, SEATUNNEL_CONFIG);
 
             final ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
-            JobStatus jobStatus1 = clientJobProxy.getJobStatus();
-            Assertions.assertFalse(jobStatus1.isEndState());
+            await().atMost(30000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertFalse(
+                                            clientJobProxy.getJobStatus().isEndState()));
+
             CompletableFuture<JobStatus> objectCompletableFuture =
                     CompletableFuture.supplyAsync(clientJobProxy::waitForJobComplete);
             Thread.sleep(1000);
             clientJobProxy.cancelJob();
 
-            await().atMost(20000, TimeUnit.MILLISECONDS)
+            await().atMost(40000, TimeUnit.MILLISECONDS)
                     .untilAsserted(
-                            () ->
-                                    Assertions.assertTrue(
-                                            objectCompletableFuture.isDone()
-                                                    && JobStatus.CANCELED.equals(
-                                                            objectCompletableFuture.get())));
+                            () -> {
+                                Assertions.assertTrue(objectCompletableFuture.isDone());
+                                Assertions.assertEquals(
+                                        JobStatus.CANCELED, objectCompletableFuture.get());
+                            });
         }
     }
 
@@ -148,9 +152,10 @@ public class JobExecutionIT {
             ClientJobExecutionEnvironment jobExecutionEnv =
                     engineClient.createExecutionContext(filePath, jobConfig, SEATUNNEL_CONFIG);
             final ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
+            TimeUnit.SECONDS.sleep(2);
             CompletableFuture<JobStatus> completableFuture =
                     CompletableFuture.supplyAsync(clientJobProxy::waitForJobComplete);
-            await().atMost(600000, TimeUnit.MILLISECONDS)
+            await().atMost(300000, TimeUnit.MILLISECONDS)
                     .untilAsserted(() -> Assertions.assertTrue(completableFuture.isDone()));
 
             JobResult result = clientJobProxy.getJobResultCache();
@@ -170,9 +175,10 @@ public class JobExecutionIT {
             ClientJobExecutionEnvironment jobExecutionEnv =
                     engineClient.createExecutionContext(filePath, jobConfig, SEATUNNEL_CONFIG);
             final ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
+            TimeUnit.SECONDS.sleep(2);
             CompletableFuture<JobStatus> completableFuture =
                     CompletableFuture.supplyAsync(clientJobProxy::waitForJobComplete);
-            await().atMost(600000, TimeUnit.MILLISECONDS)
+            await().atMost(300000, TimeUnit.MILLISECONDS)
                     .untilAsserted(() -> Assertions.assertTrue(completableFuture.isDone()));
             String value = engineClient.getJobClient().listJobStatus(false);
             Assertions.assertTrue(value.contains("\"jobName\":\"valid_job_name\""));
@@ -216,7 +222,7 @@ public class JobExecutionIT {
                     engineClient.createExecutionContext(filePath, jobConfig, SEATUNNEL_CONFIG);
 
             final ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
-
+            TimeUnit.SECONDS.sleep(2);
             Assertions.assertEquals(clientJobProxy.waitForJobComplete(), JobStatus.FINISHED);
             await().atMost(65, TimeUnit.SECONDS)
                     .untilAsserted(

@@ -120,14 +120,14 @@ public class SplitClusterFaultToleranceIT {
                     engineClient.createExecutionContext(
                             testResources.getRight(), jobConfig, seaTunnelConfig);
             ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
-
+            TimeUnit.SECONDS.sleep(2);
             CompletableFuture<JobStatus> objectCompletableFuture =
                     CompletableFuture.supplyAsync(clientJobProxy::waitForJobComplete);
             Awaitility.await()
-                    .atMost(600000, TimeUnit.MILLISECONDS)
+                    .atMost(300000, TimeUnit.MILLISECONDS)
+                    .pollInterval(2000, TimeUnit.MILLISECONDS)
                     .untilAsserted(
                             () -> {
-                                Thread.sleep(2000);
                                 log.warn(
                                         "\n================================="
                                                 + FileUtils.getFileLineNumberFromDir(
@@ -264,15 +264,15 @@ public class SplitClusterFaultToleranceIT {
                     engineClient.createExecutionContext(
                             testResources.getRight(), jobConfig, seaTunnelConfig);
             ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
-
+            TimeUnit.SECONDS.sleep(2);
             CompletableFuture<JobStatus> objectCompletableFuture =
                     CompletableFuture.supplyAsync(clientJobProxy::waitForJobComplete);
 
             Awaitility.await()
                     .atMost(2, TimeUnit.MINUTES)
+                    .pollInterval(2000, TimeUnit.MILLISECONDS)
                     .untilAsserted(
                             () -> {
-                                Thread.sleep(2000);
                                 log.warn(
                                         "\n================================="
                                                 + FileUtils.getFileLineNumberFromDir(
@@ -288,7 +288,8 @@ public class SplitClusterFaultToleranceIT {
             clientJobProxy.cancelJob();
 
             Awaitility.await()
-                    .atMost(600000, TimeUnit.MILLISECONDS)
+                    .atMost(300000, TimeUnit.MILLISECONDS)
+                    .pollInterval(2000, TimeUnit.MILLISECONDS)
                     .untilAsserted(
                             () ->
                                     Assertions.assertTrue(
@@ -375,16 +376,15 @@ public class SplitClusterFaultToleranceIT {
                     engineClient.createExecutionContext(
                             testResources.getRight(), jobConfig, seaTunnelConfig);
             ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
-
+            TimeUnit.SECONDS.sleep(2);
             CompletableFuture<JobStatus> objectCompletableFuture =
                     CompletableFuture.supplyAsync(clientJobProxy::waitForJobComplete);
 
             Awaitility.await()
                     .atMost(180000, TimeUnit.MILLISECONDS)
+                    .pollInterval(2000, TimeUnit.MILLISECONDS)
                     .untilAsserted(
                             () -> {
-                                // Wait some tasks commit finished
-                                Thread.sleep(2000);
                                 log.warn(
                                         "\n================================="
                                                 + FileUtils.getFileLineNumberFromDir(
@@ -410,7 +410,8 @@ public class SplitClusterFaultToleranceIT {
                                             3, finalNode.getCluster().getMembers().size()));
 
             Awaitility.await()
-                    .atMost(600000, TimeUnit.MILLISECONDS)
+                    .atMost(300000, TimeUnit.MILLISECONDS)
+                    .pollInterval(2000, TimeUnit.MILLISECONDS)
                     .untilAsserted(
                             () ->
                                     Assertions.assertTrue(
@@ -496,16 +497,15 @@ public class SplitClusterFaultToleranceIT {
                             testResources.getRight(), jobConfig, seaTunnelConfig);
             ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
 
+            TimeUnit.SECONDS.sleep(2);
             CompletableFuture<JobStatus> objectCompletableFuture =
                     CompletableFuture.supplyAsync(clientJobProxy::waitForJobComplete);
 
             Awaitility.await()
                     .atMost(60000, TimeUnit.MILLISECONDS)
+                    .pollInterval(2000, TimeUnit.MILLISECONDS)
                     .untilAsserted(
                             () -> {
-                                // Wait some tasks commit finished, and we can get rows from the
-                                // sink target dir
-                                Thread.sleep(2000);
                                 log.warn(
                                         "\n================================="
                                                 + FileUtils.getFileLineNumberFromDir(
@@ -528,11 +528,10 @@ public class SplitClusterFaultToleranceIT {
                                     Assertions.assertEquals(
                                             3, finalNode.getCluster().getMembers().size()));
             Awaitility.await()
-                    .atMost(600000, TimeUnit.MILLISECONDS)
+                    .atMost(300000, TimeUnit.MILLISECONDS)
+                    .pollInterval(2000, TimeUnit.MILLISECONDS)
                     .untilAsserted(
                             () -> {
-                                // Wait job write all rows in file
-                                Thread.sleep(2000);
                                 log.warn(
                                         FileUtils.getFileLineNumberFromDir(testResources.getLeft())
                                                 .toString());
@@ -548,7 +547,8 @@ public class SplitClusterFaultToleranceIT {
             clientJobProxy.cancelJob();
 
             Awaitility.await()
-                    .atMost(600000, TimeUnit.MILLISECONDS)
+                    .atMost(300000, TimeUnit.MILLISECONDS)
+                    .pollInterval(2000, TimeUnit.MILLISECONDS)
                     .untilAsserted(
                             () ->
                                     Assertions.assertTrue(
@@ -634,7 +634,7 @@ public class SplitClusterFaultToleranceIT {
                     engineClient.createExecutionContext(
                             testResources.getRight(), jobConfig, seaTunnelConfig);
             ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
-
+            TimeUnit.SECONDS.sleep(2);
             CompletableFuture<JobStatus> objectCompletableFuture =
                     CompletableFuture.supplyAsync(clientJobProxy::waitForJobComplete);
 
@@ -665,7 +665,7 @@ public class SplitClusterFaultToleranceIT {
                                     Assertions.assertEquals(
                                             3, finalNode.getCluster().getMembers().size()));
             Awaitility.await()
-                    .atMost(600000, TimeUnit.MILLISECONDS)
+                    .atMost(300000, TimeUnit.MILLISECONDS)
                     .untilAsserted(
                             () -> {
                                 Thread.sleep(2000);
@@ -757,7 +757,7 @@ public class SplitClusterFaultToleranceIT {
                     engineClient.createExecutionContext(
                             testResources.getRight(), jobConfig, seaTunnelConfig);
             ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
-
+            TimeUnit.SECONDS.sleep(2);
             CompletableFuture<JobStatus> objectCompletableFuture =
                     CompletableFuture.supplyAsync(clientJobProxy::waitForJobComplete);
 
@@ -790,7 +790,7 @@ public class SplitClusterFaultToleranceIT {
                                             3, finalNode.getCluster().getMembers().size()));
 
             Awaitility.await()
-                    .atMost(600000, TimeUnit.MILLISECONDS)
+                    .atMost(300000, TimeUnit.MILLISECONDS)
                     .untilAsserted(
                             () -> {
                                 // Wait job write all rows in file
@@ -812,7 +812,7 @@ public class SplitClusterFaultToleranceIT {
             clientJobProxy.cancelJob();
 
             Awaitility.await()
-                    .atMost(600000, TimeUnit.MILLISECONDS)
+                    .atMost(300000, TimeUnit.MILLISECONDS)
                     .untilAsserted(
                             () ->
                                     Assertions.assertTrue(
@@ -954,7 +954,7 @@ public class SplitClusterFaultToleranceIT {
 
             ClientJobProxy finalClientJobProxy = clientJobProxy;
             Awaitility.await()
-                    .atMost(600000, TimeUnit.MILLISECONDS)
+                    .atMost(300000, TimeUnit.MILLISECONDS)
                     .untilAsserted(
                             () -> {
                                 // Wait some tasks commit finished, and we can get rows from the
@@ -1013,10 +1013,9 @@ public class SplitClusterFaultToleranceIT {
 
             Awaitility.await()
                     .atMost(100000, TimeUnit.MILLISECONDS)
+                    .pollInterval(2000, TimeUnit.MILLISECONDS)
                     .untilAsserted(
                             () -> {
-                                // Wait job write all rows in file
-                                Thread.sleep(2000);
                                 log.warn(
                                         "\n================================="
                                                 + FileUtils.getFileLineNumberFromDir(
@@ -1043,7 +1042,8 @@ public class SplitClusterFaultToleranceIT {
             newClientJobProxy.cancelJob();
 
             Awaitility.await()
-                    .atMost(600000, TimeUnit.MILLISECONDS)
+                    .atMost(300000, TimeUnit.MILLISECONDS)
+                    .pollInterval(2000, TimeUnit.MILLISECONDS)
                     .untilAsserted(
                             () ->
                                     Assertions.assertTrue(

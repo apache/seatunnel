@@ -38,7 +38,7 @@ import static org.awaitility.Awaitility.await;
 public class JobStateEventTest extends AbstractSeaTunnelServerTest {
 
     @Test
-    public void testJobStateEvent() {
+    public void testJobStateEvent() throws InterruptedException {
 
         JobEventProcessor eventProcessor =
                 (JobEventProcessor) server.getCoordinatorService().getEventProcessor();
@@ -78,6 +78,7 @@ public class JobStateEventTest extends AbstractSeaTunnelServerTest {
                                         JobStatus.FINISHED,
                                         server.getCoordinatorService()
                                                 .getJobStatus(jobId_finished)));
+        TimeUnit.SECONDS.sleep(2);
         // check whether the event handler is executed
         await().atMost(10, TimeUnit.SECONDS)
                 .untilAsserted(() -> Assertions.assertEquals(1, accessCounter.get()));
@@ -98,6 +99,8 @@ public class JobStateEventTest extends AbstractSeaTunnelServerTest {
 
         await().atMost(10, TimeUnit.SECONDS)
                 .untilAsserted(() -> Assertions.assertEquals(2, accessCounter.get()));
+        TimeUnit.SECONDS.sleep(2);
+        Assertions.assertEquals(2, accessCounter.get());
         JobStateEvent jobStateEventFailed = jobStateEventReference.get();
         Assertions.assertEquals(String.valueOf(jobId_failed), jobStateEventFailed.getJobId());
         Assertions.assertEquals(JobStatus.FAILED, jobStateEventFailed.getJobStatus());

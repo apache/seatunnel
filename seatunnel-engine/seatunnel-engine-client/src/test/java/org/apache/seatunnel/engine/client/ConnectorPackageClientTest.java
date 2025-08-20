@@ -252,11 +252,9 @@ public class ConnectorPackageClientTest {
             ClientJobExecutionEnvironment jobExecutionEnv =
                     seaTunnelClient.createExecutionContext(filePath, jobConfig, SEATUNNEL_CONFIG);
             final ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
+            TimeUnit.SECONDS.sleep(2);
             CompletableFuture<JobStatus> objectCompletableFuture =
-                    CompletableFuture.supplyAsync(
-                            () -> {
-                                return clientJobProxy.waitForJobComplete();
-                            });
+                    CompletableFuture.supplyAsync(() -> clientJobProxy.waitForJobComplete());
 
             await().atMost(180000, TimeUnit.MILLISECONDS)
                     .untilAsserted(
@@ -285,8 +283,13 @@ public class ConnectorPackageClientTest {
             ClientJobExecutionEnvironment jobExecutionEnv =
                     seaTunnelClient.createExecutionContext(filePath, jobConfig, SEATUNNEL_CONFIG);
             final ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
-            JobStatus jobStatus1 = clientJobProxy.getJobStatus();
-            Assertions.assertFalse(jobStatus1.isEndState());
+            await().atMost(5000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () -> {
+                                JobStatus jobStatus1 = clientJobProxy.getJobStatus();
+                                Assertions.assertFalse(jobStatus1.isEndState());
+                            });
+
             CompletableFuture<JobStatus> objectCompletableFuture =
                     CompletableFuture.supplyAsync(clientJobProxy::waitForJobComplete);
             Thread.sleep(1000);

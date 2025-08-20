@@ -118,15 +118,15 @@ public class ClusterFaultToleranceTwoPipelineIT {
                     engineClient.createExecutionContext(
                             testResources.getRight(), jobConfig, seaTunnelConfig);
             ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
-
+            TimeUnit.SECONDS.sleep(2);
             CompletableFuture<JobStatus> objectCompletableFuture =
                     CompletableFuture.supplyAsync(clientJobProxy::waitForJobComplete);
 
             Awaitility.await()
-                    .atMost(600000, TimeUnit.MILLISECONDS)
+                    .atMost(300000, TimeUnit.MILLISECONDS)
+                    .pollInterval(2000, TimeUnit.MILLISECONDS)
                     .untilAsserted(
                             () -> {
-                                Thread.sleep(2000);
                                 log.warn(
                                         "\n================================="
                                                 + FileUtils.getFileLineNumberFromDir(
@@ -247,15 +247,15 @@ public class ClusterFaultToleranceTwoPipelineIT {
                     engineClient.createExecutionContext(
                             testResources.getRight(), jobConfig, seaTunnelConfig);
             ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
-
+            TimeUnit.SECONDS.sleep(2);
             CompletableFuture<JobStatus> objectCompletableFuture =
                     CompletableFuture.supplyAsync(clientJobProxy::waitForJobComplete);
 
             Awaitility.await()
-                    .atMost(6, TimeUnit.MINUTES)
+                    .atMost(5, TimeUnit.MINUTES)
+                    .pollInterval(2000, TimeUnit.MILLISECONDS)
                     .untilAsserted(
                             () -> {
-                                Thread.sleep(2000);
                                 log.warn(
                                         "\n================================="
                                                 + FileUtils.getFileLineNumberFromDir(
@@ -271,7 +271,7 @@ public class ClusterFaultToleranceTwoPipelineIT {
             clientJobProxy.cancelJob();
 
             Awaitility.await()
-                    .atMost(600000, TimeUnit.MILLISECONDS)
+                    .atMost(300000, TimeUnit.MILLISECONDS)
                     .untilAsserted(
                             () ->
                                     Assertions.assertTrue(
@@ -345,16 +345,15 @@ public class ClusterFaultToleranceTwoPipelineIT {
                     engineClient.createExecutionContext(
                             testResources.getRight(), jobConfig, seaTunnelConfig);
             ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
-
+            TimeUnit.SECONDS.sleep(2);
             CompletableFuture<JobStatus> objectCompletableFuture =
                     CompletableFuture.supplyAsync(clientJobProxy::waitForJobComplete);
 
             Awaitility.await()
                     .atMost(60000, TimeUnit.MILLISECONDS)
+                    .pollInterval(2000, TimeUnit.MILLISECONDS)
                     .untilAsserted(
                             () -> {
-                                // Wait some tasks commit finished
-                                Thread.sleep(2000);
                                 log.warn(
                                         "\n================================="
                                                 + FileUtils.getFileLineNumberFromDir(
@@ -371,11 +370,10 @@ public class ClusterFaultToleranceTwoPipelineIT {
             node2.shutdown();
 
             Awaitility.await()
-                    .atMost(600000, TimeUnit.MILLISECONDS)
+                    .atMost(300000, TimeUnit.MILLISECONDS)
+                    .pollInterval(2000, TimeUnit.MILLISECONDS)
                     .untilAsserted(
                             () -> {
-                                // Wait some tasks commit finished
-                                Thread.sleep(2000);
                                 log.warn(
                                         "\n================================="
                                                 + FileUtils.getFileLineNumberFromDir(
@@ -460,20 +458,15 @@ public class ClusterFaultToleranceTwoPipelineIT {
                     engineClient.createExecutionContext(
                             testResources.getRight(), jobConfig, seaTunnelConfig);
             ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
-
+            TimeUnit.SECONDS.sleep(2);
             CompletableFuture<JobStatus> objectCompletableFuture =
-                    CompletableFuture.supplyAsync(
-                            () -> {
-                                return clientJobProxy.waitForJobComplete();
-                            });
+                    CompletableFuture.supplyAsync(() -> clientJobProxy.waitForJobComplete());
 
             Awaitility.await()
-                    .atMost(360000, TimeUnit.MILLISECONDS)
+                    .atMost(300000, TimeUnit.MILLISECONDS)
+                    .pollInterval(2000, TimeUnit.MILLISECONDS)
                     .untilAsserted(
                             () -> {
-                                // Wait some tasks commit finished, and we can get rows from the
-                                // sink target dir
-                                Thread.sleep(2000);
                                 log.warn(
                                         "\n================================="
                                                 + FileUtils.getFileLineNumberFromDir(
@@ -491,11 +484,10 @@ public class ClusterFaultToleranceTwoPipelineIT {
             node2.shutdown();
 
             Awaitility.await()
-                    .atMost(360000, TimeUnit.MILLISECONDS)
+                    .atMost(300000, TimeUnit.MILLISECONDS)
+                    .pollInterval(2000, TimeUnit.MILLISECONDS)
                     .untilAsserted(
                             () -> {
-                                // Wait job write all rows in file
-                                Thread.sleep(2000);
                                 log.warn(
                                         "\n================================="
                                                 + FileUtils.getFileLineNumberFromDir(
@@ -513,7 +505,7 @@ public class ClusterFaultToleranceTwoPipelineIT {
             clientJobProxy.cancelJob();
 
             Awaitility.await()
-                    .atMost(600000, TimeUnit.MILLISECONDS)
+                    .atMost(300000, TimeUnit.MILLISECONDS)
                     .untilAsserted(
                             () ->
                                     Assertions.assertTrue(
@@ -590,16 +582,15 @@ public class ClusterFaultToleranceTwoPipelineIT {
                     engineClient.createExecutionContext(
                             testResources.getRight(), jobConfig, seaTunnelConfig);
             ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
-
+            TimeUnit.SECONDS.sleep(2);
             CompletableFuture<JobStatus> objectCompletableFuture =
                     CompletableFuture.supplyAsync(clientJobProxy::waitForJobComplete);
 
             Awaitility.await()
-                    .atMost(360000, TimeUnit.MILLISECONDS)
+                    .atMost(300000, TimeUnit.MILLISECONDS)
+                    .pollInterval(2000, TimeUnit.MILLISECONDS)
                     .untilAsserted(
                             () -> {
-                                // Wait some tasks commit finished
-                                Thread.sleep(2000);
                                 log.warn(
                                         "\n================================="
                                                 + FileUtils.getFileLineNumberFromDir(
@@ -615,21 +606,25 @@ public class ClusterFaultToleranceTwoPipelineIT {
             // shutdown master node
             node1.shutdown();
 
+            log.info(
+                    "=============================shutdown node1===================================");
+
             Awaitility.await()
-                    .atMost(600000, TimeUnit.MILLISECONDS)
+                    .atMost(300000, TimeUnit.MILLISECONDS)
+                    .pollInterval(2000, TimeUnit.MILLISECONDS)
                     .untilAsserted(
                             () -> {
-                                // Wait some tasks commit finished
-                                Thread.sleep(2000);
                                 log.warn(
                                         "\n================================="
                                                 + FileUtils.getFileLineNumberFromDir(
                                                         testResources.getLeft())
                                                 + "=================================\n");
-                                Assertions.assertTrue(
-                                        objectCompletableFuture.isDone()
-                                                && JobStatus.FINISHED.equals(
-                                                        objectCompletableFuture.get()));
+                                JobStatus jobStatus = clientJobProxy.getJobStatus();
+                                System.out.println("++++++++++++++++++++++++++++++++++++++++");
+                                System.out.println(jobStatus);
+                                Assertions.assertTrue(objectCompletableFuture.isDone());
+                                Assertions.assertEquals(
+                                        JobStatus.FINISHED, objectCompletableFuture.get());
                             });
 
             Long fileLineNumberFromDir =
@@ -700,17 +695,15 @@ public class ClusterFaultToleranceTwoPipelineIT {
                     engineClient.createExecutionContext(
                             testResources.getRight(), jobConfig, seaTunnelConfig);
             ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
-
+            TimeUnit.SECONDS.sleep(2);
             CompletableFuture<JobStatus> objectCompletableFuture =
                     CompletableFuture.supplyAsync(clientJobProxy::waitForJobComplete);
 
             Awaitility.await()
                     .atMost(360000, TimeUnit.MILLISECONDS)
+                    .pollInterval(2000, TimeUnit.MILLISECONDS)
                     .untilAsserted(
                             () -> {
-                                // Wait some tasks commit finished, and we can get rows from the
-                                // sink target dir
-                                Thread.sleep(2000);
                                 log.warn(
                                         "\n================================="
                                                 + FileUtils.getFileLineNumberFromDir(
@@ -727,11 +720,10 @@ public class ClusterFaultToleranceTwoPipelineIT {
             node1.shutdown();
 
             Awaitility.await()
-                    .atMost(600000, TimeUnit.MILLISECONDS)
+                    .atMost(300000, TimeUnit.MILLISECONDS)
+                    .pollInterval(2000, TimeUnit.MILLISECONDS)
                     .untilAsserted(
                             () -> {
-                                // Wait job write all rows in file
-                                Thread.sleep(2000);
                                 log.warn(
                                         "\n================================="
                                                 + FileUtils.getFileLineNumberFromDir(
@@ -749,7 +741,8 @@ public class ClusterFaultToleranceTwoPipelineIT {
             clientJobProxy.cancelJob();
 
             Awaitility.await()
-                    .atMost(360000, TimeUnit.MILLISECONDS)
+                    .atMost(350000, TimeUnit.MILLISECONDS)
+                    .pollInterval(2000, TimeUnit.MILLISECONDS)
                     .untilAsserted(
                             () ->
                                     Assertions.assertTrue(

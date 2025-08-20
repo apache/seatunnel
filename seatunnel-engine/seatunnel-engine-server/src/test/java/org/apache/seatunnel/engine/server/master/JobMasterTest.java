@@ -311,6 +311,7 @@ public class JobMasterTest extends AbstractSeaTunnelServerTest {
         voidPassiveCompletableFuture.join();
 
         JobMaster jobMaster = server.getCoordinatorService().getJobMaster(jobId);
+        Assertions.assertNotNull(jobMaster);
 
         // waiting for job status turn to running
         await().atMost(120000, TimeUnit.MILLISECONDS)
