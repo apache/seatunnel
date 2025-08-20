@@ -84,6 +84,32 @@ public class ImportClassCheckTest {
     }
 
     @Test
+    public void commonLang2Check() {
+        // both common-lang and comon-lang3 share the same prefix org.apache.commons.lang
+        Map<String, List<String>> commonLangMap =
+                checkImportClassPrefix(
+                        Arrays.asList("org.apache.commons.lang"),
+                        Collections.emptyList(),
+                        Collections.emptyList());
+        // common-lang3
+        Map<String, List<String>> commonLang3Map =
+                checkImportClassPrefix(
+                        Arrays.asList("org.apache.commons.lang3"),
+                        Collections.emptyList(),
+                        Collections.emptyList());
+
+        // find the one in common-lang but not common-lang3
+        Map<String, List<String>> errorMap =
+                commonLangMap.entrySet().stream()
+                        .filter(entry -> !commonLang3Map.containsKey(entry.getKey()))
+                        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+
+        Assertions.assertEquals(
+                0, errorMap.size(), shadeErrorMsg("org.apache.commons.lang", errorMap));
+        log.info("check org.apache.commons.lang successfully");
+    }
+
+    @Test
     public void guavaShadeCheck() {
         Map<String, List<String>> errorMap =
                 checkImportClassPrefixWithAll(Collections.singletonList("com.google.common"));

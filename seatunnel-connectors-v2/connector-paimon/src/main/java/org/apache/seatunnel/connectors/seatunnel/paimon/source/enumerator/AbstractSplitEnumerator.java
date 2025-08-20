@@ -63,6 +63,7 @@ public abstract class AbstractSplitEnumerator
     protected Deque<PaimonSourceSplit> pendingSplits;
 
     protected final TableScan tableScan;
+    protected final Object stateLock = new Object();
 
     private final int splitMaxNum;
 
@@ -98,7 +99,9 @@ public abstract class AbstractSplitEnumerator
 
     @Override
     public void run() throws Exception {
-        loadNewSplits();
+        synchronized (stateLock) {
+            loadNewSplits();
+        }
     }
 
     @Override
@@ -129,7 +132,9 @@ public abstract class AbstractSplitEnumerator
 
     @Override
     public PaimonSourceState snapshotState(long checkpointId) throws Exception {
-        return new PaimonSourceState(pendingSplits, nextSnapshotId);
+        synchronized (stateLock) {
+            return new PaimonSourceState(pendingSplits, nextSnapshotId);
+        }
     }
 
     @Override

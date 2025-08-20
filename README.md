@@ -15,6 +15,7 @@
 - [Supported Connectors](#supported-connectors)
 - [Getting Started](#getting-started)
 - [Multimodal Data Integration](#multimodal-data-integration)
+- [Apache SeaTunnel Tools](#apache-seatunnel-tools)
 - [Use Cases](#use-cases)
 - [Code of Conduct](#code-of-conduct)
 - [Contributors](#contributors)
@@ -89,6 +90,10 @@ Choose your runtime execution engine:
 - Most data integration tools support structured and unstructured text data, and SeaTunnel does as well. Simply refer to the desired Source/Sink to use.
 
 - For integrating video, images, and binary files with SeaTunnel, please refer to the documentation for detailed instructions.
+
+## Apache SeaTunnel Tools
+
+SeaTunnel Tools provides a range of peripheral tools, including Apache SeaTunnel Mcp Server, etc,please refer to [SeaTunnel Tools](https://github.com/apache/seatunnel-tools).
 
 ## Use Cases
 

@@ -44,6 +44,7 @@ public class MaxcomputeSourceSplitEnumerator
     private Set<MaxcomputeSourceSplit> assignedSplits;
     private final ReadonlyConfig readonlyConfig;
     private final Map<TablePath, SourceTableInfo> sourceTableInfos;
+    private final Object stateLock = new Object();
 
     public MaxcomputeSourceSplitEnumerator(
             SourceSplitEnumerator.Context<MaxcomputeSourceSplit> enumeratorContext,
@@ -70,8 +71,12 @@ public class MaxcomputeSourceSplitEnumerator
 
     @Override
     public void run() throws Exception {
-        discoverySplits();
-        assignPendingSplits();
+        synchronized (stateLock) {
+            discoverySplits();
+        }
+        synchronized (stateLock) {
+            assignPendingSplits();
+        }
     }
 
     @Override
@@ -92,7 +97,9 @@ public class MaxcomputeSourceSplitEnumerator
 
     @Override
     public MaxcomputeSourceState snapshotState(long checkpointId) {
-        return new MaxcomputeSourceState(assignedSplits);
+        synchronized (stateLock) {
+            return new MaxcomputeSourceState(assignedSplits);
+        }
     }
 
     @Override

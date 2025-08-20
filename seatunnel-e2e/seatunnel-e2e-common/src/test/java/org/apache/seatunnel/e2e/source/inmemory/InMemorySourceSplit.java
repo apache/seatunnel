@@ -15,23 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.core.job;
+package org.apache.seatunnel.e2e.source.inmemory;
 
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NonNull;
+import org.apache.seatunnel.api.source.SourceSplit;
 
-import java.io.Serializable;
+public class InMemorySourceSplit implements SourceSplit {
 
-@Data
-@AllArgsConstructor
-public class JobResult implements Serializable {
+    private final String splitId;
 
-    @NonNull private JobStatus status;
+    public InMemorySourceSplit(String splitId) {
+        this.splitId = splitId;
+    }
 
-    private String error;
+    @Override
+    public String splitId() {
+        return splitId;
+    }
 
-    public JobResult(@NonNull JobStatus status) {
-        this.status = status;
+    @Override
+    public String toString() {
+        return "InMemorySourceSplit{" + "splitId='" + splitId + '\'' + '}';
     }
 }
