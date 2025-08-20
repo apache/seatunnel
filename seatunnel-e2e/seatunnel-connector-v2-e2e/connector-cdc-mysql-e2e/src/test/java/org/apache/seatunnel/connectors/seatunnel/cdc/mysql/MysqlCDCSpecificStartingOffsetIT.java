@@ -646,7 +646,12 @@ public class MysqlCDCSpecificStartingOffsetIT extends TestSuiteBase implements T
                 return System.currentTimeMillis();
             }
             log.info("SHOW BINLOG EVENTS result :{}", logPosList);
-            Long pos = logPosList.stream().distinct().sorted(Collections.reverseOrder()).collect(Collectors.toList()).get(1);
+            Long pos =
+                    logPosList.stream()
+                            .distinct()
+                            .sorted(Collections.reverseOrder())
+                            .collect(Collectors.toList())
+                            .get(1);
 
             ArrayBlockingQueue<Long> binlogTimestamps = new ArrayBlockingQueue<>(1);
             BinaryLogClient.EventListener eventListener =
