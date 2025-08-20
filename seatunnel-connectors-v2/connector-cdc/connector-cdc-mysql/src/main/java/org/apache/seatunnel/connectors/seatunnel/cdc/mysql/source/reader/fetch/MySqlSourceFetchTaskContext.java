@@ -269,7 +269,10 @@ public class MySqlSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
     /** Loads the connector's persistent offset (if present) via the given loader. */
     private MySqlOffsetContext loadStartingOffsetState(
             MySqlOffsetContext.Loader loader, SourceSplitBase mySqlSplit) {
-        Offset offset = getInitOffset(mySqlSplit);
+        Offset offset =
+                mySqlSplit.isSnapshotSplit()
+                        ? BinlogOffset.INITIAL_OFFSET
+                        : getInitOffset(mySqlSplit);
         LOG.info("mysql cdc start at {}", offset);
         MySqlOffsetContext mySqlOffsetContext = loader.load(offset.getOffset());
 
@@ -294,9 +297,7 @@ public class MySqlSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
                 throw new SeaTunnelException(e);
             }
         } else {
-            return mySqlSplit.isSnapshotSplit()
-                    ? BinlogOffset.INITIAL_OFFSET
-                    : mySqlSplit.asIncrementalSplit().getStartupOffset();
+            return mySqlSplit.asIncrementalSplit().getStartupOffset();
         }
     }
 

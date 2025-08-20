@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source.reader.fetch.binlog;
 
+import org.apache.seatunnel.connectors.cdc.base.config.StartupConfig;
+import org.apache.seatunnel.connectors.cdc.base.option.StartupMode;
 import org.apache.seatunnel.connectors.cdc.base.relational.JdbcSourceEventDispatcher;
 import org.apache.seatunnel.connectors.cdc.base.source.reader.external.FetchTask;
 import org.apache.seatunnel.connectors.cdc.base.source.split.IncrementalSplit;
@@ -31,6 +33,8 @@ import org.slf4j.LoggerFactory;
 
 import com.github.shyiko.mysql.binlog.BinaryLogClient;
 import com.github.shyiko.mysql.binlog.event.Event;
+import com.github.shyiko.mysql.binlog.event.EventHeader;
+import com.github.shyiko.mysql.binlog.event.EventHeaderV4;
 import io.debezium.DebeziumException;
 import io.debezium.connector.mysql.MySqlConnection;
 import io.debezium.connector.mysql.MySqlConnectorConfig;
@@ -63,16 +67,37 @@ public class MySqlBinlogFetchTask implements FetchTask<SourceSplitBase> {
     public void execute(FetchTask.Context context) throws Exception {
         MySqlSourceFetchTaskContext sourceFetchContext = (MySqlSourceFetchTaskContext) context;
         taskRunning = true;
+        MySqlStreamingChangeEventSource mySqlStreamingChangeEventSource;
 
-        MySqlStreamingChangeEventSource mySqlStreamingChangeEventSource =
-                new MySqlStreamingChangeEventSource(
-                        sourceFetchContext.getDbzConnectorConfig(),
-                        sourceFetchContext.getConnection(),
-                        sourceFetchContext.getDispatcher(),
-                        sourceFetchContext.getErrorHandler(),
-                        Clock.SYSTEM,
-                        sourceFetchContext.getTaskContext(),
-                        sourceFetchContext.getStreamingChangeEventSourceMetrics());
+        StartupConfig startupConfig = sourceFetchContext.getSourceConfig().getStartupConfig();
+
+        StartupMode startupMode = startupConfig.getStartupMode();
+        if (startupMode.equals(StartupMode.TIMESTAMP)) {
+            log.info(
+                    "Starting MySQL binlog reader,with timestamp filter {}",
+                    startupConfig.getTimestamp());
+
+            mySqlStreamingChangeEventSource =
+                    new TimestampFilterMySqlStreamingChangeEventSource(
+                            sourceFetchContext.getDbzConnectorConfig(),
+                            sourceFetchContext.getConnection(),
+                            sourceFetchContext.getDispatcher(),
+                            sourceFetchContext.getErrorHandler(),
+                            Clock.SYSTEM,
+                            sourceFetchContext.getTaskContext(),
+                            sourceFetchContext.getStreamingChangeEventSourceMetrics(),
+                            startupConfig.getTimestamp());
+        } else {
+            mySqlStreamingChangeEventSource =
+                    new MySqlStreamingChangeEventSource(
+                            sourceFetchContext.getDbzConnectorConfig(),
+                            sourceFetchContext.getConnection(),
+                            sourceFetchContext.getDispatcher(),
+                            sourceFetchContext.getErrorHandler(),
+                            Clock.SYSTEM,
+                            sourceFetchContext.getTaskContext(),
+                            sourceFetchContext.getStreamingChangeEventSourceMetrics());
+        }
 
         BinlogSplitChangeEventSourceContext changeEventSourceContext =
                 new BinlogSplitChangeEventSourceContext();
@@ -201,6 +226,81 @@ public class MySqlBinlogFetchTask implements FetchTask<SourceSplitBase> {
                         entry.getValue() == null ? null : entry.getValue().toString());
             }
             return new BinlogOffset(offsetStrMap);
+        }
+    }
+
+    private class TimestampFilterMySqlStreamingChangeEventSource
+            extends MySqlStreamingChangeEventSource {
+
+        private final Long targetTimestamp;
+        private long logTimestamp;
+        private boolean loggedWaitingMessage;
+        private final long LOG_INTERVAL_MS = 10000;
+
+        public TimestampFilterMySqlStreamingChangeEventSource(
+                MySqlConnectorConfig connectorConfig,
+                MySqlConnection connection,
+                JdbcSourceEventDispatcher<MySqlPartition> dispatcher,
+                ErrorHandler errorHandler,
+                Clock clock,
+                MySqlTaskContext taskContext,
+                MySqlStreamingChangeEventSourceMetrics metrics,
+                Long targetTimestamp) {
+            super(
+                    connectorConfig,
+                    connection,
+                    dispatcher,
+                    errorHandler,
+                    clock,
+                    taskContext,
+                    metrics);
+            this.targetTimestamp = targetTimestamp;
+        }
+
+        @Override
+        protected void handleEvent(
+                MySqlPartition partition, MySqlOffsetContext offsetContext, Event event) {
+            if (event == null) {
+                super.handleEvent(partition, offsetContext, event);
+                return;
+            }
+
+            long eventTs = event.getHeader().getTimestamp();
+            if (eventTs == 0 || targetTimestamp == null || targetTimestamp == 0) {
+                super.handleEvent(partition, offsetContext, event);
+                return;
+            }
+            boolean shouldSkip = eventTs < targetTimestamp;
+            if (shouldSkip) {
+                if (!loggedWaitingMessage) {
+                    log.info(
+                            "skip binlog, currentTime:{}, filterTime:{}", eventTs, targetTimestamp);
+                    loggedWaitingMessage = true;
+                    logTimestamp = eventTs;
+                }
+                if (eventTs - logTimestamp >= LOG_INTERVAL_MS) {
+                    loggedWaitingMessage = false;
+                }
+                updateOffsetPosition(offsetContext, event.getHeader());
+                return;
+            }
+
+            super.handleEvent(partition, offsetContext, event);
+        }
+
+        private void updateOffsetPosition(
+                MySqlOffsetContext offsetContext, EventHeader eventHeader) {
+            try {
+                if (eventHeader instanceof EventHeaderV4) {
+                    EventHeaderV4 headerV4 = (EventHeaderV4) eventHeader;
+                    offsetContext.setEventPosition(
+                            headerV4.getPosition(), headerV4.getEventLength());
+                }
+                offsetContext.setBinlogServerId(eventHeader.getServerId());
+                offsetContext.completeEvent();
+            } catch (Exception e) {
+                log.warn("Failed to update offset for skipped event: {}", e.getMessage());
+            }
         }
     }
 

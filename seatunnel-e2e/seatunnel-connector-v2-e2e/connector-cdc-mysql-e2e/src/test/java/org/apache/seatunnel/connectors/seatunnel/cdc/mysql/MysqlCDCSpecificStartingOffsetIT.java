@@ -45,6 +45,9 @@ import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerLoggerFactory;
 
 import com.github.shyiko.mysql.binlog.BinaryLogClient;
+import com.github.shyiko.mysql.binlog.event.EventData;
+import com.github.shyiko.mysql.binlog.event.EventHeaderV4;
+import com.github.shyiko.mysql.binlog.event.RotateEventData;
 import io.debezium.jdbc.JdbcConnection;
 import lombok.extern.slf4j.Slf4j;
 
@@ -57,6 +60,7 @@ import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
@@ -66,7 +70,7 @@ import static org.awaitility.Awaitility.await;
 @Slf4j
 @DisabledOnContainer(
         value = {},
-        type = {EngineType.SPARK, EngineType.FLINK},
+        type = {EngineType.SPARK, EngineType.SEATUNNEL},
         disabledReason = "Currently SPARK and FLINK do not support restore")
 public class MysqlCDCSpecificStartingOffsetIT extends TestSuiteBase implements TestResource {
 
@@ -406,8 +410,6 @@ public class MysqlCDCSpecificStartingOffsetIT extends TestSuiteBase implements T
     @TestTemplate
     public void testMysqlCdcTimestampOffset(TestContainer container) throws Exception {
         log.info("begin testMysqlCdcTimestampOffset");
-        // clean data
-        flushLogs();
         clearTable(MYSQL_DATABASE, SOURCE_TABLE_1);
         clearTable(MYSQL_DATABASE, SINK_TABLE);
 
@@ -449,11 +451,10 @@ public class MysqlCDCSpecificStartingOffsetIT extends TestSuiteBase implements T
         //  mysql binlog timestamp is second, wait for 3 seconds to make sure the timestamp is
         // different
         Thread.sleep(3000);
-        flushLogs();
 
         // get latest binlog timestamp
         String[] variables = {
-            "timestamp=" + getCurrentBinlogTimestamp(),
+            "timestamp=" + getCurrentBinlogTimestamp() + 1000L,
         };
         log.info("offset start with timestamp :{}", variables[0]);
 
@@ -612,7 +613,10 @@ public class MysqlCDCSpecificStartingOffsetIT extends TestSuiteBase implements T
                 String.format("PURGE BINARY LOGS TO '%s'", getCurrentBinlogOffset().getFilename()));
     }
 
-    private long getCurrentBinlogTimestamp() {
+    private long getCurrentBinlogTimestamp() throws IOException, InterruptedException {
+
+        BinlogOffset binlogOffset = getCurrentBinlogOffset();
+
         JdbcSourceConfigFactory configFactory =
                 new MySqlSourceConfigFactory()
                         .hostname(MYSQL_CONTAINER.getHost())
@@ -621,33 +625,39 @@ public class MysqlCDCSpecificStartingOffsetIT extends TestSuiteBase implements T
                         .password(MYSQL_CONTAINER.getPassword())
                         .databaseList(MYSQL_CONTAINER.getDatabaseName());
         JdbcSourceConfig jdbcSourceConfig = configFactory.create(0);
-        MySqlDialect mySqlDialect =
-                new MySqlDialect((MySqlSourceConfigFactory) configFactory, Collections.emptyList());
+        BinaryLogClient client =
+                MySqlConnectionUtils.createBinaryClient(jdbcSourceConfig.getDbzConfiguration());
 
-        final String showBinaryLogStmt = "SHOW BINARY LOGS";
-        List<String> binlogFiles = new ArrayList<>();
-        JdbcConnection.ResultSetConsumer rsc =
-                rs -> {
-                    while (rs.next()) {
-                        String fileName = rs.getString(1);
-                        long fileSize = rs.getLong(2);
-                        if (fileSize > 0) {
-                            binlogFiles.add(fileName);
+        ArrayBlockingQueue<Long> binlogTimestamps = new ArrayBlockingQueue<>(1);
+        BinaryLogClient.EventListener eventListener =
+                event -> {
+                    EventData data = event.getData();
+                    if (data instanceof RotateEventData) {
+                        // We skip RotateEventData because it does not contain the timestamp we are
+                        // interested in.
+                        return;
+                    }
+
+                    EventHeaderV4 header = event.getHeader();
+                    long timestamp = header.getTimestamp();
+                    if (timestamp > 0) {
+                        binlogTimestamps.offer(timestamp);
+                        try {
+                            client.disconnect();
+                        } catch (IOException e) {
+                            throw new RuntimeException(e);
                         }
                     }
                 };
-        try (JdbcConnection jdbc = mySqlDialect.openJdbcConnection(jdbcSourceConfig)) {
-            jdbc.query(showBinaryLogStmt, rsc);
-            if (binlogFiles.isEmpty()) {
-                return System.currentTimeMillis();
-            }
-            log.info("SHOW BINARY LOGS result :{}", binlogFiles);
-            BinaryLogClient client =
-                    MySqlConnectionUtils.createBinaryClient(jdbcSourceConfig.getDbzConfiguration());
-            return MySqlConnectionUtils.getBinlogTimestamp(
-                    client, binlogFiles.get(binlogFiles.size() - 1));
-        } catch (Exception e) {
-            throw new RuntimeException(e);
+
+        try {
+            client.registerEventListener(eventListener);
+            client.setBinlogFilename(binlogOffset.getFilename());
+            client.setBinlogPosition(binlogOffset.getPosition());
+            client.connect();
+        } finally {
+            client.unregisterEventListener(eventListener);
         }
+        return binlogTimestamps.take();
     }
 }
