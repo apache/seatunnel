@@ -196,11 +196,6 @@ public class DatabendSink
         }
     }
 
-    @Override
-    public Optional<Serializer<Void>> getWriterStateSerializer() {
-        return Optional.empty();
-    }
-
     private boolean executeSql(Connection connection, String sql) {
         try (java.sql.Statement statement = connection.createStatement()) {
             log.info("Executing SQL: {}", sql);
@@ -269,11 +264,6 @@ public class DatabendSink
     public Optional<Serializer<DatabendSinkAggregatedCommitInfo>>
             getAggregatedCommitInfoSerializer() {
         return Optional.of(new DefaultSerializer<>());
-    }
-
-    @Override
-    public Optional<CatalogTable> getWriteCatalogTable() {
-        return SeaTunnelSink.super.getWriteCatalogTable();
     }
 
     @Override

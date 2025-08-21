@@ -66,7 +66,6 @@ public class DatabendSinkConfig implements Serializable {
                 .withAutoCommit(config.get(DatabendOptions.AUTO_COMMIT))
                 .withBatchSize(config.get(DatabendOptions.BATCH_SIZE))
                 .withExecuteTimeoutSec(config.get(DatabendSinkOptions.EXECUTE_TIMEOUT_SEC))
-                .withInterval(config.get(DatabendSinkOptions.INTERVAL))
                 .withConflictKey(config.get(DatabendSinkOptions.CONFLICT_KEY))
                 .withAllowDelete(config.get(DatabendSinkOptions.ALLOW_DELETE))
                 .build();

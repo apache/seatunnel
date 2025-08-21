@@ -54,12 +54,6 @@ public class DatabendSinkOptions {
                     .defaultValue(1000)
                     .withDescription("Batch size for CDC merge operations");
 
-    public static final Option<Integer> INTERVAL =
-            Options.key("interval")
-                    .intType()
-                    .defaultValue(30)
-                    .withDescription("Interval in seconds for CDC merge operations");
-
     public static final Option<String> CONFLICT_KEY =
             Options.key("conflict_key")
                     .stringType()

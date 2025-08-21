@@ -222,41 +222,6 @@ public class DatabendSinkWriter
         }
     }
 
-    // This method is no longer needed as raw table creation is handled by
-    // DatabendSinkAggregatedCommitter
-    // private void createRawTable(String database) throws SQLException {
-    //     String createTableSql =
-    //             String.format(
-    //                     "CREATE TABLE %s.%s ("
-    //                             + "  id VARCHAR(255),"
-    //                             + "  table_name VARCHAR(255),"
-    //                             + "  raw_data JSON,"
-    //                             + "  add_time TIMESTAMP,"
-    //                             + "  action STRING"
-    //                             + ")",
-    //                     database, rawTableName);
-    //
-    //     try (Statement stmt = connection.createStatement()) {
-    //         log.info("Creating raw table with SQL: {}", createTableSql);
-    //         stmt.execute(createTableSql);
-    //         log.info("Raw table {} created successfully", rawTableName);
-    //     }
-    // }
-
-    // This method is no longer needed as stream creation is handled by
-    // DatabendSinkAggregatedCommitter
-    // private void createStream(String database) throws SQLException {
-    //     String createStreamSql =
-    //             String.format(
-    //                     "CREATE STREAM %s.%s ON TABLE %s.%s",
-    //                     database, streamName, database, rawTableName);
-    //
-    //     try (Statement stmt = connection.createStatement()) {
-    //         log.info("Creating stream with SQL: {}", createStreamSql);
-    //         stmt.execute(createStreamSql);
-    //         log.info("Stream {} created successfully", streamName);
-    //     }
-    // }
 
     private String generateInsertRawSql(String database) {
         return String.format(

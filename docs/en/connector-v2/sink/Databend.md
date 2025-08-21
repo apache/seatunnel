@@ -37,7 +37,7 @@ The Databend sink internally implements bulk data import through stage attachmen
 | Name | Type | Required | Default Value | Description                                 |
 |------|------|----------|---------------|---------------------------------------------|
 | url | String | Yes | - | Databend JDBC connection URL               |
-| user | String | Yes | - | Databend database username                    |
+| username | String | Yes | - | Databend database username                    |
 | password | String | Yes | - | Databend database password                     |
 | database | String | No | - | Databend database name, defaults to the database name specified in the connection URL |
 | table | String | No | - | Databend table name                       |
@@ -114,7 +114,7 @@ source {
 sink {
   Databend {
     url = "jdbc:databend://localhost:8000"
-    user = "root"
+    username = "root"
     password = ""
     database = "default"
     table = "target_table"
@@ -129,7 +129,7 @@ sink {
 sink {
   Databend {
     url = "jdbc:databend://localhost:8000"
-    user = "root"
+    username = "root"
     password = ""
     database = "default"
     table = "target_table"
@@ -144,7 +144,7 @@ sink {
 sink {
   Databend {
     url = "jdbc:databend://localhost:8000"
-    user = "root"
+    username = "root"
     password = ""
     database = "default"
     table = "target_table"
@@ -160,14 +160,13 @@ sink {
 sink {
   Databend {
     url = "jdbc:databend://databend:8000/default?ssl=false"
-    user = "root"
+    username = "root"
     password = ""
     database = "default"
     table = "sink_table"
     
     # Enable CDC mode
     batch_size = 1
-    interval = 3
     conflict_key = "id"
     allow_delete = true
   }
