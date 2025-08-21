@@ -65,8 +65,7 @@ public class DSQLSinkFactory implements TableSinkFactory {
                 .optional(
                         DSQLSinkOptions.CONNECTION_TIMEOUT_MS,
                         DSQLSinkOptions.SOCKET_TIMEOUT_MS,
-                        DSQLSinkOptions.PRIMARY_KEYS,
-                        DSQLSinkOptions.USE_SSL)
+                        DSQLSinkOptions.PRIMARY_KEYS)
                 .build();
     }
 

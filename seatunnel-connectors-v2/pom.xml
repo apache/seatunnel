@@ -87,6 +87,7 @@
         <module>connector-graphql</module>
         <module>connector-aerospike</module>
         <module>connector-sensorsdata</module>
+        <module>connector-dsql</module>
     </modules>
 
     <dependencyManagement>

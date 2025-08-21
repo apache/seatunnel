@@ -84,13 +84,19 @@ public class DSQLSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
 
     @Override
     public void write(SeaTunnelRow element) throws IOException {
-        System.out.println("find table " + element.getTableId());
-        System.out.println("row date is " + element.toString());
         if (element == null) {
             return;
         }
+        String catalogTableName =
+                catalogTable.getTableId().getDatabaseName()
+                        + "."
+                        + catalogTable.getTableId().getTableName();
+        if (!element.getTableId().equals(catalogTableName)) {
+            return;
+        }
 
-        batchBuffer.add(element.copy()); // Create a copy to avoid potential mutation
+        // Create a copy to avoid potential mutation
+        batchBuffer.add(element.copy());
         long currentTime = System.currentTimeMillis();
         if (batchBuffer.size() >= config.getBatchSize()
                 || (batchBuffer.size() > 0 && currentTime - lastCommitTime > COMMIT_INTERVAL_MS)) {

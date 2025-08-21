@@ -24,7 +24,6 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.seatunnel.connectors.seatunnel.dsql.config.DSQLSinkConfig;
 
-import org.postgresql.ds.PGSimpleDataSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -55,7 +54,6 @@ public class DSQLClient implements Closeable {
     private static final Logger LOG = LoggerFactory.getLogger(DSQLClient.class);
 
     private final DSQLSinkConfig config;
-    // private final CustomPGDataSource pgDataSource;
     private final DsqlUtilities dsqlUtilities;
     private final CatalogTable catalogTable;
     private final Map<String, Integer> columnIndexMap;
@@ -103,26 +101,6 @@ public class DSQLClient implements Closeable {
                             .credentialsProvider(DefaultCredentialsProvider.create())
                             .build();
         }
-        // Initialize AWS DSQL utilities
-
-        // this.pgDataSource = createDataSource();
-    }
-
-    private CustomPGDataSource createDataSource() throws SQLException {
-        String hostname = extractHostname(config.getClusterEndpoint());
-
-        CustomPGDataSource dataSource = new CustomPGDataSource();
-        dataSource.setServerNames(new String[] {hostname});
-        dataSource.setPortNumbers(new int[] {5432});
-        dataSource.setDatabaseName(config.getDatabaseName());
-        dataSource.setUser(config.getUserName());
-
-        // PostgreSQL SSL configuration for Aurora DSQL
-        dataSource.setSslMode("verify-full");
-        dataSource.setSslfactory("org.postgresql.ssl.DefaultJavaSSLFactory");
-
-        LOG.info("Created DSQL data source for endpoint: {}", hostname);
-        return dataSource;
     }
 
     /** Extract hostname from DSQL cluster endpoint */
@@ -159,29 +137,8 @@ public class DSQLClient implements Closeable {
         }
     }
 
-    /** Custom PostgreSQL DataSource that provides dynamic token generation */
-    private class CustomPGDataSource extends PGSimpleDataSource {
-        @Override
-        public Connection getConnection() throws SQLException {
-            String hostname = getServerNames()[0];
-            String token = generateAuthToken(hostname);
-            return super.getConnection(getUser(), token);
-        }
-
-        @Override
-        public Connection getConnection(String username, String password) throws SQLException {
-            if (password != null && !password.isEmpty()) {
-                return super.getConnection(username, password);
-            }
-            String hostname = getServerNames()[0];
-            String token = generateAuthToken(hostname);
-            return super.getConnection(username, token);
-        }
-    }
-
     /** Get a connection with fresh authentication token */
     private Connection getConnection() throws SQLException {
-        // return pgDataSource.getConnection();
         return DSQLConnectionPool.getInstance(this.config, this.dsqlUtilities).getConnection();
     }
 

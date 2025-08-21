@@ -47,7 +47,6 @@ public class DSQLSinkConfig implements Serializable {
 
     private final List<String> primaryKeys;
 
-    private final boolean useSsl;
     private final String profileName;
     private final boolean enableMultiTable;
 
@@ -74,7 +73,6 @@ public class DSQLSinkConfig implements Serializable {
 
         this.primaryKeys = config.getOptional(DSQLSinkOptions.PRIMARY_KEYS).orElse(null);
 
-        this.useSsl = config.get(DSQLSinkOptions.USE_SSL);
         this.profileName = config.getOptional(DSQLSinkOptions.PROFILE_NAME).orElse(null);
         this.userName = config.get(DSQLSinkOptions.USER_NAME);
         this.enableMultiTable = config.get(DSQLSinkOptions.ENABLE_MULTI_TABLE);
@@ -181,10 +179,6 @@ public class DSQLSinkConfig implements Serializable {
 
     public List<String> getPrimaryKeys() {
         return primaryKeys;
-    }
-
-    public boolean isUseSsl() {
-        return useSsl;
     }
 
     public String getProfileName() {

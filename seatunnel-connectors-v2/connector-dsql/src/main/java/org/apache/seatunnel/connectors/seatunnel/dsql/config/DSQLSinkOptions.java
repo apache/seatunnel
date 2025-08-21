@@ -112,12 +112,6 @@ public class DSQLSinkOptions {
                     .withDescription(
                             "List of column names to use as primary keys when creating a table");
 
-    public static final Option<Boolean> USE_SSL =
-            Options.key("use_ssl")
-                    .booleanType()
-                    .defaultValue(true)
-                    .withDescription("Whether to use SSL for connections");
-
     public static final Option<String> PROFILE_NAME =
             Options.key("profile_name")
                     .stringType()

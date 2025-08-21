@@ -43,8 +43,6 @@ public class DSQLSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
 
     @Override
     public DSQLSinkWriter createWriter(SinkWriter.Context context) throws IOException {
-        System.out.println(
-                "creating writer for ========" + catalogTable.getTableId().getTableName());
         return new DSQLSinkWriter(config, catalogTable);
     }
 }
