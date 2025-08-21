@@ -695,7 +695,7 @@ CURRENT_TIMESTAMP
 
 ### DATEADD / TIMESTAMPADD
 
-```DATEADD| TIMESTAMPADD(dateAndTime, addIntLong, datetimeFieldString) -> dateAndTime (same type)```
+```DATEADD | TIMESTAMPADD(dateAndTime, addIntLong, datetimeFieldString) -> type(dateAndTime)```
 
 将单位添加到日期时间值中。datetimeFieldString 表示单位。使用负值来减去单位。当操作毫秒、微秒或纳秒时，addIntLong 可能是一个 long 值，否则其范围被限制为 int。如果单位与指定值兼容，则此方法返回与指定值相同类型的值。如果指定的字段是 HOUR、MINUTE、SECOND、MILLISECOND 等，而值是 DATE 值，DATEADD 返回组合的 TIMESTAMP。对于 TIME 值，不允许使用 DAY、MONTH、YEAR、WEEK 等字段。
 

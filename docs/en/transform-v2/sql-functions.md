@@ -693,7 +693,7 @@ CURRENT_TIMESTAMP
 
 ### DATEADD / TIMESTAMPADD
 
-```DATEADD | TIMESTAMPADD(dateAndTime, addIntLong, datetimeFieldString) -> dateAndTime (same type)```
+```DATEADD | TIMESTAMPADD(dateAndTime, addIntLong, datetimeFieldString) -> type(dateAndTime)```
 
 Adds units to a date-time value. The datetimeFieldString indicates the unit. Use negative values to subtract units. addIntLong may be a long value when manipulating milliseconds, microseconds, or nanoseconds otherwise its range is restricted to int. This method returns a value with the same type as specified value if unit is compatible with this value. If specified field is a HOUR, MINUTE, SECOND, MILLISECOND, etc and value is a DATE value DATEADD returns combined TIMESTAMP. Fields DAY, MONTH, YEAR, WEEK, etc are not allowed for TIME values.
 
@@ -1135,7 +1135,7 @@ OUTER EXPLODE: Returns NULL when array is NULL or empty, ensuring at least one r
 
 EXPLODE(SPLIT(field_name, separator)): Splits a string into an array using the specified separator, then explodes it into rows.
 
-EXPLODE(ARRAY(value1, value2,...)): Explodes a custom-defined array into multiple rows.
+EXPLODE(ARRAY(value1, value2, ...)): Explodes a custom-defined array into multiple rows.
 
 Example:
 ```
