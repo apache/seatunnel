@@ -1,437 +1,288 @@
-# DuckDB Source
+# DuckDB
 
-> DuckDB Source connector
+> JDBC DuckDB Source Connector
 
 ## Description
 
-The DuckDB Source connector reads data from DuckDB databases. DuckDB is an in-process SQL OLAP database management system that is particularly suitable for analytical workloads. This connector supports both file-based and in-memory DuckDB databases, making it ideal for data analytics pipelines, data migration, and real-time data processing scenarios.
+Read external data source data through JDBC.
 
-**Key Characteristics:**
-- High-performance columnar storage engine
-- ACID compliance with transaction support
-- Zero-configuration setup for file-based databases
-- Excellent performance for analytical queries
-- Support for complex SQL operations including window functions, CTEs, and aggregations
+## Support DuckDB Version
+
+- 0.8.x/0.9.x/0.10.x/1.x
+
+## Support Those Engines
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
+## Using Dependency
+
+### For Spark/Flink Engine
+
+> 1. You need to ensure that the [jdbc driver jar package](https://mvnrepository.com/artifact/org.duckdb/duckdb_jdbc) has been placed in directory `${SEATUNNEL_HOME}/plugins/`.
+
+### For SeaTunnel Zeta Engine
+
+> 1. You need to ensure that the [jdbc driver jar package](https://mvnrepository.com/artifact/org.duckdb/duckdb_jdbc) has been placed in directory `${SEATUNNEL_HOME}/lib/`.
 
 ## Key Features
 
 - [x] [batch](../../concept/connector-v2-features.md)
-- [ ] [stream](../../concept/connector-v2-features.md) 
+- [ ] [stream](../../concept/connector-v2-features.md)
 - [x] [exactly-once](../../concept/connector-v2-features.md)
 - [x] [column projection](../../concept/connector-v2-features.md)
 - [x] [parallelism](../../concept/connector-v2-features.md)
 - [x] [support user-defined split](../../concept/connector-v2-features.md)
 
+> supports query SQL and can achieve projection effect.
+
+## Supported DataSource Info
+
+| Datasource |                    Supported versions                    |          Driver          |                  Url                  |                                   Maven                                   |
+|------------|----------------------------------------------------------|--------------------------|---------------------------------------|---------------------------------------------------------------------------|
+| DuckDB     | Different dependency version has different driver class. | org.duckdb.DuckDBDriver | jdbc:duckdb:/path/to/database.db | [Download](https://mvnrepository.com/artifact/org.duckdb/duckdb_jdbc) |
+
 ## Data Type Mapping
 
-DuckDB data types are automatically mapped to SeaTunnel data types as follows:
+|                                        DuckDB Data Type                                        |                                                                 SeaTunnel Data Type                                                                |
+|-----------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------|
+| BOOLEAN                                                                                       | BOOLEAN                                                                                                                                            |
+| TINYINT                                                                                       | TINYINT                                                                                                                                            |
+| UTINYINT<br/>SMALLINT                                                                         | SMALLINT                                                                                                                                           |
+| USMALLINT<br/>INTEGER                                                                         | INT                                                                                                                                                |
+| UINTEGER<br/>BIGINT                                                                           | BIGINT                                                                                                                                             |
+| UBIGINT                                                                                       | DECIMAL(20,0)                                                                                                                                      |
+| HUGEINT                                                                                       | DECIMAL(38,0)                                                                                                                                      |
+| FLOAT                                                                                         | FLOAT                                                                                                                                              |
+| DOUBLE                                                                                        | DOUBLE                                                                                                                                             |
+| DECIMAL(x,y)(Get the designated column's specified column size.<38)                           | DECIMAL(x,y)                                                                                                                                       |
+| DECIMAL(x,y)(Get the designated column's specified column size.>38)                           | DECIMAL(38,18)                                                                                                                                     |
+| VARCHAR<br/>CHAR<br/>TEXT<br/>JSON<br/>UUID<br/>INTERVAL                                      | STRING                                                                                                                                             |
+| DATE                                                                                          | DATE                                                                                                                                               |
+| TIME                                                                                          | TIME                                                                                                                                               |
+| TIMESTAMP<br/>TIMESTAMP WITH TIME ZONE                                                        | TIMESTAMP                                                                                                                                          |
+| BLOB<br/>ARRAY<br/>STRUCT<br/>MAP                                                             | BYTES                                                                                                                                              |
 
-| DuckDB Data Type               | SeaTunnel Data Type                |
-|--------------------------------|------------------------------------|
-| BOOLEAN                        | BOOLEAN                            |
-| TINYINT                        | TINYINT                            |
-| SMALLINT                       | SMALLINT                           |
-| INTEGER                        | INT                                |
-| BIGINT                         | BIGINT                             |
-| FLOAT                          | FLOAT                              |
-| DOUBLE                         | DOUBLE                             |
-| DECIMAL(p,s)                   | DECIMAL(p,s)                       |
-| VARCHAR(n)                     | STRING                             |
-| CHAR(n)                        | STRING                             |
-| TEXT                           | STRING                             |
-| DATE                           | DATE                               |
-| TIME                           | TIME                               |
-| TIMESTAMP                      | TIMESTAMP                          |
-| TIMESTAMP WITH TIME ZONE       | TIMESTAMP                          |
-| BLOB                           | BYTES                              |
-| ARRAY                          | ARRAY                              |
-| STRUCT                         | ROW                                |
-| MAP                            | MAP                                |
+## Source Options
 
-## Options
+| Name                                       | Type       | Required | Default         | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+|--------------------------------------------|------------|----------|-----------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| url                                        | String     | Yes      | -               | The URL of the JDBC connection. Refer to a case: jdbc:duckdb:/path/to/database.db                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| driver                                     | String     | Yes      | -               | The jdbc class name used to connect to the remote data source,<br/> if you use DuckDB the value is `org.duckdb.DuckDBDriver`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| username                                   | String     | No       | -               | Connection instance user name                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| password                                   | String     | No       | -               | Connection instance password                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| query                                      | String     | Yes      | -               | Query statement                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| connection_check_timeout_sec               | Int        | No       | 30              | The time in seconds to wait for the database operation used to validate the connection to complete                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| partition_column                           | String     | No       | -               | The column name for parallelism's partition, only support numeric type primary key, and only can config one column.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| partition_lower_bound                      | BigDecimal | No       | -               | The partition_column min value for scan, if not set SeaTunnel will query database get min value.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| partition_upper_bound                      | BigDecimal | No       | -               | The partition_column max value for scan, if not set SeaTunnel will query database get max value.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| partition_num                              | Int        | No       | job parallelism | The number of partition count, only support positive integer. default value is job parallelism                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| fetch_size                                 | Int        | No       | 0               | For queries that return a large number of objects, you can configure<br/> the row fetch size used in the query to improve performance by<br/> reducing the number database hits required to satisfy the selection criteria.<br/> Zero means use jdbc default value.                                                                                                                                                                                                                                                                                                                                                    |
+| properties                                 | Map        | No       | -               | Additional connection configuration parameters, when properties and URL have the same parameters, the priority is determined by the <br/>specific implementation of the driver. For example, in DuckDB, properties take precedence over the URL.                                                                                                                                                                                                                                                                                                                                                                      |
+| table_path                                 | String     | No       | -               | The path to the full path of table, you can use this configuration instead of `query`. <br/>examples: <br/>duckdb: "main.table1" <br/>                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| table_list                                 | Array      | No       | -               | The list of tables to be read, you can use this configuration instead of `table_path` example: ```[{ table_path = "main.table1"}, {table_path = "main.table2", query = "select * id, name from main.table2"}]```                                                                                                                                                                                                                                                                                                                                                                                                   |
+| where_condition                            | String     | No       | -               | Common row filter conditions for all tables/queries, must start with `where`. for example `where id > 100`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| split.size                                 | Int        | No       | 8096            | The split size (number of rows) of table, captured tables are split into multiple splits when read of table.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| common-options                             |            | No       | -               | Source plugin common parameters, please refer to [Source Common Options](../source-common-options.md) for details                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 
-| name                         | type    | required | default value | description                                    |
-|------------------------------|---------|----------|---------------|------------------------------------------------|
-| url                          | String  | Yes      | -             | JDBC connection URL                            |
-| driver                       | String  | Yes      | -             | JDBC driver class name                         |
-| user                         | String  | No       | -             | Database username                              |
-| password                     | String  | No       | -             | Database password                              |
-| query                        | String  | No       | -             | SQL query to execute                           |
-| database                     | String  | No       | main          | Target database name                           |
-| table                        | String  | No       | -             | Target table name                              |
-| schema                       | String  | No       | main          | Target schema name                             |
-| connection_check_timeout_sec | Int     | No       | 30            | Connection validation timeout                  |
-| partition_column             | String  | No       | -             | Column for data partitioning                   |
-| partition_num                | Int     | No       | 1             | Number of partitions                           |
-| partition_lower_bound        | Long    | No       | -             | Lower bound for partitioning                   |
-| partition_upper_bound        | Long    | No       | -             | Upper bound for partitioning                   |
-| fetch_size                   | Int     | No       | 1000          | Number of rows to fetch per batch             |
-| connection_pool_size         | Int     | No       | 1             | Maximum connections in pool                    |
-| connection_pool_timeout      | Int     | No       | 30000         | Connection pool timeout (milliseconds)         |
-| query_timeout                | Int     | No       | 300           | Query execution timeout (seconds)              |
-| common-options               |         | No       | -             | Common source connector options                |
+## Parallel Reader
 
-### driver [String]
+The JDBC Source connector supports parallel reading of data from tables. SeaTunnel will use certain rules to split the data in the table, which will be handed over to readers for reading. The number of readers is determined by the `parallelism` option.
 
-The JDBC driver class name for connecting to DuckDB. 
+**Split Key Rules:**
 
-- **Required**: Yes
-- **Value**: `org.duckdb.DuckDBDriver`
-- **Note**: Ensure DuckDB JDBC driver is available in the classpath
+1. If `partition_column` is not null, It will be used to calculate split. The column must in **Supported split data type**.
+2. If `partition_column` is null, seatunnel will read the schema from table and get the Primary Key and Unique Index. If there are more than one column in Primary Key and Unique Index, The first column which in the **supported split data type** will be used to split data. For example, the table have Primary Key(nn guid, name varchar), because `guid` id not in **supported split data type**, so the column `name` will be used to split data.
 
-### user [String]
+**Supported split data type:**
+* String
+* Number(int, bigint, decimal, ...)
+* Date
 
-Username for DuckDB authentication. 
+### Options Related To Split
 
-- **Required**: No
-- **Default**: Empty (no authentication)
-- **Note**: DuckDB typically doesn't require authentication for file-based databases
+#### split.size
 
-### password [String]
+How many rows in one split, captured tables are split into multiple splits when read of table.
 
-Password for DuckDB authentication.
+#### partition_column [string]
 
-- **Required**: No  
-- **Default**: Empty
-- **Security**: Use environment variables or external configuration for sensitive data
+The column name for split data.
 
-### url [String]
+#### partition_upper_bound [BigDecimal]
 
-The JDBC connection URL for DuckDB database.
+The partition_column max value for scan, if not set SeaTunnel will query database get max value.
 
-- **Required**: Yes
-- **Format**: 
-  - File database: `jdbc:duckdb:/path/to/database.db`
-  - In-memory database: `jdbc:duckdb:`
-  - Read-only file: `jdbc:duckdb:/path/to/database.db?access_mode=read_only`
-- **Examples**:
-  - `jdbc:duckdb:/tmp/analytics.db`
-  - `jdbc:duckdb:` (in-memory)
-  - `jdbc:duckdb:/data/warehouse.db?threads=4`
+#### partition_lower_bound [BigDecimal]
 
-### query [String]
+The partition_column min value for scan, if not set SeaTunnel will query database get min value.
 
-SQL SELECT statement to extract data from DuckDB.
+#### partition_num [int]
 
-- **Required**: No (mutually exclusive with `table`)
-- **Supports**: Complex SQL including JOINs, CTEs, window functions
-- **Performance Tip**: Use column projection to improve performance
-- **Example**: `SELECT id, name, created_at FROM users WHERE created_at >= '2023-01-01'`
+> Not recommended for use, The correct approach is to control the number of split through `split.size`
 
-### database [String]
+How many splits do we need to split into, only support positive integer. default value is job parallelism.
 
-The target database name in DuckDB.
+## tips
 
-- **Required**: No
-- **Default**: `main`
-- **Note**: DuckDB uses 'main' as the default database name
+> If the table can not be split(for example, table have no Primary Key or Unique Index, and `partition_column` is not set), it will run in single concurrency.
+>
+> Use `table_path` to replace `query` for single table reading. If you need to read multiple tables, use `table_list`.
 
-### table [String]
+## Task Example
 
-The target table name to read from.
+### Simple
 
-- **Required**: No (mutually exclusive with `query`)
-- **Format**: Simple table name or schema.table
-- **Example**: `users` or `analytics.user_events`
+> This example queries 'user_events' table in your test database in single parallel and queries all of its fields. You can also specify which fields to query for final output to the console.
 
-### schema [String] 
+```
+# Defining the runtime environment
+env {
+  parallelism = 4
+  job.mode = "BATCH"
+}
+source{
+    Jdbc {
+        url = "jdbc:duckdb:/tmp/test.db"
+        driver = "org.duckdb.DuckDBDriver"
+        connection_check_timeout_sec = 100
+        username = "duckdb"
+        password = ""
+        query = "select * from user_events limit 16"
+    }
+}
 
-The target schema name in DuckDB.
+transform {
+    # If you would like to get more information about how to configure seatunnel and see full list of transform plugins,
+    # please go to https://seatunnel.apache.org/docs/transform-v2/sql
+}
 
-- **Required**: No
-- **Default**: `main`
-- **Note**: Used when `table` is specified without schema prefix
-
-### connection_check_timeout_sec [Int]
-
-Timeout for database connection validation.
-
-- **Required**: No
-- **Default**: 30 seconds
-- **Range**: 1-300 seconds
-- **Performance**: Lower values provide faster failure detection
-
-### partition_column [String]
-
-Column name for parallel data reading through partitioning.
-
-- **Required**: No
-- **Supported Types**: Numeric, date, timestamp columns
-- **Performance**: Enables parallel processing for large datasets
-- **Best Practice**: Use columns with even distribution
-
-### partition_num [Int]
-
-Number of parallel partitions for data reading.
-
-- **Required**: No (only when partition_column is specified)
-- **Default**: 1
-- **Range**: 1-1000  
-- **Performance**: Should not exceed available CPU cores
-- **Calculation**: Typically set to number of CPU cores × 2
-
-### partition_lower_bound [Long]
-
-Minimum value for the first partition.
-
-- **Required**: No (only when partition_column is specified)
-- **Note**: Used for numeric partition columns
-- **Performance**: Should represent actual minimum value in data
-
-### partition_upper_bound [Long] 
-
-Maximum value for the last partition.
-
-- **Required**: No (only when partition_column is specified)
-- **Note**: Used for numeric partition columns
-- **Performance**: Should represent actual maximum value in data
-
-### fetch_size [Int]
-
-Number of rows retrieved in each database round trip.
-
-- **Required**: No
-- **Default**: 1000
-- **Range**: 100-50000
-- **Performance**: 
-  - Larger values reduce network overhead
-  - Smaller values reduce memory usage
-  - Optimal range: 1000-10000 for most cases
-
-### connection_pool_size [Int]
-
-Maximum number of database connections in the pool.
-
-- **Required**: No
-- **Default**: 1
-- **Range**: 1-100
-- **Note**: DuckDB supports limited concurrent connections
-- **Best Practice**: Keep low (1-5) for file databases
-
-### connection_pool_timeout [Int]
-
-Timeout for acquiring connections from the pool.
-
-- **Required**: No
-- **Default**: 30000 milliseconds
-- **Range**: 1000-300000
-- **Performance**: Increase for high-concurrency scenarios
-
-### query_timeout [Int]
-
-Maximum time allowed for query execution.
-
-- **Required**: No
-- **Default**: 300 seconds
-- **Range**: 10-3600 seconds
-- **Performance**: Set based on expected query complexity
-
-### common options
-
-Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details.
-
-## Examples
-
-### Basic Configuration
-
-```hocon
-source {
-  DuckDB {
-    url = "jdbc:duckdb:/tmp/analytics.db"
-    driver = "org.duckdb.DuckDBDriver"
-    table = "user_events"
-  }
+sink {
+    Console {}
 }
 ```
 
-### Custom Query Configuration
+### parallel by partition_column
 
-```hocon
+```
+env {
+  parallelism = 4
+  job.mode = "BATCH"
+}
 source {
-  DuckDB {
-    url = "jdbc:duckdb:/data/warehouse.db"
-    driver = "org.duckdb.DuckDBDriver"
-    query = """
-      SELECT 
-        user_id,
-        event_type,
-        event_timestamp,
-        properties
-      FROM user_events 
-      WHERE event_timestamp >= '2023-01-01'
-        AND event_type IN ('purchase', 'signup')
-      ORDER BY event_timestamp
-    """
-  }
+    Jdbc {
+        url = "jdbc:duckdb:/tmp/test.db"
+        driver = "org.duckdb.DuckDBDriver"
+        connection_check_timeout_sec = 100
+        username = "duckdb"
+        password = ""
+        query = "select * from user_events"
+        partition_column = "id"
+        split.size = 10000
+        # Read start boundary
+        #partition_lower_bound = ...
+        # Read end boundary
+        #partition_upper_bound = ...
+    }
+}
+
+sink {
+  Console {}
 }
 ```
 
-### Parallel Processing Configuration
+### parallel by Primary Key or Unique Index
 
-```hocon
+> Configuring `table_path` will turn on auto split, you can configure `split.*` to adjust the split strategy
+
+```
+env {
+  parallelism = 4
+  job.mode = "BATCH"
+}
 source {
-  DuckDB {
-    url = "jdbc:duckdb:/data/large_dataset.db"
-    driver = "org.duckdb.DuckDBDriver"
-    table = "transactions"
-    partition_column = "transaction_id"
-    partition_num = 4
-    partition_lower_bound = 1
-    partition_upper_bound = 1000000
-    fetch_size = 5000
-  }
+    Jdbc {
+        url = "jdbc:duckdb:/tmp/test.db"
+        driver = "org.duckdb.DuckDBDriver"
+        connection_check_timeout_sec = 100
+        username = ""
+        password = ""
+        table_path = "main.user_events"
+        query = "select * from main.user_events"
+        split.size = 10000
+    }
+}
+
+sink {
+  Console {}
 }
 ```
 
-### In-Memory Database Configuration
+### Parallel Boundary
 
-```hocon
+> It is more efficient to specify the data within the upper and lower bounds of the query It is more efficient to read your data source according to the upper and lower boundaries you configured
+
+```
 source {
-  DuckDB {
-    url = "jdbc:duckdb:"
-    driver = "org.duckdb.DuckDBDriver"
-    query = "SELECT * FROM read_csv_auto('/tmp/data.csv')"
-  }
+    Jdbc {
+        url = "jdbc:duckdb:/tmp/test.db"
+        driver = "org.duckdb.DuckDBDriver"
+        connection_check_timeout_sec = 100
+        username = "duckdb"
+        password = ""
+        # Define query logic as required
+        query = "select * from user_events"
+        partition_column = "id"
+        # Read start boundary
+        partition_lower_bound = 1
+        # Read end boundary
+        partition_upper_bound = 500
+        partition_num = 10
+        properties {
+         threads=4
+         memory_limit="4GB"
+        }
+    }
 }
 ```
 
-### High-Performance Configuration
+### Multiple table read
+
+***Configuring `table_list` will turn on auto split, you can configure `split.*` to adjust the split strategy***
 
 ```hocon
+env {
+  job.mode = "BATCH"
+  parallelism = 4
+}
 source {
-  DuckDB {
-    url = "jdbc:duckdb:/data/analytics.db?threads=8&memory_limit=8GB"
+  Jdbc {
+    url = "jdbc:duckdb:/tmp/test.db"
     driver = "org.duckdb.DuckDBDriver"
-    table = "large_table"
-    fetch_size = 10000
-    query_timeout = 600
-    connection_pool_size = 2
+    connection_check_timeout_sec = 100
+    username = "duckdb"
+    password = ""
+
+    table_list = [
+      {
+        table_path = "main.table1"
+      },
+      {
+        table_path = "main.table2"
+        # Use query filetr rows & columns
+        query = "select id, name from main.table2 where id > 100"
+      }
+    ]
+    #where_condition= "where id > 100"
+    #split.size = 8096
   }
 }
+
+sink {
+  Console {}
+}
 ```
+## Change Log
 
-## Performance Tuning
-
-### Memory Optimization
-- Set appropriate `memory_limit` in connection URL
-- Use `fetch_size` based on available memory
-- Consider row-wise vs columnar data access patterns
-
-### Query Optimization  
-- Use column projection to minimize data transfer
-- Leverage DuckDB's query optimizer with proper indexing
-- Utilize partition pruning for time-series data
-
-### Parallelism Configuration
-- Set `partition_num` to match CPU cores
-- Choose partition columns with good distribution
-- Balance partition size vs overhead
-
-### Connection Management
-- Keep `connection_pool_size` low for file databases
-- Use appropriate `query_timeout` for complex queries
-- Monitor connection pool metrics
-
-## Security Considerations
-
-### File System Security
-- Ensure proper file permissions on database files
-- Use secure file paths and avoid world-readable locations
-- Implement backup and recovery procedures
-
-### Network Security  
-- When using remote files, ensure secure protocols (SFTP, HTTPS)
-- Validate input paths to prevent directory traversal attacks
-- Use encrypted storage for sensitive data
-
-### Access Control
-- Implement application-level access controls
-- Use read-only connections when possible
-- Audit data access patterns
-
-## Troubleshooting
-
-### Common Issues
-
-**Connection Failures:**
-```
-Error: Database file is locked
-Solution: Ensure no other processes are accessing the database file
-```
-
-**Out of Memory:**
-```  
-Error: Out of memory
-Solution: Reduce fetch_size or increase available memory
-```
-
-**Query Timeout:**
-```
-Error: Query execution timeout
-Solution: Increase query_timeout or optimize query performance
-```
-
-**File Not Found:**
-```
-Error: Database file not found
-Solution: Verify file path and permissions
-```
-
-### Debugging Tips
-
-1. **Enable detailed logging:**
-   ```hocon
-   env {
-     job.mode = "BATCH"
-     # Enable debug logging
-     "seatunnel.logs.level" = "DEBUG"
-   }
-   ```
-
-2. **Test connection separately:**
-   ```sql
-   -- Test basic connectivity
-   SELECT 1 as test_connection;
-   ```
-
-3. **Monitor performance:**
-   ```sql
-   -- Check query execution plan
-   EXPLAIN SELECT * FROM your_table;
-   ```
-
-4. **Validate data types:**
-   ```sql
-   -- Check table schema
-   DESCRIBE your_table;
-   ```
-
-## Best Practices
-
-1. **Data Partitioning**: Use appropriate partition strategies for large datasets
-2. **Memory Management**: Set memory limits based on available resources  
-3. **Query Optimization**: Leverage DuckDB's columnar storage advantages
-4. **Error Handling**: Implement robust retry and fallback mechanisms
-5. **Monitoring**: Track performance metrics and query execution times
-6. **Testing**: Validate data consistency and performance under load
-
-## Limitations
-
-- **Concurrent Access**: Limited concurrent write access to file databases
-- **Streaming**: No native streaming support (batch processing only)
-- **Distributed**: Single-node processing (no distributed query execution)
-- **Schema Evolution**: Limited dynamic schema modification support
-
-## Changelog
-
-### 2.3.0-beta (2023-03-15)
-- Initial release of DuckDB Source Connector
-- Support for basic data type mapping
-- File-based database connectivity
-
-### 2.3.1+ (2023-04+)
-- Ongoing stability improvements and bug fixes
-- Enhanced error handling
-- Performance optimizations
-
-*Note: For detailed release notes, please refer to the [official SeaTunnel releases](https://github.com/apache/seatunnel/releases)* 
+<ChangeLog />
