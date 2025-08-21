@@ -45,7 +45,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.atomic.AtomicLong;
 
 /** MySQL connection Utilities. */
 public class MySqlConnectionUtils {
@@ -241,9 +241,9 @@ public class MySqlConnectionUtils {
     }
 
     public static long getBinlogTimestamp(BinaryLogClient client, String binlogFile)
-            throws IOException, InterruptedException {
+            throws IOException {
 
-        ArrayBlockingQueue<Long> binlogTimestamps = new ArrayBlockingQueue<>(1);
+        AtomicLong binlogTimestamps = new AtomicLong();
         BinaryLogClient.EventListener eventListener =
                 event -> {
                     EventData data = event.getData();
@@ -255,8 +255,8 @@ public class MySqlConnectionUtils {
 
                     EventHeaderV4 header = event.getHeader();
                     long timestamp = header.getTimestamp();
-                    if (timestamp > 0) {
-                        binlogTimestamps.offer(timestamp);
+                    if (timestamp > 0 && binlogTimestamps.get() == 0) {
+                        binlogTimestamps.set(timestamp);
                         try {
                             client.disconnect();
                         } catch (IOException e) {
@@ -273,6 +273,6 @@ public class MySqlConnectionUtils {
         } finally {
             client.unregisterEventListener(eventListener);
         }
-        return binlogTimestamps.take();
+        return binlogTimestamps.get();
     }
 }
