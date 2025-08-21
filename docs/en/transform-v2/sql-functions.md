@@ -507,7 +507,7 @@ MOD(A, B)
 
 ```CEIL | CEILING (numeric) -> NUMERIC (same type, scale 0)```
 
-Returns the smallest integer value that is greater than or equal to the argument.
+Returns the smallest integer value that is greater than or equal to the argument. This method returns value of the same type as argument, but with scale set to 0 and adjusted precision, if applicable.
 
 Example:
 
@@ -527,7 +527,7 @@ EXP(A)
 
 ```FLOOR(numeric) -> NUMERIC (same type, scale 0)```
 
-Returns the largest integer value that is less than or equal to the argument.
+Returns the largest integer value that is less than or equal to the argument. This method returns value of the same type as argument, but with scale set to 0 and adjusted precision, if applicable.
 
 Example:
 
