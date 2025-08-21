@@ -418,6 +418,10 @@ public class DatabendSinkWriter
         log.info("Processing CDC row with kind: {}", row.getRowKind());
 
         String action = mapRowKindToAction(row.getRowKind());
+        if ("update_before".equals(action)) {
+            log.debug("UPDATE_BEFORE operation detected, skipping row");
+            return;
+        }
 
         if ("delete".equals(action) && !allowDelete) {
             log.debug("DELETE operation not allowed, skipping row");
@@ -492,11 +496,9 @@ public class DatabendSinkWriter
             case UPDATE_AFTER:
                 return "update";
             case DELETE:
-            case UPDATE_BEFORE:
                 return "delete";
-            default:
-                return "update";
         }
+        return "update_before";
     }
 
     /**
@@ -704,7 +706,7 @@ public class DatabendSinkWriter
         preparedStatement.addBatch();
         log.info("Added row to batch, current batch count: {}", batchCount + 1);
     }
-    // 在写入 raw table 后，立即查询验证
+
     private void verifyRawTableData(String rawTableName, String database) throws SQLException {
         try (Statement stmt = connection.createStatement();
                 ResultSet rs =
@@ -722,7 +724,6 @@ public class DatabendSinkWriter
             }
         }
 
-        // 打印详细数据
         try (Statement stmt = connection.createStatement();
                 ResultSet dataRs =
                         stmt.executeQuery(
@@ -733,7 +734,7 @@ public class DatabendSinkWriter
                                         + " ORDER BY add_time"); ) {
             while (dataRs.next()) {
                 log.info(
-                        "Raw data ssj: {}, action: {}, time: {}",
+                        "Raw data : {}, action: {}, time: {}",
                         dataRs.getString(1),
                         dataRs.getString(2),
                         dataRs.getTimestamp(3));
