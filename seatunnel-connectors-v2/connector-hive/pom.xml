@@ -122,6 +122,26 @@
                 </exclusion>
             </exclusions>
         </dependency>
+        <!-- Apache Thrift dependency for Hive MetaStore communication -->
+        <dependency>
+            <groupId>org.apache.thrift</groupId>
+            <artifactId>libthrift</artifactId>
+            <version>0.16.0</version>
+        </dependency>
+
+        <!-- Hive Common dependency - contains HiveConf class -->
+        <dependency>
+            <groupId>org.apache.hive</groupId>
+            <artifactId>hive-common</artifactId>
+            <version>${hive.exec.version}</version>
+            <exclusions>
+                <!-- Exclude ALL transitive dependencies to avoid conflicts -->
+                <exclusion>
+                    <groupId>*</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
     </dependencies>
     <build>
         <plugins>
