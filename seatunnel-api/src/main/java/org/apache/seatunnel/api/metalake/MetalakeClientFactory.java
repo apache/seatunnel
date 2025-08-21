@@ -35,11 +35,9 @@ public class MetalakeClientFactory {
     }
 
     public static MetalakeClient create(String type, String metalakeUrl) {
-        Function<String, MetalakeClient> constructor =
-                REGISTRY.get(type.toLowerCase());
+        Function<String, MetalakeClient> constructor = REGISTRY.get(type.toLowerCase());
         if (constructor == null) {
-            throw new IllegalArgumentException(
-                    "Unknown MetalakeClient type: " + type);
+            throw new IllegalArgumentException("Unknown MetalakeClient type: " + type);
         }
         return constructor.apply(metalakeUrl);
     }

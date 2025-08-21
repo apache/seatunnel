@@ -17,14 +17,12 @@
 
 package org.apache.seatunnel.api.metalake;
 
-import okhttp3.*;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
+
 import java.io.IOException;
-import java.net.URI;
 
-
-public class GravitinoClient implements MetalakeClient{
+public class GravitinoClient implements MetalakeClient {
     private final String metalakeUrl;
 
     public GravitinoClient(String metalakeUrl) {
@@ -38,16 +36,16 @@ public class GravitinoClient implements MetalakeClient{
 
     @Override
     public JsonNode getMetaInfo(String sourceId) throws IOException {
-        OkHttpClient client = new OkHttpClient().newBuilder()
-                .build();
+        OkHttpClient client = new OkHttpClient().newBuilder().build();
         MediaType mediaType = MediaType.parse("text/plain");
         RequestBody body = RequestBody.create(mediaType, "");
-        Request request = new Request.Builder()
-                .url(this.metalakeUrl+sourceId)
-                .method("GET", body)
-                .addHeader("Accept", "application/vnd.gravitino.v1+json")
-                //.addHeader("Authorization", "Bearer <TOKEN>")
-                .build();
+        Request request =
+                new Request.Builder()
+                        .url(this.metalakeUrl + sourceId)
+                        .method("GET", body)
+                        .addHeader("Accept", "application/vnd.gravitino.v1+json")
+                        // .addHeader("Authorization", "Bearer <TOKEN>")
+                        .build();
         Response response = client.newCall(request).execute();
         ObjectMapper mapper = new ObjectMapper();
         JsonNode rootNode = mapper.readTree(response.body().byteStream());

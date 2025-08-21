@@ -17,19 +17,19 @@
 
 package org.apache.seatunnel.engine.core.parse;
 
-import org.apache.seatunnel.api.metalake.MetalakeClient;
-import org.apache.seatunnel.api.metalake.MetalakeClientFactory;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
 import org.apache.seatunnel.shade.com.google.common.base.Preconditions;
 import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigObject;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigValue;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigValueType;
-import org.apache.seatunnel.shade.com.typesafe.config.ConfigObject;
-import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
 
 import org.apache.seatunnel.api.common.PluginIdentifier;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.ConfigValidator;
+import org.apache.seatunnel.api.metalake.MetalakeClient;
+import org.apache.seatunnel.api.metalake.MetalakeClientFactory;
 import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.options.EnvCommonOptions;
 import org.apache.seatunnel.api.options.EnvOptionRule;
@@ -166,7 +166,8 @@ public class MultipleTableJobConfigParser {
         this.jobConfig = jobConfig;
         this.commonPluginJars = commonPluginJars;
         this.isStartWithSavePoint = isStartWithSavePoint;
-        boolean metalakeEnabled = Boolean.parseBoolean(System.getenv().getOrDefault("METALAKE_ENABLED", "false"));
+        boolean metalakeEnabled =
+                Boolean.parseBoolean(System.getenv().getOrDefault("METALAKE_ENABLED", "false"));
         if (metalakeEnabled) {
             Config jobConfigTmp = ConfigBuilder.of(Paths.get(jobDefineFilePath), variables);
             Config metalakeConfig = getMetalakeConfig(jobConfigTmp);
@@ -865,7 +866,7 @@ public class MultipleTableJobConfigParser {
                     }
                 }
             }
-        } catch (IOException e){
+        } catch (IOException e) {
             log.error("Fail to get MetaInfo, metalakeUrl: {}", metalakeUrl, e);
         }
 
@@ -896,7 +897,7 @@ public class MultipleTableJobConfigParser {
                     }
                 }
             }
-        } catch (IOException e){
+        } catch (IOException e) {
             log.error("Fail to get MetaInfo, metalakeUrl: {}", metalakeUrl, e);
         }
         return ConfigBuilder.of(metalakeConfigMap);
