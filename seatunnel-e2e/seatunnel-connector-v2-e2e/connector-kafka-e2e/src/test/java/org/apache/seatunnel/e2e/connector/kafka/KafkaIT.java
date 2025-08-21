@@ -490,7 +490,7 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
             throws IOException, InterruptedException {
         String topicName = "test_topic_restore_earliest";
         String sourceData = "Seatunnel Restore Test Data";
-        String jobId = "test_source_kafka_restore_with_earliest_mode";
+        String jobId = "18696753645408";
 
         // Generate initial test data
         for (int i = 0; i < 20; i++) {
@@ -557,6 +557,7 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
             producer.flush();
         }
 
+        container.savepointJob(jobId);
         Container.ExecResult restoreJobResult =
                 container.restoreJob("/kafka/kafkasource_restore_with_earliest_mode.conf", jobId);
 
