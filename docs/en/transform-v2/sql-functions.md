@@ -26,7 +26,7 @@ BIT_LENGTH(NAME)
 
 ### CHAR_LENGTH / LENGTH
 
-```CHAR_LENGTH | LENGTH (string) -> LONG```
+```CHAR_LENGTH | LENGTH(string) -> LONG```
 
 Returns the number of characters in a character string.
 
@@ -106,7 +106,7 @@ INSERT(NAME, 1, 1, ' ')
 
 ### LOWER / LCASE
 
-```LOWER | LCASE (string) -> STRING```
+```LOWER | LCASE(string) -> STRING```
 
 Converts a string to lowercase.
 
@@ -116,7 +116,7 @@ LOWER(NAME)
 
 ### UPPER / UCASE
 
-```UPPER | UCASE (string) -> STRING```
+```UPPER | UCASE(string) -> STRING```
 
 Converts a string to uppercase.
 
@@ -146,9 +146,9 @@ RIGHT(NAME, 3)
 
 ### LOCATE / INSTR / POSITION
 
-```LOCATE(searchString, string[, startInit]) -> INT```
+```LOCATE(searchString, string[, startInt]) -> INT```
 
-```INSTR(string, searchString[, startInit]) -> INT```
+```INSTR(string, searchString[, startInt]) -> INT```
 
 ```POSITION(searchString, string) -> INT```
 
@@ -160,7 +160,7 @@ LOCATE('.', NAME)
 
 ### LPAD
 
-```LPAD(string,int[, string]) -> STRING```
+```LPAD(string, int[, string]) -> STRING```
 
 Left pad the string to the specified length. If the length is shorter than the string, it will be truncated at the end. If the padding string is not set, spaces will be used.
 
@@ -226,7 +226,7 @@ Flags values are limited to 'i', 'c', 'n', 'm'. Other symbols cause exception. M
 
 Example:
 
-REGEXP_REPLACE('Hello World', ' +', ' ')
+REGEXP_REPLACE('Hello    World', ' +', ' ')
 REGEXP_REPLACE('Hello WWWWorld', 'w+', 'W', 'i')
 
 ### REGEXP_LIKE
@@ -247,7 +247,7 @@ Flags values are limited to 'i', 'c', 'n', 'm'. Other symbols cause exception. M
 
 Example:
 
-REGEXP_LIKE('Hello World', '[A-Z ]*', 'i')
+REGEXP_LIKE('Hello    World', '[A-Z ]*', 'i')
 
 ### REGEXP_SUBSTR
 
@@ -278,7 +278,7 @@ REGEXP_SUBSTR('2020-10-01', '(\d{4})-(\d{2})-(\d{2})', 1, 1, NULL, 2)
 
 ```REPEAT(string, int) -> STRING```
 
-Repeats the input a specified number of times.
+Returns a string repeated some number of times.
 
 Example:
 
@@ -308,7 +308,7 @@ select SPLIT(test,';') as arrays
 
 ```SOUNDEX(string) -> STRING```
 
-Returns a four character code representing the sound of a string.
+Returns a four character code representing the sound of a string. This method returns a string, or null if parameter is null. See https://en.wikipedia.org/wiki/Soundex for more information.
 
 Example:
 
@@ -318,7 +318,7 @@ SOUNDEX(NAME)
 
 ```SPACE(int) -> STRING```
 
-Produces a sequence of spaces of the given length.
+Returns a string consisting of a number of spaces.
 
 Example:
 
@@ -326,7 +326,7 @@ SPACE(80)
 
 ### SUBSTRING / SUBSTR
 
-```SUBSTRING | SUBSTR (string, startInt[, lengthInt ]) -> STRING```
+```SUBSTRING | SUBSTR(string, startInt[, lengthInt ]) -> STRING```
 
 Returns a substring of a string starting at a position. If the start index is negative, then the start index is relative to the end of the string. The length is optional.
 
@@ -359,9 +359,9 @@ CALL TRANSLATE('Hello world', 'eo', 'EO')
 
 ### ABS
 
-```ABS(numeric) -> numeric (same type)```
+```ABS(numeric) -> NUMERIC (same type)```
 
-Returns the absolute value of a specified value. 
+Returns the absolute value of a specified value. The returned value is of the same data type as the parameter.
 
 Note that TINYINT, SMALLINT, INT, and BIGINT data types cannot represent absolute values of their minimum negative values, because they have more negative values than positive. For example, for INT data type allowed values are from -2147483648 to 2147483647. ABS(-2147483648) should be 2147483648, but this value is not allowed for this data type. It leads to an exception. To avoid it cast argument of this function to a higher data type.
 
@@ -505,7 +505,7 @@ MOD(A, B)
 
 ### CEIL / CEILING
 
-```CEIL | CEILING (numeric) -> numeric (same type, scale 0)```
+```CEIL | CEILING (numeric) -> NUMERIC (same type, scale 0)```
 
 Returns the smallest integer value that is greater than or equal to the argument.
 
@@ -525,7 +525,7 @@ EXP(A)
 
 ### FLOOR
 
-```FLOOR(numeric) -> numeric (same type, scale 0)```
+```FLOOR(numeric) -> NUMERIC (same type, scale 0)```
 
 Returns the largest integer value that is less than or equal to the argument.
 
@@ -611,7 +611,7 @@ POWER(A, B)
 
 ```RAND | RANDOM([ int ]) -> DOUBLE```
 
-Calling the function without parameter returns the next a pseudo random number. Calling it with an parameter seeds the session's random number generator.
+Calling the function without parameter returns the next a pseudo random number. Calling it with an parameter seeds the session's random number generator. This method returns a double between 0 (including) and 1 (excluding).
 
 Example:
 
@@ -619,9 +619,9 @@ RAND()
 
 ### ROUND
 
-```ROUND(numeric[, digitsInt]) -> numeric (same type)```
+```ROUND(numeric[, digitsInt]) -> NUMERIC (same type)```
 
-Rounds to a number of fractional digits.
+Rounds to a number of fractional digits. This method returns value of the same type as argument, but with adjusted precision and scale, if applicable.
 
 Example:
 
@@ -639,9 +639,9 @@ SIGN(N)
 
 ### TRUNC
 
-```TRUNC | TRUNCATE(numeric[, digitsInt]) -> numeric (same type)```
+```TRUNC | TRUNCATE(numeric[, digitsInt]) -> NUMERIC (same type)```
 
-When a numeric argument is specified, truncates it to a number of digits (to the next value closer to 0)
+When a numeric argument is specified, truncates it to a number of digits (to the next value closer to 0) and returns value of the same type as argument, but with adjusted precision and scale, if applicable.
 
 Example:
 
@@ -649,9 +649,9 @@ TRUNC(N, 2)
 
 ### TRIM_SCALE
 
-```TRIM_SCALE(numeric) -> STRING```
+```TRIM_SCALE(numeric) -> NUMERIC (same type)```
 
-Reduce the scale of a number by removing trailing zeroes.
+Reduce the scale of a number by removing trailing zeroes. The scale is adjusted accordingly.
 
 Example:
 
@@ -693,9 +693,9 @@ CURRENT_TIMESTAMP
 
 ### DATEADD / TIMESTAMPADD
 
-```DATEADD| TIMESTAMPADD(dateAndTime, addIntLong, datetimeFieldString) -> dateAndTime (same type)```
+```DATEADD | TIMESTAMPADD(dateAndTime, addIntLong, datetimeFieldString) -> dateAndTime (same type)```
 
-Adds units to a date-time value. The datetimeFieldString indicates the unit. Use negative values to subtract units. addIntLong may be a long value when manipulating milliseconds, microseconds, or nanoseconds otherwise its range is restricted to int.
+Adds units to a date-time value. The datetimeFieldString indicates the unit. Use negative values to subtract units. addIntLong may be a long value when manipulating milliseconds, microseconds, or nanoseconds otherwise its range is restricted to int. This method returns a value with the same type as specified value if unit is compatible with this value. If specified field is a HOUR, MINUTE, SECOND, MILLISECOND, etc and value is a DATE value DATEADD returns combined TIMESTAMP. Fields DAY, MONTH, YEAR, WEEK, etc are not allowed for TIME values.
 
 Example:
 
@@ -705,7 +705,7 @@ DATEADD(CREATED, 1, 'MONTH')
 
 ```DATEDIFF(aDateAndTime, bDateAndTime, datetimeFieldString) -> LONG```
 
-Returns the number of crossed unit boundaries between two date-time values.
+Returns the number of crossed unit boundaries between two date-time values. The datetimeField indicates the unit.
 
 Example:
 
@@ -713,13 +713,13 @@ DATEDIFF(T1.CREATED, T2.CREATED, 'MONTH')
 
 ### DATE_TRUNC
 
-```DATE_TRUNC (dateAndTime, datetimeFieldString) -> dateAndTime (same type)```
+```DATE_TRUNC(dateAndTime, datetimeFieldString) -> dateAndTime (same type)```
 
 Truncates the specified date-time value to the specified field.
 
 Example:
 
-DATE_TRUNC(CREATED, 'DAY');
+DATE_TRUNC(CREATED, 'DAY')
 
 ### DAYNAME
 
@@ -763,9 +763,9 @@ DAY_OF_YEAR(CREATED)
 
 ### EXTRACT
 
-```EXTRACT ( datetimeField FROM dateAndTime) -> INT```
+```EXTRACT(datetimeField FROM dateAndTime) -> INT | NUMERIC```
 
-Returns a value of the specific time unit from a date/time value.
+Returns a value of the specific time unit from a date/time value. This method returns a numeric value with EPOCH field and an int for all other fields.
 
 The following are valid field names for EXTRACT:
 
@@ -823,7 +823,7 @@ EXTRACT(DOW FROM eventTime)
 
 ### FORMATDATETIME
 
-```FORMATDATETIME (dateAndTime, formatString) -> STRING```
+```FORMATDATETIME(dateAndTime, formatString) -> STRING```
 
 Formats a date, time or timestamp as a string. The most important format characters are: y year, M month, d day, H hour, m minute, s second. For details of the format, see java.time.format.DateTimeFormatter.
 
@@ -941,7 +941,7 @@ YEAR(CREATED)
 
 ### FROM_UNIXTIME
 
-```FROM_UNIXTIME (unixtime, formatString,timeZone) -> STRING```
+```FROM_UNIXTIME(unixtime, formatString, timeZone) -> STRING```
 
 Convert the number of seconds from the UNIX epoch (1970-01-01 00:00:00 UTC) to a string representing the timestamp of that moment.
 
