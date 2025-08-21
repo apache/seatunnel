@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.core.job;
+package org.apache.seatunnel.engine.common.job;
 
 /** Possible states of a job once it has been accepted by the dispatcher. */
 public enum JobStatus {

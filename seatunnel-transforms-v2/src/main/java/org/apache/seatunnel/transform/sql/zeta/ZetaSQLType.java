@@ -436,10 +436,20 @@ public class ZetaSQLType {
             case ZetaSQLFunction.TIMESTAMPADD:
             case ZetaSQLFunction.ROUND:
             case ZetaSQLFunction.NULLIF:
-            case ZetaSQLFunction.COALESCE:
-            case ZetaSQLFunction.IFNULL:
-                // Result has the same type as first argument
                 return getExpressionType(function.getParameters().getExpressions().get(0));
+            case ZetaSQLFunction.IFNULL:
+            case ZetaSQLFunction.COALESCE:
+                List<Expression> expressions = getExpressions(function);
+
+                for (Expression expr : expressions) {
+                    SeaTunnelDataType<?> exprType = getExpressionType(expr);
+                    if (!(expr instanceof NullValue) && !BasicType.VOID_TYPE.equals(exprType)) {
+                        return exprType;
+                    }
+                }
+
+                // If all parameters are null, return the type of the first parameter
+                return getExpressionType(expressions.get(0));
             case ZetaSQLFunction.MULTI_IF:
                 ExpressionList multiIfExpressionList = function.getParameters();
                 if (multiIfExpressionList == null) {
@@ -478,7 +488,7 @@ public class ZetaSQLType {
                         List<SeaTunnelDataType<?>> argsType = new ArrayList<>();
                         ExpressionList expressionList = function.getParameters();
                         if (expressionList != null) {
-                            List<Expression> expressions = expressionList.getExpressions();
+                            expressions = expressionList.getExpressions();
                             if (expressions != null) {
                                 for (Expression expression : expressions) {
                                     argsType.add(getExpressionType(expression));
@@ -492,6 +502,23 @@ public class ZetaSQLType {
                         CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
                         String.format("Unsupported function: %s ", function.getName()));
         }
+    }
+
+    private static List<Expression> getExpressions(Function function) {
+        ExpressionList parameters = function.getParameters();
+        if (parameters == null) {
+            throw new TransformException(
+                    CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
+                    function.getName() + " function requires at least one parameter");
+        }
+
+        List<Expression> expressions = parameters.getExpressions();
+        if (expressions == null || expressions.isEmpty()) {
+            throw new TransformException(
+                    CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
+                    function.getName() + " function requires at least one parameter");
+        }
+        return expressions;
     }
 
     private SeaTunnelDataType<?> getTimeKeyExprType(TimeKeyExpression timeKeyExpression) {

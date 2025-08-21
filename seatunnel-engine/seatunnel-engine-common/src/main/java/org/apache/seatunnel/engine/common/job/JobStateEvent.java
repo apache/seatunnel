@@ -15,26 +15,34 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.core.job;
+package org.apache.seatunnel.engine.common.job;
 
-import org.apache.seatunnel.engine.common.job.JobResult;
-import org.apache.seatunnel.engine.common.job.JobStatus;
-import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
+import org.apache.seatunnel.api.event.Event;
+import org.apache.seatunnel.api.event.EventType;
 
-/** Job interface define the Running job apis */
-public interface Job {
-    long getJobId();
+import lombok.Getter;
+import lombok.Setter;
+import lombok.ToString;
 
-    PassiveCompletableFuture<JobResult> doWaitForJobComplete();
+@Getter
+@Setter
+@ToString
+public class JobStateEvent implements Event {
 
-    void cancelJob();
+    private String jobId;
+    private String jobName;
+    private JobStatus jobStatus;
+    private long createdTime;
 
-    JobStatus getJobStatus();
-
-    @Deprecated
-    default JobStatus waitForJobComplete() {
-        return waitForJobCompleteV2().getStatus();
+    public JobStateEvent(Long jobId, String jobName, JobStatus jobStatus) {
+        this.jobId = String.valueOf(jobId);
+        this.jobName = jobName;
+        this.jobStatus = jobStatus;
+        this.createdTime = System.currentTimeMillis();
     }
 
-    JobResult waitForJobCompleteV2();
+    @Override
+    public EventType getEventType() {
+        return EventType.JOB_STATUS;
+    }
 }

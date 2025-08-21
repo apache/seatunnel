@@ -19,6 +19,7 @@
 package org.apache.seatunnel.format.json.maxwell;
 
 import org.apache.seatunnel.api.serialization.SerializationSchema;
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -28,9 +29,13 @@ import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.format.json.JsonSerializationSchema;
 import org.apache.seatunnel.format.json.exception.SeaTunnelJsonFormatException;
 
+import org.apache.commons.lang3.StringUtils;
+
 import java.nio.charset.Charset;
 
+import static org.apache.seatunnel.api.table.type.BasicType.LONG_TYPE;
 import static org.apache.seatunnel.api.table.type.BasicType.STRING_TYPE;
+import static org.apache.seatunnel.api.table.type.CommonOptions.EVENT_TIME;
 
 public class MaxWellJsonSerializationSchema implements SerializationSchema {
 
@@ -47,12 +52,12 @@ public class MaxWellJsonSerializationSchema implements SerializationSchema {
 
     public MaxWellJsonSerializationSchema(SeaTunnelRowType rowType) {
         this.jsonSerializer = new JsonSerializationSchema(createJsonRowType(rowType));
-        this.reuse = new SeaTunnelRow(2);
+        this.reuse = new SeaTunnelRow(5);
     }
 
     public MaxWellJsonSerializationSchema(SeaTunnelRowType rowType, Charset charset) {
         this.jsonSerializer = new JsonSerializationSchema(createJsonRowType(rowType), charset);
-        this.reuse = new SeaTunnelRow(2);
+        this.reuse = new SeaTunnelRow(5);
     }
 
     @Override
@@ -61,6 +66,14 @@ public class MaxWellJsonSerializationSchema implements SerializationSchema {
             String opType = rowKind2String(row.getRowKind());
             reuse.setField(0, row);
             reuse.setField(1, opType);
+            reuse.setField(2, row.getTableId());
+            if (!StringUtils.isEmpty(row.getTableId())) {
+                reuse.setField(2, TablePath.of(row.getTableId()).getDatabaseName());
+                reuse.setField(3, TablePath.of(row.getTableId()).getTableName());
+            }
+            if (row.getOptions() != null && row.getOptions().containsKey(EVENT_TIME.getName())) {
+                reuse.setField(4, row.getOptions().get(EVENT_TIME.getName()));
+            }
             return jsonSerializer.serialize(reuse);
         } catch (Throwable t) {
             throw CommonError.jsonOperationError(FORMAT, row.toString(), t);
@@ -87,7 +100,9 @@ public class MaxWellJsonSerializationSchema implements SerializationSchema {
         // but we don't need them
         // and we don't need "old" , because can not support UPDATE_BEFORE,UPDATE_AFTER
         return new SeaTunnelRowType(
-                new String[] {"data", "type"},
-                new SeaTunnelDataType[] {databaseSchema, STRING_TYPE});
+                new String[] {"data", "type", "database", "table", "ts"},
+                new SeaTunnelDataType[] {
+                    databaseSchema, STRING_TYPE, STRING_TYPE, STRING_TYPE, LONG_TYPE
+                });
     }
 }
