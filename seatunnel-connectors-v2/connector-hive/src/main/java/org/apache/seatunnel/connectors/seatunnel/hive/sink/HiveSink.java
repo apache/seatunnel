@@ -102,10 +102,8 @@ public class HiveSink
         Table tableInformation = getTableInformation();
         Config pluginConfig = readonlyConfig.toConfig();
 
-        // 如果表信息为空，创建默认配置
         if (tableInformation == null) {
             LOGGER.info("Table information is null, creating default config");
-            // 从tableSchema中获取列信息
             List<String> sinkFields =
                     catalogTable.getTableSchema().getColumns().stream()
                             .map(column -> column.getName())
@@ -131,7 +129,6 @@ public class HiveSink
             return new FileSinkConfig(pluginConfig, catalogTable.getSeaTunnelRowType());
         }
 
-        // 原有的处理逻辑保持不变
         List<String> sinkFields =
                 tableInformation.getSd().getCols().stream()
                         .map(FieldSchema::getName)

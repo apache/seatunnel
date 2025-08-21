@@ -20,13 +20,8 @@ package org.apache.seatunnel.connectors.seatunnel.hive.utils;
 import org.apache.hadoop.hive.metastore.api.SerDeInfo;
 import org.apache.hadoop.hive.metastore.api.StorageDescriptor;
 
-/**
- * Simplified utility class for Hive table format configuration Supports only the 3 most commonly
- * used formats: PARQUET, ORC, TEXTFILE
- */
 public class HiveFormatUtils {
 
-    /** Configure storage descriptor based on table format */
     public static void configureStorageDescriptor(StorageDescriptor sd, String format) {
         format = format.toUpperCase();
 

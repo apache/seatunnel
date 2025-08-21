@@ -58,12 +58,6 @@ public class HiveTypeConvertor {
         return SeaTunnelDataTypeConvertorUtil.deserializeSeaTunnelDataType(name, hiveType);
     }
 
-    /**
-     * Convert SeaTunnel data type to Hive type
-     *
-     * @param seaTunnelType SeaTunnel data type
-     * @return Hive type string
-     */
     public static String seatunnelToHiveType(SeaTunnelDataType<?> seaTunnelType) {
         switch (seaTunnelType.getSqlType()) {
             case STRING:

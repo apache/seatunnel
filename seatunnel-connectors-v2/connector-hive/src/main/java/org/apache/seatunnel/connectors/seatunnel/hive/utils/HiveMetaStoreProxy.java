@@ -174,13 +174,13 @@ public class HiveMetaStoreProxy implements Closeable, Serializable {
             return;
         }
         try {
-            log.info("尝试去创建表: {}.{}", tbl.getDbName(), tbl.getTableName());
-            log.info("表结构信息: {}", tbl.getSd().getCols());
             getClient().createTable(tbl);
-            log.info("表创建成功: {}.{}", tbl.getDbName(), tbl.getTableName());
         } catch (TException e) {
             log.error(
-                    "创建表失败: {}.{}, 错误信息: {}", tbl.getDbName(), tbl.getTableName(), e.getMessage());
+                    "Failed to create table: {}.{}, error: {}",
+                    tbl.getDbName(),
+                    tbl.getTableName(),
+                    e.getMessage());
             String errorMsg =
                     String.format(
                             "Failed to create table [%s.%s]", tbl.getDbName(), tbl.getTableName());

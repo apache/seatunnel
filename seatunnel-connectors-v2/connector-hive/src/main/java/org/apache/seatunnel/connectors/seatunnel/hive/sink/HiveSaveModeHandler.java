@@ -202,13 +202,10 @@ public class HiveSaveModeHandler implements SaveModeHandler, AutoCloseable {
         // Create table if not exists
         if (!hiveMetaStoreProxy.tableExists(dbName, tableName)) {
             createTable();
-        } else {
-            log.info("Table {}.{} already exists, skip creation", dbName, tableName);
         }
     }
 
     private void handleErrorWhenSchemaNotExist() throws TException {
-        log.info("Error when schema not exist mode for table {}.{}", dbName, tableName);
 
         // Check if database exists
         if (!hiveMetaStoreProxy.databaseExists(dbName)) {
@@ -226,23 +223,17 @@ public class HiveSaveModeHandler implements SaveModeHandler, AutoCloseable {
 
     private void createDatabaseIfNotExists() throws TException {
         hiveMetaStoreProxy.createDatabaseIfNotExists(dbName);
-        log.info("Ensured database exists: {}", dbName);
     }
 
     private void createTable() throws TException {
-        // Check if user has customized the create template
         String defaultTemplate = HiveSinkOptions.SAVE_MODE_CREATE_TEMPLATE.defaultValue();
         boolean useCustomTemplate = !defaultTemplate.equals(createTemplate);
 
         if (useCustomTemplate) {
-            log.info("Creating table {}.{} using custom SQL template", dbName, tableName);
             createTableUsingTemplate();
         } else {
-            log.info("Creating table {}.{} using Hive MetaStore API", dbName, tableName);
             createTableUsingAPI();
         }
-
-        log.info("Successfully created table {}.{}", dbName, tableName);
     }
 
     private void createTableUsingAPI() throws TException {
@@ -252,38 +243,28 @@ public class HiveSaveModeHandler implements SaveModeHandler, AutoCloseable {
     }
 
     private void createTableUsingTemplate() throws TException {
-        // For template mode, we still use API but with template-based configuration
-        // This ensures compatibility while allowing template customization
-        String createSQL = processCreateTemplate();
-        log.debug("Generated CREATE TABLE SQL: {}", createSQL);
-        log.info("Template mode: Using API to create table based on template configuration");
-
-        // Use API to create table (template is mainly for validation and logging)
+        processCreateTemplate();
         Table table = buildTableFromSchema();
         hiveMetaStoreProxy.createTableIfNotExists(table);
     }
 
     private String processCreateTemplate() {
-        // Enhanced template processing with partition support
         String sql = createTemplate;
         String tableFormat = readonlyConfig.get(HiveSinkOptions.TABLE_FORMAT);
-
-        // Validate format
         HiveFormatUtils.validateFormat(tableFormat);
 
+        sql = sql.replace("${database}", dbName);
+        sql = sql.replace("${table}", tableName);
         sql = sql.replace("${database}", dbName);
         sql = sql.replace("${table}", tableName);
         sql = sql.replace("${table_location}", getDefaultTableLocation());
         sql = sql.replace("${rowtype_fields}", generateNonPartitionColumnDefinitions());
         sql = sql.replace("${table_format}", tableFormat);
-
-        // Handle partition clause
-        String partitionClause = generatePartitionByClause();
-        sql = sql.replace("${partition_by_clause}", partitionClause);
-
-        // Handle table properties
-        String tableProperties = HiveFormatUtils.getDefaultTableProperties(tableFormat);
-        sql = sql.replace("${table_properties}", tableProperties);
+        sql = sql.replace("${partition_by_clause}", generatePartitionByClause());
+        sql =
+                sql.replace(
+                        "${table_properties}",
+                        HiveFormatUtils.getDefaultTableProperties(tableFormat));
 
         return sql;
     }
