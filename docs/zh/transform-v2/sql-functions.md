@@ -28,7 +28,7 @@ BIT_LENGTH(NAME)
 
 ```CHAR_LENGTH | LENGTH (string) -> LONG```
 
-返回字符串中的字符数量。
+这个方法返回一个字符串中字符的数量。
 
 示例:
 
@@ -146,9 +146,9 @@ RIGHT(NAME, 3)
 
 ### LOCATE / INSTR / POSITION
 
-```LOCATE(searchString, string[, startInit]) -> INT```
+```LOCATE(searchString, string[, startInt]) -> INT```
 
-```INSTR(string, searchString[, startInit]) -> INT```
+```INSTR(string, searchString[, startInt]) -> INT```
 
 ```POSITION(searchString, string) -> INT```
 
@@ -278,7 +278,7 @@ REGEXP_SUBSTR('2020-10-01', '(\d{4})-(\d{2})-(\d{2})', 1, 1, NULL, 2)
 
 ```REPEAT(string, int) -> STRING```
 
-返回重复若干次后的字符串。
+将字符串按指定次数重复后返回。
 
 示例:
 
@@ -309,7 +309,7 @@ select SPLIT(test,';') as arrays
 
 ```SOUNDEX(string) -> STRING```
 
-表示字符串发音，如果参数为 null，则返回 null。有关更多信息，请参阅 https://en.wikipedia.org/wiki/Soundex 。
+表示字符串发音。此方法返回一个字符串，如果参数为 null，则返回 null。有关更多信息，请参阅 https://en.wikipedia.org/wiki/Soundex 。
 
 示例:
 
@@ -360,9 +360,9 @@ CALL TRANSLATE('Hello world', 'eo', 'EO')
 
 ### ABS
 
-```ABS(numeric) -> numeric (same type)```
+```ABS(numeric) -> NUMERIC (same type)```
 
-返回指定值的绝对值。
+返回指定值的绝对值。返回的值与参数的数据类型相同。
 
 请注意，TINYINT、SMALLINT、INT 和 BIGINT 数据类型无法表示它们的最小负值的绝对值，因为它们的负值比正值多。例如，对于 INT 数据类型，允许的值范围是从 -2147483648 到 2147483647。ABS(-2147483648) 应该是 2147483648，但是这个值对于这个数据类型是不允许的。这会导致异常。为了避免这种情况，请将此函数的参数转换为更高的数据类型。
 
@@ -497,7 +497,7 @@ TANH(X)
 
 取模运算表达式。
 
-如果任一参数为 NULL，则结果为 NULL。如果除数为 0，则会引发异常。结果与被除数的符号相同，或者等于 0。
+结果与除数的类型相同。如果任一参数为 NULL，则结果为 NULL。如果除数为 0，则会引发异常。结果与被除数的符号相同，或者等于 0。
 
 通常情况下，参数应具有标度 0，但 H2 并不要求。
 
@@ -507,9 +507,9 @@ MOD(A, B)
 
 ### CEIL / CEILING
 
-```CEIL | CEILING (numeric) -> numeric (same type, scale 0)```
+```CEIL | CEILING (numeric) -> NUMERIC (same type, scale 0)```
 
-返回大于或等于参数的最小整数值，但标度设置为 0，并且如果适用，则调整精度。
+返回大于或等于参数的最小整数值。该方法返回与参数相同类型的值，但标度设置为 0，并且如果适用，则调整精度。
 
 示例:
 
@@ -527,9 +527,9 @@ EXP(A)
 
 ### FLOOR
 
-```FLOOR(numeric) -> numeric (same type, scale 0)```
+```FLOOR(numeric) -> NUMERIC (same type, scale 0)```
 
-返回小于或等于参数的最大整数值，但标度设置为 0，并且如果适用，则调整精度。
+返回小于或等于参数的最大整数值。该方法返回与参数相同类型的值，但标度设置为 0，并且如果适用，则调整精度。
 
 示例:
 
@@ -613,7 +613,7 @@ POWER(A, B)
 
 ```RAND | RANDOM([ int ]) -> DOUBLE```
 
-如果不带参数调用该函数，则返回下一个伪随机数。如果带有参数调用，则将会给该会话的随机数生成器设定种子。
+如果不带参数调用该函数，则返回下一个伪随机数。如果带有参数调用，则将会给该会话的随机数生成器设定种子。该方法返回一个介于 0（包括）和 1（不包括）之间的双精度浮点数。
 
 示例:
 
@@ -621,9 +621,9 @@ RAND()
 
 ### ROUND
 
-```ROUND(numeric[, digitsInt]) -> numeric (same type)```
+```ROUND(numeric[, digitsInt]) -> NUMERIC (same type)```
 
-四舍五入到指定的小数位数，但如果适用，则调整精度和标度。
+四舍五入到指定的小数位数。该方法返回与参数相同类型的值，但如果适用，则调整精度和标度。
 
 示例:
 
@@ -641,9 +641,9 @@ SIGN(N)
 
 ### TRUNC
 
-```TRUNC | TRUNCATE(numeric[, digitsInt]) -> numeric (same type)```
+```TRUNC | TRUNCATE(numeric[, digitsInt]) -> NUMERIC (same type)```
 
-当指定了一个数值参数时，将其截断为指定的数字位数（接近0的下一个值），但如果适用，则调整精度和标度。
+当指定了一个数值参数时，将其截断为指定的数字位数（接近0的下一个值），并返回与参数相同类型的值，但如果适用，则调整精度和标度。
 
 示例:
 
@@ -651,7 +651,7 @@ TRUNC(N, 2)
 
 ### TRIM_SCALE
 
-```TRIM_SCALE(numeric) -> STRING```
+```TRIM_SCALE(numeric) -> NUMERIC (same type)```
 
 通过删除尾数部分的零来降低值的刻度（小数位数），并调整小数位数。
 
@@ -697,7 +697,7 @@ CURRENT_TIMESTAMP
 
 ```DATEADD| TIMESTAMPADD(dateAndTime, addIntLong, datetimeFieldString) -> dateAndTime (same type)```
 
-将单位添加到日期时间值中。datetimeFieldString 表示单位。使用负值来减去单位。当操作毫秒、微秒或纳秒时，addIntLong 可能是一个 long 值，否则其范围被限制为 int。如果单位与指定值兼容。如果指定的字段是 HOUR、MINUTE、SECOND、MILLISECOND 等，而值是 DATE 值，结果为组合后的日期与时间。对于 TIME 值，不允许使用 DAY、MONTH、YEAR、WEEK 等字段。
+将单位添加到日期时间值中。datetimeFieldString 表示单位。使用负值来减去单位。当操作毫秒、微秒或纳秒时，addIntLong 可能是一个 long 值，否则其范围被限制为 int。如果单位与指定值兼容，则此方法返回与指定值相同类型的值。如果指定的字段是 HOUR、MINUTE、SECOND、MILLISECOND 等，而值是 DATE 值，DATEADD 返回组合的 TIMESTAMP。对于 TIME 值，不允许使用 DAY、MONTH、YEAR、WEEK 等字段。
 
 示例:
 
@@ -765,9 +765,9 @@ DAY_OF_YEAR(CREATED)
 
 ### EXTRACT
 
-```EXTRACT ( datetimeField FROM dateAndTime) -> INT```
+```EXTRACT ( datetimeField FROM dateAndTime) -> INT | NUMERIC```
 
-从日期/时间值中返回特定时间单位的值。
+从日期/时间值中返回特定时间单位的值。该方法对于 EPOCH 字段返回一个数值，对于其他字段返回一个整数。
 
 EXTRACT函数支持以下字段名：
 
@@ -882,7 +882,8 @@ MONTHNAME(CREATED)
 ### PARSEDATETIME / TO_DATE
 
 ```PARSEDATETIME | TO_DATE(string, formatString) -> TIMESTAMP```
-最重要的格式字符包括：y（年）、M（月）、d（日）、H（时）、m（分）、s（秒）。有关格式的详细信息，请参阅 java.time.format.DateTimeFormatter。
+
+解析一个字符串并返回一个 TIMESTAMP WITH TIME ZONE 值。最重要的格式字符包括：y（年）、M（月）、d（日）、H（时）、m（分）、s（秒）。有关格式的详细信息，请参阅 java.time.format.DateTimeFormatter。
 
 示例:
 
@@ -1097,7 +1098,7 @@ select UUID() as seatunnel_uuid
 ### ARRAY
 
 ```ARRAY<T> array(T, ...) -> ARRAY<T>```
-创建一个由可变参数元素组成的数组并返回它。这里，T 可以是“列”或“常量”。。
+创建一个由可变参数元素组成的数组并返回它。这里，T 可以是“列”或“常量”。
 
 示例:
 
