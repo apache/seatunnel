@@ -143,34 +143,34 @@ This option is used to support operations such as `insert`, `delete`, and `updat
 
 The time in seconds to wait for the database operation used to validate the connection to complete.
 
-### max_retries[int]
+### max_retries [int]
 
 The number of retries to submit failed (executeBatch)
 
-### batch_size[int]
+### batch_size [int]
 
 For batch writing, when the number of buffered records reaches the number of `batch_size` or the time reaches `checkpoint.interval`
 , the data will be flushed into the database
 
-### is_exactly_once[boolean]
+### is_exactly_once [boolean]
 
 Whether to enable exactly-once semantics, which will use Xa transactions. If on, you need to
 set `xa_data_source_class_name`.
 
-### generate_sink_sql[boolean]
+### generate_sink_sql [boolean]
 
 Generate sql statements based on the database table you want to write to
 
-### xa_data_source_class_name[string]
+### xa_data_source_class_name [string]
 
 The xa data source class name of the database Driver, for example, mysql is `com.mysql.cj.jdbc.MysqlXADataSource`, and
 please refer to appendix for other data sources
 
-### max_commit_attempts[int]
+### max_commit_attempts [int]
 
 The number of retries for transaction commit failures
 
-### transaction_timeout_sec[int]
+### transaction_timeout_sec [int]
 
 The timeout after the transaction is opened, the default is -1 (never timeout). Note that setting the timeout may affect
 exactly-once semantics
