@@ -252,5 +252,4 @@ logging.level.org.apache.seatunnel.connectors.seatunnel.dsql = DEBUG
 
 ## Support
 
-
 For issues and feature requests, please create an issue in the SeaTunnel repository.
