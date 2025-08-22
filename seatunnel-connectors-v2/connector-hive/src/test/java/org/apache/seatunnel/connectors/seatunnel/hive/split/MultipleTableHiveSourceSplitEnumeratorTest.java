@@ -99,7 +99,6 @@ public class MultipleTableHiveSourceSplitEnumeratorTest {
             Assertions.assertEquals(
                     allocateFiles(i, parallelism, fileSize), splitAllValues.get(i).size());
         }
-
     }
 
     /**
