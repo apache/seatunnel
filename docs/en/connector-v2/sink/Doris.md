@@ -64,7 +64,7 @@ The internal implementation of Doris sink connector is cached and imported by st
 | custom_sql                     | String  | no       | -                            | When data_save_mode selects CUSTOM_PROCESSING, you should fill in the CUSTOM_SQL parameter. This parameter usually fills in a SQL that can be executed. SQL will be executed before synchronization tasks.                                                           |
 | doris.config                   | map     | yes      | -                            | This option is used to support operations such as `insert`, `delete`, and `update` when automatically generate sql,and supported formats.                                                                                                                            |
 
-### schema_save_mode[Enum]
+### schema_save_mode [Enum]
 
 Before the synchronous task is turned on, different treatment schemes are selected for the existing surface structure of the target side.  
 Option introduction：  
@@ -73,7 +73,7 @@ Option introduction：
 `ERROR_WHEN_SCHEMA_NOT_EXIST` ：Error will be reported when the table does not exist  
 `IGNORE` ：Ignore the treatment of the table
 
-### data_save_mode[Enum]
+### data_save_mode [Enum]
 
 Before the synchronous task is turned on, different processing schemes are selected for data existing data on the target side.  
 Option introduction：  

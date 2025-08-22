@@ -24,7 +24,7 @@
 - FAIL：选择`FAIL`时，数据格式错误会阻塞并抛出异常。
 - SKIP：选择`SKIP`时，数据格式错误会跳过该行数据。
 
-### columns[array]
+### columns [array]
 
 #### 属性
 

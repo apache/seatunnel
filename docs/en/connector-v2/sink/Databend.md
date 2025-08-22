@@ -50,7 +50,7 @@ The Databend sink internally implements bulk data import through stage attachmen
 | execute_timeout_sec | Integer | No | 300 | SQL execution timeout (seconds)                      |
 | jdbc_config | Map | No | - | Additional JDBC connection configuration, such as connection timeout parameters             |
 
-### schema_save_mode[Enum]
+### schema_save_mode [Enum]
 
 Before starting the synchronization task, choose different processing schemes for existing table structures.
 Option descriptions:  
@@ -59,7 +59,7 @@ Option descriptions:
 `ERROR_WHEN_SCHEMA_NOT_EXIST`: Report error when table doesn't exist.  
 `IGNORE`: Ignore table processing.
 
-### data_save_mode[Enum]
+### data_save_mode [Enum]
 
 Before starting the synchronization task, choose different processing schemes for existing data on the target side.
 Option descriptions:  

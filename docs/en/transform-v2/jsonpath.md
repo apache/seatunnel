@@ -24,7 +24,7 @@ This option is used to specify the processing method when an error occurs in the
 - FAIL: When `FAIL` is selected, data format error will block and an exception will be thrown.
 - SKIP: When `SKIP` is selected, data format error will skip this row data.
 
-### columns[array]
+### columns [array]
 
 #### option
 
