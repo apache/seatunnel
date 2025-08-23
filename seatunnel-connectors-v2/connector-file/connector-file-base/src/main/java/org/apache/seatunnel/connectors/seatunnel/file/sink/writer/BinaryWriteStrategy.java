@@ -66,8 +66,7 @@ public class BinaryWriteStrategy extends AbstractWriteStrategy<FSDataOutputStrea
         String relativePath = (String) seaTunnelRow.getField(1);
         long partIndex = (long) seaTunnelRow.getField(2);
 
-        // Handle end-of-file marker (partIndex = -1, empty data)
-        if (partIndex == -1 && data.length == 0) {
+        if (seaTunnelRow.isComplete()) {
             return;
         }
 
