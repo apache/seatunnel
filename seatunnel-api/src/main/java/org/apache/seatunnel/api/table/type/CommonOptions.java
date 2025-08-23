@@ -49,9 +49,13 @@ public enum CommonOptions {
     ROW_KIND("RowKind", true),
     /**
      * The key of {@link SeaTunnelRow#getOptions()} to store the EVENT_TIME value of the row value.
+     * And the data should be milliseconds.
      */
     EVENT_TIME("EventTime", true),
-    /** The key of {@link SeaTunnelRow#getOptions()} to store the DELAY value of the row value. */
+    /**
+     * The key of {@link SeaTunnelRow#getOptions()} to store the DELAY value of the row value. And
+     * the data should be milliseconds.
+     */
     DELAY("Delay", true);
 
     private final String name;

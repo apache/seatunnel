@@ -46,13 +46,15 @@ import ChangeLog from '../changelog/connector-paimon.md';
 
 ## 配置选项
 
-|          名称           |  类型  | 是否必须 | 默认值 |
+| 名称                      |  类型  | 是否必须 | 默认值 |
 |-------------------------|--------|----------|---------------|
 | warehouse               | String | 是      | -             |
 | catalog_type            | String | 否       | filesystem    |
 | catalog_uri             | String | 否       | -             |
 | database                | String | 是      | -             |
 | table                   | String | 是      | -             |
+| user                    | String | 否      | -             |
+| password                | String | 否      | -             |
 | hdfs_site_path          | String | 否       | -             |
 | query                   | String | 否       | -             |
 | paimon.hadoop.conf      | Map    | 否       | -             |
@@ -220,6 +222,20 @@ source {
       dfs.client.use.datanode.hostname = "true"
     }
   }
+}
+```
+
+### paimon开启权限示例
+
+```hocon
+source {
+ Paimon {
+     warehouse = "/tmp/paimon"
+     database = "default"
+     table = "st_test"
+     user = "paimon"
+     password = "******"
+   }
 }
 ```
 
