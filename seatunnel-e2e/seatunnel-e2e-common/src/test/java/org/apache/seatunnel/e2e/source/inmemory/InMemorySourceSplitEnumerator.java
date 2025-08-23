@@ -64,11 +64,6 @@ public class InMemorySourceSplitEnumerator
     }
 
     @Override
-    public int currentUnassignedSplitSize() {
-        return -1;
-    }
-
-    @Override
     public void registerReader(int subtaskId) {
         methodInvoked.add("registerReader_" + subtaskId);
     }
