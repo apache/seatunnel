@@ -48,4 +48,12 @@ public class SeaTunnelRowAccessor {
     public Map<String, Object> getOptions() {
         return row.getOptions();
     }
+
+    public boolean isBinaryFormat() {
+        return row.isBinaryFormat();
+    }
+
+    public boolean isComplete() {
+        return row.isComplete();
+    }
 }

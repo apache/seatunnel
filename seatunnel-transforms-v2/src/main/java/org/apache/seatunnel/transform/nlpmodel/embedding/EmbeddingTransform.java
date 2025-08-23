@@ -43,7 +43,9 @@ import org.apache.seatunnel.transform.nlpmodel.llm.LLMTransformConfig;
 
 import lombok.NonNull;
 import lombok.SneakyThrows;
+import lombok.extern.slf4j.Slf4j;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.nio.ByteBuffer;
@@ -52,7 +54,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeMap;
+import java.util.concurrent.ConcurrentHashMap;
 
+@Slf4j
 public class EmbeddingTransform extends MultipleFieldOutputTransform {
 
     private final ReadonlyConfig config;
@@ -62,6 +67,9 @@ public class EmbeddingTransform extends MultipleFieldOutputTransform {
     private boolean isMultimodalFields = false;
     private Map<Integer, FieldSpec> fieldSpecMap;
     private List<String> fieldNames;
+
+    private final Map<String, TreeMap<Long, byte[]>> binaryFileCache = new ConcurrentHashMap<>();
+    private final Map<String, Long> partIndexMap = new ConcurrentHashMap<>();
 
     public EmbeddingTransform(
             @NonNull ReadonlyConfig config, @NonNull CatalogTable inputCatalogTable) {
@@ -198,6 +206,7 @@ public class EmbeddingTransform extends MultipleFieldOutputTransform {
 
         for (Map.Entry<String, Object> field : fieldsConfig.entrySet()) {
             FieldSpec fieldSpec = new FieldSpec(field);
+            log.info("Field spec: {}", fieldSpec.toString());
             String srcField = fieldSpec.getFieldName();
             int srcFieldIndex;
             try {
@@ -219,16 +228,21 @@ public class EmbeddingTransform extends MultipleFieldOutputTransform {
     protected Object[] getOutputFieldValues(SeaTunnelRowAccessor inputRow) {
         tryOpen();
         try {
+            if (inputRow.isBinaryFormat()) {
+                return vectorizationBinaryRow(inputRow);
+            }
             Set<Integer> fieldOriginalIndexes = fieldSpecMap.keySet();
             Object[] fieldValues = new Object[fieldOriginalIndexes.size()];
             List<ByteBuffer> vectorization;
             int i = 0;
+
             for (Integer fieldOriginalIndex : fieldOriginalIndexes) {
                 FieldSpec fieldSpec = fieldSpecMap.get(fieldOriginalIndex);
                 Object value = inputRow.getField(fieldOriginalIndex);
                 fieldValues[i++] =
                         isMultimodalFields ? new MultimodalFieldValue(fieldSpec, value) : value;
             }
+
             vectorization = model.vectorization(fieldValues);
             return vectorization.toArray();
         } catch (Exception e) {
@@ -240,6 +254,7 @@ public class EmbeddingTransform extends MultipleFieldOutputTransform {
     @VisibleForTesting
     public Column[] getOutputColumns() {
         tryOpen();
+        log.info("getOutputColumns: {}", fieldNames);
         Column[] columns = new Column[fieldNames.size()];
         for (int i = 0; i < fieldNames.size(); i++) {
             columns[i] =
@@ -264,11 +279,103 @@ public class EmbeddingTransform extends MultipleFieldOutputTransform {
         return isMultimodalFields;
     }
 
+    /** Process a row in binary format: [data, relativePath, partIndex] */
+    private Object[] vectorizationBinaryRow(SeaTunnelRowAccessor inputRow) throws Exception {
+
+        byte[] completeData = processBinaryRow(inputRow);
+        if (completeData == null) {
+            return null;
+        }
+        Set<Integer> fieldOriginalIndexes = fieldSpecMap.keySet();
+        Object[] fieldValues = new Object[fieldOriginalIndexes.size()];
+        int i = 0;
+
+        for (Integer fieldOriginalIndex : fieldOriginalIndexes) {
+            FieldSpec fieldSpec = fieldSpecMap.get(fieldOriginalIndex);
+            if (fieldSpec.isBinary()) {
+                fieldValues[i++] = new MultimodalFieldValue(fieldSpec, completeData);
+            } else {
+                log.warn(
+                        "Non-binary field {} configured in binary format data",
+                        fieldSpec.getFieldName());
+                fieldValues[i++] = null;
+            }
+        }
+
+        try {
+            return model.vectorization(fieldValues).toArray();
+        } catch (Exception e) {
+            throw new RuntimeException(
+                    "Failed to vectorize binary data for file: " + inputRow.toString(), e);
+        }
+    }
+
+    private byte[] processBinaryRow(SeaTunnelRowAccessor inputRow) throws Exception {
+        byte[] data = (byte[]) inputRow.getField(0);
+        String relativePath = (String) inputRow.getField(1);
+        long partIndex = (long) inputRow.getField(2);
+
+        if (partIndex != -1) {
+            checkPartOrder(relativePath, partIndex);
+        }
+        cacheBinaryChunk(relativePath, partIndex, data);
+        if (inputRow.isComplete()) {
+            byte[] completeFile = assembleCompleteFile(relativePath);
+            cleanupFileCache(relativePath);
+            log.info(
+                    "Assembled complete file: {}, size: {} bytes",
+                    relativePath,
+                    completeFile.length);
+            return completeFile;
+        }
+        return null;
+    }
+
+    /** Validate that partIndex is in correct order for the given file */
+    private void checkPartOrder(String relativePath, long partIndex) throws Exception {
+        Long lastPartIndex = partIndexMap.getOrDefault(relativePath, -1L);
+        if (partIndex - 1 != lastPartIndex) {
+            throw new Exception("Last order is " + lastPartIndex + ", but get " + partIndex);
+        }
+        partIndexMap.put(relativePath, partIndex);
+    }
+
+    private void cacheBinaryChunk(String relativePath, long partIndex, byte[] data) {
+        if (partIndex >= 0) {
+            binaryFileCache
+                    .computeIfAbsent(relativePath, k -> new TreeMap<>())
+                    .put(partIndex, data);
+        }
+    }
+
+    private byte[] assembleCompleteFile(String relativePath) {
+        TreeMap<Long, byte[]> chunks = binaryFileCache.get(relativePath);
+        try (ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
+            for (Map.Entry<Long, byte[]> entry : chunks.entrySet()) {
+                byte[] chunk = entry.getValue();
+                if (chunk.length > 0) {
+                    outputStream.write(chunk);
+                }
+            }
+            return outputStream.toByteArray();
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to assemble complete file: " + relativePath, e);
+        }
+    }
+
+    private void cleanupFileCache(String relativePath) {
+        binaryFileCache.remove(relativePath);
+        partIndexMap.remove(relativePath);
+        log.info("Cleaned up cache and partIndex tracking for file: {}", relativePath);
+    }
+
     @SneakyThrows
     @Override
     public void close() {
         if (model != null) {
             model.close();
         }
+        binaryFileCache.clear();
+        partIndexMap.clear();
     }
 }

@@ -53,7 +53,11 @@ public abstract class MultipleFieldOutputTransform extends AbstractCatalogSuppor
 
     @Override
     protected SeaTunnelRow transformRow(SeaTunnelRow inputRow) {
+
         Object[] fieldValues = getOutputFieldValues(new SeaTunnelRowAccessor(inputRow));
+        if (inputRow.isBinaryFormat() && !inputRow.isComplete()) {
+            return null;
+        }
         SeaTunnelRow outputRow = rowContainerGenerator.apply(inputRow);
         for (int i = 0; i < outputFieldNames.length; i++) {
             outputRow.setField(fieldsIndex[i], fieldValues == null ? null : fieldValues[i]);
