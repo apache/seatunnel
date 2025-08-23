@@ -287,8 +287,10 @@ public class JsonPathTransformTest {
                         ImmutableMap.of(
                                 JsonPathTransformConfig.SRC_FIELD.key(), "data",
                                 JsonPathTransformConfig.PATH.key(), Arrays.asList("$.id", "$.name"),
-                                JsonPathTransformConfig.DEST_FIELD.key(), Arrays.asList("id", "name", "age"),
-                                JsonPathTransformConfig.DEST_TYPE.key(), Arrays.asList("bigint", "string"))));
+                                JsonPathTransformConfig.DEST_FIELD.key(),
+                                        Arrays.asList("id", "name", "age"),
+                                JsonPathTransformConfig.DEST_TYPE.key(),
+                                        Arrays.asList("bigint", "string"))));
         ReadonlyConfig config = ReadonlyConfig.fromMap(configMap);
         CatalogTable table =
                 CatalogTableUtil.getCatalogTable(
@@ -312,8 +314,10 @@ public class JsonPathTransformTest {
                         ImmutableMap.of(
                                 JsonPathTransformConfig.SRC_FIELD.key(), "data",
                                 JsonPathTransformConfig.PATH.key(), Arrays.asList("$.id", "$.name"),
-                                JsonPathTransformConfig.DEST_FIELD.key(), Arrays.asList("id", "name"),
-                                JsonPathTransformConfig.DEST_TYPE.key(), Arrays.asList("bigint", "string")),
+                                JsonPathTransformConfig.DEST_FIELD.key(),
+                                        Arrays.asList("id", "name"),
+                                JsonPathTransformConfig.DEST_TYPE.key(),
+                                        Arrays.asList("bigint", "string")),
                         ImmutableMap.of(
                                 JsonPathTransformConfig.SRC_FIELD.key(), "data",
                                 JsonPathTransformConfig.PATH.key(), "$.status",
@@ -354,10 +358,14 @@ public class JsonPathTransformTest {
                         ImmutableMap.of(
                                 JsonPathTransformConfig.SRC_FIELD.key(), "data",
                                 JsonPathTransformConfig.PATH.key(),
-                                        Arrays.asList("$.user.profile.name", "$.user.profile.age", "$.user.settings.theme"),
+                                        Arrays.asList(
+                                                "$.user.profile.name",
+                                                "$.user.profile.age",
+                                                "$.user.settings.theme"),
                                 JsonPathTransformConfig.DEST_FIELD.key(),
                                         Arrays.asList("user_name", "user_age", "user_theme"),
-                                JsonPathTransformConfig.DEST_TYPE.key(), Arrays.asList("string", "int", "string"))));
+                                JsonPathTransformConfig.DEST_TYPE.key(),
+                                        Arrays.asList("string", "int", "string"))));
         ReadonlyConfig config = ReadonlyConfig.fromMap(configMap);
         CatalogTable table =
                 CatalogTableUtil.getCatalogTable(
@@ -391,10 +399,17 @@ public class JsonPathTransformTest {
                         ImmutableMap.of(
                                 JsonPathTransformConfig.SRC_FIELD.key(), "data",
                                 JsonPathTransformConfig.PATH.key(),
-                                        Arrays.asList("$.orders[0].id", "$.orders[0].amount", "$.orders[1].id"),
+                                        Arrays.asList(
+                                                "$.orders[0].id",
+                                                "$.orders[0].amount",
+                                                "$.orders[1].id"),
                                 JsonPathTransformConfig.DEST_FIELD.key(),
-                                        Arrays.asList("first_order_id", "first_amount", "second_order_id"),
-                                JsonPathTransformConfig.DEST_TYPE.key(), Arrays.asList("int", "double", "int"))));
+                                        Arrays.asList(
+                                                "first_order_id",
+                                                "first_amount",
+                                                "second_order_id"),
+                                JsonPathTransformConfig.DEST_TYPE.key(),
+                                        Arrays.asList("int", "double", "int"))));
         ReadonlyConfig config = ReadonlyConfig.fromMap(configMap);
         CatalogTable table =
                 CatalogTableUtil.getCatalogTable(
@@ -429,20 +444,36 @@ public class JsonPathTransformTest {
                         ImmutableMap.of(
                                 JsonPathTransformConfig.SRC_FIELD.key(), "data",
                                 JsonPathTransformConfig.PATH.key(),
-                                        Arrays.asList("$.id", "$.name", "$.status",
-                                                "$.user.profile.age", "$.user.profile.email", "$.user.settings.theme",
-                                                "$.orders[0].id", "$.orders[0].amount", "$.orders[1].id",
-                                                "$.metadata.created_at", "$.total"),
+                                        Arrays.asList(
+                                                "$.id",
+                                                "$.name",
+                                                "$.status",
+                                                "$.user.profile.age",
+                                                "$.user.profile.email",
+                                                "$.user.settings.theme",
+                                                "$.orders[0].id",
+                                                "$.orders[0].amount",
+                                                "$.orders[1].id",
+                                                "$.metadata.created_at",
+                                                "$.total"),
                                 JsonPathTransformConfig.DEST_FIELD.key(),
-                                        Arrays.asList("id", "name", "status",
-                                                "user_age", "user_email", "user_theme",
-                                                "order1_id", "order1_amount", "order2_id",
-                                                "created_at", "total"),
+                                        Arrays.asList(
+                                                "id",
+                                                "name",
+                                                "status",
+                                                "user_age",
+                                                "user_email",
+                                                "user_theme",
+                                                "order1_id",
+                                                "order1_amount",
+                                                "order2_id",
+                                                "created_at",
+                                                "total"),
                                 JsonPathTransformConfig.DEST_TYPE.key(),
-                                        Arrays.asList("bigint", "string", "int",
-                                                "int", "string", "string",
-                                                "int", "double", "int",
-                                                "string", "double"))));
+                                        Arrays.asList(
+                                                "bigint", "string", "int", "int", "string",
+                                                "string", "int", "double", "int", "string",
+                                                "double"))));
 
         ReadonlyConfig config = ReadonlyConfig.fromMap(configMap);
         CatalogTable table =
