@@ -46,19 +46,20 @@ Read data from Apache Paimon.
 
 ## Options
 
-| name                    |  type  | required | default value |
-|-------------------------|--------|----------|---------------|
-| warehouse               | String | Yes      | -             |
-| catalog_type            | String | No       | filesystem    |
-| catalog_uri             | String | No       | -             |
-| database                | String | Yes      | -             |
-| table                   | String | Yes      | -             |
-| user                    | String | No       | -             |
-| password                | String | No      | -             |
-| hdfs_site_path          | String | No       | -             |
-| query                   | String | No       | -             |
-| paimon.hadoop.conf      | Map    | No       | -             |
-| paimon.hadoop.conf-path | String | No       | -             |
+| name                    | type     | required       | default value |
+|-------------------------|----------|----------------|---------------|
+| warehouse               | String   | Yes            | -             |
+| catalog_type            | String   | No             | filesystem    |
+| catalog_uri             | String   | No             | -             |
+| database                | String   | Yes            | -             |
+| table                   | String   | no             | -             |
+| table_list              | array    | no             | -             |
+| user                    | String   | No             | -             |
+| password                | String   | No             | -             |
+| hdfs_site_path          | String   | No             | -             |
+| query                   | String   | No             | -             |
+| paimon.hadoop.conf      | Map      | No             | -             |
+| paimon.hadoop.conf-path | String   | No             | -             |
 
 ### warehouse [string]
 
@@ -79,6 +80,10 @@ The database you want to access
 ### table [string]
 
 The table you want to access
+
+### table_list [array]
+
+The list of tables to be read, you can use this configuration instead of `table`
 
 ### hdfs_site_path [string]
 
@@ -130,6 +135,75 @@ source {
      warehouse = "/tmp/paimon"
      database = "default"
      table = "st_test"
+   }
+}
+```
+
+### Multiple tables
+
+```
+source {
+ Paimon {
+     warehouse = "/tmp/paimon"
+     database = "default"
+     tables_configs = [
+      {
+        schema = {
+          table = "e2e_table_source"
+          fields {
+            pk_id = bigint
+            c_map = "map<string, string>"
+            c_array = "array<int>"
+            c_string = string
+            c_boolean = boolean
+            c_tinyint = tinyint
+            c_smallint = smallint
+            c_int = int
+            c_bigint = bigint
+            c_float = float
+            c_double = double
+            c_decimal = "decimal(30, 8)"
+            c_bytes = bytes
+            c_date = date
+            c_timestamp = timestamp
+            c_time = time
+          }
+          primaryKey {
+            name = "pk_id"
+            columnNames = [pk_id]
+          }
+        }
+        row.num = 100
+      },
+      {
+        schema = {
+          table = "e2e_table_source_2"
+          fields {
+            pk_id = bigint
+            c_map = "map<string, string>"
+            c_array = "array<int>"
+            c_string = string
+            c_boolean = boolean
+            c_tinyint = tinyint
+            c_smallint = smallint
+            c_int = int
+            c_bigint = bigint
+            c_float = float
+            c_double = double
+            c_decimal = "decimal(30, 8)"
+            c_bytes = bytes
+            c_date = date
+            c_timestamp = timestamp
+            c_time = time
+          }
+          primaryKey {
+            name = "pk_id"
+            columnNames = [pk_id]
+          }
+        }
+        row.num = 50
+      }
+    ]
    }
 }
 ```

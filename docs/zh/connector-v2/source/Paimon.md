@@ -46,19 +46,20 @@ import ChangeLog from '../changelog/connector-paimon.md';
 
 ## 配置选项
 
-| 名称                      |  类型  | 是否必须 | 默认值 |
-|-------------------------|--------|----------|---------------|
-| warehouse               | String | 是      | -             |
-| catalog_type            | String | 否       | filesystem    |
-| catalog_uri             | String | 否       | -             |
-| database                | String | 是      | -             |
-| table                   | String | 是      | -             |
-| user                    | String | 否      | -             |
-| password                | String | 否      | -             |
-| hdfs_site_path          | String | 否       | -             |
-| query                   | String | 否       | -             |
-| paimon.hadoop.conf      | Map    | 否       | -             |
-| paimon.hadoop.conf-path | String | 否       | -             |
+| 名称                      | 类型       | 是否必须   | 默认值 |
+|-------------------------|----------|--------|---------------|
+| warehouse               | String   | 是      | -             |
+| catalog_type            | String   | 否      | filesystem    |
+| catalog_uri             | String   | 否      | -             |
+| database                | String   | 是      | -             |
+| table                   | String   | 否      | -             |
+| table_list              | array    | 否      | -             |
+| user                    | String   | 否      | -             |
+| password                | String   | 否      | -             |
+| hdfs_site_path          | String   | 否      | -             |
+| query                   | String   | 否      | -             |
+| paimon.hadoop.conf      | Map      | 否      | -             |
+| paimon.hadoop.conf-path | String   | 否      | -             |
 
 ### warehouse [string]
 
@@ -79,6 +80,10 @@ Paimon 的 catalog uri，仅当 catalog_type 为 hive 时需要
 ### table [string]
 
 需要访问的表
+
+### table_list [array]
+
+`Paimon` 表名列表，当需要同时读取多表时使用此配置代替 table
 
 ### hdfs_site_path [string]
 
@@ -133,6 +138,75 @@ source {
      warehouse = "/tmp/paimon"
      database = "default"
      table = "st_test"
+   }
+}
+```
+
+### 读取多表
+
+```
+source {
+ Paimon {
+     warehouse = "/tmp/paimon"
+     database = "default"
+     tables_configs = [
+      {
+        schema = {
+          table = "e2e_table_source"
+          fields {
+            pk_id = bigint
+            c_map = "map<string, string>"
+            c_array = "array<int>"
+            c_string = string
+            c_boolean = boolean
+            c_tinyint = tinyint
+            c_smallint = smallint
+            c_int = int
+            c_bigint = bigint
+            c_float = float
+            c_double = double
+            c_decimal = "decimal(30, 8)"
+            c_bytes = bytes
+            c_date = date
+            c_timestamp = timestamp
+            c_time = time
+          }
+          primaryKey {
+            name = "pk_id"
+            columnNames = [pk_id]
+          }
+        }
+        row.num = 100
+      },
+      {
+        schema = {
+          table = "e2e_table_source_2"
+          fields {
+            pk_id = bigint
+            c_map = "map<string, string>"
+            c_array = "array<int>"
+            c_string = string
+            c_boolean = boolean
+            c_tinyint = tinyint
+            c_smallint = smallint
+            c_int = int
+            c_bigint = bigint
+            c_float = float
+            c_double = double
+            c_decimal = "decimal(30, 8)"
+            c_bytes = bytes
+            c_date = date
+            c_timestamp = timestamp
+            c_time = time
+          }
+          primaryKey {
+            name = "pk_id"
+            columnNames = [pk_id]
+          }
+        }
+        row.num = 50
+      }
+    ]
    }
 }
 ```

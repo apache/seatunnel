@@ -78,11 +78,11 @@ public class PaimonSource
 
                             CatalogTable catalogTable = paimonCatalog.getTable(tablePath);
                             Table paimonTable = paimonCatalog.getPaimonTable(tablePath);
-                            PlainSelect plainSelect = convertToPlainSelect(tableConfig.getQuery());
                             RowType paimonRowType = paimonTable.rowType();
                             String[] filedNames =
                                     paimonRowType.getFieldNames().toArray(new String[0]);
 
+                            PlainSelect plainSelect = convertToPlainSelect(tableConfig.getQuery());
                             Predicate predicate = null;
                             int[] projectionIndex = null;
                             if (!Objects.isNull(plainSelect)) {

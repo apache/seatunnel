@@ -46,7 +46,6 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
@@ -66,7 +65,6 @@ public abstract class AbstractSplitEnumerator
     /** The splits that have not assigned */
     protected Deque<PaimonSourceSplit> pendingSplits;
 
-    protected final TableScan tableScan;
     protected final Object stateLock = new Object();
     private final Map<String, TableScan> tableScans = new HashMap<>();
 

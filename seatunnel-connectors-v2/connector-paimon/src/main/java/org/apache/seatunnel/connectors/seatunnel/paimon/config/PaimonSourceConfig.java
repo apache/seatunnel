@@ -32,7 +32,7 @@ public class PaimonSourceConfig extends PaimonConfig {
 
     public PaimonSourceConfig(ReadonlyConfig readonlyConfig) {
         super(readonlyConfig);
-        this.query = readonlyConfig.getOptional(PaimonSourceOptions.QUERY_SQL).orElse(null);
+        this.query = readonlyConfig.get(PaimonSourceOptions.QUERY_SQL);
         this.tableConfigList = PaimonSourceTableConfig.of(readonlyConfig);
     }
 }
