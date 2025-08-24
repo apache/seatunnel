@@ -71,9 +71,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
-import static org.apache.seatunnel.connectors.seatunnel.milvus.config.MilvusSinkOptions.CREATE_INDEX;
-import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkNotNull;
-
 @Slf4j
 public class MilvusCatalog implements Catalog {
 
@@ -183,7 +180,9 @@ public class MilvusCatalog implements Catalog {
     @Override
     public void createTable(TablePath tablePath, CatalogTable catalogTable, boolean ignoreIfExists)
             throws TableAlreadyExistException, DatabaseNotExistException, CatalogException {
-        checkNotNull(tablePath, "Table path cannot be null");
+        if (tablePath == null) {
+            throw new IllegalArgumentException("Table path cannot be null");
+        }
         if (!databaseExists(tablePath.getDatabaseName())) {
             throw new DatabaseNotExistException(catalogName, tablePath.getDatabaseName());
         }
@@ -194,17 +193,39 @@ public class MilvusCatalog implements Catalog {
             throw new TableAlreadyExistException(catalogName, tablePath);
         }
 
-        checkNotNull(catalogTable, "catalogTable must not be null");
+        if (catalogTable == null) {
+            throw new IllegalArgumentException("catalogTable must not be null");
+        }
         TableSchema tableSchema = catalogTable.getTableSchema();
-        checkNotNull(tableSchema, "tableSchema must not be null");
+        if (tableSchema == null) {
+            throw new IllegalArgumentException("tableSchema must not be null");
+        }
         createTableInternal(tablePath, catalogTable);
 
-        if (CollectionUtils.isNotEmpty(tableSchema.getConstraintKeys())
-                && config.get(CREATE_INDEX)) {
+        // IMPORTANT FIX for GitHub Issue #9719: Index preservation in source-to-sink operations
+        //
+        // Problem: When copying data from a source Milvus collection to a sink Milvus collection,
+        // vector indexes were being lost because the original logic only created indexes when
+        // the CREATE_INDEX configuration was explicitly set to true.
+        //
+        // Root Cause: The condition `config.get(CREATE_INDEX)` meant that indexes from the source
+        // schema were ignored unless the user explicitly configured CREATE_INDEX=true.
+        //
+        // Solution: Always create indexes if they exist in the table schema, regardless of the
+        // CREATE_INDEX configuration. The CREATE_INDEX config should only control whether to
+        // create default indexes for new tables, not whether to preserve existing indexes.
+        //
+        // This ensures that:
+        // 1. Vector indexes are preserved during data migration/replication
+        // 2. Source-to-sink operations maintain index information
+        // 3. Performance characteristics are maintained in target collections
+        if (CollectionUtils.isNotEmpty(tableSchema.getConstraintKeys())) {
             for (ConstraintKey constraintKey : tableSchema.getConstraintKeys()) {
                 if (constraintKey
                         .getConstraintType()
                         .equals(ConstraintKey.ConstraintType.VECTOR_INDEX_KEY)) {
+                    // Always create index if it exists in schema, regardless of CREATE_INDEX config
+                    // The CREATE_INDEX config only controls whether to create default indexes
                     createIndexInternal(tablePath, constraintKey.getColumnNames());
                 }
             }
@@ -215,6 +236,15 @@ public class MilvusCatalog implements Catalog {
             TablePath tablePath, List<ConstraintKey.ConstraintKeyColumn> vectorIndexes) {
         for (ConstraintKey.ConstraintKeyColumn column : vectorIndexes) {
             VectorIndex index = (VectorIndex) column;
+            log.info(
+                    "Creating vector index for collection: {}.{}, field: {}, index: {}, type: {}, metric: {}",
+                    tablePath.getDatabaseName(),
+                    tablePath.getTableName(),
+                    index.getColumnName(),
+                    index.getIndexName(),
+                    index.getIndexType(),
+                    index.getMetricType());
+
             CreateIndexParam createIndexParam =
                     CreateIndexParam.newBuilder()
                             .withDatabaseName(tablePath.getDatabaseName())
@@ -228,8 +258,22 @@ public class MilvusCatalog implements Catalog {
             R<RpcStatus> response = client.createIndex(createIndexParam);
             if (!Objects.equals(response.getStatus(), R.success().getStatus())) {
                 throw new MilvusConnectorException(
-                        MilvusConnectionErrorCode.CREATE_INDEX_ERROR, response.getMessage());
+                        MilvusConnectionErrorCode.CREATE_INDEX_ERROR,
+                        String.format(
+                                "Failed to create index '%s' for field '%s' in collection '%s.%s': %s",
+                                index.getIndexName(),
+                                index.getColumnName(),
+                                tablePath.getDatabaseName(),
+                                tablePath.getTableName(),
+                                response.getMessage()));
             }
+
+            log.info(
+                    "Successfully created vector index '{}' for field '{}' in collection '{}.{}'",
+                    index.getIndexName(),
+                    index.getColumnName(),
+                    tablePath.getDatabaseName(),
+                    tablePath.getTableName());
         }
     }
 

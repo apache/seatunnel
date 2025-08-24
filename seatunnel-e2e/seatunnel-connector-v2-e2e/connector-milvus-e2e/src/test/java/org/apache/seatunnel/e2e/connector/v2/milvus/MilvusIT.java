@@ -53,7 +53,10 @@ import com.google.gson.JsonObject;
 import io.milvus.client.MilvusServiceClient;
 import io.milvus.grpc.DataType;
 import io.milvus.grpc.DescribeCollectionResponse;
+import io.milvus.grpc.DescribeIndexResponse;
 import io.milvus.grpc.FieldSchema;
+import io.milvus.grpc.IndexDescription;
+import io.milvus.grpc.KeyValuePair;
 import io.milvus.grpc.MutationResult;
 import io.milvus.param.ConnectParam;
 import io.milvus.param.IndexType;
@@ -67,6 +70,7 @@ import io.milvus.param.collection.HasCollectionParam;
 import io.milvus.param.collection.LoadCollectionParam;
 import io.milvus.param.dml.InsertParam;
 import io.milvus.param.index.CreateIndexParam;
+import io.milvus.param.index.DescribeIndexParam;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
@@ -437,6 +441,9 @@ public class MilvusIT extends TestSuiteBase implements TestResource {
         Assertions.assertTrue(fileds.contains(VECTOR_FIELD3));
         Assertions.assertTrue(fileds.contains(VECTOR_FIELD4));
         Assertions.assertTrue(fileds.contains(TITLE_FIELD));
+
+        // Verify that indexes are preserved from source to sink
+        verifyIndexesExist("test", COLLECTION_NAME);
     }
 
     @TestTemplate
@@ -474,6 +481,9 @@ public class MilvusIT extends TestSuiteBase implements TestResource {
         Assertions.assertTrue(fileds.contains(VECTOR_FIELD3));
         Assertions.assertTrue(fileds.contains(VECTOR_FIELD4));
         Assertions.assertTrue(fileds.contains(TITLE_FIELD));
+
+        // Verify that indexes are preserved from source to sink
+        verifyIndexesExist("test", COLLECTION_NAME_WITH_PARTITIONKEY);
     }
 
     @TestTemplate
@@ -604,5 +614,114 @@ public class MilvusIT extends TestSuiteBase implements TestResource {
                 () -> catalog.createDatabase(TablePath.of("new_db.table"), false));
         Assertions.assertDoesNotThrow(
                 () -> catalog.dropDatabase(TablePath.of("new_db.table"), false));
+    }
+
+    @TestTemplate
+    public void testIndexPreservation(TestContainer container)
+            throws IOException, InterruptedException {
+        // This test specifically validates that vector indexes are preserved from source to sink
+        // It addresses the issue reported in https://github.com/apache/seatunnel/issues/9719
+        Container.ExecResult execResult =
+                container.executeJob("/milvus-to-milvus-index-preservation.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+
+        // Verify the target collection exists
+        R<Boolean> hasCollectionResponse =
+                this.milvusClient.hasCollection(
+                        HasCollectionParam.newBuilder()
+                                .withDatabaseName("index_test")
+                                .withCollectionName(COLLECTION_NAME)
+                                .build());
+        Assertions.assertTrue(
+                hasCollectionResponse.getData(),
+                "Target collection should exist after data migration");
+
+        // Verify that all vector indexes are preserved
+        verifyIndexesExist("index_test", COLLECTION_NAME);
+
+        log.info(
+                "Index preservation test passed - all vector indexes correctly transferred from source to sink");
+    }
+
+    /**
+     * Helper method to verify that vector indexes exist in the target collection This validates
+     * that indexes are properly preserved during source-to-sink operations
+     */
+    private void verifyIndexesExist(String database, String collection) {
+        R<DescribeIndexResponse> describeIndexResponseR =
+                this.milvusClient.describeIndex(
+                        DescribeIndexParam.newBuilder()
+                                .withDatabaseName(database)
+                                .withCollectionName(collection)
+                                .build());
+
+        Assertions.assertEquals(
+                R.Status.Success.getCode(),
+                describeIndexResponseR.getStatus(),
+                "Failed to describe indexes for collection: " + collection);
+
+        DescribeIndexResponse indexResponse = describeIndexResponseR.getData();
+        List<IndexDescription> indexes = indexResponse.getIndexDescriptionsList();
+
+        // Verify that indexes exist for all vector fields
+        List<String> indexedFields =
+                indexes.stream().map(IndexDescription::getFieldName).collect(Collectors.toList());
+
+        // Check that each vector field has an index
+        Assertions.assertTrue(
+                indexedFields.contains(VECTOR_FIELD), "Index missing for field: " + VECTOR_FIELD);
+        Assertions.assertTrue(
+                indexedFields.contains(VECTOR_FIELD2), "Index missing for field: " + VECTOR_FIELD2);
+        Assertions.assertTrue(
+                indexedFields.contains(VECTOR_FIELD3), "Index missing for field: " + VECTOR_FIELD3);
+        Assertions.assertTrue(
+                indexedFields.contains(VECTOR_FIELD4), "Index missing for field: " + VECTOR_FIELD4);
+
+        // Verify index types are correct
+        for (IndexDescription index : indexes) {
+            String fieldName = index.getFieldName();
+            String indexType =
+                    index.getParamsList().stream()
+                            .filter(param -> "index_type".equals(param.getKey()))
+                            .map(KeyValuePair::getValue)
+                            .findFirst()
+                            .orElse("");
+
+            String metricType =
+                    index.getParamsList().stream()
+                            .filter(param -> "metric_type".equals(param.getKey()))
+                            .map(KeyValuePair::getValue)
+                            .findFirst()
+                            .orElse("");
+
+            log.info(
+                    "Field: {}, Index: {}, Type: {}, Metric: {}",
+                    fieldName,
+                    index.getIndexName(),
+                    indexType,
+                    metricType);
+
+            // Verify expected index types based on field
+            if (VECTOR_FIELD.equals(fieldName) || VECTOR_FIELD2.equals(fieldName)) {
+                Assertions.assertEquals(
+                        "FLAT", indexType, "Unexpected index type for field: " + fieldName);
+                Assertions.assertEquals(
+                        "L2", metricType, "Unexpected metric type for field: " + fieldName);
+            } else if (VECTOR_FIELD3.equals(fieldName)) {
+                Assertions.assertEquals(
+                        "BIN_FLAT", indexType, "Unexpected index type for field: " + fieldName);
+                Assertions.assertEquals(
+                        "HAMMING", metricType, "Unexpected metric type for field: " + fieldName);
+            } else if (VECTOR_FIELD4.equals(fieldName)) {
+                Assertions.assertEquals(
+                        "SPARSE_INVERTED_INDEX",
+                        indexType,
+                        "Unexpected index type for field: " + fieldName);
+                Assertions.assertEquals(
+                        "IP", metricType, "Unexpected metric type for field: " + fieldName);
+            }
+        }
+
+        log.info("Index verification passed for collection: {}.{}", database, collection);
     }
 }
