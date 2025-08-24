@@ -619,8 +619,9 @@ public class MilvusIT extends TestSuiteBase implements TestResource {
     @TestTemplate
     public void testIndexPreservation(TestContainer container)
             throws IOException, InterruptedException {
-        // This test specifically validates that vector indexes are preserved from source to sink
-        // It addresses the issue reported in https://github.com/apache/seatunnel/issues/9719
+        String targetDatabase = "test_index_preservation";
+        String targetCollection = "simple_example_preservation";
+
         Container.ExecResult execResult =
                 container.executeJob("/milvus-to-milvus-index-preservation.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
@@ -629,24 +630,20 @@ public class MilvusIT extends TestSuiteBase implements TestResource {
         R<Boolean> hasCollectionResponse =
                 this.milvusClient.hasCollection(
                         HasCollectionParam.newBuilder()
-                                .withDatabaseName("index_test")
-                                .withCollectionName(COLLECTION_NAME)
+                                .withDatabaseName(targetDatabase)
+                                .withCollectionName(targetCollection)
                                 .build());
         Assertions.assertTrue(
                 hasCollectionResponse.getData(),
                 "Target collection should exist after data migration");
 
         // Verify that all vector indexes are preserved
-        verifyIndexesExist("index_test", COLLECTION_NAME);
+        verifyIndexesExist(targetDatabase, targetCollection);
 
         log.info(
                 "Index preservation test passed - all vector indexes correctly transferred from source to sink");
     }
 
-    /**
-     * Helper method to verify that vector indexes exist in the target collection This validates
-     * that indexes are properly preserved during source-to-sink operations
-     */
     private void verifyIndexesExist(String database, String collection) {
         R<DescribeIndexResponse> describeIndexResponseR =
                 this.milvusClient.describeIndex(
