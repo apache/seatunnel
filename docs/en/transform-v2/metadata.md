@@ -7,14 +7,14 @@ Metadata transform plugin for adding metadata fields to data
 
 ## Available Metadata
 
-|    Key    | DataType | Description                                                                                        |
-|:---------:|:--------:|:---------------------------------------------------------------------------------------------------|
-| Database  |  string  | Name of the table that contain the row.                                                            |
-|   Table   |  string  | Name of the table that contain the row.                                                            |
-|  RowKind  |  string  | The type of operation                                                                              |
-| EventTime |   Long   | The time at which the connector processed the event.                                               |
-|   Delay   |   Long   | The difference between data extraction time and database change time                               |
-| Partition |  string  | Contains the partition field of the corresponding number table of the row, multiple using `,` join |
+|    Key    | DataType | Description                                                                                              |
+|:---------:|:--------:|:---------------------------------------------------------------------------------------------------------|
+| Database  |  string  | Name of the table that contain the row.                                                                  |
+|   Table   |  string  | Name of the table that contain the row.                                                                  |
+|  RowKind  |  string  | The type of operation                                                                                    |
+| EventTime |   Long   | The time at which the connector processed the event.And the data should be milliseconds                  |
+|   Delay   |   Long   | The difference between data extraction time and database change time.And the data should be milliseconds |
+| Partition |  string  | Contains the partition field of the corresponding number table of the row, multiple using `,` join       |
 
 ### note
     `Delay` `EventTime` only worked on cdc series connectors for now , except TiDB-CDC

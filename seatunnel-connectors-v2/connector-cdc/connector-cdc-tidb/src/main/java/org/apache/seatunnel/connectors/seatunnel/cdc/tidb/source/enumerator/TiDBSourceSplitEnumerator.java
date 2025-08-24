@@ -211,7 +211,9 @@ public class TiDBSourceSplitEnumerator
      */
     @Override
     public TiDBSourceCheckpointState snapshotState(long checkpointId) throws Exception {
-        return new TiDBSourceCheckpointState(shouldEnumerate, pendingSplit);
+        synchronized (stateLock) {
+            return new TiDBSourceCheckpointState(shouldEnumerate, pendingSplit);
+        }
     }
 
     @Override

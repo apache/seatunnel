@@ -68,7 +68,7 @@ semantics (using XA transaction guarantee).
 |-------------------------------------------|---------|----------|------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | url                                       | String  | Yes      | -                            | The URL of the JDBC connection. Refer to a case: jdbc:oracle:thin:@datasource01:1523:xe                                                                                                                                                        |
 | driver                                    | String  | Yes      | -                            | The jdbc class name used to connect to the remote data source,<br/> if you use Oracle the value is `oracle.jdbc.OracleDriver`.                                                                                                                 |
-| user                                      | String  | No       | -                            | Connection instance user name                                                                                                                                                                                                                  |
+| username                                      | String  | No       | -                            | Connection instance user name                                                                                                                                                                                                                  |
 | password                                  | String  | No       | -                            | Connection instance password                                                                                                                                                                                                                   |
 | query                                     | String  | No       | -                            | Use this sql write upstream input datas to database. e.g `INSERT ...`,`query` have the higher priority                                                                                                                                         |
 | database                                  | String  | No       | -                            | Use this `database` and `table-name` auto-generate sql and receive upstream input datas write to database.<br/>This option is mutually exclusive with `query` and has a higher priority.                                                       |
@@ -133,7 +133,7 @@ sink {
     jdbc {
         url = "jdbc:oracle:thin:@datasource01:1523:xe"
         driver = "oracle.jdbc.OracleDriver"
-        user = root
+        username = root
         password = 123456
         query = "INSERT INTO TEST.TEST_TABLE(NAME,AGE) VALUES(?,?)"
      }
@@ -151,7 +151,7 @@ sink {
     Jdbc {
         url = "jdbc:oracle:thin:@datasource01:1523:xe"
         driver = "oracle.jdbc.OracleDriver"
-        user = root
+        username = root
         password = 123456
         
         generate_sink_sql = true
@@ -172,7 +172,7 @@ sink {
         driver = "oracle.jdbc.OracleDriver"
     
         max_retries = 0
-        user = root
+        username = root
         password = 123456
         query = "INSERT INTO TEST.TEST_TABLE(NAME,AGE) VALUES(?,?)"
     
@@ -192,7 +192,7 @@ sink {
     jdbc {
         url = "jdbc:oracle:thin:@datasource01:1523:xe"
         driver = "oracle.jdbc.OracleDriver"
-        user = root
+        username = root
         password = 123456
         
         generate_sink_sql = true

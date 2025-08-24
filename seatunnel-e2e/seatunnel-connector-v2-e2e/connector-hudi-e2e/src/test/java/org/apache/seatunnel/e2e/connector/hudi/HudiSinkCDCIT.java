@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.e2e.connector.hudi;
 
-import org.apache.seatunnel.common.utils.FileUtils;
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.testutils.MySqlContainer;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.testutils.MySqlVersion;
@@ -43,7 +42,6 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.Container;
-import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerLoggerFactory;
@@ -65,6 +63,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
 import static java.lang.Thread.sleep;
+import static org.apache.seatunnel.e2e.common.container.AbstractTestContainer.HOST_VOLUME_MOUNT_PATH;
 import static org.awaitility.Awaitility.given;
 
 @DisabledOnContainer(
@@ -88,7 +87,7 @@ public class HudiSinkCDCIT extends TestSuiteBase implements TestResource {
 
     private static final String DATABASE = "st";
     private static final String TABLE_NAME = "st_test";
-    private static final String TABLE_PATH = "/tmp/hudi/";
+    private static final String TABLE_PATH = HOST_VOLUME_MOUNT_PATH + "/hudi/";
     private static final String NAMESPACE = "hudi";
     private static final String NAMESPACE_TAR = "hudi.tar.gz";
 
@@ -110,39 +109,6 @@ public class HudiSinkCDCIT extends TestSuiteBase implements TestResource {
                 .withLogConsumer(
                         new Slf4jLogConsumer(DockerLoggerFactory.getLogger("mysql-mysql-image")));
     }
-
-    protected final ContainerExtendedFactory containerExtendedFactory =
-            new ContainerExtendedFactory() {
-                @Override
-                public void extend(GenericContainer<?> container)
-                        throws IOException, InterruptedException {
-                    container.execInContainer(
-                            "sh",
-                            "-c",
-                            "cd /tmp" + " && tar -czvf " + NAMESPACE_TAR + " " + NAMESPACE);
-                    container.copyFileFromContainer(
-                            "/tmp/" + NAMESPACE_TAR, "/tmp/" + NAMESPACE_TAR);
-
-                    extractFiles();
-                }
-
-                private void extractFiles() {
-                    ProcessBuilder processBuilder = new ProcessBuilder();
-                    processBuilder.command(
-                            "sh", "-c", "cd /tmp" + " && tar -zxvf " + NAMESPACE_TAR);
-                    try {
-                        Process process = processBuilder.start();
-                        int exitCode = process.waitFor();
-                        if (exitCode == 0) {
-                            log.info("Extract files successful.");
-                        } else {
-                            log.error("Extract files failed with exit code " + exitCode);
-                        }
-                    } catch (IOException | InterruptedException e) {
-                        e.printStackTrace();
-                    }
-                }
-            };
 
     @TestContainerExtension
     protected final ContainerExtendedFactory extendedFactory =
@@ -220,8 +186,6 @@ public class HudiSinkCDCIT extends TestSuiteBase implements TestResource {
                 .atMost(60000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () -> {
-                            // copy hudi to local
-                            container.executeExtraCommands(containerExtendedFactory);
                             Path newestCommitFilePath =
                                     getNewestCommitFilePath(
                                             new File(
@@ -246,7 +210,6 @@ public class HudiSinkCDCIT extends TestSuiteBase implements TestResource {
                             }
                             Assertions.assertEquals(3, rowCount);
                         });
-        FileUtils.deleteFile(TABLE_PATH);
     }
 
     private void upsertAndCheckData(TestContainer container)
@@ -262,8 +225,6 @@ public class HudiSinkCDCIT extends TestSuiteBase implements TestResource {
                 .atMost(60000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () -> {
-                            // copy hudi to local
-                            container.executeExtraCommands(containerExtendedFactory);
                             Path newestCommitFilePath =
                                     getNewestCommitFilePath(
                                             new File(
@@ -287,7 +248,6 @@ public class HudiSinkCDCIT extends TestSuiteBase implements TestResource {
                             }
                             Assertions.assertEquals(4, rowCount);
                         });
-        FileUtils.deleteFile(TABLE_PATH);
     }
 
     public static Path getNewestCommitFilePath(File tablePathDir) throws IOException {

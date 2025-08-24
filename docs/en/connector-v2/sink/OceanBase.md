@@ -73,7 +73,7 @@ Write data through jdbc. Support Batch mode and Streaming mode, support concurre
 |-------------------------------------------|---------|----------|---------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | url                                       | String  | Yes      | -       | The URL of the JDBC connection. Refer to a case: jdbc:oceanbase://localhost:2883/test                                                                                                                                                          |
 | driver                                    | String  | Yes      | -       | The jdbc class name used to connect to the remote data source, should be `com.oceanbase.jdbc.Driver`.                                                                                                                                          |
-| user                                      | String  | No       | -       | Connection instance user name                                                                                                                                                                                                                  |
+| username                                      | String  | No       | -       | Connection instance user name                                                                                                                                                                                                                  |
 | password                                  | String  | No       | -       | Connection instance password                                                                                                                                                                                                                   |
 | query                                     | String  | No       | -       | Use this sql write upstream input datas to database. e.g `INSERT ...`,`query` have the higher priority                                                                                                                                         |
 | compatible_mode                           | String  | Yes      | -       | The compatible mode of OceanBase, can be 'mysql' or 'oracle'.                                                                                                                                                                                  |
@@ -134,7 +134,7 @@ sink {
     jdbc {
         url = "jdbc:oceanbase://localhost:2883/test"
         driver = "com.oceanbase.jdbc.Driver"
-        user = "root"
+        username = "root"
         password = "123456"
         compatible_mode = "mysql"
         query = "insert into test_table(name,age) values(?,?)"
@@ -153,7 +153,7 @@ sink {
     jdbc {
         url = "jdbc:oceanbase://localhost:2883/test"
         driver = "com.oceanbase.jdbc.Driver"
-        user = "root"
+        username = "root"
         password = "123456"
         compatible_mode = "mysql"
         # Automatically generate sql statements based on database table names
@@ -173,7 +173,7 @@ sink {
     jdbc {
         url = "jdbc:oceanbase://localhost:3306/test"
         driver = "com.oceanbase.jdbc.Driver"
-        user = "root"
+        username = "root"
         password = "123456"
         compatible_mode = "mysql"
         generate_sink_sql = true

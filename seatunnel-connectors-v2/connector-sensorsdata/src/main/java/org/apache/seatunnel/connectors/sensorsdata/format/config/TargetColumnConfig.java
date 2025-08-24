@@ -15,23 +15,43 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.core.job;
+package org.apache.seatunnel.connectors.sensorsdata.format.config;
+
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
-import lombok.NonNull;
 
 import java.io.Serializable;
+import java.util.Collections;
+import java.util.List;
 
 @Data
 @AllArgsConstructor
-public class JobResult implements Serializable {
+public class TargetColumnConfig implements Serializable {
 
-    @NonNull private JobStatus status;
+    private String source;
 
-    private String error;
+    private String type;
 
-    public JobResult(@NonNull JobStatus status) {
-        this.status = status;
+    private String target;
+
+    public TargetColumnConfig() {}
+
+    public TargetColumnConfig(String source, String type) {
+        this.source = source;
+        this.type = type;
+    }
+
+    public String getTarget() {
+        return target == null ? source : target;
+    }
+
+    public static List<TargetColumnConfig> of(ReadonlyConfig connectorConfig) {
+        if (connectorConfig.getOptional(SensorsDataOptions.TARGET_COLUMNS).isPresent()) {
+            return connectorConfig.get(SensorsDataOptions.TARGET_COLUMNS);
+        } else {
+            return Collections.emptyList();
+        }
     }
 }
