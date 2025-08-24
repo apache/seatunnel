@@ -597,7 +597,7 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
             value = {},
             type = {EngineType.SPARK, EngineType.FLINK},
             disabledReason = "Currently SPARK and FLINK do not support restore")
-    public void testAddFiledWithRestore(TestContainer container)
+    public void testAddFieldWithRestore(TestContainer container)
             throws IOException, InterruptedException {
         Long jobId = JobIdGenerator.newJobId();
         try {
@@ -631,7 +631,7 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
 
             Assertions.assertEquals(0, container.savepointJob(String.valueOf(jobId)).getExitCode());
 
-            // add filed add insert source table data
+            // add field add insert source table data
             addFieldsForTable(POSTGRESQL_SCHEMA, SOURCE_TABLE_3);
             addFieldsForTable(POSTGRESQL_SCHEMA, SINK_TABLE_3);
             insertSourceTableForAddFields(POSTGRESQL_SCHEMA, SOURCE_TABLE_3);

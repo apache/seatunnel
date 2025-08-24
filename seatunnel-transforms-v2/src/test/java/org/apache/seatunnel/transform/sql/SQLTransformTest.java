@@ -43,9 +43,9 @@ import java.util.Objects;
 public class SQLTransformTest {
 
     private static final String TEST_NAME = "test";
-    private static final String TIMESTAMP_FILEDNAME = "create_time";
-    private static final String[] FILED_NAMES =
-            new String[] {"id", "name", "age", TIMESTAMP_FILEDNAME};
+    private static final String TIMESTAMP_FIELDNAME = "create_time";
+    private static final String[] FIELD_NAMES =
+            new String[] {"id", "name", "age", TIMESTAMP_FIELDNAME};
     private static final String GENERATE_PARTITION_KEY = "dt";
     private static final ReadonlyConfig READONLY_CONFIG =
             ReadonlyConfig.fromMap(
@@ -65,7 +65,7 @@ public class SQLTransformTest {
                 .getColumns()
                 .forEach(
                         column -> {
-                            if (column.getName().equals(TIMESTAMP_FILEDNAME)) {
+                            if (column.getName().equals(TIMESTAMP_FIELDNAME)) {
                                 Assertions.assertEquals(9, column.getScale());
                             } else if (column.getName().equals(GENERATE_PARTITION_KEY)) {
                                 Assertions.assertTrue(Objects.isNull(column.getScale()));
@@ -110,7 +110,7 @@ public class SQLTransformTest {
     private CatalogTable getCatalogTable() {
         SeaTunnelRowType rowType =
                 new SeaTunnelRowType(
-                        FILED_NAMES,
+                        FIELD_NAMES,
                         new SeaTunnelDataType[] {
                             BasicType.INT_TYPE,
                             BasicType.STRING_TYPE,
@@ -121,7 +121,7 @@ public class SQLTransformTest {
         for (int i = 0; i < rowType.getTotalFields(); i++) {
             Integer scale = null;
             Long columnLength = null;
-            if (rowType.getFieldName(i).equals(TIMESTAMP_FILEDNAME)) {
+            if (rowType.getFieldName(i).equals(TIMESTAMP_FIELDNAME)) {
                 scale = 9;
             } else {
                 columnLength = 3L;
