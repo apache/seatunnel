@@ -74,15 +74,13 @@ public class PaimonSource
                 .forEach(
                         tableConfig -> {
                             TablePath tablePath = tableConfig.getTablePath();
-                            String tableKey = tablePath.toString();
-
                             CatalogTable catalogTable = paimonCatalog.getTable(tablePath);
                             Table paimonTable = paimonCatalog.getPaimonTable(tablePath);
-                            PlainSelect plainSelect = convertToPlainSelect(tableConfig.getQuery());
                             RowType paimonRowType = paimonTable.rowType();
                             String[] filedNames =
                                     paimonRowType.getFieldNames().toArray(new String[0]);
 
+                            PlainSelect plainSelect = convertToPlainSelect(tableConfig.getQuery());
                             Predicate predicate = null;
                             int[] projectionIndex = null;
                             if (!Objects.isNull(plainSelect)) {
@@ -93,16 +91,17 @@ public class PaimonSource
                                     catalogTable =
                                             paimonCatalog.getTableWithProjection(
                                                     tablePath, projectionIndex);
-                                    this.catalogTables.add(catalogTable);
                                 }
                                 predicate =
                                         SqlToPaimonPredicateConverter
                                                 .convertSqlWhereToPaimonPredicate(
                                                         paimonRowType, plainSelect);
-                                this.seaTunnelRowTypes.put(
-                                        tableKey,
-                                        RowTypeConverter.convert(paimonRowType, projectionIndex));
                             }
+                            this.catalogTables.add(catalogTable);
+                            String tableKey = tablePath.toString();
+                            this.seaTunnelRowTypes.put(
+                                    tableKey,
+                                    RowTypeConverter.convert(paimonRowType, projectionIndex));
 
                             ReadBuilder readBuilder =
                                     paimonTable

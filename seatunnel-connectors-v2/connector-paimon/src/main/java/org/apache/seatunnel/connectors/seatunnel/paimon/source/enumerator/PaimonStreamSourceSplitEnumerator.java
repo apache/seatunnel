@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.paimon.source.enumerator;
 
+import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.connectors.seatunnel.paimon.source.PaimonSourceSplit;
 
 import org.apache.paimon.table.source.ReadBuilder;
@@ -38,7 +39,13 @@ public class PaimonStreamSourceSplitEnumerator extends AbstractSplitEnumerator {
             @Nullable Long nextSnapshotId,
             Map<String, ReadBuilder> readBuilders,
             int splitMaxPerTask) {
-        super(context, pendingSplits, nextSnapshotId, readBuilders, splitMaxPerTask);
+        super(
+                context,
+                pendingSplits,
+                nextSnapshotId,
+                readBuilders,
+                splitMaxPerTask,
+                JobMode.STREAMING);
     }
 
     @Override

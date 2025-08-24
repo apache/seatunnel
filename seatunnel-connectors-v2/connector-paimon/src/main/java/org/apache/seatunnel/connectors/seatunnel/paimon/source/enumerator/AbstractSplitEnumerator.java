@@ -21,6 +21,7 @@ import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 import org.apache.seatunnel.shade.com.google.common.util.concurrent.ThreadFactoryBuilder;
 
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
+import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.seatunnel.paimon.source.PaimonSourceSplit;
 import org.apache.seatunnel.connectors.seatunnel.paimon.source.PaimonSourceSplitGenerator;
@@ -46,7 +47,6 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
@@ -66,7 +66,6 @@ public abstract class AbstractSplitEnumerator
     /** The splits that have not assigned */
     protected Deque<PaimonSourceSplit> pendingSplits;
 
-    protected final TableScan tableScan;
     protected final Object stateLock = new Object();
     private final Map<String, TableScan> tableScans = new HashMap<>();
 
@@ -81,7 +80,8 @@ public abstract class AbstractSplitEnumerator
             Deque<PaimonSourceSplit> pendingSplits,
             @Nullable Long nextSnapshotId,
             Map<String, ReadBuilder> readBuilders,
-            int splitMaxPerTask) {
+            int splitMaxPerTask,
+            JobMode jobMode) {
         this.context = context;
         this.pendingSplits = new LinkedList<>(pendingSplits);
         this.nextSnapshotId = nextSnapshotId;
@@ -96,7 +96,10 @@ public abstract class AbstractSplitEnumerator
 
         readBuilders.forEach(
                 (tableId, readBuilder) -> {
-                    TableScan scan = readBuilder.newScan();
+                    TableScan scan =
+                            JobMode.BATCH.equals(jobMode)
+                                    ? readBuilder.newScan()
+                                    : readBuilder.newStreamScan();
                     tableScans.put(tableId, scan);
                     if (scan instanceof StreamTableScan && nextSnapshotId != null) {
                         ((StreamTableScan) scan).restore(nextSnapshotId);
@@ -213,19 +216,15 @@ public abstract class AbstractSplitEnumerator
         if (pendingSplits.size() >= splitMaxNum) {
             return snapshotIds;
         }
-
-        tableScans
-                .values()
-                .forEach(
-                        tableScan -> {
-                            TableScan.Plan plan = tableScan.plan();
-                            Long nextSnapshotId = null;
-                            if (tableScan instanceof StreamTableScan) {
-                                nextSnapshotId = ((StreamTableScan) tableScan).checkpoint();
-                            }
-                            snapshotIds.add(new PlanWithNextSnapshotId(plan, nextSnapshotId));
-                        });
-
+        tableScans.forEach(
+                (tableId, tableScan) -> {
+                    TableScan.Plan plan = tableScan.plan();
+                    Long nextSnapshotId = null;
+                    if (tableScan instanceof StreamTableScan) {
+                        nextSnapshotId = ((StreamTableScan) tableScan).checkpoint();
+                    }
+                    snapshotIds.add(new PlanWithNextSnapshotId(tableId, plan, nextSnapshotId));
+                });
         return snapshotIds;
     }
 
@@ -250,7 +249,7 @@ public abstract class AbstractSplitEnumerator
             if (plan.splits().isEmpty()) {
                 continue;
             }
-            addSplits(splitGenerator.createSplits(plan));
+            addSplits(splitGenerator.createSplits(planWithNextSnapshotId.tableId, plan));
         }
         assignSplits();
     }
@@ -258,10 +257,13 @@ public abstract class AbstractSplitEnumerator
     /** The result of scan. */
     @Getter
     protected static class PlanWithNextSnapshotId {
+
         private final TableScan.Plan plan;
         private final Long nextSnapshotId;
+        private final String tableId;
 
-        public PlanWithNextSnapshotId(TableScan.Plan plan, Long nextSnapshotId) {
+        public PlanWithNextSnapshotId(String tableId, TableScan.Plan plan, Long nextSnapshotId) {
+            this.tableId = tableId;
             this.plan = plan;
             this.nextSnapshotId = nextSnapshotId;
         }

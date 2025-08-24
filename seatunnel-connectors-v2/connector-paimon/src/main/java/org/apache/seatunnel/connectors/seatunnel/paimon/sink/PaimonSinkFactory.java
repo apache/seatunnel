@@ -45,10 +45,11 @@ public class PaimonSinkFactory implements TableSinkFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(PaimonSinkOptions.WAREHOUSE)
-                .optional(
+                .required(
+                        PaimonSinkOptions.WAREHOUSE,
                         PaimonSinkOptions.DATABASE,
-                        PaimonSinkOptions.TABLE,
+                        PaimonSinkOptions.TABLE)
+                .optional(
                         PaimonSinkOptions.HDFS_SITE_PATH,
                         PaimonSinkOptions.HADOOP_CONF,
                         PaimonSinkOptions.HADOOP_CONF_PATH,
@@ -58,9 +59,7 @@ public class PaimonSinkFactory implements TableSinkFactory {
                         PaimonSinkOptions.PRIMARY_KEYS,
                         PaimonSinkOptions.PARTITION_KEYS,
                         PaimonSinkOptions.WRITE_PROPS,
-                        PaimonSinkOptions.TABLE_LIST,
                         SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA)
-                .exclusive(PaimonSinkOptions.TABLE, PaimonSinkOptions.TABLE_LIST)
                 .conditional(
                         PaimonSinkOptions.CATALOG_TYPE,
                         PaimonCatalogEnum.HIVE,

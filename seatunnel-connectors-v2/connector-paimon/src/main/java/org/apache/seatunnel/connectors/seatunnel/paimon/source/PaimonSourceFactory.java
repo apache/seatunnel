@@ -49,13 +49,11 @@ public class PaimonSourceFactory implements TableSourceFactory {
                 .required(PaimonSourceOptions.WAREHOUSE)
                 .optional(
                         PaimonSourceOptions.DATABASE,
-                        PaimonSourceOptions.TABLE,
                         PaimonSourceOptions.CATALOG_TYPE,
                         PaimonSourceOptions.HDFS_SITE_PATH,
                         PaimonSourceOptions.QUERY_SQL,
                         PaimonSourceOptions.HADOOP_CONF,
-                        PaimonSourceOptions.HADOOP_CONF_PATH,
-                        PaimonSourceOptions.TABLE_LIST)
+                        PaimonSourceOptions.HADOOP_CONF_PATH)
                 .exclusive(PaimonSourceOptions.TABLE, PaimonSourceOptions.TABLE_LIST)
                 .conditional(
                         PaimonSourceOptions.CATALOG_TYPE,

@@ -21,25 +21,24 @@ import org.apache.seatunnel.api.source.SourceSplit;
 
 import org.apache.paimon.table.source.Split;
 
-import lombok.AllArgsConstructor;
 import lombok.Getter;
 
 /** Paimon source split, wrapped the {@link Split} of paimon table. */
 @Getter
-@AllArgsConstructor
 public class PaimonSourceSplit implements SourceSplit {
     private static final long serialVersionUID = 1L;
 
     /** The unique ID of the split. Unique within the scope of this source. */
     private final String id;
 
-    private final Split split;
-
-    /** The table path this split belongs to */
     private final String tableId;
 
-    public PaimonSourceSplit(String id, Split split) {
-        this(id, split, null);
+    private final Split split;
+
+    public PaimonSourceSplit(String id, String tableId, Split split) {
+        this.id = id;
+        this.tableId = tableId;
+        this.split = split;
     }
 
     @Override
