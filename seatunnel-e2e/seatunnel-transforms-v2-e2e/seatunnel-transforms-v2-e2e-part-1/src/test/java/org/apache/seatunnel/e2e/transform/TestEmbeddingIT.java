@@ -137,8 +137,6 @@ public class TestEmbeddingIT extends TestSuiteBase implements TestResource {
     @TestTemplate
     public void testBinaryEmbedding(TestContainer container)
             throws IOException, InterruptedException {
-        ContainerUtil.copyFileIntoContainers(
-                "/binary/cat.png", "/tmp/cat.png", mockserverContainer);
         Container.ExecResult execResult = container.executeJob("/embedding_transform_binary.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
     }
