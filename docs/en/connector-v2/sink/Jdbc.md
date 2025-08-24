@@ -35,7 +35,7 @@ support `Xa transactions`. You can set `is_exactly_once=true` to enable it.
 |-------------------------------------------|---------|----------|------------------------------|
 | url                                       | String  | Yes      | -                            |
 | driver                                    | String  | Yes      | -                            |
-| user                                      | String  | No       | -                            |
+| username                                      | String  | No       | -                            |
 | password                                  | String  | No       | -                            |
 | query                                     | String  | No       | -                            |
 | compatible_mode                           | String  | No       | -                            |

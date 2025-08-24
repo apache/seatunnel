@@ -84,7 +84,15 @@ public class RedisParameters implements Serializable {
             this.singleFieldName = config.get(RedisSourceOptions.SINGLE_FIELD_NAME);
         }
         // set key name
-        this.keyFieldName = config.get(RedisSourceOptions.KEY_FIELD_NAME);
+        if (!config.getOptional(RedisSourceOptions.KEY_FIELD_NAME).isPresent()) {
+            if (config.get(RedisBaseOptions.DATA_TYPE) == RedisDataType.HASH) {
+                this.keyFieldName = "hash_key";
+            } else {
+                this.keyFieldName = "key";
+            }
+        } else {
+            this.keyFieldName = config.get(RedisSourceOptions.KEY_FIELD_NAME);
+        }
         // set expire
         this.expire = config.get(RedisSinkOptions.EXPIRE);
         // set auth

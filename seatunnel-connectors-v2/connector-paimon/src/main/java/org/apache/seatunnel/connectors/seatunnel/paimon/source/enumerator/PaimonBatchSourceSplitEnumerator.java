@@ -45,7 +45,9 @@ public class PaimonBatchSourceSplitEnumerator extends AbstractSplitEnumerator {
 
     @Override
     public void run() throws Exception {
-        this.processDiscoveredSplits(this.scanNextSnapshot(), null);
+        synchronized (stateLock) {
+            this.processDiscoveredSplits(this.scanNextSnapshot(), null);
+        }
         Set<Integer> readers = context.registeredReaders();
         log.debug(
                 "No more splits to assign." + " Sending NoMoreSplitsEvent to reader {}.", readers);
@@ -54,7 +56,9 @@ public class PaimonBatchSourceSplitEnumerator extends AbstractSplitEnumerator {
 
     @Override
     public PaimonSourceState snapshotState(long checkpointId) throws Exception {
-        return new PaimonSourceState(pendingSplits, null);
+        synchronized (stateLock) {
+            return new PaimonSourceState(pendingSplits, null);
+        }
     }
 
     @Override

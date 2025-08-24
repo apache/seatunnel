@@ -200,7 +200,7 @@ public class ServerConfigOptions {
                         .withDescription("Whether to enable the https server.");
 
         public static final Option<Integer> HTTPS_PORT =
-                Options.key("port")
+                Options.key("https-port")
                         .intType()
                         .defaultValue(8443)
                         .withDescription("The port of the https server.");
@@ -400,7 +400,7 @@ public class ServerConfigOptions {
         public static final Option<Integer> SLOT_NUM =
                 Options.key("slot-num")
                         .intType()
-                        .defaultValue(2)
+                        .defaultValue(Runtime.getRuntime().availableProcessors() * 2)
                         .withDescription(
                                 "The number of slots. Only valid when dynamic slot is disabled.");
 

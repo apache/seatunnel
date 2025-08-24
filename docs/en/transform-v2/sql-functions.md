@@ -647,6 +647,16 @@ Example:
 
 TRUNC(N, 2)
 
+### TRIM_SCALE
+
+```TRIM_SCALE(numeric)```
+
+Reduce the scale of a number by removing trailing zeroes. This method returns a value of string, and with adjusted scale.
+
+Example:
+
+TRIM_SCALE(N)
+
 ## Time and Date Functions
 
 ### CURRENT_DATE
@@ -991,17 +1001,25 @@ TRY_CAST(NAME AS INT)
 
 ```COALESCE(aValue, bValue [,...])```
 
-Returns the first value that is not null.
+Returns the first value that is not null. If subsequent arguments have different data types from the first argument, they will be automatically converted to the type of the first argument.
 
 Example:
 
 COALESCE(A, B, C)
 
+Example with type conversion:
+
+```
+-- If A is a string field and B is an integer field
+-- B will be converted to string when A is null
+SELECT COALESCE(A, B) as result FROM my_table
+```
+
 ### IFNULL
 
 ```IFNULL(aValue, bValue)```
 
-Returns the first value that is not null.
+Returns the first value that is not null. If subsequent arguments have different data types from the first argument, they will be automatically converted to the type of the first argument.
 
 Example:
 
@@ -1095,7 +1113,7 @@ select UUID() as seatunnel_uuid
 ### ARRAY
 
 ```ARRAY<T> array(T, ...)```
-Create an array consisting of variadic elements and return it. Here, T can be either “column” or “literal”.
+Create an array consisting of variadic elements and return it. Here, T can be either "column" or "literal".
 
 Example:
 

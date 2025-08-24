@@ -57,6 +57,8 @@ public class CsvWriteStrategy extends AbstractWriteStrategy<FSDataOutputStream> 
     private final CsvStringQuoteMode csvStringQuoteMode;
     private SerializationSchema serializationSchema;
 
+    private final String fieldDelimiter;
+
     public CsvWriteStrategy(FileSinkConfig fileSinkConfig) {
         super(fileSinkConfig);
         this.csvStringQuoteMode = fileSinkConfig.getCsvStringQuoteMode();
@@ -69,6 +71,7 @@ public class CsvWriteStrategy extends AbstractWriteStrategy<FSDataOutputStream> 
         this.fileFormat = fileSinkConfig.getFileFormat();
         this.enableHeaderWriter = fileSinkConfig.getEnableHeaderWriter();
         this.charset = EncodingUtils.tryParseCharset(fileSinkConfig.getEncoding());
+        this.fieldDelimiter = fileSinkConfig.getFieldDelimiter();
     }
 
     @Override
@@ -79,7 +82,7 @@ public class CsvWriteStrategy extends AbstractWriteStrategy<FSDataOutputStream> 
                         .seaTunnelRowType(
                                 buildSchemaWithRowType(
                                         catalogTable.getSeaTunnelRowType(), sinkColumnsIndexInRow))
-                        .delimiter(",")
+                        .delimiter(fieldDelimiter)
                         .dateFormatter(dateFormat)
                         .dateTimeFormatter(dateTimeFormat)
                         .timeFormatter(timeFormat)

@@ -121,16 +121,14 @@ public class ClickhouseSourceSplitEnumerator
     @Override
     public void addSplitsBack(List<ClickhouseSourceSplit> splits, int subtaskId) {
         if (!splits.isEmpty()) {
-            synchronized (stateLock) {
-                addPendingSplit(splits, subtaskId);
-                if (context.registeredReaders().contains(subtaskId)) {
-                    assignSplit(Collections.singletonList(subtaskId));
-                } else {
-                    LOG.warn(
-                            "Reader {} is not registered. Pending splits {} are not assigned.",
-                            subtaskId,
-                            splits);
-                }
+            addPendingSplit(splits, subtaskId);
+            if (context.registeredReaders().contains(subtaskId)) {
+                assignSplit(Collections.singletonList(subtaskId));
+            } else {
+                LOG.warn(
+                        "Reader {} is not registered. Pending splits {} are not assigned.",
+                        subtaskId,
+                        splits);
             }
         }
         LOG.info("Add back splits {} to JdbcSourceSplitEnumerator.", splits.size());

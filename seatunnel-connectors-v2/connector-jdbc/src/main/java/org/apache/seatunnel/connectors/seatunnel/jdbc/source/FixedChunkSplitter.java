@@ -387,7 +387,7 @@ public class FixedChunkSplitter extends ChunkSplitter {
         } else if (o instanceof Boolean) {
             return BigDecimal.valueOf((Boolean) o ? 1 : 0);
         } else if (o instanceof Float) {
-            return BigDecimal.valueOf((Float) o);
+            return new BigDecimal(o.toString());
         } else if (o instanceof Byte) {
             return BigDecimal.valueOf((Byte) o);
         } else if (o instanceof Short) {

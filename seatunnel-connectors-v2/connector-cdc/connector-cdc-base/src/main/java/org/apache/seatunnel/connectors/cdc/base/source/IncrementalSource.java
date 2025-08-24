@@ -27,6 +27,11 @@ import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
+import org.apache.seatunnel.api.table.catalog.Column;
+import org.apache.seatunnel.api.table.catalog.MetadataColumn;
+import org.apache.seatunnel.api.table.catalog.MetadataSchema;
+import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.CommonOptions;
 import org.apache.seatunnel.connectors.cdc.base.config.SourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.config.StartupConfig;
 import org.apache.seatunnel.connectors.cdc.base.config.StopConfig;
@@ -62,6 +67,7 @@ import org.apache.seatunnel.format.compatible.debezium.json.CompatibleDebeziumJs
 import io.debezium.relational.TableId;
 import lombok.NoArgsConstructor;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -94,8 +100,8 @@ public abstract class IncrementalSource<T, C extends SourceConfig>
     protected DebeziumDeserializationSchema<T> deserializationSchema;
 
     protected IncrementalSource(ReadonlyConfig options, List<CatalogTable> catalogTables) {
-        this.catalogTables = catalogTables;
         this.readonlyConfig = options;
+        this.catalogTables = updateCatalogTableMetadata(catalogTables);
         this.startupConfig = getStartupConfig(readonlyConfig);
         this.stopConfig = getStopConfig(readonlyConfig);
         this.stopMode = stopConfig.getStopMode();
@@ -112,6 +118,41 @@ public abstract class IncrementalSource<T, C extends SourceConfig>
                 config.get(SourceOptions.STARTUP_SPECIFIC_OFFSET_FILE),
                 config.get(SourceOptions.STARTUP_SPECIFIC_OFFSET_POS),
                 config.get(SourceOptions.STARTUP_TIMESTAMP));
+    }
+
+    private List<CatalogTable> updateCatalogTableMetadata(List<CatalogTable> catalogTables) {
+        return catalogTables.stream()
+                .map(
+                        table -> {
+                            if (DeserializeFormat.DEFAULT.equals(
+                                    readonlyConfig.get(JdbcSourceOptions.FORMAT))) {
+                                return CatalogTable.withMetadata(table, getMetadataColumns());
+                            } else {
+                                return table;
+                            }
+                        })
+                .collect(Collectors.toList());
+    }
+
+    private MetadataSchema getMetadataColumns() {
+        List<Column> metadata = new ArrayList<>();
+        metadata.add(
+                MetadataColumn.of(
+                        CommonOptions.EVENT_TIME.getName(),
+                        BasicType.LONG_TYPE,
+                        (Long) null,
+                        true,
+                        null,
+                        null));
+        metadata.add(
+                MetadataColumn.of(
+                        CommonOptions.DELAY.getName(),
+                        BasicType.LONG_TYPE,
+                        (Long) null,
+                        true,
+                        null,
+                        null));
+        return MetadataSchema.builder().columns(metadata).build();
     }
 
     private StopConfig getStopConfig(ReadonlyConfig config) {

@@ -2,7 +2,7 @@
 sidebar_position: 13
 ---
 
-# Command Line Tool
+# Client Command Line Tool
 
 The SeaTunnel Engine provides a command line tool for managing the jobs of the SeaTunnel Engine. You can use the command line tool to submit, stop, pause, resume, delete jobs, view job status and monitoring metrics, etc.
 
@@ -132,3 +132,90 @@ We can configure the JVM options for the SeaTunnel Engine client in the followin
    Modify the JVM parameters in the `$SEATUNNEL_HOME/config/jvm_client_options` file. Please note that the JVM parameters in this file will be applied to all jobs submitted using `seatunnel.sh`, including Local Mode and Cluster Mode.
 
 2. Add JVM options when submitting jobs. For example, `sh bin/seatunnel.sh --config $SEATUNNEL_HOME/config/v2.batch.config.template -DJvmOption="-Xms2G -Xmx2G"`
+
+# Server Command Line Tool
+
+SeaTunnel Engine provides server management commands for starting, stopping, and managing SeaTunnel Engine cluster nodes.
+
+```shell
+sh bin/seatunnel-cluster.sh -h
+```
+
+Server commands support the following parameters:
+
+```shell
+Usage: seatunnel-cluster.sh [options]
+  Options:
+    -cn, --cluster      The name of cluster.
+    -d, --daemon        The cluster daemon mode.
+    -r, --role          The cluster node role, support [master, worker, master_and_worker] (default: master_and_worker).
+    -m, --member        Show cluster members information.
+    -h, --help          Show the usage message.
+```
+
+## Start cluster
+
+You can get help information for server commands with the following command:
+
+```shell
+# Start in foreground
+sh bin/seatunnel-cluster.sh
+
+# Start in daemon mode
+sh bin/seatunnel-cluster.sh -d
+```
+
+## Show cluster members information
+
+You can view cluster members information using the following command:
+
+```shell
+sh bin/seatunnel-cluster.sh -m -cn my_cluster
+```
+
+This command will output detailed information about all members in the cluster, including:
+- **Member ID**: Unique identifier for each cluster member
+- **Address**: IP address and port of the member
+- **Role**: Member role (ACTIVE MASTER, MASTER, or WORKER)
+- **Version**: Hazelcast version running on the member
+
+**Example output:**
+```
+Member ID                            Address              Role                 Version
+a1b2c3d4-e5f6-7890-abcd-ef1234567890 192.168.1.100:5701  ACTIVE MASTER        5.3.0
+b2c3d4e5-f6g7-8901-bcde-f23456789012 192.168.1.101:5701  MASTER               5.3.0
+c3d4e5f6-g7h8-9012-cdef-345678901234 192.168.1.102:5701  WORKER               5.3.0
+```
+
+**Note**: You must specify the cluster name with the `-cn` parameter. The cluster must be running for this command to work.
+
+## Stop cluster
+
+SeaTunnel provides a dedicated stop script to shut down cluster nodes:
+
+```shell
+sh bin/stop-seatunnel-cluster.sh -h
+```
+
+The stop command supports the following parameters:
+
+```shell
+Usage: stop-seatunnel-cluster.sh [options]
+  Options:
+    -cn, --cluster      The name of the cluster to shut down (default: seatunnel_default_cluster)
+    -h, --help          Show the usage message
+```
+
+### Stop default cluster
+
+```shell
+# Stop the default cluster (seatunnel_default_cluster)
+sh bin/stop-seatunnel-cluster.sh
+```
+
+### Stop specified cluster
+
+```shell
+# Stop a cluster with specified name
+sh bin/stop-seatunnel-cluster.sh -cn my_cluster
+```

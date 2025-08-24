@@ -54,7 +54,8 @@ seatunnel:
 
 ### 4.2 Slot配置
 
-Slot数量决定了集群节点可以并行运行的任务组数量。一个任务需要的Slot的个数公式为 N = 2 + P(任务配置的并行度)。 默认情况下SeaTunnel Engine的slot个数为动态，即不限制个数。我们建议slot的个数设置为节点CPU核心数的2倍。
+Slot数量决定了集群节点可以并行运行的任务组数量。一个任务需要的Slot的个数公式为 N = 2 + P(任务配置的并行度)。 默认情况下SeaTunnel Engine的slot个数为动态，即不限制个数。
+我们建议slot的个数设置为节点CPU核心数的2倍, 这也是当 `dynamic-slot` 设置为 false 且未设置 `slot-num` 时的默认值。
 
 动态slot个数（默认）配置如下：
 

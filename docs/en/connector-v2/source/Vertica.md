@@ -67,7 +67,7 @@ Read external data source data through JDBC.
 |------------------------------|------------|----------|-----------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | url                          | String     | Yes      | -               | The URL of the JDBC connection. Refer to a case: jdbc:vertica://localhost:5433/vertica                                                                                                                                                                            |
 | driver                       | String     | Yes      | -               | The jdbc class name used to connect to the remote data source,<br/> if you use Vertica the value is `com.vertica.jdbc.Driver`.                                                                                                                                    |
-| user                         | String     | No       | -               | Connection instance user name                                                                                                                                                                                                                                     |
+| username                         | String     | No       | -               | Connection instance user name                                                                                                                                                                                                                                     |
 | password                     | String     | No       | -               | Connection instance password                                                                                                                                                                                                                                      |
 | query                        | String     | Yes      | -               | Query statement                                                                                                                                                                                                                                                   |
 | connection_check_timeout_sec | Int        | No       | 30              | The time in seconds to wait for the database operation used to validate the connection to complete                                                                                                                                                                |
@@ -100,7 +100,7 @@ source{
         url = "jdbc:vertica://localhost:5433/vertica"
         driver = "com.vertica.jdbc.Driver"
         connection_check_timeout_sec = 100
-        user = "root"
+        username = "root"
         password = "123456"
         query = "select * from type_bin limit 16"
     }
@@ -126,7 +126,7 @@ source {
         url = "jdbc:vertica://localhost:5433/vertica"
         driver = "com.vertica.jdbc.Driver"
         connection_check_timeout_sec = 100
-        user = "root"
+        username = "root"
         password = "123456"
         # Define query logic as required
         query = "select * from type_bin"
@@ -148,7 +148,7 @@ source {
         url = "jdbc:vertica://localhost:5433/vertica"
         driver = "com.vertica.jdbc.Driver"
         connection_check_timeout_sec = 100
-        user = "root"
+        username = "root"
         password = "123456"
         # Define query logic as required
         query = "select * from type_bin"

@@ -24,15 +24,12 @@
     <artifactId>connector-amazonsqs-e2e</artifactId>
     <name>SeaTunnel : E2E : Connector V2 : Amazon SQS</name>
 
-    <properties>
-        <amazon.awssdk>2.18.1</amazon.awssdk>
-    </properties>
     <dependencyManagement>
         <dependencies>
             <dependency>
                 <groupId>software.amazon.awssdk</groupId>
                 <artifactId>bom</artifactId>
-                <version>${amazon.awssdk}</version>
+                <version>${software.amazon.awssdk.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
