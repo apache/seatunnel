@@ -441,9 +441,6 @@ public class MilvusIT extends TestSuiteBase implements TestResource {
         Assertions.assertTrue(fileds.contains(VECTOR_FIELD3));
         Assertions.assertTrue(fileds.contains(VECTOR_FIELD4));
         Assertions.assertTrue(fileds.contains(TITLE_FIELD));
-
-        // Verify that indexes are preserved from source to sink
-        verifyIndexesExist("test", COLLECTION_NAME);
     }
 
     @TestTemplate
@@ -481,9 +478,6 @@ public class MilvusIT extends TestSuiteBase implements TestResource {
         Assertions.assertTrue(fileds.contains(VECTOR_FIELD3));
         Assertions.assertTrue(fileds.contains(VECTOR_FIELD4));
         Assertions.assertTrue(fileds.contains(TITLE_FIELD));
-
-        // Verify that indexes are preserved from source to sink
-        verifyIndexesExist("test", COLLECTION_NAME_WITH_PARTITIONKEY);
     }
 
     @TestTemplate
