@@ -111,16 +111,8 @@ public class HiveSaveModeHandlerTest {
         configMap.put(HiveOptions.TABLE_NAME.key(), "test_db.user_table");
         configMap.put(HiveOptions.METASTORE_URI.key(), "thrift://localhost:9083");
         configMap.put(HiveSinkOptions.SCHEMA_SAVE_MODE.key(), "CREATE_SCHEMA_WHEN_NOT_EXIST");
-        configMap.put(
-                HiveSinkOptions.SAVE_MODE_CREATE_TEMPLATE.key(),
-                "CREATE TABLE IF NOT EXISTS `${database}`.`${table}` (\n"
-                        + "  ${rowtype_fields}\n"
-                        + ") \n"
-                        + "STORED AS PARQUET\n"
-                        + "LOCATION '${table_location}'\n"
-                        + "TBLPROPERTIES (\n"
-                        + "  'parquet.compression'='SNAPPY'\n"
-                        + ")");
+        configMap.put(HiveSinkOptions.TABLE_FORMAT.key(), "PARQUET");
+        configMap.put(HiveSinkOptions.PARTITION_FIELDS.key(), Arrays.asList());
 
         readonlyConfig = ReadonlyConfig.fromMap(configMap);
     }
@@ -129,10 +121,7 @@ public class HiveSaveModeHandlerTest {
     void testConstructor() {
         HiveSaveModeHandler handler =
                 new HiveSaveModeHandler(
-                        readonlyConfig,
-                        catalogTable,
-                        SchemaSaveMode.CREATE_SCHEMA_WHEN_NOT_EXIST,
-                        "CREATE TABLE ${database}.${table} (${rowtype_fields})");
+                        readonlyConfig, catalogTable, SchemaSaveMode.CREATE_SCHEMA_WHEN_NOT_EXIST);
 
         assertNotNull(handler);
         assertEquals(SchemaSaveMode.CREATE_SCHEMA_WHEN_NOT_EXIST, handler.getSchemaSaveMode());
@@ -141,64 +130,14 @@ public class HiveSaveModeHandlerTest {
         assertNull(handler.getHandleCatalog()); // Hive doesn't use Catalog interface
     }
 
-    @Test
-    void testGenerateColumnDefinitions() throws Exception {
-        HiveSaveModeHandler handler =
-                new HiveSaveModeHandler(
-                        readonlyConfig,
-                        catalogTable,
-                        SchemaSaveMode.CREATE_SCHEMA_WHEN_NOT_EXIST,
-                        "CREATE TABLE ${database}.${table} (${rowtype_fields})");
-
-        // Use reflection to access private method for testing
-        java.lang.reflect.Method method =
-                HiveSaveModeHandler.class.getDeclaredMethod("generateColumnDefinitions");
-        method.setAccessible(true);
-        String result = (String) method.invoke(handler);
-
-        // Verify column definitions
-        assertTrue(result.contains("`id` bigint COMMENT 'Primary key'"));
-        assertTrue(result.contains("`name` string COMMENT 'User name'"));
-        assertTrue(result.contains("`age` int COMMENT 'User age'"));
-        assertTrue(result.contains("`salary` decimal(10,2) COMMENT 'User salary'"));
-        assertTrue(result.contains("`birth_date` date COMMENT 'Birth date'"));
-        assertTrue(result.contains("`created_at` timestamp COMMENT 'Creation timestamp'"));
-    }
-
-    @Test
-    void testProcessCreateTemplate() throws Exception {
-        HiveSaveModeHandler handler =
-                new HiveSaveModeHandler(
-                        readonlyConfig,
-                        catalogTable,
-                        SchemaSaveMode.CREATE_SCHEMA_WHEN_NOT_EXIST,
-                        "CREATE TABLE IF NOT EXISTS `${database}`.`${table}` (\n"
-                                + "  ${rowtype_fields}\n"
-                                + ") \n"
-                                + "STORED AS PARQUET\n"
-                                + "LOCATION '${table_location}'");
-
-        // Use reflection to access private method
-        java.lang.reflect.Method method =
-                HiveSaveModeHandler.class.getDeclaredMethod("processCreateTemplate");
-        method.setAccessible(true);
-        String result = (String) method.invoke(handler);
-
-        // Verify template processing
-        assertTrue(result.contains("CREATE TABLE IF NOT EXISTS `test_db`.`user_table`"));
-        assertTrue(result.contains("STORED AS PARQUET"));
-        assertTrue(result.contains("LOCATION '/user/hive/warehouse/test_db.db/user_table'"));
-        assertTrue(result.contains("`id` bigint COMMENT 'Primary key'"));
-    }
+    // Removed testGenerateColumnDefinitions and testProcessCreateTemplate
+    // as these methods no longer exist in the simplified implementation
 
     @Test
     void testBuildTableFromSchema() throws Exception {
         HiveSaveModeHandler handler =
                 new HiveSaveModeHandler(
-                        readonlyConfig,
-                        catalogTable,
-                        SchemaSaveMode.CREATE_SCHEMA_WHEN_NOT_EXIST,
-                        "CREATE TABLE ${database}.${table} (${rowtype_fields})");
+                        readonlyConfig, catalogTable, SchemaSaveMode.CREATE_SCHEMA_WHEN_NOT_EXIST);
 
         // Use reflection to access private method
         java.lang.reflect.Method method =
@@ -253,8 +192,7 @@ public class HiveSaveModeHandlerTest {
                     new HiveSaveModeHandler(
                             readonlyConfig,
                             catalogTable,
-                            SchemaSaveMode.CREATE_SCHEMA_WHEN_NOT_EXIST,
-                            "CREATE TABLE ${database}.${table} (${rowtype_fields})");
+                            SchemaSaveMode.CREATE_SCHEMA_WHEN_NOT_EXIST);
 
             handler.open();
             handler.handleSchemaSaveMode();
@@ -276,10 +214,7 @@ public class HiveSaveModeHandlerTest {
 
             HiveSaveModeHandler handler =
                     new HiveSaveModeHandler(
-                            readonlyConfig,
-                            catalogTable,
-                            SchemaSaveMode.RECREATE_SCHEMA,
-                            "CREATE TABLE ${database}.${table} (${rowtype_fields})");
+                            readonlyConfig, catalogTable, SchemaSaveMode.RECREATE_SCHEMA);
 
             handler.open();
             handler.handleSchemaSaveMode();
@@ -295,53 +230,13 @@ public class HiveSaveModeHandlerTest {
     void testHandleDataSaveMode() throws Exception {
         HiveSaveModeHandler handler =
                 new HiveSaveModeHandler(
-                        readonlyConfig,
-                        catalogTable,
-                        SchemaSaveMode.CREATE_SCHEMA_WHEN_NOT_EXIST,
-                        "CREATE TABLE ${database}.${table} (${rowtype_fields})");
+                        readonlyConfig, catalogTable, SchemaSaveMode.CREATE_SCHEMA_WHEN_NOT_EXIST);
 
         // Data save mode should not throw exception and should log message
         assertDoesNotThrow(() -> handler.handleDataSaveMode());
     }
 
-    @Test
-    void testCommentEscaping() throws Exception {
-        // Create table with special characters in comments
-        List<Column> columns =
-                Arrays.asList(
-                        PhysicalColumn.of(
-                                "test_col",
-                                BasicType.STRING_TYPE,
-                                0,
-                                true,
-                                null,
-                                "Comment with 'single quotes' and \"double quotes\""));
-
-        TableSchema specialSchema = TableSchema.builder().columns(columns).build();
-        CatalogTable specialCatalogTable =
-                CatalogTable.of(
-                        TableIdentifier.of("test_catalog", "test_db", "special_table"),
-                        specialSchema,
-                        new HashMap<>(),
-                        Arrays.asList(),
-                        "Test table with special comments");
-
-        HiveSaveModeHandler handler =
-                new HiveSaveModeHandler(
-                        readonlyConfig,
-                        specialCatalogTable,
-                        SchemaSaveMode.CREATE_SCHEMA_WHEN_NOT_EXIST,
-                        "CREATE TABLE ${database}.${table} (${rowtype_fields})");
-
-        // Use reflection to test column definition generation
-        java.lang.reflect.Method method =
-                HiveSaveModeHandler.class.getDeclaredMethod("generateColumnDefinitions");
-        method.setAccessible(true);
-        String result = (String) method.invoke(handler);
-
-        // Verify that single quotes are escaped
-        assertTrue(result.contains("Comment with \\'single quotes\\'"));
-    }
+    // Removed testCommentEscaping as generateColumnDefinitions method no longer exists
 
     @Test
     void testPartitionFieldsValidation() {
@@ -356,8 +251,7 @@ public class HiveSaveModeHandlerTest {
                 new HiveSaveModeHandler(
                         configWithPartitions,
                         catalogTable,
-                        SchemaSaveMode.CREATE_SCHEMA_WHEN_NOT_EXIST,
-                        "CREATE TABLE ${database}.${table} (${rowtype_fields})");
+                        SchemaSaveMode.CREATE_SCHEMA_WHEN_NOT_EXIST);
 
         // Test partition field validation methods
         assertTrue(handler.isPartitionedTable());
@@ -380,8 +274,7 @@ public class HiveSaveModeHandlerTest {
                 new HiveSaveModeHandler(
                         configWithNewPartitions,
                         catalogTable,
-                        SchemaSaveMode.CREATE_SCHEMA_WHEN_NOT_EXIST,
-                        "CREATE TABLE ${database}.${table} (${rowtype_fields})");
+                        SchemaSaveMode.CREATE_SCHEMA_WHEN_NOT_EXIST);
 
         // Test partition field validation methods
         assertTrue(handler.isPartitionedTable());
@@ -404,8 +297,7 @@ public class HiveSaveModeHandlerTest {
                 new HiveSaveModeHandler(
                         configNonPartitioned,
                         catalogTable,
-                        SchemaSaveMode.CREATE_SCHEMA_WHEN_NOT_EXIST,
-                        "CREATE TABLE ${database}.${table} (${rowtype_fields})");
+                        SchemaSaveMode.CREATE_SCHEMA_WHEN_NOT_EXIST);
 
         // Test non-partitioned table
         assertFalse(handler.isPartitionedTable());
@@ -415,67 +307,8 @@ public class HiveSaveModeHandlerTest {
                 handler.getNonPartitionFields());
     }
 
-    @Test
-    void testGenerateNonPartitionColumnDefinitions() throws Exception {
-        // Test with partition fields
-        Map<String, Object> configMap = new HashMap<>();
-        configMap.put(HiveOptions.TABLE_NAME.key(), "test_db.user_table");
-        configMap.put(HiveOptions.METASTORE_URI.key(), "thrift://localhost:9083");
-        configMap.put(HiveSinkOptions.PARTITION_FIELDS.key(), Arrays.asList("age", "created_at"));
-        ReadonlyConfig configWithPartitions = ReadonlyConfig.fromMap(configMap);
-
-        HiveSaveModeHandler handler =
-                new HiveSaveModeHandler(
-                        configWithPartitions,
-                        catalogTable,
-                        SchemaSaveMode.CREATE_SCHEMA_WHEN_NOT_EXIST,
-                        "CREATE TABLE ${database}.${table} (${rowtype_fields})");
-
-        // Use reflection to access private method
-        java.lang.reflect.Method method =
-                HiveSaveModeHandler.class.getDeclaredMethod(
-                        "generateNonPartitionColumnDefinitions");
-        method.setAccessible(true);
-        String result = (String) method.invoke(handler);
-
-        // Verify that partition fields are excluded
-        assertTrue(result.contains("`id` bigint COMMENT 'Primary key'"));
-        assertTrue(result.contains("`name` string COMMENT 'User name'"));
-        assertTrue(result.contains("`salary` decimal(10,2) COMMENT 'User salary'"));
-        assertTrue(result.contains("`birth_date` date COMMENT 'Birth date'"));
-
-        // Verify that partition fields are NOT included
-        assertFalse(result.contains("`age` int"));
-        assertFalse(result.contains("`created_at` timestamp"));
-    }
-
-    @Test
-    void testGeneratePartitionByClause() throws Exception {
-        // Test with partition fields
-        Map<String, Object> configMap = new HashMap<>();
-        configMap.put(HiveOptions.TABLE_NAME.key(), "test_db.user_table");
-        configMap.put(HiveOptions.METASTORE_URI.key(), "thrift://localhost:9083");
-        configMap.put(HiveSinkOptions.PARTITION_FIELDS.key(), Arrays.asList("age", "year"));
-        ReadonlyConfig configWithPartitions = ReadonlyConfig.fromMap(configMap);
-
-        HiveSaveModeHandler handler =
-                new HiveSaveModeHandler(
-                        configWithPartitions,
-                        catalogTable,
-                        SchemaSaveMode.CREATE_SCHEMA_WHEN_NOT_EXIST,
-                        "CREATE TABLE ${database}.${table} (${rowtype_fields})");
-
-        // Use reflection to access private method
-        java.lang.reflect.Method method =
-                HiveSaveModeHandler.class.getDeclaredMethod("generatePartitionByClause");
-        method.setAccessible(true);
-        String result = (String) method.invoke(handler);
-
-        // Verify partition clause
-        assertTrue(result.contains("PARTITIONED BY"));
-        assertTrue(result.contains("`age` int")); // age is from source schema
-        assertTrue(result.contains("`year` string")); // year is new field, defaults to string
-    }
+    // Removed testGenerateNonPartitionColumnDefinitions and testGeneratePartitionByClause
+    // as these methods no longer exist in the simplified implementation
 
     @Test
     void testBuildTableFromSchemaWithPartitions() throws Exception {
@@ -490,8 +323,7 @@ public class HiveSaveModeHandlerTest {
                 new HiveSaveModeHandler(
                         configWithPartitions,
                         catalogTable,
-                        SchemaSaveMode.CREATE_SCHEMA_WHEN_NOT_EXIST,
-                        "CREATE TABLE ${database}.${table} (${rowtype_fields})");
+                        SchemaSaveMode.CREATE_SCHEMA_WHEN_NOT_EXIST);
 
         // Use reflection to access private method
         java.lang.reflect.Method method =

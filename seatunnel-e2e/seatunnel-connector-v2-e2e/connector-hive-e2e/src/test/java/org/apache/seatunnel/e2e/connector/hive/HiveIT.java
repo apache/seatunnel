@@ -259,4 +259,28 @@ public class HiveIT extends TestSuiteBase implements TestResource {
     public void testFakeSinkHiveOnCos(TestContainer container) throws Exception {
         executeJob(container, "/fake_to_hive_on_cos.conf", "/hive_on_cos_to_assert.conf");
     }
+
+    @TestTemplate
+    public void testAutoTableCreationCreateWhenNotExist(TestContainer container) throws Exception {
+        executeJob(
+                container,
+                "/auto_table_creation/fake_to_hive_create_when_not_exist.conf",
+                "/auto_table_creation/hive_auto_create_to_assert.conf");
+    }
+
+    @TestTemplate
+    public void testAutoTableCreationRecreateSchema(TestContainer container) throws Exception {
+        executeJob(
+                container,
+                "/auto_table_creation/fake_to_hive_recreate_schema.conf",
+                "/auto_table_creation/hive_auto_create_to_assert.conf");
+    }
+
+    @TestTemplate
+    public void testAutoTableCreationORCFormat(TestContainer container) throws Exception {
+        executeJob(
+                container,
+                "/auto_table_creation/fake_to_hive_custom_template.conf",
+                "/auto_table_creation/hive_auto_create_to_assert.conf");
+    }
 }

@@ -47,43 +47,23 @@ public class HiveSinkOptions extends HiveOptions {
                     .enumType(SchemaSaveMode.class)
                     .defaultValue(SchemaSaveMode.CREATE_SCHEMA_WHEN_NOT_EXIST)
                     .withDescription(
-                            "Before starting the synchronization task, different processing schemes are selected for the existing table structure on the target side. "
-                                    + "RECREATE_SCHEMA: Will create when the table does not exist, delete and rebuild when the table exists. "
-                                    + "CREATE_SCHEMA_WHEN_NOT_EXIST: Will create when the table does not exist, skip when the table exists. "
-                                    + "ERROR_WHEN_SCHEMA_NOT_EXIST: Error will be reported when the table does not exist. "
-                                    + "IGNORE: Ignore the treatment of the table.");
-
-    public static final Option<String> SAVE_MODE_CREATE_TEMPLATE =
-            Options.key("save_mode_create_template")
-                    .stringType()
-                    .defaultValue(
-                            "CREATE TABLE IF NOT EXISTS `${database}`.`${table}` (\n"
-                                    + "  ${rowtype_fields}\n"
-                                    + ") ${partition_by_clause}\n"
-                                    + "STORED AS ${table_format}\n"
-                                    + "LOCATION '${table_location}'\n"
-                                    + "TBLPROPERTIES (\n"
-                                    + "  ${table_properties}\n"
-                                    + ")")
-                    .withDescription(
-                            "Template for creating Hive tables. "
-                                    + "Supported variables: ${database}, ${table}, ${rowtype_fields}, ${partition_by_clause}, ${table_location}, ${table_format}, ${table_properties}. "
-                                    + "The ${partition_by_clause} will be replaced with 'PARTITIONED BY (...)' for partitioned tables or empty string for non-partitioned tables.");
+                            "Schema save mode for auto table creation. "
+                                    + "CREATE_SCHEMA_WHEN_NOT_EXIST: Create table when not exists (default). "
+                                    + "RECREATE_SCHEMA: Drop and recreate table. "
+                                    + "ERROR_WHEN_SCHEMA_NOT_EXIST: Throw error when table not exists. "
+                                    + "IGNORE: Skip table creation.");
 
     public static final Option<String> TABLE_FORMAT =
             Options.key("table_format")
                     .stringType()
                     .defaultValue("PARQUET")
                     .withDescription(
-                            "Storage format for Hive table. Supported formats: PARQUET, ORC, TEXTFILE");
+                            "Storage format for auto-created Hive table. Options: PARQUET (default), ORC, TEXTFILE, TEXT.");
 
     public static final Option<List<String>> PARTITION_FIELDS =
             Options.key("partition_fields")
                     .listType()
                     .defaultValue(new ArrayList<>())
                     .withDescription(
-                            "List of partition fields for Hive table. If empty, the table will be created as a non-partitioned table. "
-                                    + "If specified, these fields will be used as partition columns. "
-                                    + "The fields can be either existing source fields (which will be removed from data rows) "
-                                    + "or new fields (which should be provided in the data).");
+                            "Partition fields for auto-created Hive table. Empty list means non-partitioned table.");
 }

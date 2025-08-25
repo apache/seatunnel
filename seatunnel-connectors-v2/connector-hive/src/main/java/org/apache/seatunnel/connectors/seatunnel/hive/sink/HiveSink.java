@@ -52,7 +52,6 @@ import org.apache.seatunnel.connectors.seatunnel.hive.utils.HiveTableUtils;
 
 import org.apache.hadoop.hive.metastore.api.FieldSchema;
 import org.apache.hadoop.hive.metastore.api.Table;
-import org.apache.thrift.TException;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -291,53 +290,7 @@ public class HiveSink
 
     @Override
     public Optional<SaveModeHandler> getSaveModeHandler() {
-        // Check if SaveMode is configured
-        if (readonlyConfig.getOptional(HiveSinkOptions.SCHEMA_SAVE_MODE).isPresent()) {
-
-            SchemaSaveMode schemaSaveMode = readonlyConfig.get(HiveSinkOptions.SCHEMA_SAVE_MODE);
-            String createTemplate = readonlyConfig.get(HiveSinkOptions.SAVE_MODE_CREATE_TEMPLATE);
-
-            return Optional.of(
-                    new HiveSaveModeHandler(
-                            readonlyConfig, catalogTable, schemaSaveMode, createTemplate));
-        }
-
-        // For backward compatibility, if no SaveMode is configured,
-        // return a handler with default CREATE_SCHEMA_WHEN_NOT_EXIST behavior
-        return Optional.of(
-                new HiveSaveModeHandler(
-                        readonlyConfig,
-                        catalogTable,
-                        SchemaSaveMode.CREATE_SCHEMA_WHEN_NOT_EXIST,
-                        readonlyConfig.get(HiveSinkOptions.SAVE_MODE_CREATE_TEMPLATE)));
-    }
-
-    /**
-     * @deprecated This method is deprecated and replaced by SaveModeHandler. It's kept for backward
-     *     compatibility but will be removed in future versions.
-     */
-    @Deprecated
-    private void createDatabaseAndTableIfNotExists() throws TException {
-        LOGGER.warn(
-                "createDatabaseAndTableIfNotExists() is deprecated. "
-                        + "Please use SaveMode configuration instead.");
-
-        // For backward compatibility, create a temporary SaveModeHandler and execute it
-        try (HiveSaveModeHandler handler =
-                new HiveSaveModeHandler(
-                        readonlyConfig,
-                        catalogTable,
-                        SchemaSaveMode.CREATE_SCHEMA_WHEN_NOT_EXIST,
-                        readonlyConfig.get(HiveSinkOptions.SAVE_MODE_CREATE_TEMPLATE))) {
-
-            handler.open();
-            handler.handleSchemaSaveMode();
-            handler.handleDataSaveMode();
-        } catch (Exception e) {
-            if (e instanceof TException) {
-                throw (TException) e;
-            }
-            throw new RuntimeException("Failed to create database and table", e);
-        }
+        SchemaSaveMode schemaSaveMode = readonlyConfig.get(HiveSinkOptions.SCHEMA_SAVE_MODE);
+        return Optional.of(new HiveSaveModeHandler(readonlyConfig, catalogTable, schemaSaveMode));
     }
 }

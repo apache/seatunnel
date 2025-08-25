@@ -50,7 +50,6 @@ public class HiveSaveModeHandler implements SaveModeHandler, AutoCloseable {
     private final ReadonlyConfig readonlyConfig;
     private final CatalogTable catalogTable;
     private final SchemaSaveMode schemaSaveMode;
-    private final String createTemplate;
     private final TablePath tablePath;
     private final String dbName;
     private final String tableName;
@@ -65,12 +64,10 @@ public class HiveSaveModeHandler implements SaveModeHandler, AutoCloseable {
     public HiveSaveModeHandler(
             ReadonlyConfig readonlyConfig,
             CatalogTable catalogTable,
-            SchemaSaveMode schemaSaveMode,
-            String createTemplate) {
+            SchemaSaveMode schemaSaveMode) {
         this.readonlyConfig = readonlyConfig;
         this.catalogTable = catalogTable;
         this.schemaSaveMode = schemaSaveMode;
-        this.createTemplate = createTemplate;
         this.tablePath = TablePath.of(readonlyConfig.get(HiveOptions.TABLE_NAME));
         this.dbName = tablePath.getDatabaseName();
         this.tableName = tablePath.getTableName();
@@ -226,70 +223,10 @@ public class HiveSaveModeHandler implements SaveModeHandler, AutoCloseable {
     }
 
     private void createTable() throws TException {
-        String defaultTemplate = HiveSinkOptions.SAVE_MODE_CREATE_TEMPLATE.defaultValue();
-        boolean useCustomTemplate = !defaultTemplate.equals(createTemplate);
-
-        if (useCustomTemplate) {
-            createTableUsingTemplate();
-        } else {
-            createTableUsingAPI();
-        }
-    }
-
-    private void createTableUsingAPI() throws TException {
-        // Create table using Hive MetaStore API (more reliable than SQL)
+        log.info("Creating table {}.{} using MetaStore API", dbName, tableName);
         Table table = buildTableFromSchema();
         hiveMetaStoreProxy.createTableIfNotExists(table);
-    }
-
-    private void createTableUsingTemplate() throws TException {
-        processCreateTemplate();
-        Table table = buildTableFromSchema();
-        hiveMetaStoreProxy.createTableIfNotExists(table);
-    }
-
-    private String processCreateTemplate() {
-        String sql = createTemplate;
-        String tableFormat = readonlyConfig.get(HiveSinkOptions.TABLE_FORMAT);
-        HiveFormatUtils.validateFormat(tableFormat);
-
-        sql = sql.replace("${database}", dbName);
-        sql = sql.replace("${table}", tableName);
-        sql = sql.replace("${database}", dbName);
-        sql = sql.replace("${table}", tableName);
-        sql = sql.replace("${table_location}", getDefaultTableLocation());
-        sql = sql.replace("${rowtype_fields}", generateNonPartitionColumnDefinitions());
-        sql = sql.replace("${table_format}", tableFormat);
-        sql = sql.replace("${partition_by_clause}", generatePartitionByClause());
-        sql =
-                sql.replace(
-                        "${table_properties}",
-                        HiveFormatUtils.getDefaultTableProperties(tableFormat));
-
-        return sql;
-    }
-
-    private String generatePartitionByClause() {
-        if (!isPartitionedTable()) {
-            return "";
-        }
-
-        StringBuilder sb = new StringBuilder();
-        sb.append("\nPARTITIONED BY (\n");
-
-        for (int i = 0; i < partitionFields.size(); i++) {
-            String partitionField = partitionFields.get(i);
-            String hiveType = getPartitionFieldType(partitionField);
-
-            sb.append("  `").append(partitionField).append("` ").append(hiveType);
-            if (i < partitionFields.size() - 1) {
-                sb.append(",");
-            }
-            sb.append("\n");
-        }
-
-        sb.append(")");
-        return sb.toString();
+        log.info("Successfully created table {}.{}", dbName, tableName);
     }
 
     private String getPartitionFieldType(String partitionField) {
@@ -303,41 +240,6 @@ public class HiveSaveModeHandler implements SaveModeHandler, AutoCloseable {
 
     private String getDefaultTableLocation() {
         return "/user/hive/warehouse/" + dbName + ".db/" + tableName;
-    }
-
-    private String generateColumnDefinitions() {
-        // Generate all column definitions (for backward compatibility)
-        return generateColumnDefinitions(tableSchema.getColumns());
-    }
-
-    private String generateNonPartitionColumnDefinitions() {
-        // Generate only non-partition column definitions
-        List<org.apache.seatunnel.api.table.catalog.Column> nonPartitionColumns =
-                tableSchema.getColumns().stream()
-                        .filter(col -> !partitionFields.contains(col.getName()))
-                        .collect(Collectors.toList());
-        return generateColumnDefinitions(nonPartitionColumns);
-    }
-
-    private String generateColumnDefinitions(
-            List<org.apache.seatunnel.api.table.catalog.Column> columns) {
-        StringBuilder sb = new StringBuilder();
-        for (int i = 0; i < columns.size(); i++) {
-            org.apache.seatunnel.api.table.catalog.Column column = columns.get(i);
-            String hiveType = HiveTypeConvertor.seatunnelToHiveType(column.getDataType());
-            sb.append("`").append(column.getName()).append("` ").append(hiveType);
-
-            // Add comment
-            String comment = column.getComment();
-            if (comment != null && !comment.isEmpty()) {
-                sb.append(" COMMENT '").append(comment.replace("'", "\\'")).append("'");
-            }
-
-            if (i < columns.size() - 1) {
-                sb.append(",\n  ");
-            }
-        }
-        return sb.toString();
     }
 
     private Table buildTableFromSchema() {
@@ -401,6 +303,10 @@ public class HiveSaveModeHandler implements SaveModeHandler, AutoCloseable {
                 table.putToParameters(keyValue[0], keyValue[1]);
             }
         }
+
+        // Add SeaTunnel metadata
+        table.putToParameters("seatunnel.creation.mode", "api");
+        table.putToParameters("seatunnel.created.time", String.valueOf(System.currentTimeMillis()));
 
         return table;
     }

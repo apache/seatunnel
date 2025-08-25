@@ -100,6 +100,26 @@ Support writing Parquet INT96 from a timestamp, only valid for parquet files.
 
 Flag to decide whether to use overwrite mode when inserting data into Hive. If set to true, for non-partitioned tables, the existing data in the table will be deleted before inserting new data. For partitioned tables, the data in the relevant partition will be deleted before inserting new data.
 
+### schema_save_mode [enum]
+
+Before starting the synchronization task, different processing schemes are selected for the existing table structure on the target side.
+
+Option values:
+- `RECREATE_SCHEMA`: Will create when the table does not exist, delete and rebuild when the table exists
+- `CREATE_SCHEMA_WHEN_NOT_EXIST`: Will create when the table does not exist, skip when the table exists
+- `ERROR_WHEN_SCHEMA_NOT_EXIST`: Error will be reported when the table does not exist
+- `IGNORE`: Ignore the treatment of the table
+
+
+
+### table_format [string]
+
+Storage format for auto-created Hive table. Options: `PARQUET` (default), `ORC`, `TEXTFILE`.
+
+### partition_fields [array]
+
+Partition fields for auto-created Hive table. Empty list means non-partitioned table.
+
 ### common options
 
 Sink plugin common parameters, please refer to [Sink Common Options](../sink-common-options.md) for details
@@ -480,6 +500,46 @@ sink {
 }
 ```
 
+## Auto Table Creation Examples
+
+### Example 1: Basic Auto Table Creation
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  FakeSource {
+    schema = {
+      fields {
+        id = bigint
+        name = string
+        department = string
+        salary = decimal(10,2)
+        hire_date = date
+      }
+    }
+    rows = [
+      {
+        kind = INSERT
+        fields = [1, "John Doe", "Engineering", 75000.50, "2022-01-15"]
+      }
+    ]
+  }
+}
+
+sink {
+  Hive {
+    table_name = "warehouse.employees"
+    metastore_uri = "thrift://metastore:9083"
+    schema_save_mode = "CREATE_SCHEMA_WHEN_NOT_EXIST"
+    table_format = "PARQUET"
+    partition_fields = ["department"]
+  }
+}
+```
 ## Changelog
 
 <ChangeLog />

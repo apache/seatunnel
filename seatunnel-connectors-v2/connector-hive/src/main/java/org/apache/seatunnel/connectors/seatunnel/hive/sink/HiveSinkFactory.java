@@ -55,7 +55,8 @@ public class HiveSinkFactory
                 .optional(FileBaseSinkOptions.PARQUET_AVRO_WRITE_TIMESTAMP_AS_INT96)
                 // SaveMode related options
                 .optional(HiveSinkOptions.SCHEMA_SAVE_MODE)
-                .optional(HiveSinkOptions.SAVE_MODE_CREATE_TEMPLATE)
+                .optional(HiveSinkOptions.TABLE_FORMAT)
+                .optional(HiveSinkOptions.PARTITION_FIELDS)
                 .build();
     }
 
@@ -64,9 +65,6 @@ public class HiveSinkFactory
             createSink(TableSinkFactoryContext context) {
         ReadonlyConfig readonlyConfig = context.getOptions();
         CatalogTable catalogTable = context.getCatalogTable();
-
-        // Validate SaveMode configuration
-        validateSaveModeConfiguration(readonlyConfig);
 
         return () -> {
             try {
@@ -78,17 +76,6 @@ public class HiveSinkFactory
                         e);
             }
         };
-    }
-
-    /** Validate SaveMode related configuration */
-    private void validateSaveModeConfiguration(ReadonlyConfig config) {
-        // Validate template is not empty
-        String template = config.get(HiveSinkOptions.SAVE_MODE_CREATE_TEMPLATE);
-        if (template == null || template.trim().isEmpty()) {
-            throw new HiveConnectorException(
-                    HiveConnectorErrorCode.CREATE_HIVE_TABLE_FAILED,
-                    "save_mode_create_template cannot be empty");
-        }
     }
 
     @Override

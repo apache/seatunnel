@@ -86,9 +86,7 @@ public class HiveSinkFactoryTest {
         configMap.put(HiveConfig.TABLE_NAME.key(), "test_db.test_table");
         configMap.put(HiveConfig.METASTORE_URI.key(), "thrift://localhost:9083");
         configMap.put(HiveSinkOptions.SCHEMA_SAVE_MODE.key(), "CREATE_SCHEMA_WHEN_NOT_EXIST");
-        configMap.put(
-                HiveSinkOptions.SAVE_MODE_CREATE_TEMPLATE.key(),
-                "CREATE TABLE ${database}.${table} (${rowtype_fields})");
+        configMap.put(HiveSinkOptions.TABLE_FORMAT.key(), "PARQUET");
 
         ReadonlyConfig config = ReadonlyConfig.fromMap(configMap);
 
@@ -137,12 +135,12 @@ public class HiveSinkFactoryTest {
     }
 
     @Test
-    void testCreateSinkWithSaveModeButNoTemplate() {
+    void testCreateSinkWithSaveModeButNoTableFormat() {
         Map<String, Object> configMap = new HashMap<>();
         configMap.put(HiveConfig.TABLE_NAME.key(), "test_db.test_table");
         configMap.put(HiveConfig.METASTORE_URI.key(), "thrift://localhost:9083");
         configMap.put(HiveSinkOptions.SCHEMA_SAVE_MODE.key(), "CREATE_SCHEMA_WHEN_NOT_EXIST");
-        // No template provided - should use default
+        // No table format provided - should use default PARQUET
 
         ReadonlyConfig config = ReadonlyConfig.fromMap(configMap);
 
@@ -169,9 +167,7 @@ public class HiveSinkFactoryTest {
             configMap.put(HiveConfig.TABLE_NAME.key(), "test_db.test_table");
             configMap.put(HiveConfig.METASTORE_URI.key(), "thrift://localhost:9083");
             configMap.put(HiveSinkOptions.SCHEMA_SAVE_MODE.key(), mode);
-            configMap.put(
-                    HiveSinkOptions.SAVE_MODE_CREATE_TEMPLATE.key(),
-                    "CREATE TABLE ${database}.${table} (${rowtype_fields})");
+            configMap.put(HiveSinkOptions.TABLE_FORMAT.key(), "PARQUET");
 
             ReadonlyConfig config = ReadonlyConfig.fromMap(configMap);
 
@@ -186,33 +182,26 @@ public class HiveSinkFactoryTest {
     }
 
     @Test
-    void testCreateSinkWithComplexTemplate() {
-        String complexTemplate =
-                "CREATE TABLE IF NOT EXISTS `${database}`.`${table}` (\n"
-                        + "  ${rowtype_fields}\n"
-                        + ") \n"
-                        + "PARTITIONED BY (year INT, month INT)\n"
-                        + "STORED AS ORC\n"
-                        + "LOCATION '${table_location}'\n"
-                        + "TBLPROPERTIES (\n"
-                        + "  'orc.compress'='ZLIB',\n"
-                        + "  'orc.create.index'='true'\n"
-                        + ")";
+    void testCreateSinkWithDifferentTableFormats() {
+        String[] formats = {"PARQUET", "ORC", "TEXTFILE"};
 
-        Map<String, Object> configMap = new HashMap<>();
-        configMap.put(HiveConfig.TABLE_NAME.key(), "test_db.test_table");
-        configMap.put(HiveConfig.METASTORE_URI.key(), "thrift://localhost:9083");
-        configMap.put(HiveSinkOptions.SCHEMA_SAVE_MODE.key(), "CREATE_SCHEMA_WHEN_NOT_EXIST");
-        configMap.put(HiveSinkOptions.SAVE_MODE_CREATE_TEMPLATE.key(), complexTemplate);
+        for (String format : formats) {
+            Map<String, Object> configMap = new HashMap<>();
+            configMap.put(HiveConfig.TABLE_NAME.key(), "test_db.test_table");
+            configMap.put(HiveConfig.METASTORE_URI.key(), "thrift://localhost:9083");
+            configMap.put(HiveSinkOptions.SCHEMA_SAVE_MODE.key(), "CREATE_SCHEMA_WHEN_NOT_EXIST");
+            configMap.put(HiveSinkOptions.TABLE_FORMAT.key(), format);
 
-        ReadonlyConfig config = ReadonlyConfig.fromMap(configMap);
+            ReadonlyConfig config = ReadonlyConfig.fromMap(configMap);
 
-        assertDoesNotThrow(
-                () -> {
-                    TableSinkFactoryContext context = createContext(config, catalogTable);
-                    TableSink<?, ?, ?, ?> tableSink = factory.createSink(context);
-                    assertNotNull(tableSink);
-                });
+            assertDoesNotThrow(
+                    () -> {
+                        TableSinkFactoryContext context = createContext(config, catalogTable);
+                        TableSink<?, ?, ?, ?> tableSink = factory.createSink(context);
+                        assertNotNull(tableSink);
+                    },
+                    "Failed to create sink with table format: " + format);
+        }
     }
 
     @Test
@@ -260,13 +249,11 @@ public class HiveSinkFactoryTest {
                         .getOptionalOptions()
                         .contains(HiveSinkOptions.SCHEMA_SAVE_MODE));
         assertTrue(
-                factory.optionRule()
-                        .getOptionalOptions()
-                        .contains(HiveSinkOptions.SAVE_MODE_CREATE_TEMPLATE));
+                factory.optionRule().getOptionalOptions().contains(HiveSinkOptions.TABLE_FORMAT));
     }
 
     @Test
-    void testCreateSinkWithDifferentTableFormats() {
+    void testCreateSinkWithDifferentTableNames() {
         String[] tableNames = {
             "db.table", "database.table_name", "test_db.user_events", "analytics.fact_sales"
         };

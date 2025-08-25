@@ -95,6 +95,26 @@ Kerberos 的 keytab 文件路径
 
 支持从时间戳写入 Parquet INT96，仅对 parquet 文件有效。
 
+### schema_save_mode [枚举]
+
+在开始同步任务之前，针对目标端已存在的表结构选择不同的处理方案。
+
+选项值：
+- `RECREATE_SCHEMA`: 表不存在时会创建，表存在时会删除并重建
+- `CREATE_SCHEMA_WHEN_NOT_EXIST`: 表不存在时会创建，表存在时会跳过
+- `ERROR_WHEN_SCHEMA_NOT_EXIST`: 表不存在时会报错
+- `IGNORE`: 忽略对表的处理
+
+
+
+### table_format [字符串]
+
+自动创建 Hive 表的存储格式。选项：`PARQUET`（默认）、`ORC`, `TEXTFILE`。
+
+### partition_fields [数组]
+
+自动创建 Hive 表的分区字段。空列表表示非分区表。
+
 ### 通用选项
 
 Sink 插件的通用参数，请参阅 [Sink Common Options](../sink-common-options.md) 了解详细信息。
@@ -471,6 +491,46 @@ sink {
 }
 ```
 
+## 自动建表示例
+
+### 示例 1：基础自动建表
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  FakeSource {
+    schema = {
+      fields {
+        id = bigint
+        name = string
+        department = string
+        salary = decimal(10,2)
+        hire_date = date
+      }
+    }
+    rows = [
+      {
+        kind = INSERT
+        fields = [1, "张三", "工程部", 75000.50, "2022-01-15"]
+      }
+    ]
+  }
+}
+
+sink {
+  Hive {
+    table_name = "warehouse.employees"
+    metastore_uri = "thrift://metastore:9083"
+    schema_save_mode = "CREATE_SCHEMA_WHEN_NOT_EXIST"
+    table_format = "PARQUET"
+    partition_fields = ["department"]
+  }
+}
+```
 ## 变更日志
 
 <ChangeLog />
