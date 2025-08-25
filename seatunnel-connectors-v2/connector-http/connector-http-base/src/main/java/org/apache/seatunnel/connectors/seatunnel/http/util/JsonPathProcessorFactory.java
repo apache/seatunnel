@@ -68,21 +68,6 @@ public class JsonPathProcessorFactory {
     }
 
     /**
-     * Get the appropriate processor for an array of JsonPaths. This will choose a processor based
-     * on the first path in the array.
-     *
-     * @param paths Array of JsonPath objects
-     * @return The appropriate JsonPathProcessor
-     */
-    public static JsonPathProcessor getProcessor(JsonPath[] paths) {
-        if (paths == null || paths.length == 0) {
-            throw new IllegalArgumentException("JsonPath array cannot be null or empty");
-        }
-
-        return getProcessor(paths[0]);
-    }
-
-    /**
      * Get the appropriate processor for an array of JsonPaths with jsonFiledMissedReturnNull flag.
      *
      * @param paths Array of JsonPath objects
