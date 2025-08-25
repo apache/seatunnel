@@ -199,9 +199,10 @@ public class MySqlConnectionUtils {
 
     public static BinlogOffset findBinlogOffsetBytimestamp(
             JdbcConnection jdbc, BinaryLogClient client, long timestamp) {
-        final String showBinaryLogStmt = ((MySqlConnection) jdbc).binaryLogStatusStatement().startsWith("SHOW BINARY")
-                ? "SHOW BINARY LOGS"
-                : "SHOW MASTER LOGS";
+        final String showBinaryLogStmt =
+                ((MySqlConnection) jdbc).binaryLogStatusStatement().startsWith("SHOW BINARY")
+                        ? "SHOW BINARY LOGS"
+                        : "SHOW MASTER LOGS";
         List<String> binlogFiles = new ArrayList<>();
         JdbcConnection.ResultSetConsumer rsc =
                 rs -> {
