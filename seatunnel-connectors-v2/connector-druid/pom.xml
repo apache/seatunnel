@@ -28,7 +28,7 @@
     <name>SeaTunnel : Connectors V2 : Druid</name>
 
     <properties>
-        <druid.version>32.0.1</druid.version>
+        <druid.version>34.0.0</druid.version>
         <httpclient.version>4.5.13</httpclient.version>
     </properties>
 
