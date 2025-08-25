@@ -157,6 +157,7 @@ const sidebars = {
                 },
                 "connector-v2/source-common-options",
                 "connector-v2/sink-common-options",
+                "connector-v2/connector-isolated-dependency",
                 "connector-v2/Error-Quick-Reference-Manual",
                 "connector-v2/Config-Encryption-Decryption"
             ]
