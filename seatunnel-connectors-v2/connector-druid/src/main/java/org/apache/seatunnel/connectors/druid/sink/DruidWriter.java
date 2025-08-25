@@ -37,12 +37,12 @@ import org.apache.druid.data.input.impl.InlineInputSource;
 import org.apache.druid.data.input.impl.LongDimensionSchema;
 import org.apache.druid.data.input.impl.StringDimensionSchema;
 import org.apache.druid.data.input.impl.TimestampSpec;
+import org.apache.druid.indexer.granularity.UniformGranularitySpec;
 import org.apache.druid.indexing.common.task.batch.parallel.ParallelIndexIOConfig;
 import org.apache.druid.indexing.common.task.batch.parallel.ParallelIndexIngestionSpec;
 import org.apache.druid.indexing.common.task.batch.parallel.ParallelIndexSupervisorTask;
 import org.apache.druid.java.util.common.granularity.Granularities;
 import org.apache.druid.segment.indexing.DataSchema;
-import org.apache.druid.indexer.granularity.UniformGranularitySpec;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.entity.StringEntity;
@@ -223,9 +223,8 @@ public class DruidWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
                 Arrays.stream(seaTunnelRowType.getFieldNames()).collect(Collectors.toList());
         formatList.add(TIMESTAMP_SPEC_COLUMN_NAME);
         return new ParallelIndexIOConfig(
-                null,
                 new InlineInputSource(data.toString()),
-                new CsvInputFormat(formatList, DEFAULT_LINE_DELIMITER, null, false, 0),
+                new CsvInputFormat(formatList, DEFAULT_LINE_DELIMITER, null, false, 0, null),
                 false,
                 null);
     }
