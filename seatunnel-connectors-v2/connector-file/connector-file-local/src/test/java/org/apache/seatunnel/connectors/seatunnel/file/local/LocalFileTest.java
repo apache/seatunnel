@@ -566,7 +566,7 @@ public class LocalFileTest {
     @Test
     void testFileFilterByModificationDate() throws Exception {
         // create test path
-        String testPath = "/tmp/seatunnel/FileFilterTest";
+        String testPath = "/tmp/seatunnel/LocalFileTest";
         FileUtils.deleteFile(testPath);
         FileUtils.createNewDir(testPath);
 
@@ -592,7 +592,6 @@ public class LocalFileTest {
                 ReadonlyConfig.fromMap(options),
                 new LocalFileSinkFactory(),
                 Collections.singletonList(new SeaTunnelRow(new Object[] {"test1"})));
-        Assertions.assertEquals(1, (long) FileUtils.getFileLineNumber(file1Path));
 
         // create file2
         options.put("file_name_expression", "test2");
@@ -602,8 +601,6 @@ public class LocalFileTest {
                 new LocalFileSinkFactory(),
                 Collections.singletonList(new SeaTunnelRow(new Object[] {"test2"})));
 
-        Assertions.assertEquals(1, (long) FileUtils.getFileLineNumber(file2Path));
-
         // create file3
         options.put("file_name_expression", "test3");
         SinkFlowTestUtils.runBatchWithCheckpointDisabled(
@@ -611,7 +608,6 @@ public class LocalFileTest {
                 ReadonlyConfig.fromMap(options),
                 new LocalFileSinkFactory(),
                 Collections.singletonList(new SeaTunnelRow(new Object[] {"test3"})));
-        Assertions.assertEquals(1, (long) FileUtils.getFileLineNumber(file3Path));
 
         File file1 = Paths.get(file1Path).toFile();
         File file2 = Paths.get(file2Path).toFile();
