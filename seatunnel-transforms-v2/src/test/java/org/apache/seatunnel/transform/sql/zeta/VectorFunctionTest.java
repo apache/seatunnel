@@ -17,13 +17,15 @@
 
 package org.apache.seatunnel.transform.sql.zeta;
 
-import org.apache.seatunnel.api.table.type.*;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.api.table.type.VectorType;
 import org.apache.seatunnel.transform.sql.SQLEngine;
 import org.apache.seatunnel.transform.sql.SQLEngineFactory;
+
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
-
-import java.math.BigDecimal;
 
 public class VectorFunctionTest {
 
@@ -35,15 +37,14 @@ public class VectorFunctionTest {
                 new SeaTunnelRowType(
                         new String[] {"vector_float1", "vector_float2"},
                         new SeaTunnelDataType[] {
-                                VectorType.VECTOR_FLOAT_TYPE,
-                                VectorType.VECTOR_FLOAT_TYPE
+                            VectorType.VECTOR_FLOAT_TYPE, VectorType.VECTOR_FLOAT_TYPE
                         });
 
         SeaTunnelRow inputRow =
                 new SeaTunnelRow(
                         new Object[] {
-                                new float[]{1.0f, 2.0f, 3.0f},
-                                new float[]{1.0f, 2.0f, 3.0f}
+                            new float[] {1.0f, 2.0f, 3.0f},
+                            new float[] {1.0f, 2.0f, 3.0f}
                         });
 
         sqlEngine.init(
@@ -56,7 +57,6 @@ public class VectorFunctionTest {
         Assertions.assertEquals(0.0, f1Object);
     }
 
-
     @Test
     public void testL1DistanceFunction() {
 
@@ -65,15 +65,14 @@ public class VectorFunctionTest {
                 new SeaTunnelRowType(
                         new String[] {"vector_float1", "vector_float2"},
                         new SeaTunnelDataType[] {
-                                VectorType.VECTOR_FLOAT_TYPE,
-                                VectorType.VECTOR_FLOAT_TYPE
+                            VectorType.VECTOR_FLOAT_TYPE, VectorType.VECTOR_FLOAT_TYPE
                         });
 
         SeaTunnelRow inputRow =
                 new SeaTunnelRow(
                         new Object[] {
-                                new float[]{2.0f, 4.0f, 6.0f},
-                                new float[]{1.0f, 2.0f, 3.0f}
+                            new float[] {2.0f, 4.0f, 6.0f},
+                            new float[] {1.0f, 2.0f, 3.0f}
                         });
 
         sqlEngine.init(
@@ -86,7 +85,6 @@ public class VectorFunctionTest {
         Assertions.assertEquals(6.0, f1Object);
     }
 
-
     @Test
     public void testL2DistanceFunction() {
 
@@ -95,15 +93,14 @@ public class VectorFunctionTest {
                 new SeaTunnelRowType(
                         new String[] {"vector_float1", "vector_float2"},
                         new SeaTunnelDataType[] {
-                                VectorType.VECTOR_FLOAT_TYPE,
-                                VectorType.VECTOR_FLOAT_TYPE
+                            VectorType.VECTOR_FLOAT_TYPE, VectorType.VECTOR_FLOAT_TYPE
                         });
 
         SeaTunnelRow inputRow =
                 new SeaTunnelRow(
                         new Object[] {
-                                new float[]{2.0f, 4.0f, 4.0f},
-                                new float[]{1.0f, 2.0f, 2.0f}
+                            new float[] {2.0f, 4.0f, 4.0f},
+                            new float[] {1.0f, 2.0f, 2.0f}
                         });
 
         sqlEngine.init(
@@ -116,7 +113,6 @@ public class VectorFunctionTest {
         Assertions.assertEquals(3.0, f1Object);
     }
 
-
     @Test
     public void testVectorNormFunction() {
 
@@ -125,27 +121,22 @@ public class VectorFunctionTest {
                 new SeaTunnelRowType(
                         new String[] {"vector_float1", "vector_float2"},
                         new SeaTunnelDataType[] {
-                                VectorType.VECTOR_FLOAT_TYPE,
-                                VectorType.VECTOR_FLOAT_TYPE
+                            VectorType.VECTOR_FLOAT_TYPE, VectorType.VECTOR_FLOAT_TYPE
                         });
 
         SeaTunnelRow inputRow =
                 new SeaTunnelRow(
                         new Object[] {
-                                new float[]{1.0f, 2.0f, 2.0f},
-                                new float[]{1.0f, 2.0f, 3.0f}
+                            new float[] {1.0f, 2.0f, 2.0f},
+                            new float[] {1.0f, 2.0f, 3.0f}
                         });
 
         sqlEngine.init(
-                "test",
-                null,
-                rowType,
-                "select VECTOR_NORM(vector_float1) as norm from test");
+                "test", null, rowType, "select VECTOR_NORM(vector_float1) as norm from test");
         SeaTunnelRow outRow = sqlEngine.transformBySQL(inputRow, rowType).get(0);
         Object f1Object = outRow.getField(0);
         Assertions.assertEquals(3.0, f1Object);
     }
-
 
     @Test
     public void testVectorDimsFunction() {
@@ -154,26 +145,19 @@ public class VectorFunctionTest {
         SeaTunnelRowType rowType =
                 new SeaTunnelRowType(
                         new String[] {"vector_float1"},
-                        new SeaTunnelDataType[] {
-                                VectorType.VECTOR_FLOAT_TYPE
-                        });
+                        new SeaTunnelDataType[] {VectorType.VECTOR_FLOAT_TYPE});
 
         SeaTunnelRow inputRow =
                 new SeaTunnelRow(
                         new Object[] {
-                                new float[]{1.0f, 2.0f, 3.0f},
+                            new float[] {1.0f, 2.0f, 3.0f},
                         });
 
-        sqlEngine.init(
-                "test",
-                null,
-                rowType,
-                "select VECTOR_DIMS(vector_float1) as dim from test");
+        sqlEngine.init("test", null, rowType, "select VECTOR_DIMS(vector_float1) as dim from test");
         SeaTunnelRow outRow = sqlEngine.transformBySQL(inputRow, rowType).get(0);
         Object f1Object = outRow.getField(0);
         Assertions.assertEquals(3, f1Object);
     }
-
 
     @Test
     public void testInnerProductFunction() {
@@ -183,15 +167,14 @@ public class VectorFunctionTest {
                 new SeaTunnelRowType(
                         new String[] {"vector_float1", "vector_float2"},
                         new SeaTunnelDataType[] {
-                                VectorType.VECTOR_FLOAT_TYPE,
-                                VectorType.VECTOR_FLOAT_TYPE
+                            VectorType.VECTOR_FLOAT_TYPE, VectorType.VECTOR_FLOAT_TYPE
                         });
 
         SeaTunnelRow inputRow =
                 new SeaTunnelRow(
                         new Object[] {
-                                new float[]{1.0f, 2.0f, 3.0f},
-                                new float[]{7.0f, 8.0f, 9.0f}
+                            new float[] {1.0f, 2.0f, 3.0f},
+                            new float[] {7.0f, 8.0f, 9.0f}
                         });
 
         sqlEngine.init(

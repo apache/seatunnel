@@ -32,7 +32,9 @@ public class VectorFunction {
         if (args.size() != 2) {
             throw new TransformException(
                     CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
-                    String.format("COSINE_DISTANCE() requires 2 arguments, but %d were provided", args.size()));
+                    String.format(
+                            "COSINE_DISTANCE() requires 2 arguments, but %d were provided",
+                            args.size()));
         }
         Object arg1 = args.get(0);
         Object arg2 = args.get(1);
@@ -44,22 +46,18 @@ public class VectorFunction {
         if (vector1.length != vector2.length) {
             throw new TransformException(
                     CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
-                    String.format("Vectors must have the same dimension: %d vs %d",
+                    String.format(
+                            "Vectors must have the same dimension: %d vs %d",
                             vector1.length, vector2.length));
         }
-        double dotProduct = IntStream.range(0, vector1.length)
-                .mapToDouble(i -> vector1[i] * vector2[i])
-                .sum();
-        double norm1 = Arrays.stream(vector1)
-                .mapToDouble(v -> v * v)
-                .sum();
-        double norm2 = Arrays.stream(vector2)
-                .mapToDouble(v -> v * v)
-                .sum();
+        double dotProduct =
+                IntStream.range(0, vector1.length).mapToDouble(i -> vector1[i] * vector2[i]).sum();
+        double norm1 = Arrays.stream(vector1).mapToDouble(v -> v * v).sum();
+        double norm2 = Arrays.stream(vector2).mapToDouble(v -> v * v).sum();
         if (norm1 == 0.0 || norm2 == 0.0) {
             return 1.0;
         }
-        //calculate cosine similarity
+        // calculate cosine similarity
         double cosineSimilarity = dotProduct / (Math.sqrt(norm1) * Math.sqrt(norm2));
         return 1.0 - cosineSimilarity;
     }
@@ -68,7 +66,9 @@ public class VectorFunction {
         if (args.size() != 2) {
             throw new TransformException(
                     CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
-                    String.format("L1_DISTANCE() requires exactly 2 arguments, but %d were provided", args.size()));
+                    String.format(
+                            "L1_DISTANCE() requires exactly 2 arguments, but %d were provided",
+                            args.size()));
         }
         Object arg1 = args.get(0);
         Object arg2 = args.get(1);
@@ -80,19 +80,20 @@ public class VectorFunction {
         if (v1.length != v2.length) {
             throw new TransformException(
                     CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
-                    String.format("Vectors must have the same dimension: %d vs %d",
+                    String.format(
+                            "Vectors must have the same dimension: %d vs %d",
                             v1.length, v2.length));
         }
-        return IntStream.range(0, v1.length)
-                .mapToDouble(i -> Math.abs(v1[i] - v2[i]))
-                .sum();
+        return IntStream.range(0, v1.length).mapToDouble(i -> Math.abs(v1[i] - v2[i])).sum();
     }
 
     public static Object l2Distance(List<Object> args) {
         if (args.size() != 2) {
             throw new TransformException(
                     CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
-                    String.format("L2_DISTANCE() requires exactly 2 arguments, but %d were provided", args.size()));
+                    String.format(
+                            "L2_DISTANCE() requires exactly 2 arguments, but %d were provided",
+                            args.size()));
         }
         Object arg1 = args.get(0);
         Object arg2 = args.get(1);
@@ -104,14 +105,18 @@ public class VectorFunction {
         if (v1.length != v2.length) {
             throw new TransformException(
                     CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
-                    String.format("Vectors must have the same dimension: %d vs %d",
+                    String.format(
+                            "Vectors must have the same dimension: %d vs %d",
                             v1.length, v2.length));
         }
-        double sum = IntStream.range(0, v1.length)
-                .mapToDouble(i -> {
-                    double diff = v1[i] - v2[i];
-                    return diff * diff;
-                }).sum();
+        double sum =
+                IntStream.range(0, v1.length)
+                        .mapToDouble(
+                                i -> {
+                                    double diff = v1[i] - v2[i];
+                                    return diff * diff;
+                                })
+                        .sum();
         return Math.sqrt(sum);
     }
 
@@ -119,7 +124,9 @@ public class VectorFunction {
         if (args.size() != 1) {
             throw new TransformException(
                     CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
-                    String.format("VECTOR_DIMS() requires exactly 1 argument, but %d were provided", args.size()));
+                    String.format(
+                            "VECTOR_DIMS() requires exactly 1 argument, but %d were provided",
+                            args.size()));
         }
         Object arg = args.get(0);
         if (arg == null) {
@@ -133,7 +140,9 @@ public class VectorFunction {
         if (args.size() != 1) {
             throw new TransformException(
                     CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
-                    String.format("VECTOR_NORM() requires exactly 1 argument, but %d were provided", args.size()));
+                    String.format(
+                            "VECTOR_NORM() requires exactly 1 argument, but %d were provided",
+                            args.size()));
         }
         Object arg = args.get(0);
         if (arg == null) {
@@ -147,7 +156,9 @@ public class VectorFunction {
         if (args.size() != 2) {
             throw new TransformException(
                     CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
-                    String.format("INNER_PRODUCT() requires exactly 2 arguments, but %d were provided", args.size()));
+                    String.format(
+                            "INNER_PRODUCT() requires exactly 2 arguments, but %d were provided",
+                            args.size()));
         }
         Object arg1 = args.get(0);
         Object arg2 = args.get(1);
@@ -159,13 +170,12 @@ public class VectorFunction {
         if (v1.length != v2.length) {
             throw new TransformException(
                     CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
-                    String.format("Vectors must have the same dimension: %d vs %d",
+                    String.format(
+                            "Vectors must have the same dimension: %d vs %d",
                             v1.length, v2.length));
         }
 
-        return IntStream.range(0, v1.length)
-                .mapToDouble(i -> v1[i] * v2[i])
-                .sum();
+        return IntStream.range(0, v1.length).mapToDouble(i -> v1[i] * v2[i]).sum();
     }
 
     private static Float[] convertToFloatArray(Object obj) {
