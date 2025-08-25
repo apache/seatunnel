@@ -285,7 +285,7 @@ public class KafkaPartitionSplitReader
     private void parseStartingOffsets(
             KafkaSourceSplit split, Map<TopicPartition, Long> partitionsStartingOffsets) {
         TopicPartition tp = split.getTopicPartition();
-        if (split.getEndOffset() >= 0) {
+        if (split.getStartOffset() >= 0) {
             partitionsStartingOffsets.put(tp, split.getStartOffset());
         }
     }
