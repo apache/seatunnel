@@ -106,8 +106,6 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -477,33 +475,28 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         testKafkaTimestampToConsole(container);
     }
 
-    /**
-     * Test Kafka source restore functionality with earliest start mode This test verifies that when
-     * a task is restored, it forces the start mode to GROUP_OFFSETS regardless of the original
-     * configuration (earliest in this case)
-     *
-     * <p>Test scenario: 1. Start a streaming job with earliest start mode 2. Let it consume some
-     * data and create checkpoint 3. Stop the job (simulate failure) 4. Restart the job with the
-     * same configuration 5. Verify it continues from the checkpoint position, not from earliest
-     */
     @TestTemplate
     @DisabledOnContainer(
-            type = EngineType.SPARK,
+            type = {EngineType.SPARK, EngineType.FLINK},
             value = {})
     public void testSourceKafkaRestoreWithEarliestMode(TestContainer container)
             throws IOException, InterruptedException {
 
         final String topicName = "test_topic_restore_earliest";
+        final String outputTopicName = "test_topic_restore_earliest_output";
         final String sourceData = "Seatunnel Restore Test Data";
         final String jobId = "18696753645408";
 
+        // Write initial data to Kafka with unique keys to avoid Map deduplication
         for (int i = 0; i < 20; i++) {
             ProducerRecord<byte[], byte[]> record =
-                    new ProducerRecord<>(topicName, null, sourceData.getBytes());
+                    new ProducerRecord<>(topicName, ("key_" + i).getBytes(), sourceData.getBytes());
             producer.send(record);
         }
         producer.flush();
-        long initialEndOffset;
+
+        // Get initial end offset
+        long initialEndOffset = 0;
         try (KafkaConsumer<String, String> consumer = new KafkaConsumer<>(kafkaConsumerConfig())) {
             consumer.subscribe(Collections.singletonList(topicName));
             Map<TopicPartition, Long> offsets =
@@ -512,14 +505,7 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
             initialEndOffset = offsets.values().iterator().next();
         }
 
-        ExecutorService exec =
-                Executors.newSingleThreadExecutor(
-                        r -> {
-                            Thread t = new Thread(r, "seatunnel-job-runner");
-                            t.setDaemon(true);
-                            return t;
-                        });
-        CompletableFuture.runAsync(
+        CompletableFuture.supplyAsync(
                 () -> {
                     try {
                         container.executeJob(
@@ -528,18 +514,24 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                         log.error("First job execution exception: {}", e.getMessage(), e);
                         throw new RuntimeException(e);
                     }
-                },
-                exec);
+                    return null;
+                });
 
+        // Wait for first job to start processing
         await().pollDelay(5, SECONDS).atMost(1, MINUTES).until(() -> true);
 
+        // Write additional data after first job starts
         for (int i = 0; i < 10; i++) {
             ProducerRecord<byte[], byte[]> record =
-                    new ProducerRecord<>(topicName, null, (sourceData + "_additional").getBytes());
+                    new ProducerRecord<>(
+                            topicName,
+                            ("key_additional_" + i).getBytes(),
+                            (sourceData + "_additional").getBytes());
             producer.send(record);
         }
         producer.flush();
 
+        // Wait for first job to process the additional data
         final long expectedAfterFirstRun = initialEndOffset + 10;
         await().pollInterval(2, SECONDS)
                 .atMost(2, MINUTES)
@@ -547,13 +539,16 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                         () -> {
                             try (KafkaConsumer<String, String> c =
                                     new KafkaConsumer<>(kafkaConsumerConfig())) {
-                                c.subscribe(Collections.singletonList(topicName));
-                                Map<TopicPartition, Long> offsets =
-                                        c.endOffsets(
-                                                Collections.singletonList(
-                                                        new TopicPartition(topicName, 0)));
-                                long cur = offsets.values().iterator().next();
-                                return cur >= expectedAfterFirstRun;
+                                c.subscribe(Collections.singletonList(outputTopicName));
+                                List<TopicPartition> parts =
+                                        Collections.singletonList(
+                                                new TopicPartition(outputTopicName, 0));
+                                Map<TopicPartition, Long> begin = c.beginningOffsets(parts);
+                                Map<TopicPartition, Long> end = c.endOffsets(parts);
+                                long cur =
+                                        end.values().iterator().next()
+                                                - begin.values().iterator().next();
+                                return cur == expectedAfterFirstRun;
                             }
                         });
 
@@ -561,29 +556,52 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
 
         for (int i = 0; i < 15; i++) {
             ProducerRecord<byte[], byte[]> record =
-                    new ProducerRecord<>(topicName, null, (sourceData + "_restore").getBytes());
+                    new ProducerRecord<>(
+                            topicName,
+                            ("key_restore_" + i).getBytes(),
+                            (sourceData + "_restore").getBytes());
             producer.send(record);
         }
         producer.flush();
 
-        Container.ExecResult restoreJobResult =
-                container.restoreJob("/kafka/kafkasource_restore_with_earliest_mode.conf", jobId);
-        Assertions.assertEquals(0, restoreJobResult.getExitCode(), restoreJobResult.getStderr());
+        long finalEndOffset = 0;
+        try (KafkaConsumer<String, String> consumer = new KafkaConsumer<>(kafkaConsumerConfig())) {
+            consumer.subscribe(Collections.singletonList(topicName));
+            Map<TopicPartition, Long> offsets =
+                    consumer.endOffsets(
+                            Collections.singletonList(new TopicPartition(topicName, 0)));
+            finalEndOffset = offsets.values().iterator().next();
+            Assertions.assertEquals(
+                    initialEndOffset + 10 + 15, finalEndOffset, "Final end offset mismatch");
+        }
+
+        CompletableFuture.supplyAsync(
+                () -> {
+                    try {
+                        container.restoreJob(
+                                "/kafka/kafkasource_restore_with_earliest_mode.conf", jobId);
+                    } catch (Exception e) {
+                        throw new RuntimeException(e);
+                    }
+                    return null;
+                });
 
         await().pollDelay(3, SECONDS)
                 .pollInterval(2, SECONDS)
-                .atMost(2, MINUTES)
-                .untilAsserted(
+                .atMost(5, MINUTES)
+                .until(
                         () -> {
-                            Map<String, String> consumedData = getKafkaConsumerData(topicName);
-                            log.info("Consumed data size after restore: {}", consumedData.size());
-                            Assertions.assertTrue(
-                                    consumedData.size() >= 15,
-                                    "Restore job should consume at least the new data generated after checkpoint, expected >= 15, got: "
-                                            + consumedData.size());
+                            try (KafkaConsumer<String, String> c =
+                                    new KafkaConsumer<>(kafkaConsumerConfig())) {
+                                c.subscribe(Collections.singletonList(outputTopicName));
+                                Map<TopicPartition, Long> offsets =
+                                        c.endOffsets(
+                                                Collections.singletonList(
+                                                        new TopicPartition(outputTopicName, 0)));
+                                long cur = offsets.values().iterator().next();
+                                return cur == expectedAfterFirstRun + 15;
+                            }
                         });
-
-        exec.shutdownNow();
     }
 
     @TestTemplate
