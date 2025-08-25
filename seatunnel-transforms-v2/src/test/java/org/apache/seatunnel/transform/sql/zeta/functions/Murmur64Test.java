@@ -70,12 +70,6 @@ public class Murmur64Test {
         Assertions.assertEquals(murmur64Direct("unicode_test"), outRow.getField(3));
         Assertions.assertEquals(murmur64Direct(null), outRow.getField(4));
 
-        log.info("SQL Engine test results:");
-        log.info("'hello world' -> {}", outRow.getField(0));
-        log.info("'' -> {}", outRow.getField(1));
-        log.info("'test123' -> {}", outRow.getField(2));
-        log.info("'unicode_test' -> {}", outRow.getField(3));
-        log.info("null -> {}", outRow.getField(4));
     }
 
     /**
