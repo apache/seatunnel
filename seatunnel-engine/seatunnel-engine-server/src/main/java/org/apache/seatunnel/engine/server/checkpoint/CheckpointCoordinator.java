@@ -1069,6 +1069,10 @@ public class CheckpointCoordinator {
         }
     }
 
+    public String getCheckpointStateImapKey() {
+        return checkpointStateImapKey;
+    }
+
     /** Only for test */
     @VisibleForTesting
     public PendingCheckpoint getSavepointPendingCheckpoint() {

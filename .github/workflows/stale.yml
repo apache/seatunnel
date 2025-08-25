@@ -30,8 +30,8 @@ jobs:
       - uses: actions/stale@v4
         with:
           # Stale Issues
-          days-before-issue-stale: 30
-          days-before-issue-close: 7
+          days-before-issue-stale: -1
+          days-before-issue-close: -1
           # We do not stale Issues with label `Waiting for reply`, `Waiting for code update`,`Waiting for users feedback`, `New feature` and `STIP`
           exempt-issue-labels: 'Waiting for reply,Waiting for code update,Waiting for users feedback,New feature,STIP,security'
           stale-issue-message: >

@@ -212,6 +212,7 @@ public class CoordinatorService {
                                 .setNameFormat("seatunnel-coordinator-service-%d")
                                 .build(),
                         new ThreadPoolStatus.RejectionCountingHandler());
+
         this.seaTunnelServer = seaTunnelServer;
         masterActiveListener = Executors.newSingleThreadScheduledExecutor();
         masterActiveListener.scheduleAtFixedRate(
@@ -287,6 +288,7 @@ public class CoordinatorService {
             } else {
                 queueRemove(jobMaster);
                 completeFailJob(jobMaster);
+                pendingJobMasterMap.remove(jobId);
                 return;
             }
         }
