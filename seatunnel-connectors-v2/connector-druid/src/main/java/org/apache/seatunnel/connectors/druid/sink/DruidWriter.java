@@ -42,7 +42,7 @@ import org.apache.druid.indexing.common.task.batch.parallel.ParallelIndexIngesti
 import org.apache.druid.indexing.common.task.batch.parallel.ParallelIndexSupervisorTask;
 import org.apache.druid.java.util.common.granularity.Granularities;
 import org.apache.druid.segment.indexing.DataSchema;
-import org.apache.druid.segment.indexing.granularity.UniformGranularitySpec;
+import org.apache.druid.indexer.granularity.UniformGranularitySpec;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.entity.StringEntity;
@@ -178,7 +178,10 @@ public class DruidWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
                 new DimensionsSpec(dimensionSchemas),
                 null,
                 new UniformGranularitySpec(Granularities.HOUR, Granularities.MINUTE, false, null),
-                null);
+                null,
+                null,
+                null,
+                mapper);
     }
 
     private List<DimensionSchema> transformToDimensionSchema() {
