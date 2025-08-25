@@ -91,6 +91,8 @@ Postgres 9.5及以下版本，请设置为 `postgresLow` 来支持 CDC
 
 指定的方言，如果不存在，仍然按照url获取，优先级高于url。例如，当使用 starrocks 时，你需要将其值设置为 starrocks，同理，当使用mysql时，你需要将其值设置为mysql。
 
+如果 SeaTunnel 不支持某种方言，它将使用默认方言 `GenericDialect`。请确保您提供的驱动程序支持您想要连接的数据库。
+
 #### 示例可选
 
 |           | 方言名称       |          |
