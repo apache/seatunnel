@@ -580,6 +580,8 @@ public class LocalFileTest {
                     {
                         put("path", testPath);
                         put("file_format_type", "text");
+                        put("is_enable_transaction", false);
+                        put("batch_size", 1);
                     }
                 };
 
