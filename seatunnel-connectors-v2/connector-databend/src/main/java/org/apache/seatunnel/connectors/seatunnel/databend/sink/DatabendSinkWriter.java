@@ -222,7 +222,6 @@ public class DatabendSinkWriter
         }
     }
 
-
     private String generateInsertRawSql(String database) {
         return String.format(
                 "INSERT INTO %s.%s (id, table_name, raw_data, add_time, action) VALUES (?, ?, ?, ?, ?)",
