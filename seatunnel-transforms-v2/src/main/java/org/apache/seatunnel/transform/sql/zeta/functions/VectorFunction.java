@@ -24,6 +24,7 @@ import org.apache.seatunnel.transform.exception.TransformException;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.IntStream;
 
 public class VectorFunction {
@@ -190,10 +191,58 @@ public class VectorFunction {
                 wrapperArray[i] = primitiveArray[i];
             }
             return wrapperArray;
+        } else if (obj instanceof Map) {
+            return convertSparseVectorToFloatArray((Map<?, ?>) obj);
         } else {
             throw new TransformException(
                     CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
                     String.format("Unsupported vector type: %s", obj.getClass().getName()));
         }
+    }
+
+    private static Float[] convertSparseVectorToFloatArray(Map<?, ?> sparseVector) {
+        if (sparseVector.isEmpty()) {
+            return new Float[0];
+        }
+        int maxIndex = -1;
+        for (Map.Entry<?, ?> entry : sparseVector.entrySet()) {
+            Object key = entry.getKey();
+            if (!(key instanceof Integer)) {
+                throw new TransformException(
+                        CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
+                        String.format(
+                                "Sparse vector key must be Integer, but got: %s",
+                                key.getClass().getName()));
+            }
+            int index = (Integer) key;
+            if (index < 0) {
+                throw new TransformException(
+                        CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
+                        String.format("Sparse vector index cannot be negative: %d", index));
+            }
+            // prevent OOM
+            if (index > 1000000) {
+                throw new TransformException(
+                        CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
+                        String.format("Sparse vector index too large: %d", index));
+            }
+            maxIndex = Math.max(maxIndex, index);
+        }
+        Float[] denseVector = new Float[maxIndex + 1];
+        Arrays.fill(denseVector, 0.0f);
+        for (Map.Entry<?, ?> entry : sparseVector.entrySet()) {
+            Object key = entry.getKey();
+            Object value = entry.getValue();
+            if (!(value instanceof Number)) {
+                throw new TransformException(
+                        CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
+                        String.format(
+                                "Sparse vector value must be a Number, but got: %s",
+                                value.getClass().getName()));
+            }
+            int index = (Integer) key;
+            denseVector[index] = ((Number) value).floatValue();
+        }
+        return denseVector;
     }
 }
