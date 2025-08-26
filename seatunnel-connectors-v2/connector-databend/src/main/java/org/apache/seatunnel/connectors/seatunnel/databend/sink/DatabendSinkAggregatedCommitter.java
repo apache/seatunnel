@@ -195,7 +195,7 @@ public class DatabendSinkAggregatedCommitter
 
         sql.append("WHEN MATCHED AND b.action = 'update' THEN UPDATE * ");
 
-        if (databendSinkConfig.isAllowDelete()) {
+        if (databendSinkConfig.isEnableDelete()) {
             sql.append("WHEN MATCHED AND b.action = 'delete' THEN DELETE ");
         }
 

@@ -60,8 +60,8 @@ public class DatabendSinkOptions {
                     .noDefaultValue()
                     .withDescription("Conflict key for CDC merge operations");
 
-    public static final Option<Boolean> ALLOW_DELETE =
-            Options.key("allow_delete")
+    public static final Option<Boolean> ENABLE_DELETE =
+            Options.key("enable_delete")
                     .booleanType()
                     .defaultValue(false)
                     .withDescription("Whether to allow delete operations in CDC mode");

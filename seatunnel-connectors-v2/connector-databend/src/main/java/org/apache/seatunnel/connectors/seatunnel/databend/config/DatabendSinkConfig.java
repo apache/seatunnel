@@ -40,7 +40,7 @@ public class DatabendSinkConfig implements Serializable {
     private final int executeTimeoutSec;
     private final int interval;
     private final String conflictKey;
-    private final boolean allowDelete;
+    private final boolean enableDelete;
 
     private DatabendSinkConfig(Builder builder) {
         this.url = builder.url;
@@ -53,7 +53,7 @@ public class DatabendSinkConfig implements Serializable {
         this.executeTimeoutSec = builder.executeTimeoutSec;
         this.interval = builder.interval;
         this.conflictKey = builder.conflictKey;
-        this.allowDelete = builder.allowDelete;
+        this.enableDelete = builder.enableDelete;
     }
 
     public static DatabendSinkConfig of(ReadonlyConfig config) {
@@ -67,7 +67,7 @@ public class DatabendSinkConfig implements Serializable {
                 .withBatchSize(config.get(DatabendOptions.BATCH_SIZE))
                 .withExecuteTimeoutSec(config.get(DatabendSinkOptions.EXECUTE_TIMEOUT_SEC))
                 .withConflictKey(config.get(DatabendSinkOptions.CONFLICT_KEY))
-                .withAllowDelete(config.get(DatabendSinkOptions.ALLOW_DELETE))
+                .withAllowDelete(config.get(DatabendSinkOptions.ENABLE_DELETE))
                 .build();
     }
 
@@ -82,7 +82,7 @@ public class DatabendSinkConfig implements Serializable {
         private int executeTimeoutSec = 300;
         private int interval = 30;
         private String conflictKey;
-        private boolean allowDelete = false;
+        private boolean enableDelete = false;
 
         public Builder withUrl(String url) {
             this.url = url;
@@ -135,7 +135,7 @@ public class DatabendSinkConfig implements Serializable {
         }
 
         public Builder withAllowDelete(boolean allowDelete) {
-            this.allowDelete = allowDelete;
+            this.enableDelete = allowDelete;
             return this;
         }
 

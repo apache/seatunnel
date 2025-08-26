@@ -132,7 +132,7 @@ public class DatabendSink
         // CDC mode info
         if (databendSinkConfig.isCdcMode()) {
             log.info("CDC mode enabled with conflict key: {}", databendSinkConfig.getConflictKey());
-            log.info("Allow delete: {}", databendSinkConfig.isAllowDelete());
+            log.info("Enable delete: {}", databendSinkConfig.isEnableDelete());
             log.info("Interval: {} seconds", databendSinkConfig.getInterval());
         }
     }

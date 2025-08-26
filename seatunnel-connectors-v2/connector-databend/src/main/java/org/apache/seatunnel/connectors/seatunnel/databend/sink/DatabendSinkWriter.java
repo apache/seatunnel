@@ -82,7 +82,7 @@ public class DatabendSinkWriter
     private String targetTableName;
     private PreparedStatement cdcPreparedStatement;
     private String conflictKey;
-    private boolean allowDelete;
+    private boolean enableDelete;
     private int interval;
 
     public DatabendSinkWriter(
@@ -116,7 +116,7 @@ public class DatabendSinkWriter
             log.info("DatabendSinkWriter initialized in traditional mode");
         }
         this.conflictKey = databendSinkConfig.getConflictKey();
-        this.allowDelete = databendSinkConfig.isAllowDelete();
+        this.enableDelete = databendSinkConfig.isEnableDelete();
         this.interval = databendSinkConfig.getInterval();
         this.targetTableName = table;
 
@@ -272,7 +272,7 @@ public class DatabendSinkWriter
 
         sql.append("WHEN MATCHED AND b.action = 'update' THEN UPDATE * ");
 
-        if (allowDelete) {
+        if (enableDelete) {
             sql.append("WHEN MATCHED AND b.action = 'delete' THEN DELETE ");
         }
 
@@ -387,7 +387,7 @@ public class DatabendSinkWriter
             return;
         }
 
-        if ("delete".equals(action) && !allowDelete) {
+        if ("delete".equals(action) && !enableDelete) {
             log.debug("DELETE operation not allowed, skipping row");
             return;
         }
@@ -970,8 +970,8 @@ public class DatabendSinkWriter
         return streamName;
     }
 
-    boolean isAllowDelete() {
-        return allowDelete;
+    boolean isEnableDelete() {
+        return enableDelete;
     }
 
     CatalogTable getCatalogTable() {
