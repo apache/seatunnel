@@ -54,7 +54,9 @@ import org.apache.seatunnel.format.text.TextSerializationSchema;
 import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.admin.AdminClientConfig;
 import org.apache.kafka.clients.admin.ListConsumerGroupOffsetsOptions;
+import org.apache.kafka.clients.admin.NewPartitions;
 import org.apache.kafka.clients.admin.NewTopic;
+import org.apache.kafka.clients.admin.TopicDescription;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
@@ -475,7 +477,89 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         testKafkaTimestampToConsole(container);
     }
 
-    //  ------------------------------  restore --------------------------------
+    @TestTemplate
+    @DisabledOnContainer(
+            type = {EngineType.SPARK, EngineType.FLINK},
+            value = {})
+    public void testDynamicPartitionDiscovery(TestContainer container)
+            throws InterruptedException, ExecutionException {
+
+        final String sourceTopic = "test_topic_dynamic_partition";
+        final String outputTopic = "test_topic_dynamic_partition_output";
+        final String jobId = "18696753645407";
+
+        // Write initial data to the existing partition (partition 0)
+        for (int i = 0; i < 10; i++) {
+            String message =
+                    String.format(
+                            "{\"id\":%d,\"message\":\"initial_message_%d\",\"timestamp\":%d}",
+                            i, i, System.currentTimeMillis());
+            producer.send(new ProducerRecord<>(sourceTopic, null, message.getBytes()));
+        }
+        producer.flush();
+
+        // Start the streaming job asynchronously
+        CompletableFuture.runAsync(
+                () -> {
+                    try {
+                        container.executeJob(
+                                "/kafka/kafka_dynamic_partition_discovery.conf", jobId);
+                    } catch (Exception e) {
+                        log.error("Dynamic partition discovery job execution exception", e);
+                        throw new RuntimeException(e);
+                    }
+                });
+
+        // Wait for job to start and process initial data
+        Awaitility.await().pollDelay(5, SECONDS).atMost(1, MINUTES).until(() -> true);
+
+        try (AdminClient adminClient = createKafkaAdmin()) {
+            Map<String, NewPartitions> newPartitions = new HashMap<>();
+            newPartitions.put(sourceTopic, NewPartitions.increaseTo(2));
+            adminClient.createPartitions(newPartitions).all().get();
+            log.info("Successfully created new partition for topic: {}", sourceTopic);
+        }
+
+        Awaitility.await().pollDelay(3, SECONDS).atMost(30, SECONDS).until(() -> true);
+
+        for (int i = 0; i < 15; i++) {
+            String message =
+                    String.format(
+                            "{\"id\":%d,\"message\":\"new_partition_message_%d\",\"timestamp\":%d}",
+                            i + 100, i, System.currentTimeMillis());
+            producer.send(new ProducerRecord<>(sourceTopic, 1, null, message.getBytes()));
+        }
+        producer.flush();
+
+        Awaitility.await()
+                .pollInterval(2, SECONDS)
+                .atMost(2, MINUTES)
+                .until(
+                        () -> {
+                            try {
+                                // Check the output topic data count
+                                List<String> outputData = getKafkaConsumerListData(outputTopic);
+                                log.info("Output topic data count: {}", outputData.size());
+                                return outputData.size() >= 15 && outputData.size() < 25;
+                            } catch (Exception e) {
+                                log.error("Error checking output topic data", e);
+                                return false;
+                            }
+                        });
+
+        try (AdminClient adminClient = createKafkaAdmin()) {
+            Map<String, TopicDescription> topicDescriptions =
+                    adminClient.describeTopics(Arrays.asList(sourceTopic)).allTopicNames().get();
+            TopicDescription topicDescription = topicDescriptions.get(sourceTopic);
+            int partitionCount = topicDescription.partitions().size();
+            log.info("Current partition count for topic {}: {}", sourceTopic, partitionCount);
+            Assertions.assertTrue(partitionCount >= 2, "Partition count should be at least 2");
+        }
+
+        log.info("Dynamic partition discovery test completed successfully");
+    }
+
+    // ------------------------------ restore --------------------------------
     // ----------------------------- EARLIEST MODE -----------------------------
     @TestTemplate
     @DisabledOnContainer(
@@ -489,7 +573,8 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         final String payload = "Seatunnel Restore Test Data";
         final String jobId = "18696753645408";
 
-        // Write 20 initial records with unique keys (avoid any potential dedup logic elsewhere).
+        // Write 20 initial records with unique keys (avoid any potential dedup logic
+        // elsewhere).
         for (int i = 0; i < 20; i++) {
             producer.send(
                     new ProducerRecord<>(sourceTopic, ("key_" + i).getBytes(), payload.getBytes()));
@@ -524,7 +609,8 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         }
         producer.flush();
 
-        // In earliest mode, first run should consume at least initial 20 + additional 10.
+        // In earliest mode, first run should consume at least initial 20 + additional
+        // 10.
         final long expectedSinkAfterFirstRun = srcEndBeforeStart + 10;
         Awaitility.await()
                 .pollInterval(2, SECONDS)
@@ -544,7 +630,8 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         }
         producer.flush();
 
-        // Source end offset should move forward by at least 25 (10 + 15) from the captured point.
+        // Source end offset should move forward by at least 25 (10 + 15) from the
+        // captured point.
         long srcEndAfterAll = endOffsetOnP0(sourceTopic);
         Assertions.assertTrue(
                 srcEndAfterAll == srcEndBeforeStart + 25,
@@ -561,7 +648,8 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                     }
                 });
 
-        // After restore, sink should advance by the 15 newly produced records at minimum.
+        // After restore, sink should advance by the 15 newly produced records at
+        // minimum.
         Awaitility.await()
                 .pollDelay(3, SECONDS)
                 .pollInterval(2, SECONDS)
@@ -605,7 +693,8 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
 
         Awaitility.await().pollDelay(5, SECONDS).atMost(1, MINUTES).until(() -> true);
 
-        // Produce 10 records after job start; latest mode should consume only these 10 initially.
+        // Produce 10 records after job start; latest mode should consume only these 10
+        // initially.
         for (int i = 0; i < 10; i++) {
             producer.send(
                     new ProducerRecord<>(
@@ -700,7 +789,8 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         }
         producer.flush();
 
-        // Keep original semantics: expected sink count depends on timestamp-based start config.
+        // Keep original semantics: expected sink count depends on timestamp-based start
+        // config.
         final long expectedSinkAfterFirstRun = srcEndBeforeStart + 10;
         Awaitility.await()
                 .pollInterval(2, SECONDS)
@@ -787,7 +877,8 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         }
         producer.flush();
 
-        // Keep original semantics: expected sink count depends on explicit offset config. -> 11
+        // Keep original semantics: expected sink count depends on explicit offset
+        // config. -> 11
         final long expectedSinkAfterFirstRun = srcEndBeforeStart + 10;
         Awaitility.await()
                 .pollInterval(2, SECONDS)

@@ -493,12 +493,17 @@ public class KafkaSourceSplitEnumerator
                         split -> {
                             if (!assignedSplit.containsKey(split.getTopicPartition())) {
                                 if (!pendingSplit.containsKey(split.getTopicPartition())) {
-                                    if(initialized){
-                                        // For newly discovered partitions, set the start offset to start from the earliest
+                                    if (initialized) {
+                                        // For newly discovered partitions, set the start offset to
+                                        // start from the earliest
                                         try {
-                                            split.setStartOffset(listOffsets(
-                                                    Collections.singletonList(split.getTopicPartition()), OffsetSpec.earliest()
-                                            ).get(split.getTopicPartition()));
+                                            split.setStartOffset(
+                                                    listOffsets(
+                                                                    Collections.singletonList(
+                                                                            split
+                                                                                    .getTopicPartition()),
+                                                                    OffsetSpec.earliest())
+                                                            .get(split.getTopicPartition()));
                                         } catch (ExecutionException | InterruptedException e) {
                                             throw new RuntimeException(e);
                                         }
