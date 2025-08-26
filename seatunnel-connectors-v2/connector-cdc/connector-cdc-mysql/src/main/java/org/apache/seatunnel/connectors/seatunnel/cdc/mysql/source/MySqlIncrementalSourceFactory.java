@@ -103,6 +103,12 @@ public class MySqlIncrementalSourceFactory extends BaseChangeStreamTableSourceFa
             TableSource<T, SplitT, StateT> restoreSource(
                     TableSourceFactoryContext context, List<CatalogTable> restoreTables) {
         return () -> {
+            // Load the JDBC driver in to DriverManager
+            try {
+                Class.forName("com.mysql.cj.jdbc.Driver");
+            } catch (Exception e) {
+                log.warn("Failed to load JDBC driver com.mysql.cj.jdbc.Driver ", e);
+            }
             ReadonlyConfig config = context.getOptions();
             List<CatalogTable> catalogTables =
                     CatalogTableUtil.getCatalogTables(config, context.getClassLoader());

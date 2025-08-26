@@ -443,4 +443,19 @@ public class NumericFunction {
         }
         return round(v1, v2, RoundingMode.DOWN);
     }
+
+    public static String trimScale(List<Object> args) {
+        Number v1 = (Number) args.get(0);
+        if (v1 == null) {
+            return null;
+        }
+        BigDecimal bd;
+        if (v1 instanceof BigDecimal) {
+            bd = (BigDecimal) v1;
+        } else {
+            bd = new BigDecimal(v1.toString());
+        }
+        bd = bd.stripTrailingZeros();
+        return bd.toPlainString();
+    }
 }

@@ -47,6 +47,7 @@ import org.junit.jupiter.api.Test;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
 
 public class PaimonWriteTest {
 
@@ -58,6 +59,7 @@ public class PaimonWriteTest {
     private PaimonSinkWriter paimonSinkWriter;
     private ReadonlyConfig readonlyConfig;
     private SinkWriter.Context context;
+    private final String commitUser = UUID.randomUUID().toString();
 
     @BeforeEach
     public void before() {
@@ -237,6 +239,7 @@ public class PaimonWriteTest {
                         readonlyConfig,
                         paimonCatalog.getTable(tablePath),
                         paimonCatalog.getPaimonTable(tablePath),
+                        commitUser,
                         jobContext,
                         new PaimonSinkConfig(readonlyConfig),
                         new PaimonHadoopConfiguration(),
@@ -250,6 +253,7 @@ public class PaimonWriteTest {
                         readonlyConfig,
                         paimonCatalog.getTable(tablePath),
                         paimonCatalog.getPaimonTable(tablePath),
+                        commitUser,
                         jobContext,
                         new PaimonSinkConfig(readonlyConfig),
                         new PaimonHadoopConfiguration(),
@@ -271,6 +275,7 @@ public class PaimonWriteTest {
                         readonlyConfig,
                         paimonCatalog.getTable(tablePath),
                         paimonCatalog.getPaimonTable(tablePath),
+                        commitUser,
                         jobContext,
                         new PaimonSinkConfig(readonlyConfig),
                         new PaimonHadoopConfiguration(),
@@ -285,6 +290,7 @@ public class PaimonWriteTest {
                         readonlyConfig,
                         paimonCatalog.getTable(tablePath),
                         paimonCatalog.getPaimonTable(tablePath),
+                        commitUser,
                         jobContext,
                         new PaimonSinkConfig(readonlyConfig),
                         new PaimonHadoopConfiguration(),

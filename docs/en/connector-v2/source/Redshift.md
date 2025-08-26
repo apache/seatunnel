@@ -74,7 +74,7 @@ source{
     Jdbc {
         url = "jdbc:redshift://localhost:5439/dev"
         driver = "com.amazon.redshift.jdbc.Driver"
-        user = "root"
+        username = "root"
         password = "123456"
         
         table_path = "public.table2"
@@ -107,7 +107,7 @@ source {
   Jdbc {
     url = "jdbc:redshift://localhost:5439/dev"
     driver = "com.amazon.redshift.jdbc.Driver"
-    user = "root"
+    username = "root"
     password = "123456"
 
     table_list = [

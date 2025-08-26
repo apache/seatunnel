@@ -151,7 +151,7 @@ sink {
     plugin_input = "customers_Postgre_cdc"
     url = "jdbc:postgresql://postgres_cdc_e2e:5432/postgres_cdc?loggerLevel=OFF"
     driver = "org.postgresql.Driver"
-    user = "postgres"
+    username = "postgres"
     password = "postgres"
 
     generate_sink_sql = true

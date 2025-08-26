@@ -23,6 +23,7 @@ import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.type.MetadataUtil;
 import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -46,6 +47,7 @@ public class DebeziumJsonDeserializationSchema implements DeserializationSchema<
     public static final String DATA_PAYLOAD = "payload";
     private static final String DATA_BEFORE = "before";
     private static final String DATA_AFTER = "after";
+    private static final String DATA_TS = "ts_ms";
 
     private static final String REPLICA_IDENTITY_EXCEPTION =
             "The \"before\" field of %s operation is null, "
@@ -117,6 +119,7 @@ public class DebeziumJsonDeserializationSchema implements DeserializationSchema<
     private void parsePayload(Collector<SeaTunnelRow> out, TablePath tablePath, JsonNode payload)
             throws IOException {
         String op = payload.get(OP_KEY).asText();
+        JsonNode tsNode = payload.get(DATA_TS);
 
         switch (op) {
             case OP_CREATE:
@@ -125,6 +128,9 @@ public class DebeziumJsonDeserializationSchema implements DeserializationSchema<
                 insert.setRowKind(RowKind.INSERT);
                 if (tablePath != null) {
                     insert.setTableId(tablePath.toString());
+                }
+                if (tsNode != null) {
+                    MetadataUtil.setEventTime(insert, tsNode.asLong());
                 }
                 out.collect(insert);
                 break;
@@ -138,6 +144,9 @@ public class DebeziumJsonDeserializationSchema implements DeserializationSchema<
                 if (tablePath != null) {
                     before.setTableId(tablePath.toString());
                 }
+                if (tsNode != null) {
+                    MetadataUtil.setEventTime(before, tsNode.asLong());
+                }
                 out.collect(before);
 
                 SeaTunnelRow after = debeziumRowConverter.parse(payload.get(DATA_AFTER));
@@ -145,6 +154,9 @@ public class DebeziumJsonDeserializationSchema implements DeserializationSchema<
 
                 if (tablePath != null) {
                     after.setTableId(tablePath.toString());
+                }
+                if (tsNode != null) {
+                    MetadataUtil.setEventTime(after, tsNode.asLong());
                 }
                 out.collect(after);
                 break;
@@ -157,6 +169,9 @@ public class DebeziumJsonDeserializationSchema implements DeserializationSchema<
                 delete.setRowKind(RowKind.DELETE);
                 if (tablePath != null) {
                     delete.setTableId(tablePath.toString());
+                }
+                if (tsNode != null) {
+                    MetadataUtil.setEventTime(delete, tsNode.asLong());
                 }
                 out.collect(delete);
                 break;

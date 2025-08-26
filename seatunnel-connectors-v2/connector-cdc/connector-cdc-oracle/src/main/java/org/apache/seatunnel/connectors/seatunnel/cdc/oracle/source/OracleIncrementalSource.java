@@ -52,6 +52,7 @@ import java.time.ZoneId;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -124,6 +125,11 @@ public class OracleIncrementalSource<T> extends IncrementalSource<T, JdbcSourceC
     public OffsetFactory createOffsetFactory(ReadonlyConfig config) {
         return new RedoLogOffsetFactory(
                 (OracleSourceConfigFactory) configFactory, (OracleDialect) dataSourceDialect);
+    }
+
+    @Override
+    public Optional<String> driverName() {
+        return Optional.of("oracle.jdbc.OracleDriver");
     }
 
     private Map<TableId, Struct> tableChanges() {

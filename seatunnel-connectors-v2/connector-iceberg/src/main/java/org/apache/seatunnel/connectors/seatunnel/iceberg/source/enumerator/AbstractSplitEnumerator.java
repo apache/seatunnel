@@ -131,16 +131,14 @@ public abstract class AbstractSplitEnumerator
     @Override
     public void addSplitsBack(List<IcebergFileScanTaskSplit> splits, int subtaskId) {
         if (!splits.isEmpty()) {
-            synchronized (stateLock) {
-                addPendingSplits(splits);
-                if (context.registeredReaders().contains(subtaskId)) {
-                    assignPendingSplits(Collections.singleton(subtaskId));
-                } else {
-                    log.warn(
-                            "Reader {} is not registered. Pending splits {} are not assigned.",
-                            subtaskId,
-                            splits);
-                }
+            addPendingSplits(splits);
+            if (context.registeredReaders().contains(subtaskId)) {
+                assignPendingSplits(Collections.singleton(subtaskId));
+            } else {
+                log.warn(
+                        "Reader {} is not registered. Pending splits {} are not assigned.",
+                        subtaskId,
+                        splits);
             }
         }
         log.info("Add back splits {} to JdbcSourceSplitEnumerator.", splits.size());
@@ -163,9 +161,7 @@ public abstract class AbstractSplitEnumerator
     @Override
     public void registerReader(int subtaskId) {
         log.debug("Adding reader {} to IcebergSourceEnumerator.", subtaskId);
-        synchronized (stateLock) {
-            assignPendingSplits(Collections.singleton(subtaskId));
-        }
+        assignPendingSplits(Collections.singleton(subtaskId));
     }
 
     @Override

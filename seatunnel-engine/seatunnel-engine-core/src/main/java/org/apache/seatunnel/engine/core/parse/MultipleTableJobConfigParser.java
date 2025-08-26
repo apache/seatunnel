@@ -78,6 +78,7 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.sql.DriverManager;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -103,6 +104,18 @@ import static org.apache.seatunnel.engine.core.parse.ConfigParserUtil.getInputId
 
 @Slf4j
 public class MultipleTableJobConfigParser {
+
+    static {
+        // Load DriverManager first to avoid deadlock between DriverManager's
+        // static initialization block and specific driver class's static
+        // initialization block when two different driver classes are loading
+        // concurrently using Class.forName while DriverManager is uninitialized
+        // before.
+        //
+        // This could happen in JDK 8 but not above as driver loading has been
+        // moved out of DriverManager's static initialization block since JDK 9.
+        DriverManager.getDrivers();
+    }
 
     private final IdGenerator idGenerator;
     private final JobConfig jobConfig;
@@ -289,7 +302,8 @@ public class MultipleTableJobConfigParser {
                                                 factory))
                         .collect(Collectors.toList());
         List<URL> jarPaths = new ArrayList<>();
-        jarPaths.addAll(new SeaTunnelSinkPluginDiscovery().getPluginJarPaths(factoryIds));
+        jarPaths.addAll(
+                new SeaTunnelSinkPluginDiscovery().getPluginJarAndDependencyPaths(factoryIds));
         jarPaths.addAll(commonPluginJars);
         return jarPaths;
     }
@@ -749,7 +763,8 @@ public class MultipleTableJobConfigParser {
                         CollectionConstants.SOURCE_PLUGIN,
                         sourceConfig.getString(CollectionConstants.PLUGIN_NAME));
         List<URL> pluginJarPaths =
-                sourcePluginDiscovery.getPluginJarPaths(Lists.newArrayList(pluginIdentifier));
+                sourcePluginDiscovery.getPluginJarAndDependencyPaths(
+                        Lists.newArrayList(pluginIdentifier));
         return pluginJarPaths;
     }
 
@@ -774,7 +789,8 @@ public class MultipleTableJobConfigParser {
                         CollectionConstants.SINK_PLUGIN,
                         sinkConfig.getString(CollectionConstants.PLUGIN_NAME));
         List<URL> pluginJarPaths =
-                sinkPluginDiscovery.getPluginJarPaths(Lists.newArrayList(pluginIdentifier));
+                sinkPluginDiscovery.getPluginJarAndDependencyPaths(
+                        Lists.newArrayList(pluginIdentifier));
         return pluginJarPaths;
     }
 

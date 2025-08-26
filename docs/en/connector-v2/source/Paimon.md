@@ -46,13 +46,15 @@ Read data from Apache Paimon.
 
 ## Options
 
-|          name           |  type  | required | default value |
+| name                    |  type  | required | default value |
 |-------------------------|--------|----------|---------------|
 | warehouse               | String | Yes      | -             |
 | catalog_type            | String | No       | filesystem    |
 | catalog_uri             | String | No       | -             |
 | database                | String | Yes      | -             |
 | table                   | String | Yes      | -             |
+| user                    | String | No       | -             |
+| password                | String | No      | -             |
 | hdfs_site_path          | String | No       | -             |
 | query                   | String | No       | -             |
 | paimon.hadoop.conf      | Map    | No       | -             |
@@ -249,6 +251,20 @@ sink {
     table = "st_test_sink"
     paimon.table.primary-keys = "c_tinyint"
   }
+}
+```
+
+### paimon enable privilege example
+
+```hocon
+source {
+ Paimon {
+     warehouse = "/tmp/paimon"
+     database = "default"
+     table = "st_test"
+     user = "paimon"
+     password = "******"
+   }
 }
 ```
 

@@ -87,6 +87,9 @@ public class ClickhouseIT extends TestSuiteBase implements TestResource {
     private static final String SINK_TABLE = "sink_table";
     private static final List<String> MULTI_SINK_TABLES =
             Arrays.asList("multi_sink_table1", "multi_sink_table2");
+    private static final List<String> MULTI_SOURCE_SINK_TABLES =
+            Arrays.asList(
+                    "source_table_multi_table_sink", "source_merge_tree_table_multi_table_sink");
     private static final String INSERT_SQL = "insert_sql";
     private static final String INSERT_MERGE_TREE_SQL = "insert_merge_tree_sql";
     private static final String COMPARE_SQL = "compare_sql";
@@ -259,6 +262,18 @@ public class ClickhouseIT extends TestSuiteBase implements TestResource {
         clearTable(SINK_TABLE);
     }
 
+    @TestTemplate
+    public void testClickhouseWithMultiTableSource(TestContainer testContainer)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                testContainer.executeJob("/clickhouse_with_multi_table_source.conf");
+
+        Assertions.assertEquals(0, execResult.getExitCode());
+        Assertions.assertEquals(100, countData(MULTI_SOURCE_SINK_TABLES.get(0)));
+        Assertions.assertEquals(47, countData(MULTI_SOURCE_SINK_TABLES.get(1)));
+        MULTI_SOURCE_SINK_TABLES.forEach(this::clearTable);
+    }
+
     @BeforeAll
     @Override
     public void startUp() throws Exception {
@@ -285,11 +300,16 @@ public class ClickhouseIT extends TestSuiteBase implements TestResource {
             Statement statement = this.connection.createStatement();
             statement.execute(CONFIG.getString(SOURCE_TABLE));
             statement.execute(CONFIG.getString(SINK_TABLE));
+            statement.execute(CONFIG.getString(SOURCE_MERGE_TREE_TABLE));
+
             // table for multi-table sink test
             for (String tableName : MULTI_SINK_TABLES) {
                 statement.execute(CONFIG.getString(tableName));
             }
-            statement.execute(CONFIG.getString(SOURCE_MERGE_TREE_TABLE));
+
+            for (String tableName : MULTI_SOURCE_SINK_TABLES) {
+                statement.execute(CONFIG.getString(tableName));
+            }
         } catch (SQLException e) {
             throw new RuntimeException("Initializing Clickhouse table failed!", e);
         }

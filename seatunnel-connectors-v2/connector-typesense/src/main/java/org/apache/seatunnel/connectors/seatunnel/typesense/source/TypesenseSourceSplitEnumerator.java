@@ -20,7 +20,6 @@ package org.apache.seatunnel.connectors.seatunnel.typesense.source;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
-import org.apache.seatunnel.connectors.seatunnel.typesense.client.TypesenseClient;
 import org.apache.seatunnel.connectors.seatunnel.typesense.config.TypesenseBaseOptions;
 import org.apache.seatunnel.connectors.seatunnel.typesense.config.TypesenseSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.typesense.dto.SourceCollectionInfo;
@@ -44,8 +43,6 @@ public class TypesenseSourceSplitEnumerator
     private final SourceSplitEnumerator.Context<TypesenseSourceSplit> context;
 
     private final ReadonlyConfig config;
-
-    private TypesenseClient typesenseClient;
 
     private final Object stateLock = new Object();
 

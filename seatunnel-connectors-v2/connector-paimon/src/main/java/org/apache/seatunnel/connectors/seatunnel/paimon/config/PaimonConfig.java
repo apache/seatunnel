@@ -53,6 +53,8 @@ public class PaimonConfig implements Serializable {
     protected String hdfsSitePath;
     protected Map<String, String> hadoopConfProps;
     protected String hadoopConfPath;
+    protected String user;
+    protected String password;
 
     public PaimonConfig(ReadonlyConfig readonlyConfig) {
         this.catalogName =
@@ -80,6 +82,8 @@ public class PaimonConfig implements Serializable {
                             readonlyConfig.get(PaimonBaseOptions.CATALOG_URI),
                             PaimonBaseOptions.CATALOG_URI.key());
         }
+        this.user = readonlyConfig.get(PaimonBaseOptions.USER);
+        this.password = readonlyConfig.get(PaimonBaseOptions.PASSWORD);
     }
 
     protected String checkArgumentNotBlank(String propValue, String propKey) {

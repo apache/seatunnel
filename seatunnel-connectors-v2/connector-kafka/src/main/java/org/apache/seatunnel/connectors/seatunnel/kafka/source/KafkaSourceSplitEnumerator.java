@@ -69,7 +69,7 @@ public class KafkaSourceSplitEnumerator
     private ScheduledExecutorService executor;
     private ScheduledFuture<?> scheduledFuture;
     private volatile boolean initialized;
-
+    private final Object lock = new Object();
     private final Map<String, TablePath> topicMappingTablePathMap = new HashMap<>();
 
     private boolean isStreamingMode;
@@ -145,9 +145,13 @@ public class KafkaSourceSplitEnumerator
 
     @Override
     public void run() throws ExecutionException, InterruptedException {
-        fetchPendingPartitionSplit();
-        setPartitionStartOffset();
-        assignSplit();
+        synchronized (lock) {
+            fetchPendingPartitionSplit();
+            setPartitionStartOffset();
+        }
+        synchronized (lock) {
+            assignSplit();
+        }
         if (!initialized) {
             initialized = true;
         }
@@ -288,7 +292,9 @@ public class KafkaSourceSplitEnumerator
 
     @Override
     public KafkaSourceState snapshotState(long checkpointId) throws Exception {
-        return new KafkaSourceState(new HashSet<>(assignedSplit.values()));
+        synchronized (lock) {
+            return new KafkaSourceState(new HashSet<>(assignedSplit.values()));
+        }
     }
 
     @Override

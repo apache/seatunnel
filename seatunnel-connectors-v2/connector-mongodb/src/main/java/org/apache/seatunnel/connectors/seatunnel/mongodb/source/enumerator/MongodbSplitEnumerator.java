@@ -47,7 +47,7 @@ public class MongodbSplitEnumerator
     private final Context<MongoSplit> context;
 
     private final MongodbClientProvider clientProvider;
-
+    private final Object stateLock = new Object();
     private final MongoSplitStrategy strategy;
 
     public MongodbSplitEnumerator(
@@ -74,14 +74,18 @@ public class MongodbSplitEnumerator
     @Override
     public synchronized void run() {
         log.info("Starting MongoSplitEnumerator.");
-        Set<Integer> readers = context.registeredReaders();
-        pendingSplits.addAll(strategy.split());
-        MongoNamespace namespace = clientProvider.getDefaultCollection().getNamespace();
-        log.info(
-                "Added {} pending splits for namespace {}.",
-                pendingSplits.size(),
-                namespace.getFullName());
-        assignSplits(readers);
+        synchronized (stateLock) {
+            pendingSplits.addAll(strategy.split());
+            MongoNamespace namespace = clientProvider.getDefaultCollection().getNamespace();
+            log.info(
+                    "Added {} pending splits for namespace {}.",
+                    pendingSplits.size(),
+                    namespace.getFullName());
+        }
+        synchronized (stateLock) {
+            Set<Integer> readers = context.registeredReaders();
+            assignSplits(readers);
+        }
     }
 
     @Override
@@ -121,7 +125,9 @@ public class MongodbSplitEnumerator
 
     @Override
     public ArrayList<MongoSplit> snapshotState(long checkpointId) {
-        return pendingSplits;
+        synchronized (stateLock) {
+            return pendingSplits;
+        }
     }
 
     @Override

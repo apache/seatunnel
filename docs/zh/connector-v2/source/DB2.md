@@ -66,11 +66,11 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 ## 源选项
 
-|             名称             |    类型    | 必需 |     默认值     |                                                                                                                            描述                                                                                                                            |
+| 名称                           |    类型    | 必需 |     默认值     |                                                                                                                            描述                                                                                                                            |
 |------------------------------|------------|----------|-----------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | url                          | String     | 是      | -               | JDBC连接的URL。请参考案例：jdbc:db2://127.0.0.1:50000/dbname                                                                                                                                                                                |
 | driver                       | String     | 是      | -               | 用于连接到远程数据源的jdbc类名，<br/>如果使用db2，则值为`com.ibm.db2.jdbc.app.DB2Driver`。                                                                                                                                 |
-| user                         | String     | 否       | -               | 连接实例用户名                                                                                                                                                                                                                                     |
+| username                     | String     | 否       | -               | 连接实例用户名                                                                                                                                                                                                                                     |
 | password                     | String     | 否       | -               | 连接实例密码                                                                                                                                                                                                                                      |
 | query                        | String     | 是      | -               | 查询语句                                                                                                                                                                                                                                                   |
 | connection_check_timeout_sec | Int        | 否       | 30              | 等待用于验证连接的数据库操作完成的时间（秒）                                                                                                                                                               |
@@ -103,7 +103,7 @@ source{
         url = "jdbc:db2://127.0.0.1:50000/dbname"
         driver = "com.ibm.db2.jdbc.app.DB2Driver"
         connection_check_timeout_sec = 100
-        user = "root"
+        username = "root"
         password = "123456"
         query = "select * from table_xxx"
     }
@@ -129,7 +129,7 @@ source {
         url = "jdbc:db2://127.0.0.1:50000/dbname"
         driver = "com.ibm.db2.jdbc.app.DB2Driver"
         connection_check_timeout_sec = 100
-        user = "root"
+        username = "root"
         password = "123456"
         # 根据需要定义查询逻辑
         query = "select * from type_bin"
@@ -151,7 +151,7 @@ source {
         url = "jdbc:db2://127.0.0.1:50000/dbname"
         driver = "com.ibm.db2.jdbc.app.DB2Driver"
         connection_check_timeout_sec = 100
-        user = "root"
+        username = "root"
         password = "123456"
         # 根据需求定义查询逻辑
         query = "select * from type_bin"

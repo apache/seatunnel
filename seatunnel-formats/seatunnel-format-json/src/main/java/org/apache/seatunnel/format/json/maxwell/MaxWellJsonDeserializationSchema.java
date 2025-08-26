@@ -24,6 +24,8 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.type.MetadataUtil;
 import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -33,6 +35,7 @@ import org.apache.seatunnel.format.json.JsonDeserializationSchema;
 import org.apache.seatunnel.format.json.exception.SeaTunnelJsonFormatException;
 
 import java.io.IOException;
+import java.util.Optional;
 import java.util.regex.Pattern;
 
 import static java.lang.String.format;
@@ -56,6 +59,8 @@ public class MaxWellJsonDeserializationSchema implements DeserializationSchema<S
     private static final String FIELD_DATABASE = "database";
 
     private static final String FIELD_TABLE = "table";
+
+    private static final String FIELD_TS = "ts";
 
     private final String database;
 
@@ -110,6 +115,9 @@ public class MaxWellJsonDeserializationSchema implements DeserializationSchema<S
         if (message == null) {
             return;
         }
+        TablePath tablePath =
+                Optional.ofNullable(catalogTable).map(CatalogTable::getTablePath).orElse(null);
+
         ObjectNode jsonNode = (ObjectNode) convertBytes(message);
         if (database != null
                 && !databasePattern.matcher(jsonNode.get(FIELD_DATABASE).asText()).matches()) {
@@ -120,9 +128,16 @@ public class MaxWellJsonDeserializationSchema implements DeserializationSchema<S
         }
         JsonNode dataNode = jsonNode.get(FIELD_DATA);
         String type = jsonNode.get(FIELD_TYPE).asText();
+        JsonNode tsNode = jsonNode.get(FIELD_TS);
         if (OP_INSERT.equals(type)) {
             SeaTunnelRow rowInsert = convertJsonNode(dataNode);
             rowInsert.setRowKind(RowKind.INSERT);
+            if (tablePath != null && !tablePath.toString().isEmpty()) {
+                rowInsert.setTableId(tablePath.toString());
+            }
+            if (tsNode != null) {
+                MetadataUtil.setEventTime(rowInsert, tsNode.asLong() * 1000);
+            }
             out.collect(rowInsert);
         } else if (OP_UPDATE.equals(type)) {
             SeaTunnelRow rowAfter = convertJsonNode(dataNode);
@@ -142,11 +157,25 @@ public class MaxWellJsonDeserializationSchema implements DeserializationSchema<S
             rowBefore.setRowKind(RowKind.UPDATE_BEFORE);
             assert rowAfter != null;
             rowAfter.setRowKind(RowKind.UPDATE_AFTER);
+            if (tablePath != null && !tablePath.toString().isEmpty()) {
+                rowBefore.setTableId(tablePath.toString());
+                rowAfter.setTableId(tablePath.toString());
+            }
+            if (tsNode != null) {
+                MetadataUtil.setEventTime(rowBefore, tsNode.asLong() * 1000);
+                MetadataUtil.setEventTime(rowAfter, tsNode.asLong() * 1000);
+            }
             out.collect(rowBefore);
             out.collect(rowAfter);
         } else if (OP_DELETE.equals(type)) {
             SeaTunnelRow rowDelete = convertJsonNode(dataNode);
             rowDelete.setRowKind(RowKind.DELETE);
+            if (tablePath != null && !tablePath.toString().isEmpty()) {
+                rowDelete.setTableId(tablePath.toString());
+            }
+            if (tsNode != null) {
+                MetadataUtil.setEventTime(rowDelete, tsNode.asLong() * 1000);
+            }
             out.collect(rowDelete);
         } else {
             if (!ignoreParseErrors) {
