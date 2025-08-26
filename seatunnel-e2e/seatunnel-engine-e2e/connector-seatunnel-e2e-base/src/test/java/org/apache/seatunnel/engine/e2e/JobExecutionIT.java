@@ -111,20 +111,6 @@ public class JobExecutionIT {
     }
 
     @Test
-    public void testExecuteJobWithLockMetrics() throws Exception {
-        // lock metrics map
-        IMap<Long, HashMap<TaskLocation, SeaTunnelMetricsContext>> metricsImap =
-                hazelcastInstance.getMap(Constant.IMAP_RUNNING_JOB_METRICS);
-        metricsImap.lock(Constant.IMAP_RUNNING_JOB_METRICS_KEY);
-        try {
-            runJobFileWithAssertEndStatus(
-                    "batch_fakesource_to_file.conf", "fake_to_file", JobStatus.FINISHED);
-        } finally {
-            metricsImap.unlock(Constant.IMAP_RUNNING_JOB_METRICS_KEY);
-        }
-    }
-
-    @Test
     public void cancelJobTest() throws Exception {
         Common.setDeployMode(DeployMode.CLIENT);
         String filePath = TestUtils.getResource("streaming_fakesource_to_file_complex.conf");

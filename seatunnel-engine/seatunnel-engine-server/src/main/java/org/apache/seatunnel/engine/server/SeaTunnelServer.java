@@ -25,8 +25,11 @@ import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineRetryableException;
 import org.apache.seatunnel.engine.core.classloader.ClassLoaderService;
 import org.apache.seatunnel.engine.core.classloader.DefaultClassLoaderService;
+import org.apache.seatunnel.engine.server.dag.physical.PipelineLocation;
 import org.apache.seatunnel.engine.server.execution.ExecutionState;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
+import org.apache.seatunnel.engine.server.execution.TaskLocation;
+import org.apache.seatunnel.engine.server.metrics.SeaTunnelMetricsContext;
 import org.apache.seatunnel.engine.server.service.jar.ConnectorPackageService;
 import org.apache.seatunnel.engine.server.service.slot.DefaultSlotService;
 import org.apache.seatunnel.engine.server.service.slot.SlotService;
@@ -50,10 +53,14 @@ import lombok.Getter;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 @Slf4j
 public class SeaTunnelServer
@@ -321,6 +328,59 @@ public class SeaTunnelServer
         if (coordinatorService.isCoordinatorActive() && this.isMasterNode()) {
             coordinatorService.printJobDetailInfo();
         }
+    }
+
+    public void updateMetrics(Map<TaskLocation, SeaTunnelMetricsContext> localMap) {
+        if (localMap == null || localMap.isEmpty()) {
+            return;
+        }
+        IMap<Long, HashMap<TaskLocation, SeaTunnelMetricsContext>> metricsImap =
+                getNodeEngine().getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_METRICS);
+
+        metricsImap.compute(
+                Constant.IMAP_RUNNING_JOB_METRICS_KEY,
+                (key, centralMap) -> {
+                    if (centralMap == null) {
+                        centralMap = new HashMap<>();
+                    }
+                    centralMap.putAll(localMap);
+                    return centralMap;
+                });
+    }
+
+    public void removeMetrics(PipelineLocation pipelineLocation) {
+        IMap<Long, HashMap<TaskLocation, SeaTunnelMetricsContext>> metricsImap =
+                getNodeEngine().getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_METRICS);
+
+        metricsImap.compute(
+                Constant.IMAP_RUNNING_JOB_METRICS_KEY,
+                (key, centralMap) -> {
+                    if (centralMap == null) {
+                        return null;
+                    }
+
+                    List<TaskLocation> taskLocations =
+                            getTaskLocations(pipelineLocation, centralMap);
+                    if (taskLocations == null || taskLocations.isEmpty()) {
+                        return centralMap;
+                    }
+
+                    taskLocations.forEach(centralMap::remove);
+                    return centralMap;
+                });
+    }
+
+    private List<TaskLocation> getTaskLocations(
+            PipelineLocation pipelineLocation,
+            HashMap<TaskLocation, SeaTunnelMetricsContext> centralMap) {
+        return centralMap.keySet().stream()
+                .filter(
+                        taskLocation ->
+                                taskLocation
+                                        .getTaskGroupLocation()
+                                        .getPipelineLocation()
+                                        .equals(pipelineLocation))
+                .collect(Collectors.toList());
     }
 
     public SeaTunnelConfig getSeaTunnelConfig() {

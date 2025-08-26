@@ -31,6 +31,8 @@ import org.apache.seatunnel.engine.server.task.operation.GetMetricsOperation;
 import org.apache.seatunnel.engine.server.task.operation.GetTaskGroupAddressOperation;
 import org.apache.seatunnel.engine.server.task.operation.GetTaskGroupMetricsOperation;
 import org.apache.seatunnel.engine.server.task.operation.NotifyTaskStatusOperation;
+import org.apache.seatunnel.engine.server.task.operation.RemoveMetricsOperation;
+import org.apache.seatunnel.engine.server.task.operation.ReportMetricsOperation;
 import org.apache.seatunnel.engine.server.task.operation.SendConnectorJarToMemberNodeOperation;
 import org.apache.seatunnel.engine.server.task.operation.checkpoint.BarrierFlowOperation;
 import org.apache.seatunnel.engine.server.task.operation.checkpoint.CloseRequestOperation;
@@ -107,6 +109,10 @@ public class TaskDataSerializerHook implements DataSerializerHook {
 
     public static final int CLEAN_LOG_OPERATION = 27;
 
+    public static final int REPORT_METRICS_OPERATION = 28;
+
+    public static final int REMOVE_METRICS_OPERATION = 29;
+
     public static final int FACTORY_ID =
             FactoryIdHelper.getFactoryId(
                     SeaTunnelFactoryIdConstant.SEATUNNEL_TASK_DATA_SERIALIZER_FACTORY,
@@ -181,6 +187,10 @@ public class TaskDataSerializerHook implements DataSerializerHook {
                     return new CloseIdleReaderOperation();
                 case CLEAN_LOG_OPERATION:
                     return new CleanLogOperation();
+                case REPORT_METRICS_OPERATION:
+                    return new ReportMetricsOperation();
+                case REMOVE_METRICS_OPERATION:
+                    return new RemoveMetricsOperation();
                 default:
                     throw new IllegalArgumentException("Unknown type id " + typeId);
             }

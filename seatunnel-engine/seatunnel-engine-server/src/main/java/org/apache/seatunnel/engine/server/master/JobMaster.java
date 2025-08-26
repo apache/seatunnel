@@ -39,6 +39,7 @@ import org.apache.seatunnel.engine.common.config.EngineConfig;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.config.server.CheckpointConfig;
 import org.apache.seatunnel.engine.common.config.server.CheckpointStorageConfig;
+import org.apache.seatunnel.engine.common.exception.JobNotFoundException;
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 import org.apache.seatunnel.engine.common.job.JobResult;
 import org.apache.seatunnel.engine.common.job.JobStatus;
@@ -67,9 +68,7 @@ import org.apache.seatunnel.engine.server.dag.physical.ResourceUtils;
 import org.apache.seatunnel.engine.server.dag.physical.SubPlan;
 import org.apache.seatunnel.engine.server.execution.TaskExecutionState;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
-import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.metrics.JobMetricsUtil;
-import org.apache.seatunnel.engine.server.metrics.SeaTunnelMetricsContext;
 import org.apache.seatunnel.engine.server.resourcemanager.AbstractResourceManager;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManager;
 import org.apache.seatunnel.engine.server.resourcemanager.allocation.strategy.SlotAllocationStrategy;
@@ -78,11 +77,11 @@ import org.apache.seatunnel.engine.server.resourcemanager.allocation.strategy.Sy
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
 import org.apache.seatunnel.engine.server.task.operation.CleanTaskGroupContextOperation;
 import org.apache.seatunnel.engine.server.task.operation.GetTaskGroupMetricsOperation;
+import org.apache.seatunnel.engine.server.task.operation.RemoveMetricsOperation;
 import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
 
 import com.hazelcast.cluster.Address;
 import com.hazelcast.core.HazelcastInstanceNotActiveException;
-import com.hazelcast.core.OperationTimeoutException;
 import com.hazelcast.flakeidgen.FlakeIdGenerator;
 import com.hazelcast.internal.serialization.Data;
 import com.hazelcast.jet.datamodel.Tuple2;
@@ -90,6 +89,7 @@ import com.hazelcast.logging.ILogger;
 import com.hazelcast.logging.Logger;
 import com.hazelcast.map.IMap;
 import com.hazelcast.spi.impl.NodeEngine;
+import com.hazelcast.spi.impl.operationservice.impl.InvocationFuture;
 import lombok.Getter;
 import lombok.NonNull;
 
@@ -107,8 +107,8 @@ import java.util.Set;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 import static com.hazelcast.jet.impl.util.ExceptionUtil.withTryCatch;
@@ -169,8 +169,6 @@ public class JobMaster {
 
     @Getter private final Set<ExecutionAddress> historyExecutionAddress = new HashSet<>();
 
-    private final IMap<Long, HashMap<TaskLocation, SeaTunnelMetricsContext>> metricsImap;
-
     /** If the job or pipeline cancel by user, needRestore will be false */
     @Getter private volatile boolean needRestore = true;
 
@@ -195,7 +193,6 @@ public class JobMaster {
             @NonNull IMap runningJobStateTimestampsIMap,
             @NonNull IMap ownedSlotProfilesIMap,
             @NonNull IMap<Long, JobInfo> runningJobInfoIMap,
-            @NonNull IMap<Long, HashMap<TaskLocation, SeaTunnelMetricsContext>> metricsImap,
             EngineConfig engineConfig,
             SeaTunnelServer seaTunnelServer) {
         this.jobId = jobId;
@@ -213,7 +210,6 @@ public class JobMaster {
         this.runningJobStateTimestampsIMap = runningJobStateTimestampsIMap;
         this.runningJobInfoIMap = runningJobInfoIMap;
         this.engineConfig = engineConfig;
-        this.metricsImap = metricsImap;
         this.seaTunnelServer = seaTunnelServer;
         this.releasedSlotWhenTaskGroupFinished = new ConcurrentHashMap<>();
     }
@@ -893,44 +889,42 @@ public class JobMaster {
         if ((pipelineStatus.equals(PipelineStatus.FINISHED)
                         && !checkpointManager.isPipelineSavePointEnd(pipelineLocation))
                 || pipelineStatus.equals(PipelineStatus.CANCELED)) {
+            long sleepTime = 1000;
+            boolean removeMetricsSuccess = false;
+            while (isRunning && !removeMetricsSuccess) {
 
-            boolean lockedIMap = false;
-            try {
-                lockedIMap =
-                        metricsImap.tryLock(
-                                Constant.IMAP_RUNNING_JOB_METRICS_KEY, 5, TimeUnit.SECONDS);
-                if (!lockedIMap) {
-                    LOGGER.severe("lock imap failed in update metrics");
-                    return;
-                }
+                InvocationFuture<Object> invoke =
+                        nodeEngine
+                                .getOperationService()
+                                .createInvocationBuilder(
+                                        SeaTunnelServer.SERVICE_NAME,
+                                        new RemoveMetricsOperation(pipelineLocation),
+                                        nodeEngine.getMasterAddress())
+                                .invoke();
 
-                HashMap<TaskLocation, SeaTunnelMetricsContext> centralMap =
-                        metricsImap.get(Constant.IMAP_RUNNING_JOB_METRICS_KEY);
-                if (centralMap != null) {
-                    List<TaskLocation> collect =
-                            centralMap.keySet().stream()
-                                    .filter(
-                                            taskLocation -> {
-                                                return taskLocation
-                                                        .getTaskGroupLocation()
-                                                        .getPipelineLocation()
-                                                        .equals(pipelineLocation);
-                                            })
-                                    .collect(Collectors.toList());
-                    collect.forEach(centralMap::remove);
-                    metricsImap.put(Constant.IMAP_RUNNING_JOB_METRICS_KEY, centralMap);
-                }
-            } catch (Exception e) {
-                LOGGER.warning("failed to remove metrics context", e);
-            } finally {
-                if (lockedIMap) {
-                    boolean unLockedIMap = false;
-                    while (!unLockedIMap) {
+                try {
+                    invoke.get();
+                    removeMetricsSuccess = true;
+                } catch (InterruptedException e) {
+                    LOGGER.severe("failed to remove metrics context", e);
+                } catch (JobNotFoundException e) {
+                    LOGGER.warning("failed to remove metrics context because can't find job", e);
+                    removeMetricsSuccess = true;
+                } catch (ExecutionException e) {
+                    if (e.getCause() instanceof JobNotFoundException) {
+                        LOGGER.warning(
+                                "failed to remove metrics context because can't find job", e);
+                        removeMetricsSuccess = true;
+                    } else {
+                        LOGGER.warning(ExceptionUtils.getMessage(e));
+                        LOGGER.warning(
+                                String.format(
+                                        "failed to remove metrics context, retry in %s millis",
+                                        sleepTime));
                         try {
-                            metricsImap.unlock(Constant.IMAP_RUNNING_JOB_METRICS_KEY);
-                            unLockedIMap = true;
-                        } catch (OperationTimeoutException e) {
-                            LOGGER.warning("unlock imap failed in update metrics", e);
+                            Thread.sleep(sleepTime);
+                        } catch (InterruptedException ex) {
+                            LOGGER.severe(e);
                         }
                     }
                 }

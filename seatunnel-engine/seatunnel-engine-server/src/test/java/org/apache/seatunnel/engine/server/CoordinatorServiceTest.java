@@ -25,6 +25,8 @@ import org.apache.seatunnel.engine.common.job.JobStatus;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.core.job.PipelineStatus;
+import org.apache.seatunnel.engine.server.execution.TaskLocation;
+import org.apache.seatunnel.engine.server.metrics.SeaTunnelMetricsContext;
 import org.apache.seatunnel.engine.server.operation.PrintMessageOperation;
 import org.apache.seatunnel.engine.server.operation.ReturnRetryTimesOperation;
 import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
@@ -40,7 +42,10 @@ import com.hazelcast.map.IMap;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.TimeUnit;
 
@@ -191,6 +196,24 @@ public class CoordinatorServiceTest {
 
         await().atMost(10000, TimeUnit.MILLISECONDS)
                 .untilAsserted(() -> Assertions.assertTrue(runningJobStateIMap.isEmpty()));
+
+        jobInformation.coordinatorService.clearCoordinatorService();
+        jobInformation.coordinatorServiceTest.shutdown();
+    }
+
+    @Test
+    void testCleanupMetricsImap() {
+        JobInformation jobInformation =
+                submitJob(
+                        "CoordinatorServiceTest_testCleanupMetricsImap",
+                        "batch_fake_to_console.conf",
+                        "test_cleanup_metrics_imap");
+        CoordinatorService coordinatorService = jobInformation.coordinatorService;
+        IMap<Long, HashMap<TaskLocation, SeaTunnelMetricsContext>> metricsImap =
+                coordinatorService.getMetricsImap();
+
+        await().atMost(10000, TimeUnit.MILLISECONDS)
+                .untilAsserted(() -> Assertions.assertTrue(metricsImap.isEmpty()));
 
         jobInformation.coordinatorService.clearCoordinatorService();
         jobInformation.coordinatorServiceTest.shutdown();
@@ -426,7 +449,97 @@ public class CoordinatorServiceTest {
         }
     }
 
+    @Disabled("Performance test, not suitable for regular unit test execution")
+    @Test
+    void testDistributedMetricsPerformance() {
+        String clusterName = TestUtils.getClusterName("testDistributedMetricsPerformance");
+        HazelcastInstanceImpl instance1 =
+                SeaTunnelServerStarter.createHazelcastInstance(clusterName);
+        List<HazelcastInstanceImpl> instances = new ArrayList<>();
+        for (int i = 0; i < 19; i++) {
+            instances.add(SeaTunnelServerStarter.createHazelcastInstance(clusterName));
+        }
+
+        await().atMost(20000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> {
+                            Assertions.assertEquals(20, instance1.getCluster().getMembers().size());
+                        });
+
+        SeaTunnelServer server1 =
+                instance1.node.getNodeEngine().getService(SeaTunnelServer.SERVICE_NAME);
+
+        CoordinatorService coordinatorService1 = server1.getCoordinatorService();
+
+        IMap<Long, HashMap<TaskLocation, SeaTunnelMetricsContext>> metricsImap1 =
+                coordinatorService1.getMetricsImap();
+
+        List<Long> jobIds = new ArrayList<>();
+        for (int i = 0; i < 10; i++) {
+            Long jobId =
+                    instance1.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME).newId();
+            LogicalDag testLogicalDag =
+                    TestUtils.createTestLogicalPlan(
+                            "batch_fake_to_console.conf", "distributed_metrics_test_" + i, jobId);
+
+            JobImmutableInformation jobInfo =
+                    new JobImmutableInformation(
+                            jobId,
+                            "test_distributed_metrics_performance",
+                            instance1.getSerializationService(),
+                            testLogicalDag,
+                            Collections.emptyList(),
+                            Collections.emptyList());
+
+            Data data = instance1.getSerializationService().toData(jobInfo);
+            coordinatorService1.submitJob(jobId, data, false).join();
+            jobIds.add(jobId);
+        }
+
+        await().atMost(60000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> {
+                            jobIds.forEach(
+                                    jobId -> {
+                                        JobStatus status = coordinatorService1.getJobStatus(jobId);
+                                        Assertions.assertTrue(
+                                                status == JobStatus.RUNNING
+                                                        || status == JobStatus.FINISHED);
+                                    });
+                        });
+
+        long start = System.nanoTime();
+        int initialSize = 0;
+
+        await().atMost(60000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> {
+                            Assertions.assertTrue(
+                                    metricsImap1.get(Constant.IMAP_RUNNING_JOB_METRICS_KEY) != null
+                                            && metricsImap1
+                                                            .get(
+                                                                    Constant
+                                                                            .IMAP_RUNNING_JOB_METRICS_KEY)
+                                                            .size()
+                                                    >= 10);
+                        });
+        int finalSize = metricsImap1.get(Constant.IMAP_RUNNING_JOB_METRICS_KEY).size();
+        long elapsed = System.nanoTime() - start;
+        double throughput = (elapsed / 1_000_000_000.0);
+
+        System.out.printf("Distributed metrics performance:%n");
+        System.out.printf("- Concurrent jobs: %d%n", jobIds.size());
+        System.out.printf("- Metrics updates: %d → %d entries%n", initialSize, finalSize);
+        System.out.printf("- seconds %.2f %n", throughput);
+
+        instance1.shutdown();
+        for (HazelcastInstanceImpl instance : instances) {
+            instance.shutdown();
+        }
+    }
+
     private static class JobInformation {
+
         public final HazelcastInstanceImpl coordinatorServiceTest;
         public final CoordinatorService coordinatorService;
         public final Long jobId;
