@@ -74,7 +74,10 @@ public class MySqlConnectionUtils {
 
     /** Fetch earliest binlog offsets in MySql Server. */
     public static BinlogOffset earliestBinlogOffset(JdbcConnection jdbc) {
-        final String showMasterStmt = "SHOW MASTER LOGS";
+        final String showMasterStmt =
+                ((MySqlConnection) jdbc).binaryLogStatusStatement().startsWith("SHOW BINARY")
+                        ? "SHOW BINARY LOGS"
+                        : "SHOW MASTER LOGS";
         JdbcConnection.ResultSetMapper<BinlogOffset> getCurrentBinlogOffset =
                 rs -> {
                     final String binlogFilename = rs.getString(1);
@@ -87,7 +90,7 @@ public class MySqlConnectionUtils {
 
     /** Fetch current binlog offsets in MySql Server. */
     public static BinlogOffset currentBinlogOffset(JdbcConnection jdbc) {
-        final String showMasterStmt = "SHOW MASTER STATUS";
+        MySqlConnection mySqlConnection = (MySqlConnection) jdbc;
         JdbcConnection.ResultSetMapper<BinlogOffset> getCurrentBinlogOffset =
                 rs -> {
                     final String binlogFilename = rs.getString(1);
@@ -97,7 +100,8 @@ public class MySqlConnectionUtils {
                     return new BinlogOffset(
                             binlogFilename, binlogPosition, 0L, 0, 0, gtidSet, null);
                 };
-        return getBinlogOffset(jdbc, showMasterStmt, getCurrentBinlogOffset);
+        return getBinlogOffset(
+                jdbc, mySqlConnection.binaryLogStatusStatement(), getCurrentBinlogOffset);
     }
 
     private static BinlogOffset getBinlogOffset(

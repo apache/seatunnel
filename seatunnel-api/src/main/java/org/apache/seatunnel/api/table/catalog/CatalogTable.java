@@ -40,6 +40,8 @@ public final class CatalogTable implements Serializable {
 
     private final List<String> partitionKeys;
 
+    private final MetadataSchema metadata;
+
     private final String comment;
 
     private final String catalogName;
@@ -52,7 +54,8 @@ public final class CatalogTable implements Serializable {
                 newTable.getOptions(),
                 newTable.getPartitionKeys(),
                 newTable.getComment(),
-                newTable.getCatalogName());
+                newTable.getCatalogName(),
+                newTable.getMetadataSchema());
     }
 
     public static CatalogTable of(
@@ -62,7 +65,13 @@ public final class CatalogTable implements Serializable {
             List<String> partitionKeys,
             String comment) {
         return new CatalogTable(
-                tableId, tableSchema, options, partitionKeys, comment, tableId.getCatalogName());
+                tableId,
+                tableSchema,
+                options,
+                partitionKeys,
+                comment,
+                tableId.getCatalogName(),
+                MetadataSchema.builder().build());
     }
 
     public static CatalogTable of(
@@ -72,16 +81,37 @@ public final class CatalogTable implements Serializable {
             List<String> partitionKeys,
             String comment,
             String catalogName) {
-        return new CatalogTable(tableId, tableSchema, options, partitionKeys, comment, catalogName);
+        return new CatalogTable(
+                tableId,
+                tableSchema,
+                options,
+                partitionKeys,
+                comment,
+                catalogName,
+                MetadataSchema.builder().build());
     }
 
-    private CatalogTable(
+    public static CatalogTable of(
             TableIdentifier tableId,
             TableSchema tableSchema,
             Map<String, String> options,
             List<String> partitionKeys,
-            String comment) {
-        this(tableId, tableSchema, options, partitionKeys, comment, tableId.getCatalogName());
+            String comment,
+            String catalogName,
+            MetadataSchema metadata) {
+        return new CatalogTable(
+                tableId, tableSchema, options, partitionKeys, comment, catalogName, metadata);
+    }
+
+    public static CatalogTable withMetadata(CatalogTable catalogTable, MetadataSchema metadata) {
+        return new CatalogTable(
+                catalogTable.getTableId(),
+                catalogTable.getTableSchema(),
+                catalogTable.getOptions(),
+                catalogTable.getPartitionKeys(),
+                catalogTable.getComment(),
+                catalogTable.getCatalogName(),
+                metadata);
     }
 
     private CatalogTable(
@@ -90,7 +120,8 @@ public final class CatalogTable implements Serializable {
             Map<String, String> options,
             List<String> partitionKeys,
             String comment,
-            String catalogName) {
+            String catalogName,
+            MetadataSchema metadata) {
         this.tableId = tableId;
         this.tableSchema = tableSchema;
         // Make sure the options and partitionKeys are mutable
@@ -98,6 +129,7 @@ public final class CatalogTable implements Serializable {
         this.partitionKeys = new ArrayList<>(partitionKeys);
         this.comment = comment;
         this.catalogName = catalogName;
+        this.metadata = metadata;
     }
 
     public CatalogTable copy() {
@@ -107,7 +139,8 @@ public final class CatalogTable implements Serializable {
                 new HashMap<>(options),
                 new ArrayList<>(partitionKeys),
                 comment,
-                catalogName);
+                catalogName,
+                metadata);
     }
 
     public TableIdentifier getTableId() {
@@ -142,6 +175,10 @@ public final class CatalogTable implements Serializable {
         return catalogName;
     }
 
+    public MetadataSchema getMetadataSchema() {
+        return metadata;
+    }
+
     @Override
     public String toString() {
         return "CatalogTable{"
@@ -159,6 +196,8 @@ public final class CatalogTable implements Serializable {
                 + ", catalogName='"
                 + catalogName
                 + '\''
+                + ", metadata="
+                + metadata
                 + '}';
     }
 }

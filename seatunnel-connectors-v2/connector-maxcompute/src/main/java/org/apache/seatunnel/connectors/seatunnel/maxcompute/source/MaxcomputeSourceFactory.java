@@ -50,7 +50,8 @@ public class MaxcomputeSourceFactory implements TableSourceFactory {
                         MaxcomputeSourceOptions.SPLIT_ROW,
                         ConnectorCommonOptions.SCHEMA,
                         MaxcomputeSourceOptions.PROJECT,
-                        MaxcomputeSourceOptions.READ_COLUMNS)
+                        MaxcomputeSourceOptions.READ_COLUMNS,
+                        MaxcomputeSourceOptions.TUNNEL_ENDPOINT)
                 .exclusive(MaxcomputeSourceOptions.TABLE_LIST, MaxcomputeSourceOptions.TABLE_NAME)
                 .build();
     }

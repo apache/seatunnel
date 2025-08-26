@@ -19,7 +19,7 @@ source {
   MySQL-CDC {
     plugin_output = "table1"
 
-    base-url="jdbc:mysql://localhost:3306/test"
+    url="jdbc:mysql://localhost:3306/test"
     "startup.mode"=INITIAL
     table-names=[
         "database1.t1",

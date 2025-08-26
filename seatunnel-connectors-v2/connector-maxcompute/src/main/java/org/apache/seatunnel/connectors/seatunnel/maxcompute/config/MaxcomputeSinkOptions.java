@@ -61,11 +61,4 @@ public class MaxcomputeSinkOptions extends MaxcomputeBaseOptions {
                                     + "' ;")
                     .withDescription(
                             "Create table statement template, used to create MaxCompute table");
-
-    public static final Option<String> TUNNEL_ENDPOINT =
-            Options.key("tunnel_endpoint")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription(
-                            "Tunnel endpoint, e.g. https://dt.cn-hangzhou.maxcompute.aliyun.com");
 }

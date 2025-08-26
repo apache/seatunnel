@@ -83,6 +83,9 @@ public class PostgresTypeConverter implements TypeConverter<BasicTypeDefine> {
     // character varying <=> varchar
     public static final String PG_VARCHAR = "varchar";
     public static final String PG_INET = "inet";
+    public static final String PG_CIDR = "cidr";
+    public static final String PG_MAC_ADDR = "macaddr";
+    public static final String PG_MAC_ADDR8 = "macaddr8";
     public static final String PG_CHARACTER_VARYING = "character varying";
     // character varying[] <=> varchar[] <=> _varchar
     public static final String PG_VARCHAR_ARRAY = "_varchar";
@@ -95,6 +98,8 @@ public class PostgresTypeConverter implements TypeConverter<BasicTypeDefine> {
     private static final String PG_GEOMETRY = "geometry";
     private static final String PG_GEOGRAPHY = "geography";
     public static final String PG_DATE = "date";
+    public static final String PG_INTERVAL = "interval";
+
     // time without time zone <=> time
     public static final String PG_TIME = "time";
     // time with time zone <=> timetz
@@ -225,6 +230,10 @@ public class PostgresTypeConverter implements TypeConverter<BasicTypeDefine> {
             case PG_GEOMETRY:
             case PG_GEOGRAPHY:
             case PG_INET:
+            case PG_INTERVAL:
+            case PG_CIDR:
+            case PG_MAC_ADDR:
+            case PG_MAC_ADDR8:
                 builder.dataType(BasicType.STRING_TYPE);
                 builder.sourceType(pgDataType);
                 break;

@@ -23,6 +23,8 @@ import lombok.Data;
 
 import java.io.Serializable;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Data
 public class TDengineSourceConfig implements Serializable {
@@ -36,8 +38,9 @@ public class TDengineSourceConfig implements Serializable {
     private String stable;
     private String lowerBound;
     private String upperBound;
-    private List<String> fields;
     private List<String> tags;
+    private Set<String> subTables;
+    private Set<String> readColumns;
 
     public static TDengineSourceConfig buildSourceConfig(ReadonlyConfig pluginConfig) {
         TDengineSourceConfig tdengineSourceConfig = new TDengineSourceConfig();
@@ -48,6 +51,18 @@ public class TDengineSourceConfig implements Serializable {
         tdengineSourceConfig.setPassword(pluginConfig.get(TDengineSourceOptions.PASSWORD));
         tdengineSourceConfig.setUpperBound(pluginConfig.get(TDengineSourceOptions.UPPER_BOUND));
         tdengineSourceConfig.setLowerBound(pluginConfig.get(TDengineSourceOptions.LOWER_BOUND));
+        if (pluginConfig.getOptional(TDengineSourceOptions.SUB_TABLES).isPresent()) {
+            tdengineSourceConfig.setSubTables(
+                    pluginConfig.get(TDengineSourceOptions.SUB_TABLES).stream()
+                            .collect(Collectors.toSet()));
+        }
+        if (pluginConfig.getOptional(TDengineSourceOptions.READ_COLUMNS).isPresent()) {
+            tdengineSourceConfig.setReadColumns(
+                    pluginConfig.get(TDengineSourceOptions.READ_COLUMNS).stream()
+                            .collect(Collectors.toSet()));
+        } else {
+            tdengineSourceConfig.setReadColumns(null);
+        }
         return tdengineSourceConfig;
     }
 }

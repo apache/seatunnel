@@ -38,7 +38,20 @@ public interface SourceSplitEnumerator<SplitT extends SourceSplit, StateT>
 
     void open();
 
-    /** The method is executed by the engine only once. */
+    /**
+     * Executes engine setup steps in a fixed, non‑concurrent sequence.
+     *
+     * <p>Before the first {@link #run()} invocation, methods are called in this order:
+     *
+     * <ol>
+     *   <li>{@link #open()}
+     *   <li>{@link #addSplitsBack(List, int)}
+     *   <li>{@link #registerReader(int)}
+     * </ol>
+     *
+     * <p>{@implNote The engine guarantees this invocation order and ensures there are no
+     * concurrency issues between these calls.}
+     */
     void run() throws Exception;
 
     /**
@@ -63,7 +76,13 @@ public interface SourceSplitEnumerator<SplitT extends SourceSplit, StateT>
 
     void registerReader(int subtaskId);
 
-    /** If the source is bounded, checkpoint is not triggered. */
+    /**
+     * Used to snapshot the state of the enumerator.
+     *
+     * <p><strong>Concurrency Consideration:</strong><br>
+     * This method and {@link #run()} can be invoked concurrently by different threads.
+     * Systematically manage shared state access to prevent race conditions.
+     */
     StateT snapshotState(long checkpointId) throws Exception;
 
     /**

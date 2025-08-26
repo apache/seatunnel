@@ -25,7 +25,7 @@ import org.apache.seatunnel.api.table.schema.event.AlterTableAddColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableChangeColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableModifyColumnEvent;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcCommonOptions;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.JdbcRowConverter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
@@ -57,11 +57,13 @@ public class OracleDialect implements JdbcDialect {
     private final boolean handleBlobAsString;
 
     public OracleDialect(String fieldIde) {
-        this(fieldIde, JdbcOptions.HANDLE_BLOB_AS_STRING.defaultValue());
+        this(fieldIde, JdbcCommonOptions.HANDLE_BLOB_AS_STRING.defaultValue());
     }
 
     public OracleDialect() {
-        this(FieldIdeEnum.ORIGINAL.getValue(), JdbcOptions.HANDLE_BLOB_AS_STRING.defaultValue());
+        this(
+                FieldIdeEnum.ORIGINAL.getValue(),
+                JdbcCommonOptions.HANDLE_BLOB_AS_STRING.defaultValue());
     }
 
     public OracleDialect(String fieldIde, boolean handleBlobAsString) {

@@ -129,7 +129,8 @@ public class SourceExecuteProcessor extends SparkAbstractPluginExecuteProcessor<
                             PluginType.SOURCE.getType(),
                             sourceConfig.getString(PLUGIN_NAME.key()));
             jars.addAll(
-                    sourcePluginDiscovery.getPluginJarPaths(Lists.newArrayList(pluginIdentifier)));
+                    sourcePluginDiscovery.getPluginJarAndDependencyPaths(
+                            Lists.newArrayList(pluginIdentifier)));
             Tuple2<SeaTunnelSource<Object, SourceSplit, Serializable>, List<CatalogTable>> source =
                     FactoryUtil.createAndPrepareSource(
                             ReadonlyConfig.fromConfig(sourceConfig),

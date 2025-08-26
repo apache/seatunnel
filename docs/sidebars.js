@@ -157,6 +157,7 @@ const sidebars = {
                 },
                 "connector-v2/source-common-options",
                 "connector-v2/sink-common-options",
+                "connector-v2/connector-isolated-dependency",
                 "connector-v2/Error-Quick-Reference-Manual",
                 "connector-v2/Config-Encryption-Decryption"
             ]
@@ -221,7 +222,8 @@ const sidebars = {
                 "seatunnel-engine/logging",
                 "seatunnel-engine/telemetry",
                 "seatunnel-engine/web-ui",
-                "seatunnel-engine/slot-allocation-strategy"
+                "seatunnel-engine/slot-allocation-strategy",
+                "seatunnel-engine/tuning-guide"
             ]
         },
         {

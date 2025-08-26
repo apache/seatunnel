@@ -49,11 +49,14 @@ import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLClassLoader;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -63,6 +66,7 @@ import java.util.ServiceLoader;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @Slf4j
 @SuppressWarnings("unchecked")
@@ -74,10 +78,10 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
      * Add jar url to classloader. The different engine should have different logic to add url into
      * their own classloader
      */
-    private static final BiConsumer<ClassLoader, URL> DEFAULT_URL_TO_CLASSLOADER =
-            (classLoader, url) -> {
+    private static final BiConsumer<ClassLoader, List<URL>> DEFAULT_URL_TO_CLASSLOADER =
+            (classLoader, urls) -> {
                 if (classLoader instanceof URLClassLoader) {
-                    ReflectionUtils.invoke(classLoader, "addURL", url);
+                    urls.forEach(url -> ReflectionUtils.invoke(classLoader, "addURL", url));
                 } else {
                     throw new UnsupportedOperationException("can't support custom load jar");
                 }
@@ -85,14 +89,14 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
 
     private final Path pluginDir;
     private final Config pluginMappingConfig;
-    private final BiConsumer<ClassLoader, URL> addURLToClassLoaderConsumer;
-    protected final ConcurrentHashMap<PluginIdentifier, Optional<URL>> pluginJarPath =
+    private final BiConsumer<ClassLoader, List<URL>> addURLToClassLoaderConsumer;
+    protected final ConcurrentHashMap<PluginIdentifier, Optional<List<URL>>> pluginJarPath =
             new ConcurrentHashMap<>(Common.COLLECTION_SIZE);
     protected final Map<PluginIdentifier, String> sourcePluginInstance;
     protected final Map<PluginIdentifier, String> sinkPluginInstance;
     protected final Map<PluginIdentifier, String> transformPluginInstance;
 
-    public AbstractPluginDiscovery(BiConsumer<ClassLoader, URL> addURLToClassloader) {
+    public AbstractPluginDiscovery(BiConsumer<ClassLoader, List<URL>> addURLToClassloader) {
         this(Common.connectorDir(), loadConnectorPluginConfig(), addURLToClassloader);
     }
 
@@ -111,7 +115,7 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
     public AbstractPluginDiscovery(
             Path pluginDir,
             Config pluginMappingConfig,
-            BiConsumer<ClassLoader, URL> addURLToClassLoaderConsumer) {
+            BiConsumer<ClassLoader, List<URL>> addURLToClassLoaderConsumer) {
         this.pluginDir = pluginDir;
         this.pluginMappingConfig = pluginMappingConfig;
         this.addURLToClassLoaderConsumer = addURLToClassLoaderConsumer;
@@ -123,10 +127,7 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
 
     protected static Config loadConnectorPluginConfig() {
         return ConfigFactory.parseFile(Common.connectorDir().resolve(PLUGIN_MAPPING_FILE).toFile())
-                .resolve(ConfigResolveOptions.defaults().setAllowUnresolved(true))
-                .resolveWith(
-                        ConfigFactory.systemProperties(),
-                        ConfigResolveOptions.defaults().setAllowUnresolved(true));
+                .resolve(ConfigResolveOptions.defaults().setAllowUnresolved(true));
     }
 
     @Override
@@ -135,7 +136,34 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
                 .map(this::getPluginJarPath)
                 .filter(Optional::isPresent)
                 .map(Optional::get)
+                .flatMap(Collection::stream)
                 .distinct()
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public List<URL> getPluginJarAndDependencyPaths(List<PluginIdentifier> pluginIdentifiers) {
+        return pluginIdentifiers.stream()
+                .flatMap(
+                        pluginIdentifier -> {
+                            try {
+                                List<URL> jars = getPluginDependencyJarPaths(pluginIdentifier);
+                                getPluginJarPath(pluginIdentifier).ifPresent(jars::addAll);
+                                log.info(
+                                        "find connector jar and dependency for {}: {}",
+                                        pluginIdentifier,
+                                        jars);
+                                return jars.stream();
+                            } catch (IOException e) {
+                                log.warn(
+                                        "get plugin dependency jar path failed, pluginIdentifier: {}",
+                                        pluginIdentifier,
+                                        e);
+                                return Stream.empty();
+                            }
+                        })
+                .distinct()
+                .sorted(Comparator.comparing(URL::toString))
                 .collect(Collectors.toList());
     }
 
@@ -196,16 +224,14 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
             log.info("Load plugin: {} from classpath", pluginIdentifier);
             return Optional.of(pluginInstance);
         }
-        Optional<URL> pluginJarPath = getPluginJarPath(pluginIdentifier);
+        Optional<List<URL>> pluginJarPaths = getPluginJarPath(pluginIdentifier);
         // if the plugin jar not exist in classpath, will load from plugin dir.
-        if (pluginJarPath.isPresent()) {
+        if (pluginJarPaths.isPresent()) {
             try {
                 // use current thread classloader to avoid different classloader load same class
                 // error.
-                this.addURLToClassLoaderConsumer.accept(classLoader, pluginJarPath.get());
-                for (URL jar : pluginJars) {
-                    addURLToClassLoaderConsumer.accept(classLoader, jar);
-                }
+                addURLToClassLoaderConsumer.accept(classLoader, pluginJarPaths.get());
+                addURLToClassLoaderConsumer.accept(classLoader, (List<URL>) pluginJars);
             } catch (Exception e) {
                 log.warn(
                         "can't load jar use current thread classloader, use URLClassLoader instead now."
@@ -216,7 +242,10 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
                 for (URL pluginJar : pluginJars) {
                     urls[i++] = pluginJar;
                 }
-                urls[i] = pluginJarPath.get();
+                urls =
+                        Stream.concat(Arrays.stream(urls), pluginJarPaths.get().stream())
+                                .distinct()
+                                .toArray(URL[]::new);
                 classLoader =
                         new URLClassLoader(urls, Thread.currentThread().getContextClassLoader());
             }
@@ -225,7 +254,7 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
                 log.info(
                         "Load plugin: {} from path: {} use classloader: {}",
                         pluginIdentifier,
-                        pluginJarPath.get(),
+                        pluginJarPaths.get(),
                         classLoader.getClass().getName());
                 return Optional.of(pluginInstance);
             }
@@ -386,7 +415,7 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
      * @param pluginIdentifier plugin identifier.
      * @return plugin instance.
      */
-    protected Optional<URL> getPluginJarPath(PluginIdentifier pluginIdentifier) {
+    protected Optional<List<URL>> getPluginJarPath(PluginIdentifier pluginIdentifier) {
         return pluginJarPath.computeIfAbsent(pluginIdentifier, this::findPluginJarPath);
     }
 
@@ -397,13 +426,7 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
      */
     protected abstract Class<T> getPluginBaseClass();
 
-    /**
-     * Find the plugin jar path;
-     *
-     * @param pluginIdentifier plugin identifier.
-     * @return plugin jar path.
-     */
-    private Optional<URL> findPluginJarPath(PluginIdentifier pluginIdentifier) {
+    private Optional<String> getPluginMappingPrefix(PluginIdentifier pluginIdentifier) {
         final String engineType = pluginIdentifier.getEngineType().toLowerCase();
         final String pluginType = pluginIdentifier.getPluginType().toLowerCase();
         final String pluginName = pluginIdentifier.getPluginName().toLowerCase();
@@ -419,59 +442,111 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
                 typeConfig.entrySet().stream()
                         .filter(entry -> StringUtils.equalsIgnoreCase(entry.getKey(), pluginName))
                         .findFirst();
-        if (!optional.isPresent()) {
+        return optional.map(entry -> entry.getValue().unwrapped().toString());
+    }
+
+    /**
+     * Find the plugin jar path;
+     *
+     * @param pluginIdentifier plugin identifier.
+     * @return plugin jar path.
+     */
+    private Optional<List<URL>> findPluginJarPath(PluginIdentifier pluginIdentifier) {
+        Optional<String> pluginPrefix = getPluginMappingPrefix(pluginIdentifier);
+        if (!pluginPrefix.isPresent()) {
             return Optional.empty();
         }
-        String pluginJarPrefix = optional.get().getValue().unwrapped().toString();
+        final String pluginName = pluginIdentifier.getPluginName().toLowerCase();
+        final String pluginType = pluginIdentifier.getPluginType().toLowerCase();
         File[] targetPluginFiles =
                 pluginDir
                         .toFile()
                         .listFiles(
                                 pathname ->
-                                        pathname.getName().endsWith(".jar")
-                                                && StringUtils.startsWithIgnoreCase(
-                                                        pathname.getName(), pluginJarPrefix));
+                                        filterPluginJar(pathname, pluginPrefix.get(), pluginName));
         if (ArrayUtils.isEmpty(targetPluginFiles)) {
             return Optional.empty();
         }
+        PluginType type = PluginType.valueOf(pluginType.toUpperCase());
+        List<URL> pluginJarPaths;
         try {
-            URL pluginJarPath;
             if (targetPluginFiles.length == 1) {
-                pluginJarPath = targetPluginFiles[0].toURI().toURL();
+                pluginJarPaths = Collections.singletonList(targetPluginFiles[0].toURI().toURL());
             } else {
-                PluginType type = PluginType.valueOf(pluginType.toUpperCase());
-                pluginJarPath =
-                        selectPluginJar(targetPluginFiles, pluginJarPrefix, pluginName, type).get();
+                pluginJarPaths =
+                        selectPluginJar(targetPluginFiles, pluginPrefix.get(), pluginName, type)
+                                .get();
             }
-            log.info("Discovery plugin jar for: {} at: {}", pluginIdentifier, pluginJarPath);
-            return Optional.of(pluginJarPath);
         } catch (MalformedURLException e) {
-            log.warn(
-                    "Cannot get plugin URL: {} for pluginIdentifier: {}" + targetPluginFiles[0],
-                    pluginIdentifier,
-                    e);
-            return Optional.empty();
+            throw new RuntimeException(e);
         }
+        log.info("Discovery plugin jar for: {} at: {}", pluginIdentifier, pluginJarPaths);
+        return Optional.of(pluginJarPaths);
     }
 
-    private Optional<URL> selectPluginJar(
+    private List<URL> getPluginDependencyJarPaths(PluginIdentifier pluginIdentifier)
+            throws IOException {
+        Optional<String> pluginPrefix = getPluginMappingPrefix(pluginIdentifier);
+        if (!pluginPrefix.isPresent()) {
+            return Collections.emptyList();
+        }
+        List<URL> jars = new ArrayList<>();
+        Path pluginRootDir = Common.pluginRootDir();
+        if (!Files.exists(pluginRootDir) || !Files.isDirectory(pluginRootDir)) {
+            return new ArrayList<>();
+        }
+        for (File file : pluginRootDir.toFile().listFiles()) {
+            // only read current connector dependency and other common dependency
+            if (file.isDirectory()
+                    && (!file.getName().startsWith("connector-")
+                            || file.getName().equalsIgnoreCase(pluginPrefix.get()))) {
+                jars.addAll(
+                        FileUtils.searchJarFiles(
+                                Paths.get(Common.pluginRootDir().toString(), file.getName())));
+            } else if (!file.isDirectory()) {
+                jars.add(file.toURI().toURL());
+            }
+        }
+        return jars.stream()
+                .filter(path -> path.toString().endsWith(".jar"))
+                .collect(Collectors.toList());
+    }
+
+    private boolean filterPluginJar(File pathname, String pluginJarPrefix, String pluginName) {
+        if (pluginName.contains("cdc")) {
+            return pathname.getName().endsWith(".jar")
+                    && (StringUtils.startsWithIgnoreCase(pathname.getName(), pluginJarPrefix)
+                            || StringUtils.startsWithIgnoreCase(
+                                    pathname.getName(), "connector-cdc-base"));
+        }
+        return pathname.getName().endsWith(".jar")
+                && StringUtils.startsWithIgnoreCase(pathname.getName(), pluginJarPrefix);
+    }
+
+    private Optional<List<URL>> selectPluginJar(
             File[] targetPluginFiles, String pluginJarPrefix, String pluginName, PluginType type) {
         List<URL> resMatchedUrls = new ArrayList<>();
         for (File file : targetPluginFiles) {
-            Optional<URL> matchedUrl = findMatchingUrl(file, type);
+            Optional<URL> matchedUrl = findMatchingUrl(file, type, pluginName);
             matchedUrl.ifPresent(resMatchedUrls::add);
         }
-        if (resMatchedUrls.size() != 1) {
+        if (pluginName.contains("cdc")) {
+            if (resMatchedUrls.size() != 2) {
+                throw new SeaTunnelException(
+                        String.format(
+                                "Cannot find plugin jar for pluginIdentifier: %s -> %s. Possible impact jar: %s",
+                                pluginName, pluginJarPrefix, Arrays.asList(targetPluginFiles)));
+            }
+        } else if (resMatchedUrls.size() != 1) {
             throw new SeaTunnelException(
                     String.format(
                             "Cannot find unique plugin jar for pluginIdentifier: %s -> %s. Possible impact jar: %s",
                             pluginName, pluginJarPrefix, Arrays.asList(targetPluginFiles)));
-        } else {
-            return Optional.of(resMatchedUrls.get(0));
         }
+        return Optional.of(resMatchedUrls);
     }
 
-    private Optional<URL> findMatchingUrl(File file, PluginType type) {
+    private Optional<URL> findMatchingUrl(File file, PluginType type, String pluginName) {
         Map<PluginIdentifier, String> pluginInstanceMap = null;
         switch (type) {
             case SINK:
@@ -494,13 +569,17 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
             }
         }
 
-        if (matchedIdentifier.size() == 1) {
-            try {
+        try {
+            if (matchedIdentifier.size() == 1) {
                 return Optional.of(file.toURI().toURL());
-            } catch (MalformedURLException e) {
-                log.warn("Cannot get plugin URL for pluginIdentifier: {}", file, e);
             }
+            if (pluginName.contains("cdc") && file.getName().startsWith("connector-cdc-base")) {
+                return Optional.of(file.toURI().toURL());
+            }
+        } catch (MalformedURLException e) {
+            log.warn("Cannot get plugin URL for pluginIdentifier: {}", file, e);
         }
+
         if (log.isDebugEnabled()) {
             log.debug(
                     "File found: {}, matches more than one PluginIdentifier: {}",

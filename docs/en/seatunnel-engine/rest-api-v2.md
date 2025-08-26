@@ -157,6 +157,7 @@ Please refer [security](security.md)
     "pipelineEdges": {}
   },
   "metrics": {
+    "IntermediateQueueSize": "",
     "SourceReceivedCount": "",
     "SourceReceivedQPS": "",
     "SourceReceivedBytes": "",
@@ -237,6 +238,7 @@ This API has been deprecated, please use /job-info/:jobId instead
     "pipelineEdges": {}
   },
   "metrics": {
+    "IntermediateQueueSize": "",
     "SourceReceivedCount": "",
     "SourceReceivedQPS": "",
     "SourceReceivedBytes": "",
@@ -287,9 +289,9 @@ When we can't get the job info, the response will be:
 
 #### Parameters
 
-> | name  |   type   | data type |                           description                            |
-> |-------|----------|-----------|------------------------------------------------------------------|
-> | state | optional | string    | finished job status. `FINISHED`,`CANCELED`,`FAILED`,`UNKNOWABLE` |
+> | name  |   type   | data type | description                                                                       |
+> |-------|----------|-----------|-----------------------------------------------------------------------------------|
+> | state | optional | string    | finished job status. `FINISHED`,`CANCELED`,`FAILED`,`SAVEPOINT_DONE`,`UNKNOWABLE` |
 
 #### Responses
 

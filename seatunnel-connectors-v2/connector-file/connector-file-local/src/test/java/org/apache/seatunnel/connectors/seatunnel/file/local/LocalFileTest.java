@@ -49,6 +49,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import static org.apache.seatunnel.api.table.type.CommonOptions.EVENT_TIME;
+
 @DisabledOnOs(
         value = OS.WINDOWS,
         disabledReason =
@@ -347,24 +349,33 @@ public class LocalFileTest {
                         Collections.emptyList(),
                         "comment");
 
+        Map<String, Object> rowOptions = new HashMap<>();
+        rowOptions.put(EVENT_TIME.getName(), 1L);
+
         SeaTunnelRow row1 = new SeaTunnelRow(new Object[] {1L, "A", 100});
         row1.setRowKind(RowKind.INSERT);
         row1.setTableId(TablePath.DEFAULT.getFullName());
+        row1.setOptions(rowOptions);
         SeaTunnelRow row2 = new SeaTunnelRow(new Object[] {2L, "B", 100});
         row2.setRowKind(RowKind.INSERT);
         row2.setTableId(TablePath.DEFAULT.getFullName());
+        row2.setOptions(rowOptions);
         SeaTunnelRow row3 = new SeaTunnelRow(new Object[] {3L, "C", 100});
         row3.setRowKind(RowKind.INSERT);
         row3.setTableId(TablePath.DEFAULT.getFullName());
+        row3.setOptions(rowOptions);
         SeaTunnelRow row1UpdateBefore = new SeaTunnelRow(new Object[] {1L, "A", 100});
         row1UpdateBefore.setTableId(TablePath.DEFAULT.getFullName());
         row1UpdateBefore.setRowKind(RowKind.UPDATE_BEFORE);
+        row1UpdateBefore.setOptions(rowOptions);
         SeaTunnelRow row1UpdateAfter = new SeaTunnelRow(new Object[] {1L, "A_1", 100});
         row1UpdateAfter.setTableId(TablePath.DEFAULT.getFullName());
         row1UpdateAfter.setRowKind(RowKind.UPDATE_AFTER);
+        row1UpdateAfter.setOptions(rowOptions);
         SeaTunnelRow row2Delete = new SeaTunnelRow(new Object[] {2L, "B", 100});
         row2Delete.setTableId(TablePath.DEFAULT.getFullName());
         row2Delete.setRowKind(RowKind.DELETE);
+        row2Delete.setOptions(rowOptions);
 
         SinkFlowTestUtils.runBatchWithCheckpointDisabled(
                 catalogTable,
@@ -380,22 +391,22 @@ public class LocalFileTest {
         String dataStr = FileUtils.readFileToStr(path);
         Assertions.assertTrue(
                 dataStr.contains(
-                        "{\"data\":[{\"a\":1,\"b\":\"A\",\"c\":100}],\"type\":\"INSERT\"}"));
+                        "{\"data\":[{\"a\":1,\"b\":\"A\",\"c\":100}],\"type\":\"INSERT\",\"database\":\"default\",\"table\":\"default\",\"ts\":1}"));
         Assertions.assertTrue(
                 dataStr.contains(
-                        "{\"data\":[{\"a\":2,\"b\":\"B\",\"c\":100}],\"type\":\"INSERT\"}"));
+                        "{\"data\":[{\"a\":2,\"b\":\"B\",\"c\":100}],\"type\":\"INSERT\",\"database\":\"default\",\"table\":\"default\",\"ts\":1}"));
         Assertions.assertTrue(
                 dataStr.contains(
-                        "{\"data\":[{\"a\":3,\"b\":\"C\",\"c\":100}],\"type\":\"INSERT\"}"));
+                        "{\"data\":[{\"a\":3,\"b\":\"C\",\"c\":100}],\"type\":\"INSERT\",\"database\":\"default\",\"table\":\"default\",\"ts\":1}"));
         Assertions.assertTrue(
                 dataStr.contains(
-                        "{\"data\":[{\"a\":1,\"b\":\"A\",\"c\":100}],\"type\":\"DELETE\"}"));
+                        "{\"data\":[{\"a\":1,\"b\":\"A\",\"c\":100}],\"type\":\"DELETE\",\"database\":\"default\",\"table\":\"default\",\"ts\":1}"));
         Assertions.assertTrue(
                 dataStr.contains(
-                        "{\"data\":[{\"a\":1,\"b\":\"A_1\",\"c\":100}],\"type\":\"INSERT\"}"));
+                        "{\"data\":[{\"a\":1,\"b\":\"A_1\",\"c\":100}],\"type\":\"INSERT\",\"database\":\"default\",\"table\":\"default\",\"ts\":1}"));
         Assertions.assertTrue(
                 dataStr.contains(
-                        "{\"data\":[{\"a\":2,\"b\":\"B\",\"c\":100}],\"type\":\"DELETE\"}"));
+                        "{\"data\":[{\"a\":2,\"b\":\"B\",\"c\":100}],\"type\":\"DELETE\",\"database\":\"default\",\"table\":\"default\",\"ts\":1}"));
     }
 
     @Test
@@ -432,24 +443,33 @@ public class LocalFileTest {
                         Collections.emptyList(),
                         "comment");
 
+        Map<String, Object> rowOptions = new HashMap<>();
+        rowOptions.put(EVENT_TIME.getName(), 1L);
+
         SeaTunnelRow row1 = new SeaTunnelRow(new Object[] {1L, "A", 100});
         row1.setRowKind(RowKind.INSERT);
         row1.setTableId(TablePath.DEFAULT.getFullName());
+        row1.setOptions(rowOptions);
         SeaTunnelRow row2 = new SeaTunnelRow(new Object[] {2L, "B", 100});
         row2.setRowKind(RowKind.INSERT);
         row2.setTableId(TablePath.DEFAULT.getFullName());
+        row2.setOptions(rowOptions);
         SeaTunnelRow row3 = new SeaTunnelRow(new Object[] {3L, "C", 100});
         row3.setRowKind(RowKind.INSERT);
         row3.setTableId(TablePath.DEFAULT.getFullName());
+        row3.setOptions(rowOptions);
         SeaTunnelRow row1UpdateBefore = new SeaTunnelRow(new Object[] {1L, "A", 100});
         row1UpdateBefore.setTableId(TablePath.DEFAULT.getFullName());
         row1UpdateBefore.setRowKind(RowKind.UPDATE_BEFORE);
+        row1UpdateBefore.setOptions(rowOptions);
         SeaTunnelRow row1UpdateAfter = new SeaTunnelRow(new Object[] {1L, "A_1", 100});
         row1UpdateAfter.setTableId(TablePath.DEFAULT.getFullName());
         row1UpdateAfter.setRowKind(RowKind.UPDATE_AFTER);
+        row1UpdateAfter.setOptions(rowOptions);
         SeaTunnelRow row2Delete = new SeaTunnelRow(new Object[] {2L, "B", 100});
         row2Delete.setTableId(TablePath.DEFAULT.getFullName());
         row2Delete.setRowKind(RowKind.DELETE);
+        row2Delete.setOptions(rowOptions);
 
         SinkFlowTestUtils.runBatchWithCheckpointDisabled(
                 catalogTable,
@@ -465,22 +485,22 @@ public class LocalFileTest {
         String dataStr = FileUtils.readFileToStr(path);
         Assertions.assertTrue(
                 dataStr.contains(
-                        "{\"before\":null,\"after\":{\"a\":1,\"b\":\"A\",\"c\":100},\"op\":\"c\"}"));
+                        "{\"before\":null,\"after\":{\"a\":1,\"b\":\"A\",\"c\":100},\"op\":\"c\",\"source\":{\"schema\":\"default\",\"database\":\"default\",\"table\":\"default\"},\"ts_ms\":1}"));
         Assertions.assertTrue(
                 dataStr.contains(
-                        "{\"before\":null,\"after\":{\"a\":2,\"b\":\"B\",\"c\":100},\"op\":\"c\"}"));
+                        "{\"before\":null,\"after\":{\"a\":2,\"b\":\"B\",\"c\":100},\"op\":\"c\",\"source\":{\"schema\":\"default\",\"database\":\"default\",\"table\":\"default\"},\"ts_ms\":1}"));
         Assertions.assertTrue(
                 dataStr.contains(
-                        "{\"before\":null,\"after\":{\"a\":3,\"b\":\"C\",\"c\":100},\"op\":\"c\"}"));
+                        "{\"before\":null,\"after\":{\"a\":3,\"b\":\"C\",\"c\":100},\"op\":\"c\",\"source\":{\"schema\":\"default\",\"database\":\"default\",\"table\":\"default\"},\"ts_ms\":1}"));
         Assertions.assertTrue(
                 dataStr.contains(
-                        "{\"before\":{\"a\":1,\"b\":\"A\",\"c\":100},\"after\":null,\"op\":\"d\"}"));
+                        "{\"before\":{\"a\":1,\"b\":\"A\",\"c\":100},\"after\":null,\"op\":\"d\",\"source\":{\"schema\":\"default\",\"database\":\"default\",\"table\":\"default\"},\"ts_ms\":1}"));
         Assertions.assertTrue(
                 dataStr.contains(
-                        "{\"before\":null,\"after\":{\"a\":1,\"b\":\"A_1\",\"c\":100},\"op\":\"c\"}"));
+                        "{\"before\":null,\"after\":{\"a\":1,\"b\":\"A_1\",\"c\":100},\"op\":\"c\",\"source\":{\"schema\":\"default\",\"database\":\"default\",\"table\":\"default\"},\"ts_ms\":1}"));
         Assertions.assertTrue(
                 dataStr.contains(
-                        "{\"before\":{\"a\":2,\"b\":\"B\",\"c\":100},\"after\":null,\"op\":\"d\"}"));
+                        "{\"before\":{\"a\":2,\"b\":\"B\",\"c\":100},\"after\":null,\"op\":\"d\",\"source\":{\"schema\":\"default\",\"database\":\"default\",\"table\":\"default\"},\"ts_ms\":1}"));
     }
 
     @Test
@@ -516,25 +536,33 @@ public class LocalFileTest {
                         Collections.emptyMap(),
                         Collections.emptyList(),
                         "comment");
+        Map<String, Object> rowOptions = new HashMap<>();
+        rowOptions.put(EVENT_TIME.getName(), 1L);
 
         SeaTunnelRow row1 = new SeaTunnelRow(new Object[] {1L, "A", 100});
         row1.setRowKind(RowKind.INSERT);
         row1.setTableId(TablePath.DEFAULT.getFullName());
+        row1.setOptions(rowOptions);
         SeaTunnelRow row2 = new SeaTunnelRow(new Object[] {2L, "B", 100});
         row2.setRowKind(RowKind.INSERT);
         row2.setTableId(TablePath.DEFAULT.getFullName());
+        row2.setOptions(rowOptions);
         SeaTunnelRow row3 = new SeaTunnelRow(new Object[] {3L, "C", 100});
         row3.setRowKind(RowKind.INSERT);
         row3.setTableId(TablePath.DEFAULT.getFullName());
+        row3.setOptions(rowOptions);
         SeaTunnelRow row1UpdateBefore = new SeaTunnelRow(new Object[] {1L, "A", 100});
         row1UpdateBefore.setTableId(TablePath.DEFAULT.getFullName());
         row1UpdateBefore.setRowKind(RowKind.UPDATE_BEFORE);
+        row1UpdateBefore.setOptions(rowOptions);
         SeaTunnelRow row1UpdateAfter = new SeaTunnelRow(new Object[] {1L, "A_1", 100});
         row1UpdateAfter.setTableId(TablePath.DEFAULT.getFullName());
         row1UpdateAfter.setRowKind(RowKind.UPDATE_AFTER);
+        row1UpdateAfter.setOptions(rowOptions);
         SeaTunnelRow row2Delete = new SeaTunnelRow(new Object[] {2L, "B", 100});
         row2Delete.setTableId(TablePath.DEFAULT.getFullName());
         row2Delete.setRowKind(RowKind.DELETE);
+        row2Delete.setOptions(rowOptions);
 
         SinkFlowTestUtils.runBatchWithCheckpointDisabled(
                 catalogTable,
@@ -549,18 +577,23 @@ public class LocalFileTest {
         Path path = Paths.get("/tmp/seatunnel/LocalFileTest/maxwell_json_file.maxwell_json");
         String dataStr = FileUtils.readFileToStr(path);
         Assertions.assertTrue(
-                dataStr.contains("{\"data\":{\"a\":1,\"b\":\"A\",\"c\":100},\"type\":\"INSERT\"}"));
-        Assertions.assertTrue(
-                dataStr.contains("{\"data\":{\"a\":2,\"b\":\"B\",\"c\":100},\"type\":\"INSERT\"}"));
-        Assertions.assertTrue(
-                dataStr.contains("{\"data\":{\"a\":3,\"b\":\"C\",\"c\":100},\"type\":\"INSERT\"}"));
-        Assertions.assertTrue(
-                dataStr.contains("{\"data\":{\"a\":1,\"b\":\"A\",\"c\":100},\"type\":\"DELETE\"}"));
+                dataStr.contains(
+                        "{\"data\":{\"a\":1,\"b\":\"A\",\"c\":100},\"type\":\"INSERT\",\"database\":\"default\",\"table\":\"default\",\"ts\":1}"));
         Assertions.assertTrue(
                 dataStr.contains(
-                        "{\"data\":{\"a\":1,\"b\":\"A_1\",\"c\":100},\"type\":\"INSERT\"}"));
+                        "{\"data\":{\"a\":2,\"b\":\"B\",\"c\":100},\"type\":\"INSERT\",\"database\":\"default\",\"table\":\"default\",\"ts\":1}"));
         Assertions.assertTrue(
-                dataStr.contains("{\"data\":{\"a\":2,\"b\":\"B\",\"c\":100},\"type\":\"DELETE\"}"));
+                dataStr.contains(
+                        "{\"data\":{\"a\":3,\"b\":\"C\",\"c\":100},\"type\":\"INSERT\",\"database\":\"default\",\"table\":\"default\",\"ts\":1}"));
+        Assertions.assertTrue(
+                dataStr.contains(
+                        "{\"data\":{\"a\":1,\"b\":\"A\",\"c\":100},\"type\":\"DELETE\",\"database\":\"default\",\"table\":\"default\",\"ts\":1}"));
+        Assertions.assertTrue(
+                dataStr.contains(
+                        "{\"data\":{\"a\":1,\"b\":\"A_1\",\"c\":100},\"type\":\"INSERT\",\"database\":\"default\",\"table\":\"default\",\"ts\":1}"));
+        Assertions.assertTrue(
+                dataStr.contains(
+                        "{\"data\":{\"a\":2,\"b\":\"B\",\"c\":100},\"type\":\"DELETE\",\"database\":\"default\",\"table\":\"default\",\"ts\":1}"));
     }
 
     @Test

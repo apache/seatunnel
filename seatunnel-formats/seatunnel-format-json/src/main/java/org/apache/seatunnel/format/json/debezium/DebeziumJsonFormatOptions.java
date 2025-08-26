@@ -25,7 +25,7 @@ import java.util.Map;
 
 public class DebeziumJsonFormatOptions {
 
-    public static final int GENERATE_ROW_SIZE = 3;
+    public static final int GENERATE_ROW_SIZE = 5;
 
     public static final Option<Boolean> IGNORE_PARSE_ERRORS = JsonFormatOptions.IGNORE_PARSE_ERRORS;
 

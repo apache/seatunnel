@@ -24,7 +24,7 @@ import com.hazelcast.internal.config.AbstractConfigLocator;
 import static com.hazelcast.internal.config.DeclarativeConfigUtil.YAML_ACCEPTED_SUFFIXES;
 
 /** A support class for the {@link YamlSeaTunnelConfigBuilder} to locate the yaml configuration. */
-public final class YamlSeaTunnelConfigLocator extends AbstractConfigLocator {
+public class YamlSeaTunnelConfigLocator extends AbstractConfigLocator {
 
     public YamlSeaTunnelConfigLocator() {}
 
