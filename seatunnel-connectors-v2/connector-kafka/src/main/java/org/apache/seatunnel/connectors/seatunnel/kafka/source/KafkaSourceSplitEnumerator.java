@@ -39,6 +39,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -492,6 +493,16 @@ public class KafkaSourceSplitEnumerator
                         split -> {
                             if (!assignedSplit.containsKey(split.getTopicPartition())) {
                                 if (!pendingSplit.containsKey(split.getTopicPartition())) {
+                                    if(initialized){
+                                        // For newly discovered partitions, set the start offset to start from the earliest
+                                        try {
+                                            split.setStartOffset(listOffsets(
+                                                    Collections.singletonList(split.getTopicPartition()), OffsetSpec.earliest()
+                                            ).get(split.getTopicPartition()));
+                                        } catch (ExecutionException | InterruptedException e) {
+                                            throw new RuntimeException(e);
+                                        }
+                                    }
                                     pendingSplit.put(split.getTopicPartition(), split);
                                 }
                             }
