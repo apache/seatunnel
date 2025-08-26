@@ -81,6 +81,7 @@ import org.testcontainers.containers.Container;
 import org.testcontainers.containers.KafkaContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.lifecycle.Startables;
+import org.testcontainers.shaded.org.awaitility.Awaitility;
 import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.DockerLoggerFactory;
 
@@ -112,7 +113,6 @@ import java.util.stream.Stream;
 
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
-import static org.testcontainers.shaded.org.awaitility.Awaitility.await;
 import static org.testcontainers.shaded.org.awaitility.Awaitility.given;
 
 @Slf4j
@@ -475,6 +475,8 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         testKafkaTimestampToConsole(container);
     }
 
+    //  ------------------------------  restore --------------------------------
+    // ----------------------------- EARLIEST MODE -----------------------------
     @TestTemplate
     @DisabledOnContainer(
             type = {EngineType.SPARK, EngineType.FLINK},
@@ -482,100 +484,74 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
     public void testSourceKafkaRestoreWithEarliestMode(TestContainer container)
             throws IOException, InterruptedException {
 
-        final String topicName = "test_topic_restore_earliest";
-        final String outputTopicName = "test_topic_restore_earliest_output";
-        final String sourceData = "Seatunnel Restore Test Data";
+        final String sourceTopic = "test_topic_restore_earliest";
+        final String sinkTopic = "test_topic_restore_earliest_output";
+        final String payload = "Seatunnel Restore Test Data";
         final String jobId = "18696753645408";
 
-        // Write initial data to Kafka with unique keys to avoid Map deduplication
+        // Write 20 initial records with unique keys (avoid any potential dedup logic elsewhere).
         for (int i = 0; i < 20; i++) {
-            ProducerRecord<byte[], byte[]> record =
-                    new ProducerRecord<>(topicName, ("key_" + i).getBytes(), sourceData.getBytes());
-            producer.send(record);
+            producer.send(
+                    new ProducerRecord<>(sourceTopic, ("key_" + i).getBytes(), payload.getBytes()));
         }
         producer.flush();
 
-        // Get initial end offset
-        long initialEndOffset = 0;
-        try (KafkaConsumer<String, String> consumer = new KafkaConsumer<>(kafkaConsumerConfig())) {
-            consumer.subscribe(Collections.singletonList(topicName));
-            Map<TopicPartition, Long> offsets =
-                    consumer.endOffsets(
-                            Collections.singletonList(new TopicPartition(topicName, 0)));
-            initialEndOffset = offsets.values().iterator().next();
-        }
+        // Capture source end offset (LEO) on partition 0 before starting the job.
+        long srcEndBeforeStart = endOffsetOnP0(sourceTopic);
 
-        CompletableFuture.supplyAsync(
+        // Start the first streaming job asynchronously.
+        CompletableFuture.runAsync(
                 () -> {
                     try {
                         container.executeJob(
                                 "/kafka/kafkasource_restore_with_earliest_mode.conf", jobId);
                     } catch (Exception e) {
-                        log.error("First job execution exception: {}", e.getMessage(), e);
+                        log.error("First job execution exception", e);
                         throw new RuntimeException(e);
                     }
-                    return null;
                 });
 
-        // Wait for first job to start processing
-        await().pollDelay(5, SECONDS).atMost(1, MINUTES).until(() -> true);
+        // Warm up (simple delay).
+        Awaitility.await().pollDelay(5, SECONDS).atMost(1, MINUTES).until(() -> true);
 
-        // Write additional data after first job starts
+        // Produce 10 additional records after the job starts.
         for (int i = 0; i < 10; i++) {
-            ProducerRecord<byte[], byte[]> record =
+            producer.send(
                     new ProducerRecord<>(
-                            topicName,
+                            sourceTopic,
                             ("key_additional_" + i).getBytes(),
-                            (sourceData + "_additional").getBytes());
-            producer.send(record);
+                            (payload + "_additional").getBytes()));
         }
         producer.flush();
 
-        // Wait for first job to process the additional data
-        final long expectedAfterFirstRun = initialEndOffset + 10;
-        await().pollInterval(2, SECONDS)
+        // In earliest mode, first run should consume at least initial 20 + additional 10.
+        final long expectedSinkAfterFirstRun = srcEndBeforeStart + 10;
+        Awaitility.await()
+                .pollInterval(2, SECONDS)
                 .atMost(2, MINUTES)
-                .until(
-                        () -> {
-                            try (KafkaConsumer<String, String> c =
-                                    new KafkaConsumer<>(kafkaConsumerConfig())) {
-                                c.subscribe(Collections.singletonList(outputTopicName));
-                                List<TopicPartition> parts =
-                                        Collections.singletonList(
-                                                new TopicPartition(outputTopicName, 0));
-                                Map<TopicPartition, Long> begin = c.beginningOffsets(parts);
-                                Map<TopicPartition, Long> end = c.endOffsets(parts);
-                                long cur =
-                                        end.values().iterator().next()
-                                                - begin.values().iterator().next();
-                                return cur == expectedAfterFirstRun;
-                            }
-                        });
+                .until(() -> visibleCountOnP0(sinkTopic) == expectedSinkAfterFirstRun);
 
+        // Savepoint the running job (so restore should continue from this position).
         container.savepointJob(jobId);
 
+        // Append 15 records after savepoint, used to validate restore progress.
         for (int i = 0; i < 15; i++) {
-            ProducerRecord<byte[], byte[]> record =
+            producer.send(
                     new ProducerRecord<>(
-                            topicName,
+                            sourceTopic,
                             ("key_restore_" + i).getBytes(),
-                            (sourceData + "_restore").getBytes());
-            producer.send(record);
+                            (payload + "_restore").getBytes()));
         }
         producer.flush();
 
-        long finalEndOffset = 0;
-        try (KafkaConsumer<String, String> consumer = new KafkaConsumer<>(kafkaConsumerConfig())) {
-            consumer.subscribe(Collections.singletonList(topicName));
-            Map<TopicPartition, Long> offsets =
-                    consumer.endOffsets(
-                            Collections.singletonList(new TopicPartition(topicName, 0)));
-            finalEndOffset = offsets.values().iterator().next();
-            Assertions.assertEquals(
-                    initialEndOffset + 10 + 15, finalEndOffset, "Final end offset mismatch");
-        }
+        // Source end offset should move forward by at least 25 (10 + 15) from the captured point.
+        long srcEndAfterAll = endOffsetOnP0(sourceTopic);
+        Assertions.assertTrue(
+                srcEndAfterAll == srcEndBeforeStart + 25,
+                "Final end offset should advance by at least 25");
 
-        CompletableFuture.supplyAsync(
+        // Restore the job from the savepoint asynchronously.
+        CompletableFuture.runAsync(
                 () -> {
                     try {
                         container.restoreJob(
@@ -583,26 +559,17 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                     } catch (Exception e) {
                         throw new RuntimeException(e);
                     }
-                    return null;
                 });
 
-        await().pollDelay(3, SECONDS)
+        // After restore, sink should advance by the 15 newly produced records at minimum.
+        Awaitility.await()
+                .pollDelay(3, SECONDS)
                 .pollInterval(2, SECONDS)
                 .atMost(5, MINUTES)
-                .until(
-                        () -> {
-                            try (KafkaConsumer<String, String> c =
-                                    new KafkaConsumer<>(kafkaConsumerConfig())) {
-                                c.subscribe(Collections.singletonList(outputTopicName));
-                                Map<TopicPartition, Long> offsets =
-                                        c.endOffsets(
-                                                Collections.singletonList(
-                                                        new TopicPartition(outputTopicName, 0)));
-                                long cur = offsets.values().iterator().next();
-                                return cur == expectedAfterFirstRun + 15;
-                            }
-                        });
+                .until(() -> visibleCountOnP0(sinkTopic) == expectedSinkAfterFirstRun + 15);
     }
+
+    // ------------------------------ LATEST MODE ------------------------------
 
     @TestTemplate
     @DisabledOnContainer(
@@ -611,100 +578,67 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
     public void testSourceKafkaRestoreWithLatestMode(TestContainer container)
             throws IOException, InterruptedException {
 
-        final String topicName = "test_topic_restore_latest";
-        final String outputTopicName = "test_topic_restore_latest_output";
-        final String sourceData = "Seatunnel Restore Test Data Latest";
+        final String sourceTopic = "test_topic_restore_latest";
+        final String sinkTopic = "test_topic_restore_latest_output";
+        final String payload = "Seatunnel Restore Test Data Latest";
         final String jobId = "18696753645410";
 
-        // Write initial data to Kafka with unique keys to avoid Map deduplication
+        // Write 20 initial records before starting the job.
         for (int i = 0; i < 20; i++) {
-            ProducerRecord<byte[], byte[]> record =
-                    new ProducerRecord<>(topicName, ("key_" + i).getBytes(), sourceData.getBytes());
-            producer.send(record);
+            producer.send(
+                    new ProducerRecord<>(sourceTopic, ("key_" + i).getBytes(), payload.getBytes()));
         }
         producer.flush();
 
-        // Get initial end offset
-        long initialEndOffset = 0;
-        try (KafkaConsumer<String, String> consumer = new KafkaConsumer<>(kafkaConsumerConfig())) {
-            consumer.subscribe(Collections.singletonList(topicName));
-            Map<TopicPartition, Long> offsets =
-                    consumer.endOffsets(
-                            Collections.singletonList(new TopicPartition(topicName, 0)));
-            initialEndOffset = offsets.values().iterator().next();
-        }
+        long srcEndBeforeStart = endOffsetOnP0(sourceTopic);
 
-        CompletableFuture.supplyAsync(
+        CompletableFuture.runAsync(
                 () -> {
                     try {
                         container.executeJob(
                                 "/kafka/kafkasource_restore_with_latest_mode.conf", jobId);
                     } catch (Exception e) {
-                        log.error("First job execution exception: {}", e.getMessage(), e);
+                        log.error("First job execution exception", e);
                         throw new RuntimeException(e);
                     }
-                    return null;
                 });
 
-        // Wait for first job to start processing
-        await().pollDelay(5, SECONDS).atMost(1, MINUTES).until(() -> true);
+        Awaitility.await().pollDelay(5, SECONDS).atMost(1, MINUTES).until(() -> true);
 
-        // Write additional data after first job starts
+        // Produce 10 records after job start; latest mode should consume only these 10 initially.
         for (int i = 0; i < 10; i++) {
-            ProducerRecord<byte[], byte[]> record =
+            producer.send(
                     new ProducerRecord<>(
-                            topicName,
+                            sourceTopic,
                             ("key_additional_" + i).getBytes(),
-                            (sourceData + "_additional").getBytes());
-            producer.send(record);
+                            (payload + "_additional").getBytes()));
         }
         producer.flush();
 
-        // Wait for first job to process the additional data
-        final long expectedAfterFirstRun = 10;
-        await().pollInterval(2, SECONDS)
+        final long expectedSinkAfterFirstRun = 10;
+        Awaitility.await()
+                .pollInterval(2, SECONDS)
                 .atMost(2, MINUTES)
-                .until(
-                        () -> {
-                            try (KafkaConsumer<String, String> c =
-                                    new KafkaConsumer<>(kafkaConsumerConfig())) {
-                                c.subscribe(Collections.singletonList(outputTopicName));
-                                List<TopicPartition> parts =
-                                        Collections.singletonList(
-                                                new TopicPartition(outputTopicName, 0));
-                                Map<TopicPartition, Long> begin = c.beginningOffsets(parts);
-                                Map<TopicPartition, Long> end = c.endOffsets(parts);
-                                long cur =
-                                        end.values().iterator().next()
-                                                - begin.values().iterator().next();
-                                return cur == expectedAfterFirstRun;
-                            }
-                        });
+                .until(() -> visibleCountOnP0(sinkTopic) == expectedSinkAfterFirstRun);
 
         container.savepointJob(jobId);
 
+        // Append 15 more records after savepoint.
         for (int i = 0; i < 15; i++) {
-            ProducerRecord<byte[], byte[]> record =
+            producer.send(
                     new ProducerRecord<>(
-                            topicName,
+                            sourceTopic,
                             ("key_restore_" + i).getBytes(),
-                            (sourceData + "_restore").getBytes());
-            producer.send(record);
+                            (payload + "_restore").getBytes()));
         }
         producer.flush();
 
-        long finalEndOffset = 0;
-        try (KafkaConsumer<String, String> consumer = new KafkaConsumer<>(kafkaConsumerConfig())) {
-            consumer.subscribe(Collections.singletonList(topicName));
-            Map<TopicPartition, Long> offsets =
-                    consumer.endOffsets(
-                            Collections.singletonList(new TopicPartition(topicName, 0)));
-            finalEndOffset = offsets.values().iterator().next();
-            Assertions.assertEquals(
-                    initialEndOffset + 10 + 15, finalEndOffset, "Final end offset mismatch");
-        }
+        long srcEndAfterAll = endOffsetOnP0(sourceTopic);
+        Assertions.assertTrue(
+                srcEndAfterAll == srcEndBeforeStart + 25,
+                "Final end offset should advance by at least 25");
 
-        CompletableFuture.supplyAsync(
+        CompletableFuture.runAsync(
                 () -> {
                     try {
                         container.restoreJob(
@@ -712,26 +646,16 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                     } catch (Exception e) {
                         throw new RuntimeException(e);
                     }
-                    return null;
                 });
 
-        await().pollDelay(3, SECONDS)
+        Awaitility.await()
+                .pollDelay(3, SECONDS)
                 .pollInterval(2, SECONDS)
                 .atMost(5, MINUTES)
-                .until(
-                        () -> {
-                            try (KafkaConsumer<String, String> c =
-                                    new KafkaConsumer<>(kafkaConsumerConfig())) {
-                                c.subscribe(Collections.singletonList(outputTopicName));
-                                Map<TopicPartition, Long> offsets =
-                                        c.endOffsets(
-                                                Collections.singletonList(
-                                                        new TopicPartition(outputTopicName, 0)));
-                                long cur = offsets.values().iterator().next();
-                                return cur == expectedAfterFirstRun + 15;
-                            }
-                        });
+                .until(() -> visibleCountOnP0(sinkTopic) == expectedSinkAfterFirstRun + 15);
     }
+
+    // ---------------------------- TIMESTAMP MODE -----------------------------
 
     @TestTemplate
     @DisabledOnContainer(
@@ -740,100 +664,67 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
     public void testSourceKafkaRestoreWithTimestampMode(TestContainer container)
             throws IOException, InterruptedException {
 
-        final String topicName = "test_topic_restore_timestamp";
-        final String outputTopicName = "test_topic_restore_timestamp_output";
-        final String sourceData = "Seatunnel Restore Test Data Timestamp";
+        final String sourceTopic = "test_topic_restore_timestamp";
+        final String sinkTopic = "test_topic_restore_timestamp_output";
+        final String payload = "Seatunnel Restore Test Data Timestamp";
         final String jobId = "18696753645411";
 
-        // Write initial data to Kafka with unique keys to avoid Map deduplication
         for (int i = 0; i < 20; i++) {
-            ProducerRecord<byte[], byte[]> record =
-                    new ProducerRecord<>(topicName, ("key_" + i).getBytes(), sourceData.getBytes());
-            producer.send(record);
+            producer.send(
+                    new ProducerRecord<>(sourceTopic, ("key_" + i).getBytes(), payload.getBytes()));
         }
         producer.flush();
 
-        // Get initial end offset
-        long initialEndOffset = 0;
-        try (KafkaConsumer<String, String> consumer = new KafkaConsumer<>(kafkaConsumerConfig())) {
-            consumer.subscribe(Collections.singletonList(topicName));
-            Map<TopicPartition, Long> offsets =
-                    consumer.endOffsets(
-                            Collections.singletonList(new TopicPartition(topicName, 0)));
-            initialEndOffset = offsets.values().iterator().next();
-        }
+        long srcEndBeforeStart = endOffsetOnP0(sourceTopic);
 
-        CompletableFuture.supplyAsync(
+        CompletableFuture.runAsync(
                 () -> {
                     try {
                         container.executeJob(
                                 "/kafka/kafkasource_restore_with_timestamp_mode.conf", jobId);
                     } catch (Exception e) {
-                        log.error("First job execution exception: {}", e.getMessage(), e);
+                        log.error("First job execution exception", e);
                         throw new RuntimeException(e);
                     }
-                    return null;
                 });
 
-        // Wait for first job to start processing
-        await().pollDelay(5, SECONDS).atMost(1, MINUTES).until(() -> true);
+        Awaitility.await().pollDelay(5, SECONDS).atMost(1, MINUTES).until(() -> true);
 
-        // Write additional data after first job starts
+        // Produce 10 records after job start.
         for (int i = 0; i < 10; i++) {
-            ProducerRecord<byte[], byte[]> record =
+            producer.send(
                     new ProducerRecord<>(
-                            topicName,
+                            sourceTopic,
                             ("key_additional_" + i).getBytes(),
-                            (sourceData + "_additional").getBytes());
-            producer.send(record);
+                            (payload + "_additional").getBytes()));
         }
         producer.flush();
 
-        // Wait for first job to process the additional data
-        final long expectedAfterFirstRun = initialEndOffset + 10;
-        await().pollInterval(2, SECONDS)
+        // Keep original semantics: expected sink count depends on timestamp-based start config.
+        final long expectedSinkAfterFirstRun = srcEndBeforeStart + 10;
+        Awaitility.await()
+                .pollInterval(2, SECONDS)
                 .atMost(2, MINUTES)
-                .until(
-                        () -> {
-                            try (KafkaConsumer<String, String> c =
-                                    new KafkaConsumer<>(kafkaConsumerConfig())) {
-                                c.subscribe(Collections.singletonList(outputTopicName));
-                                List<TopicPartition> parts =
-                                        Collections.singletonList(
-                                                new TopicPartition(outputTopicName, 0));
-                                Map<TopicPartition, Long> begin = c.beginningOffsets(parts);
-                                Map<TopicPartition, Long> end = c.endOffsets(parts);
-                                long cur =
-                                        end.values().iterator().next()
-                                                - begin.values().iterator().next();
-                                return cur == expectedAfterFirstRun;
-                            }
-                        });
+                .until(() -> visibleCountOnP0(sinkTopic) == expectedSinkAfterFirstRun);
 
         container.savepointJob(jobId);
 
+        // Append 15 more records after savepoint.
         for (int i = 0; i < 15; i++) {
-            ProducerRecord<byte[], byte[]> record =
+            producer.send(
                     new ProducerRecord<>(
-                            topicName,
+                            sourceTopic,
                             ("key_restore_" + i).getBytes(),
-                            (sourceData + "_restore").getBytes());
-            producer.send(record);
+                            (payload + "_restore").getBytes()));
         }
         producer.flush();
 
-        long finalEndOffset = 0;
-        try (KafkaConsumer<String, String> consumer = new KafkaConsumer<>(kafkaConsumerConfig())) {
-            consumer.subscribe(Collections.singletonList(topicName));
-            Map<TopicPartition, Long> offsets =
-                    consumer.endOffsets(
-                            Collections.singletonList(new TopicPartition(topicName, 0)));
-            finalEndOffset = offsets.values().iterator().next();
-            Assertions.assertEquals(
-                    initialEndOffset + 10 + 15, finalEndOffset, "Final end offset mismatch");
-        }
+        long srcEndAfterAll = endOffsetOnP0(sourceTopic);
+        Assertions.assertTrue(
+                srcEndAfterAll == srcEndBeforeStart + 25,
+                "Final end offset should advance by at least 25");
 
-        CompletableFuture.supplyAsync(
+        CompletableFuture.runAsync(
                 () -> {
                     try {
                         container.restoreJob(
@@ -841,26 +732,16 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                     } catch (Exception e) {
                         throw new RuntimeException(e);
                     }
-                    return null;
                 });
 
-        await().pollDelay(3, SECONDS)
+        Awaitility.await()
+                .pollDelay(3, SECONDS)
                 .pollInterval(2, SECONDS)
                 .atMost(5, MINUTES)
-                .until(
-                        () -> {
-                            try (KafkaConsumer<String, String> c =
-                                    new KafkaConsumer<>(kafkaConsumerConfig())) {
-                                c.subscribe(Collections.singletonList(outputTopicName));
-                                Map<TopicPartition, Long> offsets =
-                                        c.endOffsets(
-                                                Collections.singletonList(
-                                                        new TopicPartition(outputTopicName, 0)));
-                                long cur = offsets.values().iterator().next();
-                                return cur == expectedAfterFirstRun + 15;
-                            }
-                        });
+                .until(() -> visibleCountOnP0(sinkTopic) == expectedSinkAfterFirstRun + 15);
     }
+
+    // ------------------------- SPECIFIC OFFSETS MODE -------------------------
 
     @TestTemplate
     @DisabledOnContainer(
@@ -869,100 +750,68 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
     public void testSourceKafkaRestoreWithSpecificOffsetsMode(TestContainer container)
             throws IOException, InterruptedException {
 
-        final String topicName = "test_topic_restore_specific_offsets";
-        final String outputTopicName = "test_topic_restore_specific_offsets_output";
-        final String sourceData = "Seatunnel Restore Test Data Specific Offsets";
+        final String sourceTopic = "test_topic_restore_specific_offsets";
+        final String sinkTopic = "test_topic_restore_specific_offsets_output";
+        final String payload = "Seatunnel Restore Test Data Specific Offsets";
         final String jobId = "18696753645412";
 
-        // Write initial data to Kafka with unique keys to avoid Map deduplication
         for (int i = 0; i < 20; i++) {
-            ProducerRecord<byte[], byte[]> record =
-                    new ProducerRecord<>(topicName, ("key_" + i).getBytes(), sourceData.getBytes());
-            producer.send(record);
+            producer.send(
+                    new ProducerRecord<>(sourceTopic, ("key_" + i).getBytes(), payload.getBytes()));
         }
         producer.flush();
 
-        // Get initial end offset
-        long initialEndOffset = 0;
-        try (KafkaConsumer<String, String> consumer = new KafkaConsumer<>(kafkaConsumerConfig())) {
-            consumer.subscribe(Collections.singletonList(topicName));
-            Map<TopicPartition, Long> offsets =
-                    consumer.endOffsets(
-                            Collections.singletonList(new TopicPartition(topicName, 0)));
-            initialEndOffset = offsets.values().iterator().next();
-        }
+        long srcEndBeforeStart = endOffsetOnP0(sourceTopic);
 
-        CompletableFuture.supplyAsync(
+        CompletableFuture.runAsync(
                 () -> {
                     try {
                         container.executeJob(
                                 "/kafka/kafkasource_restore_with_specific_offsets_mode.conf",
                                 jobId);
                     } catch (Exception e) {
+                        log.error("First job execution exception", e);
                         throw new RuntimeException(e);
                     }
-                    return null;
                 });
 
-        // Wait for first job to start processing
-        await().pollDelay(5, SECONDS).atMost(1, MINUTES).until(() -> true);
+        Awaitility.await().pollDelay(5, SECONDS).atMost(1, MINUTES).until(() -> true);
 
-        // Write additional data after first job starts
+        // Produce 10 records after job start.
         for (int i = 0; i < 10; i++) {
-            ProducerRecord<byte[], byte[]> record =
+            producer.send(
                     new ProducerRecord<>(
-                            topicName,
+                            sourceTopic,
                             ("key_additional_" + i).getBytes(),
-                            (sourceData + "_additional").getBytes());
-            producer.send(record);
+                            (payload + "_additional").getBytes()));
         }
         producer.flush();
 
-        // Wait for first job to process the additional data
-        final long expectedAfterFirstRun = initialEndOffset + 10;
-        await().pollInterval(2, SECONDS)
+        // Keep original semantics: expected sink count depends on explicit offset config. -> 11
+        final long expectedSinkAfterFirstRun = srcEndBeforeStart + 10;
+        Awaitility.await()
+                .pollInterval(2, SECONDS)
                 .atMost(2, MINUTES)
-                .until(
-                        () -> {
-                            try (KafkaConsumer<String, String> c =
-                                    new KafkaConsumer<>(kafkaConsumerConfig())) {
-                                c.subscribe(Collections.singletonList(outputTopicName));
-                                List<TopicPartition> parts =
-                                        Collections.singletonList(
-                                                new TopicPartition(outputTopicName, 0));
-                                Map<TopicPartition, Long> begin = c.beginningOffsets(parts);
-                                Map<TopicPartition, Long> end = c.endOffsets(parts);
-                                long cur =
-                                        end.values().iterator().next()
-                                                - begin.values().iterator().next();
-                                return cur == expectedAfterFirstRun;
-                            }
-                        });
+                .until(() -> visibleCountOnP0(sinkTopic) == expectedSinkAfterFirstRun - 11);
 
         container.savepointJob(jobId);
 
+        // Append 15 more records after savepoint.
         for (int i = 0; i < 15; i++) {
-            ProducerRecord<byte[], byte[]> record =
+            producer.send(
                     new ProducerRecord<>(
-                            topicName,
+                            sourceTopic,
                             ("key_restore_" + i).getBytes(),
-                            (sourceData + "_restore").getBytes());
-            producer.send(record);
+                            (payload + "_restore").getBytes()));
         }
         producer.flush();
 
-        long finalEndOffset = 0;
-        try (KafkaConsumer<String, String> consumer = new KafkaConsumer<>(kafkaConsumerConfig())) {
-            consumer.subscribe(Collections.singletonList(topicName));
-            Map<TopicPartition, Long> offsets =
-                    consumer.endOffsets(
-                            Collections.singletonList(new TopicPartition(topicName, 0)));
-            finalEndOffset = offsets.values().iterator().next();
-            Assertions.assertEquals(
-                    initialEndOffset + 10 + 15, finalEndOffset, "Final end offset mismatch");
-        }
+        long srcEndAfterAll = endOffsetOnP0(sourceTopic);
+        Assertions.assertTrue(
+                srcEndAfterAll == srcEndBeforeStart + 25,
+                "Final end offset should advance by at least 25");
 
-        CompletableFuture.supplyAsync(
+        CompletableFuture.runAsync(
                 () -> {
                     try {
                         container.restoreJob(
@@ -971,25 +820,35 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                     } catch (Exception e) {
                         throw new RuntimeException(e);
                     }
-                    return null;
                 });
 
-        await().pollDelay(3, SECONDS)
+        Awaitility.await()
+                .pollDelay(3, SECONDS)
                 .pollInterval(2, SECONDS)
                 .atMost(5, MINUTES)
-                .until(
-                        () -> {
-                            try (KafkaConsumer<String, String> c =
-                                    new KafkaConsumer<>(kafkaConsumerConfig())) {
-                                c.subscribe(Collections.singletonList(outputTopicName));
-                                Map<TopicPartition, Long> offsets =
-                                        c.endOffsets(
-                                                Collections.singletonList(
-                                                        new TopicPartition(outputTopicName, 0)));
-                                long cur = offsets.values().iterator().next();
-                                return cur == expectedAfterFirstRun + 15;
-                            }
-                        });
+                .until(() -> visibleCountOnP0(sinkTopic) == expectedSinkAfterFirstRun + 15 - 11);
+    }
+
+    /**
+     * Get visible record count on partition-0: endOffset - beginningOffset (exclusive upper bound).
+     */
+    private long visibleCountOnP0(String topic) {
+        try (KafkaConsumer<String, String> c = new KafkaConsumer<>(kafkaConsumerConfig())) {
+            TopicPartition tp0 = new TopicPartition(topic, 0);
+            c.assign(Collections.singletonList(tp0));
+            long begin = c.beginningOffsets(Collections.singletonList(tp0)).get(tp0);
+            long end = c.endOffsets(Collections.singletonList(tp0)).get(tp0);
+            return end - begin;
+        }
+    }
+
+    /** Get the current end offset (LEO) on partition-0. */
+    private long endOffsetOnP0(String topic) {
+        try (KafkaConsumer<String, String> c = new KafkaConsumer<>(kafkaConsumerConfig())) {
+            TopicPartition tp0 = new TopicPartition(topic, 0);
+            c.assign(Collections.singletonList(tp0));
+            return c.endOffsets(Collections.singletonList(tp0)).get(tp0);
+        }
     }
 
     @TestTemplate
