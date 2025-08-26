@@ -58,9 +58,23 @@ public class BaseFileSourceReader implements SourceReader<SeaTunnelRow, FileSour
             FileSourceSplit split = sourceSplits.poll();
             if (null != split) {
                 try {
-                    // todo: If there is only one table , the tableId is not needed, but it's better
-                    // to set this
-                    readStrategy.read(split.splitId(), "", output);
+                    // Check if this is a file split (has offset and length)
+                    if (!split.isCompleteFile()) {
+                        // Use the split reading method for file splits
+                        readStrategy.readSplit(
+                                split.splitId(),
+                                "",
+                                output,
+                                split.getStartOffset(),
+                                split.getLength(),
+                                split.isFirstSplit());
+                    } else {
+                        // Use the traditional read method for complete files
+                        // todo: If there is only one table , the tableId is not needed, but it's
+                        // better
+                        // to set this
+                        readStrategy.read(split.splitId(), "", output);
+                    }
                 } catch (Exception e) {
                     throw CommonError.fileOperationFailed("SeaTunnel", "read", split.splitId(), e);
                 }

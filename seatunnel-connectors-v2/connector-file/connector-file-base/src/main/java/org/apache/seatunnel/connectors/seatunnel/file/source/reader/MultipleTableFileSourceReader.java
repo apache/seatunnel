@@ -78,7 +78,20 @@ public class MultipleTableFileSourceReader implements SourceReader<SeaTunnelRow,
                                     + "]");
                 }
                 try {
-                    readStrategy.read(split.getFilePath(), split.getTableId(), output);
+                    // Check if this is a file split (has offset and length)
+                    if (!split.isCompleteFile()) {
+                        // Use the split reading method for file splits
+                        readStrategy.readSplit(
+                                split.getFilePath(),
+                                split.getTableId(),
+                                output,
+                                split.getStartOffset(),
+                                split.getLength(),
+                                split.isFirstSplit());
+                    } else {
+                        // Use the traditional read method for complete files
+                        readStrategy.read(split.getFilePath(), split.getTableId(), output);
+                    }
                 } catch (Exception e) {
                     String errorMsg =
                             String.format("Read data from this file [%s] failed", split.splitId());

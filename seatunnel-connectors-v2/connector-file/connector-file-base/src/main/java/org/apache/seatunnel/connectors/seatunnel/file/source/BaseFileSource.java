@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.source;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceReader;
@@ -26,6 +27,7 @@ import org.apache.seatunnel.api.source.SupportParallelism;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.source.reader.ReadStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.source.split.FileSourceSplit;
@@ -42,6 +44,10 @@ public abstract class BaseFileSource
     protected ReadStrategy readStrategy;
     protected HadoopConf hadoopConf;
     protected List<String> filePaths;
+    protected ReadonlyConfig config;
+    protected FileFormat fileFormat;
+    protected boolean enableFileSplit;
+    protected int fileSplitSizeMB;
 
     @Override
     public Boundedness getBoundedness() {
@@ -62,7 +68,14 @@ public abstract class BaseFileSource
     @Override
     public SourceSplitEnumerator<FileSourceSplit, FileSourceState> createEnumerator(
             SourceSplitEnumerator.Context<FileSourceSplit> enumeratorContext) throws Exception {
-        return new FileSourceSplitEnumerator(enumeratorContext, filePaths);
+        return new FileSourceSplitEnumerator(
+                enumeratorContext,
+                filePaths,
+                null,
+                fileFormat,
+                enableFileSplit,
+                fileSplitSizeMB,
+                hadoopConf);
     }
 
     @Override
@@ -70,6 +83,13 @@ public abstract class BaseFileSource
             SourceSplitEnumerator.Context<FileSourceSplit> enumeratorContext,
             FileSourceState checkpointState)
             throws Exception {
-        return new FileSourceSplitEnumerator(enumeratorContext, filePaths, checkpointState);
+        return new FileSourceSplitEnumerator(
+                enumeratorContext,
+                filePaths,
+                checkpointState,
+                fileFormat,
+                enableFileSplit,
+                fileSplitSizeMB,
+                hadoopConf);
     }
 }

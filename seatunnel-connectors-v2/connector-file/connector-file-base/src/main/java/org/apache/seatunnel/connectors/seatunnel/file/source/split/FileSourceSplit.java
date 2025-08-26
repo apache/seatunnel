@@ -28,15 +28,47 @@ public class FileSourceSplit implements SourceSplit {
 
     @Getter private final String tableId;
     @Getter private final String filePath;
+    @Getter private final long startOffset;
+    @Getter private final long length;
+    @Getter private final boolean isFirstSplit;
 
     public FileSourceSplit(String splitId) {
         this.filePath = splitId;
         this.tableId = null;
+        this.startOffset = 0L;
+        this.length = -1L;
+        this.isFirstSplit = true;
     }
 
     public FileSourceSplit(String tableId, String filePath) {
         this.tableId = tableId;
         this.filePath = filePath;
+        this.startOffset = 0L;
+        this.length = -1L;
+        this.isFirstSplit = true;
+    }
+
+    /**
+     * Constructor for file split with range
+     *
+     * @param tableId the table identifier
+     * @param filePath the file path
+     * @param startOffset the start byte offset in the file
+     * @param length the length of the split in bytes (-1 means read to end)
+     * @param isFirstSplit whether this is the first split of the file (affects header handling)
+     */
+    public FileSourceSplit(
+            String tableId, String filePath, long startOffset, long length, boolean isFirstSplit) {
+        this.tableId = tableId;
+        this.filePath = filePath;
+        this.startOffset = startOffset;
+        this.length = length;
+        this.isFirstSplit = isFirstSplit;
+    }
+
+    /** Check if this split represents a complete file (not a range) */
+    public boolean isCompleteFile() {
+        return startOffset == 0L && length == -1L;
     }
 
     @Override
@@ -44,9 +76,17 @@ public class FileSourceSplit implements SourceSplit {
         // In order to be compatible with the split before the upgrade, when tableId is null,
         // filePath is directly returned
         if (tableId == null) {
-            return filePath;
+            if (isCompleteFile()) {
+                return filePath;
+            } else {
+                return filePath + "_" + startOffset + "_" + length;
+            }
         }
-        return tableId + "_" + filePath;
+        if (isCompleteFile()) {
+            return tableId + "_" + filePath;
+        } else {
+            return tableId + "_" + filePath + "_" + startOffset + "_" + length;
+        }
     }
 
     @Override
@@ -58,11 +98,15 @@ public class FileSourceSplit implements SourceSplit {
             return false;
         }
         FileSourceSplit that = (FileSourceSplit) o;
-        return Objects.equals(tableId, that.tableId) && Objects.equals(filePath, that.filePath);
+        return startOffset == that.startOffset
+                && length == that.length
+                && isFirstSplit == that.isFirstSplit
+                && Objects.equals(tableId, that.tableId)
+                && Objects.equals(filePath, that.filePath);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(tableId, filePath);
+        return Objects.hash(tableId, filePath, startOffset, length, isFirstSplit);
     }
 }

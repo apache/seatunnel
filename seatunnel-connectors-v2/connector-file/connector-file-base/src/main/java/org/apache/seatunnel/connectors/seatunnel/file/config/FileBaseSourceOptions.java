@@ -113,4 +113,25 @@ public class FileBaseSourceOptions extends FileBaseOptions {
                     .withDescription(
                             "Whether to read the complete file as a single chunk instead of splitting into chunks. "
                                     + "When enabled, the entire file content will be read into memory at once.Only valid when file_format_type is binary.");
+
+    public static final Option<Integer> FILE_SPLIT_SIZE_MB =
+            Options.key("file_split_size_mb")
+                    .intType()
+                    .defaultValue(0)
+                    .withDescription(
+                            "The size (in MB) to split large files for parallel processing. "
+                                    + "When set to 0 (default), files are not split. "
+                                    + "When set to a positive value, files larger than this size will be split into multiple parts for parallel reading. "
+                                    + "Each split will respect row boundaries to ensure data integrity. "
+                                    + "Currently only supported for CSV files.");
+
+    public static final Option<Boolean> ENABLE_FILE_SPLIT =
+            Options.key("enable_file_split")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription(
+                            "Whether to enable file splitting for large files. "
+                                    + "When enabled, large files will be split based on file_split_size_mb configuration. "
+                                    + "This can improve performance for large files by enabling parallel processing. "
+                                    + "Currently supported for text-based formats: CSV, TEXT, JSON, XML.");
 }

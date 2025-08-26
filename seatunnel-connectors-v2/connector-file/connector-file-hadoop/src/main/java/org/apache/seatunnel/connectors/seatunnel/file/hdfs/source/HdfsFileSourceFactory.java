@@ -88,6 +88,8 @@ public class HdfsFileSourceFactory implements TableSourceFactory {
                 .optional(FileBaseSourceOptions.KERBEROS_KEYTAB_PATH)
                 .optional(FileBaseSourceOptions.KRB5_PATH)
                 .optional(FileBaseSourceOptions.REMOTE_USER)
+                .optional(FileBaseSourceOptions.ENABLE_FILE_SPLIT)
+                .optional(FileBaseSourceOptions.FILE_SPLIT_SIZE_MB)
                 .build();
     }
 

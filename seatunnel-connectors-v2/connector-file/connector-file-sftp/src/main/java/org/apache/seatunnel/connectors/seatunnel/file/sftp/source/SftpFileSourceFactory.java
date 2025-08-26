@@ -88,6 +88,8 @@ public class SftpFileSourceFactory implements TableSourceFactory {
                 .optional(FileBaseSourceOptions.NULL_FORMAT)
                 .optional(FileBaseSourceOptions.FILENAME_EXTENSION)
                 .optional(FileBaseSourceOptions.READ_COLUMNS)
+                .optional(FileBaseSourceOptions.ENABLE_FILE_SPLIT)
+                .optional(FileBaseSourceOptions.FILE_SPLIT_SIZE_MB)
                 .build();
     }
 

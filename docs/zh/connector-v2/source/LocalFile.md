@@ -75,6 +75,8 @@ import ChangeLog from '../changelog/connector-file-local.md';
 | null_format               | string  | 否    | -                   |
 | binary_chunk_size         | int     | 否    | 1024                |
 | binary_complete_file_mode | boolean | 否    | false               |
+| enable_file_split         | boolean | 否    | false               |
+| file_split_size_mb        | int     | 否    | 0                   |
 | common-options            |         | 否    | -                   |
 | tables_configs            | list    | 否    | 用于定义多表任务            |
 
@@ -390,6 +392,14 @@ null_format 定义哪些字符串可以表示为 null。
 
 是否将完整文件作为单个块读取，而不是分割成块。启用时，整个文件内容将一次性读入内存。默认为 false。
 
+### enable_file_split [boolean]
+
+是否启用大文件分割功能。启用时，大文件将根据 file_split_size_mb 配置进行分割。这可以通过启用并行处理来提高大文件的性能。目前支持基于文本的格式：CSV、TEXT、JSON、XML。默认为 false。
+
+### file_split_size_mb [int]
+
+用于并行处理的大文件分割大小（以 MB 为单位）。当设置为 0（默认值）时，不分割文件。当设置为正值时，大于此大小的文件将被分割成多个部分进行并行读取。每个分片都会尊重行边界以确保数据完整性。仅在 enable_file_split 为 true 时有效。目前支持基于文本的格式：CSV、TEXT、JSON、XML。
+
 ### 通用选项
 
 数据源插件通用参数，请参阅 [数据源通用选项](../source-common-options.md) 了解详情
@@ -533,6 +543,37 @@ source {
     skip_header_row_number = 1
     // 文件示例 abcD2024.csv
     file_filter_pattern = "abc[DX]*.*"
+  }
+}
+
+sink {
+  Console {
+  }
+}
+```
+
+### 大文件分割
+
+```hocon
+env {
+  parallelism = 4
+  job.mode = "BATCH"
+}
+
+source {
+  LocalFile {
+    path = "/data/seatunnel/large_files/"
+    file_format_type = "csv"
+    enable_file_split = true
+    file_split_size_mb = 64
+    schema {
+      fields {
+        id = int
+        name = string
+        age = int
+        email = string
+      }
+    }
   }
 }
 

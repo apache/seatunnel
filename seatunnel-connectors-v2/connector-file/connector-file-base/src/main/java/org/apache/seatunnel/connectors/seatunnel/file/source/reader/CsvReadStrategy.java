@@ -41,6 +41,7 @@ import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVFormat.Builder;
 import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;
+import org.apache.hadoop.fs.FSDataInputStream;
 
 import io.airlift.compress.lzo.LzopCodec;
 import lombok.extern.slf4j.Slf4j;
@@ -76,6 +77,32 @@ public class CsvReadStrategy extends AbstractReadStrategy {
             throws FileConnectorException, IOException {
         Map<String, String> partitionsMap = parsePartitionsByPath(path);
         resolveArchiveCompressedInputStream(path, tableId, output, partitionsMap, FileFormat.CSV);
+    }
+
+    @Override
+    public void readSplit(
+            String filePath,
+            String tableId,
+            Collector<SeaTunnelRow> output,
+            long startOffset,
+            long length,
+            boolean isFirstSplit)
+            throws IOException, FileConnectorException {
+        Map<String, String> partitionsMap = parsePartitionsByPath(filePath);
+
+        // For compressed files, fall back to reading the entire file
+        if (compressFormat != CompressFormat.NONE) {
+            log.warn(
+                    "File splitting is not supported for compressed CSV files, reading entire file: {}",
+                    filePath);
+            resolveArchiveCompressedInputStream(
+                    filePath, tableId, output, partitionsMap, FileFormat.CSV);
+            return;
+        }
+
+        // Read the file split directly
+        readSplitProcess(
+                filePath, tableId, output, startOffset, length, isFirstSplit, partitionsMap);
     }
 
     @Override
@@ -296,5 +323,191 @@ public class CsvReadStrategy extends AbstractReadStrategy {
         }
 
         processor = new DefaultCsvLineProcessor();
+    }
+
+    /** Read a split of CSV file from specified offset and length */
+    private void readSplitProcess(
+            String filePath,
+            String tableId,
+            Collector<SeaTunnelRow> output,
+            long startOffset,
+            long length,
+            boolean isFirstSplit,
+            Map<String, String> partitionsMap)
+            throws IOException {
+
+        try (FSDataInputStream fsDataInputStream = hadoopFileSystemProxy.getInputStream(filePath)) {
+            // Seek to the start position
+            fsDataInputStream.seek(startOffset);
+
+            // Create a limited input stream to respect the length
+            InputStream limitedInputStream =
+                    length > 0
+                            ? new BoundedInputStream(fsDataInputStream, length)
+                            : fsDataInputStream;
+
+            Builder builder =
+                    CSVFormat.EXCEL
+                            .builder()
+                            .setIgnoreEmptyLines(true)
+                            .setDelimiter(getDelimiter());
+            CSVFormat csvFormat = builder.build();
+
+            // Only treat first line as header for the first split
+            boolean useHeader = firstLineAsHeader && isFirstSplit;
+            if (useHeader) {
+                csvFormat = csvFormat.withFirstRecordAsHeader();
+            }
+
+            try (BufferedReader reader =
+                            new BufferedReader(
+                                    new InputStreamReader(limitedInputStream, encoding));
+                    CSVParser csvParser = new CSVParser(reader, csvFormat)) {
+
+                // For non-first splits, we might start in the middle of a line
+                // Skip the potentially incomplete first line unless we're at the very beginning
+                if (!isFirstSplit && startOffset > 0) {
+                    String firstLine = reader.readLine();
+                    if (firstLine != null) {
+                        log.debug(
+                                "Skipped potentially incomplete first line in split: {}",
+                                firstLine);
+                    }
+                }
+
+                // Handle BOM for first split only
+                if (isFirstSplit) {
+                    reader.mark(1);
+                    int firstChar = reader.read();
+                    if (firstChar != 0xFEFF) {
+                        reader.reset();
+                    }
+                }
+
+                // Skip header lines for first split only
+                if (isFirstSplit) {
+                    for (int i = 0; i < skipHeaderNumber; i++) {
+                        if (reader.readLine() == null) {
+                            throw new IOException(
+                                    String.format(
+                                            "File [%s] has fewer lines than expected to skip.",
+                                            filePath));
+                        }
+                    }
+                }
+
+                // Get headers (for first split, from CSV parser; for others, from catalog table)
+                List<String> headers = getHeadersForSplit(csvParser, isFirstSplit);
+
+                // Process CSV records
+                for (CSVRecord csvRecord : csvParser) {
+                    if (csvRecord.size() == 0) {
+                        continue; // Skip empty records
+                    }
+
+                    HashMap<Integer, String> fieldIdValueMap = new HashMap<>();
+                    for (int i = 0; i < Math.min(headers.size(), csvRecord.size()); i++) {
+                        int index =
+                                inputCatalogTable
+                                        .getSeaTunnelRowType()
+                                        .indexOf(headers.get(i), false);
+                        if (index == -1) {
+                            continue;
+                        }
+                        fieldIdValueMap.put(index, csvRecord.get(i));
+                    }
+
+                    SeaTunnelRow seaTunnelRow =
+                            deserializationSchema.getSeaTunnelRow(fieldIdValueMap);
+
+                    // Handle column projection
+                    if (!readColumns.isEmpty()) {
+                        Object[] fields;
+                        if (isMergePartition) {
+                            fields = new Object[readColumns.size() + partitionsMap.size()];
+                        } else {
+                            fields = new Object[readColumns.size()];
+                        }
+                        for (int i = 0; i < indexes.length; i++) {
+                            fields[i] = seaTunnelRow.getField(indexes[i]);
+                        }
+                        seaTunnelRow = new SeaTunnelRow(fields);
+                    }
+
+                    // Handle partition fields
+                    if (isMergePartition) {
+                        int index = seaTunnelRowType.getTotalFields();
+                        for (String value : partitionsMap.values()) {
+                            seaTunnelRow.setField(index++, value);
+                        }
+                    }
+
+                    seaTunnelRow.setTableId(tableId);
+                    output.collect(seaTunnelRow);
+                }
+            }
+        } catch (IOException e) {
+            String errorMsg =
+                    String.format(
+                            "Failed to read split from file [%s] at offset %d with length %d",
+                            filePath, startOffset, length);
+            throw new FileConnectorException(
+                    FileConnectorErrorCode.DATA_DESERIALIZE_FAILED, errorMsg, e);
+        }
+    }
+
+    /**
+     * Get headers for split - use CSV parser headers for first split, catalog table headers for
+     * others
+     */
+    private List<String> getHeadersForSplit(CSVParser csvParser, boolean isFirstSplit) {
+        if (isFirstSplit && firstLineAsHeader) {
+            return csvParser.getHeaderNames().stream().collect(Collectors.toList());
+        } else {
+            return inputCatalogTable.getTableSchema().getColumns().stream()
+                    .map(column -> column.getName())
+                    .collect(Collectors.toList());
+        }
+    }
+
+    /** Limited input stream that respects a maximum number of bytes to read */
+    private static class BoundedInputStream extends InputStream {
+        private final InputStream wrapped;
+        private long remaining;
+
+        public BoundedInputStream(InputStream wrapped, long maxBytes) {
+            this.wrapped = wrapped;
+            this.remaining = maxBytes;
+        }
+
+        @Override
+        public int read() throws IOException {
+            if (remaining <= 0) {
+                return -1;
+            }
+            int result = wrapped.read();
+            if (result != -1) {
+                remaining--;
+            }
+            return result;
+        }
+
+        @Override
+        public int read(byte[] b, int off, int len) throws IOException {
+            if (remaining <= 0) {
+                return -1;
+            }
+            int toRead = (int) Math.min(len, remaining);
+            int result = wrapped.read(b, off, toRead);
+            if (result > 0) {
+                remaining -= result;
+            }
+            return result;
+        }
+
+        @Override
+        public void close() throws IOException {
+            // Don't close the wrapped stream as it may be used elsewhere
+        }
     }
 }

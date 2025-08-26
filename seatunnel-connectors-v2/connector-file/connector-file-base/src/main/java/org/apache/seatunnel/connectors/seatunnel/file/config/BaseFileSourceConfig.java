@@ -52,6 +52,8 @@ public abstract class BaseFileSourceConfig implements Serializable {
     private final ReadStrategy readStrategy;
     private final List<String> filePaths;
     private final ReadonlyConfig baseFileSourceConfig;
+    private final boolean enableFileSplit;
+    private final int fileSplitSizeMB;
 
     public abstract HadoopConf getHadoopConfig();
 
@@ -62,6 +64,10 @@ public abstract class BaseFileSourceConfig implements Serializable {
         this.fileFormat = readonlyConfig.get(FileBaseSourceOptions.FILE_FORMAT_TYPE);
         this.readStrategy = ReadStrategyFactory.of(readonlyConfig, getHadoopConfig());
         this.filePaths = parseFilePaths(readonlyConfig);
+        this.enableFileSplit =
+                readonlyConfig.getOptional(FileBaseSourceOptions.ENABLE_FILE_SPLIT).orElse(false);
+        this.fileSplitSizeMB =
+                readonlyConfig.getOptional(FileBaseSourceOptions.FILE_SPLIT_SIZE_MB).orElse(0);
 
         this.catalogTable = parseCatalogTable(readonlyConfig);
     }

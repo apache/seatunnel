@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.file.source.split;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.connectors.seatunnel.file.config.BaseFileSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.config.BaseMultipleTableFileSourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.file.hadoop.HadoopFileSystemProxy;
 import org.apache.seatunnel.connectors.seatunnel.file.source.state.FileSourceState;
 
 import org.apache.commons.collections4.CollectionUtils;
@@ -47,11 +48,13 @@ public class MultipleTableFileSourceSplitEnumerator
     private final Map<String, List<String>> filePathMap;
     private final AtomicInteger assignCount = new AtomicInteger(0);
     private final Object lock = new Object();
+    private final BaseMultipleTableFileSourceConfig multipleTableFileSourceConfig;
 
     public MultipleTableFileSourceSplitEnumerator(
             Context<FileSourceSplit> context,
             BaseMultipleTableFileSourceConfig multipleTableFileSourceConfig) {
         this.context = context;
+        this.multipleTableFileSourceConfig = multipleTableFileSourceConfig;
         this.filePathMap =
                 multipleTableFileSourceConfig.getFileSourceConfigs().stream()
                         .collect(
@@ -77,11 +80,46 @@ public class MultipleTableFileSourceSplitEnumerator
 
     @Override
     public void open() {
-        for (Map.Entry<String, List<String>> filePathEntry : filePathMap.entrySet()) {
-            String tableId = filePathEntry.getKey();
-            List<String> filePaths = filePathEntry.getValue();
-            for (String filePath : filePaths) {
-                allSplit.add(new FileSourceSplit(tableId, filePath));
+        for (BaseFileSourceConfig config : multipleTableFileSourceConfig.getFileSourceConfigs()) {
+            String tableId = config.getCatalogTable().getTableId().toTablePath().toString();
+            List<String> filePaths = config.getFilePaths();
+
+            // Check if file splitting is enabled for this table
+            if (config.isEnableFileSplit() && config.getFileSplitSizeMB() > 0) {
+                // Generate splits with file splitting
+                for (String filePath : filePaths) {
+                    try {
+                        HadoopFileSystemProxy hadoopFileSystemProxy =
+                                new HadoopFileSystemProxy(config.getHadoopConfig());
+                        List<FileSourceSplit> splits =
+                                FileSplitUtils.generateFileSplits(
+                                        filePath,
+                                        tableId,
+                                        config.getFileFormat(),
+                                        config.getFileSplitSizeMB(),
+                                        hadoopFileSystemProxy);
+                        allSplit.addAll(splits);
+
+                        log.info(
+                                "Table {} file {} split into {} parts",
+                                tableId,
+                                filePath,
+                                splits.size());
+                    } catch (IOException e) {
+                        log.warn(
+                                "Failed to split file {} for table {}, using single split: {}",
+                                filePath,
+                                tableId,
+                                e.getMessage());
+                        // Fall back to single split
+                        allSplit.add(new FileSourceSplit(tableId, filePath));
+                    }
+                }
+            } else {
+                // Use traditional single file splits
+                for (String filePath : filePaths) {
+                    allSplit.add(new FileSourceSplit(tableId, filePath));
+                }
             }
         }
     }

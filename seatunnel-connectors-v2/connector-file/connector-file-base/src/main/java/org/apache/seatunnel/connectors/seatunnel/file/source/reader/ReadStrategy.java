@@ -45,6 +45,30 @@ public interface ReadStrategy extends Serializable, Closeable {
     void read(String path, String tableId, Collector<SeaTunnelRow> output)
             throws IOException, FileConnectorException;
 
+    /**
+     * Read data from a file split (partial file with offset and length)
+     *
+     * @param filePath the file path
+     * @param tableId the table identifier
+     * @param output the output collector
+     * @param startOffset the start byte offset in the file
+     * @param length the length to read (-1 means read to end)
+     * @param isFirstSplit whether this is the first split (affects header handling)
+     * @throws IOException if file operations fail
+     * @throws FileConnectorException if file connector specific errors occur
+     */
+    default void readSplit(
+            String filePath,
+            String tableId,
+            Collector<SeaTunnelRow> output,
+            long startOffset,
+            long length,
+            boolean isFirstSplit)
+            throws IOException, FileConnectorException {
+        // Default implementation falls back to reading the entire file
+        read(filePath, tableId, output);
+    }
+
     SeaTunnelRowType getSeaTunnelRowTypeInfo(String path) throws FileConnectorException;
 
     default SeaTunnelRowType getSeaTunnelRowTypeInfo(TablePath tablePath, String path)

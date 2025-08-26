@@ -74,6 +74,8 @@ If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you
 | null_format               | string  | no       | -                                    |
 | binary_chunk_size         | int     | no       | 1024                                 |
 | binary_complete_file_mode | boolean | no       | false                                |
+| enable_file_split         | boolean | no       | false                                |
+| file_split_size_mb        | int     | no       | 0                                    |
 | common-options            |         | no       | -                                    |
 | tables_configs            | list    | no       | used to define a multiple table task |
 
@@ -381,6 +383,14 @@ Only used when file_format_type is binary.
 
 Whether to read the complete file as a single chunk instead of splitting into chunks. When enabled, the entire file content will be read into memory at once. Default is false.
 
+### enable_file_split [boolean]
+
+Whether to enable file splitting for large files. When enabled, large files will be split based on file_split_size_mb configuration. This can improve performance for large files by enabling parallel processing. Currently supported for text-based formats: CSV, TEXT, JSON, XML. Default is false.
+
+### file_split_size_mb [int]
+
+The size (in MB) to split large files for parallel processing. When set to 0 (default), files are not split. When set to a positive value, files larger than this size will be split into multiple parts for parallel reading. Each split will respect row boundaries to ensure data integrity. Only effective when enable_file_split is true. Currently supported for text-based formats: CSV, TEXT, JSON, XML.
+
 ### common options
 
 Source plugin common parameters, please refer to [Source Common Options](../source-common-options.md) for details
@@ -524,6 +534,37 @@ source {
     skip_header_row_number = 1
     // file example abcD2024.csv
     file_filter_pattern = "abc[DX]*.*"
+  }
+}
+
+sink {
+  Console {
+  }
+}
+```
+
+### Large File Splitting
+
+```hocon
+env {
+  parallelism = 4
+  job.mode = "BATCH"
+}
+
+source {
+  LocalFile {
+    path = "/data/seatunnel/large_files/"
+    file_format_type = "csv"
+    enable_file_split = true
+    file_split_size_mb = 64
+    schema {
+      fields {
+        id = int
+        name = string
+        age = int
+        email = string
+      }
+    }
   }
 }
 

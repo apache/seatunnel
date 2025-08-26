@@ -172,6 +172,129 @@ public class TextReadStrategy extends AbstractReadStrategy {
     }
 
     @Override
+    public void readSplit(
+            String filePath,
+            String tableId,
+            Collector<SeaTunnelRow> output,
+            long startOffset,
+            long length,
+            boolean isFirstSplit)
+            throws IOException, FileConnectorException {
+        Map<String, String> partitionsMap = parsePartitionsByPath(filePath);
+        readSplitProcess(
+                filePath, tableId, output, startOffset, length, isFirstSplit, partitionsMap);
+    }
+
+    private void readSplitProcess(
+            String filePath,
+            String tableId,
+            Collector<SeaTunnelRow> output,
+            long startOffset,
+            long length,
+            boolean isFirstSplit,
+            Map<String, String> partitionsMap)
+            throws IOException, FileConnectorException {
+
+        try (InputStream inputStream = hadoopFileSystemProxy.getInputStream(filePath)) {
+            // Skip to start offset if not reading from beginning
+            if (startOffset > 0) {
+                long skipped = inputStream.skip(startOffset);
+                if (skipped != startOffset) {
+                    throw new IOException(
+                            String.format(
+                                    "Failed to skip to offset %d, actually skipped %d",
+                                    startOffset, skipped));
+                }
+            }
+
+            // Create bounded input stream if length is specified
+            InputStream boundedStream =
+                    (length > 0) ? new BoundedInputStream(inputStream, length) : inputStream;
+
+            InputStream actualInputStream;
+            switch (compressFormat) {
+                case LZO:
+                    LzopCodec lzo = new LzopCodec();
+                    actualInputStream = lzo.createInputStream(boundedStream);
+                    break;
+                case NONE:
+                    actualInputStream = boundedStream;
+                    break;
+                default:
+                    log.warn(
+                            "Text file does not support this compress type: {}",
+                            compressFormat.getCompressCodec());
+                    actualInputStream = boundedStream;
+                    break;
+            }
+
+            try (BufferedReader reader =
+                    new BufferedReader(new InputStreamReader(actualInputStream, encoding))) {
+
+                LineProcessor lineProcessor =
+                        line -> {
+                            try {
+                                processLineData(line, tableId, output, partitionsMap);
+                            } catch (FileConnectorException e) {
+                                throw new IOException(e);
+                            }
+                        };
+
+                // For non-first splits, skip potential partial first line
+                if (!isFirstSplit) {
+                    reader.readLine(); // Skip the potentially incomplete first line
+                }
+
+                StreamLineSplitter splitter =
+                        new StreamLineSplitter(
+                                rowDelimiter, 0, lineProcessor); // No header skip for splits
+                splitter.processStream(reader);
+            }
+        }
+    }
+
+    /** Bounded InputStream that limits reading to a specified number of bytes */
+    private static class BoundedInputStream extends InputStream {
+        private final InputStream delegate;
+        private long remaining;
+
+        public BoundedInputStream(InputStream delegate, long maxBytes) {
+            this.delegate = delegate;
+            this.remaining = maxBytes;
+        }
+
+        @Override
+        public int read() throws IOException {
+            if (remaining <= 0) {
+                return -1;
+            }
+            int result = delegate.read();
+            if (result != -1) {
+                remaining--;
+            }
+            return result;
+        }
+
+        @Override
+        public int read(byte[] b, int off, int len) throws IOException {
+            if (remaining <= 0) {
+                return -1;
+            }
+            int toRead = (int) Math.min(len, remaining);
+            int result = delegate.read(b, off, toRead);
+            if (result != -1) {
+                remaining -= result;
+            }
+            return result;
+        }
+
+        @Override
+        public void close() throws IOException {
+            delegate.close();
+        }
+    }
+
+    @Override
     public void readProcess(
             String path,
             String tableId,

@@ -18,6 +18,9 @@
 package org.apache.seatunnel.connectors.seatunnel.file.source.split;
 
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
+import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
+import org.apache.seatunnel.connectors.seatunnel.file.hadoop.HadoopFileSystemProxy;
 import org.apache.seatunnel.connectors.seatunnel.file.source.state.FileSourceState;
 
 import org.slf4j.Logger;
@@ -46,19 +49,49 @@ public class FileSourceSplitEnumerator
     private final Object lock = new Object();
     private final AtomicInteger assignCount = new AtomicInteger(0);
 
+    // File splitting configuration
+    private final boolean enableFileSplit;
+    private final int fileSplitSizeMB;
+    private final FileFormat fileFormat;
+    private final HadoopConf hadoopConf;
+    private transient HadoopFileSystemProxy hadoopFileSystemProxy;
+
     public FileSourceSplitEnumerator(
             SourceSplitEnumerator.Context<FileSourceSplit> context, List<String> filePaths) {
-        this.context = context;
-        this.filePaths = filePaths;
-        this.assignedSplit = new HashSet<>();
+        this(context, filePaths, null, null, false, 0, null);
     }
 
     public FileSourceSplitEnumerator(
             SourceSplitEnumerator.Context<FileSourceSplit> context,
             List<String> filePaths,
             FileSourceState sourceState) {
-        this(context, filePaths);
-        this.assignedSplit = sourceState.getAssignedSplit();
+        this(context, filePaths, sourceState, null, false, 0, null);
+    }
+
+    /** Constructor with file splitting configuration */
+    public FileSourceSplitEnumerator(
+            SourceSplitEnumerator.Context<FileSourceSplit> context,
+            List<String> filePaths,
+            FileSourceState sourceState,
+            FileFormat fileFormat,
+            boolean enableFileSplit,
+            int fileSplitSizeMB,
+            HadoopConf hadoopConf) {
+        this.context = context;
+        this.filePaths = filePaths;
+        this.assignedSplit = new HashSet<>();
+        this.fileFormat = fileFormat;
+        this.enableFileSplit = enableFileSplit;
+        this.fileSplitSizeMB = fileSplitSizeMB;
+        this.hadoopConf = hadoopConf;
+
+        if (sourceState != null) {
+            this.assignedSplit = sourceState.getAssignedSplit();
+        }
+
+        if (this.hadoopConf != null) {
+            this.hadoopFileSystemProxy = new HadoopFileSystemProxy(this.hadoopConf);
+        }
     }
 
     @Override
@@ -78,13 +111,53 @@ public class FileSourceSplitEnumerator
 
     private Set<FileSourceSplit> discoverySplits() {
         Set<FileSourceSplit> fileSourceSplits = new HashSet<>();
-        filePaths.forEach(k -> fileSourceSplits.add(new FileSourceSplit(k)));
+
+        for (String filePath : filePaths) {
+            try {
+                // Check if file splitting is enabled and supported
+                if (enableFileSplit
+                        && fileSplitSizeMB > 0
+                        && fileFormat != null
+                        && FileSplitUtils.supportsSplitting(fileFormat)
+                        && hadoopFileSystemProxy != null) {
+
+                    // Generate splits for this file
+                    List<FileSourceSplit> splits =
+                            FileSplitUtils.generateFileSplits(
+                                    filePath,
+                                    null,
+                                    fileFormat,
+                                    fileSplitSizeMB,
+                                    hadoopFileSystemProxy);
+                    fileSourceSplits.addAll(splits);
+
+                    LOGGER.info("File {} split into {} parts", filePath, splits.size());
+                } else {
+                    // Use traditional single file split
+                    fileSourceSplits.add(new FileSourceSplit(filePath));
+                }
+            } catch (IOException e) {
+                LOGGER.warn(
+                        "Failed to split file {}, using single split: {}",
+                        filePath,
+                        e.getMessage());
+                // Fall back to single split
+                fileSourceSplits.add(new FileSourceSplit(filePath));
+            }
+        }
+
         return fileSourceSplits;
     }
 
     @Override
     public void close() throws IOException {
-        // do nothing
+        if (hadoopFileSystemProxy != null) {
+            try {
+                hadoopFileSystemProxy.close();
+            } catch (Exception e) {
+                LOGGER.warn("Failed to close HadoopFileSystemProxy: {}", e.getMessage());
+            }
+        }
     }
 
     @Override

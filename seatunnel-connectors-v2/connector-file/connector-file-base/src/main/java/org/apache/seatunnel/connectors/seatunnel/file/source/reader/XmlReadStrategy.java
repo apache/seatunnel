@@ -51,9 +51,11 @@ import org.dom4j.io.SAXReader;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 
+import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.StringReader;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -68,6 +70,8 @@ import java.util.stream.IntStream;
 @Slf4j
 public class XmlReadStrategy extends AbstractReadStrategy {
 
+    private final ObjectMapper objectMapper = new ObjectMapper();
+
     private String tableRowName;
     private Boolean useAttrFormat;
     private String delimiter;
@@ -78,8 +82,6 @@ public class XmlReadStrategy extends AbstractReadStrategy {
     private DateTimeUtils.Formatter datetimeFormat;
     private TimeUtils.Formatter timeFormat;
     private String encoding = FileBaseSourceOptions.ENCODING.defaultValue();
-
-    private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Override
     public void init(HadoopConf conf) {
@@ -92,6 +94,229 @@ public class XmlReadStrategy extends AbstractReadStrategy {
             throws IOException, FileConnectorException {
         Map<String, String> partitionsMap = parsePartitionsByPath(path);
         resolveArchiveCompressedInputStream(path, tableId, output, partitionsMap, FileFormat.XML);
+    }
+
+    @Override
+    public void readSplit(
+            String filePath,
+            String tableId,
+            Collector<SeaTunnelRow> output,
+            long startOffset,
+            long length,
+            boolean isFirstSplit)
+            throws IOException, FileConnectorException {
+        Map<String, String> partitionsMap = parsePartitionsByPath(filePath);
+        readSplitProcess(
+                filePath, tableId, output, startOffset, length, isFirstSplit, partitionsMap);
+    }
+
+    private void readSplitProcess(
+            String filePath,
+            String tableId,
+            Collector<SeaTunnelRow> output,
+            long startOffset,
+            long length,
+            boolean isFirstSplit,
+            Map<String, String> partitionsMap)
+            throws IOException, FileConnectorException {
+
+        try (InputStream inputStream = hadoopFileSystemProxy.getInputStream(filePath)) {
+            // Skip to start offset if not reading from beginning
+            if (startOffset > 0) {
+                long skipped = inputStream.skip(startOffset);
+                if (skipped != startOffset) {
+                    throw new IOException(
+                            String.format(
+                                    "Failed to skip to offset %d, actually skipped %d",
+                                    startOffset, skipped));
+                }
+            }
+
+            // Create bounded input stream if length is specified
+            InputStream boundedStream =
+                    (length > 0) ? new BoundedInputStream(inputStream, length) : inputStream;
+
+            try (BufferedReader reader =
+                    new BufferedReader(new InputStreamReader(boundedStream, encoding))) {
+
+                fieldCount =
+                        isMergePartition
+                                ? seaTunnelRowTypeWithPartition.getTotalFields()
+                                : seaTunnelRowType.getTotalFields();
+
+                // For XML splitting, we need to handle partial XML elements
+                // We'll read line by line and try to parse complete XML elements
+                StringBuilder xmlBuffer = new StringBuilder();
+                String line;
+                boolean inRowElement = false;
+                String openTag = "<" + tableRowName;
+                String closeTag = "</" + tableRowName + ">";
+                String selfCloseTag = "/>";
+
+                // For non-first splits, we need to find the first complete element
+                if (!isFirstSplit) {
+                    // Skip until we find the start of a row element
+                    while ((line = reader.readLine()) != null) {
+                        if (line.trim().contains(openTag)) {
+                            xmlBuffer.append(line).append("\n");
+                            if (line.trim().contains(selfCloseTag)
+                                    || line.trim().contains(closeTag)) {
+                                // Complete element in one line
+                                processXmlElement(
+                                        xmlBuffer.toString(), tableId, output, partitionsMap);
+                                xmlBuffer.setLength(0);
+                            } else {
+                                inRowElement = true;
+                            }
+                            break;
+                        }
+                    }
+                }
+
+                // Process the remaining lines
+                while ((line = reader.readLine()) != null) {
+                    xmlBuffer.append(line).append("\n");
+
+                    if (!inRowElement && line.trim().contains(openTag)) {
+                        inRowElement = true;
+                    }
+
+                    if (inRowElement
+                            && (line.trim().contains(closeTag)
+                                    || line.trim().contains(selfCloseTag))) {
+                        // Complete XML element found
+                        processXmlElement(xmlBuffer.toString(), tableId, output, partitionsMap);
+                        xmlBuffer.setLength(0);
+                        inRowElement = false;
+                    }
+                }
+
+                // Handle any remaining incomplete element (this can happen at split boundaries)
+                if (xmlBuffer.length() > 0 && inRowElement) {
+                    log.debug(
+                            "Incomplete XML element at split boundary, skipping: {}",
+                            xmlBuffer.toString().trim());
+                }
+            }
+        }
+    }
+
+    private void processXmlElement(
+            String xmlContent,
+            String tableId,
+            Collector<SeaTunnelRow> output,
+            Map<String, String> partitionsMap) {
+        try {
+            // Wrap the content in a root element if it's not already wrapped
+            String wrappedXml = xmlContent;
+            if (!xmlContent.trim().startsWith("<?xml") && !xmlContent.trim().startsWith("<root")) {
+                wrappedXml = "<root>" + xmlContent + "</root>";
+            }
+
+            SAXReader saxReader = new SAXReader();
+            Document document = saxReader.read(new StringReader(wrappedXml));
+            Element rootElement = document.getRootElement();
+
+            // Find the table row elements
+            List<Element> rowElements;
+            if (rootElement.getName().equals(tableRowName)) {
+                rowElements = new ArrayList<>();
+                rowElements.add(rootElement);
+            } else {
+                List<Node> nodes = rootElement.selectNodes(getXPathExpression(tableRowName));
+                rowElements = new ArrayList<>();
+                for (Node node : nodes) {
+                    if (node instanceof Element) {
+                        rowElements.add((Element) node);
+                    }
+                }
+            }
+
+            for (Element rowElement : rowElements) {
+                SeaTunnelRow seaTunnelRow = new SeaTunnelRow(fieldCount);
+
+                List<? extends Node> fields =
+                        new ArrayList<>(
+                                        (useAttrFormat
+                                                ? rowElement.attributes()
+                                                : rowElement.selectNodes("./*")))
+                                .stream()
+                                        .filter(
+                                                field ->
+                                                        ArrayUtils.contains(
+                                                                seaTunnelRowType.getFieldNames(),
+                                                                field.getName()))
+                                        .collect(Collectors.toList());
+
+                if (CollectionUtils.isEmpty(fields)) continue;
+
+                fields.forEach(
+                        field -> {
+                            int fieldIndex =
+                                    ArrayUtils.indexOf(
+                                            seaTunnelRowType.getFieldNames(), field.getName());
+                            seaTunnelRow.setField(
+                                    fieldIndex,
+                                    convert(
+                                            field.getText(),
+                                            seaTunnelRowType.getFieldTypes()[fieldIndex]));
+                        });
+
+                if (isMergePartition) {
+                    int partitionIndex = seaTunnelRowType.getTotalFields();
+                    for (String value : partitionsMap.values()) {
+                        seaTunnelRow.setField(partitionIndex++, value);
+                    }
+                }
+
+                seaTunnelRow.setTableId(tableId);
+                output.collect(seaTunnelRow);
+            }
+
+        } catch (Exception e) {
+            log.warn("Failed to parse XML element, skipping: {}", xmlContent.trim(), e);
+        }
+    }
+
+    /** Bounded InputStream that limits reading to a specified number of bytes */
+    private static class BoundedInputStream extends InputStream {
+        private final InputStream delegate;
+        private long remaining;
+
+        public BoundedInputStream(InputStream delegate, long maxBytes) {
+            this.delegate = delegate;
+            this.remaining = maxBytes;
+        }
+
+        @Override
+        public int read() throws IOException {
+            if (remaining <= 0) {
+                return -1;
+            }
+            int result = delegate.read();
+            if (result != -1) {
+                remaining--;
+            }
+            return result;
+        }
+
+        @Override
+        public int read(byte[] b, int off, int len) throws IOException {
+            if (remaining <= 0) {
+                return -1;
+            }
+            int toRead = (int) Math.min(len, remaining);
+            int result = delegate.read(b, off, toRead);
+            if (result != -1) {
+                remaining -= result;
+            }
+            return result;
+        }
+
+        @Override
+        public void close() throws IOException {
+            delegate.close();
+        }
     }
 
     @Override
@@ -250,7 +475,17 @@ public class XmlReadStrategy extends AbstractReadStrategy {
                 return row;
             case MAP:
             case ARRAY:
-                return objectMapper.readValue(fieldValue, fieldType.getTypeClass());
+                try {
+                    // Try to parse as JSON if possible, otherwise return as string
+                    if (fieldValue.startsWith("{") || fieldValue.startsWith("[")) {
+                        return objectMapper.readValue(fieldValue, fieldType.getTypeClass());
+                    } else {
+                        return fieldValue;
+                    }
+                } catch (Exception e) {
+                    // If parsing fails, return as string
+                    return fieldValue;
+                }
             default:
                 throw new FileConnectorException(
                         CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
