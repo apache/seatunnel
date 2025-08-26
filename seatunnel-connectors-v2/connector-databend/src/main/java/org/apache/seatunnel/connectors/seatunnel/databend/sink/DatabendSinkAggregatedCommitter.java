@@ -129,58 +129,12 @@ public class DatabendSinkAggregatedCommitter
     public List<DatabendSinkAggregatedCommitInfo> commit(
             List<DatabendSinkAggregatedCommitInfo> aggregatedCommitInfos) throws IOException {
         // Perform final merge operation in CDC mode only when necessary
-        if (isCdcMode && shouldPerformMerge()) {
+        if (isCdcMode) {
             performMerge(aggregatedCommitInfos);
         }
 
         // Return empty list as there's no need to retry
         return new ArrayList<>();
-    }
-
-    /**
-     * Determines whether a merge operation should be performed based on the current data count in
-     * the stream. Queries the stream to check how many records are currently available and compares
-     * it with the batch size.
-     *
-     * @return true if merge should be performed, false otherwise
-     */
-    private boolean shouldPerformMerge() {
-        if (connection == null) {
-            log.warn("[Instance {}] Connection is null, skipping merge check", instanceId);
-            return false;
-        }
-
-        String countQuery =
-                String.format("SELECT COUNT(*) as count FROM %s.%s", database, streamName);
-        try (Statement stmt = connection.createStatement()) {
-            java.sql.ResultSet rs = stmt.executeQuery(countQuery);
-            if (rs.next()) {
-                long recordCount = rs.getLong("count");
-                log.info(
-                        "[Instance {}] Current record count in stream {}: {}",
-                        instanceId,
-                        streamName,
-                        recordCount);
-
-                // Perform merge if record count reaches or exceeds the configured batch size
-                boolean shouldMerge = recordCount >= databendSinkConfig.getBatchSize();
-                if (shouldMerge) {
-                    log.info(
-                            "[Instance {}] Record count {} reached or exceeded batch size {}, merge will be performed",
-                            instanceId,
-                            recordCount,
-                            databendSinkConfig.getBatchSize());
-                }
-                return shouldMerge;
-            }
-        } catch (SQLException e) {
-            log.error(
-                    "[Instance {}] Failed to query record count from stream: {}",
-                    instanceId,
-                    e.getMessage(),
-                    e);
-        }
-        return false;
     }
 
     private void performMerge(List<DatabendSinkAggregatedCommitInfo> aggregatedCommitInfos) {
