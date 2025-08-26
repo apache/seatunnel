@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.rocketmq.source;
 
+import org.apache.seatunnel.shade.com.google.common.base.Supplier;
+
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
@@ -27,17 +29,23 @@ import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.api.source.SupportParallelism;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
+import org.apache.seatunnel.connectors.seatunnel.common.source.reader.RecordsWithSplitIds;
+import org.apache.seatunnel.connectors.seatunnel.common.source.reader.SourceReaderOptions;
 import org.apache.seatunnel.connectors.seatunnel.rocketmq.common.RocketMqBaseConfiguration;
 import org.apache.seatunnel.connectors.seatunnel.rocketmq.common.SchemaFormat;
 import org.apache.seatunnel.connectors.seatunnel.rocketmq.common.StartMode;
 import org.apache.seatunnel.connectors.seatunnel.rocketmq.config.RocketMqSourceOptions;
+import org.apache.seatunnel.connectors.seatunnel.rocketmq.source.fetch.RocketMQSourceFetcherManager;
 import org.apache.seatunnel.format.json.JsonDeserializationSchema;
 import org.apache.seatunnel.format.json.exception.SeaTunnelJsonFormatException;
 import org.apache.seatunnel.format.text.TextDeserializationSchema;
 
+import org.apache.rocketmq.common.message.MessageExt;
 import org.apache.rocketmq.common.message.MessageQueue;
 
 import java.util.Arrays;
@@ -45,18 +53,35 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.stream.Collectors;
 
 /** RocketMq source */
 public class RocketMqSource
-        implements SeaTunnelSource<SeaTunnelRow, RocketMqSourceSplit, RocketMqSourceState>,
+        implements SeaTunnelSource<SeaTunnelRow, RocketMQPartitionSplit, RocketMqSourceState>,
                 SupportParallelism {
 
-    private final ReadonlyConfig pluginConfig;
-    private final CatalogTable catalogTable;
+    private ReadonlyConfig pluginConfig;
+    private static final String DEFAULT_CONSUMER_GROUP = "SeaTunnel-Consumer-Group";
     private final ConsumerMetadata metadata;
-    private DeserializationSchema<SeaTunnelRow> deserializationSchema;
     private JobContext jobContext;
+    private SeaTunnelRowType typeInfo;
+    private CatalogTable catalogTable;
+    private DeserializationSchema<SeaTunnelRow> deserializationSchema;
+    private long discoveryIntervalMillis;
+
+    @Override
+    public String getPluginName() {
+        return "Rocketmq";
+    }
+
+    @Override
+    public Boundedness getBoundedness() {
+        return JobMode.BATCH.equals(jobContext.getJobMode())
+                ? Boundedness.BOUNDED
+                : Boundedness.UNBOUNDED;
+    }
 
     public RocketMqSource(ReadonlyConfig pluginConfig) {
         this.pluginConfig = pluginConfig;
@@ -134,26 +159,11 @@ public class RocketMqSource
                 break;
         }
         this.metadata.setStartMode(startMode);
+        this.discoveryIntervalMillis =
+                pluginConfig.get(RocketMqSourceOptions.KEY_PARTITION_DISCOVERY_INTERVAL_MILLIS);
         this.catalogTable = CatalogTableUtil.buildWithConfig(pluginConfig);
         // set deserialization
         setDeserialization(pluginConfig);
-    }
-
-    @Override
-    public String getPluginName() {
-        return "Rocketmq";
-    }
-
-    @Override
-    public List<CatalogTable> getProducedCatalogTables() {
-        return Collections.singletonList(catalogTable);
-    }
-
-    @Override
-    public Boundedness getBoundedness() {
-        return JobMode.BATCH.equals(jobContext.getJobMode())
-                ? Boundedness.BOUNDED
-                : Boundedness.UNBOUNDED;
     }
 
     @Override
@@ -162,29 +172,50 @@ public class RocketMqSource
     }
 
     @Override
-    public SourceReader<SeaTunnelRow, RocketMqSourceSplit> createReader(
+    public SeaTunnelDataType<SeaTunnelRow> getProducedType() {
+        return this.typeInfo;
+    }
+
+    @Override
+    public List<CatalogTable> getProducedCatalogTables() {
+        return Collections.singletonList(catalogTable);
+    }
+
+    @Override
+    public SourceReader<SeaTunnelRow, RocketMQPartitionSplit> createReader(
             SourceReader.Context readerContext) throws Exception {
-        return new RocketMqSourceReader(this.metadata, deserializationSchema, readerContext);
-    }
+        BlockingQueue<RecordsWithSplitIds<MessageExt>> elementsQueue =
+                new LinkedBlockingQueue<>(this.metadata.getBaseConfig().getBatchSize());
+        Supplier<RocketMQPartitionSplitReader> splitReader =
+                () -> new RocketMQPartitionSplitReader(this.metadata, readerContext);
 
-    @Override
-    public SourceSplitEnumerator<RocketMqSourceSplit, RocketMqSourceState> createEnumerator(
-            SourceSplitEnumerator.Context<RocketMqSourceSplit> context) throws Exception {
-        return new RocketMqSourceSplitEnumerator(
+        RocketMQSourceFetcherManager kafkaSourceFetcherManager =
+                new RocketMQSourceFetcherManager(elementsQueue, splitReader::get);
+        final RocketMqRecordEmitter rocketMqRecordEmitter =
+                new RocketMqRecordEmitter(deserializationSchema, readerContext);
+
+        return new RocketMqSourceReader(
+                elementsQueue,
+                kafkaSourceFetcherManager,
+                rocketMqRecordEmitter,
+                new SourceReaderOptions(this.pluginConfig),
                 this.metadata,
-                context,
-                pluginConfig.get(RocketMqSourceOptions.KEY_PARTITION_DISCOVERY_INTERVAL_MILLIS));
+                readerContext);
     }
 
     @Override
-    public SourceSplitEnumerator<RocketMqSourceSplit, RocketMqSourceState> restoreEnumerator(
-            SourceSplitEnumerator.Context<RocketMqSourceSplit> context,
+    public SourceSplitEnumerator<RocketMQPartitionSplit, RocketMqSourceState> createEnumerator(
+            SourceSplitEnumerator.Context<RocketMQPartitionSplit> context) throws Exception {
+        return new RocketMqSourceSplitEnumerator(this.metadata, context, discoveryIntervalMillis);
+    }
+
+    @Override
+    public SourceSplitEnumerator<RocketMQPartitionSplit, RocketMqSourceState> restoreEnumerator(
+            SourceSplitEnumerator.Context<RocketMQPartitionSplit> context,
             RocketMqSourceState sourceState)
             throws Exception {
         return new RocketMqSourceSplitEnumerator(
-                this.metadata,
-                context,
-                pluginConfig.get(RocketMqSourceOptions.KEY_PARTITION_DISCOVERY_INTERVAL_MILLIS));
+                this.metadata, sourceState.getAssignSplits(), context, discoveryIntervalMillis);
     }
 
     private void setDeserialization(ReadonlyConfig config) {

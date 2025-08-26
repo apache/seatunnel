@@ -37,5 +37,5 @@ public class ConsumerMetadata implements Serializable {
     private boolean enabledCommitCheckpoint = false;
     private StartMode startMode;
     private Map<MessageQueue, Long> specificStartOffsets;
-    private Long startOffsetsTimestamp;
+    private long startOffsetsTimestamp;
 }

@@ -25,6 +25,7 @@ import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.connectors.seatunnel.rocketmq.common.StartMode;
+import org.apache.seatunnel.connectors.seatunnel.rocketmq.config.RocketMqBaseOptions;
 import org.apache.seatunnel.connectors.seatunnel.rocketmq.config.RocketMqSourceOptions;
 
 import com.google.auto.service.AutoService;
@@ -36,15 +37,15 @@ public class RocketMqSourceFactory implements TableSourceFactory {
 
     @Override
     public String factoryIdentifier() {
-        return RocketMqSourceOptions.CONNECTOR_IDENTITY;
+        return RocketMqBaseOptions.CONNECTOR_IDENTITY;
     }
 
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(RocketMqSourceOptions.TOPICS, RocketMqSourceOptions.NAME_SRV_ADDR)
+                .required(RocketMqSourceOptions.TOPICS, RocketMqBaseOptions.NAME_SRV_ADDR)
                 .optional(
-                        RocketMqSourceOptions.FORMAT,
+                        RocketMqBaseOptions.FORMAT,
                         RocketMqSourceOptions.TAGS,
                         RocketMqSourceOptions.START_MODE,
                         RocketMqSourceOptions.CONSUMER_GROUP,

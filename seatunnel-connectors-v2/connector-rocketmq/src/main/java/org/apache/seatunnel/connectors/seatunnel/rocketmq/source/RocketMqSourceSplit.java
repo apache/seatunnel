@@ -21,14 +21,14 @@ import org.apache.seatunnel.api.source.SourceSplit;
 
 import org.apache.rocketmq.common.message.MessageQueue;
 
+import java.util.Objects;
+
 /** define rocketmq source split */
 public class RocketMqSourceSplit implements SourceSplit {
     private static final long serialVersionUID = -8036209560700452001L;
     private MessageQueue messageQueue;
     private long startOffset = -1L;
     private long endOffset = -1L;
-
-    public RocketMqSourceSplit() {}
 
     public RocketMqSourceSplit(MessageQueue messageQueue) {
         this.messageQueue = messageQueue;
@@ -71,6 +71,23 @@ public class RocketMqSourceSplit implements SourceSplit {
                 + this.messageQueue.getBrokerName()
                 + "-"
                 + this.messageQueue.getQueueId();
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        RocketMqSourceSplit that = (RocketMqSourceSplit) o;
+        return Objects.equals(messageQueue, that.messageQueue);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(messageQueue, startOffset, endOffset);
     }
 
     public RocketMqSourceSplit copy() {
