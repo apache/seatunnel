@@ -82,13 +82,14 @@ public class HudiRecordWriter implements Serializable {
     public HudiRecordWriter(
             HudiTableConfig hudiTableConfig,
             WriteClientProvider clientProvider,
-            SeaTunnelRowType seaTunnelRowType) {
+            SeaTunnelRowType seaTunnelRowType,
+            String timestampSemantics) {
         this.hudiTableConfig = hudiTableConfig;
         this.clientProvider = clientProvider;
         this.seaTunnelRowType = seaTunnelRowType;
         this.writeRecords = new ArrayList<>();
         this.deleteRecordKeys = new ArrayList<>();
-        this.recordConverter = new HudiRecordConverter();
+        this.recordConverter = new HudiRecordConverter(timestampSemantics);
     }
 
     public void open() {

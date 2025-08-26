@@ -66,7 +66,11 @@ public class HudiSinkWriter
                 new HudiWriteClientProvider(
                         sinkConfig, tableConfig.getTableName(), seaTunnelRowType);
         this.hudiRecordWriter =
-                new HudiRecordWriter(tableConfig, writeClientProvider, seaTunnelRowType);
+                new HudiRecordWriter(
+                        tableConfig,
+                        writeClientProvider,
+                        seaTunnelRowType,
+                        sinkConfig.getTimestampSemantics());
     }
 
     @Override
@@ -109,7 +113,11 @@ public class HudiSinkWriter
                         queueIndex,
                         tableConfig.getTableName());
         this.hudiRecordWriter =
-                new HudiRecordWriter(tableConfig, writeClientProvider, seaTunnelRowType);
+                new HudiRecordWriter(
+                        tableConfig,
+                        writeClientProvider,
+                        seaTunnelRowType,
+                        sinkConfig.getTimestampSemantics());
     }
 
     private void tryOpen() {

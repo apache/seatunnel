@@ -34,6 +34,8 @@ import java.nio.ByteBuffer;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.time.temporal.ChronoField;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -66,6 +68,16 @@ public class RowDataToAvroConverters implements Serializable {
      * Seatunnel internal data structures to corresponding Avro data structures.
      */
     public static RowDataToAvroConverter createConverter(SeaTunnelDataType<?> dataType) {
+        return createConverter(dataType, null);
+    }
+
+    /**
+     * Creates a runtime converter with timestamp semantics control. timestampSemantics: null or
+     * "instant" (default, UTC; alias "utc" for backward compatibility) => UTC; "local" => system
+     * default ZoneId; or "zone:{ZoneId}" e.g. zone:Asia/Shanghai
+     */
+    public static RowDataToAvroConverter createConverter(
+            SeaTunnelDataType<?> dataType, String timestampSemantics) {
         final RowDataToAvroConverter converter;
         switch (dataType.getSqlType()) {
             case TINYINT:
@@ -150,15 +162,19 @@ public class RowDataToAvroConverters implements Serializable {
                         };
                 break;
             case TIMESTAMP:
+                final ZoneId zoneId = parseZoneFromSemantics(timestampSemantics);
                 converter =
                         new RowDataToAvroConverter() {
                             private static final long serialVersionUID = 1L;
 
                             @Override
                             public Object convert(Schema schema, Object object) {
-                                return ((LocalDateTime) object)
-                                        .toInstant(java.time.ZoneOffset.UTC)
-                                        .toEpochMilli();
+                                LocalDateTime ldt = (LocalDateTime) object;
+                                if (zoneId != null) {
+                                    return ldt.atZone(zoneId).toInstant().toEpochMilli();
+                                } else {
+                                    return ldt.toInstant(ZoneOffset.UTC).toEpochMilli();
+                                }
                             }
                         };
                 break;
@@ -176,13 +192,13 @@ public class RowDataToAvroConverters implements Serializable {
                         };
                 break;
             case ARRAY:
-                converter = createArrayConverter((ArrayType<?, ?>) dataType);
+                converter = createArrayConverter((ArrayType<?, ?>) dataType, timestampSemantics);
                 break;
             case ROW:
-                converter = createRowConverter((SeaTunnelRowType) dataType);
+                converter = createRowConverter((SeaTunnelRowType) dataType, timestampSemantics);
                 break;
             case MAP:
-                converter = createMapConverter(dataType);
+                converter = createMapConverter(dataType, timestampSemantics);
                 break;
             default:
                 throw new UnsupportedOperationException("Unsupported type: " + dataType);
@@ -219,10 +235,41 @@ public class RowDataToAvroConverters implements Serializable {
         };
     }
 
+    private static ZoneId parseZoneFromSemantics(String semantics) {
+        if (semantics == null) {
+            return null; // default UTC
+        }
+        String s = semantics.trim();
+        if (s.equalsIgnoreCase("utc") || s.equalsIgnoreCase("instant")) {
+            return null;
+        }
+        if (s.equalsIgnoreCase("local")) {
+            return ZoneId.systemDefault();
+        }
+        if (s.toLowerCase().startsWith("zone:")) {
+            String zone = s.substring(5).trim();
+            if (zone.isEmpty()) {
+                return null;
+            }
+            try {
+                return ZoneId.of(zone);
+            } catch (Exception e) {
+                return null;
+            }
+        }
+        return null;
+    }
+
     private static RowDataToAvroConverter createRowConverter(SeaTunnelRowType rowType) {
+        // replaced by overloaded with semantics
+        throw new UnsupportedOperationException("Use overloaded method with timestamp semantics");
+    }
+
+    private static RowDataToAvroConverter createRowConverter(
+            SeaTunnelRowType rowType, String timestampSemantics) {
         final RowDataToAvroConverter[] fieldConverters =
                 Arrays.stream(rowType.getFieldTypes())
-                        .map(RowDataToAvroConverters::createConverter)
+                        .map(t -> RowDataToAvroConverters.createConverter(t, timestampSemantics))
                         .toArray(RowDataToAvroConverter[]::new);
         final SeaTunnelDataType<?>[] fieldTypes = rowType.getFieldTypes();
 
@@ -253,7 +300,14 @@ public class RowDataToAvroConverters implements Serializable {
     }
 
     private static RowDataToAvroConverter createArrayConverter(ArrayType<?, ?> arrayType) {
-        final RowDataToAvroConverter elementConverter = createConverter(arrayType.getElementType());
+        // replaced by overloaded with semantics
+        throw new UnsupportedOperationException("Use overloaded method with timestamp semantics");
+    }
+
+    private static RowDataToAvroConverter createArrayConverter(
+            ArrayType<?, ?> arrayType, String timestampSemantics) {
+        final RowDataToAvroConverter elementConverter =
+                createConverter(arrayType.getElementType(), timestampSemantics);
 
         return new RowDataToAvroConverter() {
             private static final long serialVersionUID = 1L;
@@ -272,9 +326,16 @@ public class RowDataToAvroConverters implements Serializable {
     }
 
     private static RowDataToAvroConverter createMapConverter(SeaTunnelDataType<?> type) {
+        // replaced by overloaded with semantics
+        throw new UnsupportedOperationException("Use overloaded method with timestamp semantics");
+    }
+
+    private static RowDataToAvroConverter createMapConverter(
+            SeaTunnelDataType<?> type, String timestampSemantics) {
         SeaTunnelDataType<?> valueType = extractValueTypeToAvroMap(type);
 
-        final RowDataToAvroConverter valueConverter = createConverter(valueType);
+        final RowDataToAvroConverter valueConverter =
+                createConverter(valueType, timestampSemantics);
 
         return new RowDataToAvroConverter() {
             private static final long serialVersionUID = 1L;

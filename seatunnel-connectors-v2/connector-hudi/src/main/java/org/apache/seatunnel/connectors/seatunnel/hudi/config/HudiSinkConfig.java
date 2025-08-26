@@ -44,12 +44,18 @@ public class HudiSinkConfig implements Serializable {
 
     private DataSaveMode dataSaveMode;
 
+    // Controls TIMESTAMP(LocalDateTime) -> epoch-millis semantics; e.g., "instant" (UTC), "local",
+    // or "zone:Asia/Shanghai"
+    private String timestampSemantics;
+
     public static HudiSinkConfig of(ReadonlyConfig config) {
         Builder builder = HudiSinkConfig.builder();
         Optional<SchemaSaveMode> optionalSchemaSaveMode =
                 config.getOptional(HudiSinkOptions.SCHEMA_SAVE_MODE);
         Optional<DataSaveMode> optionalDataSaveMode =
                 config.getOptional(HudiSinkOptions.DATA_SAVE_MODE);
+        Optional<String> optionalTimestampSemantics =
+                config.getOptional(HudiSinkOptions.TIMESTAMP_SEMANTICS);
 
         builder.tableDfsPath(config.get(HudiSinkOptions.TABLE_DFS_PATH));
         builder.confFilesPath(config.get(HudiSinkOptions.CONF_FILES_PATH));
@@ -59,6 +65,7 @@ public class HudiSinkConfig implements Serializable {
                 optionalSchemaSaveMode.orElseGet(HudiSinkOptions.SCHEMA_SAVE_MODE::defaultValue));
         builder.dataSaveMode(
                 optionalDataSaveMode.orElseGet(HudiSinkOptions.DATA_SAVE_MODE::defaultValue));
+        builder.timestampSemantics(optionalTimestampSemantics.orElse(null));
         return builder.build();
     }
 }

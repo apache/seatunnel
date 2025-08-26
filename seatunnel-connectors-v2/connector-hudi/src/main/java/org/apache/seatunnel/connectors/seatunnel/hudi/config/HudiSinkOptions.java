@@ -166,4 +166,19 @@ public class HudiSinkOptions {
                     .stringType()
                     .noDefaultValue()
                     .withDescription("the precombine field of hudi table");
+
+    // Option to control how TIMESTAMP(LocalDateTime) is converted to epoch millis
+    // Values:
+    //  - "instant" (default): interpret LocalDateTime at UTC before converting to epoch millis
+    //     (alias: "utc" kept for backward compatibility).
+    //  - "local": bind LocalDateTime to a specific time zone before converting to epoch millis
+    //     (falls back to system default ZoneId when not specified elsewhere).
+    //  - "zone:{ZoneId}": bind LocalDateTime to the given ZoneId (e.g., zone:Asia/Shanghai)
+    //     before converting to epoch millis.
+    public static Option<String> TIMESTAMP_SEMANTICS =
+            Options.key("timestamp_semantics")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "Controls TIMESTAMP(LocalDateTime) -> epoch-millis semantics. 'instant' (default) converts at UTC; 'local' binds to a specified time zone (falls back to system default). Optionally, 'zone:{ZoneId}' (e.g., zone:Asia/Shanghai) explicitly sets the time zone.");
 }

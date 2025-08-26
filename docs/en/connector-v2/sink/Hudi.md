@@ -47,6 +47,7 @@ Table list configuration:
 | index_class_name           | string | no       | -             |
 | record_byte_size           | Int    | no       | 1024          |
 | cdc_enabled                | boolean| no       | false         |
+| timestamp_semantics        | string | no       | instant       |
 
 Note: When this configuration corresponds to a single table, you can flatten the configuration items in table_list to the outer layer.
 
@@ -134,6 +135,14 @@ Option introduction：
 `CREATE_SCHEMA_WHEN_NOT_EXIST` ：Will Created when the table does not exist, skipped when the table is saved        
 `ERROR_WHEN_SCHEMA_NOT_EXIST` ：Error will be reported when the table does not exist  
 `IGNORE` ：Ignore the treatment of the table
+
+### timestamp_semantics [Enum]
+
+Controls how a seatunnel timestamp is converted to epoch milliseconds.
+Options:
+`instant`: default, Interpret LocalDateTime as UTC before converting to epoch milliseconds, alias: "utc" is also supported for backward compatibility.
+`local`: Bind the value to a specific time zone before conversion, if no time zone is explicitly specified elsewhere, the system default ZoneId will be used.
+`zone:{ZoneId}`: Bind the value to the given ZoneId before conversion, example: zone:Asia/Shanghai.
 
 ### common options
 

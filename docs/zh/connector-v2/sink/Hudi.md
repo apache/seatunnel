@@ -47,7 +47,7 @@ import ChangeLog from '../changelog/connector-hudi.md';
 | index_class_name           | string | no       | -             |
 | record_byte_size           | Int    | no       | 1024          |
 | cdc_enabled                | boolean| no       | false         |
-
+| timestamp_semantics        | string | no       | instant       |
 注意: 当此配置对应于单个表时，您可以将table_list中的配置项展平到外层。
 
 ### table_name [string]
@@ -134,6 +134,13 @@ import ChangeLog from '../changelog/connector-hudi.md';
 `CREATE_SCHEMA_WHEN_NOT_EXIST`：当表不存在时会创建，当表已存在时则跳过创建<br/>
 `ERROR_WHEN_SCHEMA_NOT_EXIST`：当表不存在时将抛出错误<br/>
 `IGNORE` ：忽略对表的处理<br/>
+
+### timestamp_semantics [Enum]
+控制 seatunnel timestamp 转换为 epoch 毫秒 的方式<br/>
+可选项：<br/>
+`instant`:(默认值)，在转换为 epoch 毫秒之前，将 LocalDateTime 按 UTC 进行解释, 别名： 支持 "utc"，用于向后兼容<br/>
+`local`: 在转换前，将其绑定到一个特定的时区,如果未在其他地方显式指定时区，则回退到系统默认的 ZoneId<br/>
+`zone:{ZoneId}`: 在转换前，将 LocalDateTime 绑定到指定的 ZoneId，例如：zone:Asia/Shanghai<br/>
 
 ### 通用选项
 

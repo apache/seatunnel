@@ -52,6 +52,12 @@ public class HudiRecordConverter implements Serializable {
 
     private static final String EMPTY_RECORD_KEY_PLACEHOLDER = "__empty__";
 
+    private final String timestampSemantics;
+
+    public HudiRecordConverter(String timestampSemantics) {
+        this.timestampSemantics = timestampSemantics;
+    }
+
     public HoodieRecord<HoodieAvroPayload> convertRow(
             Schema schema,
             SeaTunnelRowType seaTunnelRowType,
@@ -61,7 +67,7 @@ public class HudiRecordConverter implements Serializable {
         for (int i = 0; i < seaTunnelRowType.getTotalFields(); i++) {
             rec.put(
                     seaTunnelRowType.getFieldNames()[i],
-                    createConverter(seaTunnelRowType.getFieldType(i))
+                    createConverter(seaTunnelRowType.getFieldType(i), timestampSemantics)
                             .convert(
                                     convertToSchema(
                                             seaTunnelRowType.getFieldType(i),
