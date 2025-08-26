@@ -157,7 +157,7 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
             try {
                 return dateFormat.parse(modifiedDate);
             } catch (ParseException e) {
-                log.warn(
+                throw new IllegalArgumentException(
                         "Failed to parse file modified date format: yyyy-MM-dd HH:mm:ss, please check file_filter_modified_start or file_filter_modified_end format.");
             }
         }
