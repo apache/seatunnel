@@ -90,8 +90,8 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
             FileBaseSourceOptions.ARCHIVE_COMPRESS_CODEC.defaultValue();
 
     protected Pattern pattern;
-    protected String fileModifiedStartDate;
-    protected String fileModifiedEndDate;
+    protected Date fileModifiedStartDate;
+    protected Date fileModifiedEndDate;
 
     @Override
     public void init(HadoopConf conf) {
@@ -151,40 +151,38 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
         return fileNames;
     }
 
+    private Date getFileModifiedDate(String modifiedDate) {
+        SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+        if (modifiedDate != null) {
+            try {
+                return dateFormat.parse(modifiedDate);
+            } catch (ParseException e) {
+                log.warn(
+                        "Failed to parse file modified date format: yyyy-MM-dd HH:mm:ss, please check file_filter_modified_start or file_filter_modified_end format.");
+            }
+        }
+
+        return null;
+    }
+
     protected boolean filterFileByModificationDate(FileStatus fileStatus) {
 
         long fileModifiedTime = fileStatus.getModificationTime();
-        SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-        Date startTime = null;
-        Date endTime = null;
-        try {
-            if (fileModifiedStartDate != null) {
-                startTime = dateFormat.parse(fileModifiedStartDate);
-            }
-
-            if (fileModifiedEndDate != null) {
-                endTime = dateFormat.parse(fileModifiedEndDate);
-            }
-
-        } catch (ParseException e) {
-            log.warn(
-                    "Failed to parse file modified date format: yyyy-MM-dd HH:mm:ss, please check file_filter_modified_start or file_filter_modified_end format.");
-            return false;
-        }
 
         // Both start and end date are set
-        if (startTime != null && endTime != null) {
-            return fileModifiedTime >= startTime.getTime() && fileModifiedTime < endTime.getTime();
+        if (fileModifiedStartDate != null && fileModifiedEndDate != null) {
+            return fileModifiedTime >= fileModifiedStartDate.getTime()
+                    && fileModifiedTime < fileModifiedEndDate.getTime();
         }
 
         // Only start date is set
-        if (startTime != null) {
-            return fileModifiedTime >= startTime.getTime();
+        if (fileModifiedStartDate != null) {
+            return fileModifiedTime >= fileModifiedStartDate.getTime();
         }
 
         // Only end date is set
-        if (endTime != null) {
-            return fileModifiedTime < endTime.getTime();
+        if (fileModifiedEndDate != null) {
+            return fileModifiedTime < fileModifiedEndDate.getTime();
         }
 
         // Neither start nor end date is set
@@ -228,11 +226,15 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
         }
         if (pluginConfig.hasPath(FileBaseSourceOptions.FILE_FILTER_MODIFIED_START.key())) {
             fileModifiedStartDate =
-                    pluginConfig.getString(FileBaseSourceOptions.FILE_FILTER_MODIFIED_START.key());
+                    getFileModifiedDate(
+                            pluginConfig.getString(
+                                    FileBaseSourceOptions.FILE_FILTER_MODIFIED_START.key()));
         }
         if (pluginConfig.hasPath(FileBaseSourceOptions.FILE_FILTER_MODIFIED_END.key())) {
             fileModifiedEndDate =
-                    pluginConfig.getString(FileBaseSourceOptions.FILE_FILTER_MODIFIED_END.key());
+                    getFileModifiedDate(
+                            pluginConfig.getString(
+                                    FileBaseSourceOptions.FILE_FILTER_MODIFIED_END.key()));
         }
     }
 
