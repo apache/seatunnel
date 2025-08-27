@@ -21,11 +21,11 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
 import org.apache.seatunnel.shade.com.google.common.base.Preconditions;
 import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
-import org.apache.seatunnel.shade.com.typesafe.config.ConfigObject;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigList;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigObject;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigRenderOptions;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigValue;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigValueType;
-import org.apache.seatunnel.shade.com.typesafe.config.ConfigRenderOptions;
 
 import org.apache.seatunnel.api.common.PluginIdentifier;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
@@ -842,12 +842,14 @@ public class MultipleTableJobConfigParser {
 
         try {
             ConfigList sourceList = jobConfigTmp.getList("source");
-            //Set<String> sourceKeys = sourceObj.keySet();
-            log.info("Parsed config:\n{}", jobConfigTmp.root().render(ConfigRenderOptions.concise().setFormatted(true)));
+            // Set<String> sourceKeys = sourceObj.keySet();
+            log.info(
+                    "metalake config:\n{}",
+                    jobConfigTmp.root().render(ConfigRenderOptions.concise().setFormatted(true)));
 
             for (int i = 0; i < sourceList.size(); i++) {
                 if (jobConfigTmp.hasPath("source." + ".sourceId")) {
-                    String sourceId = jobConfigTmp.getString("source."  + ".sourceId");
+                    String sourceId = jobConfigTmp.getString("source." + ".sourceId");
                     JsonNode metalakeJson = metalakeClient.getMetaInfo(sourceId);
                     ConfigObject subConfig = jobConfigTmp.getObject("source.");
                     for (Map.Entry<String, ConfigValue> entry : subConfig.entrySet()) {
