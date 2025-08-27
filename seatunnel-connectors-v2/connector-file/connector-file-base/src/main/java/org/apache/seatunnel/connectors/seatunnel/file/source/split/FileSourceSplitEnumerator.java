@@ -131,11 +131,6 @@ public class FileSourceSplitEnumerator
     }
 
     @Override
-    public int currentUnassignedSplitSize() {
-        return allSplit.size() - assignedSplit.size();
-    }
-
-    @Override
     public void registerReader(int subtaskId) {
         // do nothing
     }

@@ -274,11 +274,6 @@ public class KafkaSourceSplitEnumerator
     }
 
     @Override
-    public int currentUnassignedSplitSize() {
-        return pendingSplit.size();
-    }
-
-    @Override
     public void handleSplitRequest(int subtaskId) {
         // Do nothing because Kafka source push split.
     }

@@ -173,11 +173,6 @@ public class ElasticsearchSourceSplitEnumerator
     }
 
     @Override
-    public int currentUnassignedSplitSize() {
-        return pendingSplit.size();
-    }
-
-    @Override
     public void handleSplitRequest(int subtaskId) {
         throw new ElasticsearchConnectorException(
                 CommonErrorCode.OPERATION_NOT_SUPPORTED,

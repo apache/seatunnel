@@ -175,11 +175,6 @@ public class EasysearchSourceSplitEnumerator
     }
 
     @Override
-    public int currentUnassignedSplitSize() {
-        return pendingSplit.size();
-    }
-
-    @Override
     public void handleSplitRequest(int subtaskId) {
         throw new EasysearchConnectorException(
                 UNSUPPORTED_OPERATION, "Unsupported handleSplitRequest: " + subtaskId);

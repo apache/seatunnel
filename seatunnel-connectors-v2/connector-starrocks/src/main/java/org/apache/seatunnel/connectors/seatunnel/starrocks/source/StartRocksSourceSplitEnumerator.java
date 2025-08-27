@@ -105,11 +105,6 @@ public class StartRocksSourceSplitEnumerator
     }
 
     @Override
-    public int currentUnassignedSplitSize() {
-        return this.pendingSplit.size();
-    }
-
-    @Override
     public void registerReader(int subtaskId) {
         log.debug("Register reader {} to StartRocksSourceSplitEnumerator.", subtaskId);
         if (!pendingSplit.isEmpty()) {

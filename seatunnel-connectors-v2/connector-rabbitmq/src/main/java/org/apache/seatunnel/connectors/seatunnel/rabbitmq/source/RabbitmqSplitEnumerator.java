@@ -45,11 +45,6 @@ public class RabbitmqSplitEnumerator implements SourceSplitEnumerator {
     }
 
     @Override
-    public int currentUnassignedSplitSize() {
-        return 0;
-    }
-
-    @Override
     public void handleSplitRequest(int subtaskId) {
         // do nothing
     }

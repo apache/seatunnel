@@ -97,11 +97,6 @@ public class MultipleTableHiveSourceSplitEnumerator
     }
 
     @Override
-    public int currentUnassignedSplitSize() {
-        return allSplit.size() - assignedSplit.size();
-    }
-
-    @Override
     public void handleSplitRequest(int subtaskId) {}
 
     @Override

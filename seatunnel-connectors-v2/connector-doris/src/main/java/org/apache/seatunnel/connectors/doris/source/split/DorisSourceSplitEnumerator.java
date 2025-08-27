@@ -120,11 +120,6 @@ public class DorisSourceSplitEnumerator
     }
 
     @Override
-    public int currentUnassignedSplitSize() {
-        return this.pendingSplit.size();
-    }
-
-    @Override
     public void handleSplitRequest(int subtaskId) {
         throw new DorisConnectorException(
                 CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,

@@ -145,17 +145,6 @@ public abstract class AbstractSplitEnumerator
     }
 
     @Override
-    public int currentUnassignedSplitSize() {
-        if (!pendingTables.isEmpty()) {
-            return pendingTables.size();
-        }
-        if (!pendingSplits.isEmpty()) {
-            return pendingSplits.values().stream().mapToInt(List::size).sum();
-        }
-        return 0;
-    }
-
-    @Override
     public void handleSplitRequest(int subtaskId) {}
 
     @Override

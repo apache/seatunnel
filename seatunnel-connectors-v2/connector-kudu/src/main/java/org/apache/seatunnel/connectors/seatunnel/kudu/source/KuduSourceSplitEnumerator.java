@@ -176,11 +176,6 @@ public class KuduSourceSplitEnumerator
     }
 
     @Override
-    public int currentUnassignedSplitSize() {
-        return pendingSplits.size();
-    }
-
-    @Override
     public void handleSplitRequest(int subtaskId) {
         throw new KuduConnectorException(
                 CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,

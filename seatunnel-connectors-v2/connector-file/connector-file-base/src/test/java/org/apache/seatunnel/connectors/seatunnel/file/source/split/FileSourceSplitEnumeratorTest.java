@@ -89,9 +89,6 @@ public class FileSourceSplitEnumeratorTest {
 
         fileSourceSplitEnumerator.run();
 
-        // check all files are assigned
-        Assertions.assertEquals(fileSourceSplitEnumerator.currentUnassignedSplitSize(), 0);
-
         Set<FileSourceSplit> valueSet =
                 assignSplitMap.values().stream().flatMap(List::stream).collect(Collectors.toSet());
 

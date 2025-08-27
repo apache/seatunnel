@@ -88,11 +88,6 @@ public class MaxcomputeSourceSplitEnumerator
     }
 
     @Override
-    public int currentUnassignedSplitSize() {
-        return pendingSplits.size();
-    }
-
-    @Override
     public void registerReader(int subtaskId) {}
 
     @Override
