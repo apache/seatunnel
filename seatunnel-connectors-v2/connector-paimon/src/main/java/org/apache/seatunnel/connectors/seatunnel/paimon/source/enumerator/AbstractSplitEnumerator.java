@@ -17,15 +17,18 @@
 
 package org.apache.seatunnel.connectors.seatunnel.paimon.source.enumerator;
 
+import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 import org.apache.seatunnel.shade.com.google.common.util.concurrent.ThreadFactoryBuilder;
 
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
+import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.seatunnel.paimon.source.PaimonSourceSplit;
 import org.apache.seatunnel.connectors.seatunnel.paimon.source.PaimonSourceSplitGenerator;
 import org.apache.seatunnel.connectors.seatunnel.paimon.source.PaimonSourceState;
 
 import org.apache.paimon.table.source.EndOfScanException;
+import org.apache.paimon.table.source.ReadBuilder;
 import org.apache.paimon.table.source.StreamTableScan;
 import org.apache.paimon.table.source.TableScan;
 
@@ -37,12 +40,13 @@ import javax.annotation.Nullable;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.Deque;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
@@ -62,8 +66,8 @@ public abstract class AbstractSplitEnumerator
     /** The splits that have not assigned */
     protected Deque<PaimonSourceSplit> pendingSplits;
 
-    protected final TableScan tableScan;
     protected final Object stateLock = new Object();
+    private final Map<String, TableScan> tableScans = new HashMap<>();
 
     private final int splitMaxNum;
 
@@ -75,23 +79,32 @@ public abstract class AbstractSplitEnumerator
             Context<PaimonSourceSplit> context,
             Deque<PaimonSourceSplit> pendingSplits,
             @Nullable Long nextSnapshotId,
-            TableScan tableScan,
-            int splitMaxPerTask) {
+            Map<String, ReadBuilder> readBuilders,
+            int splitMaxPerTask,
+            JobMode jobMode) {
         this.context = context;
         this.pendingSplits = new LinkedList<>(pendingSplits);
         this.nextSnapshotId = nextSnapshotId;
         this.readersAwaitingSplit = new LinkedHashSet<>();
         this.splitGenerator = new PaimonSourceSplitGenerator();
-        this.tableScan = tableScan;
         this.splitMaxNum = context.currentParallelism() * splitMaxPerTask;
         this.executorService =
                 Executors.newCachedThreadPool(
                         new ThreadFactoryBuilder()
                                 .setNameFormat("Seatunnel-PaimonSourceSplitEnumerator-%d")
                                 .build());
-        if (tableScan instanceof StreamTableScan && nextSnapshotId != null) {
-            ((StreamTableScan) tableScan).restore(nextSnapshotId);
-        }
+
+        readBuilders.forEach(
+                (tableId, readBuilder) -> {
+                    TableScan scan =
+                            JobMode.BATCH.equals(jobMode)
+                                    ? readBuilder.newScan()
+                                    : readBuilder.newStreamScan();
+                    tableScans.put(tableId, scan);
+                    if (scan instanceof StreamTableScan && nextSnapshotId != null) {
+                        ((StreamTableScan) scan).restore(nextSnapshotId);
+                    }
+                });
     }
 
     @Override
@@ -197,22 +210,28 @@ public abstract class AbstractSplitEnumerator
 
     // This need to be synchronized because scan object is not thread safe. handleSplitRequest and
     // CompletableFuture.supplyAsync will invoke this.
-    protected synchronized Optional<PlanWithNextSnapshotId> scanNextSnapshot() {
+    protected synchronized List<PlanWithNextSnapshotId> scanNextSnapshot() {
+
+        List<PlanWithNextSnapshotId> snapshotIds = Lists.newArrayList();
         if (pendingSplits.size() >= splitMaxNum) {
-            return Optional.empty();
+            return snapshotIds;
         }
-        TableScan.Plan plan = tableScan.plan();
-        Long nextSnapshotId = null;
-        if (tableScan instanceof StreamTableScan) {
-            nextSnapshotId = ((StreamTableScan) tableScan).checkpoint();
-        }
-        return Optional.of(new PlanWithNextSnapshotId(plan, nextSnapshotId));
+        tableScans.forEach(
+                (tableId, tableScan) -> {
+                    TableScan.Plan plan = tableScan.plan();
+                    Long nextSnapshotId = null;
+                    if (tableScan instanceof StreamTableScan) {
+                        nextSnapshotId = ((StreamTableScan) tableScan).checkpoint();
+                    }
+                    snapshotIds.add(new PlanWithNextSnapshotId(tableId, plan, nextSnapshotId));
+                });
+        return snapshotIds;
     }
 
     // This method could not be synchronized, because it runs in coordinatorThread, which will make
     // it serializable execution.
     protected void processDiscoveredSplits(
-            Optional<PlanWithNextSnapshotId> planWithNextSnapshotIdOptional, Throwable error) {
+            List<PlanWithNextSnapshotId> planWithNextSnapshotIds, Throwable error) {
         if (error != null) {
             if (error instanceof EndOfScanException) {
                 log.debug("Catching EndOfStreamException, the stream is finished.");
@@ -223,28 +242,28 @@ public abstract class AbstractSplitEnumerator
             }
             return;
         }
-        if (!planWithNextSnapshotIdOptional.isPresent()) {
-            return;
-        }
-        PlanWithNextSnapshotId planWithNextSnapshotId = planWithNextSnapshotIdOptional.get();
-        nextSnapshotId = planWithNextSnapshotId.nextSnapshotId;
-        TableScan.Plan plan = planWithNextSnapshotId.plan;
 
-        if (plan.splits().isEmpty()) {
-            return;
+        for (PlanWithNextSnapshotId planWithNextSnapshotId : planWithNextSnapshotIds) {
+            nextSnapshotId = planWithNextSnapshotId.nextSnapshotId;
+            TableScan.Plan plan = planWithNextSnapshotId.plan;
+            if (plan.splits().isEmpty()) {
+                continue;
+            }
+            addSplits(splitGenerator.createSplits(planWithNextSnapshotId.tableId, plan));
         }
-
-        addSplits(splitGenerator.createSplits(plan));
         assignSplits();
     }
 
     /** The result of scan. */
     @Getter
     protected static class PlanWithNextSnapshotId {
+
         private final TableScan.Plan plan;
         private final Long nextSnapshotId;
+        private final String tableId;
 
-        public PlanWithNextSnapshotId(TableScan.Plan plan, Long nextSnapshotId) {
+        public PlanWithNextSnapshotId(String tableId, TableScan.Plan plan, Long nextSnapshotId) {
+            this.tableId = tableId;
             this.plan = plan;
             this.nextSnapshotId = nextSnapshotId;
         }

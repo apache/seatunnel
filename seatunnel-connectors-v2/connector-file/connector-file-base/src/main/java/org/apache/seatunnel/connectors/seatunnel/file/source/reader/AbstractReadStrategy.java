@@ -45,10 +45,13 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.math.BigDecimal;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Date;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -87,6 +90,8 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
             FileBaseSourceOptions.ARCHIVE_COMPRESS_CODEC.defaultValue();
 
     protected Pattern pattern;
+    protected Date fileModifiedStartDate;
+    protected Date fileModifiedEndDate;
 
     @Override
     public void init(HadoopConf conf) {
@@ -120,7 +125,9 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
             if (fileStatus.isFile() && filterFileByPattern(fileStatus) && fileStatus.getLen() > 0) {
                 // filter '_SUCCESS' file
                 if (!fileStatus.getPath().getName().equals("_SUCCESS")
-                        && !fileStatus.getPath().getName().startsWith(".")) {
+                        && !fileStatus.getPath().getName().startsWith(".")
+                        && filterFileByModificationDate(fileStatus)) {
+
                     String filePath = fileStatus.getPath().toString();
                     if (!readPartitions.isEmpty()) {
                         for (String readPartition : readPartitions) {
@@ -142,6 +149,44 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
             fileNames.removeIf(fileName -> !fileName.endsWith(filenameExtension));
         }
         return fileNames;
+    }
+
+    private Date getFileModifiedDate(String modifiedDate) {
+        SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+        if (modifiedDate != null) {
+            try {
+                return dateFormat.parse(modifiedDate);
+            } catch (ParseException e) {
+                throw new IllegalArgumentException(
+                        "Failed to parse file modified date format: yyyy-MM-dd HH:mm:ss, please check file_filter_modified_start or file_filter_modified_end format.");
+            }
+        }
+
+        return null;
+    }
+
+    protected boolean filterFileByModificationDate(FileStatus fileStatus) {
+
+        long fileModifiedTime = fileStatus.getModificationTime();
+
+        // Both start and end date are set
+        if (fileModifiedStartDate != null && fileModifiedEndDate != null) {
+            return fileModifiedTime >= fileModifiedStartDate.getTime()
+                    && fileModifiedTime < fileModifiedEndDate.getTime();
+        }
+
+        // Only start date is set
+        if (fileModifiedStartDate != null) {
+            return fileModifiedTime >= fileModifiedStartDate.getTime();
+        }
+
+        // Only end date is set
+        if (fileModifiedEndDate != null) {
+            return fileModifiedTime < fileModifiedEndDate.getTime();
+        }
+
+        // Neither start nor end date is set
+        return true;
     }
 
     @Override
@@ -178,6 +223,18 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
             String filterPattern =
                     pluginConfig.getString(FileBaseSourceOptions.FILE_FILTER_PATTERN.key());
             this.pattern = Pattern.compile(filterPattern);
+        }
+        if (pluginConfig.hasPath(FileBaseSourceOptions.FILE_FILTER_MODIFIED_START.key())) {
+            fileModifiedStartDate =
+                    getFileModifiedDate(
+                            pluginConfig.getString(
+                                    FileBaseSourceOptions.FILE_FILTER_MODIFIED_START.key()));
+        }
+        if (pluginConfig.hasPath(FileBaseSourceOptions.FILE_FILTER_MODIFIED_END.key())) {
+            fileModifiedEndDate =
+                    getFileModifiedDate(
+                            pluginConfig.getString(
+                                    FileBaseSourceOptions.FILE_FILTER_MODIFIED_END.key()));
         }
     }
 

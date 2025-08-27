@@ -59,4 +59,10 @@ public class ClickhouseSourceOptions {
                     .stringType()
                     .noDefaultValue()
                     .withDescription("Filter expression of the query. such as id > 2.");
+
+    public static final Option<List<ClickhouseTableConfig>> TABLE_LIST =
+            Options.key("table_list")
+                    .listType(ClickhouseTableConfig.class)
+                    .noDefaultValue()
+                    .withDescription("table list config.");
 }

@@ -98,6 +98,20 @@ public class FileBaseSourceOptions extends FileBaseOptions {
                     .withDescription(
                             "File pattern. The connector will filter some files base on the pattern.");
 
+    public static final Option<String> FILE_FILTER_MODIFIED_START =
+            Options.key("file_filter_modified_start")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "File modification time filter. The connector will filter some files base on the last modification start time (include start time). the default data format is yyyy-MM-dd HH:mm:ss");
+
+    public static final Option<String> FILE_FILTER_MODIFIED_END =
+            Options.key("file_filter_modified_end")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "File modification time filter. The connector will filter some files base on the last modification end time (not include end time). the default data format is yyyy-MM-dd HH:mm:ss");
+
     public static final Option<Integer> BINARY_CHUNK_SIZE =
             Options.key("binary_chunk_size")
                     .intType()
