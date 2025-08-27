@@ -343,44 +343,38 @@ public class SeaTunnelServer
         }
     }
 
-    public void updateMetrics(Map<TaskLocation, SeaTunnelMetricsContext> localMap) {
+    public synchronized void updateMetrics(Map<TaskLocation, SeaTunnelMetricsContext> localMap) {
         if (localMap == null || localMap.isEmpty()) {
             return;
         }
         IMap<Long, HashMap<TaskLocation, SeaTunnelMetricsContext>> metricsImap =
                 getNodeEngine().getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_METRICS);
 
-        metricsImap.compute(
-                Constant.IMAP_RUNNING_JOB_METRICS_KEY,
-                (key, centralMap) -> {
-                    if (centralMap == null) {
-                        centralMap = new HashMap<>();
-                    }
-                    centralMap.putAll(localMap);
-                    return centralMap;
-                });
+        HashMap<TaskLocation, SeaTunnelMetricsContext> centralMap =
+                metricsImap.get(Constant.IMAP_RUNNING_JOB_METRICS_KEY);
+
+        if (centralMap == null) {
+            centralMap = new HashMap<>();
+        }
+        centralMap.putAll(localMap);
+        metricsImap.put(Constant.IMAP_RUNNING_JOB_METRICS_KEY, centralMap);
     }
 
-    public void removeMetrics(PipelineLocation pipelineLocation) {
+    public synchronized void removeMetrics(PipelineLocation pipelineLocation) {
         IMap<Long, HashMap<TaskLocation, SeaTunnelMetricsContext>> metricsImap =
                 getNodeEngine().getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_METRICS);
 
-        metricsImap.compute(
-                Constant.IMAP_RUNNING_JOB_METRICS_KEY,
-                (key, centralMap) -> {
-                    if (centralMap == null) {
-                        return null;
-                    }
+        HashMap<TaskLocation, SeaTunnelMetricsContext> centralMap =
+                metricsImap.get(Constant.IMAP_RUNNING_JOB_METRICS_KEY);
+        if (centralMap == null) {
+            return;
+        }
 
-                    List<TaskLocation> taskLocations =
-                            getTaskLocations(pipelineLocation, centralMap);
-                    if (taskLocations == null || taskLocations.isEmpty()) {
-                        return centralMap;
-                    }
-
-                    taskLocations.forEach(centralMap::remove);
-                    return centralMap.isEmpty() ? null : centralMap;
-                });
+        List<TaskLocation> taskLocations =
+                getTaskLocations(
+                        pipelineLocation, metricsImap.get(Constant.IMAP_RUNNING_JOB_METRICS_KEY));
+        taskLocations.forEach(centralMap::remove);
+        metricsImap.put(Constant.IMAP_RUNNING_JOB_METRICS_KEY, centralMap);
     }
 
     private List<TaskLocation> getTaskLocations(

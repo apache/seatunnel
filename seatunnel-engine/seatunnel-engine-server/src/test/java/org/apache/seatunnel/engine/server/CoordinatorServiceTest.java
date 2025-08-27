@@ -29,6 +29,7 @@ import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.metrics.SeaTunnelMetricsContext;
 import org.apache.seatunnel.engine.server.operation.PrintMessageOperation;
 import org.apache.seatunnel.engine.server.operation.ReturnRetryTimesOperation;
+import org.apache.seatunnel.engine.server.task.operation.ReportMetricsOperation;
 import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
 
 import org.junit.jupiter.api.Assertions;
@@ -39,14 +40,17 @@ import org.junitpioneer.jupiter.SetEnvironmentVariable;
 import com.hazelcast.instance.impl.HazelcastInstanceImpl;
 import com.hazelcast.internal.serialization.Data;
 import com.hazelcast.map.IMap;
+import com.hazelcast.spi.impl.NodeEngineImpl;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.List;
+import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 import static org.awaitility.Awaitility.await;
@@ -451,91 +455,79 @@ public class CoordinatorServiceTest {
 
     @Disabled("Performance test, not suitable for regular unit test execution")
     @Test
-    void testDistributedMetricsPerformance() {
+    void testDistributedMetricsPerformance() throws Exception {
         String clusterName = TestUtils.getClusterName("testDistributedMetricsPerformance");
         HazelcastInstanceImpl instance1 =
                 SeaTunnelServerStarter.createHazelcastInstance(clusterName);
-        List<HazelcastInstanceImpl> instances = new ArrayList<>();
-        for (int i = 0; i < 19; i++) {
-            instances.add(SeaTunnelServerStarter.createHazelcastInstance(clusterName));
-        }
+        HazelcastInstanceImpl instance2 =
+                SeaTunnelServerStarter.createHazelcastInstance(clusterName);
 
         await().atMost(20000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
-                        () -> {
-                            Assertions.assertEquals(20, instance1.getCluster().getMembers().size());
-                        });
+                        () ->
+                                Assertions.assertEquals(
+                                        2, instance1.getCluster().getMembers().size()));
 
-        SeaTunnelServer server1 =
-                instance1.node.getNodeEngine().getService(SeaTunnelServer.SERVICE_NAME);
+        ExecutorService executor = Executors.newFixedThreadPool(50);
+        try {
+            NodeEngineImpl nodeEngine = instance2.node.getNodeEngine();
+            Map<TaskLocation, SeaTunnelMetricsContext> localMap = new HashMap<>();
 
-        CoordinatorService coordinatorService1 = server1.getCoordinatorService();
+            // warm-up
+            runOps(executor, nodeEngine, localMap, 2000);
 
-        IMap<Long, HashMap<TaskLocation, SeaTunnelMetricsContext>> metricsImap1 =
-                coordinatorService1.getMetricsImap();
+            int ops = 10000;
+            double seconds = runOps(executor, nodeEngine, localMap, ops);
+            double tps = ops / seconds;
 
-        List<Long> jobIds = new ArrayList<>();
-        for (int i = 0; i < 10; i++) {
-            Long jobId =
-                    instance1.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME).newId();
-            LogicalDag testLogicalDag =
-                    TestUtils.createTestLogicalPlan(
-                            "batch_fake_to_console.conf", "distributed_metrics_test_" + i, jobId);
+            System.out.printf("Distributed metrics performance:%n");
+            System.out.printf("- ops: %d, seconds: %.3f, ops/s: %.0f%n", ops, seconds, tps);
+        } finally {
+            executor.shutdown();
+            executor.awaitTermination(30, TimeUnit.SECONDS);
+            instance1.shutdown();
+            instance2.shutdown();
+        }
+    }
 
-            JobImmutableInformation jobInfo =
-                    new JobImmutableInformation(
-                            jobId,
-                            "test_distributed_metrics_performance",
-                            instance1.getSerializationService(),
-                            testLogicalDag,
-                            Collections.emptyList(),
-                            Collections.emptyList());
+    private double runOps(
+            ExecutorService executor,
+            NodeEngineImpl nodeEngine,
+            Map<TaskLocation, SeaTunnelMetricsContext> localMap,
+            int ops) {
 
-            Data data = instance1.getSerializationService().toData(jobInfo);
-            coordinatorService1.submitJob(jobId, data, false).join();
-            jobIds.add(jobId);
+        java.util.concurrent.CountDownLatch startGate = new java.util.concurrent.CountDownLatch(1);
+        java.util.List<java.util.concurrent.CompletableFuture<Void>> futures =
+                new java.util.ArrayList<>(ops);
+
+        for (int i = 0; i < ops; i++) {
+            futures.add(
+                    CompletableFuture.runAsync(
+                            () -> {
+                                try {
+                                    startGate.await();
+                                    nodeEngine
+                                            .getOperationService()
+                                            .createInvocationBuilder(
+                                                    SeaTunnelServer.SERVICE_NAME,
+                                                    new ReportMetricsOperation(localMap),
+                                                    nodeEngine.getMasterAddress())
+                                            .invoke()
+                                            .get();
+                                } catch (Exception e) {
+                                    throw new java.util.concurrent.CompletionException(e);
+                                }
+                            },
+                            executor));
         }
 
-        await().atMost(60000, TimeUnit.MILLISECONDS)
-                .untilAsserted(
-                        () -> {
-                            jobIds.forEach(
-                                    jobId -> {
-                                        JobStatus status = coordinatorService1.getJobStatus(jobId);
-                                        Assertions.assertTrue(
-                                                status == JobStatus.RUNNING
-                                                        || status == JobStatus.FINISHED);
-                                    });
-                        });
+        long startNs = System.nanoTime();
+        startGate.countDown();
+        CompletableFuture.allOf(futures.toArray(new java.util.concurrent.CompletableFuture[0]))
+                .join();
+        long elapsedNs = System.nanoTime() - startNs;
 
-        long start = System.nanoTime();
-        int initialSize = 0;
-
-        await().atMost(60000, TimeUnit.MILLISECONDS)
-                .untilAsserted(
-                        () -> {
-                            Assertions.assertTrue(
-                                    metricsImap1.get(Constant.IMAP_RUNNING_JOB_METRICS_KEY) != null
-                                            && metricsImap1
-                                                            .get(
-                                                                    Constant
-                                                                            .IMAP_RUNNING_JOB_METRICS_KEY)
-                                                            .size()
-                                                    >= 10);
-                        });
-        int finalSize = metricsImap1.get(Constant.IMAP_RUNNING_JOB_METRICS_KEY).size();
-        long elapsed = System.nanoTime() - start;
-        double throughput = (elapsed / 1_000_000_000.0);
-
-        System.out.printf("Distributed metrics performance:%n");
-        System.out.printf("- Concurrent jobs: %d%n", jobIds.size());
-        System.out.printf("- Metrics updates: %d → %d entries%n", initialSize, finalSize);
-        System.out.printf("- seconds %.2f %n", throughput);
-
-        instance1.shutdown();
-        for (HazelcastInstanceImpl instance : instances) {
-            instance.shutdown();
-        }
+        return elapsedNs / 1_000_000_000.0;
     }
 
     private static class JobInformation {
