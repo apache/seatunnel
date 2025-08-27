@@ -78,6 +78,7 @@ import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
 import org.apache.seatunnel.engine.server.task.operation.CleanTaskGroupContextOperation;
 import org.apache.seatunnel.engine.server.task.operation.GetTaskGroupMetricsOperation;
 import org.apache.seatunnel.engine.server.task.operation.RemoveMetricsOperation;
+import org.apache.seatunnel.engine.server.utils.HazelcastRetryUtils;
 import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
 
 import com.hazelcast.cluster.Address;
@@ -109,6 +110,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 import static com.hazelcast.jet.impl.util.ExceptionUtil.withTryCatch;
@@ -889,9 +892,11 @@ public class JobMaster {
         if ((pipelineStatus.equals(PipelineStatus.FINISHED)
                         && !checkpointManager.isPipelineSavePointEnd(pipelineLocation))
                 || pipelineStatus.equals(PipelineStatus.CANCELED)) {
-            long sleepTime = 1000;
-            boolean removeMetricsSuccess = false;
-            while (isRunning && !removeMetricsSuccess) {
+            final long deadlineNanos = System.nanoTime() + TimeUnit.MINUTES.toNanos(2);
+            long backoffMillis = 1000;
+            final long maxBackoffMillis = 10000;
+            int attempts = 0;
+            while (isRunning) {
 
                 InvocationFuture<Object> invoke =
                         nodeEngine
@@ -904,30 +909,52 @@ public class JobMaster {
 
                 try {
                     invoke.get();
-                    removeMetricsSuccess = true;
+                    return;
                 } catch (InterruptedException e) {
-                    LOGGER.severe("failed to remove metrics context", e);
-                } catch (JobNotFoundException e) {
-                    LOGGER.warning("failed to remove metrics context because can't find job", e);
-                    removeMetricsSuccess = true;
+                    Thread.currentThread().interrupt();
+                    LOGGER.severe("remove metrics context stopped due to thread interruption.", e);
+                    return;
                 } catch (ExecutionException e) {
-                    if (e.getCause() instanceof JobNotFoundException) {
+                    Throwable cause = e.getCause();
+                    if (cause instanceof JobNotFoundException) {
                         LOGGER.warning(
                                 "failed to remove metrics context because can't find job", e);
-                        removeMetricsSuccess = true;
-                    } else {
-                        LOGGER.warning(ExceptionUtils.getMessage(e));
-                        LOGGER.warning(
-                                String.format(
-                                        "failed to remove metrics context, retry in %s millis",
-                                        sleepTime));
-                        try {
-                            Thread.sleep(sleepTime);
-                        } catch (InterruptedException ex) {
-                            LOGGER.severe(e);
-                        }
+                        return;
                     }
+                    if (HazelcastRetryUtils.isRetryable(cause)) {
+                        LOGGER.warning(ExceptionUtils.getMessage(e), e);
+                    } else {
+                        LOGGER.severe("non-retryable failure while removing metrics", e);
+                        return;
+                    }
+                } catch (Exception e) {
+                    LOGGER.severe("non-retryable failure while removing metrics", e);
+                    return;
                 }
+
+                attempts++;
+                if (!isRunning || System.nanoTime() > deadlineNanos) {
+                    LOGGER.warning(
+                            String.format(
+                                    "remove metrics context timed out after %s attempts",
+                                    attempts));
+                    break;
+                }
+
+                long sleepTime = backoffMillis + ThreadLocalRandom.current().nextLong(50);
+
+                LOGGER.warning(
+                        String.format(
+                                "failed to remove metrics context, retry in %s millis", sleepTime));
+
+                try {
+                    Thread.sleep(sleepTime);
+                } catch (InterruptedException ex) {
+                    Thread.currentThread().interrupt();
+                    LOGGER.severe("remove metrics context stopped due to thread interruption.", ex);
+                    return;
+                }
+                backoffMillis = Math.min(maxBackoffMillis, backoffMillis * 2);
             }
         }
     }

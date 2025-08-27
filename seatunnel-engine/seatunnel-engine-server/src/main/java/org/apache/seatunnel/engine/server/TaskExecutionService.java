@@ -53,6 +53,7 @@ import org.apache.seatunnel.engine.server.task.SeaTunnelTask;
 import org.apache.seatunnel.engine.server.task.TaskGroupImmutableInformation;
 import org.apache.seatunnel.engine.server.task.operation.NotifyTaskStatusOperation;
 import org.apache.seatunnel.engine.server.task.operation.ReportMetricsOperation;
+import org.apache.seatunnel.engine.server.utils.HazelcastRetryUtils;
 
 import org.apache.commons.collections4.CollectionUtils;
 
@@ -92,6 +93,7 @@ import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -569,9 +571,11 @@ public class TaskExecutionService implements DynamicMetricsProvider {
     }
 
     private void updateMetricsContextInImap() {
-        long sleepTime = 1000;
-        boolean updateMetricsSuccess = false;
-        while (isRunning && !updateMetricsSuccess) {
+        final long deadlineNanos = System.nanoTime() + TimeUnit.MINUTES.toNanos(2);
+        long backoffMillis = 1000;
+        final long maxBackoffMillis = 10000;
+        int attempts = 0;
+        while (isRunning) {
             if (!nodeEngine.getNode().getState().equals(NodeState.ACTIVE)) {
                 logger.warning(
                         String.format(
@@ -592,30 +596,51 @@ public class TaskExecutionService implements DynamicMetricsProvider {
 
             try {
                 invoke.get();
-                updateMetricsSuccess = true;
+                return;
             } catch (InterruptedException e) {
-                logger.severe("update metrics context in imap failed", e);
-            } catch (JobNotFoundException e) {
-                logger.warning("update metrics conetxt in imap failed because can't find job", e);
-                updateMetricsSuccess = true;
+                Thread.currentThread().interrupt();
+                logger.severe("update metrics context stopped due to thread interruption.", e);
+                return;
             } catch (ExecutionException e) {
-                if (e.getCause() instanceof JobNotFoundException) {
+                Throwable cause = e.getCause();
+                if (cause instanceof JobNotFoundException) {
                     logger.warning(
                             "update metrics context in imap failed because can't find job", e);
-                    updateMetricsSuccess = true;
-                } else {
-                    logger.warning(ExceptionUtils.getMessage(e));
-                    logger.warning(
-                            String.format(
-                                    "update metrics context in imap failed, retry in %s millis",
-                                    sleepTime));
-                    try {
-                        Thread.sleep(sleepTime);
-                    } catch (InterruptedException ex) {
-                        logger.severe(e);
-                    }
+                    return;
                 }
+                if (HazelcastRetryUtils.isRetryable(cause)) {
+                    logger.warning(ExceptionUtils.getMessage(e), e);
+                } else {
+                    logger.severe("non-retryable failure while updating metrics", e);
+                    return;
+                }
+            } catch (Exception e) {
+                logger.severe("non-retryable failure while updating metrics", e);
+                return;
             }
+
+            attempts++;
+            if (!isRunning || System.nanoTime() > deadlineNanos) {
+                logger.warning(
+                        String.format(
+                                "update metrics context timed out after %s attempts", attempts));
+                break;
+            }
+
+            long sleepTime = backoffMillis + ThreadLocalRandom.current().nextLong(50);
+
+            logger.warning(
+                    String.format(
+                            "failed to update metrics context, retry in %s millis", sleepTime));
+
+            try {
+                Thread.sleep(sleepTime);
+            } catch (InterruptedException ex) {
+                Thread.currentThread().interrupt();
+                logger.severe("update metrics context stopped due to thread interruption.", ex);
+                return;
+            }
+            backoffMillis = Math.min(maxBackoffMillis, backoffMillis * 2);
         }
         this.printTaskExecutionRuntimeInfo();
     }

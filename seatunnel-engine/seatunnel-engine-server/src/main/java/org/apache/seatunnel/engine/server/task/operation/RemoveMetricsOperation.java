@@ -63,6 +63,6 @@ public class RemoveMetricsOperation extends TracingOperation implements Identifi
 
     @Override
     public int getClassId() {
-        return TaskDataSerializerHook.REPORT_METRICS_OPERATION;
+        return TaskDataSerializerHook.REMOVE_METRICS_OPERATION;
     }
 }

@@ -366,7 +366,7 @@ public class SeaTunnelServer
                     }
 
                     taskLocations.forEach(centralMap::remove);
-                    return centralMap;
+                    return centralMap.isEmpty() ? null : centralMap;
                 });
     }
 
