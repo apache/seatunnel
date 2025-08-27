@@ -842,17 +842,17 @@ public class MultipleTableJobConfigParser {
 
         try {
             ConfigList sourceList = jobConfigTmp.getList("source");
-            // Set<String> sourceKeys = sourceObj.keySet();
-            log.info(
-                    "metalake config:\n{}",
+
+            System.err.println("metalake");
+            System.err.println(
                     jobConfigTmp.root().render(ConfigRenderOptions.concise().setFormatted(true)));
 
             for (int i = 0; i < sourceList.size(); i++) {
-                if (jobConfigTmp.hasPath("source." + ".sourceId")) {
-                    String sourceId = jobConfigTmp.getString("source." + ".sourceId");
+                ConfigObject sourceObj = (ConfigObject) sourceList.get(i);
+                if (sourceObj.containsKey("sourceId")) {
+                    String sourceId = sourceObj.toConfig().getString("sourceId");
                     JsonNode metalakeJson = metalakeClient.getMetaInfo(sourceId);
-                    ConfigObject subConfig = jobConfigTmp.getObject("source.");
-                    for (Map.Entry<String, ConfigValue> entry : subConfig.entrySet()) {
+                    for (Map.Entry<String, ConfigValue> entry : sourceObj.entrySet()) {
                         String subKey = entry.getKey();
                         ConfigValue value = entry.getValue();
 
@@ -863,7 +863,7 @@ public class MultipleTableJobConfigParser {
 
                                 if (metalakeJson.has(placeholder)) {
                                     String replaced = metalakeJson.get(placeholder).asText();
-                                    String finalPath = "source." + "." + subKey;
+                                    String finalPath = "source[" + i + "]." + subKey;
                                     metalakeConfigMap.put(finalPath, replaced);
                                 }
                             }
@@ -876,14 +876,14 @@ public class MultipleTableJobConfigParser {
         }
 
         try {
-            ConfigObject sinkObj = jobConfigTmp.getObject("sink");
-            Set<String> sinkKeys = sinkObj.keySet();
-            for (String key : sinkKeys) {
-                if (jobConfigTmp.hasPath("sink." + key + ".sourceId")) {
-                    String sourceId = jobConfigTmp.getString("source." + key + ".sourceId");
+            ConfigList sinkList = jobConfigTmp.getList("sink");
+
+            for (int i = 0; i < sinkList.size(); i++) {
+                ConfigObject sinkObj = (ConfigObject) sinkList.get(i);
+                if (sinkObj.containsKey("sourceId")) {
+                    String sourceId = sinkObj.toConfig().getString("sourceId");
                     JsonNode metalakeJson = metalakeClient.getMetaInfo(sourceId);
-                    ConfigObject subConfig = jobConfigTmp.getObject("sink." + key);
-                    for (Map.Entry<String, ConfigValue> entry : subConfig.entrySet()) {
+                    for (Map.Entry<String, ConfigValue> entry : sinkObj.entrySet()) {
                         String subKey = entry.getKey();
                         ConfigValue value = entry.getValue();
 
@@ -894,7 +894,7 @@ public class MultipleTableJobConfigParser {
 
                                 if (metalakeJson.has(placeholder)) {
                                     String replaced = metalakeJson.get(placeholder).asText();
-                                    String finalPath = "sink." + key + "." + subKey;
+                                    String finalPath = "sink[" + i + "]." + subKey;
                                     metalakeConfigMap.put(finalPath, replaced);
                                 }
                             }
