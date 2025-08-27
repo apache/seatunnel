@@ -39,18 +39,13 @@ public class RocketMqRecordEmitter
     private static final Logger logger = LoggerFactory.getLogger(RocketMqRecordEmitter.class);
     private final OutputCollector<SeaTunnelRow> outputCollector;
     protected final SourceReader.Context context;
-    protected final Counter maxRecordFetchDelayOffset;
     protected final Counter maxRecordFetchDelay;
     // partition,maxDelay
-    private final Map<Integer, Long> maxDelayOffsets;
-
     private final Map<Integer, Long> maxDelay;
 
     private final DeserializationSchema<SeaTunnelRow> deserializationSchema;
 
     public final String RECORD_FETCH_DELAY = "RecordFetchDelay";
-
-    public final String RECORD_FETCH_DELAY_OFFSET = "RecordFetchDelayOffset";
 
     public RocketMqRecordEmitter(
             DeserializationSchema<SeaTunnelRow> deserializationSchema,
@@ -58,10 +53,7 @@ public class RocketMqRecordEmitter
         this.deserializationSchema = deserializationSchema;
         this.context = context;
         this.outputCollector = new OutputCollector<>();
-        this.maxRecordFetchDelayOffset =
-                context.getMetricsContext().counter(RECORD_FETCH_DELAY_OFFSET);
         this.maxRecordFetchDelay = context.getMetricsContext().counter(RECORD_FETCH_DELAY);
-        this.maxDelayOffsets = new HashMap<>();
         this.maxDelay = new HashMap<>();
     }
 
@@ -89,9 +81,6 @@ public class RocketMqRecordEmitter
             maxDelay.put(consumerRecord.getQueueId(), currnetDelay);
             maxRecordFetchDelay.set(maxDelay.values().stream().max(Long::compareTo).get());
         }
-        // report max offset
-        maxDelayOffsets.put(consumerRecord.getQueueId(), consumerRecord.getQueueOffset());
-        maxRecordFetchDelayOffset.set(maxDelayOffsets.values().stream().max(Long::compareTo).get());
     }
 
     private static class OutputCollector<T> implements Collector<T> {

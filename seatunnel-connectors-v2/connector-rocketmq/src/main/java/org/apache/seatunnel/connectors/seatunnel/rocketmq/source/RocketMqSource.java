@@ -69,7 +69,8 @@ public class RocketMqSource
     private SeaTunnelRowType typeInfo;
     private CatalogTable catalogTable;
     private DeserializationSchema<SeaTunnelRow> deserializationSchema;
-    private long discoveryIntervalMillis;
+    private long discoveryIntervalMillis =
+            RocketMqSourceOptions.KEY_PARTITION_DISCOVERY_INTERVAL_MILLIS.defaultValue();
 
     @Override
     public String getPluginName() {

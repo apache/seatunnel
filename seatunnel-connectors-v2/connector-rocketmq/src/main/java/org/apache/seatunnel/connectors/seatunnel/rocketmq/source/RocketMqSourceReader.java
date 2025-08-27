@@ -42,10 +42,6 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
-/**
- * @author 02211659 bianxiang
- * @date 2025-08-19 10:06:05
- */
 public class RocketMqSourceReader
         extends SingleThreadMultiplexSourceReaderBase<
                 MessageExt, SeaTunnelRow, RocketMQPartitionSplit, RocketMQPartitionSplitState> {

@@ -1,3 +1,20 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package org.apache.seatunnel.connectors.seatunnel.rocketmq.source;
 
 import org.apache.seatunnel.shade.com.google.common.base.Preconditions;
@@ -9,7 +26,6 @@ import org.apache.seatunnel.connectors.seatunnel.common.source.reader.splitreade
 import org.apache.seatunnel.connectors.seatunnel.common.source.reader.splitreader.SplitsAddition;
 import org.apache.seatunnel.connectors.seatunnel.common.source.reader.splitreader.SplitsChange;
 import org.apache.seatunnel.connectors.seatunnel.rocketmq.common.RocketMqBaseConfiguration;
-import org.apache.seatunnel.connectors.seatunnel.rocketmq.common.StartMode;
 import org.apache.seatunnel.connectors.seatunnel.rocketmq.exception.RocketMqConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.rocketmq.exception.RocketMqConnectorException;
 
@@ -24,8 +40,6 @@ import org.apache.rocketmq.common.message.MessageQueue;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import lombok.SneakyThrows;
 
 import javax.annotation.Nullable;
 
@@ -60,6 +74,8 @@ public class RocketMQPartitionSplitReader
     // todo batch mode need
     private final Map<MessageQueue, Long> stoppingOffsets;
 
+    private final Map<MessageQueue, Long> commitOffsets;
+
     private volatile boolean wakeup = false;
 
     public RocketMQPartitionSplitReader(
@@ -69,6 +85,7 @@ public class RocketMQPartitionSplitReader
         this.topics = metadata.getTopics();
         this.stoppingTimestamps = new HashMap<>();
         this.stoppingOffsets = new HashMap<>();
+        this.commitOffsets = new HashMap<>();
         this.consumer =
                 initDefaultLitePullConsumer(
                         config,
@@ -105,12 +122,22 @@ public class RocketMQPartitionSplitReader
             recordsBySplits.prepareForRead();
             return recordsBySplits;
         }
+        if (!messageExts.isEmpty()) {
+            MessageExt messageExt = messageExts.get(messageExts.size() - 1);
+            commitOffsets.put(
+                    new MessageQueue(
+                            messageExt.getTopic(),
+                            messageExt.getBrokerName(),
+                            messageExt.getQueueId()),
+                    messageExt.getQueueOffset());
+        }
         messageExts =
                 messageExts.stream()
                         .filter(
                                 record ->
                                         metadata.getTags() == null
                                                 || metadata.getTags().isEmpty()
+                                                || metadata.getTags().contains("*")
                                                 || metadata.getTags().contains(record.getTags()))
                         .collect(Collectors.toList());
 
@@ -129,7 +156,6 @@ public class RocketMQPartitionSplitReader
         return recordsBySplits;
     }
 
-    @SneakyThrows
     @Override
     public void handleSplitsChanges(SplitsChange<RocketMQPartitionSplit> splitsChange) {
         // Get all the partition assignments and stopping offsets.
@@ -140,38 +166,33 @@ public class RocketMQPartitionSplitReader
                             splitsChange.getClass()));
         }
 
-        // Assignment.
-        List<MessageQueue> newPartitionAssignments = new ArrayList<>();
-        // Starting offsets.
-        Map<MessageQueue, Long> partitionsStartingFromSpecifiedOffsets = new HashMap<>();
-        List<MessageQueue> partitionsStartingFromEarliest = new ArrayList<>();
-        List<MessageQueue> partitionsStartingFromLatest = new ArrayList<>();
         // Stopping offsets.
         List<MessageQueue> partitionsStoppingAtLatest = new ArrayList<>();
+
+        // Assignment.
+        List<MessageQueue> newPartitionAssignments =
+                splitsChange.splits().stream()
+                        .map(RocketMQPartitionSplit::getMessageQueue)
+                        .collect(Collectors.toList());
+
+        // Assign new partitions.
+        try {
+            newPartitionAssignments.addAll(consumer.assignment());
+        } catch (MQClientException e) {
+            LOG.error("Fetch RocketMQ assignment failed.");
+        }
+
+        consumer.assign(newPartitionAssignments);
 
         // Parse the starting and stopping offsets.
         splitsChange
                 .splits()
                 .forEach(
                         s -> {
-                            newPartitionAssignments.add(s.getMessageQueue());
-                            parseStartingOffsets(
-                                    s,
-                                    partitionsStartingFromEarliest,
-                                    partitionsStartingFromLatest,
-                                    partitionsStartingFromSpecifiedOffsets);
+                            commitOffsets.put(s.getMessageQueue(), s.getStartOffset());
+                            parseStartingOffsets(s);
                             parseStoppingOffsets(s, partitionsStoppingAtLatest);
                         });
-
-        // Assign new partitions.
-        newPartitionAssignments.addAll(consumer.assignment());
-        consumer.assign(newPartitionAssignments);
-
-        // Seek on the newly assigned partitions to their stating offsets.
-        seekToStartingOffsets(
-                partitionsStartingFromEarliest,
-                partitionsStartingFromLatest,
-                partitionsStartingFromSpecifiedOffsets);
 
         // Setup the stopping offsets.
         acquireAndSetStoppingOffsets(partitionsStoppingAtLatest);
@@ -241,68 +262,21 @@ public class RocketMQPartitionSplitReader
         stoppingOffsets.putAll(endOffset);
     }
 
-    private void seekToStartingOffsets(
-            List<MessageQueue> partitionsStartingFromEarliest,
-            List<MessageQueue> partitionsStartingFromLatest,
-            Map<MessageQueue, Long> partitionsStartingFromSpecifiedOffsets) {
-
-        if (!partitionsStartingFromEarliest.isEmpty()) {
-            for (MessageQueue messageQueue : partitionsStartingFromEarliest) {
-                try {
-                    consumer.seekToBegin(messageQueue);
-                } catch (MQClientException e) {
-                    LOG.error(
-                            "Seeking starting offsets to beginning: {}",
-                            partitionsStartingFromEarliest);
-                }
-            }
-        }
-
-        if (!partitionsStartingFromLatest.isEmpty()) {
-            for (MessageQueue messageQueue : partitionsStartingFromEarliest) {
-                try {
-                    consumer.seekToEnd(messageQueue);
-                } catch (MQClientException e) {
-                    LOG.error("Seeking starting offsets to end: {}", partitionsStartingFromLatest);
-                }
-            }
-        }
-
-        if (!partitionsStartingFromSpecifiedOffsets.isEmpty()) {
-            LOG.trace(
-                    "Seeking starting offsets to specified offsets: {}",
-                    partitionsStartingFromSpecifiedOffsets);
-            for (Map.Entry<MessageQueue, Long> partitionsStartingFromSpecifiedOffsetsEntry :
-                    partitionsStartingFromSpecifiedOffsets.entrySet()) {
-                try {
-                    consumer.seek(
-                            partitionsStartingFromSpecifiedOffsetsEntry.getKey(),
-                            partitionsStartingFromSpecifiedOffsetsEntry.getValue());
-                } catch (MQClientException e) {
-                    LOG.error(
-                            "Seeking starting offsets to specified offsets: {}",
-                            partitionsStartingFromSpecifiedOffsets);
-                }
-            }
-        }
-    }
-
-    private void parseStartingOffsets(
-            RocketMQPartitionSplit split,
-            List<MessageQueue> partitionsStartingFromEarliest,
-            List<MessageQueue> partitionsStartingFromLatest,
-            Map<MessageQueue, Long> partitionsStartingFromSpecifiedOffsets) {
-        MessageQueue tp = split.getMessageQueue();
-        // Parse starting offsets.
-        if (metadata.getStartMode() == StartMode.CONSUME_FROM_FIRST_OFFSET) {
-            partitionsStartingFromEarliest.add(tp);
-        } else if (metadata.getStartMode() == StartMode.CONSUME_FROM_LAST_OFFSET) {
-            partitionsStartingFromLatest.add(tp);
-        } else if (metadata.getStartMode() == StartMode.CONSUME_FROM_GROUP_OFFSETS) {
-            // Do nothing here, the consumer will first try to get the committed offsets of
-            // these partitions by default.
-        } else {
-            partitionsStartingFromSpecifiedOffsets.put(tp, split.getStartOffset());
+    private void parseStartingOffsets(RocketMQPartitionSplit split) {
+        MessageQueue messageQueue = split.getMessageQueue();
+        try {
+            LOG.info(
+                    "Seeking broker:{},queueId:{}, starting offsets to : {}",
+                    messageQueue.getBrokerName(),
+                    messageQueue.getQueueId(),
+                    split.getStartOffset());
+            consumer.seek(messageQueue, split.getStartOffset());
+        } catch (MQClientException e) {
+            LOG.error(
+                    "error Seeking broker:{},queueId:{}, starting offsets to : {}",
+                    messageQueue.getBrokerName(),
+                    messageQueue.getQueueId(),
+                    split.getStartOffset());
         }
     }
 
@@ -325,28 +299,10 @@ public class RocketMQPartitionSplitReader
         }
     }
 
-    private void finishSplitAtRecord(
-            MessageQueue messageQueue,
-            long stoppingTimestamp,
-            long currentOffset,
-            RocketMQPartitionSplitRecords recordsBySplits) {
-        LOG.debug(
-                "{} has reached stopping timestamp {}, current offset is {}",
-                messageQueue.getTopic() + "-" + messageQueue.getBrokerName(),
-                stoppingTimestamp,
-                currentOffset);
-        recordsBySplits.addFinishedSplit(RocketMQPartitionSplit.toSplitId(messageQueue));
-        stoppingTimestamps.remove(messageQueue);
-    }
-
-    private long getStoppingTimestamp(MessageQueue messageQueue) {
-        return stoppingTimestamps.getOrDefault(messageQueue, Long.MAX_VALUE);
-    }
-
     public void notifyCheckpointComplete(
             Map<MessageQueue, Long> committedOffsets, OffsetCommitCallback callback) {
-        consumer.commit(committedOffsets, true);
-        LOG.info("Offset commit success.{},", JsonUtils.toJsonString(committedOffsets));
+        consumer.commitSync(commitOffsets, true);
+        LOG.info("Offset commit success.{},", JsonUtils.toJsonString(commitOffsets));
         callback.onComplete();
     }
 
