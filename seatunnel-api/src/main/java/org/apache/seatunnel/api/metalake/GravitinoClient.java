@@ -20,11 +20,12 @@ package org.apache.seatunnel.api.metalake;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 
-import okhttp3.MediaType;
-import okhttp3.OkHttpClient;
-import okhttp3.Request;
-import okhttp3.RequestBody;
-import okhttp3.Response;
+import org.apache.http.HttpEntity;
+import org.apache.http.client.methods.CloseableHttpResponse;
+import org.apache.http.client.methods.HttpGet;
+import org.apache.http.impl.client.CloseableHttpClient;
+import org.apache.http.impl.client.HttpClients;
+import org.apache.http.util.EntityUtils;
 
 import java.io.IOException;
 
@@ -42,21 +43,26 @@ public class GravitinoClient implements MetalakeClient {
 
     @Override
     public JsonNode getMetaInfo(String sourceId) throws IOException {
-        OkHttpClient client = new OkHttpClient().newBuilder().build();
-        MediaType mediaType = MediaType.parse("text/plain");
-        RequestBody body = RequestBody.create(mediaType, "");
-        Request request =
-                new Request.Builder()
-                        .url(this.metalakeUrl + sourceId)
-                        .method("GET", body)
-                        .addHeader("Accept", "application/vnd.gravitino.v1+json")
-                        // .addHeader("Authorization", "Bearer <TOKEN>")
-                        .build();
-        Response response = client.newCall(request).execute();
-        ObjectMapper mapper = new ObjectMapper();
-        JsonNode rootNode = mapper.readTree(response.body().byteStream());
-        JsonNode catalogNode = rootNode.get("catalog");
-        JsonNode propertiesNode = catalogNode.get("properties");
-        return propertiesNode;
+        try (CloseableHttpClient client = HttpClients.createDefault()) {
+            HttpGet request = new HttpGet(this.metalakeUrl + sourceId);
+            request.addHeader("Accept", "application/vnd.gravitino.v1+json");
+            try (CloseableHttpResponse response = client.execute(request)) {
+                HttpEntity entity = response.getEntity();
+                if (entity == null) {
+                    throw new RuntimeException("No response entity");
+                }
+                ObjectMapper mapper = new ObjectMapper();
+                JsonNode rootNode = mapper.readTree(entity.getContent());
+                System.err.println("gravitino return");
+                System.err.println(rootNode.toString());
+                EntityUtils.consume(entity);
+                JsonNode catalogNode = rootNode.get("catalog");
+                if (catalogNode == null) {
+                    throw new RuntimeException("Response JSON has no 'catalog' field");
+                }
+                JsonNode propertiesNode = catalogNode.get("properties");
+                return propertiesNode;
+            }
+        }
     }
 }

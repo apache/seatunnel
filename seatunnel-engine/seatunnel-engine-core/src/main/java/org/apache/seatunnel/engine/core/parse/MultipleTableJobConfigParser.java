@@ -843,7 +843,7 @@ public class MultipleTableJobConfigParser {
         try {
             ConfigList sourceList = jobConfigTmp.getList("source");
 
-            System.err.println("metalake");
+            System.err.println("original config");
             System.err.println(
                     jobConfigTmp.root().render(ConfigRenderOptions.concise().setFormatted(true)));
 
@@ -905,6 +905,11 @@ public class MultipleTableJobConfigParser {
         } catch (IOException e) {
             log.error("Fail to get MetaInfo, metalakeUrl: {}", metalakeUrl, e);
         }
+        System.err.println("metalake config");
+        System.err.println(
+                ConfigBuilder.of(metalakeConfigMap)
+                        .root()
+                        .render(ConfigRenderOptions.concise().setFormatted(true)));
         return ConfigBuilder.of(metalakeConfigMap);
     }
 }
