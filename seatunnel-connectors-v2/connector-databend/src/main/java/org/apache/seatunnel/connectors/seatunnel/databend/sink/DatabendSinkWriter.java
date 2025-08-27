@@ -196,17 +196,6 @@ public class DatabendSinkWriter
                     "Source table schema is empty or null");
         }
 
-        if (!tableExists(database, table)) {
-            log.info(
-                    "Target table {}.{} does not exist, creating with source schema",
-                    database,
-                    table);
-            createTable(database, table, rowType);
-        } else {
-            log.info("Target table {}.{} exists, verifying schema", database, table);
-            verifyTableSchema(database, table, rowType);
-        }
-
         this.insertSql = generateInsertSql(database, table, rowType);
         log.info("Generated insert SQL: {}", insertSql);
         try {
