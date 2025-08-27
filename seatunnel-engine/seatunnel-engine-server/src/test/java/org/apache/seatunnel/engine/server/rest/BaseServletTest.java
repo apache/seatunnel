@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.engine.server.rest;
 
+import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
+import org.apache.seatunnel.common.utils.FileUtils;
 import org.apache.seatunnel.config.sql.SqlConfigBuilder;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.config.server.HttpConfig;
@@ -29,17 +31,25 @@ import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
 import org.apache.seatunnel.engine.server.TestUtils;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.core.LoggerContext;
+
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import com.hazelcast.config.Config;
 import com.hazelcast.internal.serialization.Data;
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.net.HttpURLConnection;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Collections;
 
+@Slf4j
 class BaseServletTest extends AbstractSeaTunnelServerTest {
 
     private static final int HTTP_PORT = 18080;
@@ -175,5 +185,20 @@ class BaseServletTest extends AbstractSeaTunnelServerTest {
                 server.getCoordinatorService()
                         .submitJob(jobId, data, jobImmutableInformation.isStartWithSavePoint());
         voidPassiveCompletableFuture.join();
+    }
+
+    @AfterAll
+    public void teardown() {
+        try {
+            // Manually release log4j2 log context references, otherwise deleting log files will
+            // fail
+            LoggerContext context = (LoggerContext) LogManager.getContext(false);
+            context.close();
+            // clean the log dir
+            Path logPath = Paths.get("logs");
+            FileUtils.deleteFile(logPath.toString());
+        } catch (SeaTunnelRuntimeException e) {
+            log.info("delete log dir failed", e);
+        }
     }
 }
