@@ -954,7 +954,7 @@ YEAR(CREATED)
 
 最重要的格式字符包括：y（年）、M（月）、d（日）、H（时）、m（分）、s（秒）。有关格式的详细信息，请参阅 `java.time.format.DateTimeFormatter`。
 
-`timeZone` 是可选的，默认值为系统的时区。`timezone` 的值可以是一个 `UTC+ 时区偏移`，例如，`UTC+8` 表示亚洲/上海时区，请参阅 `java.time.ZoneId`。
+`timeZone` 是可选的，默认值为系统的时区。`timezone` 的值可以是一个 `UTC+ 时区偏移`，例如，`UTC+8` 表示亚洲/上海时区，请参阅 https://en.wikipedia.org/wiki/List_of_tz_database_time_zones 。
 
 示例:
 
@@ -967,6 +967,21 @@ or
 // 使用指定时区
 
 CALL FROM_UNIXTIME(1672502400, 'yyyy-MM-dd HH:mm:ss','UTC+6')
+
+
+### AT TIME ZONE
+
+```dateAndTime AT TIME ZONE 'timeZone' -> TIMESTAMP_TZ```
+
+转换一个时间戳值为指定时区的带时区时间戳值。
+
+`timezone` 的值可以是一个 `UTC+ 时区偏移`，例如，`+08:00` 表示亚洲/上海时区，请参阅 https://en.wikipedia.org/wiki/List_of_tz_database_time_zones 。
+
+Example:
+
+local_date_time AT TIME ZONE '+09:00'
+
+offset_date_time AT TIME ZONE 'Pacific/Honolulu'
 
 ## System Functions
 

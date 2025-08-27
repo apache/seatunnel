@@ -958,7 +958,7 @@ Convert the number of seconds from the UNIX epoch (1970-01-01 00:00:00 UTC) to a
 
 The most important format characters are: y year, M month, d day, H hour, m minute, s second. For details of the format, see `java.time.format.DateTimeFormatter`.
 
-`timeZone` is optional, default value is system's time zone. `timezone` value can be a `UTC+ timezone offset`, for example, `UTC+8` represents the Asia/Shanghai time zone, see `java.time.ZoneId`
+`timeZone` is optional, default value is system's time zone. `timezone` value can be a `UTC+ timezone offset`, for example, `UTC+8` represents the Asia/Shanghai time zone, see  https://en.wikipedia.org/wiki/List_of_tz_database_time_zones .
 
 
 Example:
@@ -972,6 +972,20 @@ or
 // use given zone
 
 CALL FROM_UNIXTIME(1672502400, 'yyyy-MM-dd HH:mm:ss','UTC+6')
+
+### AT TIME ZONE
+
+```dateAndTime AT TIME ZONE 'timeZone' -> TIMESTAMP_TZ```
+
+Convert a timestamp value to a TIMESTAMP WITH TIME ZONE value in the specified time zone.
+
+`timeZone` value can be a `UTC+ timezone offset`, for example, `+08:00` represents the Asia/Shanghai time zone, see https://en.wikipedia.org/wiki/List_of_tz_database_time_zones .
+
+Example:
+
+local_date_time AT TIME ZONE '+09:00'
+
+offset_date_time AT TIME ZONE 'Pacific/Honolulu'
 
 ## System Functions
 

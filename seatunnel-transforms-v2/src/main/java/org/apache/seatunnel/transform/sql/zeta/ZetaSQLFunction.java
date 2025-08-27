@@ -52,6 +52,7 @@ import net.sf.jsqlparser.expression.Parenthesis;
 import net.sf.jsqlparser.expression.SignedExpression;
 import net.sf.jsqlparser.expression.StringValue;
 import net.sf.jsqlparser.expression.TimeKeyExpression;
+import net.sf.jsqlparser.expression.TimezoneExpression;
 import net.sf.jsqlparser.expression.TrimFunction;
 import net.sf.jsqlparser.expression.WhenClause;
 import net.sf.jsqlparser.expression.operators.arithmetic.Addition;
@@ -70,6 +71,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.OffsetDateTime;
+import java.time.temporal.TemporalAccessor;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -389,6 +391,15 @@ public class ZetaSQLFunction {
                 return executeTryCastExpr(castExpression, leftValue);
             }
             return executeCastExpr(castExpression, leftValue);
+        }
+        if (expression instanceof TimezoneExpression) {
+            TimezoneExpression timezoneExpression = (TimezoneExpression) expression;
+            Expression leftExpr = timezoneExpression.getLeftExpression();
+            Object leftValue = computeForValue(leftExpr, inputFields);
+            Object timeZoneId =
+                    computeForValue(
+                            timezoneExpression.getTimezoneExpressions().get(0), inputFields);
+            return DateTimeFunction.atTimeZone((TemporalAccessor) leftValue, timeZoneId);
         }
         throw new TransformException(
                 CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,

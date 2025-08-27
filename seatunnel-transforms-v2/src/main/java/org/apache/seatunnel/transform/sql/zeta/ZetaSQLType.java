@@ -45,6 +45,7 @@ import net.sf.jsqlparser.expression.Parenthesis;
 import net.sf.jsqlparser.expression.SignedExpression;
 import net.sf.jsqlparser.expression.StringValue;
 import net.sf.jsqlparser.expression.TimeKeyExpression;
+import net.sf.jsqlparser.expression.TimezoneExpression;
 import net.sf.jsqlparser.expression.TrimFunction;
 import net.sf.jsqlparser.expression.WhenClause;
 import net.sf.jsqlparser.expression.operators.arithmetic.Concat;
@@ -238,6 +239,9 @@ public class ZetaSQLType {
                             || rightType.getSqlType() == SqlType.DOUBLE)) {
                 return BasicType.DOUBLE_TYPE;
             }
+        }
+        if (expression instanceof TimezoneExpression) {
+            return LocalTimeType.OFFSET_DATE_TIME_TYPE;
         }
         throw new TransformException(
                 CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
