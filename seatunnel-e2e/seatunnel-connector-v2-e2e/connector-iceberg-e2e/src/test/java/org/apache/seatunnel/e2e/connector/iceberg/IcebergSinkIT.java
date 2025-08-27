@@ -68,7 +68,9 @@ public class IcebergSinkIT extends TestSuiteBase {
     @TestContainerExtension
     protected final ContainerExtendedFactory extendedFactory =
             container -> {
-                // create iceberg metadata and data directory in container
+                // TODO: remove this after fix the issue of encountering a failure to create the
+                // metadata and data directories under the /tmp/seatunnel_mnt path in the container
+                // Manually create iceberg metadata and data directory in container
                 container.execInContainer(
                         "sh",
                         "-c",
