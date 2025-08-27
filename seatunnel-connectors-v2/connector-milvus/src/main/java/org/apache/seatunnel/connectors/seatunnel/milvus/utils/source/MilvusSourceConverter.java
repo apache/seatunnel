@@ -31,7 +31,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.seatunnel.api.table.type.VectorType;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
-import org.apache.seatunnel.common.utils.BufferUtils;
+import org.apache.seatunnel.common.utils.VectorUtils;
 import org.apache.seatunnel.connectors.seatunnel.milvus.exception.MilvusConnectorException;
 
 import com.google.gson.Gson;
@@ -216,7 +216,7 @@ public class MilvusSourceConverter {
                         for (int i = 0; i < list.size(); i++) {
                             arrays[i] = Float.parseFloat(list.get(i).toString());
                         }
-                        seatunnelField[fieldIndex] = BufferUtils.toByteBuffer(arrays);
+                        seatunnelField[fieldIndex] = VectorUtils.toByteBuffer(arrays);
                         break;
                     } else {
                         throw new MilvusConnectorException(

@@ -23,7 +23,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.table.type.VectorType;
-import org.apache.seatunnel.common.utils.BufferUtils;
+import org.apache.seatunnel.common.utils.VectorUtils;
 import org.apache.seatunnel.transform.sql.SQLEngine;
 import org.apache.seatunnel.transform.sql.SQLEngineFactory;
 
@@ -47,8 +47,8 @@ public class VectorFunctionTest {
         SeaTunnelRow inputRow =
                 new SeaTunnelRow(
                         new Object[] {
-                            BufferUtils.toByteBuffer(new Float[] {1.0f, 2.0f, 3.0f}),
-                            BufferUtils.toByteBuffer(new Float[] {1.0f, 2.0f, 3.0f})
+                            VectorUtils.toByteBuffer(new Float[] {1.0f, 2.0f, 3.0f}),
+                            VectorUtils.toByteBuffer(new Float[] {1.0f, 2.0f, 3.0f})
                         });
 
         sqlEngine.init(
@@ -78,7 +78,7 @@ public class VectorFunctionTest {
         SeaTunnelRow inputRow =
                 new SeaTunnelRow(
                         new Object[] {
-                            BufferUtils.toByteBuffer(new Float[] {2.0f, 4.0f, 6.0f}), sparseVector
+                            VectorUtils.toByteBuffer(new Float[] {2.0f, 4.0f, 6.0f}), sparseVector
                         });
 
         sqlEngine.init(
@@ -105,8 +105,8 @@ public class VectorFunctionTest {
         SeaTunnelRow inputRow =
                 new SeaTunnelRow(
                         new Object[] {
-                            BufferUtils.toByteBuffer(new Float[] {2.0f, 4.0f, 4.0f}),
-                            BufferUtils.toByteBuffer(new Float[] {1.0f, 2.0f, 2.0f})
+                            VectorUtils.toByteBuffer(new Float[] {2.0f, 4.0f, 4.0f}),
+                            VectorUtils.toByteBuffer(new Float[] {1.0f, 2.0f, 2.0f})
                         });
 
         sqlEngine.init(
@@ -133,8 +133,8 @@ public class VectorFunctionTest {
         SeaTunnelRow inputRow =
                 new SeaTunnelRow(
                         new Object[] {
-                            BufferUtils.toByteBuffer(new Float[] {1.0f, 2.0f, 2.0f}),
-                            BufferUtils.toByteBuffer(new Float[] {1.0f, 2.0f, 3.0f})
+                            VectorUtils.toByteBuffer(new Float[] {1.0f, 2.0f, 2.0f}),
+                            VectorUtils.toByteBuffer(new Float[] {1.0f, 2.0f, 3.0f})
                         });
 
         sqlEngine.init(
@@ -156,7 +156,7 @@ public class VectorFunctionTest {
         SeaTunnelRow inputRow =
                 new SeaTunnelRow(
                         new Object[] {
-                            BufferUtils.toByteBuffer(new Float[] {1.0f, 2.0f, 3.0f}),
+                            VectorUtils.toByteBuffer(new Float[] {1.0f, 2.0f, 3.0f}),
                         });
 
         sqlEngine.init("test", null, rowType, "select VECTOR_DIMS(vector_float1) as dim from test");
@@ -179,8 +179,8 @@ public class VectorFunctionTest {
         SeaTunnelRow inputRow =
                 new SeaTunnelRow(
                         new Object[] {
-                            BufferUtils.toByteBuffer(new Float[] {1.0f, 2.0f, 3.0f}),
-                            BufferUtils.toByteBuffer(new Float[] {7.0f, 8.0f, 9.0f})
+                            VectorUtils.toByteBuffer(new Float[] {1.0f, 2.0f, 3.0f}),
+                            VectorUtils.toByteBuffer(new Float[] {7.0f, 8.0f, 9.0f})
                         });
 
         sqlEngine.init(
