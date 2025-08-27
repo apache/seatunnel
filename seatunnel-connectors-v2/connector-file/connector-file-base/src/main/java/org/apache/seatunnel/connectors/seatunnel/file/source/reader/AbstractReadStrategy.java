@@ -204,7 +204,7 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
                                     path,
                                     tableId,
                                     output,
-                                    copyInputStream(zis),
+                                    new NonClosingInputStream(zis),
                                     partitionsMap,
                                     entry.getName());
                         }
@@ -222,7 +222,7 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
                                     path,
                                     tableId,
                                     output,
-                                    copyInputStream(tarInput),
+                                    new NonClosingInputStream(tarInput),
                                     partitionsMap,
                                     entry.getName());
                         }
@@ -242,7 +242,7 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
                                     path,
                                     tableId,
                                     output,
-                                    copyInputStream(tarIn),
+                                    new NonClosingInputStream(tarIn),
                                     partitionsMap,
                                     entry.getName());
                         }
@@ -250,26 +250,32 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
                 }
                 break;
             case GZ:
-                GzipCompressorInputStream gzipIn =
-                        new GzipCompressorInputStream(hadoopFileSystemProxy.getInputStream(path));
-                GzipParameters parameters = gzipIn.getMetaData();
-                String fileName = parameters.getFilename();
-                if (fileName == null) {
-                    // remove file suffix
-                    // eg: excel need full compressed name
-                    if (fileFormat == FileFormat.EXCEL) {
-                        if (path.endsWith(".gz")) {
-                            fileName = path.substring(0, path.length() - 3);
+                try (GzipCompressorInputStream gzipIn =
+                        new GzipCompressorInputStream(hadoopFileSystemProxy.getInputStream(path))) {
+                    GzipParameters parameters = gzipIn.getMetaData();
+                    String fileName = parameters.getFilename();
+                    if (fileName == null) {
+                        // remove file suffix
+                        // eg: excel need full compressed name
+                        if (fileFormat == FileFormat.EXCEL) {
+                            if (path.endsWith(".gz")) {
+                                fileName = path.substring(0, path.length() - 3);
+                            } else {
+                                throw new IllegalArgumentException(
+                                        "Excel file must have a .gz extension. File: " + path);
+                            }
                         } else {
-                            throw new IllegalArgumentException(
-                                    "Excel file must have a .gz extension. File: " + path);
+                            fileName = path;
                         }
-                    } else {
-                        fileName = path;
                     }
+                    readProcess(
+                            path,
+                            tableId,
+                            output,
+                            copyInputStream(gzipIn),
+                            partitionsMap,
+                            fileName);
                 }
-                readProcess(
-                        path, tableId, output, copyInputStream(gzipIn), partitionsMap, fileName);
                 break;
             case NONE:
                 readProcess(
@@ -367,6 +373,33 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
         return new ByteArrayInputStream(byteArrayOutputStream.toByteArray());
     }
 
+    /**
+     * Wrap the input stream so that closing it does not close the underlying stream, enabling the
+     * passing of sub-entry streams to downstream parsers during archive traversal.
+     */
+    protected static class NonClosingInputStream extends InputStream {
+        private final InputStream delegate;
+
+        protected NonClosingInputStream(InputStream delegate) {
+            this.delegate = delegate;
+        }
+
+        @Override
+        public int read() throws IOException {
+            return delegate.read();
+        }
+
+        @Override
+        public int read(byte[] b, int off, int len) throws IOException {
+            return delegate.read(b, off, len);
+        }
+
+        @Override
+        public void close() throws IOException {
+            // no-op
+        }
+    }
+
     protected boolean checkFileType(String fileName, FileFormat fileFormat) {
         for (String suffix : fileFormat.getAllSuffix()) {
             if (fileName.endsWith(suffix)) {
@@ -378,6 +411,52 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
                 "The {} file format is incorrect. Please check the format in the compressed file.",
                 fileName);
         return false;
+    }
+
+    /**
+     * InputStream Trimmer: Limits the maximum number of bytes that can be read, designed for
+     * chunked reading scenarios. Does not actively close the underlying stream to avoid impacting
+     * outer resource management.
+     */
+    protected static class BoundedInputStream extends InputStream {
+        private final InputStream wrapped;
+        private long remaining;
+
+        public BoundedInputStream(InputStream wrapped, long maxBytes) {
+            this.wrapped = wrapped;
+            this.remaining = maxBytes;
+        }
+
+        @Override
+        public int read() throws IOException {
+            if (remaining <= 0) {
+                return -1;
+            }
+            int result = wrapped.read();
+            if (result != -1) {
+                remaining--;
+            }
+            return result;
+        }
+
+        @Override
+        public int read(byte[] b, int off, int len) throws IOException {
+            if (remaining <= 0) {
+                return -1;
+            }
+            int toRead = (int) Math.min(len, remaining);
+            int result = wrapped.read(b, off, toRead);
+            if (result > 0) {
+                remaining -= result;
+            }
+            return result;
+        }
+
+        @Override
+        public void close() throws IOException {
+            // Do not close the underlying stream; instead, delegate its management to the outer
+            // try-with-resources block.
+        }
     }
 
     @Override

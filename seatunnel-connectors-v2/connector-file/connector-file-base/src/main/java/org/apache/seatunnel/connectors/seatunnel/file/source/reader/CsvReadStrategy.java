@@ -28,6 +28,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.utils.DateTimeUtils;
 import org.apache.seatunnel.common.utils.DateUtils;
 import org.apache.seatunnel.common.utils.TimeUtils;
+import org.apache.seatunnel.connectors.seatunnel.file.config.ArchiveCompressFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.CompressFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
@@ -90,14 +91,15 @@ public class CsvReadStrategy extends AbstractReadStrategy {
             throws IOException, FileConnectorException {
         Map<String, String> partitionsMap = parsePartitionsByPath(filePath);
 
-        // For compressed files, fall back to reading the entire file
-        if (compressFormat != CompressFormat.NONE) {
-            log.warn(
-                    "File splitting is not supported for compressed CSV files, reading entire file: {}",
-                    filePath);
-            resolveArchiveCompressedInputStream(
-                    filePath, tableId, output, partitionsMap, FileFormat.CSV);
-            return;
+        // Compressed or archived files do not support splitting and will directly throw an
+        // exception.
+        if (compressFormat != CompressFormat.NONE
+                || archiveCompressFormat != ArchiveCompressFormat.NONE) {
+            throw new FileConnectorException(
+                    FileConnectorErrorCode.FILE_READ_FAILED,
+                    String.format(
+                            "Compressed/archived CSV files do not support file splitting. File: %s, compress: %s, archive: %s",
+                            filePath, compressFormat, archiveCompressFormat));
         }
 
         // Read the file split directly
@@ -132,10 +134,11 @@ public class CsvReadStrategy extends AbstractReadStrategy {
         }
         Builder builder =
                 CSVFormat.EXCEL.builder().setIgnoreEmptyLines(true).setDelimiter(getDelimiter());
-        CSVFormat csvFormat = builder.build();
         if (firstLineAsHeader) {
-            csvFormat = csvFormat.withFirstRecordAsHeader();
+            builder.setHeader();
+            builder.setSkipHeaderRecord(true);
         }
+        CSVFormat csvFormat = builder.build();
         try (BufferedReader reader =
                         new BufferedReader(new InputStreamReader(actualInputStream, encoding));
                 CSVParser csvParser = new CSVParser(reader, csvFormat); ) {
@@ -351,13 +354,13 @@ public class CsvReadStrategy extends AbstractReadStrategy {
                             .builder()
                             .setIgnoreEmptyLines(true)
                             .setDelimiter(getDelimiter());
-            CSVFormat csvFormat = builder.build();
-
             // Only treat first line as header for the first split
             boolean useHeader = firstLineAsHeader && isFirstSplit;
             if (useHeader) {
-                csvFormat = csvFormat.withFirstRecordAsHeader();
+                builder.setHeader();
+                builder.setSkipHeaderRecord(true);
             }
+            CSVFormat csvFormat = builder.build();
 
             try (BufferedReader reader =
                             new BufferedReader(
@@ -467,47 +470,6 @@ public class CsvReadStrategy extends AbstractReadStrategy {
             return inputCatalogTable.getTableSchema().getColumns().stream()
                     .map(column -> column.getName())
                     .collect(Collectors.toList());
-        }
-    }
-
-    /** Limited input stream that respects a maximum number of bytes to read */
-    private static class BoundedInputStream extends InputStream {
-        private final InputStream wrapped;
-        private long remaining;
-
-        public BoundedInputStream(InputStream wrapped, long maxBytes) {
-            this.wrapped = wrapped;
-            this.remaining = maxBytes;
-        }
-
-        @Override
-        public int read() throws IOException {
-            if (remaining <= 0) {
-                return -1;
-            }
-            int result = wrapped.read();
-            if (result != -1) {
-                remaining--;
-            }
-            return result;
-        }
-
-        @Override
-        public int read(byte[] b, int off, int len) throws IOException {
-            if (remaining <= 0) {
-                return -1;
-            }
-            int toRead = (int) Math.min(len, remaining);
-            int result = wrapped.read(b, off, toRead);
-            if (result > 0) {
-                remaining -= result;
-            }
-            return result;
-        }
-
-        @Override
-        public void close() throws IOException {
-            // Don't close the wrapped stream as it may be used elsewhere
         }
     }
 }

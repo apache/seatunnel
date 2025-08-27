@@ -32,6 +32,7 @@ import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.common.utils.DateTimeUtils;
 import org.apache.seatunnel.common.utils.DateUtils;
 import org.apache.seatunnel.common.utils.TimeUtils;
+import org.apache.seatunnel.connectors.seatunnel.file.config.ArchiveCompressFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
@@ -106,6 +107,13 @@ public class XmlReadStrategy extends AbstractReadStrategy {
             boolean isFirstSplit)
             throws IOException, FileConnectorException {
         Map<String, String> partitionsMap = parsePartitionsByPath(filePath);
+        if (archiveCompressFormat != ArchiveCompressFormat.NONE) {
+            throw new FileConnectorException(
+                    FileConnectorErrorCode.FILE_READ_FAILED,
+                    String.format(
+                            "Archived XML files do not support file splitting. File: %s, archive: %s",
+                            filePath, archiveCompressFormat));
+        }
         readSplitProcess(
                 filePath, tableId, output, startOffset, length, isFirstSplit, partitionsMap);
     }
@@ -275,47 +283,6 @@ public class XmlReadStrategy extends AbstractReadStrategy {
 
         } catch (Exception e) {
             log.warn("Failed to parse XML element, skipping: {}", xmlContent.trim(), e);
-        }
-    }
-
-    /** Bounded InputStream that limits reading to a specified number of bytes */
-    private static class BoundedInputStream extends InputStream {
-        private final InputStream delegate;
-        private long remaining;
-
-        public BoundedInputStream(InputStream delegate, long maxBytes) {
-            this.delegate = delegate;
-            this.remaining = maxBytes;
-        }
-
-        @Override
-        public int read() throws IOException {
-            if (remaining <= 0) {
-                return -1;
-            }
-            int result = delegate.read();
-            if (result != -1) {
-                remaining--;
-            }
-            return result;
-        }
-
-        @Override
-        public int read(byte[] b, int off, int len) throws IOException {
-            if (remaining <= 0) {
-                return -1;
-            }
-            int toRead = (int) Math.min(len, remaining);
-            int result = delegate.read(b, off, toRead);
-            if (result != -1) {
-                remaining -= result;
-            }
-            return result;
-        }
-
-        @Override
-        public void close() throws IOException {
-            delegate.close();
         }
     }
 

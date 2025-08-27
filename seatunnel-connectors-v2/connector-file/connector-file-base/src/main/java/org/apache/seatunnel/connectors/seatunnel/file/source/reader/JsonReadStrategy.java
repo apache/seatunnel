@@ -24,6 +24,7 @@ import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
+import org.apache.seatunnel.connectors.seatunnel.file.config.ArchiveCompressFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.CompressFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
@@ -91,6 +92,14 @@ public class JsonReadStrategy extends AbstractReadStrategy {
             boolean isFirstSplit)
             throws IOException, FileConnectorException {
         Map<String, String> partitionsMap = parsePartitionsByPath(filePath);
+        if (compressFormat != CompressFormat.NONE
+                || archiveCompressFormat != ArchiveCompressFormat.NONE) {
+            throw new FileConnectorException(
+                    FileConnectorErrorCode.FILE_READ_FAILED,
+                    String.format(
+                            "Compressed/archived JSON files do not support file splitting. File: %s, compress: %s, archive: %s",
+                            filePath, compressFormat, archiveCompressFormat));
+        }
         readSplitProcess(
                 filePath, tableId, output, startOffset, length, isFirstSplit, partitionsMap);
     }
@@ -131,11 +140,11 @@ public class JsonReadStrategy extends AbstractReadStrategy {
                     actualInputStream = boundedStream;
                     break;
                 default:
-                    log.warn(
-                            "Json file does not support this compress type: {}",
-                            compressFormat.getCompressCodec());
-                    actualInputStream = boundedStream;
-                    break;
+                    throw new FileConnectorException(
+                            FileConnectorErrorCode.FORMAT_NOT_SUPPORT,
+                            String.format(
+                                    "Unsupported json compress codec: %s",
+                                    compressFormat.getCompressCodec()));
             }
 
             try (BufferedReader reader =
@@ -176,47 +185,6 @@ public class JsonReadStrategy extends AbstractReadStrategy {
         }
     }
 
-    /** Bounded InputStream that limits reading to a specified number of bytes */
-    private static class BoundedInputStream extends InputStream {
-        private final InputStream delegate;
-        private long remaining;
-
-        public BoundedInputStream(InputStream delegate, long maxBytes) {
-            this.delegate = delegate;
-            this.remaining = maxBytes;
-        }
-
-        @Override
-        public int read() throws IOException {
-            if (remaining <= 0) {
-                return -1;
-            }
-            int result = delegate.read();
-            if (result != -1) {
-                remaining--;
-            }
-            return result;
-        }
-
-        @Override
-        public int read(byte[] b, int off, int len) throws IOException {
-            if (remaining <= 0) {
-                return -1;
-            }
-            int toRead = (int) Math.min(len, remaining);
-            int result = delegate.read(b, off, toRead);
-            if (result != -1) {
-                remaining -= result;
-            }
-            return result;
-        }
-
-        @Override
-        public void close() throws IOException {
-            delegate.close();
-        }
-    }
-
     @Override
     public void readProcess(
             String path,
@@ -236,11 +204,11 @@ public class JsonReadStrategy extends AbstractReadStrategy {
                 actualInputStream = inputStream;
                 break;
             default:
-                log.warn(
-                        "Json file does not support this compress type: {}",
-                        compressFormat.getCompressCodec());
-                actualInputStream = inputStream;
-                break;
+                throw new FileConnectorException(
+                        FileConnectorErrorCode.FORMAT_NOT_SUPPORT,
+                        String.format(
+                                "Unsupported json compress codec: %s",
+                                compressFormat.getCompressCodec()));
         }
         try (BufferedReader reader =
                 new BufferedReader(new InputStreamReader(actualInputStream, encoding))) {
