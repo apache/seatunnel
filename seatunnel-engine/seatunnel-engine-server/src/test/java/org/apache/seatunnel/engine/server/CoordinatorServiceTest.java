@@ -22,6 +22,7 @@ import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 import org.apache.seatunnel.engine.common.job.JobStatus;
+import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.core.job.PipelineStatus;
@@ -44,11 +45,13 @@ import com.hazelcast.spi.impl.NodeEngineImpl;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -496,9 +499,8 @@ public class CoordinatorServiceTest {
             Map<TaskLocation, SeaTunnelMetricsContext> localMap,
             int ops) {
 
-        java.util.concurrent.CountDownLatch startGate = new java.util.concurrent.CountDownLatch(1);
-        java.util.List<java.util.concurrent.CompletableFuture<Void>> futures =
-                new java.util.ArrayList<>(ops);
+        CountDownLatch startGate = new CountDownLatch(1);
+        List<CompletableFuture<Void>> futures = new ArrayList<>(ops);
 
         for (int i = 0; i < ops; i++) {
             futures.add(
