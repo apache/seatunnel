@@ -17,21 +17,23 @@
 
 package org.apache.seatunnel.engine.e2e.metalake;
 
-import com.github.dockerjava.api.DockerClient;
-import com.github.dockerjava.api.model.Image;
-import io.restassured.RestAssured;
-import org.apache.commons.lang3.StringUtils;
-import org.apache.commons.lang3.tuple.Pair;
+import org.apache.seatunnel.shade.com.google.common.collect.Lists;
+
 import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
-import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.engine.e2e.SeaTunnelEngineContainer;
-import org.apache.seatunnel.shade.com.google.common.collect.Lists;
-import org.junit.jupiter.api.*;
+
+import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.tuple.Pair;
+
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
+import org.testcontainers.containers.MySQLContainer;
 import org.testcontainers.containers.Network;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.containers.wait.strategy.Wait;
@@ -39,20 +41,32 @@ import org.testcontainers.images.PullPolicy;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.DockerLoggerFactory;
-import org.testcontainers.containers.MySQLContainer;
+
+import com.github.dockerjava.api.DockerClient;
+import io.restassured.RestAssured;
+import org.testcontainers.utility.MountableFile;
 
 import java.io.IOException;
 import java.math.BigDecimal;
-import java.sql.*;
-import java.sql.Date;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
-import java.util.*;
+import java.nio.file.Paths;
+import java.sql.Connection;
+import java.sql.Driver;
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.time.Duration;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Properties;
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static org.apache.seatunnel.e2e.common.util.ContainerUtil.PROJECT_ROOT_PATH;
 import static org.awaitility.Awaitility.given;
 
 public class MetalakeIT extends SeaTunnelEngineContainer {
@@ -88,15 +102,14 @@ public class MetalakeIT extends SeaTunnelEngineContainer {
 
     private static final String DRIVER_CLASS = "com.mysql.cj.jdbc.Driver";
 
-    Network NETWORK =
-            Network.builder()
-                    .createNetworkCmdModifier(cmd -> cmd.withName("SEATUNNEL-" + UUID.randomUUID()))
-                    .enableIpv6(false)
-                    .build();
+//    Network NETWORK =
+//            Network.builder()
+//                    .createNetworkCmdModifier(cmd -> cmd.withName("SEATUNNEL-" + UUID.randomUUID()))
+//                    .enableIpv6(false)
+//                    .build();
 
     private static final List<String> CONFIG_FILE =
-            Lists.newArrayList(
-                    "/mysql_to_mysql_with_metalake.conf");
+            Lists.newArrayList("/mysql_to_mysql_with_metalake.conf");
     private static final String CREATE_SQL =
             "CREATE TABLE IF NOT EXISTS %s\n"
                     + "(\n"
@@ -111,27 +124,62 @@ public class MetalakeIT extends SeaTunnelEngineContainer {
 
     @BeforeAll
     @Override
-    public void startUp() throws Exception{
-        super.startUp();
+    public void startUp() throws Exception {
+        //super.startUp();
+        server =
+                new GenericContainer<>(getDockerImage())
+                        .withNetwork(NETWORK)
+                        .withEnv("TZ", "UTC")
+                        .withEnv("METALAKE_ENABLED", "true")
+                        .withEnv("METALAKE_TYPE", "gravitino")
+                        .withEnv("METALAKE_URL", "http://172.17.0.1:8090/api/metalakes/test_metalake/catalogs/")
+                        .withCommand(buildStartCommand())
+                        .withNetworkAliases("server")
+                        .withExposedPorts()
+                        .withFileSystemBind("/tmp", "/opt/hive")
+                        .withLogConsumer(
+                                new Slf4jLogConsumer(
+                                        DockerLoggerFactory.getLogger(
+                                                "seatunnel-engine:" + JDK_DOCKER_IMAGE)))
+                        .waitingFor(Wait.forLogMessage(".*received new worker register:.*", 1));
+        copySeaTunnelStarterToContainer(server);
+        server.setPortBindings(Arrays.asList("5801:5801", "8080:8080"));
+        server.withCopyFileToContainer(
+                MountableFile.forHostPath(
+                        PROJECT_ROOT_PATH
+                                + "/seatunnel-e2e/seatunnel-engine-e2e/connector-seatunnel-e2e-base/src/test/resources/"),
+                Paths.get(SEATUNNEL_HOME, "config").toString());
+
+        server.withCopyFileToContainer(
+                MountableFile.forHostPath(
+                        PROJECT_ROOT_PATH
+                                + "/seatunnel-shade/seatunnel-hadoop3-3.1.4-uber/target/seatunnel-hadoop3-3.1.4-uber.jar"),
+                Paths.get(SEATUNNEL_HOME, "lib/seatunnel-hadoop3-3.1.4-uber.jar").toString());
+        // execute extra commands
+        executeExtraCommands(server);
+        server.start();
+
         server.execInContainer(
                 "bash",
                 "-c",
-                "export METALAKE_ENABLED=${METALAKE_ENABLED:-true} && " +
-                        "export METALAKE_TYPE=${METALAKE_TYPE:-gravitino} && " +
-                        "export METALAKE_URL=${METALAKE_URL:-http://localhost:8090/api/metalakes/test_metalake/catalogs/} && " +
                 "mkdir -p /tmp/seatunnel/plugins/Jdbc/lib && cd /tmp/seatunnel/plugins/Jdbc/lib && wget "
                         + driverUrl()
                         + " --no-check-certificate");
-        dbServer = initContainer().withImagePullPolicy(PullPolicy.alwaysPull());
+        dbServer = initContainer().withImagePullPolicy(PullPolicy.defaultPolicy());
 
-        gravitinoServer = new GenericContainer<>("apache/gravitino:latest")
-                .withExposedPorts(8090)
-                .withImagePullPolicy(PullPolicy.alwaysPull())
-                .withNetwork(NETWORK)
-                .withNetworkAliases("gravitino")
-                .withLogConsumer(new Slf4jLogConsumer(DockerLoggerFactory.getLogger("apache/gravitino:latest")));
+//        gravitinoServer =
+//                new GenericContainer<>("apache/gravitino:latest")
+//                        .withExposedPorts(8090)
+//                        .withExposedPorts(9001)
+//                        .waitingFor(Wait.forListeningPort().withStartupTimeout(Duration.ofMinutes(2)))
+//                        .withImagePullPolicy(PullPolicy.defaultPolicy())
+//                        .withNetwork(NETWORK)
+//                        .withNetworkAliases("gravitino")
+//                        .withLogConsumer(
+//                                new Slf4jLogConsumer(
+//                                        DockerLoggerFactory.getLogger("apache/gravitino:latest")));
 
-        Startables.deepStart(Stream.of(dbServer, gravitinoServer)).join();
+        Startables.deepStart(Stream.of(dbServer)).join();
 
         jdbcCase = getJdbcCase();
 
@@ -140,43 +188,52 @@ public class MetalakeIT extends SeaTunnelEngineContainer {
                 .atMost(360, TimeUnit.SECONDS)
                 .untilAsserted(() -> this.initializeJdbcConnection(jdbcCase.getJdbcUrl()));
 
-        given().ignoreExceptions()
-                .await()
-                .atMost(60, TimeUnit.SECONDS)
-                .untilAsserted(() -> {
-                    String url = "http://" + gravitinoServer.getHost() + ":" + gravitinoServer.getMappedPort(8090);
-                    int statusCode = RestAssured.get(url + "/health").statusCode();
-                    Assertions.assertEquals(200, statusCode);
-                });
+//        given().ignoreExceptions()
+//                .await()
+//                .atMost(60, TimeUnit.SECONDS)
+//                .untilAsserted(
+//                        () -> {
+//                            String url =
+//                                    "http://"
+//                                            + gravitinoServer.getHost()
+//                                            + ":"
+//                                            + gravitinoServer.getMappedPort(8090);
+//                            int statusCode = RestAssured.get(url + "/health").statusCode();
+//                            Assertions.assertEquals(200, statusCode);
+//                        });
 
-        String gravitinoUrl = "http://" + gravitinoServer.getHost() + ":" + gravitinoServer.getMappedPort(8090);
+//        String gravitinoUrl =
+//                "http://" + gravitinoServer.getHost() + ":" + gravitinoServer.getMappedPort(8090);
+//
+//        String payload =
+//                "{"
+//                        + "\"name\": \"test_catalog\","
+//                        + "\"type\": \"relational\","
+//                        + "\"provider\": \"mysql\","
+//                        + "\"comment\": \"Catalog for integration test\","
+//                        + "\"properties\": {"
+//                        + "    \"user\": \"root\","
+//                        + "    \"password\": \"Abc!@#135_seatunnel\""
+//                        + "  }"
+//                        + "}";
 
-        String payload = "{"
-                + "\"name\": \"test_catalog\","
-                + "\"type\": \"relational\","
-                + "\"provider\": \"mysql\","
-                + "\"comment\": \"Catalog for integration test\","
-                + "\"properties\": {"
-                + "    \"user\": \"root\","
-                + "    \"password\": \"Abc!@#135_seatunnel\""
-                + "  }"
-                + "}";
-
-        RestAssured.given()
-                .contentType("application/json")
-                .body(payload)
-                .when()
-                .post(gravitinoUrl + "/api/metalakes/test_metalake/catalogs/test_catalog")
-                .then()
-                .statusCode(200);
+//        RestAssured.given()
+//                .contentType("application/json")
+//                .body(payload)
+//                .when()
+//                .post(gravitinoUrl + "/api/metalakes/test_metalake/catalogs/test_catalog")
+//                .then()
+//                .statusCode(200);
 
         createNeededTables();
         insertTestData();
+        System.out.println("prepare over");
     }
 
     @AfterAll
     @Override
     public void tearDown() throws Exception {
+        System.out.println("test over");
         if (catalog != null) {
             catalog.close();
         }
@@ -188,9 +245,9 @@ public class MetalakeIT extends SeaTunnelEngineContainer {
         if (dbServer != null) {
             dbServer.close();
             try {
-                dockerClient.removeImageCmd(dbServer.getDockerImageName()).exec();
+                //dockerClient.removeImageCmd(dbServer.getDockerImageName()).exec();
             } catch (Exception ignored) {
-                //log.warn("Failed to delete the image. Another container may be in use", ignored);
+                // log.warn("Failed to delete the image. Another container may be in use", ignored);
                 ignored.printStackTrace();
             }
         }
@@ -198,9 +255,9 @@ public class MetalakeIT extends SeaTunnelEngineContainer {
         if (gravitinoServer != null) {
             gravitinoServer.close();
             try {
-                dockerClient.removeImageCmd(gravitinoServer.getDockerImageName()).exec();
+                //dockerClient.removeImageCmd(gravitinoServer.getDockerImageName()).exec();
             } catch (Exception ignored) {
-                //log.warn("Failed to delete the image. Another container may be in use", ignored);
+                // log.warn("Failed to delete the image. Another container may be in use", ignored);
                 ignored.printStackTrace();
             }
         }
@@ -209,7 +266,9 @@ public class MetalakeIT extends SeaTunnelEngineContainer {
 
     @Test
     public void TestMetalake() throws IOException, InterruptedException {
-        Container.ExecResult execResult = executeSeaTunnelJob("/mysql_to_mysql_with_metalake.conf");
+        System.out.println("begin to test");
+        Container.ExecResult execResult = executeSeaTunnelJob("/mysql_to_console_with_metalake.conf");
+        System.in.read();
         Assertions.assertEquals(0, execResult.getExitCode());
     }
 
@@ -343,15 +402,15 @@ public class MetalakeIT extends SeaTunnelEngineContainer {
 
             connection.commit();
         } catch (Exception exception) {
-            //log.error(ExceptionUtils.getMessage(exception));
-            //throw new SeaTunnelRuntimeException(JdbcITErrorCode.CREATE_TABLE_FAILED, exception);
+            // log.error(ExceptionUtils.getMessage(exception));
+            // throw new SeaTunnelRuntimeException(JdbcITErrorCode.CREATE_TABLE_FAILED, exception);
             exception.printStackTrace();
         }
     }
 
     protected void insertTestData() {
         try (PreparedStatement preparedStatement =
-                     connection.prepareStatement(jdbcCase.getInsertSql())) {
+                connection.prepareStatement(jdbcCase.getInsertSql())) {
 
             List<SeaTunnelRow> rows = jdbcCase.getTestData().getValue();
 
@@ -366,8 +425,8 @@ public class MetalakeIT extends SeaTunnelEngineContainer {
 
             connection.commit();
         } catch (Exception exception) {
-            //log.error(ExceptionUtils.getMessage(exception));
-            //throw new SeaTunnelRuntimeException(JdbcITErrorCode.INSERT_DATA_FAILED, exception);
+            // log.error(ExceptionUtils.getMessage(exception));
+            // throw new SeaTunnelRuntimeException(JdbcITErrorCode.INSERT_DATA_FAILED, exception);
             exception.printStackTrace();
         }
     }
@@ -375,12 +434,7 @@ public class MetalakeIT extends SeaTunnelEngineContainer {
     Pair<String[], List<SeaTunnelRow>> initTestData() {
         String[] fieldNames =
                 new String[] {
-                        "c-bit_1",
-                        "c_bit_8",
-                        "c_bit_16",
-                        "c_bit_32",
-                        "c_bit_64",
-                        "c_bigint_30",
+                    "c-bit_1", "c_bit_8", "c_bit_16", "c_bit_32", "c_bit_64", "c_bigint_30",
                 };
 
         List<SeaTunnelRow> rows = new ArrayList<>();
@@ -393,30 +447,30 @@ public class MetalakeIT extends SeaTunnelEngineContainer {
                 row =
                         new SeaTunnelRow(
                                 new Object[] {
-                                        null,
-                                        null,
-                                        null,
-                                        null,
-                                        null,
-                                        // https://github.com/apache/seatunnel/issues/5559 this value
-                                        // cannot set null, this null
-                                        // value column's row will be lost in
-                                        // jdbc_mysql_source_and_sink_parallel.conf,jdbc_mysql_source_and_sink_parallel_upper_lower.conf.
-                                        bigintValue.add(BigDecimal.valueOf(i)),
+                                    null,
+                                    null,
+                                    null,
+                                    null,
+                                    null,
+                                    // https://github.com/apache/seatunnel/issues/5559 this value
+                                    // cannot set null, this null
+                                    // value column's row will be lost in
+                                    // jdbc_mysql_source_and_sink_parallel.conf,jdbc_mysql_source_and_sink_parallel_upper_lower.conf.
+                                    bigintValue.add(BigDecimal.valueOf(i)),
                                 });
             } else {
                 row =
                         new SeaTunnelRow(
                                 new Object[] {
-                                        i % 2 == 0 ? (byte) 1 : (byte) 0,
-                                        new byte[] {byteArr},
-                                        new byte[] {byteArr, byteArr},
-                                        new byte[] {byteArr, byteArr, byteArr, byteArr},
-                                        new byte[] {
-                                                byteArr, byteArr, byteArr, byteArr, byteArr, byteArr,
-                                                byteArr, byteArr
-                                        },
-                                        bigintValue.add(BigDecimal.valueOf(i)),
+                                    i % 2 == 0 ? (byte) 1 : (byte) 0,
+                                    new byte[] {byteArr},
+                                    new byte[] {byteArr, byteArr},
+                                    new byte[] {byteArr, byteArr, byteArr, byteArr},
+                                    new byte[] {
+                                        byteArr, byteArr, byteArr, byteArr, byteArr, byteArr,
+                                        byteArr, byteArr
+                                    },
+                                    bigintValue.add(BigDecimal.valueOf(i)),
                                 });
             }
             rows.add(row);
