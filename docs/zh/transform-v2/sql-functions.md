@@ -305,6 +305,17 @@ REPLACE(NAME, ' ')
 
 select SPLIT(test,';') as arrays
 
+### MURMUR64
+
+```MURMUR64(string) -> LONG```
+
+计算输入字符串的 MurmurHash 128 哈希值，并返回低 64 位作为长整型值。MurmurHash 是一种非加密哈希函数，适用于一般的基于哈希的查找。此方法返回一个长整型值，如果输入参数为 null，则返回 null。
+
+示例:
+
+MURMUR64('hello world')
+MURMUR64(NAME)
+
 ### SOUNDEX
 
 ```SOUNDEX(string) -> STRING```

@@ -161,6 +161,27 @@ transform {
 }
 ```
 
+The same result can be achieved with much simpler configuration using batch field extraction with array format:
+
+```hocon
+transform {
+  JsonPath {
+    plugin_input = "fake"
+    plugin_output = "fake1"
+    columns = [
+     {
+        "src_field" = "data"
+        "path" = ["$.data.c_string", "$.data.c_boolean", "$.data.c_integer", "$.data.c_float", "$.data.c_double", "$.data.c_decimal", "$.data.c_date", "$.data.c_datetime", "$.data.c_array", "$.data.c_map_array"]
+        "dest_field" = ["c1_string", "c1_boolean", "c1_integer", "c1_float", "c1_double", "c1_decimal", "c1_date", "c1_datetime", "c1_array", "c1_map_array"]
+        "dest_type" = ["string", "boolean", "int", "float", "double", "decimal(4,2)", "date", "time", "array<string>", "array<map<string, string>>"]
+     }
+    ]
+  }
+}
+```
+
+**Important:** When using batch field extraction (multiple paths, dest_fields, and dest_types), the `dest_type` parameter is **required** and cannot be omitted. Each extracted field must have a corresponding type specified. The array format provides better readability and is less error-prone than string-based configurations.
+
 Then the data result table `fake1` will like this
 
 |             data             |    c1_string     | c1_boolean | c1_integer | c1_float | c1_double | c1_decimal |  c1_date   | c1_datetime  |          c1_array           |

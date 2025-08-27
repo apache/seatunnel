@@ -122,6 +122,7 @@ public class ZetaSQLFunction {
     public static final String TO_CHAR = "TO_CHAR";
     public static final String TRANSLATE = "TRANSLATE";
     public static final String SPLIT = "SPLIT";
+    public static final String MURMUR64 = "MURMUR64";
 
     // -------------------------numeric functions----------------------------
     public static final String ABS = "ABS";
@@ -487,6 +488,8 @@ public class ZetaSQLFunction {
                 return StringFunction.translate(args);
             case SPLIT:
                 return StringFunction.split(args);
+            case MURMUR64:
+                return StringFunction.murmur64(args);
             case ABS:
                 return NumericFunction.abs(args);
             case ACOS:

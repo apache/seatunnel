@@ -18,6 +18,7 @@ import ChangeLog from '../changelog/connector-clickhouse.md';
 - [x] [column projection](../../concept/connector-v2-features.md)
 - [x] [parallelism](../../concept/connector-v2-features.md)
 - [x] [support user-defined split](../../concept/connector-v2-features.md)
+- [x] [support multiple table read](../../concept/connector-v2-features.md)
 
 > supports query SQL and can achieve projection effect.
 
@@ -56,14 +57,22 @@ They can be downloaded via install-plugin.sh or from the Maven central repositor
 | host              | String | Yes      | -                      | `ClickHouse` cluster address, the format is `host:port` , allowing multiple `hosts` to be specified. Such as `"host1:8123,host2:8123"` .                                                                                                                                                                    |
 | username          | String | Yes      | -                      | `ClickHouse` user username.                                                                                                                                                                                                                                                                                 |
 | password          | String | Yes      | -                      | `ClickHouse` user password.                                                                                                                                                                                                                                                                                 |
-| table_path        | String | NO       | -                      | The path to the full path of table, example: `default.table`                                                                                                                                                                                                                                                |
-| sql               | String | NO       | -                      | The query sql used to search data though Clickhouse server.                                                                                                                                                                                                                                                 |
-| filter_query      | String | NO       | -                      | Data filtering in Clickhouse. the format is "field = value", example : filter_query = "id > 2 and type = 1"                                                                                                                                                                                                 |
-| partition_list    | Array  | NO       | -                      | Table partition list to filter the specified partition. If it is a partitioned table, this field can be configured to filter the data of the specified partition. example: partition_list = ["20250615", "20250616"]                                                                                        || batch_size        | int    | NO       | 1024                   | The maximum rows of data that can be obtained by reading from Clickhouse once.                                                                                                                                                                                                                             |
-| batch_size        | int    | NO       | 1024                   | The maximum rows of data that can be obtained by reading from Clickhouse once.                                                                                                                                                                                                                              |
+| table_list        | Array  | NO       | -                      | The list of tables to be read.                                                                                                                                                                                                                                                                              |
 | clickhouse.config | Map    | No       | -                      | In addition to the above mandatory parameters that must be specified by `clickhouse-jdbc` , users can also specify multiple optional parameters, which cover all the [parameters](https://github.com/ClickHouse/clickhouse-jdbc/tree/master/clickhouse-client#configuration) provided by `clickhouse-jdbc`. |
 | server_time_zone  | String | No       | ZoneId.systemDefault() | The session time zone in database server. If not set, then ZoneId.systemDefault() is used to determine the server time zone.                                                                                                                                                                                |
 | common-options    |        | No       | -                      | Source plugin common parameters, please refer to [Source Common Options](../source-common-options.md) for details.                                                                                                                                                                                          |
+
+Table list configuration:
+
+|       Name        |  Type  | Required |        Default         |                                                                                                                                                 Description                                                                                                                                                 |
+|-------------------|--------|----------|------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| table_path        | String | NO       | -                      | The path to the full path of table, example: `default.table`                                                                                                                                                                                                                                                |
+| sql               | String | NO       | -                      | The query sql used to search data though Clickhouse server.                                                                                                                                                                                                                                                 |
+| filter_query      | String | NO       | -                      | Data filtering in Clickhouse. the format is "field = value", example : filter_query = "id > 2 and type = 1"                                                                                                                                                                                                 |
+| partition_list    | Array  | NO       | -                      | Table partition list to filter the specified partition. If it is a partitioned table, this field can be configured to filter the data of the specified partition. example: partition_list = ["20250615", "20250616"]                                                                                        |
+| batch_size        | int    | NO       | 1024                   | The maximum rows of data that can be obtained by reading from Clickhouse once.                                                                                                                                                                                                                              |
+
+Note: When this configuration corresponds to a single table, you can flatten the configuration items in table_list to the outer layer.
 
 ## Parallel Reader
 The Clickhouse source connector supports parallel reading of data.
@@ -86,6 +95,7 @@ Use `table_path` to replace `sql` for single table reading.
 
 ## How to Create a Clickhouse Data Synchronization Jobs
 
+### Single Table
 The following example demonstrates how to create a data synchronization job that reads data from Clickhouse and prints it on the local client:
 
 **Case 1: Parallel reading based on the part read strategy**
@@ -169,6 +179,43 @@ source {
     server_time_zone = "UTC"
     sql = "select t1.id, t2.category from default.table1 t1 global join default.table2 t2 on t1.id = t2.id where t1.age > 18"
     batch_size = 1024
+    clickhouse.config = {
+      "socket_timeout": "300000"
+    }
+  }
+}
+
+# Console printing of the read Clickhouse data
+sink {
+  Console {
+    parallelism = 1
+  }
+}
+```
+
+### Multiple table
+```hocon
+env {
+  job.mode = "BATCH"
+  parallelism = 5
+}
+
+source {
+  Clickhouse {
+    host = "localhost:8123"
+    username = "xxx"
+    password = "xxx"
+    table_list = [
+      {
+        table_path = "default.table1"
+        sql = "select * from default.table1 where id > 2 and type = 1"
+      },
+      {
+        table_path = "default.table2"
+        sql = "select * from default.table2 where age > 18"
+      }
+    ]
+    server_time_zone = "UTC"
     clickhouse.config = {
       "socket_timeout": "300000"
     }

@@ -304,6 +304,17 @@ Example:
 
 select SPLIT(test,';') as arrays
 
+### MURMUR64
+
+```MURMUR64(string) -> LONG```
+
+Calculate MurmurHash 128 for the input string and return the lower 64 bits as a long value. MurmurHash is a non-cryptographic hash function suitable for general hash-based lookup. This method returns a long value, or null if the input parameter is null.
+
+Example:
+
+MURMUR64('hello world')
+MURMUR64(NAME)
+
 ### SOUNDEX
 
 ```SOUNDEX(string) -> STRING```
