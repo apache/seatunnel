@@ -18,7 +18,6 @@
 package org.apache.seatunnel.e2e.connector.iceberg;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
-import org.apache.seatunnel.common.utils.FileUtils;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.testutils.MySqlContainer;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.testutils.MySqlVersion;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.testutils.UniqueDatabase;
@@ -48,7 +47,6 @@ import org.junit.jupiter.api.TestTemplate;
 import org.junit.jupiter.api.condition.DisabledOnOs;
 import org.junit.jupiter.api.condition.OS;
 import org.testcontainers.containers.Container;
-import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerLoggerFactory;
@@ -80,9 +78,7 @@ import static org.awaitility.Awaitility.given;
 @DisabledOnOs(OS.WINDOWS)
 public class IcebergSinkCDCIT extends TestSuiteBase implements TestResource {
 
-    private static final String CATALOG_DIR = "/tmp/seatunnel/iceberg/hadoop-cdc-sink/";
-
-    private static final String NAMESPACE = "seatunnel_namespace";
+    private static final String CATALOG_DIR = "/tmp/seatunnel_mnt/iceberg/hadoop-cdc-sink/";
 
     // mysql
     private static final String MYSQL_HOST = "mysql_cdc_e2e";
@@ -119,8 +115,21 @@ public class IcebergSinkCDCIT extends TestSuiteBase implements TestResource {
     @TestContainerExtension
     protected final ContainerExtendedFactory extendedFactory =
             container -> {
-                container.execInContainer("sh", "-c", "mkdir -p " + CATALOG_DIR);
+                // TODO: remove this after fix the issue of encountering a failure to create the
+                // metadata and data directories under the /tmp/seatunnel_mnt path in the container
+                // Manually create iceberg metadata and data directory in container
+                container.execInContainer(
+                        "sh",
+                        "-c",
+                        "mkdir -p " + CATALOG_DIR + "seatunnel_namespace/iceberg_sink_table/data");
+                container.execInContainer(
+                        "sh",
+                        "-c",
+                        "mkdir -p "
+                                + CATALOG_DIR
+                                + "seatunnel_namespace/iceberg_sink_table/metadata");
                 container.execInContainer("sh", "-c", "chmod -R 777 " + CATALOG_DIR);
+
                 Container.ExecResult extraCommandsZSTD =
                         container.execInContainer(
                                 "sh",
@@ -136,45 +145,6 @@ public class IcebergSinkCDCIT extends TestSuiteBase implements TestResource {
                                 "mkdir -p /tmp/seatunnel/plugins/MySQL-CDC/lib && cd /tmp/seatunnel/plugins/MySQL-CDC/lib && wget "
                                         + driverUrl());
                 Assertions.assertEquals(0, extraCommands.getExitCode(), extraCommands.getStderr());
-            };
-
-    private final String NAMESPACE_TAR = NAMESPACE + ".tar.gz";
-    protected final ContainerExtendedFactory containerExtendedFactory =
-            new ContainerExtendedFactory() {
-                @Override
-                public void extend(GenericContainer<?> container)
-                        throws IOException, InterruptedException {
-                    FileUtils.createNewDir(CATALOG_DIR);
-                    container.execInContainer(
-                            "sh",
-                            "-c",
-                            "cd "
-                                    + CATALOG_DIR
-                                    + " && tar -czvf "
-                                    + NAMESPACE_TAR
-                                    + " "
-                                    + NAMESPACE);
-                    container.copyFileFromContainer(
-                            CATALOG_DIR + NAMESPACE_TAR, CATALOG_DIR + NAMESPACE_TAR);
-                    extractFiles();
-                }
-
-                private void extractFiles() {
-                    ProcessBuilder processBuilder = new ProcessBuilder();
-                    processBuilder.command(
-                            "sh", "-c", "cd " + CATALOG_DIR + " && tar -zxvf " + NAMESPACE_TAR);
-                    try {
-                        Process process = processBuilder.start();
-                        int exitCode = process.waitFor();
-                        if (exitCode == 0) {
-                            log.info("Extract files successful.");
-                        } else {
-                            log.error("Extract files failed with exit code " + exitCode);
-                        }
-                    } catch (IOException | InterruptedException e) {
-                        e.printStackTrace();
-                    }
-                }
             };
 
     private static final String SOURCE_TABLE = "mysql_cdc_e2e_source_table";
@@ -305,7 +275,6 @@ public class IcebergSinkCDCIT extends TestSuiteBase implements TestResource {
                 .atMost(120000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () -> {
-                            container.executeExtraCommands(containerExtendedFactory);
                             Schema schema = loadIcebergSchema();
 
                             // Verify all new columns exist
@@ -411,7 +380,6 @@ public class IcebergSinkCDCIT extends TestSuiteBase implements TestResource {
                 .atMost(120000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () -> {
-                            container.executeExtraCommands(containerExtendedFactory);
                             Schema schema = loadIcebergSchema();
 
                             // Verify columns exist with correct types
@@ -513,7 +481,6 @@ public class IcebergSinkCDCIT extends TestSuiteBase implements TestResource {
                 .atMost(120000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () -> {
-                            container.executeExtraCommands(containerExtendedFactory);
                             Schema schema = loadIcebergSchema();
 
                             // Verify columns exist with correct types
@@ -567,8 +534,6 @@ public class IcebergSinkCDCIT extends TestSuiteBase implements TestResource {
                 .atMost(120000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () -> {
-                            // copy iceberg to local
-                            container.executeExtraCommands(containerExtendedFactory);
                             Schema schema = loadIcebergSchema();
                             Types.NestedField nestedField = schema.findField(addField);
                             Assertions.assertEquals(true, Objects.nonNull(nestedField));
@@ -595,8 +560,6 @@ public class IcebergSinkCDCIT extends TestSuiteBase implements TestResource {
                 .atMost(120000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () -> {
-                            // copy iceberg to local
-                            container.executeExtraCommands(containerExtendedFactory);
                             List<Record> records = loadIcebergTable();
                             Assertions.assertEquals(5, records.size());
                             for (Record record : records) {
@@ -620,8 +583,6 @@ public class IcebergSinkCDCIT extends TestSuiteBase implements TestResource {
                 .atMost(120000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () -> {
-                            // copy iceberg to local
-                            container.executeExtraCommands(containerExtendedFactory);
                             Schema schema = loadIcebergSchema();
                             Types.NestedField nestedField = schema.findField(addField);
                             // The column should be marked as deleted in Iceberg
@@ -713,7 +674,6 @@ public class IcebergSinkCDCIT extends TestSuiteBase implements TestResource {
                 .atMost(120000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () -> {
-                            container.executeExtraCommands(containerExtendedFactory);
                             Schema schema = loadIcebergSchema();
 
                             // Verify old column is gone and new column exists
@@ -759,8 +719,6 @@ public class IcebergSinkCDCIT extends TestSuiteBase implements TestResource {
                 .atMost(120000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () -> {
-                            // copy iceberg to local
-                            container.executeExtraCommands(containerExtendedFactory);
                             List<Record> records = loadIcebergTable();
                             Assertions.assertEquals(4, records.size());
                             for (Record record : records) {
@@ -786,8 +744,6 @@ public class IcebergSinkCDCIT extends TestSuiteBase implements TestResource {
                 .atMost(60000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () -> {
-                            // copy iceberg to local
-                            container.executeExtraCommands(containerExtendedFactory);
                             Assertions.assertEquals(3, loadIcebergTable().size());
                         });
     }

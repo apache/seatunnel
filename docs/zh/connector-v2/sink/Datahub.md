@@ -33,7 +33,7 @@ import ChangeLog from '../changelog/connector-datahub.md';
 
 您的DataHub accessId可以从阿里云访问哪个云
 
-### accessKey[string]
+### accessKey [string]
 
 您的DataHub accessKey可以从阿里云访问哪个云
 

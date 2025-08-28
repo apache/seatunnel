@@ -118,7 +118,7 @@ public class ZetaSQLType {
                 String[] columnNames = fullyQualifiedName.split("\\.");
                 int deep = columnNames.length;
                 SeaTunnelRowType parRowType = inputRowType;
-                SeaTunnelDataType<?> filedTypeRes = null;
+                SeaTunnelDataType<?> fieldTypeRes = null;
                 for (int i = 0; i < deep; i++) {
                     String key = columnNames[i];
                     int idx = parRowType.indexOf(key, false);
@@ -132,22 +132,22 @@ public class ZetaSQLType {
                         throw new IllegalArgumentException(
                                 String.format("can't find field [%s]", fullyQualifiedName));
                     }
-                    filedTypeRes = parRowType.getFieldType(idx);
-                    if (filedTypeRes instanceof SeaTunnelRowType) {
-                        parRowType = (SeaTunnelRowType) filedTypeRes;
-                    } else if (filedTypeRes instanceof MapType) {
+                    fieldTypeRes = parRowType.getFieldType(idx);
+                    if (fieldTypeRes instanceof SeaTunnelRowType) {
+                        parRowType = (SeaTunnelRowType) fieldTypeRes;
+                    } else if (fieldTypeRes instanceof MapType) {
                         if (i < deep - 2) {
                             throw new IllegalArgumentException(
                                     "For now, when you query map field with inner query, it must be latest field or latest struct field! Please modify your query!");
                         }
                         if (i == deep - 1) {
-                            return filedTypeRes;
+                            return fieldTypeRes;
                         } else {
-                            return ((MapType<?, ?>) filedTypeRes).getValueType();
+                            return ((MapType<?, ?>) fieldTypeRes).getValueType();
                         }
                     }
                 }
-                return filedTypeRes;
+                return fieldTypeRes;
             }
         }
         if (expression instanceof Function) {
@@ -374,6 +374,7 @@ public class ZetaSQLType {
             case ZetaSQLFunction.LENGTH:
             case ZetaSQLFunction.OCTET_LENGTH:
             case ZetaSQLFunction.DATEDIFF:
+            case ZetaSQLFunction.MURMUR64:
                 return BasicType.LONG_TYPE;
             case ZetaSQLFunction.REGEXP_LIKE:
             case ZetaSQLFunction.IS_DATE:

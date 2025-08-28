@@ -66,4 +66,11 @@ public class TestJsonPathTransformIT extends TestSuiteBase {
                 container.executeJob("/json_path_transform/json_path_array_map.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
     }
+
+    @TestTemplate
+    public void testBatchFields(TestContainer container) throws Exception {
+        Container.ExecResult execResult =
+                container.executeJob("/json_path_transform/json_path_batch_fields_test.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+    }
 }

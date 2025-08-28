@@ -18,11 +18,11 @@
 
 拆分内容的分隔符
 
-### split_field[string]
+### split_field [string]
 
 需要拆分的字段
 
-### output_fields[array]
+### output_fields [array]
 
 拆分后的结果字段
 

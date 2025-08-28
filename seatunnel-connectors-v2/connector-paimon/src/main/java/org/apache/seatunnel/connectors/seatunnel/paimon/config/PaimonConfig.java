@@ -65,13 +65,8 @@ public class PaimonConfig implements Serializable {
                 checkArgumentNotBlank(
                         readonlyConfig.get(PaimonBaseOptions.WAREHOUSE),
                         PaimonBaseOptions.WAREHOUSE.key());
-        this.namespace =
-                checkArgumentNotBlank(
-                        readonlyConfig.get(PaimonBaseOptions.DATABASE),
-                        PaimonBaseOptions.DATABASE.key());
-        this.table =
-                checkArgumentNotBlank(
-                        readonlyConfig.get(PaimonBaseOptions.TABLE), PaimonBaseOptions.TABLE.key());
+        this.namespace = readonlyConfig.get(PaimonBaseOptions.DATABASE);
+        this.table = readonlyConfig.get(PaimonBaseOptions.TABLE);
         this.hdfsSitePath = readonlyConfig.get(PaimonBaseOptions.HDFS_SITE_PATH);
         this.hadoopConfProps = readonlyConfig.get(PaimonBaseOptions.HADOOP_CONF);
         this.hadoopConfPath = readonlyConfig.get(PaimonBaseOptions.HADOOP_CONF_PATH);

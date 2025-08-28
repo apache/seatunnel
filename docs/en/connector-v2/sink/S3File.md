@@ -300,7 +300,7 @@ Support writing Parquet INT96 from a timestamp, only valid for parquet files.
 
 Support writing Parquet INT96 from a 12-byte field, only valid for parquet files.
 
-### schema_save_mode[Enum]
+### schema_save_mode [Enum]
 
 Before turning on the synchronous task, do different treatment of the target path.  
 Option introduction：  
@@ -309,7 +309,7 @@ Option introduction：
 `ERROR_WHEN_SCHEMA_NOT_EXIST` ：Error will be reported when the path does not exist  
 `IGNORE` ：Ignore the treatment of the table
 
-### data_save_mode[Enum]
+### data_save_mode [Enum]
 
 Before opening the synchronous task, the data file in the target path is differently processed.
 Option introduction：  

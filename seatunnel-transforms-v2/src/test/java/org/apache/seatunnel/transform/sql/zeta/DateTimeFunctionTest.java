@@ -62,4 +62,49 @@ public class DateTimeFunctionTest {
         Object field1 = outRow1.getField(0);
         Assertions.assertEquals("2023-01-01 10:00:00", field1.toString());
     }
+
+    @Test
+    public void testFromUnixtimeFunctionWithIntegerInput() {
+        SQLEngine sqlEngine = SQLEngineFactory.getSQLEngine(SQLEngineFactory.EngineType.ZETA);
+
+        // Test with Integer type (simulating MySQL INT field)
+        SeaTunnelRowType rowTypeInt =
+                new SeaTunnelRowType(
+                        new String[] {"unixtime"}, new SeaTunnelDataType[] {BasicType.INT_TYPE});
+
+        // 1672545600 means `2023-01-01 12:00:00 UTC+8` in unix time (as Integer)
+        Integer unixTimeInt = 1672545600;
+        SeaTunnelRow inputRowInt = new SeaTunnelRow(new Integer[] {unixTimeInt});
+
+        // Transform by `from_unixtime` function with Integer input
+        sqlEngine.init(
+                "test",
+                null,
+                rowTypeInt,
+                "select from_unixtime(unixtime,'yyyy-MM-dd HH:mm:ss') as ts from dual");
+        SeaTunnelRow outRowInt = sqlEngine.transformBySQL(inputRowInt, rowTypeInt).get(0);
+        Object fieldInt = outRowInt.getField(0);
+        Assertions.assertNotNull(fieldInt.toString());
+
+        // Test with Long type (original working case)
+        SeaTunnelRowType rowTypeLong =
+                new SeaTunnelRowType(
+                        new String[] {"unixtime"}, new SeaTunnelDataType[] {BasicType.LONG_TYPE});
+
+        Long unixTimeLong = 1672545600L;
+        SeaTunnelRow inputRowLong = new SeaTunnelRow(new Long[] {unixTimeLong});
+
+        // Transform by `from_unixtime` function with Long input
+        sqlEngine.init(
+                "test",
+                null,
+                rowTypeLong,
+                "select from_unixtime(unixtime,'yyyy-MM-dd HH:mm:ss') as ts from dual");
+        SeaTunnelRow outRowLong = sqlEngine.transformBySQL(inputRowLong, rowTypeLong).get(0);
+        Object fieldLong = outRowLong.getField(0);
+        Assertions.assertNotNull(fieldLong.toString());
+
+        // Both Integer and Long inputs should produce the same result
+        Assertions.assertEquals(fieldInt.toString(), fieldLong.toString());
+    }
 }

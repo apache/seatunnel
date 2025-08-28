@@ -90,6 +90,18 @@ public class PaimonIT extends TestSuiteBase implements TestResource {
         Assertions.assertEquals(0, readProjectionResult.getExitCode());
     }
 
+    @TestTemplate
+    public void testMultiTableRead(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult textWriteResult = container.executeJob("/fake_to_paimon.conf");
+        Assertions.assertEquals(0, textWriteResult.getExitCode());
+        Container.ExecResult textWriteResult2 = container.executeJob("/fake_to_paimon_2.conf");
+        Assertions.assertEquals(0, textWriteResult.getExitCode());
+        Container.ExecResult multiReadResult =
+                container.executeJob("/paimon-to-assert-with-multipletable.conf");
+        Assertions.assertEquals(0, multiReadResult.getExitCode());
+    }
+
     @Override
     public void startUp() throws Exception {}
 
