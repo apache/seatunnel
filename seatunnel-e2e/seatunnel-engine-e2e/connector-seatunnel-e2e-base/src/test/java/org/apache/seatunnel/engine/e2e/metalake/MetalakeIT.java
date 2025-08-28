@@ -170,13 +170,11 @@ public class MetalakeIT extends SeaTunnelEngineContainer {
 
         createNeededTables();
         insertTestData();
-        System.out.println("prepare over");
     }
 
     @AfterAll
     @Override
     public void tearDown() throws Exception {
-        System.out.println("test over");
         if (catalog != null) {
             catalog.close();
         }
@@ -209,10 +207,8 @@ public class MetalakeIT extends SeaTunnelEngineContainer {
 
     @Test
     public void TestMetalake() throws IOException, InterruptedException {
-        System.out.println("begin to test");
         Container.ExecResult execResult =
                 executeSeaTunnelJob("/mysql_to_console_with_metalake.conf");
-        System.in.read();
         Assertions.assertEquals(0, execResult.getExitCode());
     }
 

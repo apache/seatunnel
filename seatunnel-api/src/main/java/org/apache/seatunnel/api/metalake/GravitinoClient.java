@@ -53,8 +53,6 @@ public class GravitinoClient implements MetalakeClient {
                 }
                 ObjectMapper mapper = new ObjectMapper();
                 JsonNode rootNode = mapper.readTree(entity.getContent());
-                System.err.println("gravitino return");
-                System.err.println(rootNode.toString());
                 EntityUtils.consume(entity);
                 JsonNode catalogNode = rootNode.get("catalog");
                 if (catalogNode == null) {
