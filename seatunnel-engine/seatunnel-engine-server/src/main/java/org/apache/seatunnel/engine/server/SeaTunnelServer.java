@@ -372,7 +372,7 @@ public class SeaTunnelServer
 
         List<TaskLocation> taskLocations =
                 getTaskLocations(
-                        pipelineLocation, metricsImap.get(Constant.IMAP_RUNNING_JOB_METRICS_KEY));
+                        pipelineLocation, centralMap);
         taskLocations.forEach(centralMap::remove);
         metricsImap.put(Constant.IMAP_RUNNING_JOB_METRICS_KEY, centralMap);
     }
