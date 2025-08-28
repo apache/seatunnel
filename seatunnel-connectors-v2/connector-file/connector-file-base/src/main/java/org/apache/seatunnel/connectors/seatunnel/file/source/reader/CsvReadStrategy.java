@@ -132,23 +132,18 @@ public class CsvReadStrategy extends AbstractReadStrategy {
                 actualInputStream = inputStream;
                 break;
         }
-        Builder builder =
-                CSVFormat.EXCEL.builder().setIgnoreEmptyLines(true).setDelimiter(getDelimiter());
-        if (firstLineAsHeader) {
-            builder.setHeader();
-            builder.setSkipHeaderRecord(true);
-        }
-        CSVFormat csvFormat = builder.build();
+
+        CSVFormat csvFormat = buildCsvFormat(firstLineAsHeader);
         try (BufferedReader reader =
                         new BufferedReader(new InputStreamReader(actualInputStream, encoding));
-                CSVParser csvParser = new CSVParser(reader, csvFormat); ) {
+                CSVParser csvParser = new CSVParser(reader, csvFormat)) {
             // test and skip `\uFEFF` BOM
             reader.mark(1);
             int firstChar = reader.read();
             if (firstChar != 0xFEFF) {
                 reader.reset();
             }
-            // skip lines
+            // skip header lines configured by option
             for (int i = 0; i < skipHeaderNumber; i++) {
                 if (reader.readLine() == null) {
                     throw new IOException(
@@ -157,43 +152,10 @@ public class CsvReadStrategy extends AbstractReadStrategy {
                                     currentFileName));
                 }
             }
-            // read lines
+
+            // obtain headers and process records
             List<String> headers = getHeaders(csvParser);
-            for (CSVRecord csvRecord : csvParser) {
-                HashMap<Integer, String> fieldIdValueMap = new HashMap<>();
-                for (int i = 0; i < headers.size(); i++) {
-                    // the user input schema may not contain all the columns in the csv header
-                    // and may contain columns in a different order with the csv header
-                    int index =
-                            inputCatalogTable.getSeaTunnelRowType().indexOf(headers.get(i), false);
-                    if (index == -1) {
-                        continue;
-                    }
-                    fieldIdValueMap.put(index, csvRecord.get(i));
-                }
-                SeaTunnelRow seaTunnelRow = deserializationSchema.getSeaTunnelRow(fieldIdValueMap);
-                if (!readColumns.isEmpty()) {
-                    // need column projection
-                    Object[] fields;
-                    if (isMergePartition) {
-                        fields = new Object[readColumns.size() + partitionsMap.size()];
-                    } else {
-                        fields = new Object[readColumns.size()];
-                    }
-                    for (int i = 0; i < indexes.length; i++) {
-                        fields[i] = seaTunnelRow.getField(indexes[i]);
-                    }
-                    seaTunnelRow = new SeaTunnelRow(fields);
-                }
-                if (isMergePartition) {
-                    int index = seaTunnelRowType.getTotalFields();
-                    for (String value : partitionsMap.values()) {
-                        seaTunnelRow.setField(index++, value);
-                    }
-                }
-                seaTunnelRow.setTableId(tableId);
-                output.collect(seaTunnelRow);
-            }
+            processCsvRecords(csvParser, headers, partitionsMap, tableId, output);
         } catch (IOException e) {
             String errorMsg =
                     String.format(
@@ -349,18 +311,9 @@ public class CsvReadStrategy extends AbstractReadStrategy {
                             ? new BoundedInputStream(fsDataInputStream, length)
                             : fsDataInputStream;
 
-            Builder builder =
-                    CSVFormat.EXCEL
-                            .builder()
-                            .setIgnoreEmptyLines(true)
-                            .setDelimiter(getDelimiter());
             // Only treat first line as header for the first split
             boolean useHeader = firstLineAsHeader && isFirstSplit;
-            if (useHeader) {
-                builder.setHeader();
-                builder.setSkipHeaderRecord(true);
-            }
-            CSVFormat csvFormat = builder.build();
+            CSVFormat csvFormat = buildCsvFormat(useHeader);
 
             try (BufferedReader reader =
                             new BufferedReader(
@@ -401,53 +354,7 @@ public class CsvReadStrategy extends AbstractReadStrategy {
 
                 // Get headers (for first split, from CSV parser; for others, from catalog table)
                 List<String> headers = getHeadersForSplit(csvParser, isFirstSplit);
-
-                // Process CSV records
-                for (CSVRecord csvRecord : csvParser) {
-                    if (csvRecord.size() == 0) {
-                        continue; // Skip empty records
-                    }
-
-                    HashMap<Integer, String> fieldIdValueMap = new HashMap<>();
-                    for (int i = 0; i < Math.min(headers.size(), csvRecord.size()); i++) {
-                        int index =
-                                inputCatalogTable
-                                        .getSeaTunnelRowType()
-                                        .indexOf(headers.get(i), false);
-                        if (index == -1) {
-                            continue;
-                        }
-                        fieldIdValueMap.put(index, csvRecord.get(i));
-                    }
-
-                    SeaTunnelRow seaTunnelRow =
-                            deserializationSchema.getSeaTunnelRow(fieldIdValueMap);
-
-                    // Handle column projection
-                    if (!readColumns.isEmpty()) {
-                        Object[] fields;
-                        if (isMergePartition) {
-                            fields = new Object[readColumns.size() + partitionsMap.size()];
-                        } else {
-                            fields = new Object[readColumns.size()];
-                        }
-                        for (int i = 0; i < indexes.length; i++) {
-                            fields[i] = seaTunnelRow.getField(indexes[i]);
-                        }
-                        seaTunnelRow = new SeaTunnelRow(fields);
-                    }
-
-                    // Handle partition fields
-                    if (isMergePartition) {
-                        int index = seaTunnelRowType.getTotalFields();
-                        for (String value : partitionsMap.values()) {
-                            seaTunnelRow.setField(index++, value);
-                        }
-                    }
-
-                    seaTunnelRow.setTableId(tableId);
-                    output.collect(seaTunnelRow);
-                }
+                processCsvRecords(csvParser, headers, partitionsMap, tableId, output);
             }
         } catch (IOException e) {
             String errorMsg =
@@ -470,6 +377,65 @@ public class CsvReadStrategy extends AbstractReadStrategy {
             return inputCatalogTable.getTableSchema().getColumns().stream()
                     .map(column -> column.getName())
                     .collect(Collectors.toList());
+        }
+    }
+
+    // -------------------- helpers to reduce duplication --------------------
+
+    private CSVFormat buildCsvFormat(boolean useHeader) {
+        Builder builder =
+                CSVFormat.EXCEL.builder().setIgnoreEmptyLines(true).setDelimiter(getDelimiter());
+        if (useHeader) {
+            builder.setHeader();
+            builder.setSkipHeaderRecord(true);
+        }
+        return builder.build();
+    }
+
+    private void processCsvRecords(
+            CSVParser csvParser,
+            List<String> headers,
+            Map<String, String> partitionsMap,
+            String tableId,
+            Collector<SeaTunnelRow> output)
+            throws IOException {
+        for (CSVRecord csvRecord : csvParser) {
+            if (csvRecord.size() == 0) {
+                continue;
+            }
+
+            HashMap<Integer, String> fieldIdValueMap = new HashMap<>();
+            for (int i = 0; i < Math.min(headers.size(), csvRecord.size()); i++) {
+                int idx = inputCatalogTable.getSeaTunnelRowType().indexOf(headers.get(i), false);
+                if (idx == -1) {
+                    continue;
+                }
+                fieldIdValueMap.put(idx, csvRecord.get(i));
+            }
+
+            SeaTunnelRow seaTunnelRow = deserializationSchema.getSeaTunnelRow(fieldIdValueMap);
+
+            if (!readColumns.isEmpty()) {
+                Object[] fields;
+                if (isMergePartition) {
+                    fields = new Object[readColumns.size() + partitionsMap.size()];
+                } else {
+                    fields = new Object[readColumns.size()];
+                }
+                for (int i = 0; i < indexes.length; i++) {
+                    fields[i] = seaTunnelRow.getField(indexes[i]);
+                }
+                seaTunnelRow = new SeaTunnelRow(fields);
+            }
+
+            if (isMergePartition) {
+                int index = seaTunnelRowType.getTotalFields();
+                for (String value : partitionsMap.values()) {
+                    seaTunnelRow.setField(index++, value);
+                }
+            }
+            seaTunnelRow.setTableId(tableId);
+            output.collect(seaTunnelRow);
         }
     }
 }

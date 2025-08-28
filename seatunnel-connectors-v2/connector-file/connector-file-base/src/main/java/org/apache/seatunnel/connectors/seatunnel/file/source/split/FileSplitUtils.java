@@ -77,6 +77,17 @@ public class FileSplitUtils {
             return splits;
         }
 
+        // Precheck: some filesystems/streams may not support seeking (e.g., ftp). If seek is not
+        // supported, fall back to a single split to ensure correctness.
+        if (!supportsSeek(hadoopFileSystemProxy, filePath)) {
+            log.warn(
+                    "The underlying input stream does not support seek operation. "
+                            + "File splitting will be disabled for file: {}",
+                    filePath);
+            splits.add(new FileSourceSplit(tableId, filePath));
+            return splits;
+        }
+
         // Calculate split positions
         List<Long> splitPositions =
                 calculateSplitPositions(filePath, fileSize, splitSizeBytes, hadoopFileSystemProxy);
@@ -184,6 +195,34 @@ public class FileSplitUtils {
 
         // If no line boundary found, return the file size
         return fileSize;
+    }
+
+    /**
+     * Best-effort detection whether the current filesystem/stream supports random seek.
+     *
+     * <p>Implementation note: Hadoop's {@link FSDataInputStream} normally supports seek, but for
+     * some schemes or custom implementations it may throw {@link UnsupportedOperationException}.
+     * Here we defensively try a no-op seek (to the current position). If this fails, we assume
+     * seeking is not supported and disable splitting.
+     */
+    private static boolean supportsSeek(
+            HadoopFileSystemProxy hadoopFileSystemProxy, String filePath) {
+        FSDataInputStream inputStream = null;
+        try {
+            inputStream = hadoopFileSystemProxy.getInputStream(filePath);
+            long pos = inputStream.getPos();
+            inputStream.seek(pos);
+            return true;
+        } catch (UnsupportedOperationException | IOException e) {
+            return false;
+        } finally {
+            if (inputStream != null) {
+                try {
+                    inputStream.close();
+                } catch (IOException ignore) {
+                }
+            }
+        }
     }
 
     /** Check if a file format supports splitting. */
