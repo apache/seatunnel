@@ -53,7 +53,6 @@ import org.apache.seatunnel.engine.server.task.SeaTunnelTask;
 import org.apache.seatunnel.engine.server.task.TaskGroupImmutableInformation;
 import org.apache.seatunnel.engine.server.task.operation.NotifyTaskStatusOperation;
 import org.apache.seatunnel.engine.server.task.operation.ReportMetricsOperation;
-import org.apache.seatunnel.engine.server.utils.HazelcastRetryUtils;
 
 import org.apache.commons.collections4.CollectionUtils;
 
@@ -93,7 +92,6 @@ import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadFactory;
-import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -571,76 +569,31 @@ public class TaskExecutionService implements DynamicMetricsProvider {
     }
 
     private void updateMetricsContextInImap() {
-        final long deadlineNanos = System.nanoTime() + TimeUnit.MINUTES.toNanos(2);
-        long backoffMillis = 1000;
-        final long maxBackoffMillis = 10000;
-        int attempts = 0;
-        while (isRunning) {
-            if (!nodeEngine.getNode().getState().equals(NodeState.ACTIVE)) {
-                logger.warning(
-                        String.format(
-                                "The Node is not ready yet, Node state %s,looking forward to the next "
-                                        + "scheduling",
-                                nodeEngine.getNode().getState()));
-                return;
-            }
-
-            InvocationFuture<Object> invoke =
-                    nodeEngine
-                            .getOperationService()
-                            .createInvocationBuilder(
-                                    SeaTunnelServer.SERVICE_NAME,
-                                    new ReportMetricsOperation(collectLocalMetricsMap()),
-                                    nodeEngine.getMasterAddress())
-                            .invoke();
-
-            try {
-                invoke.get();
-                return;
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                logger.severe("update metrics context stopped due to thread interruption.", e);
-                return;
-            } catch (ExecutionException e) {
-                Throwable cause = e.getCause();
-                if (cause instanceof JobNotFoundException) {
-                    logger.warning(
-                            "update metrics context in imap failed because can't find job", e);
-                    return;
-                }
-                if (HazelcastRetryUtils.isRetryable(cause)) {
-                    logger.warning(ExceptionUtils.getMessage(e), e);
-                } else {
-                    logger.severe("non-retryable failure while updating metrics", e);
-                    return;
-                }
-            } catch (Exception e) {
-                logger.severe("non-retryable failure while updating metrics", e);
-                return;
-            }
-
-            attempts++;
-            if (!isRunning || System.nanoTime() > deadlineNanos) {
-                logger.warning(
-                        String.format(
-                                "update metrics context timed out after %s attempts", attempts));
-                break;
-            }
-
-            long sleepTime = backoffMillis + ThreadLocalRandom.current().nextLong(50);
-
+        if (!nodeEngine.getNode().getState().equals(NodeState.ACTIVE)) {
             logger.warning(
                     String.format(
-                            "failed to update metrics context, retry in %s millis", sleepTime));
+                            "The Node is not ready yet, Node state %s,looking forward to the next "
+                                    + "scheduling",
+                            nodeEngine.getNode().getState()));
+            return;
+        }
 
-            try {
-                Thread.sleep(sleepTime);
-            } catch (InterruptedException ex) {
-                Thread.currentThread().interrupt();
-                logger.severe("update metrics context stopped due to thread interruption.", ex);
-                return;
-            }
-            backoffMillis = Math.min(maxBackoffMillis, backoffMillis * 2);
+        InvocationFuture<Object> invoke =
+                nodeEngine
+                        .getOperationService()
+                        .createInvocationBuilder(
+                                SeaTunnelServer.SERVICE_NAME,
+                                new ReportMetricsOperation(collectLocalMetricsMap()),
+                                nodeEngine.getMasterAddress())
+                        .invoke();
+
+        try {
+            invoke.get();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            logger.severe("update metrics context stopped due to thread interruption.", e);
+        } catch (Exception e) {
+            logger.severe("non-retryable failure while updating metrics", e);
         }
         this.printTaskExecutionRuntimeInfo();
     }

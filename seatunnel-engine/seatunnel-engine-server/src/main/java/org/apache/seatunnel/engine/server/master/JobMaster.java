@@ -39,7 +39,6 @@ import org.apache.seatunnel.engine.common.config.EngineConfig;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.config.server.CheckpointConfig;
 import org.apache.seatunnel.engine.common.config.server.CheckpointStorageConfig;
-import org.apache.seatunnel.engine.common.exception.JobNotFoundException;
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 import org.apache.seatunnel.engine.common.job.JobResult;
 import org.apache.seatunnel.engine.common.job.JobStatus;
@@ -77,8 +76,6 @@ import org.apache.seatunnel.engine.server.resourcemanager.allocation.strategy.Sy
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
 import org.apache.seatunnel.engine.server.task.operation.CleanTaskGroupContextOperation;
 import org.apache.seatunnel.engine.server.task.operation.GetTaskGroupMetricsOperation;
-import org.apache.seatunnel.engine.server.task.operation.RemoveMetricsOperation;
-import org.apache.seatunnel.engine.server.utils.HazelcastRetryUtils;
 import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
 
 import com.hazelcast.cluster.Address;
@@ -90,7 +87,6 @@ import com.hazelcast.logging.ILogger;
 import com.hazelcast.logging.Logger;
 import com.hazelcast.map.IMap;
 import com.hazelcast.spi.impl.NodeEngine;
-import com.hazelcast.spi.impl.operationservice.impl.InvocationFuture;
 import lombok.Getter;
 import lombok.NonNull;
 
@@ -108,10 +104,7 @@ import java.util.Set;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.ThreadLocalRandom;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 import static com.hazelcast.jet.impl.util.ExceptionUtil.withTryCatch;
@@ -892,69 +885,11 @@ public class JobMaster {
         if ((pipelineStatus.equals(PipelineStatus.FINISHED)
                         && !checkpointManager.isPipelineSavePointEnd(pipelineLocation))
                 || pipelineStatus.equals(PipelineStatus.CANCELED)) {
-            final long deadlineNanos = System.nanoTime() + TimeUnit.MINUTES.toNanos(2);
-            long backoffMillis = 1000;
-            final long maxBackoffMillis = 10000;
-            int attempts = 0;
-            while (isRunning) {
 
-                InvocationFuture<Object> invoke =
-                        nodeEngine
-                                .getOperationService()
-                                .createInvocationBuilder(
-                                        SeaTunnelServer.SERVICE_NAME,
-                                        new RemoveMetricsOperation(pipelineLocation),
-                                        nodeEngine.getMasterAddress())
-                                .invoke();
-
-                try {
-                    invoke.get();
-                    return;
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    LOGGER.severe("remove metrics context stopped due to thread interruption.", e);
-                    return;
-                } catch (ExecutionException e) {
-                    Throwable cause = e.getCause();
-                    if (cause instanceof JobNotFoundException) {
-                        LOGGER.warning(
-                                "failed to remove metrics context because can't find job", e);
-                        return;
-                    }
-                    if (HazelcastRetryUtils.isRetryable(cause)) {
-                        LOGGER.warning(ExceptionUtils.getMessage(e), e);
-                    } else {
-                        LOGGER.severe("non-retryable failure while removing metrics", e);
-                        return;
-                    }
-                } catch (Exception e) {
-                    LOGGER.severe("non-retryable failure while removing metrics", e);
-                    return;
-                }
-
-                attempts++;
-                if (!isRunning || System.nanoTime() > deadlineNanos) {
-                    LOGGER.warning(
-                            String.format(
-                                    "remove metrics context timed out after %s attempts",
-                                    attempts));
-                    break;
-                }
-
-                long sleepTime = backoffMillis + ThreadLocalRandom.current().nextLong(50);
-
-                LOGGER.warning(
-                        String.format(
-                                "failed to remove metrics context, retry in %s millis", sleepTime));
-
-                try {
-                    Thread.sleep(sleepTime);
-                } catch (InterruptedException ex) {
-                    Thread.currentThread().interrupt();
-                    LOGGER.severe("remove metrics context stopped due to thread interruption.", ex);
-                    return;
-                }
-                backoffMillis = Math.min(maxBackoffMillis, backoffMillis * 2);
+            try {
+                seaTunnelServer.removeMetrics(pipelineLocation);
+            } catch (Exception e) {
+                LOGGER.severe("non-retryable failure while removing metrics", e);
             }
         }
     }

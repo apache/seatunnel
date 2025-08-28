@@ -370,9 +370,7 @@ public class SeaTunnelServer
             return;
         }
 
-        List<TaskLocation> taskLocations =
-                getTaskLocations(
-                        pipelineLocation, centralMap);
+        List<TaskLocation> taskLocations = getTaskLocations(pipelineLocation, centralMap);
         taskLocations.forEach(centralMap::remove);
         metricsImap.put(Constant.IMAP_RUNNING_JOB_METRICS_KEY, centralMap);
     }
