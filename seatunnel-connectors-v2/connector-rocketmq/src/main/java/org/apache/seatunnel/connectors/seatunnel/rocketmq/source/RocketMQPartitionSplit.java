@@ -86,14 +86,6 @@ public class RocketMQPartitionSplit implements SourceSplit {
                 endOffset);
     }
 
-    public static String toSplitId(MessageQueue messageQueue) {
-        return messageQueue.getTopic()
-                + "-"
-                + messageQueue.getBrokerName()
-                + "-"
-                + messageQueue.getQueueId();
-    }
-
     @Override
     public boolean equals(Object o) {
         if (this == o) {
