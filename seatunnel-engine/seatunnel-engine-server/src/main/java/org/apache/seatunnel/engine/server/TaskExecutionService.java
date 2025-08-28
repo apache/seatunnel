@@ -593,7 +593,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
             Thread.currentThread().interrupt();
             logger.severe("update metrics context stopped due to thread interruption.", e);
         } catch (Exception e) {
-            logger.severe("non-retryable failure while updating metrics", e);
+            logger.severe("failed to update metrics", e);
         }
         this.printTaskExecutionRuntimeInfo();
     }

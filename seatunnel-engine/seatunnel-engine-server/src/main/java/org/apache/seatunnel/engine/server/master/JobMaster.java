@@ -889,7 +889,7 @@ public class JobMaster {
             try {
                 seaTunnelServer.removeMetrics(pipelineLocation);
             } catch (Exception e) {
-                LOGGER.severe("non-retryable failure while removing metrics", e);
+                LOGGER.severe("failed to remove metrics", e);
             }
         }
     }
