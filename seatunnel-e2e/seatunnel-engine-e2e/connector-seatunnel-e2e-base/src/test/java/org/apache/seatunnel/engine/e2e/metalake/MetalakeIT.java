@@ -186,9 +186,8 @@ public class MetalakeIT extends SeaTunnelEngineContainer {
         if (dbServer != null) {
             dbServer.close();
             try {
-                // dockerClient.removeImageCmd(dbServer.getDockerImageName()).exec();
+                dockerClient.removeImageCmd(dbServer.getDockerImageName()).exec();
             } catch (Exception ignored) {
-                // log.warn("Failed to delete the image. Another container may be in use", ignored);
                 ignored.printStackTrace();
             }
         }
@@ -196,9 +195,8 @@ public class MetalakeIT extends SeaTunnelEngineContainer {
         if (gravitinoServer != null) {
             gravitinoServer.close();
             try {
-                // dockerClient.removeImageCmd(gravitinoServer.getDockerImageName()).exec();
+                dockerClient.removeImageCmd(gravitinoServer.getDockerImageName()).exec();
             } catch (Exception ignored) {
-                // log.warn("Failed to delete the image. Another container may be in use", ignored);
                 ignored.printStackTrace();
             }
         }
@@ -342,8 +340,6 @@ public class MetalakeIT extends SeaTunnelEngineContainer {
 
             connection.commit();
         } catch (Exception exception) {
-            // log.error(ExceptionUtils.getMessage(exception));
-            // throw new SeaTunnelRuntimeException(JdbcITErrorCode.CREATE_TABLE_FAILED, exception);
             exception.printStackTrace();
         }
     }
@@ -365,8 +361,6 @@ public class MetalakeIT extends SeaTunnelEngineContainer {
 
             connection.commit();
         } catch (Exception exception) {
-            // log.error(ExceptionUtils.getMessage(exception));
-            // throw new SeaTunnelRuntimeException(JdbcITErrorCode.INSERT_DATA_FAILED, exception);
             exception.printStackTrace();
         }
     }

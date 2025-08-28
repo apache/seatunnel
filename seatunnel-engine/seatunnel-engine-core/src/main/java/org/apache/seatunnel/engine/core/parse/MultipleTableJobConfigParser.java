@@ -23,7 +23,6 @@ import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigList;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigObject;
-import org.apache.seatunnel.shade.com.typesafe.config.ConfigRenderOptions;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigValue;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigValueFactory;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigValueType;
