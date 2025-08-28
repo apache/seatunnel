@@ -33,6 +33,7 @@ import org.apache.seatunnel.transform.sql.zeta.functions.DateTimeFunction;
 import org.apache.seatunnel.transform.sql.zeta.functions.NumericFunction;
 import org.apache.seatunnel.transform.sql.zeta.functions.StringFunction;
 import org.apache.seatunnel.transform.sql.zeta.functions.SystemFunction;
+import org.apache.seatunnel.transform.sql.zeta.functions.VectorFunction;
 
 import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.tuple.Pair;
@@ -201,6 +202,13 @@ public class ZetaSQLFunction {
     public static final String UUID = "UUID";
 
     public static final String TRY_CAST = "TRY_CAST";
+
+    // -------------------------vector functions----------------------------
+    public static final String VECTOR_REDUCE = "VECTOR_REDUCE";
+    public static final String VECTOR_DIMENSION = "VECTOR_DIMENSION";
+    public static final String VECTOR_MAGNITUDE = "VECTOR_MAGNITUDE";
+    public static final String VECTOR_NORMALIZE = "VECTOR_NORMALIZE";
+    public static final String VECTOR_COSINE_SIMILARITY = "VECTOR_COSINE_SIMILARITY";
 
     private final SeaTunnelRowType inputRowType;
 
@@ -595,6 +603,17 @@ public class ZetaSQLFunction {
                 return ArrayFunction.arrayMin(args);
             case UUID:
                 return randomUUID().toString();
+            case VECTOR_REDUCE:
+                return VectorFunction.vectorReduce(
+                        args.get(0), (Integer) args.get(1), (String) args.get(2));
+            case VECTOR_DIMENSION:
+                return VectorFunction.vectorDimension(args.get(0));
+            case VECTOR_MAGNITUDE:
+                return VectorFunction.vectorMagnitude(args.get(0));
+            case VECTOR_NORMALIZE:
+                return VectorFunction.vectorNormalize(args.get(0));
+            case VECTOR_COSINE_SIMILARITY:
+                return VectorFunction.vectorCosineSimilarity(args.get(0), args.get(1));
             default:
                 for (ZetaUDF udf : udfList) {
                     if (udf.functionName().equalsIgnoreCase(functionName)) {

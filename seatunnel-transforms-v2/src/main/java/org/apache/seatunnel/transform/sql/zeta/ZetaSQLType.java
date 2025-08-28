@@ -25,6 +25,7 @@ import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.table.type.SqlType;
+import org.apache.seatunnel.api.table.type.VectorType;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.transform.exception.TransformException;
 import org.apache.seatunnel.transform.sql.zeta.functions.ArrayFunction;
@@ -482,6 +483,15 @@ public class ZetaSQLType {
             case ZetaSQLFunction.MOD:
                 // Result has the same type as second argument
                 return getExpressionType(function.getParameters().getExpressions().get(1));
+                // Vector functions
+            case ZetaSQLFunction.VECTOR_REDUCE:
+            case ZetaSQLFunction.VECTOR_NORMALIZE:
+                return VectorType.VECTOR_FLOAT_TYPE;
+            case ZetaSQLFunction.VECTOR_DIMENSION:
+                return BasicType.INT_TYPE;
+            case ZetaSQLFunction.VECTOR_MAGNITUDE:
+            case ZetaSQLFunction.VECTOR_COSINE_SIMILARITY:
+                return BasicType.DOUBLE_TYPE;
             default:
                 for (ZetaUDF udf : udfList) {
                     if (udf.functionName().equalsIgnoreCase(function.getName())) {

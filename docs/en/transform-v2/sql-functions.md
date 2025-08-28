@@ -1144,3 +1144,94 @@ SELECT * FROM dual
 	LATERAL VIEW OUTER EXPLODE ( age ) AS age
 	LATERAL VIEW OUTER EXPLODE ( ARRAY(1,1) ) AS num
 ```
+
+## Vector Functions
+
+### VECTOR_REDUCE
+
+```VECTOR_REDUCE(vector_field, target_dimension, method)```
+
+Generic vector dimension reduction function that supports multiple reduction methods.
+
+**Parameters:**
+- `vector_field`: The vector field to reduce (VECTOR type)
+- `target_dimension`: The target dimension (INTEGER, must be smaller than source dimension)
+- `method`: The reduction method (STRING):
+  - **'TRUNCATE'**: Truncates the vector by keeping only the first N elements. This is the simplest and fastest dimension reduction method, but may lose important information in the truncated dimensions.
+  - **'RANDOM_PROJECTION'**: Uses Gaussian random projection with normally distributed random matrix. This method preserves relative distances between vectors while reducing dimensionality, following the Johnson-Lindenstrauss lemma.
+  - **'SPARSE_RANDOM_PROJECTION'**: Uses sparse random projection where matrix elements are mostly zero (±√3, 0). This is more computationally efficient than regular random projection while maintaining similar distance preservation properties.
+
+**Returns:** VECTOR type with reduced dimensions
+
+**Example:**
+```sql
+SELECT id, VECTOR_REDUCE(embedding, 256, 'TRUNCATE') as reduced_embedding FROM table
+SELECT id, VECTOR_REDUCE(embedding, 128, 'RANDOM_PROJECTION') as reduced_embedding FROM table
+SELECT id, VECTOR_REDUCE(embedding, 64, 'SPARSE_RANDOM_PROJECTION') as reduced_embedding FROM table
+```
+
+### VECTOR_DIMENSION
+
+```VECTOR_DIMENSION(vector_field)```
+
+Returns the dimension (number of elements) of a vector.
+
+**Parameters:**
+- `vector_field`: The vector field to analyze (VECTOR type)
+
+**Returns:** INTEGER - the dimension of the vector
+
+**Example:**
+```sql
+SELECT id, VECTOR_DIMENSION(embedding) as vector_dim FROM table
+```
+
+### VECTOR_MAGNITUDE
+
+```VECTOR_MAGNITUDE(vector_field)```
+
+Calculates the magnitude (L2 norm/Euclidean length) of a vector.
+
+**Parameters:**
+- `vector_field`: The vector field to analyze (VECTOR type)
+
+**Returns:** DOUBLE - the magnitude of the vector
+
+**Example:**
+```sql
+SELECT id, VECTOR_MAGNITUDE(embedding) as magnitude FROM table
+```
+
+### VECTOR_NORMALIZE
+
+```VECTOR_NORMALIZE(vector_field)```
+
+Normalizes a vector to unit length (magnitude = 1). This is useful for computing cosine similarity.
+
+**Parameters:**
+- `vector_field`: The vector field to normalize (VECTOR type)
+
+**Returns:** VECTOR type - the normalized vector
+
+**Example:**
+```sql
+SELECT id, VECTOR_NORMALIZE(embedding) as normalized_embedding FROM table
+```
+
+### VECTOR_COSINE_SIMILARITY
+
+```VECTOR_COSINE_SIMILARITY(vector_field1, vector_field2)```
+
+Calculates the cosine similarity between two vectors. Returns a value between -1 and 1,
+where 1 indicates identical vectors, 0 indicates orthogonal vectors, and -1 indicates opposite vectors.
+
+**Parameters:**
+- `vector_field1`: The first vector (VECTOR type)
+- `vector_field2`: The second vector (VECTOR type, must have same dimension as first vector)
+
+**Returns:** DOUBLE - the cosine similarity value
+
+**Example:**
+```sql
+SELECT id, VECTOR_COSINE_SIMILARITY(embedding1, embedding2) as similarity FROM table
+```
