@@ -27,6 +27,7 @@ import java.util.Objects;
 /** A {@link SourceSplit} for a RocketMQ partition. */
 public class RocketMQPartitionSplit implements SourceSplit {
 
+    private static final long serialVersionUID = -928041877587828579L;
     private MessageQueue messageQueue;
     private long startOffset = -1;
     private long endOffset = -1;
