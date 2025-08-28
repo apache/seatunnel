@@ -47,7 +47,7 @@ import java.util.stream.Collectors;
 /** Test for Rest API with HTTPS. */
 @DisabledOnOs(OS.WINDOWS)
 public class RestApiHttpsForTruststoreTest extends AbstractSeaTunnelServerTest {
-    private final int httpPort = findFreePort();
+    private int httpPort;
     private static final int HTTPS_PORT = 18443;
     private static final String SERVER_KEYSTORE_PASSWORD = "server_keystore_password";
     private static final String SERVER_TRUSTSTORE_PASSWORD = "server_truststore_password";
@@ -66,6 +66,7 @@ public class RestApiHttpsForTruststoreTest extends AbstractSeaTunnelServerTest {
 
         HttpConfig httpConfig = seaTunnelConfig.getEngineConfig().getHttpConfig();
         // Not enabled Http
+        httpPort = findFreePortExcluding(HTTPS_PORT);
         httpConfig.setEnabled(false);
         httpConfig.setPort(httpPort);
         // Enabled Https
@@ -97,7 +98,7 @@ public class RestApiHttpsForTruststoreTest extends AbstractSeaTunnelServerTest {
                     BufferedReader in = null;
                     try {
                         java.net.URL url =
-                                new java.net.URL("http://localhost:" + httpPort+ "/overview");
+                                new java.net.URL("http://localhost:" + httpPort + "/overview");
                         conn = (HttpURLConnection) url.openConnection();
 
                         Assertions.assertEquals(200, conn.getResponseCode());
@@ -171,12 +172,16 @@ public class RestApiHttpsForTruststoreTest extends AbstractSeaTunnelServerTest {
                 });
     }
 
-    private int findFreePort() {
-        try (ServerSocket socket = new ServerSocket(0)) {
-            socket.setReuseAddress(true);
-            return socket.getLocalPort();
-        } catch (Exception e) {
-            throw new RuntimeException("No free port available", e);
-        }
+    private int findFreePortExcluding(int exclude) {
+        int port;
+        do {
+            try (ServerSocket socket = new ServerSocket(0)) {
+                socket.setReuseAddress(true);
+                port = socket.getLocalPort();
+            } catch (Exception e) {
+                throw new RuntimeException("No free port available", e);
+            }
+        } while (port == exclude);
+        return port;
     }
 }
