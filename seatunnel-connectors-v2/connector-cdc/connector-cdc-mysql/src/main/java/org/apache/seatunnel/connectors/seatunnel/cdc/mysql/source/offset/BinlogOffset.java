@@ -81,6 +81,12 @@ public class BinlogOffset extends Offset {
         this.offset = offsetMap;
     }
 
+    public BinlogOffset(long timestamp) {
+        Map<String, String> offsetMap = new HashMap<>();
+        offsetMap.put(TIMESTAMP_KEY, String.valueOf(timestamp));
+        this.offset = offsetMap;
+    }
+
     public String getFilename() {
         return offset.get(BINLOG_FILENAME_OFFSET_KEY);
     }

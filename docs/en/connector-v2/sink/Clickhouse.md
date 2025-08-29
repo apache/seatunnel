@@ -69,7 +69,7 @@ They can be downloaded via install-plugin.sh or from the Maven central repositor
 | save_mode_create_template      | string  | no       | see below                    | See below.                                                                                                                                                  |
 | common-options                        |         | No       | -       | Sink plugin common parameters, please refer to [Sink Common Options](../sink-common-options.md) for details.                                                                                                                                                                                                |
 
-### schema_save_mode[Enum]
+### schema_save_mode [Enum]
 
 Before starting the synchronization task, choose different processing options for the existing table schema.  
 Option descriptions:  
@@ -78,7 +78,7 @@ Option descriptions:
 `ERROR_WHEN_SCHEMA_NOT_EXIST`: Throw an error if the table does not exist.  
 `IGNORE`: Ignore the processing of the table.
 
-### data_save_mode[Enum]
+### data_save_mode [Enum]
 
 Before starting the synchronization task, choose different processing options for the existing data on the target side.  
 Option descriptions:  

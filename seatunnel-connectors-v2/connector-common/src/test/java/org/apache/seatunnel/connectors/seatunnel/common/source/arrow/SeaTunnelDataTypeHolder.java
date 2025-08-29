@@ -25,16 +25,16 @@ import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 
 public class SeaTunnelDataTypeHolder {
-    private final String filedName;
+    private final String fieldName;
     private final int flag;
 
-    public SeaTunnelDataTypeHolder(String filedName, int flag) {
-        this.filedName = filedName;
+    public SeaTunnelDataTypeHolder(String fieldName, int flag) {
+        this.fieldName = fieldName;
         this.flag = flag;
     }
 
-    public String getFiledName() {
-        return filedName;
+    public String getFieldName() {
+        return fieldName;
     }
 
     public int getFlag() {
@@ -42,7 +42,7 @@ public class SeaTunnelDataTypeHolder {
     }
 
     public SeaTunnelDataType getSeatunnelDataType() {
-        switch (filedName) {
+        switch (fieldName) {
             case "boolean":
                 return BasicType.BOOLEAN_TYPE;
             case "byte":

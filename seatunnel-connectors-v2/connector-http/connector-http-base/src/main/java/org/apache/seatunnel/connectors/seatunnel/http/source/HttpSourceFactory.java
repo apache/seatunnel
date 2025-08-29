@@ -66,7 +66,8 @@ public class HttpSourceFactory implements TableSourceFactory {
                         HttpSourceOptions.POLL_INTERVAL_MILLS,
                         HttpSourceOptions.RETRY,
                         HttpSourceOptions.RETRY_BACKOFF_MULTIPLIER_MS,
-                        HttpSourceOptions.RETRY_BACKOFF_MAX_MS)
+                        HttpSourceOptions.RETRY_BACKOFF_MAX_MS,
+                        HttpSourceOptions.JSON_FILED_MISSED_RETURN_NULL)
                 .conditional(
                         HttpSourceOptions.FORMAT,
                         HttpConfig.ResponseFormat.JSON,

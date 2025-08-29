@@ -107,6 +107,8 @@ import ChangeLog from '../changelog/connector-file-sftp.md';
 | binary_chunk_size         | int     | 否    | 1024                | 仅在file_format_type为binary时使用。读取二进制文件的块大小（以字节为单位）。默认为1024字节。较大的值可能会提高大文件的性能，但会使用更多内存。                                                                                                                                                               |
 | binary_complete_file_mode | boolean | 否    | false               | 仅在file_format_type为binary时使用。是否将完整文件作为单个块读取，而不是分割成块。启用时，整个文件内容将一次性读入内存。默认为false。                                                                                                                                                                   |
 | common-options            |         | 否    | -                   | 数据源插件通用参数，请参考[数据源通用选项](../source-common-options.md)了解详情。                                                                                                                                                                                           |
+| file_filter_modified_start  | string  | 否    | -                   | 按照最后修改时间过滤文件。 要过滤的开始时间(包括改时间),时间格式是：`yyyy-MM-dd HH:mm:ss`                                                                                  |
+| file_filter_modified_end    | string  | 否    | -                   | 按照最后修改时间过滤文件。 要过滤的结束时间(不包括改时间),时间格式是：`yyyy-MM-dd HH:mm:ss`                                                                                                                   |
 
 ### file_filter_pattern [string]
 

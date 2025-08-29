@@ -52,6 +52,7 @@ import java.time.ZoneId;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -162,5 +163,10 @@ public class MySqlIncrementalSource<T> extends IncrementalSource<T, JdbcSourceCo
                 SchemaChangeType.DROP_COLUMN,
                 SchemaChangeType.RENAME_COLUMN,
                 SchemaChangeType.UPDATE_COLUMN);
+    }
+
+    @Override
+    public Optional<String> driverName() {
+        return Optional.of("com.mysql.cj.jdbc.Driver");
     }
 }

@@ -20,7 +20,7 @@ package org.apache.seatunnel.connectors.sensorsdata.format.exception;
 import org.apache.seatunnel.common.exception.SeaTunnelErrorCode;
 
 public enum SensorsDataErrorCode implements SeaTunnelErrorCode {
-    DATA_TYPE_CAST_FILED("SENSORS_DATA-01", "Value type does not match column type"),
+    DATA_TYPE_CAST_FIELD("SENSORS_DATA-01", "Value type does not match column type"),
     UNSUPPORTED_RECORD_TYPE("SENSORS_DATA-02", "Unsupported record type"),
     EVENT_NAME_NOT_SET("SENSORS_DATA-03", "Event name not set"),
     ILLEGAL_ARGUMENT("SENSORS_DATA-04", "Illegal argument"),

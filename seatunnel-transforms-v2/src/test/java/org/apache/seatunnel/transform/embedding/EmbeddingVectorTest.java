@@ -22,7 +22,7 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ArrayNode;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode;
 
-import org.apache.seatunnel.common.utils.BufferUtils;
+import org.apache.seatunnel.common.utils.VectorUtils;
 import org.apache.seatunnel.transform.nlpmodel.embedding.remote.AbstractModel;
 
 import org.junit.jupiter.api.Assertions;
@@ -113,7 +113,7 @@ public class EmbeddingVectorTest {
         Object[] inputFields = {"test input"};
         List<ByteBuffer> result = model.vectorization(inputFields);
         ByteBuffer buffer = result.get(0);
-        Float[] embedding = BufferUtils.toFloatArray(buffer);
+        Float[] embedding = VectorUtils.toFloatArray(buffer);
         Assertions.assertEquals(4, embedding.length);
         Assertions.assertEquals(-0.0069292835f, embedding[0]);
         Assertions.assertEquals(-0.005336422f, embedding[1]);

@@ -122,6 +122,7 @@ public class ZetaSQLFunction {
     public static final String TO_CHAR = "TO_CHAR";
     public static final String TRANSLATE = "TRANSLATE";
     public static final String SPLIT = "SPLIT";
+    public static final String MURMUR64 = "MURMUR64";
 
     // -------------------------numeric functions----------------------------
     public static final String ABS = "ABS";
@@ -204,11 +205,16 @@ public class ZetaSQLFunction {
     public static final String TRY_CAST = "TRY_CAST";
 
     // -------------------------vector functions----------------------------
+    public static final String COSINE_DISTANCE = "COSINE_DISTANCE";
+    public static final String L1_DISTANCE = "L1_DISTANCE";
+    public static final String L2_DISTANCE = "L2_DISTANCE";
+    public static final String VECTOR_DIMS = "VECTOR_DIMS";
+    public static final String VECTOR_NORM = "VECTOR_NORM";
+    public static final String INNER_PRODUCT = "INNER_PRODUCT";
+
+    // -------------------------vector functions----------------------------
     public static final String VECTOR_REDUCE = "VECTOR_REDUCE";
-    public static final String VECTOR_DIMENSION = "VECTOR_DIMENSION";
-    public static final String VECTOR_MAGNITUDE = "VECTOR_MAGNITUDE";
     public static final String VECTOR_NORMALIZE = "VECTOR_NORMALIZE";
-    public static final String VECTOR_COSINE_SIMILARITY = "VECTOR_COSINE_SIMILARITY";
 
     private final SeaTunnelRowType inputRowType;
 
@@ -486,6 +492,8 @@ public class ZetaSQLFunction {
                 return StringFunction.translate(args);
             case SPLIT:
                 return StringFunction.split(args);
+            case MURMUR64:
+                return StringFunction.murmur64(args);
             case ABS:
                 return NumericFunction.abs(args);
             case ACOS:
@@ -603,6 +611,18 @@ public class ZetaSQLFunction {
                 return ArrayFunction.arrayMin(args);
             case UUID:
                 return randomUUID().toString();
+            case COSINE_DISTANCE:
+                return VectorFunction.cosineDistance(args);
+            case L1_DISTANCE:
+                return VectorFunction.l1Distance(args);
+            case L2_DISTANCE:
+                return VectorFunction.l2Distance(args);
+            case VECTOR_DIMS:
+                return VectorFunction.vectorDims(args);
+            case VECTOR_NORM:
+                return VectorFunction.vectorNorm(args);
+            case INNER_PRODUCT:
+                return VectorFunction.innerProduct(args);
             case VECTOR_REDUCE:
                 return VectorFunction.vectorReduce(
                         args.get(0), (Integer) args.get(1), (String) args.get(2));

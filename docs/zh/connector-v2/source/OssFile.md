@@ -211,6 +211,8 @@ schema {
 | binary_complete_file_mode | boolean | 否       | false               | 仅在file_format_type为binary时使用。是否将完整文件作为单个块读取，而不是分割成块。启用时，整个文件内容将一次性读入内存。默认为false。                                                                                          |
 | file_filter_pattern       | string  | 否       |                     | 过滤模式，用于过滤文件。                                                                                                                                                                                                                                                                                     |
 | common-options            | config  | 否       | -                   | 数据源插件通用参数，请参考[数据源通用选项](../source-common-options.md)了解详情。                                                                                                                                                                                                                  |
+| file_filter_modified_start  | string  | 否    | -                   | 按照最后修改时间过滤文件。 要过滤的开始时间(包括改时间),时间格式是：`yyyy-MM-dd HH:mm:ss`                                                                                  |
+| file_filter_modified_end    | string  | 否    | -                   | 按照最后修改时间过滤文件。 要过滤的结束时间(不包括改时间),时间格式是：`yyyy-MM-dd HH:mm:ss`                                                                                                                  |
 
 ### compress_codec [string]
 
@@ -551,6 +553,9 @@ source {
     file_format_type = "orc"
     // 文件示例 abcD2024.csv
     file_filter_pattern = "abc[DX]*.*"
+    // 筛选最后修改日期在 20240101 和 20240105 (不包括该日期) 之间的文件
+    file_filter_modified_start = "2024-01-01 00:00:00"
+    file_filter_modified_end = "2024-01-05 00:00:00"
   }
 }
 
