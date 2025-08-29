@@ -27,7 +27,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.table.type.VectorType;
-import org.apache.seatunnel.common.utils.BufferUtils;
+import org.apache.seatunnel.common.utils.VectorUtils;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -87,7 +87,7 @@ public class SQLVectorFunctionTest {
 
         // Create test data
         Float[] sourceVector = new Float[] {1.0f, 2.0f, 3.0f, 4.0f, 5.0f};
-        ByteBuffer vectorBuffer = BufferUtils.toByteBuffer(sourceVector);
+        ByteBuffer vectorBuffer = VectorUtils.toByteBuffer(sourceVector);
 
         SeaTunnelRow inputRow = new SeaTunnelRow(new Object[] {1, vectorBuffer, null});
         List<SeaTunnelRow> result = sqlTransform.transformRow(inputRow);
@@ -99,62 +99,11 @@ public class SQLVectorFunctionTest {
         Assertions.assertEquals(1, outputRow.getField(0));
 
         ByteBuffer resultVector = (ByteBuffer) outputRow.getField(1);
-        Float[] resultArray = BufferUtils.toFloatArray(resultVector);
+        Float[] resultArray = VectorUtils.toFloatArray(resultVector);
         Assertions.assertEquals(3, resultArray.length);
         Assertions.assertEquals(1.0f, resultArray[0], 0.001f);
         Assertions.assertEquals(2.0f, resultArray[1], 0.001f);
         Assertions.assertEquals(3.0f, resultArray[2], 0.001f);
-    }
-
-    @Test
-    public void testVectorDimension() {
-        ReadonlyConfig config =
-                ReadonlyConfig.fromMap(
-                        Collections.singletonMap(
-                                "query",
-                                "SELECT id, VECTOR_DIMENSION(vector_field) as vector_dim FROM dual"));
-
-        SQLTransform sqlTransform = new SQLTransform(config, catalogTable);
-
-        // Create test data
-        Float[] sourceVector = new Float[] {1.0f, 2.0f, 3.0f, 4.0f, 5.0f};
-        ByteBuffer vectorBuffer = BufferUtils.toByteBuffer(sourceVector);
-
-        SeaTunnelRow inputRow = new SeaTunnelRow(new Object[] {1, vectorBuffer, null});
-        List<SeaTunnelRow> result = sqlTransform.transformRow(inputRow);
-
-        Assertions.assertNotNull(result);
-        Assertions.assertEquals(1, result.size());
-
-        SeaTunnelRow outputRow = result.get(0);
-        Assertions.assertEquals(1, outputRow.getField(0));
-        Assertions.assertEquals(5, outputRow.getField(1));
-    }
-
-    @Test
-    public void testVectorMagnitude() {
-        ReadonlyConfig config =
-                ReadonlyConfig.fromMap(
-                        Collections.singletonMap(
-                                "query",
-                                "SELECT id, VECTOR_MAGNITUDE(vector_field) as magnitude FROM dual"));
-
-        SQLTransform sqlTransform = new SQLTransform(config, catalogTable);
-
-        // Create test data: [3, 4] has magnitude 5
-        Float[] sourceVector = new Float[] {3.0f, 4.0f};
-        ByteBuffer vectorBuffer = BufferUtils.toByteBuffer(sourceVector);
-
-        SeaTunnelRow inputRow = new SeaTunnelRow(new Object[] {1, vectorBuffer, null});
-        List<SeaTunnelRow> result = sqlTransform.transformRow(inputRow);
-
-        Assertions.assertNotNull(result);
-        Assertions.assertEquals(1, result.size());
-
-        SeaTunnelRow outputRow = result.get(0);
-        Assertions.assertEquals(1, outputRow.getField(0));
-        Double magnitude = (Double) outputRow.getField(1);
-        Assertions.assertEquals(5.0, magnitude, 0.001);
     }
 
     @Test
@@ -169,7 +118,7 @@ public class SQLVectorFunctionTest {
 
         // Create test data: [3, 4] normalized should be [0.6, 0.8]
         Float[] sourceVector = new Float[] {3.0f, 4.0f};
-        ByteBuffer vectorBuffer = BufferUtils.toByteBuffer(sourceVector);
+        ByteBuffer vectorBuffer = VectorUtils.toByteBuffer(sourceVector);
 
         SeaTunnelRow inputRow = new SeaTunnelRow(new Object[] {1, vectorBuffer, null});
         List<SeaTunnelRow> result = sqlTransform.transformRow(inputRow);
@@ -181,38 +130,10 @@ public class SQLVectorFunctionTest {
         Assertions.assertEquals(1, outputRow.getField(0));
 
         ByteBuffer resultVector = (ByteBuffer) outputRow.getField(1);
-        Float[] resultArray = BufferUtils.toFloatArray(resultVector);
+        Float[] resultArray = VectorUtils.toFloatArray(resultVector);
         Assertions.assertEquals(2, resultArray.length);
         Assertions.assertEquals(0.6f, resultArray[0], 0.001f);
         Assertions.assertEquals(0.8f, resultArray[1], 0.001f);
-    }
-
-    @Test
-    public void testVectorCosineSimilarity() {
-        ReadonlyConfig config =
-                ReadonlyConfig.fromMap(
-                        Collections.singletonMap(
-                                "query",
-                                "SELECT id, VECTOR_COSINE_SIMILARITY(vector_field, vector_field2) as similarity FROM dual"));
-
-        SQLTransform sqlTransform = new SQLTransform(config, catalogTable);
-
-        // Create test data: two identical vectors should have similarity 1.0
-        Float[] vector1 = new Float[] {1.0f, 2.0f, 3.0f};
-        Float[] vector2 = new Float[] {1.0f, 2.0f, 3.0f};
-        ByteBuffer vectorBuffer1 = BufferUtils.toByteBuffer(vector1);
-        ByteBuffer vectorBuffer2 = BufferUtils.toByteBuffer(vector2);
-
-        SeaTunnelRow inputRow = new SeaTunnelRow(new Object[] {1, vectorBuffer1, vectorBuffer2});
-        List<SeaTunnelRow> result = sqlTransform.transformRow(inputRow);
-
-        Assertions.assertNotNull(result);
-        Assertions.assertEquals(1, result.size());
-
-        SeaTunnelRow outputRow = result.get(0);
-        Assertions.assertEquals(1, outputRow.getField(0));
-        Double similarity = (Double) outputRow.getField(1);
-        Assertions.assertEquals(1.0, similarity, 0.001);
     }
 
     @Test
@@ -227,7 +148,7 @@ public class SQLVectorFunctionTest {
 
         // Create test data
         Float[] sourceVector = new Float[] {1.0f, 2.0f, 3.0f, 4.0f, 5.0f};
-        ByteBuffer vectorBuffer = BufferUtils.toByteBuffer(sourceVector);
+        ByteBuffer vectorBuffer = VectorUtils.toByteBuffer(sourceVector);
 
         SeaTunnelRow inputRow = new SeaTunnelRow(new Object[] {1, vectorBuffer, null});
         List<SeaTunnelRow> result = sqlTransform.transformRow(inputRow);
@@ -239,7 +160,7 @@ public class SQLVectorFunctionTest {
         Assertions.assertEquals(1, outputRow.getField(0));
 
         ByteBuffer resultVector = (ByteBuffer) outputRow.getField(1);
-        Float[] resultArray = BufferUtils.toFloatArray(resultVector);
+        Float[] resultArray = VectorUtils.toFloatArray(resultVector);
         Assertions.assertEquals(3, resultArray.length);
         Assertions.assertEquals(1.0f, resultArray[0], 0.001f);
         Assertions.assertEquals(2.0f, resultArray[1], 0.001f);
@@ -258,7 +179,7 @@ public class SQLVectorFunctionTest {
 
         // Create test data
         Float[] sourceVector = new Float[] {1.0f, 2.0f, 3.0f, 4.0f, 5.0f};
-        ByteBuffer vectorBuffer = BufferUtils.toByteBuffer(sourceVector);
+        ByteBuffer vectorBuffer = VectorUtils.toByteBuffer(sourceVector);
 
         SeaTunnelRow inputRow = new SeaTunnelRow(new Object[] {1, vectorBuffer, null});
         List<SeaTunnelRow> result = sqlTransform.transformRow(inputRow);
@@ -270,7 +191,7 @@ public class SQLVectorFunctionTest {
         Assertions.assertEquals(1, outputRow.getField(0));
 
         ByteBuffer resultVector = (ByteBuffer) outputRow.getField(1);
-        Float[] resultArray = BufferUtils.toFloatArray(resultVector);
+        Float[] resultArray = VectorUtils.toFloatArray(resultVector);
         Assertions.assertEquals(3, resultArray.length);
 
         // Just verify that we got a result with the expected dimension
@@ -291,7 +212,7 @@ public class SQLVectorFunctionTest {
 
         // Create test data
         Float[] sourceVector = new Float[] {1.0f, 2.0f, 3.0f, 4.0f, 5.0f};
-        ByteBuffer vectorBuffer = BufferUtils.toByteBuffer(sourceVector);
+        ByteBuffer vectorBuffer = VectorUtils.toByteBuffer(sourceVector);
 
         SeaTunnelRow inputRow = new SeaTunnelRow(new Object[] {1, vectorBuffer, null});
         List<SeaTunnelRow> result = sqlTransform.transformRow(inputRow);
@@ -303,7 +224,7 @@ public class SQLVectorFunctionTest {
         Assertions.assertEquals(1, outputRow.getField(0));
 
         ByteBuffer resultVector = (ByteBuffer) outputRow.getField(1);
-        Float[] resultArray = BufferUtils.toFloatArray(resultVector);
+        Float[] resultArray = VectorUtils.toFloatArray(resultVector);
         Assertions.assertEquals(3, resultArray.length);
 
         // Just verify that we got a result with the expected dimension

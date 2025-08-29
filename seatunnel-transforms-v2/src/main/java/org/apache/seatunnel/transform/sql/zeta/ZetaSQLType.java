@@ -494,11 +494,6 @@ public class ZetaSQLType {
             case ZetaSQLFunction.VECTOR_REDUCE:
             case ZetaSQLFunction.VECTOR_NORMALIZE:
                 return VectorType.VECTOR_FLOAT_TYPE;
-            case ZetaSQLFunction.VECTOR_DIMENSION:
-                return BasicType.INT_TYPE;
-            case ZetaSQLFunction.VECTOR_MAGNITUDE:
-            case ZetaSQLFunction.VECTOR_COSINE_SIMILARITY:
-                return BasicType.DOUBLE_TYPE;
             default:
                 for (ZetaUDF udf : udfList) {
                     if (udf.functionName().equalsIgnoreCase(function.getName())) {

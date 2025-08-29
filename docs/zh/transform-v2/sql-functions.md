@@ -1240,38 +1240,6 @@ SELECT id, VECTOR_REDUCE(embedding, 128, 'RANDOM_PROJECTION') as reduced_embeddi
 SELECT id, VECTOR_REDUCE(embedding, 64, 'SPARSE_RANDOM_PROJECTION') as reduced_embedding FROM table
 ```
 
-### VECTOR_DIMENSION
-
-```VECTOR_DIMENSION(vector_field)```
-
-返回向量的维度（元素数量）。
-
-**参数:**
-- `vector_field`: 要分析的向量字段 (VECTOR 类型)
-
-**返回值:** INTEGER - 向量的维度
-
-**示例:**
-```sql
-SELECT id, VECTOR_DIMENSION(embedding) as vector_dim FROM table
-```
-
-### VECTOR_MAGNITUDE
-
-```VECTOR_MAGNITUDE(vector_field)```
-
-计算向量的模长（L2范数/欧几里得长度）。
-
-**参数:**
-- `vector_field`: 要分析的向量字段 (VECTOR 类型)
-
-**返回值:** DOUBLE - 向量的模长
-
-**示例:**
-```sql
-SELECT id, VECTOR_MAGNITUDE(embedding) as magnitude FROM table
-```
-
 ### VECTOR_NORMALIZE
 
 ```VECTOR_NORMALIZE(vector_field)```
@@ -1286,22 +1254,4 @@ SELECT id, VECTOR_MAGNITUDE(embedding) as magnitude FROM table
 **示例:**
 ```sql
 SELECT id, VECTOR_NORMALIZE(embedding) as normalized_embedding FROM table
-```
-
-### VECTOR_COSINE_SIMILARITY
-
-```VECTOR_COSINE_SIMILARITY(vector_field1, vector_field2)```
-
-计算两个向量之间的余弦相似度。返回值介于-1和1之间，
-其中1表示相同向量，0表示正交向量，-1表示相反向量。
-
-**参数:**
-- `vector_field1`: 第一个向量 (VECTOR 类型)
-- `vector_field2`: 第二个向量 (VECTOR 类型，必须与第一个向量具有相同维度)
-
-**返回值:** DOUBLE - 余弦相似度值
-
-**示例:**
-```sql
-SELECT id, VECTOR_COSINE_SIMILARITY(embedding1, embedding2) as similarity FROM table
 ```

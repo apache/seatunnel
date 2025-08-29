@@ -626,14 +626,8 @@ public class ZetaSQLFunction {
             case VECTOR_REDUCE:
                 return VectorFunction.vectorReduce(
                         args.get(0), (Integer) args.get(1), (String) args.get(2));
-            case VECTOR_DIMENSION:
-                return VectorFunction.vectorDimension(args.get(0));
-            case VECTOR_MAGNITUDE:
-                return VectorFunction.vectorMagnitude(args.get(0));
             case VECTOR_NORMALIZE:
                 return VectorFunction.vectorNormalize(args.get(0));
-            case VECTOR_COSINE_SIMILARITY:
-                return VectorFunction.vectorCosineSimilarity(args.get(0), args.get(1));
             default:
                 for (ZetaUDF udf : udfList) {
                     if (udf.functionName().equalsIgnoreCase(functionName)) {

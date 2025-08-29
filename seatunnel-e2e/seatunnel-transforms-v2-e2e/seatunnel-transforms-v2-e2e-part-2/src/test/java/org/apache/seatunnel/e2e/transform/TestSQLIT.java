@@ -84,9 +84,18 @@ public class TestSQLIT extends TestSuiteBase {
 
         Container.ExecResult multiIfSql = container.executeJob("/sql_transform/func_multi_if.conf");
         Assertions.assertEquals(0, multiIfSql.getExitCode());
+    }
 
-        Container.ExecResult vectorSql = container.executeJob("/sql_transform/func_vector.conf");
-        Assertions.assertEquals(0, vectorSql.getExitCode());
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK},
+            disabledReason = "Vector functions are not supported in Spark engine")
+    public void testVectorFunctions(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult vectorFunctionResult =
+                container.executeJob("/sql_transform/func_vector.conf");
+        Assertions.assertEquals(0, vectorFunctionResult.getExitCode());
     }
 
     @TestTemplate
