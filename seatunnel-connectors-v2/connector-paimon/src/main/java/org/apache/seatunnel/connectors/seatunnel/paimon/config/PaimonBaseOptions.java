@@ -83,4 +83,16 @@ public class PaimonBaseOptions {
                     .noDefaultValue()
                     .withDescription(
                             "The specified loading path for the 'core-site.xml', 'hdfs-site.xml', 'hive-site.xml' files");
+
+    public static final Option<String> USER =
+            Options.key("user")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("The paimon user to access table");
+
+    public static final Option<String> PASSWORD =
+            Options.key("password")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("The paimon user password");
 }

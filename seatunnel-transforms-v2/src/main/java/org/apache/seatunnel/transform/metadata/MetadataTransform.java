@@ -22,6 +22,8 @@ import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTestin
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
+import org.apache.seatunnel.api.table.catalog.MetadataColumn;
+import org.apache.seatunnel.api.table.catalog.MetadataSchema;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.CommonOptions;
@@ -42,6 +44,7 @@ import static org.apache.seatunnel.api.table.type.MetadataUtil.isMetadataField;
 public class MetadataTransform extends MultipleFieldOutputTransform {
 
     private List<String> fieldNames;
+    private MetadataSchema metadataSchema;
     private Map<String, String> metadataFieldMapping;
 
     public MetadataTransform(ReadonlyConfig config, @NonNull CatalogTable inputCatalogTable) {
@@ -65,6 +68,7 @@ public class MetadataTransform extends MultipleFieldOutputTransform {
             fieldNames.add(field.getKey());
         }
         this.fieldNames = fieldNames;
+        this.metadataSchema = inputCatalogTable.getMetadataSchema();
         this.metadataFieldMapping = fields;
     }
 
@@ -78,9 +82,8 @@ public class MetadataTransform extends MultipleFieldOutputTransform {
         Object[] value = new Object[fieldNames.size()];
         for (Map.Entry<String, String> mapping : metadataFieldMapping.entrySet()) {
             String metadataFieldName = mapping.getKey();
-            String mappingFieldName = mapping.getValue();
             int i = fieldNames.indexOf(metadataFieldName);
-            Object fieldValue = null;
+            Object fieldValue;
             switch (CommonOptions.fromName(metadataFieldName)) {
                 case DATABASE:
                     fieldValue = MetadataUtil.getDatabase(inputRow);
@@ -91,18 +94,8 @@ public class MetadataTransform extends MultipleFieldOutputTransform {
                 case ROW_KIND:
                     fieldValue = MetadataUtil.getRowKind(inputRow);
                     break;
-                case DELAY:
-                    fieldValue = MetadataUtil.getDelay(inputRow);
-                    break;
-                case EVENT_TIME:
-                    fieldValue = MetadataUtil.getEventTime(inputRow);
-                    break;
-                case PARTITION:
-                    fieldValue = MetadataUtil.getPartitionStr(inputRow);
-                    break;
                 default:
-                    throw TransformCommonError.cannotFindMetadataFieldError(
-                            getPluginName(), mappingFieldName);
+                    fieldValue = inputRow.getOptions().get(metadataFieldName);
             }
             value[i] = fieldValue;
         }
@@ -117,11 +110,11 @@ public class MetadataTransform extends MultipleFieldOutputTransform {
             String mappingFieldName = mapping.getValue();
             int i = fieldNames.indexOf(metadataFieldName);
             Column column;
+
             switch (CommonOptions.fromName(metadataFieldName)) {
                 case DATABASE:
                 case TABLE:
                 case ROW_KIND:
-                case PARTITION:
                     column =
                             PhysicalColumn.of(
                                     mappingFieldName,
@@ -132,21 +125,18 @@ public class MetadataTransform extends MultipleFieldOutputTransform {
                                     null,
                                     null);
                     break;
-                case DELAY:
-                case EVENT_TIME:
-                    column =
-                            PhysicalColumn.of(
-                                    mappingFieldName,
-                                    BasicType.LONG_TYPE,
-                                    (Long) null,
-                                    null,
-                                    true,
-                                    null,
-                                    null);
-                    break;
                 default:
-                    throw TransformCommonError.cannotFindMetadataFieldError(
-                            getPluginName(), mappingFieldName);
+                    if (metadataSchema.contains(metadataFieldName)) {
+                        column =
+                                ((MetadataColumn)
+                                                metadataSchema
+                                                        .getColumn(metadataFieldName)
+                                                        .rename(mappingFieldName))
+                                        .toPhysicalColumn();
+                    } else {
+                        throw TransformCommonError.cannotFindMetadataFieldError(
+                                getPluginName(), mappingFieldName);
+                    }
             }
             columns[i] = column;
         }

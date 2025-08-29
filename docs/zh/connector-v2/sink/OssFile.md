@@ -23,10 +23,15 @@ import ChangeLog from '../changelog/connector-file-oss.md';
 
 ## 关键特性
 
-- [x] [精确一次](../../concept/connector-v2-features.md)
-- [x] [支持多表写入](../../concept/connector-v2-features.md)
+- [x] [多模态](../../concept/connector-v2-features.md#多模态multimodal)
 
-默认情况下，我们使用2PC commit来确保`精确一次`
+  使用二进制文件格式读取和写入任何格式的文件，例如视频、图片等。简而言之，任何文件都可以同步到目标位置。
+
+- [x] [精确一次](../../concept/connector-v2-features.md)
+
+  默认情况下，我们使用2PC commit来确保`精确一次`
+
+- [x] [支持多表写入](../../concept/connector-v2-features.md)
 
 - [x] 文件格式类型
   - [x] text
@@ -293,7 +298,7 @@ Sink插件常用参数，请参考[Sink common Options]（../Sink common Options
 仅当file_format_type为json、text、csv、xml时使用。
 要写入的文件的编码。此参数将由`Charset.forName（encoding）`解析。
 
-### schema_save_mode[Enum]
+### schema_save_mode [Enum]
 
 在开启同步任务之前，对目标路径进行不同的处理。  
 选项介绍：  
@@ -302,7 +307,7 @@ Sink插件常用参数，请参考[Sink common Options]（../Sink common Options
 `ERROR_WHEN_SCHEMA_NOT_EXIST` ：当路径不存在时报错  
 `IGNORE` ：忽略表的处理
 
-### data_save_mode[Enum]
+### data_save_mode [Enum]
 
 在开启同步任务之前，对目标路径中的数据文件进行不同的处理。
 选项介绍：  

@@ -59,27 +59,27 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 ## 选项
 
-|                   名称                    |  类型   | 必需 | 默认值 | 描述                                                                                                                                                                                                                                             |
-|-------------------------------------------|---------|----------|---------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| url                                       | String  | Yes      | -       | JDBC连接的URL。请参考案例 : jdbc:db2://127.0.0.1:50000/dbname                                                                                                                                                                                           |
-| driver                                    | String  | Yes      | -       | 用于连接到远程数据源的jdbc类名,<br/> 如果使用DB2，则值为 `com.ibm.db2.jdbc.app.DB2Driver`.                                                                                                                                                                          |
-| user                                      | String  | No       | -       | 连接实例用户名                                                                                                                                                                                                                                        |
-| password                                  | String  | No       | -       | 连接实例密码                                                                                                                                                                                                                                         |
-| query                                     | String  | No       | -       | 使用此sql将上游输入数据写入数据库。例如 `INSERT ...`,`query` 具有更高的优先级                                                                                                                                                                                            |
-| database                                  | String  | No       | -       | 使用这个 `database` 和 `table-name` 自动生成sql并接收上游输入数据写入数据库.<br/>此选项与 `query` 互斥，具有更高的优先级.                                                                                                                                                            |
-| table                                     | String  | No       | -       | 使用数据库和此表名自动生成sql并接收上游输入数据写入数据库.<br/>此选项与 `query` 互斥，具有更高的优先级.                                                                                                                                                                                  |
-| primary_keys                              | Array   | No       | -       | 此选项用于在自动生成sql时支持 `insert`, `delete`, 和 `update` 等操作.                                                                                                                                                                                           |
-| connection_check_timeout_sec              | Int     | No       | 30      | 等待用于验证连接的数据库操作完成的时间（秒）.                                                                                                                                                                                                                        |
-| max_retries                               | Int     | No       | 0       | 提交失败的重试次数 (执行批处理)                                                                                                                                                                                                                              |
-| batch_size                                | Int     | No       | 1000    | 对于批量写入，当缓冲记录的数量达到 `batch_size` 的数量或时间达到 `checkpoint.interval` 时<br/>, 数据将被刷新到数据库中                                                                                                                                                              |
-| is_exactly_once                           | Boolean | No       | false   | 是否启用精确一次语义，这将使用 Xa 事务. 如果启用，则需要<br/>设置 `xa_data_source_class_name`.                                                                                                                                                                            |
-| generate_sink_sql                         | Boolean | No       | false   | 根据要写入的数据库表生成sql语句                                                                                                                                                                                                                              |
-| xa_data_source_class_name                 | String  | No       | -       | 数据库Driver的 xa 数据源类名, for example, DB2 是 `com.db2.cj.jdbc.Db2XADataSource`, <br/>其他数据来源请参考附录                                                                                                           |
-| max_commit_attempts                       | Int     | No       | 3       | 事务提交失败的重试次数                                                                                                                                                                                          |
-| transaction_timeout_sec                   | Int     | No       | -1      | 事务打开后的超时，默认值为-1（永不超时）. 请注意，设置超时可能会影响＜br/＞精确一次语义                                                                                            |
-| auto_commit                               | Boolean | No       | true    | 默认情况下启用自动事务提交                                                                                                                                                                                             |
-| properties                                | Map     | No       | -       | 附加连接配置参数，当属性和URL具有相同的参数时，优先级由驱动程序的特定实现决定. 例如，在MySQL中，属性优先于URL. |
-| common-options                            |         | no       | -       | Sink插件常用参数，详见 [Sink Common Options](../sink-common-options.md)                                                                                                                                     |
+| 名称                           |  类型   | 必需 | 默认值 | 描述                                                                                                                                                                                                                                             |
+|------------------------------|---------|----------|---------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| url                          | String  | Yes      | -       | JDBC连接的URL。请参考案例 : jdbc:db2://127.0.0.1:50000/dbname                                                                                                                                                                                           |
+| driver                       | String  | Yes      | -       | 用于连接到远程数据源的jdbc类名,<br/> 如果使用DB2，则值为 `com.ibm.db2.jdbc.app.DB2Driver`.                                                                                                                                                                          |
+| username                     | String  | No       | -       | 连接实例用户名                                                                                                                                                                                                                                        |
+| password                     | String  | No       | -       | 连接实例密码                                                                                                                                                                                                                                         |
+| query                        | String  | No       | -       | 使用此sql将上游输入数据写入数据库。例如 `INSERT ...`,`query` 具有更高的优先级                                                                                                                                                                                            |
+| database                     | String  | No       | -       | 使用这个 `database` 和 `table-name` 自动生成sql并接收上游输入数据写入数据库.<br/>此选项与 `query` 互斥，具有更高的优先级.                                                                                                                                                            |
+| table                        | String  | No       | -       | 使用数据库和此表名自动生成sql并接收上游输入数据写入数据库.<br/>此选项与 `query` 互斥，具有更高的优先级.                                                                                                                                                                                  |
+| primary_keys                 | Array   | No       | -       | 此选项用于在自动生成sql时支持 `insert`, `delete`, 和 `update` 等操作.                                                                                                                                                                                           |
+| connection_check_timeout_sec | Int     | No       | 30      | 等待用于验证连接的数据库操作完成的时间（秒）.                                                                                                                                                                                                                        |
+| max_retries                  | Int     | No       | 0       | 提交失败的重试次数 (执行批处理)                                                                                                                                                                                                                              |
+| batch_size                   | Int     | No       | 1000    | 对于批量写入，当缓冲记录的数量达到 `batch_size` 的数量或时间达到 `checkpoint.interval` 时<br/>, 数据将被刷新到数据库中                                                                                                                                                              |
+| is_exactly_once              | Boolean | No       | false   | 是否启用精确一次语义，这将使用 Xa 事务. 如果启用，则需要<br/>设置 `xa_data_source_class_name`.                                                                                                                                                                            |
+| generate_sink_sql            | Boolean | No       | false   | 根据要写入的数据库表生成sql语句                                                                                                                                                                                                                              |
+| xa_data_source_class_name    | String  | No       | -       | 数据库Driver的 xa 数据源类名, for example, DB2 是 `com.db2.cj.jdbc.Db2XADataSource`, <br/>其他数据来源请参考附录                                                                                                           |
+| max_commit_attempts          | Int     | No       | 3       | 事务提交失败的重试次数                                                                                                                                                                                          |
+| transaction_timeout_sec      | Int     | No       | -1      | 事务打开后的超时，默认值为-1（永不超时）. 请注意，设置超时可能会影响＜br/＞精确一次语义                                                                                            |
+| auto_commit                  | Boolean | No       | true    | 默认情况下启用自动事务提交                                                                                                                                                                                             |
+| properties                   | Map     | No       | -       | 附加连接配置参数，当属性和URL具有相同的参数时，优先级由驱动程序的特定实现决定. 例如，在MySQL中，属性优先于URL. |
+| common-options               |         | no       | -       | Sink插件常用参数，详见 [Sink Common Options](../sink-common-options.md)                                                                                                                                     |
 
 ### 小贴士
 
@@ -124,7 +124,7 @@ sink {
     jdbc {
         url = "jdbc:db2://127.0.0.1:50000/dbname"
         driver = "com.ibm.db2.jdbc.app.DB2Driver"
-        user = "root"
+        username = "root"
         password = "123456"
         query = "insert into test_table(name,age) values(?,?)"
         }
@@ -142,7 +142,7 @@ sink {
     jdbc {
         url = "jdbc:db2://127.0.0.1:50000/dbname"
         driver = "com.ibm.db2.jdbc.app.DB2Driver"
-        user = "root"
+        username = "root"
         password = "123456"
         # Automatically generate sql statements based on database table names
         generate_sink_sql = true
@@ -163,7 +163,7 @@ sink {
         driver = "com.ibm.db2.jdbc.app.DB2Driver"
     
         max_retries = 0
-        user = "root"
+        username = "root"
         password = "123456"
         query = "insert into test_table(name,age) values(?,?)"
     

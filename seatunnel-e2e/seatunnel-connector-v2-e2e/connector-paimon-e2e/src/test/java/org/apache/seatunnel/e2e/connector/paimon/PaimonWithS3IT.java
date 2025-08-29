@@ -17,8 +17,19 @@
 
 package org.apache.seatunnel.e2e.connector.paimon;
 
+import org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonBaseOptions;
 import org.apache.seatunnel.e2e.common.container.seatunnel.SeaTunnelContainer;
 import org.apache.seatunnel.e2e.common.util.ContainerUtil;
+
+import org.apache.commons.collections.CollectionUtils;
+import org.apache.paimon.catalog.CatalogContext;
+import org.apache.paimon.catalog.CatalogFactory;
+import org.apache.paimon.catalog.Identifier;
+import org.apache.paimon.fs.FileIO;
+import org.apache.paimon.fs.ResolvingFileIO;
+import org.apache.paimon.privilege.FileBasedPrivilegeManagerLoader;
+import org.apache.paimon.privilege.PrivilegeType;
+import org.apache.paimon.privilege.PrivilegedCatalog;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
@@ -33,7 +44,8 @@ import io.minio.MakeBucketArgs;
 import io.minio.MinioClient;
 
 import java.nio.file.Paths;
-import java.util.Map;
+import java.util.ArrayList;
+import java.util.List;
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public class PaimonWithS3IT extends SeaTunnelContainer {
@@ -45,11 +57,20 @@ public class PaimonWithS3IT extends SeaTunnelContainer {
     private static final String MINIO_USER_PASSWORD = "miniominio";
 
     private static final String BUCKET = "test";
+    private static final String PRIVILEGE_BUCKET = "privilegetest";
 
     private MinIOContainer container;
     private MinioClient minioClient;
 
-    private Map<String, Object> PAIMON_SINK_PROPERTIES;
+    private String warehouse = "s3a://privilegetest/";
+    private String rootUser = "root";
+    private String rootPassword = "123456";
+    private String paimonUser = "paimon";
+    private String paimonUserPassword = "123456";
+
+    private PrivilegedCatalog privilegedCatalog;
+    private final String DATABASE_NAME = "seatunnel_namespace11";
+    private final String TABLE_NAME = "st_test";
 
     protected static final String AWS_SDK_DOWNLOAD =
             "https://repo1.maven.org/maven2/com/amazonaws/aws-java-sdk-bundle/1.11.271/aws-java-sdk-bundle-1.11.271.jar";
@@ -79,9 +100,16 @@ public class PaimonWithS3IT extends SeaTunnelContainer {
 
         // create bucket
         minioClient.makeBucket(MakeBucketArgs.builder().bucket(BUCKET).build());
+        minioClient.makeBucket(MakeBucketArgs.builder().bucket(PRIVILEGE_BUCKET).build());
 
         BucketExistsArgs existsArgs = BucketExistsArgs.builder().bucket(BUCKET).build();
         Assertions.assertTrue(minioClient.bucketExists(existsArgs));
+        BucketExistsArgs privExistsArgs =
+                BucketExistsArgs.builder().bucket(PRIVILEGE_BUCKET).build();
+        Assertions.assertTrue(minioClient.bucketExists(privExistsArgs));
+
+        initPrivilege();
+
         super.startUp();
     }
 
@@ -138,5 +166,100 @@ public class PaimonWithS3IT extends SeaTunnelContainer {
 
         Container.ExecResult readResult = executeJob("/fake_2_paimon_with_s3_to_assert.conf");
         Assertions.assertEquals(0, readResult.getExitCode());
+    }
+
+    private void initPrivilege() {
+        org.apache.paimon.options.Options catalogOptions = new org.apache.paimon.options.Options();
+        catalogOptions.set(PaimonBaseOptions.WAREHOUSE.key(), warehouse);
+        catalogOptions.set("fs.s3a.endpoint", container.getS3URL());
+        catalogOptions.set("fs.s3a.access-key", MINIO_USER_NAME);
+        catalogOptions.set("fs.s3a.secret-key", MINIO_USER_PASSWORD);
+        catalogOptions.set("fs.s3a.buffer.dir", "/tmp/s3abuffer");
+        catalogOptions.set("fs.s3a.change.detection.mode", "NONE");
+        catalogOptions.set("fs.s3a.change.detection.version.required", "false");
+        catalogOptions.set("fs.s3a.path.style.access", "true");
+        catalogOptions.set(
+                "fs.s3a.aws.credentials.provider",
+                "org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider");
+        final CatalogContext catalogContext = CatalogContext.create(catalogOptions);
+
+        FileIO fileIO = new ResolvingFileIO();
+        fileIO.configure(catalogContext);
+
+        privilegedCatalog =
+                new PrivilegedCatalog(
+                        CatalogFactory.createCatalog(catalogContext),
+                        new FileBasedPrivilegeManagerLoader(
+                                warehouse, fileIO, rootUser, rootPassword));
+        if (!privilegedCatalog.privilegeManager().privilegeEnabled()) {
+            privilegedCatalog.privilegeManager().initializePrivilege(rootPassword);
+        }
+
+        // create user and grant privilege on table
+        privilegedCatalog.privilegeManager().createUser(paimonUser, paimonUserPassword);
+        String fullTableName = Identifier.create(DATABASE_NAME, TABLE_NAME).getFullName();
+        privilegedCatalog.privilegeManager().grant(paimonUser, "", PrivilegeType.CREATE_DATABASE);
+        privilegedCatalog
+                .privilegeManager()
+                .grant(paimonUser, DATABASE_NAME, PrivilegeType.DROP_DATABASE);
+        privilegedCatalog
+                .privilegeManager()
+                .grant(paimonUser, fullTableName, PrivilegeType.DROP_TABLE);
+        privilegedCatalog
+                .privilegeManager()
+                .grant(paimonUser, DATABASE_NAME, PrivilegeType.CREATE_TABLE);
+    }
+
+    private void grantPrivilege(List<PrivilegeType> privilegeTypes) {
+        String fullTableName = Identifier.create(DATABASE_NAME, TABLE_NAME).getFullName();
+        if (!CollectionUtils.isEmpty(privilegeTypes)) {
+            for (PrivilegeType type : privilegeTypes) {
+                privilegedCatalog.privilegeManager().grant(paimonUser, fullTableName, type);
+            }
+        }
+    }
+
+    private void revokePrivilege(List<PrivilegeType> privilegeTypes) {
+        String fullTableName = Identifier.create(DATABASE_NAME, TABLE_NAME).getFullName();
+        if (!CollectionUtils.isEmpty(privilegeTypes)) {
+            for (PrivilegeType type : privilegeTypes) {
+                privilegedCatalog.privilegeManager().revoke(paimonUser, fullTableName, type);
+            }
+        }
+    }
+
+    /** User not grant read privilege read data test cases for the Paimon table. */
+    @Test
+    public void privilegeEnabledPaimonSourceAuthorized() throws Exception {
+        List<PrivilegeType> privilegeTypes = new ArrayList<>();
+        privilegeTypes.add(PrivilegeType.SELECT);
+        privilegeTypes.add(PrivilegeType.INSERT);
+        grantPrivilege(privilegeTypes);
+        // fake to paimon
+        Container.ExecResult execResult = executeJob("/fake_to_paimon_with_s3_with_privilege.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+
+        // paimon to paimon
+        Container.ExecResult execResult1 =
+                executeJob("/paimon_to_paimon_with_s3_with_privilege.conf");
+        Assertions.assertEquals(0, execResult1.getExitCode());
+        revokePrivilege(privilegeTypes);
+    }
+
+    /** User not grant read privilege read data test cases for the Paimon table. */
+    @Test
+    public void privilegeEnabledPaimonSourceUnAuthorized() throws Exception {
+        List<PrivilegeType> privilegeTypes = new ArrayList<>();
+        privilegeTypes.add(PrivilegeType.INSERT);
+        grantPrivilege(privilegeTypes);
+        // fake to paimon
+        Container.ExecResult execResult = executeJob("/fake_to_paimon_with_s3_with_privilege.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+
+        // paimon to paimon
+        Container.ExecResult execResult1 =
+                executeJob("/paimon_to_paimon_with_s3_with_privilege.conf");
+        Assertions.assertEquals(1, execResult1.getExitCode());
+        revokePrivilege(privilegeTypes);
     }
 }

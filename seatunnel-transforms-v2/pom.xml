@@ -31,10 +31,8 @@
 
     <properties>
         <httpclient.version>4.5.13</httpclient.version>
-        <httpcore.version>4.4.4</httpcore.version>
-        <mockwebserver.version>3.6.0</mockwebserver.version>
+        <httpcore.version>4.4.16</httpcore.version>
         <zhipu.version>release-V4-2.3.0</zhipu.version>
-        <aws.sdk.version>2.27.21</aws.sdk.version>
     </properties>
 
     <dependencyManagement>
@@ -52,12 +50,12 @@
         <dependency>
             <groupId>software.amazon.awssdk</groupId>
             <artifactId>bedrockruntime</artifactId>
-            <version>${aws.sdk.version}</version>
+            <version>${software.amazon.awssdk.version}</version>
         </dependency>
         <dependency>
             <groupId>software.amazon.awssdk</groupId>
             <artifactId>apache-client</artifactId>
-            <version>${aws.sdk.version}</version>
+            <version>${software.amazon.awssdk.version}</version>
         </dependency>
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
@@ -85,10 +83,18 @@
         </dependency>
 
         <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>seatunnel-scala-compiler</artifactId>
+            <version>${project.version}</version>
+            <classifier>optional</classifier>
+        </dependency>
+
+        <dependency>
             <groupId>org.apache.groovy</groupId>
             <artifactId>groovy</artifactId>
             <version>${groovy.version}</version>
         </dependency>
+
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
             <artifactId>seatunnel-janino</artifactId>
@@ -108,8 +114,13 @@
         <dependency>
             <groupId>com.squareup.okhttp3</groupId>
             <artifactId>mockwebserver</artifactId>
-            <version>${mockwebserver.version}</version>
             <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>seatunnel-guava</artifactId>
+            <version>${project.version}</version>
+            <classifier>optional</classifier>
         </dependency>
     </dependencies>
 

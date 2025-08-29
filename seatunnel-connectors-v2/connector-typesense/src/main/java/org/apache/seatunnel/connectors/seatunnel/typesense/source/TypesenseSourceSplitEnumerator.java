@@ -20,8 +20,8 @@ package org.apache.seatunnel.connectors.seatunnel.typesense.source;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
-import org.apache.seatunnel.connectors.seatunnel.typesense.client.TypesenseClient;
-import org.apache.seatunnel.connectors.seatunnel.typesense.config.SourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.typesense.config.TypesenseBaseOptions;
+import org.apache.seatunnel.connectors.seatunnel.typesense.config.TypesenseSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.typesense.dto.SourceCollectionInfo;
 import org.apache.seatunnel.connectors.seatunnel.typesense.exception.TypesenseConnectorException;
 
@@ -43,8 +43,6 @@ public class TypesenseSourceSplitEnumerator
     private final SourceSplitEnumerator.Context<TypesenseSourceSplit> context;
 
     private final ReadonlyConfig config;
-
-    private TypesenseClient typesenseClient;
 
     private final Object stateLock = new Object();
 
@@ -132,9 +130,9 @@ public class TypesenseSourceSplitEnumerator
     private List<TypesenseSourceSplit> getTypesenseSplit() {
         List<TypesenseSourceSplit> splits = new ArrayList<>();
 
-        String collection = config.get(SourceConfig.COLLECTION);
-        String query = config.get(SourceConfig.QUERY);
-        int queryBatchSize = config.get(SourceConfig.QUERY_BATCH_SIZE);
+        String collection = config.get(TypesenseBaseOptions.COLLECTION);
+        String query = config.get(TypesenseSourceOptions.QUERY);
+        int queryBatchSize = config.get(TypesenseSourceOptions.QUERY_BATCH_SIZE);
         splits.add(
                 new TypesenseSourceSplit(
                         collection,

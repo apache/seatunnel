@@ -70,7 +70,7 @@ public class PreviewActionTest {
                         ReadonlyConfig.fromMap(
                                 new HashMap<String, Object>() {
                                     {
-                                        put("base-url", "jdbc:mysql://localhost:3306/test");
+                                        put("url", "jdbc:mysql://localhost:3306/test");
                                         put("username", "root");
                                         put("password", "root");
                                     }
@@ -113,7 +113,7 @@ public class PreviewActionTest {
                         ReadonlyConfig.fromMap(
                                 new HashMap<String, Object>() {
                                     {
-                                        put("base-url", "jdbc:mysql://localhost:3306/test");
+                                        put("url", "jdbc:mysql://localhost:3306/test");
                                         put("username", "root");
                                         put("password", "root");
                                     }
@@ -161,8 +161,8 @@ public class PreviewActionTest {
                         ReadonlyConfig.fromMap(
                                 new HashMap<String, Object>() {
                                     {
-                                        put("base-url", "jdbc:mysql://localhost:3306/test");
-                                        put("compatibleMode", "oracle");
+                                        put("url", "jdbc:mysql://localhost:3306/test");
+                                        put("compatible_mode", "oracle");
                                         put("username", "root");
                                         put("password", "root");
                                     }
@@ -205,8 +205,8 @@ public class PreviewActionTest {
                         ReadonlyConfig.fromMap(
                                 new HashMap<String, Object>() {
                                     {
-                                        put("base-url", "jdbc:mysql://localhost:3306/test");
-                                        put("compatibleMode", "mysql");
+                                        put("url", "jdbc:mysql://localhost:3306/test");
+                                        put("compatible_mode", "mysql");
                                         put("username", "root");
                                         put("password", "root");
                                     }
@@ -249,7 +249,7 @@ public class PreviewActionTest {
                         ReadonlyConfig.fromMap(
                                 new HashMap<String, Object>() {
                                     {
-                                        put("base-url", "jdbc:mysql://localhost:3306/test");
+                                        put("url", "jdbc:mysql://localhost:3306/test");
                                         put("username", "root");
                                         put("password", "root");
                                     }
@@ -296,7 +296,7 @@ public class PreviewActionTest {
                         ReadonlyConfig.fromMap(
                                 new HashMap<String, Object>() {
                                     {
-                                        put("base-url", "jdbc:mysql://localhost:3306/test");
+                                        put("url", "jdbc:mysql://localhost:3306/test");
                                         put("username", "root");
                                         put("password", "root");
                                     }
@@ -339,7 +339,7 @@ public class PreviewActionTest {
                                 new HashMap<String, Object>() {
                                     {
                                         put(
-                                                "base-url",
+                                                "url",
                                                 "jdbc:sqlserver://localhost:1433;databaseName=column_type_test");
                                         put("username", "root");
                                         put("password", "root");
@@ -389,7 +389,7 @@ public class PreviewActionTest {
                         ReadonlyConfig.fromMap(
                                 new HashMap<String, Object>() {
                                     {
-                                        put("base-url", "jdbc:mysql://localhost:3306/test");
+                                        put("url", "jdbc:mysql://localhost:3306/test");
                                         put("username", "root");
                                         put("password", "root");
                                     }

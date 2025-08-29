@@ -89,6 +89,8 @@ public class MongodbIncrementalSource<T> extends IncrementalSource<T, MongodbSou
                 .ifPresent(builder::connectionOptions);
         Optional.ofNullable(config.get(MongodbSourceOptions.BATCH_SIZE))
                 .ifPresent(builder::batchSize);
+        Optional.ofNullable(config.get(MongodbSourceOptions.EXACTLY_ONCE))
+                .ifPresent(builder::exactlyOnce);
         Optional.ofNullable(config.get(MongodbSourceOptions.POLL_MAX_BATCH_SIZE))
                 .ifPresent(builder::pollMaxBatchSize);
         Optional.ofNullable(config.get(MongodbSourceOptions.POLL_AWAIT_TIME_MILLIS))
@@ -133,5 +135,10 @@ public class MongodbIncrementalSource<T> extends IncrementalSource<T, MongodbSou
     protected RecordEmitter<SourceRecords, T, SourceSplitStateBase> createRecordEmitter(
             SourceConfig sourceConfig, SourceReader.Context context) {
         return new MongoDBRecordEmitter<>(deserializationSchema, offsetFactory, context);
+    }
+
+    @Override
+    public Optional<String> driverName() {
+        return Optional.empty();
     }
 }

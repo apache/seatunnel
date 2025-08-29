@@ -8,6 +8,33 @@ import ChangeLog from '../changelog/connector-paimon.md';
 
 Apache Paimon数据连接器。支持cdc写以及自动建表。
 
+### Seatunnmel与Paimon版本对照
+
+| Seatunnel Version | Paimon Version   |
+|-------------------|------------------|
+| 2.3.2  -  2.3.3   | 0.4-SNAPSHOT     |
+| 2.3.4             | 0.6-SNAPSHOT     |
+| 2.3.5  -  2.3.11  | 0.7.0-incubating |
+| 2.3.12            | 1.1.1            |
+
+### 从 0.7 版本升级到 1.1.1 版本的注意事项
+
+1. **备份建议**
+   尽管存在兼容性保障，但在从 0.7 版本开始升级前，仍强烈建议备份关键数据，尤其是元数据目录。
+2. **逐步升级流程**
+   - **测试环境验证**：首先在测试环境中验证（从 0.7 版本开始的）升级过程。
+   - **更新 JAR 文件**：将 Paimon 的 JAR 文件替换为 1.1.1 版本。
+   - **自动格式升级**：系统会自动识别并升级 0.7 版本中使用的文件格式。
+3. **配置检查**
+   检查配置以确认是否存在 0.7 版本适用的已弃用选项。尽管大多数配置保持向后兼容，但已弃用的设置可能需要更新以适配 1.1.1 版本。
+4. **升级后验证**
+   从 0.7 版本升级到 1.1.1 版本后，需验证以下内容：
+   - **读写操作**：确保基于 0.7 版本继承的数据结构，数据写入和读取流程正常运行。
+   - **查询性能**：考虑到 0.7 与 1.1.1 版本间底层机制（如分桶管理）的变化，确认查询响应时间符合预期。
+   - **新功能验证**：测试所有新增功能（如增强的压实机制、时间旅行等），确保其与从 0.7 版本迁移的数据兼容并正常工作。
+
+**注意**：遵循这些步骤有助于降低风险，确保从 0.7 版本平稳过渡到稳定版本 1.1.1。
+
 ## 支持的数据源信息
 
 |  数据源   |    依赖     |                                   Maven                                   |
@@ -32,21 +59,24 @@ libfb303-xxx.jar
 
 ## 连接器选项
 
-| 名称                          | 类型   | 是否必须 | 默认值                          | 描述                                                                                                    |
-|-----------------------------|------|------|------------------------------|-------------------------------------------------------------------------------------------------------|
-| warehouse                   | 字符串  | 是    | -                            | Paimon warehouse路径                                                                                    |
-| catalog_type                | 字符串  | 否    | filesystem                   | Paimon的catalog类型，目前支持filesystem和hive                                                                  |
-| catalog_uri                 | 字符串  | 否    | -                            | Paimon catalog的uri，仅当catalog_type为hive时需要配置                                                           |
-| database                    | 字符串  | 是    | -                            | 数据库名称                                                                                                 |
-| table                       | 字符串  | 是    | -                            | 表名                                                                                                    |
-| hdfs_site_path              | 字符串  | 否    | -                            | hdfs-site.xml文件路径                                                                                     |
-| schema_save_mode            | 枚举   | 否    | CREATE_SCHEMA_WHEN_NOT_EXIST | Schema保存模式                                                                                            |
-| data_save_mode              | 枚举   | 否    | APPEND_DATA                  | 数据保存模式                                                                                                |
-| paimon.table.primary-keys   | 字符串  | 否    | -                            | 主键字段列表，联合主键使用逗号分隔(注意：分区字段需要包含在主键字段中)                                                                  |
-| paimon.table.partition-keys | 字符串  | 否    | -                            | 分区字段列表，多字段使用逗号分隔                                                                                      |
-| paimon.table.write-props    | Map  | 否    | -                            | Paimon表初始化指定的属性, [参考](https://paimon.apache.org/docs/master/maintenance/configurations/#coreoptions)  |
-| paimon.hadoop.conf          | Map  | 否    | -                            | Hadoop配置文件属性信息                                                                                        |
-| paimon.hadoop.conf-path     | 字符串  | 否    | -                            | Hadoop配置文件目录，用于加载'core-site.xml', 'hdfs-site.xml', 'hive-site.xml'文件配置                                |
+| 名称                           | 类型   | 是否必须 | 默认值                          | 描述                                                                                                   |
+|------------------------------|------|------|------------------------------|------------------------------------------------------------------------------------------------------|
+| warehouse                    | 字符串  | 是    | -                            | Paimon warehouse路径                                                                                   |
+| catalog_type                 | 字符串  | 否    | filesystem                   | Paimon的catalog类型，目前支持filesystem和hive                                                                 |
+| catalog_uri                  | 字符串  | 否    | -                            | Paimon catalog的uri，仅当catalog_type为hive时需要配置                                                          |
+| database                     | 字符串  | 是    | -                            | 数据库名称                                                                                                |
+| table                        | 字符串  | 是    | -                            | 表名                                                                                                   |
+| user                         | 字符串  | 否    | -                            | paimon开启权限后，用户名                                                                                      |
+| password                     | 字符串  | 否    | -                            | paimon开启权限后，用户名对应密码                                                                                  |
+| hdfs_site_path               | 字符串  | 否    | -                            | hdfs-site.xml文件路径                                                                                    |
+| schema_save_mode             | 枚举   | 否    | CREATE_SCHEMA_WHEN_NOT_EXIST | Schema保存模式                                                                                           |
+| data_save_mode               | 枚举   | 否    | APPEND_DATA                  | 数据保存模式                                                                                               |
+| paimon.table.primary-keys    | 字符串  | 否    | -                            | 主键字段列表，联合主键使用逗号分隔(注意：分区字段需要包含在主键字段中)                                                                 |
+| paimon.table.partition-keys  | 字符串  | 否    | -                            | 分区字段列表，多字段使用逗号分隔                                                                                     |
+| paimon.table.write-props     | Map  | 否    | -                            | Paimon表初始化指定的属性, [参考](https://paimon.apache.org/docs/master/maintenance/configurations/#coreoptions) |
+| paimon.hadoop.conf           | Map  | 否    | -                            | Hadoop配置文件属性信息                                                                                       |
+| paimon.hadoop.conf-path      | 字符串  | 否    | -                            | Hadoop配置文件目录，用于加载'core-site.xml', 'hdfs-site.xml', 'hive-site.xml'文件配置                               |
+| paimon.table.non-primary-key | Boolean | false    | -                            | 控制创建主键表或者非主键表. 当为true时,创建非主键表, 为false时,创建主键表                                                         |
 
 ## 批模式下的checkpoint
 
@@ -111,7 +141,7 @@ source {
     username = "st_user_source"
     password = "mysqlpw"
     table-names = ["shop.products"]
-    base-url = "jdbc:mysql://mysql_cdc_e2e:3306/shop"
+    url = "jdbc:mysql://mysql_cdc_e2e:3306/shop"
     
     schema-changes.enabled = true
   }
@@ -137,7 +167,7 @@ env {
 
 source {
   Mysql-CDC {
-    base-url = "jdbc:mysql://127.0.0.1:3306/seatunnel"
+    url = "jdbc:mysql://127.0.0.1:3306/seatunnel"
     username = "root"
     password = "******"
     table-names = ["seatunnel.role"]
@@ -215,7 +245,7 @@ env {
 
 source {
   Mysql-CDC {
-    base-url = "jdbc:mysql://127.0.0.1:3306/seatunnel"
+    url = "jdbc:mysql://127.0.0.1:3306/seatunnel"
     username = "root"
     password = "******"
     table-names = ["seatunnel.role"]
@@ -257,7 +287,7 @@ env {
 
 source {
   Mysql-CDC {
-    base-url = "jdbc:mysql://127.0.0.1:3306/seatunnel"
+    url = "jdbc:mysql://127.0.0.1:3306/seatunnel"
     username = "root"
     password = "******"
     table-names = ["seatunnel.role"]
@@ -385,7 +415,7 @@ env {
 
 source {
   Mysql-CDC {
-    base-url = "jdbc:mysql://127.0.0.1:3306/seatunnel"
+    url = "jdbc:mysql://127.0.0.1:3306/seatunnel"
     username = "root"
     password = "******"
     table-names = ["seatunnel.role"]
@@ -418,7 +448,7 @@ env {
 
 source {
  Mysql-CDC {
-  base-url = "jdbc:mysql://127.0.0.1:3306/seatunnel"
+  url = "jdbc:mysql://127.0.0.1:3306/seatunnel"
   username = "root"
   password = "******"
   table-names = ["seatunnel.role"]
@@ -443,6 +473,10 @@ sink {
 
 只有在主键表并指定bucket = -1时才会生效
 
+> 注意: 
+> - 目前只支持普通动态桶模式(主键包含所以分区字段)。
+> - 在集群环境下运行时`parallelism`必须为`1`, 否则可能存在数据重复问题。
+
 #### 核心参数：[参考官网](https://paimon.apache.org/docs/master/primary-key-table/data-distribution/#dynamic-bucket)
 
 |               名称               |  类型  | 是否必须 |   默认值    |        描述        |
@@ -459,7 +493,7 @@ env {
 
 source {
   Mysql-CDC {
-    base-url = "jdbc:mysql://127.0.0.1:3306/seatunnel"
+    url = "jdbc:mysql://127.0.0.1:3306/seatunnel"
     username = "root"
     password = "******"
     table-names = ["seatunnel.role"]
@@ -495,7 +529,7 @@ env {
 
 source {
   Mysql-CDC {
-    base-url = "jdbc:mysql://127.0.0.1:3306/seatunnel"
+    url = "jdbc:mysql://127.0.0.1:3306/seatunnel"
     username = "root"
     password = "******"
     table-names = ["seatunnel.role","seatunnel.user","galileo.Bucket"]
@@ -550,6 +584,41 @@ sink {
     warehouse="file:///tmp/seatunnel/paimon/hadoop-sink/"
     database="${schema_name}_test"
     table="${table_name}_test"
+  }
+}
+```
+
+### paimon开启权限认证
+
+#### 示例1
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 5000
+}
+
+source {
+  Mysql-CDC {
+    url = "jdbc:mysql://127.0.0.1:3306/seatunnel"
+    username = "root"
+    password = "******"
+    table-names = ["seatunnel.role","seatunnel.user","galileo.Bucket"]
+  }
+}
+
+transform {
+}
+
+sink {
+  Paimon {
+    catalog_name = "seatunnel_test"
+    warehouse = "file:///tmp/seatunnel/paimon/hadoop-sink/"
+    database = "${database_name}"
+    table = "${table_name}"
+    user = "paimon"
+    password = "******"
   }
 }
 ```

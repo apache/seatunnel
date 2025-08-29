@@ -51,6 +51,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeFormatterBuilder;
@@ -127,9 +128,9 @@ public class RowConverter {
             int structFieldId,
             SchemaChangeWrapper wrapper) {
         GenericRecord result = GenericRecord.create(schema);
-        String[] filedNames = fromType.getFieldNames();
-        for (int i = 0; i < filedNames.length; i++) {
-            String recordField = filedNames[i];
+        String[] fieldNames = fromType.getFieldNames();
+        for (int i = 0; i < fieldNames.length; i++) {
+            String recordField = fieldNames[i];
             Type afterType = SchemaUtils.toIcebergType(fromType.getFieldType(i));
             Types.NestedField tableField = lookupStructField(recordField, schema, structFieldId);
             // add column
@@ -429,7 +430,11 @@ public class RowConverter {
         } else if (value instanceof OffsetDateTime) {
             return (OffsetDateTime) value;
         } else if (value instanceof LocalDateTime) {
-            return ((LocalDateTime) value).atOffset(ZoneOffset.UTC);
+            // Convert to OffsetDateTime using the system(jvm) default timezone
+            return ((LocalDateTime) value)
+                    .atZone(ZoneId.systemDefault())
+                    .withZoneSameInstant(ZoneOffset.UTC)
+                    .toOffsetDateTime();
         } else if (value instanceof Date) {
             return DateTimeUtil.timestamptzFromMicros(((Date) value).getTime() * 1000);
         }

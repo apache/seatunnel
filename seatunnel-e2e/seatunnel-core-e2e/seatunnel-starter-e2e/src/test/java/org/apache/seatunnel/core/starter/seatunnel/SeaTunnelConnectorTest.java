@@ -64,12 +64,7 @@ public class SeaTunnelConnectorTest extends TestSuiteBase implements TestResourc
      * be discovered by seatunnel-plugin-discovery todo: If these connectors implement the Factory
      * interface in the future, it should be removed from here
      */
-    private static final Set<String> EXCLUDE_CONNECTOR =
-            new HashSet() {
-                {
-                    add("SelectDBCloud");
-                }
-            };
+    private static final Set<String> EXCLUDE_CONNECTOR = new HashSet();
 
     /** All supported transforms. */
     private static final Set<String> TRANSFORMS =

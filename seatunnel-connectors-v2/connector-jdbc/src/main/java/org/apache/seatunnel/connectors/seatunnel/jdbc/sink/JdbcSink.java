@@ -40,8 +40,8 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.iris.IrisCatalog;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.iris.savemode.IrisSaveModeHandler;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.utils.CatalogUtils;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.dialectenum.FieldIdeEnum;
@@ -93,6 +93,15 @@ public class JdbcSink
             SchemaSaveMode schemaSaveMode,
             DataSaveMode dataSaveMode,
             CatalogTable catalogTable) {
+        // Load the JDBC driver in to DriverManager
+        try {
+            Class.forName(jdbcSinkConfig.getJdbcConnectionConfig().getDriverName());
+        } catch (Exception e) {
+            log.warn(
+                    "Failed to load JDBC driver {}",
+                    jdbcSinkConfig.getJdbcConnectionConfig().getDriverName(),
+                    e);
+        }
         this.config = config;
         this.jdbcSinkConfig = jdbcSinkConfig;
         this.dialect = dialect;
@@ -111,8 +120,11 @@ public class JdbcSink
     public AbstractJdbcSinkWriter createWriter(SinkWriter.Context context) {
         try {
             Class.forName(jdbcSinkConfig.getJdbcConnectionConfig().getDriverName());
-        } catch (ClassNotFoundException e) {
-            throw new RuntimeException(e);
+        } catch (Exception e) {
+            log.warn(
+                    "Failed to load JDBC driver {}",
+                    jdbcSinkConfig.getJdbcConnectionConfig().getDriverName(),
+                    e);
         }
         TablePath sinkTablePath = catalogTable.getTablePath();
         AbstractJdbcSinkWriter sinkWriter;
@@ -158,8 +170,11 @@ public class JdbcSink
             SinkWriter.Context context, List<JdbcSinkState> states) throws IOException {
         try {
             Class.forName(jdbcSinkConfig.getJdbcConnectionConfig().getDriverName());
-        } catch (ClassNotFoundException e) {
-            throw new RuntimeException(e);
+        } catch (Exception e) {
+            log.warn(
+                    "Failed to load JDBC driver {}",
+                    jdbcSinkConfig.getJdbcConnectionConfig().getDriverName(),
+                    e);
         }
         TablePath sinkTablePath = catalogTable.getTablePath();
         if (jdbcSinkConfig.isExactlyOnce()) {
@@ -178,7 +193,7 @@ public class JdbcSink
 
     private Optional<TableSchema> getDatabaseTableSchema() {
         Optional<Catalog> catalogOptional = getCatalog();
-        FieldIdeEnum fieldIdeEnumEnum = config.get(JdbcOptions.FIELD_IDE);
+        FieldIdeEnum fieldIdeEnumEnum = config.get(JdbcSinkOptions.FIELD_IDE);
         String fieldIde =
                 fieldIdeEnumEnum == null
                         ? FieldIdeEnum.ORIGINAL.getValue()
@@ -204,6 +219,15 @@ public class JdbcSink
     @Override
     public Optional<SinkAggregatedCommitter<XidInfo, JdbcAggregatedCommitInfo>>
             createAggregatedCommitter() {
+        // Load the JDBC driver in to DriverManager
+        try {
+            Class.forName(jdbcSinkConfig.getJdbcConnectionConfig().getDriverName());
+        } catch (Exception e) {
+            log.warn(
+                    "Failed to load JDBC driver {}",
+                    jdbcSinkConfig.getJdbcConnectionConfig().getDriverName(),
+                    e);
+        }
         if (jdbcSinkConfig.isExactlyOnce()) {
             return Optional.of(new JdbcSinkAggregatedCommitter(jdbcSinkConfig));
         }
@@ -235,15 +259,18 @@ public class JdbcSink
     public Optional<SaveModeHandler> getSaveModeHandler() {
         try {
             Class.forName(jdbcSinkConfig.getJdbcConnectionConfig().getDriverName());
-        } catch (ClassNotFoundException e) {
-            throw new RuntimeException(e);
+        } catch (Exception e) {
+            log.warn(
+                    "Failed to load JDBC driver {}",
+                    jdbcSinkConfig.getJdbcConnectionConfig().getDriverName(),
+                    e);
         }
         if (catalogTable != null) {
             Optional<Catalog> catalogOptional = getCatalog();
             if (catalogOptional.isPresent()) {
                 try {
                     Catalog catalog = catalogOptional.get();
-                    FieldIdeEnum fieldIdeEnumEnum = config.get(JdbcOptions.FIELD_IDE);
+                    FieldIdeEnum fieldIdeEnumEnum = config.get(JdbcSinkOptions.FIELD_IDE);
                     String fieldIde =
                             fieldIdeEnumEnum == null
                                     ? FieldIdeEnum.ORIGINAL.getValue()
@@ -263,7 +290,7 @@ public class JdbcSink
                                         catalog,
                                         tablePath,
                                         catalogTable,
-                                        config.get(JdbcOptions.CUSTOM_SQL),
+                                        config.get(JdbcSinkOptions.CUSTOM_SQL),
                                         jdbcSinkConfig.isCreateIndex()));
                     }
                     return Optional.of(
@@ -273,7 +300,7 @@ public class JdbcSink
                                     catalog,
                                     tablePath,
                                     catalogTable,
-                                    config.get(JdbcOptions.CUSTOM_SQL),
+                                    config.get(JdbcSinkOptions.CUSTOM_SQL),
                                     jdbcSinkConfig.isCreateIndex()));
                 } catch (Exception e) {
                     throw new JdbcConnectorException(HANDLE_SAVE_MODE_FAILED, e);

@@ -4,16 +4,13 @@ sidebar_position: 4
 
 # 以Local模式运行作业
 
-仅用于测试。
-
 Local模式下每个任务都会启动一个独立的进程，任务运行完成后进程会退出。在该模式下有以下限制：
 
 1. 不支持任务的暂停、恢复。
 2. 不支持获取任务列表查看。
 3. 不支持通过命令取消作业，只能通过Kill进程的方式终止任务。
-4. 不支持RESTful API。
 
-最推荐在生产环境中使用SeaTunnel Engine的[分离集群模式](separated-cluster-deployment.md)
+但是每个任务由单独的进程控制，不会出现任务之间相互影响的情况，适合对任务稳定性有强烈要求的场景。
 
 ## 本地模式部署SeaTunnel Engine
 

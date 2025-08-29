@@ -73,7 +73,7 @@ Read external data source data through JDBC.
 |--------------------------------------------|------------|----------|-----------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | url                                        | String     | Yes      | -               | The URL of the JDBC connection. Refer to a case: jdbc:mysql://localhost:3306:3306/test                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | driver                                     | String     | Yes      | -               | The jdbc class name used to connect to the remote data source,<br/> if you use MySQL the value is `com.mysql.cj.jdbc.Driver`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
-| user                                       | String     | No       | -               | Connection instance user name                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| username                                       | String     | No       | -               | Connection instance user name                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | password                                   | String     | No       | -               | Connection instance password                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | query                                      | String     | Yes      | -               | Query statement                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | connection_check_timeout_sec               | Int        | No       | 30              | The time in seconds to wait for the database operation used to validate the connection to complete                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
@@ -83,6 +83,7 @@ Read external data source data through JDBC.
 | partition_num                              | Int        | No       | job parallelism | The number of partition count, only support positive integer. default value is job parallelism                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | fetch_size                                 | Int        | No       | 0               | For queries that return a large number of objects,you can configure<br/> the row fetch size used in the query toimprove performance by<br/> reducing the number database hits required to satisfy the selection criteria.<br/> Zero means use jdbc default value.                                                                                                                                                                                                                                                                                                                                                    |
 | properties                                 | Map        | No       | -               | Additional connection configuration parameters,when properties and URL have the same parameters, the priority is determined by the <br/>specific implementation of the driver. For example, in MySQL, properties take precedence over the URL.                                                                                                                                                                                                                                                                                                                                                                       |
+| use_regex                                  | Boolean    | No       | false           | Control regular expression matching for table_path. When set to `true`, the table_path will be treated as a regular expression pattern. When set to `false` or not specified, the table_path will be treated as an exact path (no regex matching).                                                                                                                                                                                                                                                                                                                                                                   |
 | table_path                                 | String     | No       | -               | The path to the full path of table, you can use this configuration instead of `query`. <br/>examples: <br/>mysql: "testdb.table1" <br/>oracle: "test_schema.table1" <br/>sqlserver: "testdb.test_schema.table1" <br/>postgresql: "testdb.test_schema.table1"                                                                                                                                                                                                                                                                                                                                                         |
 | table_list                                 | Array      | No       | -               | The list of tables to be read, you can use this configuration instead of `table_path` example: ```[{ table_path = "testdb.table1"}, {table_path = "testdb.table2", query = "select * id, name from testdb.table2"}]```                                                                                                                                                                                                                                                                                                                                                                                               |
 | where_condition                            | String     | No       | -               | Common row filter conditions for all tables/queries, must start with `where`. for example `where id > 100`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
@@ -193,7 +194,7 @@ source{
         url = "jdbc:mysql://localhost:3306/test?serverTimezone=GMT%2b8&useUnicode=true&characterEncoding=UTF-8&rewriteBatchedStatements=true"
         driver = "com.mysql.cj.jdbc.Driver"
         connection_check_timeout_sec = 100
-        user = "root"
+        username = "root"
         password = "123456"
         query = "select * from type_bin limit 16"
     }
@@ -221,7 +222,7 @@ source {
         url = "jdbc:mysql://localhost/test?serverTimezone=GMT%2b8"
         driver = "com.mysql.cj.jdbc.Driver"
         connection_check_timeout_sec = 100
-        user = "root"
+        username = "root"
         password = "123456"
         query = "select * from type_bin"
         partition_column = "id"
@@ -252,7 +253,7 @@ source {
         url = "jdbc:mysql://localhost/test?serverTimezone=GMT%2b8"
         driver = "com.mysql.cj.jdbc.Driver"
         connection_check_timeout_sec = 100
-        user = "root"
+        username = "root"
         password = "123456"
         table_path = "testdb.table1"
         query = "select * from testdb.table1"
@@ -275,7 +276,7 @@ source {
         url = "jdbc:mysql://localhost:3306/test?serverTimezone=GMT%2b8&useUnicode=true&characterEncoding=UTF-8&rewriteBatchedStatements=true"
         driver = "com.mysql.cj.jdbc.Driver"
         connection_check_timeout_sec = 100
-        user = "root"
+        username = "root"
         password = "123456"
         # Define query logic as required
         query = "select * from type_bin"
@@ -306,7 +307,7 @@ source {
     url = "jdbc:mysql://localhost/test?serverTimezone=GMT%2b8"
     driver = "com.mysql.cj.jdbc.Driver"
     connection_check_timeout_sec = 100
-    user = "root"
+    username = "root"
     password = "123456"
 
     table_list = [

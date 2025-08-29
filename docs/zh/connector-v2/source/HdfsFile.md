@@ -12,11 +12,15 @@ import ChangeLog from '../changelog/connector-file-hadoop.md';
 
 ## 主要特性
 
+- [x] [多模态](../../concept/connector-v2-features.md#多模态multimodal)
+
+  使用二进制文件格式读取和写入任何格式的文件，例如视频、图片等。简而言之，任何文件都可以同步到目标位置。
+
 - [x] [批处理](../../concept/connector-v2-features.md)
 - [ ] [流处理](../../concept/connector-v2-features.md)
 - [x] [精确一次](../../concept/connector-v2-features.md)
 
-在 pollNext 调用中读取分片中的所有数据。读取的分片将保存在快照中。
+  在 pollNext 调用中读取分片中的所有数据。读取的分片将保存在快照中。
 
 - [x] [列投影](../../concept/connector-v2-features.md)
 - [x] [并行度](../../concept/connector-v2-features.md)
@@ -51,6 +55,7 @@ import ChangeLog from '../changelog/connector-file-hadoop.md';
 | read_columns              | list    | 否       | -                   | 数据源的读取列列表，用户可以使用它来实现字段投影。支持列投影的文件类型如下所示：[text,json,csv,orc,parquet,excel,xml]。提示：如果用户想在读取 `text` `json` `csv` 文件时使用此功能，必须配置 schema 选项。                       |
 | hdfs_site_path            | string  | 否       | -                   | `hdfs-site.xml` 的路径，用于加载 namenodes 的 ha 配置                                                                                                                                                                                                                                                                                       |
 | delimiter/field_delimiter | string  | 否       | \001                | 字段分隔符，用于告诉连接器在读取文本文件时如何分割字段。默认 `\001`，与 hive 的默认分隔符相同                                                                                                                                                                                                                                                            |
+| row_delimiter             | string  | 否    | \n                  | 行分隔符，用于告诉连接器在读取文本文件时如何分割行。默认 `\n`。                                                                                                                                                                                                 |
 | parse_partition_from_path | boolean | 否       | true                | 控制是否从文件路径解析分区键和值。例如，如果您从路径 `hdfs://hadoop-cluster/tmp/seatunnel/parquet/name=tyrantlucifer/age=26` 读取文件。文件中的每条记录数据都将添加这两个字段：[name:tyrantlucifer,age:26]。提示：不要在 schema 选项中定义分区字段。            |
 | date_format               | string  | 否       | yyyy-MM-dd          | 日期类型格式，用于告诉连接器如何将字符串转换为日期，支持以下格式：`yyyy-MM-dd` `yyyy.MM.dd` `yyyy/MM/dd` 默认 `yyyy-MM-dd`。日期类型格式，用于告诉连接器如何将字符串转换为日期，支持以下格式：`yyyy-MM-dd` `yyyy.MM.dd` `yyyy/MM/dd` 默认 `yyyy-MM-dd` |
 | datetime_format           | string  | 否       | yyyy-MM-dd HH:mm:ss | 日期时间类型格式，用于告诉连接器如何将字符串转换为日期时间，支持以下格式：`yyyy-MM-dd HH:mm:ss` `yyyy.MM.dd HH:mm:ss` `yyyy/MM/dd HH:mm:ss` `yyyyMMddHHmmss`。默认 `yyyy-MM-dd HH:mm:ss`                                                                                                          |
@@ -69,15 +74,26 @@ import ChangeLog from '../changelog/connector-file-hadoop.md';
 | filename_extension        | string  | 否       | -                   | 过滤文件扩展名，用于过滤具有特定扩展名的文件。示例：`csv` `.txt` `json` `.xml`。                                                                                                                                                                                                                                                                       |
 | compress_codec            | string  | 否       | none                | 文件的压缩编解码器                                                                                                                                                                                                                                                                                                                   |
 | archive_compress_codec    | string  | 否       | none                |
-| encoding                  | string  | 否       | UTF-8               |                                                                                                                                                                                                                                                                                                                                               |
-| null_format               | string  | 否       | -                   | 仅在 file_format_type 为 text 时使用。null_format 定义哪些字符串可以表示为 null。例如：`\N`                                                                                                                                                                                                                                            |
-| binary_chunk_size         | int     | 否       | 1024                | 仅在 file_format_type 为 binary 时使用。读取二进制文件的块大小（以字节为单位）。默认为 1024 字节。较大的值可能会提高大文件的性能，但会使用更多内存。                                                                                                                                                                                                             |
-| binary_complete_file_mode | boolean | 否       | false               | 仅在 file_format_type 为 binary 时使用。是否将完整文件作为单个块读取，而不是分割成块。启用时，整个文件内容将一次性读入内存。默认为 false。                                                                                                                                                                                                                    |
-| common-options            |         | 否       | -                   | 数据源插件通用参数，请参阅 [数据源通用选项](../source-common-options.md) 了解详情。                                                                                                                                                                                                                                                            |
+| encoding                  | string  | 否       | UTF-8               |                                                                                                                                                                                                                                                                                                                                              |
+| null_format               | string  | 否       | -                   | 仅在 file_format_type 为 text 时使用。null_format 定义哪些字符串可以表示为 null。例如：`\N`                                                                                                                                                                                                                                           |
+| binary_chunk_size         | int     | 否       | 1024                | 仅在 file_format_type 为 binary 时使用。读取二进制文件的块大小（以字节为单位）。默认为 1024 字节。较大的值可能会提高大文件的性能，但会使用更多内存。                                                                                                                                                                                                            |
+| binary_complete_file_mode | boolean | 否       | false               | 仅在 file_format_type 为 binary 时使用。是否将完整文件作为单个块读取，而不是分割成块。启用时，整个文件内容将一次性读入内存。默认为 false。                                                                                                                                                                                                                   |
+| common-options            |         | 否       | -                   | 数据源插件通用参数，请参阅 [数据源通用选项](../source-common-options.md) 了解详情。                                                                                                                                                                                                                                                           |
+| file_filter_modified_start  | string  | 否    | -                   | 按照最后修改时间过滤文件。 要过滤的开始时间(包括改时间),时间格式是：`yyyy-MM-dd HH:mm:ss`                                                                                 |
+| file_filter_modified_end    | string  | 否    | -                   | 按照最后修改时间过滤文件。 要过滤的结束时间(不包括改时间),时间格式是：`yyyy-MM-dd HH:mm:ss`                                                                                                                   |
 
 ### delimiter/field_delimiter [string]
 
 **delimiter** 参数将在 2.3.5 版本后弃用，请使用 **field_delimiter** 代替。
+
+
+### row_delimiter [string]
+
+仅在 file_format 为 text 时需要配置。
+
+行分隔符，用于告诉连接器如何分割行。
+
+默认 `\n`。
 
 ### file_filter_pattern [string]
 

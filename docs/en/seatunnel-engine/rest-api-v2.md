@@ -7,7 +7,7 @@ completed jobs. The monitoring API is a RESTful API that accepts HTTP requests a
 
 The v2 version of the api uses jetty support. It is the same as the interface specification of v1 version
 , you can specify the port and context-path by modifying the configuration items in `seatunnel.yaml`,
-you can configure `enable-dynamic-port` to enable dynamic ports (the default port is accumulated starting from `port`), and the default is closed,
+you can configure `enable-dynamic-port` to enable dynamic ports (the default port is accumulated starting from `port`), and the default is enabled,
 If enable-dynamic-port is true, We will use the unused port in the range within the range of `port` and `port` + `port-range`, default range is 100
 
 ```yaml
@@ -157,6 +157,7 @@ Please refer [security](security.md)
     "pipelineEdges": {}
   },
   "metrics": {
+    "IntermediateQueueSize": "",
     "SourceReceivedCount": "",
     "SourceReceivedQPS": "",
     "SourceReceivedBytes": "",
@@ -237,6 +238,7 @@ This API has been deprecated, please use /job-info/:jobId instead
     "pipelineEdges": {}
   },
   "metrics": {
+    "IntermediateQueueSize": "",
     "SourceReceivedCount": "",
     "SourceReceivedQPS": "",
     "SourceReceivedBytes": "",
@@ -287,9 +289,9 @@ When we can't get the job info, the response will be:
 
 #### Parameters
 
-> | name  |   type   | data type |                           description                            |
-> |-------|----------|-----------|------------------------------------------------------------------|
-> | state | optional | string    | finished job status. `FINISHED`,`CANCELED`,`FAILED`,`UNKNOWABLE` |
+> | name  |   type   | data type | description                                                                       |
+> |-------|----------|-----------|-----------------------------------------------------------------------------------|
+> | state | optional | string    | finished job status. `FINISHED`,`CANCELED`,`FAILED`,`SAVEPOINT_DONE`,`UNKNOWABLE` |
 
 #### Responses
 

@@ -6,7 +6,7 @@ import ChangeLog from '../changelog/connector-iceberg.md';
 
 ## Support Iceberg Version
 
-- 1.4.2
+- 1.6.1
 
 ## Support Those Engines
 
@@ -99,7 +99,7 @@ source {
     username = "st_user"
     password = "seatunnel"
     table-names = ["mysql_cdc.mysql_cdc_e2e_source_table"]
-    base-url = "jdbc:mysql://mysql_cdc_e2e:3306/mysql_cdc"
+    url = "jdbc:mysql://mysql_cdc_e2e:3306/mysql_cdc"
   }
 }
 
@@ -207,6 +207,33 @@ sink {
 
 ```
 
+### AWS S3 Tables REST Catalog
+
+Amazon S3 Tables is a storage service for tabular data that's optimized for analytics workloads, with features designed to continuously improve query performance and reduce storage costs for tables. S3 Tables is purpose-built for storing tabular data, such as daily purchase transactions, streaming sensor data, or ad impressions. Tabular data represents data in columns and rows, like in a database table.
+
+You can connect an Iceberg REST client to the Amazon S3 Tables Iceberg REST endpoint and then make REST API calls to create, update, or query tables in S3 table buckets. The endpoint implements a standardized set of Iceberg REST APIs specified in the Apache Iceberg REST Catalog Open API specification. The endpoint works by translating Iceberg REST API operations to corresponding S3 Tables operations.
+
+Data in S3 Tables is stored in a new bucket type: table buckets, which store tables as subresources. Table buckets support storing tables in Apache Iceberg format. Using standard SQL statements, you can query tables through Iceberg-compatible query engines such as Amazon Athena, Amazon Redshift, and Apache Spark.
+
+```hocon
+sink {
+  Iceberg {
+    catalog_name = "s3_tables_catalog"
+    namespace = "s3_tables_catalog"
+    table = "user_data"
+
+    iceberg.catalog.config = {
+      type: "rest"
+      warehouse: "arn:aws:s3tables:<Region>:<accountID>:bucket/<bucketname>"
+      uri: "https://s3tables.<Region>.amazonaws.com/iceberg"
+      rest.sigv4-enabled: "true"
+      rest.signing-name: "s3tables"
+      rest.signing-region: "<Region>"
+    }
+  }
+}
+```
+
 ### Multiple table
 
 #### example1
@@ -220,7 +247,7 @@ env {
 
 source {
   Mysql-CDC {
-    base-url = "jdbc:mysql://127.0.0.1:3306/seatunnel"
+    url = "jdbc:mysql://127.0.0.1:3306/seatunnel"
     username = "root"
     password = "******"
     

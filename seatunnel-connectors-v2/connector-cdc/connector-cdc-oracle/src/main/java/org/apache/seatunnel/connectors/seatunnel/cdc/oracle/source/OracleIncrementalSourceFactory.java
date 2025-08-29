@@ -35,15 +35,17 @@ import org.apache.seatunnel.connectors.cdc.base.option.StopMode;
 import org.apache.seatunnel.connectors.cdc.base.source.BaseChangeStreamTableSourceFactory;
 import org.apache.seatunnel.connectors.cdc.base.utils.CatalogTableUtils;
 import org.apache.seatunnel.connectors.seatunnel.cdc.oracle.config.OracleSourceConfigFactory;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.JdbcCatalogOptions;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcCommonOptions;
 
 import com.google.auto.service.AutoService;
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.Serializable;
 import java.util.List;
 import java.util.Optional;
 
 @AutoService(Factory.class)
+@Slf4j
 public class OracleIncrementalSourceFactory extends BaseChangeStreamTableSourceFactory {
     @Override
     public String factoryIdentifier() {
@@ -57,7 +59,7 @@ public class OracleIncrementalSourceFactory extends BaseChangeStreamTableSourceF
                 .exclusive(ConnectorCommonOptions.TABLE_NAMES, ConnectorCommonOptions.TABLE_PATTERN)
                 .bundled(JdbcSourceOptions.HOSTNAME, JdbcSourceOptions.PORT)
                 .optional(
-                        JdbcCatalogOptions.BASE_URL,
+                        JdbcCommonOptions.URL,
                         JdbcSourceOptions.DATABASE_NAMES,
                         OracleSourceOptions.SCHEMA_NAMES,
                         OracleSourceOptions.USE_SELECT_COUNT,
@@ -105,6 +107,12 @@ public class OracleIncrementalSourceFactory extends BaseChangeStreamTableSourceF
             TableSource<T, SplitT, StateT> restoreSource(
                     TableSourceFactoryContext context, List<CatalogTable> restoreTables) {
         return () -> {
+            // Load the JDBC driver in to DriverManager
+            try {
+                Class.forName("oracle.jdbc.OracleDriver");
+            } catch (Exception e) {
+                log.warn("Failed to load JDBC driver {}", "oracle.jdbc.OracleDriver", e);
+            }
             List<CatalogTable> catalogTables =
                     CatalogTableUtil.getCatalogTables(
                             context.getOptions(), context.getClassLoader());

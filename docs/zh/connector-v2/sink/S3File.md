@@ -12,12 +12,16 @@ import ChangeLog from '../changelog/connector-file-s3.md';
 
 ## 主要特性
 
+- [x] [多模态](../../concept/connector-v2-features.md#多模态multimodal)
+
+  使用二进制文件格式读取和写入任何格式的文件，例如视频、图片等。简而言之，任何文件都可以同步到目标位置。
+
 - [x] [精确一次](../../concept/connector-v2-features.md)
+
+  默认情况下，我们使用 2PC 提交来确保 `精确一次`。
+
 - [ ] [cdc](../../concept/connector-v2-features.md)
 - [x] [支持多表写入](../../concept/connector-v2-features.md)
-
-默认情况下，我们使用 2PC 提交来确保 `精确一次`。
-
 - [x] 文件格式类型
   - [x] text
   - [x] csv
@@ -292,7 +296,7 @@ Sink 插件通用参数，请参考 [Sink 通用选项](../sink-common-options.m
 
 支持将 12-byte 字段写入 Parquet INT96，仅对 parquet 文件有效。
 
-### schema_save_mode[Enum]
+### schema_save_mode [Enum]
 
 在开启同步任务之前，对目标路径进行不同的处理。  
 选项介绍：  
@@ -301,7 +305,7 @@ Sink 插件通用参数，请参考 [Sink 通用选项](../sink-common-options.m
 `ERROR_WHEN_SCHEMA_NOT_EXIST` ：当路径不存在时报错  
 `IGNORE` ：忽略表的处理
 
-### data_save_mode[Enum]
+### data_save_mode [Enum]
 
 在开启同步任务之前，对目标路径中的数据文件进行不同的处理。
 选项介绍：  
@@ -478,7 +482,7 @@ source {
       ]
       password="xxxxxx"
       username="xxxxxxxxxxxxx"
-      base-url="jdbc:mysql://localhost:3306/qa_source"
+      url="jdbc:mysql://localhost:3306/qa_source"
   }
 }
 

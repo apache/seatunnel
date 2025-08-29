@@ -5,7 +5,7 @@ SeaTunnel有一个用于监控的API，可用于查询运行作业的状态和�
 ## 概述
 
 v2版本的api使用jetty支持，与v1版本的接口规范相同 ,可以通过修改`seatunnel.yaml`中的配置项来指定端口和context-path，
-同时可以配置 `enable-dynamic-port` 开启动态端口(默认从 `port` 开始累加)，默认为关闭，
+同时可以配置 `enable-dynamic-port` 开启动态端口(默认从 `port` 开始累加)，默认为开启，
 如果`enable-dynamic-port`为`true`，我们将使用`port`和`port`+`port-range`范围内未使用的端口，默认范围是100。
 
 ```yaml
@@ -153,6 +153,7 @@ seatunnel:
     "pipelineEdges": {}
   },
   "metrics": {
+    "IntermediateQueueSize": "",
     "SourceReceivedCount": "",
     "SourceReceivedQPS": "",
     "SourceReceivedBytes": "",
@@ -269,9 +270,9 @@ seatunnel:
 
 #### 参数
 
-> | 参数名称  |   是否必传   |  参数类型  |                               参数描述                               |
-> |-------|----------|--------|------------------------------------------------------------------|
-> | state | optional | string | finished job status. `FINISHED`,`CANCELED`,`FAILED`,`UNKNOWABLE` |
+> | 参数名称  |   是否必传   |  参数类型  | 参数描述                                                                              |
+> |-------|----------|--------|-----------------------------------------------------------------------------------|
+> | state | optional | string | finished job status. `FINISHED`,`CANCELED`,`FAILED`,`SAVEPOINT_DONE`,`UNKNOWABLE` |
 
 #### 响应
 

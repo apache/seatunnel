@@ -26,14 +26,15 @@ import org.apache.seatunnel.connectors.seatunnel.paimon.data.PaimonTypeMapper;
 import org.apache.seatunnel.connectors.seatunnel.paimon.exception.PaimonConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.paimon.exception.PaimonConnectorException;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.paimon.CoreOptions;
 import org.apache.paimon.schema.Schema;
 import org.apache.paimon.shade.jackson2.com.fasterxml.jackson.databind.ObjectMapper;
-import org.apache.paimon.shade.org.apache.commons.lang.StringUtils;
 import org.apache.paimon.types.DataField;
 import org.apache.paimon.types.DataType;
 import org.apache.paimon.types.DataTypeJsonParser;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -68,6 +69,9 @@ public class SchemaUtil {
         if (primaryKeys.isEmpty() && Objects.nonNull(tableSchema.getPrimaryKey())) {
             primaryKeys = tableSchema.getPrimaryKey().getColumnNames();
         }
+        if (paimonSinkConfig.getNonPrimaryKey()) {
+            primaryKeys = Collections.emptyList();
+        }
         if (!primaryKeys.isEmpty()) {
             paiSchemaBuilder.primaryKey(primaryKeys);
         }
@@ -98,8 +102,8 @@ public class SchemaUtil {
                 fields.stream().filter(field -> field.name().equals(fieldName)).findFirst();
         if (!firstField.isPresent()) {
             throw new PaimonConnectorException(
-                    PaimonConnectorErrorCode.GET_FILED_FAILED,
-                    "Can not get the filed [" + fieldName + "] from source table");
+                    PaimonConnectorErrorCode.GET_FIELD_FAILED,
+                    "Can not get the field [" + fieldName + "] from source table");
         }
         return firstField.get();
     }

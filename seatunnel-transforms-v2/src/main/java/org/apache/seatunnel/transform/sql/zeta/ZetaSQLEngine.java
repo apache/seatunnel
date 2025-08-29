@@ -256,6 +256,7 @@ public class ZetaSQLEngine implements SQLEngine {
         SeaTunnelRow seaTunnelRow = new SeaTunnelRow(outputFields);
         seaTunnelRow.setRowKind(inputRow.getRowKind());
         seaTunnelRow.setTableId(inputRow.getTableId());
+        seaTunnelRow.setOptions(inputRow.getOptions());
         List<LateralView> lateralViews = selectBody.getLateralViews();
         if (CollectionUtils.isEmpty(lateralViews)) {
             return Lists.newArrayList(seaTunnelRow);

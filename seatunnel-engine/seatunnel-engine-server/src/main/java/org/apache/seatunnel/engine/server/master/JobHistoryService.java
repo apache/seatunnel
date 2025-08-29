@@ -24,11 +24,11 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode
 
 import org.apache.seatunnel.api.common.metrics.JobMetrics;
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
+import org.apache.seatunnel.engine.common.job.JobStatus;
+import org.apache.seatunnel.engine.common.job.JobStatusData;
 import org.apache.seatunnel.engine.core.job.ExecutionAddress;
 import org.apache.seatunnel.engine.core.job.JobDAGInfo;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
-import org.apache.seatunnel.engine.core.job.JobStatus;
-import org.apache.seatunnel.engine.core.job.JobStatusData;
 import org.apache.seatunnel.engine.core.job.PipelineStatus;
 import org.apache.seatunnel.engine.server.dag.physical.PipelineLocation;
 import org.apache.seatunnel.engine.server.execution.ExecutionState;
@@ -144,10 +144,36 @@ public class JobHistoryService {
                         .collect(Collectors.toList());
         Set<Long> runningJonIds =
                 runningJobStateList.stream().map(JobState::getJobId).collect(Collectors.toSet());
+
+        List<JobState> pendingJobStateList =
+                pendingJobMasterMap.entrySet().stream()
+                        .map(
+                                entry -> {
+                                    Long jobId = entry.getKey();
+                                    JobImmutableInformation jobImmutableInformation =
+                                            entry.getValue()._2.getJobImmutableInformation();
+                                    return new JobState(
+                                            jobId,
+                                            jobImmutableInformation.getJobName(),
+                                            JobStatus.PENDING,
+                                            jobImmutableInformation.getCreateTime(),
+                                            null,
+                                            null,
+                                            null,
+                                            null);
+                                })
+                        .collect(Collectors.toList());
+        Set<Long> pendingJobIds =
+                pendingJobStateList.stream().map(JobState::getJobId).collect(Collectors.toSet());
+
         Stream.concat(
-                        runningJobStateList.stream(),
+                        Stream.concat(runningJobStateList.stream(), pendingJobStateList.stream()),
                         finishedJobStateImap.values().stream()
-                                .filter(jobState -> !runningJonIds.contains(jobState.getJobId())))
+                                .filter(
+                                        jobState ->
+                                                !runningJonIds.contains(jobState.getJobId())
+                                                        && !pendingJobIds.contains(
+                                                                jobState.getJobId())))
                 .forEach(
                         jobState -> {
                             JobStatusData jobStatusData =

@@ -53,6 +53,7 @@
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
             <artifactId>connector-cdc-base</artifactId>
+            <scope>provided</scope>
         </dependency>
 
         <dependency>
@@ -64,6 +65,7 @@
         <dependency>
             <groupId>org.tikv</groupId>
             <artifactId>tikv-client-java</artifactId>
+            <scope>provided</scope>
         </dependency>
 
     </dependencies>

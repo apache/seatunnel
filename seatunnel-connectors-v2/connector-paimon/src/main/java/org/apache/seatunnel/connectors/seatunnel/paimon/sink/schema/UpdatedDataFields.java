@@ -82,8 +82,11 @@ public class UpdatedDataFields {
         oldIdx = DECIMAL_TYPES.indexOf(oldType.getTypeRoot());
         newIdx = DECIMAL_TYPES.indexOf(newType.getTypeRoot());
         if (oldIdx >= 0 && newIdx >= 0) {
-            return DataTypeChecks.getPrecision(newType) <= DataTypeChecks.getPrecision(oldType)
-                            && DataTypeChecks.getScale(newType) <= DataTypeChecks.getScale(oldType)
+            int oldScale = DataTypeChecks.getScale(oldType);
+            int newScale = DataTypeChecks.getScale(newType);
+            return (DataTypeChecks.getPrecision(newType) - newScale)
+                                    < (DataTypeChecks.getPrecision(oldType) - oldScale)
+                            || newScale < oldScale
                     ? ConvertAction.IGNORE
                     : ConvertAction.CONVERT;
         }

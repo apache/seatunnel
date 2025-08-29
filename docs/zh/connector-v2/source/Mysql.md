@@ -73,7 +73,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 |--------------------------------------------|------------|------|-------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | url                                        | String     | 是    | -     | JDBC 连接的 URL。参见示例: <br/>`jdbc:mysql://localhost:3306:3306/test`。                                                                                                                                                       |
 | driver                                     | String     | 是    | -     | 用于连接远程数据源的 JDBC 类名，<br/>如果使用 MySQL，值为 `com.mysql.cj.jdbc.Driver`。                                                                                                                                                      |
-| user                                       | String     | 否    | -     | 连接实例用户名。                                                                                                                                                                                                               |
+| username                                   | String     | 否    | -     | 连接实例用户名。                                                                                                                                                                                                               |
 | password                                   | String     | 否    | -     | 连接实例密码。                                                                                                                                                                                                                |
 | query                                      | String     | 是    | -     | 查询语句。                                                                                                                                                                                                                  |
 | connection_check_timeout_sec               | Int        | 否    | 30    | 验证数据库连接所使用的操作完成的等待时间（秒）。                                                                                                                                                                                               |
@@ -83,6 +83,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | partition_num                              | Int        | 否    | 作业并行度 | 分区数量，仅支持正整数。<br/>默认值为作业并行度。                                                                                                                                                                                            |
 | fetch_size                                 | Int        | 否    | 0     | 对于返回大量对象的查询，可以配置查询的行提取大小，以通过减少满足选择条件所需的数据库访问次数来提高性能。<br/>设置为零表示使用 `JDBC` 的默认值。                                                                                                                                         |
 | properties                                 | Map        | 否    | -     | 额外的连接配置参数，当属性和 URL 中有相同的参数时，优先级由驱动程序的具体实现决定。<br/>例如，在 MySQL 中，属性优先于 URL。                                                                                                                                               |
+| use_regex                                  | Boolean    | 否    | false | 控制表路径的正则表达式匹配。当设置为true时，table_path 将被视为正则表达式模式。当设置为false或未指定时，table_path 将被视为精确路径（不进行正则匹配）。                                                                                                                            |
 | table_path                                 | String     | 否    | -     | 表的完整路径，您可以使用此配置代替 `query`。<br/>示例：<br/>mysql: "testdb.table1"<br/>oracle: "test_schema.table1"<br/>sqlserver: "testdb.test_schema.table1"<br/>postgresql: "testdb.test_schema.table1"                                  |
 | table_list                                 | Array      | 否    | -     | 要读取的表的列表，您可以使用此配置代替 `table_path`，示例如下： ```[{ table_path = "testdb.table1"}, {table_path = "testdb.table2", query = "select * id, name from testdb.table2"}]```                                                         |
 | where_condition                            | String     | 否    | -     | 所有表/查询的通用行过滤条件，必须以 `where` 开头。例如 `where id > 100`。                                                                                                                                                                     |
@@ -194,7 +195,7 @@ source{
         url = "jdbc:mysql://localhost:3306/test?serverTimezone=GMT%2b8&useUnicode=true&characterEncoding=UTF-8&rewriteBatchedStatements=true"
         driver = "com.mysql.cj.jdbc.Driver"
         connection_check_timeout_sec = 100
-        user = "root"
+        username = "root"
         password = "123456"
         query = "select * from type_bin limit 16"
     }
@@ -222,7 +223,7 @@ source {
         url = "jdbc:mysql://localhost/test?serverTimezone=GMT%2b8"
         driver = "com.mysql.cj.jdbc.Driver"
         connection_check_timeout_sec = 100
-        user = "root"
+        username = "root"
         password = "123456"
         query = "select * from type_bin"
         partition_column = "id"
@@ -253,7 +254,7 @@ source {
         url = "jdbc:mysql://localhost/test?serverTimezone=GMT%2b8"
         driver = "com.mysql.cj.jdbc.Driver"
         connection_check_timeout_sec = 100
-        user = "root"
+        username = "root"
         password = "123456"
         table_path = "testdb.table1"
         query = "select * from testdb.table1"
@@ -276,7 +277,7 @@ source {
         url = "jdbc:mysql://localhost:3306/test?serverTimezone=GMT%2b8&useUnicode=true&characterEncoding=UTF-8&rewriteBatchedStatements=true"
         driver = "com.mysql.cj.jdbc.Driver"
         connection_check_timeout_sec = 100
-        user = "root"
+        username = "root"
         password = "123456"
         # Define query logic as required
         query = "select * from type_bin"
@@ -307,7 +308,7 @@ source {
     url = "jdbc:mysql://localhost/test?serverTimezone=GMT%2b8"
     driver = "com.mysql.cj.jdbc.Driver"
     connection_check_timeout_sec = 100
-    user = "root"
+    username = "root"
     password = "123456"
 
     table_list = [

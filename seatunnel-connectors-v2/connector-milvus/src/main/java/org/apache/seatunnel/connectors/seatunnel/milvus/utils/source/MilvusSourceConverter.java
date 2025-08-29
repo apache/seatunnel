@@ -31,7 +31,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.seatunnel.api.table.type.VectorType;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
-import org.apache.seatunnel.common.utils.BufferUtils;
+import org.apache.seatunnel.common.utils.VectorUtils;
 import org.apache.seatunnel.connectors.seatunnel.milvus.exception.MilvusConnectorException;
 
 import com.google.gson.Gson;
@@ -83,62 +83,62 @@ public class MilvusSourceConverter {
                 continue;
             }
             SeaTunnelDataType<?> seaTunnelDataType = typeInfo.getFieldType(fieldIndex);
-            Object filedValues = fieldValuesMap.get(fieldNames[fieldIndex]);
+            Object fieldValues = fieldValuesMap.get(fieldNames[fieldIndex]);
             switch (seaTunnelDataType.getSqlType()) {
                 case STRING:
-                    seatunnelField[fieldIndex] = filedValues.toString();
+                    seatunnelField[fieldIndex] = fieldValues.toString();
                     break;
                 case BOOLEAN:
-                    if (filedValues instanceof Boolean) {
-                        seatunnelField[fieldIndex] = filedValues;
+                    if (fieldValues instanceof Boolean) {
+                        seatunnelField[fieldIndex] = fieldValues;
                     } else {
-                        seatunnelField[fieldIndex] = Boolean.valueOf(filedValues.toString());
+                        seatunnelField[fieldIndex] = Boolean.valueOf(fieldValues.toString());
                     }
                     break;
                 case TINYINT:
-                    if (filedValues instanceof Byte) {
-                        seatunnelField[fieldIndex] = filedValues;
+                    if (fieldValues instanceof Byte) {
+                        seatunnelField[fieldIndex] = fieldValues;
                     } else {
-                        seatunnelField[fieldIndex] = Byte.parseByte(filedValues.toString());
+                        seatunnelField[fieldIndex] = Byte.parseByte(fieldValues.toString());
                     }
                     break;
                 case SMALLINT:
-                    if (filedValues instanceof Short) {
-                        seatunnelField[fieldIndex] = filedValues;
+                    if (fieldValues instanceof Short) {
+                        seatunnelField[fieldIndex] = fieldValues;
                     } else {
-                        seatunnelField[fieldIndex] = Short.parseShort(filedValues.toString());
+                        seatunnelField[fieldIndex] = Short.parseShort(fieldValues.toString());
                     }
                 case INT:
-                    if (filedValues instanceof Integer) {
-                        seatunnelField[fieldIndex] = filedValues;
+                    if (fieldValues instanceof Integer) {
+                        seatunnelField[fieldIndex] = fieldValues;
                     } else {
-                        seatunnelField[fieldIndex] = Integer.valueOf(filedValues.toString());
+                        seatunnelField[fieldIndex] = Integer.valueOf(fieldValues.toString());
                     }
                     break;
                 case BIGINT:
-                    if (filedValues instanceof Long) {
-                        seatunnelField[fieldIndex] = filedValues;
+                    if (fieldValues instanceof Long) {
+                        seatunnelField[fieldIndex] = fieldValues;
                     } else {
-                        seatunnelField[fieldIndex] = Long.parseLong(filedValues.toString());
+                        seatunnelField[fieldIndex] = Long.parseLong(fieldValues.toString());
                     }
                     break;
                 case FLOAT:
-                    if (filedValues instanceof Float) {
-                        seatunnelField[fieldIndex] = filedValues;
+                    if (fieldValues instanceof Float) {
+                        seatunnelField[fieldIndex] = fieldValues;
                     } else {
-                        seatunnelField[fieldIndex] = Float.parseFloat(filedValues.toString());
+                        seatunnelField[fieldIndex] = Float.parseFloat(fieldValues.toString());
                     }
                     break;
                 case DOUBLE:
-                    if (filedValues instanceof Double) {
-                        seatunnelField[fieldIndex] = filedValues;
+                    if (fieldValues instanceof Double) {
+                        seatunnelField[fieldIndex] = fieldValues;
                     } else {
-                        seatunnelField[fieldIndex] = Double.parseDouble(filedValues.toString());
+                        seatunnelField[fieldIndex] = Double.parseDouble(fieldValues.toString());
                     }
                     break;
                 case ARRAY:
-                    if (filedValues instanceof List) {
-                        List<?> list = (List<?>) filedValues;
+                    if (fieldValues instanceof List) {
+                        List<?> list = (List<?>) fieldValues;
                         ArrayType<?, ?> arrayType = (ArrayType<?, ?>) seaTunnelDataType;
                         SqlType elementType = arrayType.getElementType().getSqlType();
                         switch (elementType) {
@@ -201,47 +201,47 @@ public class MilvusSourceConverter {
                             default:
                                 throw new MilvusConnectorException(
                                         CommonErrorCode.UNSUPPORTED_DATA_TYPE,
-                                        "Unexpected array value: " + filedValues);
+                                        "Unexpected array value: " + fieldValues);
                         }
                     } else {
                         throw new MilvusConnectorException(
                                 CommonErrorCode.UNSUPPORTED_DATA_TYPE,
-                                "Unexpected array value: " + filedValues);
+                                "Unexpected array value: " + fieldValues);
                     }
                     break;
                 case FLOAT_VECTOR:
-                    if (filedValues instanceof List) {
-                        List list = (List) filedValues;
+                    if (fieldValues instanceof List) {
+                        List list = (List) fieldValues;
                         Float[] arrays = new Float[list.size()];
                         for (int i = 0; i < list.size(); i++) {
                             arrays[i] = Float.parseFloat(list.get(i).toString());
                         }
-                        seatunnelField[fieldIndex] = BufferUtils.toByteBuffer(arrays);
+                        seatunnelField[fieldIndex] = VectorUtils.toByteBuffer(arrays);
                         break;
                     } else {
                         throw new MilvusConnectorException(
                                 CommonErrorCode.UNSUPPORTED_DATA_TYPE,
-                                "Unexpected vector value: " + filedValues);
+                                "Unexpected vector value: " + fieldValues);
                     }
                 case BINARY_VECTOR:
                 case FLOAT16_VECTOR:
                 case BFLOAT16_VECTOR:
-                    if (filedValues instanceof ByteBuffer) {
-                        seatunnelField[fieldIndex] = filedValues;
+                    if (fieldValues instanceof ByteBuffer) {
+                        seatunnelField[fieldIndex] = fieldValues;
                         break;
                     } else {
                         throw new MilvusConnectorException(
                                 CommonErrorCode.UNSUPPORTED_DATA_TYPE,
-                                "Unexpected vector value: " + filedValues);
+                                "Unexpected vector value: " + fieldValues);
                     }
                 case SPARSE_FLOAT_VECTOR:
-                    if (filedValues instanceof Map) {
-                        seatunnelField[fieldIndex] = filedValues;
+                    if (fieldValues instanceof Map) {
+                        seatunnelField[fieldIndex] = fieldValues;
                         break;
                     } else {
                         throw new MilvusConnectorException(
                                 CommonErrorCode.UNSUPPORTED_DATA_TYPE,
-                                "Unexpected vector value: " + filedValues);
+                                "Unexpected vector value: " + fieldValues);
                     }
                 default:
                     throw new MilvusConnectorException(

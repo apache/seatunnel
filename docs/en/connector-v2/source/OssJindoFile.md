@@ -14,9 +14,13 @@ import ChangeLog from '../changelog/connector-file-oss-jindo.md';
 
 - [x] [batch](../../concept/connector-v2-features.md)
 - [ ] [stream](../../concept/connector-v2-features.md)
+- [x] [multimodal](../../concept/connector-v2-features.md#multimodal)
+
+  Use binary file format to read and write files in any format, such as videos, pictures, etc. In short, any files can be synchronized to the target place.
+
 - [x] [exactly-once](../../concept/connector-v2-features.md)
 
-Read all the data in a split in a pollNext call. What splits are read will be saved in snapshot.
+  Read all the data in a split in a pollNext call. What splits are read will be saved in snapshot.
 
 - [ ] [column projection](../../concept/connector-v2-features.md)
 - [x] [parallelism](../../concept/connector-v2-features.md)
@@ -51,32 +55,35 @@ It only supports hadoop version **2.9.X+**.
 
 ## Options
 
-| name                      | type    | required | default value       |
-|---------------------------|---------|----------|---------------------|
-| path                      | string  | yes      | -                   |
-| file_format_type          | string  | yes      | -                   |
-| bucket                    | string  | yes      | -                   |
-| access_key                | string  | yes      | -                   |
-| access_secret             | string  | yes      | -                   |
-| endpoint                  | string  | yes      | -                   |
-| read_columns              | list    | no       | -                   |
-| delimiter/field_delimiter | string  | no       | \001                |
-| parse_partition_from_path | boolean | no       | true                |
-| date_format               | string  | no       | yyyy-MM-dd          |
-| datetime_format           | string  | no       | yyyy-MM-dd HH:mm:ss |
-| time_format               | string  | no       | HH:mm:ss            |
-| skip_header_row_number    | long    | no       | 0                   |
-| schema                    | config  | no       | -                   |
-| sheet_name                | string  | no       | -                   |
-| xml_row_tag               | string  | no       | -                   |
-| xml_use_attr_format       | boolean | no       | -                   |
-| csv_use_header_line       | boolean | no       | false               |
-| file_filter_pattern       | string  | no       |                     |
-| compress_codec            | string  | no       | none                |
-| archive_compress_codec    | string  | no       | none                |
-| encoding                  | string  | no       | UTF-8               |
-| null_format               | string  | no       | -                   |
-| common-options            |         | no       | -                   |
+| name                      | type    | required | default value               |
+|---------------------------|---------|----------|-----------------------------|
+| path                      | string  | yes      | -                           |
+| file_format_type          | string  | yes      | -                           |
+| bucket                    | string  | yes      | -                           |
+| access_key                | string  | yes      | -                           |
+| access_secret             | string  | yes      | -                           |
+| endpoint                  | string  | yes      | -                           |
+| read_columns              | list    | no       | -                           |
+| delimiter/field_delimiter | string  | no       | \001 for text and , for csv |
+| row_delimiter             | string  | no       | \n                          |
+| parse_partition_from_path | boolean | no       | true                        |
+| date_format               | string  | no       | yyyy-MM-dd                  |
+| datetime_format           | string  | no       | yyyy-MM-dd HH:mm:ss         |
+| time_format               | string  | no       | HH:mm:ss                    |
+| skip_header_row_number    | long    | no       | 0                           |
+| schema                    | config  | no       | -                           |
+| sheet_name                | string  | no       | -                           |
+| xml_row_tag               | string  | no       | -                           |
+| xml_use_attr_format       | boolean | no       | -                           |
+| csv_use_header_line       | boolean | no       | false                       |
+| file_filter_pattern       | string  | no       |                             |
+| compress_codec            | string  | no       | none                        |
+| archive_compress_codec    | string  | no       | none                        |
+| encoding                  | string  | no       | UTF-8                       |
+| null_format               | string  | no       | -                           |
+| common-options            |         | no       | -                           |
+| file_filter_modified_start  | string  | no       | -                   | File modification time filter. The connector will filter some files base on the last modification start time (include start time). the default data format is `yyyy-MM-dd HH:mm:ss`.                                                                                                                                                       |
+| file_filter_modified_end    | string  | no       | -                   | File modification time filter. The connector will filter some files base on the last modification end time (not include end time). the default data format is `yyyy-MM-dd HH:mm:ss`.                                                                                                                                                |
 
 ### path [string]
 
@@ -204,6 +211,14 @@ Only need to be configured when file_format is text.
 Field delimiter, used to tell connector how to slice and dice fields.
 
 default `\001`, the same as hive's default delimiter
+
+### row_delimiter [string]
+
+Only need to be configured when file_format is text
+
+Row delimiter, used to tell connector how to slice and dice rows
+
+default `\n`
 
 ### parse_partition_from_path [boolean]
 
