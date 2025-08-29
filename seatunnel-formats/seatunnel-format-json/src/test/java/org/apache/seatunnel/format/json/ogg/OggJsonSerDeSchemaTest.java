@@ -144,7 +144,9 @@ public class OggJsonSerDeSchemaTest {
         final SimpleCollector collector = new SimpleCollector();
         String unknownType = "XX";
         String unknownOperationMsg =
-                "{\"before\":null,\"after\":{\"id\":101,\"name\":\"scooter\"},\"op_type\":\"" + unknownType + "\"}";
+                "{\"before\":null,\"after\":{\"id\":101,\"name\":\"scooter\"},\"op_type\":\""
+                        + unknownType
+                        + "\"}";
         SeaTunnelRuntimeException expected =
                 CommonError.jsonOperationError(FORMAT, unknownOperationMsg);
         SeaTunnelRuntimeException cause =
