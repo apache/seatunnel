@@ -83,7 +83,6 @@ public class DatabendSinkWriter
     private PreparedStatement cdcPreparedStatement;
     private String conflictKey;
     private boolean enableDelete;
-    private int interval;
 
     public DatabendSinkWriter(
             Context context,
@@ -117,7 +116,6 @@ public class DatabendSinkWriter
         }
         this.conflictKey = databendSinkConfig.getConflictKey();
         this.enableDelete = databendSinkConfig.isEnableDelete();
-        this.interval = databendSinkConfig.getInterval();
         this.targetTableName = table;
 
         log.info("DatabendSinkWriter constructor - catalogTable: {}", catalogTable);
@@ -446,6 +444,7 @@ public class DatabendSinkWriter
     private String mapRowKindToAction(RowKind rowKind) {
         switch (rowKind) {
             case INSERT:
+                return "insert";
             case UPDATE_AFTER:
                 return "update";
             case DELETE:
