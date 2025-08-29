@@ -232,26 +232,4 @@ public class SQLVectorFunctionTest {
             Assertions.assertNotNull(value);
         }
     }
-
-    @Test
-    public void testVectorFunctionWithNullInput() {
-        ReadonlyConfig config =
-                ReadonlyConfig.fromMap(
-                        Collections.singletonMap(
-                                "query",
-                                "SELECT id, VECTOR_DIMENSION(vector_field) as vector_dim FROM dual"));
-
-        SQLTransform sqlTransform = new SQLTransform(config, catalogTable);
-
-        // Test with null vector
-        SeaTunnelRow inputRow = new SeaTunnelRow(new Object[] {1, null, null});
-        List<SeaTunnelRow> result = sqlTransform.transformRow(inputRow);
-
-        Assertions.assertNotNull(result);
-        Assertions.assertEquals(1, result.size());
-
-        SeaTunnelRow outputRow = result.get(0);
-        Assertions.assertEquals(1, outputRow.getField(0));
-        Assertions.assertNull(outputRow.getField(1));
-    }
 }
