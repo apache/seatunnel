@@ -37,6 +37,9 @@ To use this connector you need put hadoop-cos-{hadoop.version}-{version}.jar and
   - [x] excel
   - [x] xml
   - [x] binary
+  - [x] canal_json
+  - [x] debezium_json
+  - [x] maxwell_json
 
 ## Options
 
@@ -76,6 +79,7 @@ To use this connector you need put hadoop-cos-{hadoop.version}-{version}.jar and
 | parquet_avro_write_timestamp_as_int96 | boolean | no       | false                                      | Only used when file_format is parquet.                                                                                                                                 |
 | parquet_avro_write_fixed_as_int96     | array   | no       | -                                          | Only used when file_format is parquet.                                                                                                                                 |
 | encoding                              | string  | no       | "UTF-8"                                    | Only used when file_format_type is json,text,csv,xml.                                                                                                                  |
+| merge_update_event                    | boolean | no       | false                                      | Only used when file_format_type is canal_json,debezium_json,maxwell_json.set true,when serialize data,UPDATE_AFTER and UPDATE_BEFORE event will merge into UPDATE data |
 
 ### path [string]
 
@@ -129,7 +133,7 @@ When the format in the `file_name_expression` parameter is `xxxx-${now}` , `file
 
 We supported as the following file types:
 
-`text` `csv` `parquet` `orc` `json` `excel` `xml` `binary`
+`text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `canal_json` `debezium_json` `maxwell_json`
 
 Please note that, The final file name will end with the file_format's suffix, the suffix of the text file is `txt`.
 
@@ -244,6 +248,12 @@ Support writing Parquet INT96 from a 12-byte field, only valid for parquet files
 
 Only used when file_format_type is json,text,csv,xml.
 The encoding of the file to write. This param will be parsed by `Charset.forName(encoding)`.
+
+### merge_update_event [boolean]
+
+Only used when file_format_type is canal_json,debezium_json,maxwell_json. 
+set true,then when serialize data,UPDATE_AFTER and UPDATE_BEFORE event will merge into UPDATE data;
+set false, when serialize data will get UPDATE_AFTER and UPDATE_BEFORE event
 
 ## Example
 

@@ -25,6 +25,7 @@ import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.common.utils.EncodingUtils;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.config.FileSinkConfig;
+import org.apache.seatunnel.format.json.canal.CanalJsonFormatOptions;
 import org.apache.seatunnel.format.json.canal.CanalJsonSerializationSchema;
 
 import org.apache.hadoop.fs.FSDataOutputStream;
@@ -45,6 +46,7 @@ public class CanalJsonWriteStrategy extends AbstractWriteStrategy<FSDataOutputSt
     private final LinkedHashMap<String, FSDataOutputStream> beingWrittenOutputStream;
     private final Map<String, Boolean> isFirstWrite;
     private final Charset charset;
+    private final Map<String, String> options;
 
     public CanalJsonWriteStrategy(FileSinkConfig textFileSinkConfig) {
         super(textFileSinkConfig);
@@ -52,6 +54,10 @@ public class CanalJsonWriteStrategy extends AbstractWriteStrategy<FSDataOutputSt
         this.isFirstWrite = new HashMap<>();
         this.charset = EncodingUtils.tryParseCharset(textFileSinkConfig.getEncoding());
         this.rowDelimiter = textFileSinkConfig.getRowDelimiter().getBytes(charset);
+        this.options = new HashMap<>();
+        this.options.put(
+                CanalJsonFormatOptions.MERGE_UPDATE_EVENT.key(),
+                textFileSinkConfig.getMergeUpdateEvent().toString());
     }
 
     @Override
@@ -61,7 +67,8 @@ public class CanalJsonWriteStrategy extends AbstractWriteStrategy<FSDataOutputSt
                 new CanalJsonSerializationSchema(
                         buildSchemaWithRowType(
                                 catalogTable.getSeaTunnelRowType(), sinkColumnsIndexInRow),
-                        charset);
+                        charset,
+                        options);
     }
 
     @Override
@@ -76,6 +83,9 @@ public class CanalJsonWriteStrategy extends AbstractWriteStrategy<FSDataOutputSt
                                     sinkColumnsIndexInRow.stream()
                                             .mapToInt(Integer::intValue)
                                             .toArray()));
+            if (rowBytes == null) {
+                return;
+            }
             if (isFirstWrite.get(filePath)) {
                 isFirstWrite.put(filePath, false);
             } else {

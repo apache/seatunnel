@@ -41,6 +41,9 @@ import ChangeLog from '../changelog/connector-file-oss.md';
   - [x] excel
   - [x] xml
   - [x] binary
+  - [x] canal_json
+  - [x] debezium_json
+  - [x] maxwell_json
 
 ## Data Type Mapping
 
@@ -110,27 +113,28 @@ If write to `csv`, `text`, `json` file type, All column will be string.
 | have_partition                        | boolean | no       | false                                      | Whether you need processing partitions.                                                                                                                                |
 | partition_by                          | array   | no       | -                                          | Only used then have_partition is true                                                                                                                                  |
 | partition_dir_expression              | string  | no       | "${k0}=${v0}/${k1}=${v1}/.../${kn}=${vn}/" | Only used then have_partition is true                                                                                                                                  |
-| is_partition_field_write_in_file      | boolean | no       | false                                     | Only used then have_partition is true                                                                                                                                  |
-| sink_columns                          | array   | no       |                                           | When this parameter is empty, all fields are sink columns                                                                                                              |
-| is_enable_transaction                 | boolean | no       | true                                      |                                                                                                                                                                        |
-| batch_size                            | int     | no       | 1000000                                   |                                                                                                                                                                        |
-| compress_codec                        | string  | no       | none                                      |                                                                                                                                                                        |
-| common-options                        | object  | no       | -                                         |                                                                                                                                                                        |
-| max_rows_in_memory                    | int     | no       | -                                         | Only used when file_format_type is excel.                                                                                                                              |
-| sheet_max_rows                        | int     | no       | 1048576                                   | Only used when file format_type is excel.                                                                                                                              |
-| sheet_name                            | string  | no       | Sheet${Random number}                     | Only used when file_format_type is excel.                                                                                                                              |
-| csv_string_quote_mode                 | enum    | no       | MINIMAL                                   | Only used when file_format is csv.                                                                                                                                     |
-| xml_root_tag                          | string  | no       | RECORDS                                   | Only used when file_format is xml.                                                                                                                                     |
-| xml_row_tag                           | string  | no       | RECORD                                    | Only used when file_format is xml.                                                                                                                                     |
-| xml_use_attr_format                   | boolean | no       | -                                         | Only used when file_format is xml.                                                                                                                                     |
-| single_file_mode                      | boolean | no       | false                                     | Each parallelism will only output one file. When this parameter is turned on, batch_size will not take effect. The output file name does not have a file block suffix. |
-| create_empty_file_when_no_data        | boolean | no       | false                                     | When there is no data synchronization upstream, the corresponding data files are still generated.                                                                      |
-| parquet_avro_write_timestamp_as_int96 | boolean | no       | false                                     | Only used when file_format is parquet.                                                                                                                                 |
-| parquet_avro_write_fixed_as_int96     | array   | no       | -                                         | Only used when file_format is parquet.                                                                                                                                 |
-| enable_header_write                   | boolean | no       | false                                     | Only used when file_format_type is text,csv.<br/> false:don't write header,true:write header.                                                                          |
-| encoding                              | string  | no       | "UTF-8"                                   | Only used when file_format_type is json,text,csv,xml.                                                                                                                  |
-| schema_save_mode                      | Enum    | no       | CREATE_SCHEMA_WHEN_NOT_EXIST              | Before turning on the synchronous task, do different treatment of the target path                                                                                      |
-| data_save_mode                        | Enum    | no       | APPEND_DATA                               | Before opening the synchronous task, the data file in the target path is differently processed                                                                         |
+| is_partition_field_write_in_file      | boolean | no       | false                                      | Only used then have_partition is true                                                                                                                                  |
+| sink_columns                          | array   | no       |                                            | When this parameter is empty, all fields are sink columns                                                                                                              |
+| is_enable_transaction                 | boolean | no       | true                                       |                                                                                                                                                                        |
+| batch_size                            | int     | no       | 1000000                                    |                                                                                                                                                                        |
+| compress_codec                        | string  | no       | none                                       |                                                                                                                                                                        |
+| common-options                        | object  | no       | -                                          |                                                                                                                                                                        |
+| max_rows_in_memory                    | int     | no       | -                                          | Only used when file_format_type is excel.                                                                                                                              |
+| sheet_max_rows                        | int     | no       | 1048576                                    | Only used when file format_type is excel.                                                                                                                              |
+| sheet_name                            | string  | no       | Sheet${Random number}                      | Only used when file_format_type is excel.                                                                                                                              |
+| csv_string_quote_mode                 | enum    | no       | MINIMAL                                    | Only used when file_format is csv.                                                                                                                                     |
+| xml_root_tag                          | string  | no       | RECORDS                                    | Only used when file_format is xml.                                                                                                                                     |
+| xml_row_tag                           | string  | no       | RECORD                                     | Only used when file_format is xml.                                                                                                                                     |
+| xml_use_attr_format                   | boolean | no       | -                                          | Only used when file_format is xml.                                                                                                                                     |
+| single_file_mode                      | boolean | no       | false                                      | Each parallelism will only output one file. When this parameter is turned on, batch_size will not take effect. The output file name does not have a file block suffix. |
+| create_empty_file_when_no_data        | boolean | no       | false                                      | When there is no data synchronization upstream, the corresponding data files are still generated.                                                                      |
+| parquet_avro_write_timestamp_as_int96 | boolean | no       | false                                      | Only used when file_format is parquet.                                                                                                                                 |
+| parquet_avro_write_fixed_as_int96     | array   | no       | -                                          | Only used when file_format is parquet.                                                                                                                                 |
+| enable_header_write                   | boolean | no       | false                                      | Only used when file_format_type is text,csv.<br/> false:don't write header,true:write header.                                                                          |
+| encoding                              | string  | no       | "UTF-8"                                    | Only used when file_format_type is json,text,csv,xml.                                                                                                                  |
+| schema_save_mode                      | Enum    | no       | CREATE_SCHEMA_WHEN_NOT_EXIST               | Before turning on the synchronous task, do different treatment of the target path                                                                                      |
+| data_save_mode                        | Enum    | no       | APPEND_DATA                                | Before opening the synchronous task, the data file in the target path is differently processed                                                                         |
+| merge_update_event                    | boolean | no       | false                                      | Only used when file_format_type is canal_json,debezium_json,maxwell_json.set true,when serialize data,UPDATE_AFTER and UPDATE_BEFORE event will merge into UPDATE data |
 
 ### path [string]
 
@@ -184,7 +188,7 @@ When the format in the `file_name_expression` parameter is `xxxx-${Now}` , `file
 
 We supported as the following file types:
 
-`text` `csv` `parquet` `orc` `json` `excel` `xml` `binary`
+`text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `canal_json` `debezium_json` `maxwell_json`
 
 Please note that, The final file name will end with the file_format_type's suffix, the suffix of the text file is `txt`.
 
@@ -316,6 +320,12 @@ Option introduction：
 `DROP_DATA`： use the path but delete data files in the path.
 `APPEND_DATA`：use the path, and add new files in the path for write data.   
 `ERROR_WHEN_DATA_EXISTS`：When there are some data files in the path, an error will is reported.
+
+### merge_update_event [boolean]
+
+Only used when file_format_type is canal_json,debezium_json,maxwell_json.
+set true,then when serialize data,UPDATE_AFTER and UPDATE_BEFORE event will merge into UPDATE data;
+set false, when serialize data will get UPDATE_AFTER and UPDATE_BEFORE event
 
 ## How to Create an Oss Data Synchronization Jobs
 

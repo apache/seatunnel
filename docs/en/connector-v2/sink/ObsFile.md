@@ -29,6 +29,9 @@ By default, we use 2PC commit to ensure `exactly-once`
   - [x] orc
   - [x] json
   - [x] excel
+  - [x] canal_json
+  - [x] debezium_json
+  - [x] maxwell_json
 
 ## Description
 
@@ -68,7 +71,7 @@ It only supports hadoop version **2.9.X+**.
 | filename_time_format             | string  | no       | "yyyy.MM.dd"                               | Specify the time format of the `path`. Only used when custom_filename is true. [Tips](#filename_time_format)                                                           |
 | file_format_type                 | string  | no       | "csv"                                      | Supported file types. [Tips](#file_format_type)                                                                                                                        |
 | field_delimiter                  | string  | no       | '\001'                                     | The separator between columns in a row of data.Only used when file_format is text.                                                                                     |
-| row_delimiter                    | string  | no       | "\n"                                       | The separator between rows in a file. Only needed by `text`, `csv` and `json` file format.                                                                              |
+| row_delimiter                    | string  | no       | "\n"                                       | The separator between rows in a file. Only needed by `text`, `csv` and `json` file format.                                                                             |
 | have_partition                   | boolean | no       | false                                      | Whether you need processing partitions.                                                                                                                                |
 | partition_by                     | array   | no       | -                                          | Partition data based on selected fields. Only used then have_partition is true.                                                                                        |
 | partition_dir_expression         | string  | no       | "${k0}=${v0}/${k1}=${v1}/.../${kn}=${vn}/" | Only used then have_partition is true.[Tips](#partition_dir_expression)                                                                                                |
@@ -83,6 +86,7 @@ It only supports hadoop version **2.9.X+**.
 | max_rows_in_memory               | int     | no       | -                                          | When File Format is Excel,The maximum number of data items that can be cached in the memory.Only used when file_format is excel.                                       |
 | sheet_name                       | string  | no       | Sheet${Random number}                      | Writer the sheet of the workbook. Only used when file_format is excel.                                                                                                 |
 | sheet_max_rows                   | int     | no       | 1048576                                    | Only used when file format_type is excel.                                                                                                                              |
+| merge_update_event               | boolean | no       | false                                      | Only used when file_format_type is canal_json,debezium_json,maxwell_json.set true,when serialize data,UPDATE_AFTER and UPDATE_BEFORE event will merge into UPDATE data |
 
 ### Tips
 
@@ -117,7 +121,7 @@ Please note that, If `is_enable_transaction` is `true`, we will auto add `${tran
 
 > We supported as the following file types:
 >
-> `text` `json` `csv` `orc` `parquet` `excel`
+> `text` `json` `csv` `orc` `parquet` `excel` `canal_json` `debezium_json` `maxwell_json`
 
 Please note that, The final file name will end with the file_format's suffix, the suffix of the text file is `txt`.
 
@@ -163,6 +167,12 @@ Please note that, The final file name will end with the file_format's suffix, th
 > - parquet: `lzo` `snappy` `lz4` `gzip` `brotli` `zstd` `none`
 
 Please note that excel type does not support any compression format
+
+#### <span id="merge_update_event"> merge_update_event </span>
+
+> Only used when file_format_type is canal_json,debezium_json,maxwell_json.
+> set true,then when serialize data,UPDATE_AFTER and UPDATE_BEFORE event will merge into UPDATE data;
+> set false, when serialize data will get UPDATE_AFTER and UPDATE_BEFORE event
 
 #### <span id="common_options"> common options </span>
 

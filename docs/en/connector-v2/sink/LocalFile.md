@@ -36,6 +36,9 @@ By default, we use 2PC commit to ensure `exactly-once`
   - [x] excel
   - [x] xml
   - [x] binary
+  - [x] canal_json
+  - [x] debezium_json
+  - [x] maxwell_json
 
 ## Options
 
@@ -74,6 +77,7 @@ By default, we use 2PC commit to ensure `exactly-once`
 | encoding                              | string  | no       | "UTF-8"                                    | Only used when file_format_type is json,text,csv,xml.                                                                                                                  |
 | schema_save_mode                      | string  | no       | CREATE_SCHEMA_WHEN_NOT_EXIST               | Existing dir processing method                                                                                                                                         |
 | data_save_mode                        | string  | no       | APPEND_DATA                                | Existing data processing method                                                                                                                                        |
+| merge_update_event                    | boolean | no       | false                                      | Only used when file_format_type is canal_json,debezium_json,maxwell_json.set true,when serialize data,UPDATE_AFTER and UPDATE_BEFORE event will merge into UPDATE data |
 
 ### path [string]
 
@@ -111,7 +115,7 @@ When the format in the `file_name_expression` parameter is `xxxx-${now}` , `file
 
 We supported as the following file types:
 
-`text` `csv` `parquet` `orc` `json` `excel` `xml` `binary`
+`text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `canal_json` `debezium_json` `maxwell_json`
 
 Please note that, The final file name will end with the file_format_type's suffix, the suffix of the text file is `txt`.
 
@@ -245,6 +249,12 @@ Existing data processing method.
 - DROP_DATA: preserve dir and delete data files
 - APPEND_DATA: preserve dir, preserve data files
 - ERROR_WHEN_DATA_EXISTS: when there is data files, an error is reported
+
+### merge_update_event [boolean]
+
+Only used when file_format_type is canal_json,debezium_json,maxwell_json.
+set true,then when serialize data,UPDATE_AFTER and UPDATE_BEFORE event will merge into UPDATE data;
+set false, when serialize data will get UPDATE_AFTER and UPDATE_BEFORE event
 
 ## Example
 

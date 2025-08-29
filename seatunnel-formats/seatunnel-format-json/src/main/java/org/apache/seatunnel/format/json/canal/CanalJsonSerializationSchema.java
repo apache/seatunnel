@@ -33,6 +33,7 @@ import org.apache.seatunnel.format.json.exception.SeaTunnelJsonFormatException;
 import org.apache.commons.lang3.StringUtils;
 
 import java.nio.charset.Charset;
+import java.util.Map;
 
 import static org.apache.seatunnel.api.table.type.BasicType.LONG_TYPE;
 import static org.apache.seatunnel.api.table.type.BasicType.STRING_TYPE;
@@ -46,34 +47,52 @@ public class CanalJsonSerializationSchema implements SerializationSchema {
 
     private static final String OP_INSERT = "INSERT";
     private static final String OP_DELETE = "DELETE";
+    private static final String OP_UPDATE = "UPDATE";
 
     private transient SeaTunnelRow reuse;
 
     private final JsonSerializationSchema jsonSerializer;
 
+    boolean mergeUpdateEventFlag;
+    SeaTunnelRow cacheUpdateBeforeRow;
+
     public CanalJsonSerializationSchema(SeaTunnelRowType rowType) {
         this.jsonSerializer = new JsonSerializationSchema(createJsonRowType(rowType));
-        this.reuse = new SeaTunnelRow(5);
+        this.reuse = new SeaTunnelRow(6);
+        mergeUpdateEventFlag = CanalJsonFormatOptions.MERGE_UPDATE_EVENT.defaultValue();
     }
 
-    public CanalJsonSerializationSchema(SeaTunnelRowType rowType, Charset charset) {
+    public CanalJsonSerializationSchema(
+            SeaTunnelRowType rowType, Charset charset, Map<String, String> options) {
         this.jsonSerializer = new JsonSerializationSchema(createJsonRowType(rowType), charset);
-        this.reuse = new SeaTunnelRow(5);
+        this.reuse = new SeaTunnelRow(6);
+        mergeUpdateEventFlag = CanalJsonFormatOptions.getMergeUpdateEvent(options);
     }
 
     @Override
     public byte[] serialize(SeaTunnelRow row) {
         try {
-            String opType = rowKind2String(row.getRowKind());
-            reuse.setField(0, new SeaTunnelRow[] {row});
-            reuse.setField(1, opType);
+            if (mergeUpdateEventFlag && row.getRowKind() == RowKind.UPDATE_BEFORE) {
+                cacheUpdateBeforeRow = row;
+                return null;
+            }
+
+            if (mergeUpdateEventFlag && row.getRowKind() == RowKind.UPDATE_AFTER) {
+                reuse.setField(0, cacheUpdateBeforeRow);
+            } else {
+                reuse.setField(0, null);
+            }
+
+            reuse.setField(1, new SeaTunnelRow[] {row});
+            reuse.setField(2, rowKind2String(row.getRowKind()));
+
             if (!StringUtils.isEmpty(row.getTableId())) {
-                reuse.setField(2, TablePath.of(row.getTableId()).getDatabaseName());
-                reuse.setField(3, TablePath.of(row.getTableId()).getTableName());
+                reuse.setField(3, TablePath.of(row.getTableId()).getDatabaseName());
+                reuse.setField(4, TablePath.of(row.getTableId()).getTableName());
             }
 
             if (row.getOptions() != null && row.getOptions().containsKey(EVENT_TIME.getName())) {
-                reuse.setField(4, row.getOptions().get(EVENT_TIME.getName()));
+                reuse.setField(5, row.getOptions().get(EVENT_TIME.getName()));
             }
 
             return jsonSerializer.serialize(reuse);
@@ -86,6 +105,9 @@ public class CanalJsonSerializationSchema implements SerializationSchema {
         switch (rowKind) {
             case INSERT:
             case UPDATE_AFTER:
+                if (mergeUpdateEventFlag && rowKind.equals(RowKind.UPDATE_AFTER)) {
+                    return OP_UPDATE;
+                }
                 return OP_INSERT;
             case UPDATE_BEFORE:
             case DELETE:
@@ -98,11 +120,8 @@ public class CanalJsonSerializationSchema implements SerializationSchema {
     }
 
     private static SeaTunnelRowType createJsonRowType(SeaTunnelRowType databaseSchema) {
-        // Canal JSON contains other information, e.g. "database", "ts"
-        // but we don't need them
-        // and we don't need "old" , because can not support UPDATE_BEFORE,UPDATE_AFTER
         return new SeaTunnelRowType(
-                new String[] {"data", "type", "database", "table", "ts"},
+                new String[] {"old", "data", "type", "database", "table", "ts"},
                 new SeaTunnelDataType[] {
                     new ArrayType<>(SeaTunnelRowType[].class, databaseSchema),
                     STRING_TYPE,
