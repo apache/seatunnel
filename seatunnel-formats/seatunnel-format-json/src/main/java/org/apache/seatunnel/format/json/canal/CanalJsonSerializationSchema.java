@@ -124,6 +124,7 @@ public class CanalJsonSerializationSchema implements SerializationSchema {
                 new String[] {"old", "data", "type", "database", "table", "ts"},
                 new SeaTunnelDataType[] {
                     new ArrayType<>(SeaTunnelRowType[].class, databaseSchema),
+                    new ArrayType<>(SeaTunnelRowType[].class, databaseSchema),
                     STRING_TYPE,
                     STRING_TYPE,
                     STRING_TYPE,

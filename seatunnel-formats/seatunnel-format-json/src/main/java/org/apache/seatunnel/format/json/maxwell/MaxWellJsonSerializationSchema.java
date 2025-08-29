@@ -117,7 +117,7 @@ public class MaxWellJsonSerializationSchema implements SerializationSchema {
         return new SeaTunnelRowType(
                 new String[] {"old", "data", "type", "database", "table", "ts"},
                 new SeaTunnelDataType[] {
-                    databaseSchema, STRING_TYPE, STRING_TYPE, STRING_TYPE, LONG_TYPE
+                    databaseSchema, databaseSchema, STRING_TYPE, STRING_TYPE, STRING_TYPE, LONG_TYPE
                 });
     }
 }

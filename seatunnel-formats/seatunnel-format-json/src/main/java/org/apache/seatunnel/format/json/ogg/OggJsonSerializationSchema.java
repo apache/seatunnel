@@ -116,6 +116,8 @@ public class OggJsonSerializationSchema implements SerializationSchema {
     private static SeaTunnelRowType createJsonRowType(SeaTunnelRowType databaseSchema) {
         return new SeaTunnelRowType(
                 new String[] {"before", "after", "op_type", "table", "op_ts"},
-                new SeaTunnelDataType[] {databaseSchema, STRING_TYPE, STRING_TYPE, LONG_TYPE});
+                new SeaTunnelDataType[] {
+                    databaseSchema, databaseSchema, STRING_TYPE, STRING_TYPE, LONG_TYPE
+                });
     }
 }
