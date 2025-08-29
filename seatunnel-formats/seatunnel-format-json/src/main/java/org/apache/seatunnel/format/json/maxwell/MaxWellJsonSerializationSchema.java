@@ -58,12 +58,14 @@ public class MaxWellJsonSerializationSchema implements SerializationSchema {
     public MaxWellJsonSerializationSchema(SeaTunnelRowType rowType) {
         this.jsonSerializer = new JsonSerializationSchema(createJsonRowType(rowType));
         this.reuse = new SeaTunnelRow(6);
+        this.mergeUpdateEventFlag = MaxWellJsonFormatOptions.MERGE_UPDATE_EVENT.defaultValue();
     }
 
     public MaxWellJsonSerializationSchema(
             SeaTunnelRowType rowType, Charset charset, Map<String, String> options) {
         this.jsonSerializer = new JsonSerializationSchema(createJsonRowType(rowType), charset);
         this.reuse = new SeaTunnelRow(6);
+        this.mergeUpdateEventFlag = MaxWellJsonFormatOptions.getMergeUpdateEvent(options);
     }
 
     @Override
