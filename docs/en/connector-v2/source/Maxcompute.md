@@ -68,7 +68,7 @@ Used to read data from Maxcompute.
 
 The list of tables to be read, you can use this configuration instead of `table_name`.
 
-### tunnel_endpoint[String]
+### tunnel_endpoint [String]
 Specifies the custom endpoint URL for the MaxCompute Tunnel service.
 
 By default, the endpoint is automatically inferred from the configured region.

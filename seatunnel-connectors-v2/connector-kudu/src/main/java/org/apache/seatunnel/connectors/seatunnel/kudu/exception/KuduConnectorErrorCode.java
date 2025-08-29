@@ -22,7 +22,7 @@ import org.apache.seatunnel.common.exception.SeaTunnelErrorCode;
 public enum KuduConnectorErrorCode implements SeaTunnelErrorCode {
     GET_KUDUSCAN_OBJECT_FAILED("KUDU-01", "Get the Kuduscan object for each splice failed"),
     CLOSE_KUDU_CLIENT_FAILED("KUDU-02", "Close Kudu client failed"),
-    DATA_TYPE_CAST_FILED("KUDU-03", "Value type does not match column type"),
+    DATA_TYPE_CAST_FIELD("KUDU-03", "Value type does not match column type"),
     WRITE_DATA_FAILED("KUDU-04", "while sending value to Kudu failed"),
     INIT_KUDU_CLIENT_FAILED("KUDU-05", "Initialize the Kudu client failed"),
     GENERATE_KUDU_PARAMETERS_FAILED(

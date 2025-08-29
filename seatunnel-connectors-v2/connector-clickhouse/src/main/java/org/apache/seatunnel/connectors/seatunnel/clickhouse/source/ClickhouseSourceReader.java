@@ -19,17 +19,15 @@ package org.apache.seatunnel.connectors.seatunnel.clickhouse.source;
 
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.source.SourceReader;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.exception.ClickhouseConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.exception.ClickhouseConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.source.split.ClickhouseSourceSplit;
 
 import com.clickhouse.client.ClickHouseClient;
-import com.clickhouse.client.ClickHouseFormat;
 import com.clickhouse.client.ClickHouseNode;
-import com.clickhouse.client.ClickHouseRequest;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
@@ -38,39 +36,29 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
-import java.util.Random;
 
 @Slf4j
 public class ClickhouseSourceReader implements SourceReader<SeaTunnelRow, ClickhouseSourceSplit> {
 
-    private final List<ClickHouseNode> servers;
+    private final Map<TablePath, List<ClickHouseNode>> servers;
     private ClickHouseClient client;
-    private final SeaTunnelRowType rowTypeInfo;
     private final Context context;
-    private ClickHouseRequest<?> request;
     private volatile boolean noMoreSplits;
     private final Queue<ClickhouseSourceSplit> splitQueue;
     private final Map<TablePath, ClickhouseSourceTable> tables;
 
     ClickhouseSourceReader(
-            List<ClickHouseNode> servers,
+            Map<TablePath, List<ClickHouseNode>> servers,
             Context readerContext,
-            SeaTunnelRowType rowTypeInfo,
             Map<TablePath, ClickhouseSourceTable> tables) {
         this.servers = servers;
         this.context = readerContext;
-        this.rowTypeInfo = rowTypeInfo;
         this.splitQueue = new ArrayDeque<>();
         this.tables = tables;
     }
 
     @Override
-    public void open() {
-        Random random = new Random();
-        ClickHouseNode server = servers.get(random.nextInt(servers.size()));
-        client = ClickHouseClient.newInstance(server.getProtocol());
-        request = client.connect(server).format(ClickHouseFormat.RowBinaryWithNamesAndTypes);
-    }
+    public void open() {}
 
     @Override
     public void close() throws IOException {
@@ -96,8 +84,14 @@ public class ClickhouseSourceReader implements SourceReader<SeaTunnelRow, Clickh
                                         split.getConfigTablePath().getDatabaseName(),
                                         split.getConfigTablePath().getTableName()));
                     }
+
+                    CatalogTable catalogTable = clickhouseSourceTable.getCatalogTable();
+
                     clickhouseValueReader =
-                            new ClickhouseValueReader(split, rowTypeInfo, clickhouseSourceTable);
+                            new ClickhouseValueReader(
+                                    split,
+                                    catalogTable.getSeaTunnelRowType(),
+                                    clickhouseSourceTable);
                     while (clickhouseValueReader.hasNext()) {
                         List<SeaTunnelRow> next = clickhouseValueReader.next();
                         next.forEach(output::collect);

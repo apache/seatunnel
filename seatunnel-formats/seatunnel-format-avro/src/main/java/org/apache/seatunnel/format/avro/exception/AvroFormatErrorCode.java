@@ -22,7 +22,7 @@ import org.apache.seatunnel.common.exception.SeaTunnelErrorCode;
 public enum AvroFormatErrorCode implements SeaTunnelErrorCode {
     UNSUPPORTED_DATA_TYPE("AVRO-01", "Unsupported data type."),
     SERIALIZATION_ERROR("AVRO-02", "serialize error."),
-    FILED_NOT_EXIST("AVRO-03", "Field not exist.");
+    FIELD_NOT_EXIST("AVRO-03", "Field not exist.");
 
     private final String code;
     private final String description;

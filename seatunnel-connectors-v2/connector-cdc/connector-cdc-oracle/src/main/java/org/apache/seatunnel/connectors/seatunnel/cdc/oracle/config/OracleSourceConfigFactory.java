@@ -73,8 +73,8 @@ public class OracleSourceConfigFactory extends JdbcSourceConfigFactory {
 
         try {
             Class.forName(DRIVER_CLASS_NAME);
-        } catch (ClassNotFoundException e) {
-            throw new RuntimeException(e);
+        } catch (Exception e) {
+            log.warn("Failed to load JDBC driver {}", DRIVER_CLASS_NAME, e);
         }
 
         Properties props = new Properties();

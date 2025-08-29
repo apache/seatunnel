@@ -21,13 +21,18 @@ import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 
 import lombok.Getter;
 
+import java.util.ArrayList;
+import java.util.List;
+
 @Getter
 public class PaimonSourceConfig extends PaimonConfig {
 
     private String query;
+    private List<PaimonSourceTableConfig> tableConfigList = new ArrayList<>();
 
     public PaimonSourceConfig(ReadonlyConfig readonlyConfig) {
         super(readonlyConfig);
         this.query = readonlyConfig.get(PaimonSourceOptions.QUERY_SQL);
+        this.tableConfigList = PaimonSourceTableConfig.of(readonlyConfig);
     }
 }

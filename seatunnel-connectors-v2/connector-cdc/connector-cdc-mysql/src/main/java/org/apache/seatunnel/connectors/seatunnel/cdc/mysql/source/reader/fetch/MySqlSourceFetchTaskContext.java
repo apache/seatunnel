@@ -19,8 +19,10 @@ package org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source.reader.fetch;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.utils.ReflectionUtils;
+import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.dialect.JdbcDataSourceDialect;
+import org.apache.seatunnel.connectors.cdc.base.option.StartupMode;
 import org.apache.seatunnel.connectors.cdc.base.relational.JdbcSourceEventDispatcher;
 import org.apache.seatunnel.connectors.cdc.base.source.offset.Offset;
 import org.apache.seatunnel.connectors.cdc.base.source.reader.external.JdbcSourceFetchTaskContext;
@@ -52,6 +54,7 @@ import io.debezium.connector.mysql.MySqlStreamingChangeEventSourceMetrics;
 import io.debezium.connector.mysql.MySqlTaskContext;
 import io.debezium.connector.mysql.MySqlTopicSelector;
 import io.debezium.data.Envelope;
+import io.debezium.jdbc.JdbcConnection;
 import io.debezium.pipeline.DataChangeEvent;
 import io.debezium.pipeline.ErrorHandler;
 import io.debezium.pipeline.metrics.SnapshotChangeEventSourceMetrics;
@@ -77,6 +80,7 @@ import java.util.Optional;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source.offset.BinlogOffset.BINLOG_FILENAME_OFFSET_KEY;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mysql.utils.MySqlConnectionUtils.createBinaryClient;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mysql.utils.MySqlConnectionUtils.createMySqlConnection;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mysql.utils.MySqlConnectionUtils.findBinlogOffsetBytimestamp;
 
 /** The context for fetch task that fetching data of snapshot split from MySQL data source. */
 @Slf4j
@@ -268,8 +272,8 @@ public class MySqlSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
         Offset offset =
                 mySqlSplit.isSnapshotSplit()
                         ? BinlogOffset.INITIAL_OFFSET
-                        : mySqlSplit.asIncrementalSplit().getStartupOffset();
-
+                        : getInitOffset(mySqlSplit);
+        LOG.info("mysql cdc start at {}", offset);
         MySqlOffsetContext mySqlOffsetContext = loader.load(offset.getOffset());
 
         if (!isBinlogAvailable(mySqlOffsetContext)) {
@@ -280,6 +284,21 @@ public class MySqlSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
                             + "available on the server. Reconfigure the connector to use a snapshot when needed.");
         }
         return mySqlOffsetContext;
+    }
+
+    private Offset getInitOffset(SourceSplitBase mySqlSplit) {
+        StartupMode startupMode = getSourceConfig().getStartupConfig().getStartupMode();
+        if (startupMode.equals(StartupMode.TIMESTAMP)) {
+            long timestamp = getSourceConfig().getStartupConfig().getTimestamp();
+            try (JdbcConnection jdbcConnection =
+                    getDataSourceDialect().openJdbcConnection(getSourceConfig())) {
+                return findBinlogOffsetBytimestamp(jdbcConnection, binaryLogClient, timestamp);
+            } catch (Exception e) {
+                throw new SeaTunnelException(e);
+            }
+        } else {
+            return mySqlSplit.asIncrementalSplit().getStartupOffset();
+        }
     }
 
     private boolean isBinlogAvailable(MySqlOffsetContext offset) {

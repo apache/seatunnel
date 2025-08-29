@@ -25,7 +25,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
-import org.apache.seatunnel.common.utils.BufferUtils;
+import org.apache.seatunnel.common.utils.VectorUtils;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.AbstractJdbcRowConverter;
@@ -101,7 +101,7 @@ public class OceanBaseMysqlJdbcRowConverter extends AbstractJdbcRowConverter {
                         for (int i = 0; i < stringArray.length; i++) {
                             arrays[i] = Float.parseFloat(stringArray[i]);
                         }
-                        fields[fieldIndex] = BufferUtils.toByteBuffer(arrays);
+                        fields[fieldIndex] = VectorUtils.toByteBuffer(arrays);
                     }
                     break;
                 case DOUBLE:
@@ -188,7 +188,7 @@ public class OceanBaseMysqlJdbcRowConverter extends AbstractJdbcRowConverter {
                         if (row.getField(fieldIndex) instanceof ByteBuffer) {
                             ByteBuffer byteBuffer = (ByteBuffer) row.getField(fieldIndex);
                             // Convert ByteBuffer to Float[]
-                            Float[] floatArray = BufferUtils.toFloatArray(byteBuffer);
+                            Float[] floatArray = VectorUtils.toFloatArray(byteBuffer);
                             StringBuilder vector = new StringBuilder();
                             vector.append("[");
                             for (Float aFloat : floatArray) {

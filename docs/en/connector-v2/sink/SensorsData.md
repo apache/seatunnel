@@ -55,35 +55,35 @@ SensorsData data sink address, the format is `https://${host}:8106/sa?project=${
 
 Threshold for the triggering flush operation in SensorsData SDK. When the memory cache queue reaches this value, the data in the cache will be sent. The default value is 50.
 
-### max_cache_row_size[int]
+### max_cache_row_size [int]
 
 Maximum cache refresh size for SensorsData SDK. If it exceeds this value, the flush operation will be triggered immediately. The default value is 0, which depends on bulkSize.
 
-### consumer[string]
+### consumer [string]
 
 When consumer is set to "console", the data will be output to console instead of send to the server.
 
-### entity_name[string]
+### entity_name [string]
 
 The entity name of the SensorsData entity data model to receive the data records.
 
-### record_type[string]
+### record_type [string]
 
 The record type of the SensorsData entity data model.
 
-### schema[string]
+### schema [string]
 
 The schema name of the SensorsData entity data model.
 
-### distinct_id_column[string]
+### distinct_id_column [string]
 
 The distinct id column of the user entity.
 
-### identity_fields[array]
+### identity_fields [array]
 
 The identity fields of the user entity.
 
-### property_fields[array]
+### property_fields [array]
 
 The property fields of the data record. Dupported types:
 - BOOLEAN
@@ -100,7 +100,7 @@ The property fields of the data record. Dupported types:
 - LIST_COMMA
 - LIST_SEMICOLON
 
-### event_name[string]
+### event_name [string]
 
 Currently, two formats are supported:
 
@@ -116,39 +116,39 @@ For example, Upstream data is the following:
 
 If `${name}` is set as the event name, the event name of the first row is "Purchase", and the event name of the second row is "Order".
 
-### time_column[string]
+### time_column [string]
 
 The time column of the event record.
 
-### time_free[boolean]
+### time_free [boolean]
 
 Enable historical data mode.
 
-### detail_id_column[string]
+### detail_id_column [string]
 
 The detail id column of the user entity.
 
-### item_id_column[string]
+### item_id_column [string]
 
 The item id column of the item entity.
 
-### item_type_column[string]
+### item_type_column [string]
 
 The item type column of the item entity.
 
-### skip_error_record[boolean]
+### skip_error_record [boolean]
 
 Whether ignore the error in translating the data record.
 
-### instant_events[array]
+### instant_events [array]
 
 Given a list of event names, mark the event as an instant event.
 
-### distinct_id_by_identities[boolean]
+### distinct_id_by_identities [boolean]
 
 When enabled, this option automatically fills the distinct_id using the values from identity_fields columns when the distinct_id_column value is null. This ensures that SensorsData receives a non-null distinct_id value as required.
 
-### null_as_profile_unset[boolean]
+### null_as_profile_unset [boolean]
 
 When enabled, null values in profile properties will be converted to profile unset operations, effectively removing the existing value from the profile.
 

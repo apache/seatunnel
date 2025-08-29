@@ -22,6 +22,9 @@ import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.config.CustomMySqlCon
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source.offset.BinlogOffset;
 
 import com.github.shyiko.mysql.binlog.BinaryLogClient;
+import com.github.shyiko.mysql.binlog.event.EventData;
+import com.github.shyiko.mysql.binlog.event.EventHeaderV4;
+import com.github.shyiko.mysql.binlog.event.RotateEventData;
 import io.debezium.config.Configuration;
 import io.debezium.connector.mysql.MySqlConnection;
 import io.debezium.connector.mysql.MySqlConnectorConfig;
@@ -36,9 +39,13 @@ import io.debezium.relational.TableId;
 import io.debezium.schema.TopicSelector;
 import io.debezium.util.SchemaNameAdjuster;
 
+import java.io.IOException;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicLong;
 
 /** MySQL connection Utilities. */
 public class MySqlConnectionUtils {
@@ -74,7 +81,10 @@ public class MySqlConnectionUtils {
 
     /** Fetch earliest binlog offsets in MySql Server. */
     public static BinlogOffset earliestBinlogOffset(JdbcConnection jdbc) {
-        final String showMasterStmt = "SHOW MASTER LOGS";
+        final String showMasterStmt =
+                ((MySqlConnection) jdbc).binaryLogStatusStatement().startsWith("SHOW BINARY")
+                        ? "SHOW BINARY LOGS"
+                        : "SHOW MASTER LOGS";
         JdbcConnection.ResultSetMapper<BinlogOffset> getCurrentBinlogOffset =
                 rs -> {
                     final String binlogFilename = rs.getString(1);
@@ -87,7 +97,7 @@ public class MySqlConnectionUtils {
 
     /** Fetch current binlog offsets in MySql Server. */
     public static BinlogOffset currentBinlogOffset(JdbcConnection jdbc) {
-        final String showMasterStmt = "SHOW MASTER STATUS";
+        MySqlConnection mySqlConnection = (MySqlConnection) jdbc;
         JdbcConnection.ResultSetMapper<BinlogOffset> getCurrentBinlogOffset =
                 rs -> {
                     final String binlogFilename = rs.getString(1);
@@ -97,7 +107,8 @@ public class MySqlConnectionUtils {
                     return new BinlogOffset(
                             binlogFilename, binlogPosition, 0L, 0, 0, gtidSet, null);
                 };
-        return getBinlogOffset(jdbc, showMasterStmt, getCurrentBinlogOffset);
+        return getBinlogOffset(
+                jdbc, mySqlConnection.binaryLogStatusStatement(), getCurrentBinlogOffset);
     }
 
     private static BinlogOffset getBinlogOffset(
@@ -184,5 +195,91 @@ public class MySqlConnectionUtils {
         }
 
         return variables;
+    }
+
+    public static BinlogOffset findBinlogOffsetBytimestamp(
+            JdbcConnection jdbc, BinaryLogClient client, long timestamp) {
+        final String showBinaryLogStmt =
+                ((MySqlConnection) jdbc).binaryLogStatusStatement().startsWith("SHOW BINARY")
+                        ? "SHOW BINARY LOGS"
+                        : "SHOW MASTER LOGS";
+        List<String> binlogFiles = new ArrayList<>();
+        JdbcConnection.ResultSetConsumer rsc =
+                rs -> {
+                    while (rs.next()) {
+                        String fileName = rs.getString(1);
+                        long fileSize = rs.getLong(2);
+                        if (fileSize > 0) {
+                            binlogFiles.add(fileName);
+                        }
+                    }
+                };
+        try {
+            jdbc.query(showBinaryLogStmt, rsc);
+            if (binlogFiles.isEmpty()) {
+                return BinlogOffset.INITIAL_OFFSET;
+            }
+            String binlogName = searchBinlogName(client, timestamp, binlogFiles);
+            return new BinlogOffset(binlogName, 0);
+        } catch (Exception e) {
+            throw new SeaTunnelException(e);
+        }
+    }
+
+    private static String searchBinlogName(
+            BinaryLogClient client, long targetMs, List<String> binlogFiles)
+            throws IOException, InterruptedException {
+        int startIdx = 0;
+        int endIdx = binlogFiles.size() - 1;
+
+        while (startIdx <= endIdx) {
+            int mid = startIdx + (endIdx - startIdx) / 2;
+            long midTs = getBinlogTimestamp(client, binlogFiles.get(mid));
+            if (midTs < targetMs) {
+                startIdx = mid + 1;
+            } else if (targetMs < midTs) {
+                endIdx = mid - 1;
+            } else {
+                return binlogFiles.get(mid);
+            }
+        }
+
+        return endIdx < 0 ? binlogFiles.get(0) : binlogFiles.get(endIdx);
+    }
+
+    public static long getBinlogTimestamp(BinaryLogClient client, String binlogFile)
+            throws IOException {
+
+        AtomicLong binlogTimestamps = new AtomicLong();
+        BinaryLogClient.EventListener eventListener =
+                event -> {
+                    EventData data = event.getData();
+                    if (data instanceof RotateEventData) {
+                        // We skip RotateEventData because it does not contain the timestamp we are
+                        // interested in.
+                        return;
+                    }
+
+                    EventHeaderV4 header = event.getHeader();
+                    long timestamp = header.getTimestamp();
+                    if (timestamp > 0 && binlogTimestamps.get() == 0) {
+                        binlogTimestamps.set(timestamp);
+                        try {
+                            client.disconnect();
+                        } catch (IOException e) {
+                            throw new RuntimeException(e);
+                        }
+                    }
+                };
+
+        try {
+            client.registerEventListener(eventListener);
+            client.setBinlogFilename(binlogFile);
+            client.setBinlogPosition(0);
+            client.connect();
+        } finally {
+            client.unregisterEventListener(eventListener);
+        }
+        return binlogTimestamps.get();
     }
 }
