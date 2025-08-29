@@ -409,7 +409,7 @@ public class LocalFileTest {
                         "{\"old\":null,\"data\":[{\"a\":2,\"b\":\"B\",\"c\":100}],\"type\":\"DELETE\",\"database\":\"default\",\"table\":\"default\",\"ts\":1}"));
 
         // test merge_update_event
-        options.put("merge_update_event",true);
+        options.put("merge_update_event", true);
         FileUtils.deleteFile("/tmp/seatunnel/LocalFileTest");
         SinkFlowTestUtils.runBatchWithCheckpointDisabled(
                 catalogTable,
@@ -534,7 +534,7 @@ public class LocalFileTest {
                         "{\"before\":{\"a\":2,\"b\":\"B\",\"c\":100},\"after\":null,\"op\":\"d\",\"source\":{\"schema\":\"default\",\"database\":\"default\",\"table\":\"default\"},\"ts_ms\":1}"));
 
         // test merge_update_event
-        options.put("merge_update_event",true);
+        options.put("merge_update_event", true);
         FileUtils.deleteFile("/tmp/seatunnel/LocalFileTest");
         SinkFlowTestUtils.runBatchWithCheckpointDisabled(
                 catalogTable,
@@ -563,8 +563,6 @@ public class LocalFileTest {
         Assertions.assertTrue(
                 dataStr.contains(
                         "{\"before\":{\"a\":2,\"b\":\"B\",\"c\":100},\"after\":null,\"op\":\"d\",\"source\":{\"schema\":\"default\",\"database\":\"default\",\"table\":\"default\"},\"ts_ms\":1}"));
-
-
     }
 
     @Test
@@ -660,7 +658,7 @@ public class LocalFileTest {
                         "{\"old\":null,\"data\":{\"a\":2,\"b\":\"B\",\"c\":100},\"type\":\"delete\",\"database\":\"default\",\"table\":\"default\",\"ts\":1}"));
 
         // test merge_update_event
-        options.put("merge_update_event",true);
+        options.put("merge_update_event", true);
         FileUtils.deleteFile("/tmp/seatunnel/LocalFileTest");
         SinkFlowTestUtils.runBatchWithCheckpointDisabled(
                 catalogTable,
@@ -689,8 +687,6 @@ public class LocalFileTest {
         Assertions.assertTrue(
                 dataStr.contains(
                         "{\"old\":null,\"data\":{\"a\":2,\"b\":\"B\",\"c\":100},\"type\":\"delete\",\"database\":\"default\",\"table\":\"default\",\"ts\":1}"));
-
-
     }
 
     @Test
