@@ -284,6 +284,37 @@ public class ConfigShadeTest {
     }
 
     @Test
+    public void testTableListPlaceholderReplacement() throws URISyntaxException {
+        String incOffsetDays = "7";
+        List<String> variables = new ArrayList<>();
+        variables.add("inc_offset_days=" + incOffsetDays);
+
+        URL resource = ConfigShadeTest.class.getResource("/config_table_list_variables.conf");
+        Assertions.assertNotNull(resource);
+        Config config = ConfigBuilder.of(Paths.get(resource.toURI()), variables);
+
+        // Verify the replacement of placeholders in the table_list in the source configuration
+        List<? extends ConfigObject> sourceConfigs = config.getObjectList("source");
+        for (ConfigObject configObject : sourceConfigs) {
+            Config sourceConfig = configObject.toConfig();
+            if (sourceConfig.hasPath("table_list")) {
+                List<? extends ConfigObject> tableList = sourceConfig.getObjectList("table_list");
+                for (ConfigObject tableObject : tableList) {
+                    Config tableConfig = tableObject.toConfig();
+                    String query = tableConfig.getString("query");
+                    // Verify that placeholders are replaced correctly
+                    Assertions.assertTrue(
+                            query.contains("sysdate-" + incOffsetDays),
+                            "Query should contain replaced placeholder value: " + query);
+                    Assertions.assertFalse(
+                            query.contains("${inc_offset_days}"),
+                            "Query should not contain unreplaced placeholder: " + query);
+                }
+            }
+        }
+    }
+
+    @Test
     public void testDecryptAndEncrypt() {
         String encryptUsername = ConfigShadeUtils.encryptOption("base64", USERNAME);
         String decryptUsername = ConfigShadeUtils.decryptOption("base64", encryptUsername);
