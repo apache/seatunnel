@@ -80,6 +80,12 @@ public class DorisSourceFactory implements TableSourceFactory {
     @Override
     public <T, SplitT extends SourceSplit, StateT extends Serializable>
             TableSource<T, SplitT, StateT> createSource(TableSourceFactoryContext context) {
+        // Load the JDBC driver in to DriverManager
+        try {
+            Class.forName("com.mysql.cj.jdbc.Driver");
+        } catch (Exception e) {
+            log.warn("Failed to load JDBC driver com.mysql.cj.jdbc.Driver ", e);
+        }
         DorisSourceConfig dorisSourceConfig = DorisSourceConfig.of(context.getOptions());
         List<DorisTableConfig> dorisTableConfigList = dorisSourceConfig.getTableConfigList();
         Map<TablePath, DorisSourceTable> dorisSourceTables = new HashMap<>();

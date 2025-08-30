@@ -48,9 +48,8 @@ import org.apache.iceberg.io.FileAppenderFactory;
 import org.apache.iceberg.types.Types;
 
 import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.Container;
 import org.testcontainers.utility.MountableFile;
@@ -125,7 +124,7 @@ public class IcebergSourceIT extends TestSuiteBase implements TestResource {
                 container.copyFileToContainer(MountableFile.forHostPath(CATALOG_DIR), CATALOG_DIR);
             };
 
-    @BeforeEach
+    @BeforeAll
     @Override
     public void startUp() throws Exception {
         initializeIcebergTable();
@@ -136,7 +135,7 @@ public class IcebergSourceIT extends TestSuiteBase implements TestResource {
     @Override
     public void tearDown() throws Exception {}
 
-    @AfterEach
+    @AfterAll
     public void clean() {
         // clean the catalog dir
         Path catalogPath = Paths.get(CATALOG_DIR);

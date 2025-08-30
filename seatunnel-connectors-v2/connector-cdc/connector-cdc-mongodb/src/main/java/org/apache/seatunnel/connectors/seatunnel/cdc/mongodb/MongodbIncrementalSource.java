@@ -136,4 +136,9 @@ public class MongodbIncrementalSource<T> extends IncrementalSource<T, MongodbSou
             SourceConfig sourceConfig, SourceReader.Context context) {
         return new MongoDBRecordEmitter<>(deserializationSchema, offsetFactory, context);
     }
+
+    @Override
+    public Optional<String> driverName() {
+        return Optional.empty();
+    }
 }

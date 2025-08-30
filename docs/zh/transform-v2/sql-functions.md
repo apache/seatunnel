@@ -305,6 +305,17 @@ REPLACE(NAME, ' ')
 
 select SPLIT(test,';') as arrays
 
+### MURMUR64
+
+```MURMUR64(string) -> LONG```
+
+计算输入字符串的 MurmurHash 128 哈希值，并返回低 64 位作为长整型值。MurmurHash 是一种非加密哈希函数，适用于一般的基于哈希的查找。此方法返回一个长整型值，如果输入参数为 null，则返回 null。
+
+示例:
+
+MURMUR64('hello world')
+MURMUR64(NAME)
+
 ### SOUNDEX
 
 ```SOUNDEX(string) -> STRING```
@@ -1139,3 +1150,69 @@ SELECT * FROM dual
 	LATERAL VIEW OUTER EXPLODE ( age ) AS age
 	LATERAL VIEW OUTER EXPLODE ( ARRAY(1,1) ) AS num
 ```
+
+## 向量函数
+
+### VECTOR_DIMS
+
+```VECTOR_DIMS(vector) -> INT```
+
+返回一个INT值，表示向量中的维数（元素）。
+
+示例:
+
+VECTOR_DIMS(vector)
+
+### VECTOR_NORM
+
+```VECTOR_NORM(vector) -> DOUBLE```
+
+计算向量的L2范数（欧几里得范数），表示向量的长度或大小。
+
+示例:
+
+VECTOR_NORM(vector)
+
+### INNER_PRODUCT
+
+```INNER_PRODUCT(vector1, vector2) -> DOUBLE```
+
+计算两个向量的内积（点积），用于测量向量之间的相似性和投影。
+
+示例:
+
+INNER_PRODUCT(vector1, vector2)
+
+### COSINE_DISTANCE
+
+```COSINE_DISTANCE(vector1, vector2) -> DOUBLE```
+
+返回介于 0 和 1 之间的 DOUBLE 值：
+
+0：相同的向量（完全相似）
+
+1：正交向量（完全不同）
+
+示例:
+
+COSINE_DISTANCE(vector1, vector2)
+
+### L1_DISTANCE
+
+```L1_DISTANCE(vector1, vector2) -> DOUBLE```
+
+计算两个向量之间的曼哈顿（L1）距离。
+
+示例:
+
+L1_DISTANCE(vector1, vector2)
+
+### L2_DISTANCE
+
+```L2_DISTANCE(vector1, vector2) -> DOUBLE```
+
+计算两个向量之间的欧几里得（L2）距离。
+
+示例:
+
+L2_DISTANCE(vector1, vector2)

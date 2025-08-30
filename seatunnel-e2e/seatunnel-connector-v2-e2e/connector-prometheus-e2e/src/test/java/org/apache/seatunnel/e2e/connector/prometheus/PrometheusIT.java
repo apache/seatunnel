@@ -55,7 +55,7 @@ import java.util.stream.Stream;
 @Slf4j
 public class PrometheusIT extends TestSuiteBase implements TestResource {
 
-    private static final String IMAGE = "bitnami/prometheus:2.53.0";
+    private static final String IMAGE = "bitnamilegacy/prometheus:2.53.0";
 
     private GenericContainer<?> prometheusContainer;
 

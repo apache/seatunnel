@@ -44,7 +44,7 @@ username of the Neo4j
 
 password of the Neo4j. required if `username` is provided
 
-### max_batch_size[Integer]
+### max_batch_size [Integer]
 
 max_batch_size refers to the maximum number of data entries that can be written in a single transaction when writing to a database.
 

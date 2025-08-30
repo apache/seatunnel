@@ -68,7 +68,7 @@ import ChangeLog from '../changelog/connector-clickhouse.md';
 | save_mode_create_template      | string  | no       | see below                    | 见下文。                                                                                                                                                   |
 | common-options                        |         | No   | -     | Sink插件查用参数,详见[Sink常用选项](../sink-common-options.md).                                                                                                                              |
 
-### schema_save_mode[Enum]
+### schema_save_mode [Enum]
 
 在开启同步任务之前，针对现有的表结构选择不同的处理方案。
 选项介绍：  
@@ -77,7 +77,7 @@ import ChangeLog from '../changelog/connector-clickhouse.md';
 `ERROR_WHEN_SCHEMA_NOT_EXIST` ：表不存在时会报错。  
 `IGNORE` ：忽略对表的处理。
 
-### data_save_mode[Enum]
+### data_save_mode [Enum]
 
 在开启同步任务之前，针对目标端已有的数据选择不同的处理方案。
 选项介绍：  

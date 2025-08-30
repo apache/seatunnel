@@ -25,7 +25,6 @@ import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
 import org.apache.seatunnel.engine.server.TestUtils;
 
-import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -42,13 +41,13 @@ import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.net.ConnectException;
 import java.net.HttpURLConnection;
-import java.util.Objects;
+import java.net.ServerSocket;
 import java.util.stream.Collectors;
 
 /** Test for Rest API with HTTPS. */
 @DisabledOnOs(OS.WINDOWS)
 public class RestApiHttpsForTruststoreTest extends AbstractSeaTunnelServerTest {
-    private static final int HTTP_PORT = 18080;
+    private int httpPort;
     private static final int HTTPS_PORT = 18443;
     private static final String SERVER_KEYSTORE_PASSWORD = "server_keystore_password";
     private static final String SERVER_TRUSTSTORE_PASSWORD = "server_truststore_password";
@@ -67,8 +66,9 @@ public class RestApiHttpsForTruststoreTest extends AbstractSeaTunnelServerTest {
 
         HttpConfig httpConfig = seaTunnelConfig.getEngineConfig().getHttpConfig();
         // Not enabled Http
+        httpPort = findFreePortExcluding(HTTPS_PORT);
         httpConfig.setEnabled(false);
-        httpConfig.setPort(HTTP_PORT);
+        httpConfig.setPort(httpPort);
         // Enabled Https
         httpConfig.setHttpsPort(HTTPS_PORT);
         httpConfig.setEnableHttps(true);
@@ -89,16 +89,6 @@ public class RestApiHttpsForTruststoreTest extends AbstractSeaTunnelServerTest {
         return System.getProperty("user.dir") + "/src/test/resources/https/" + confFile;
     }
 
-    @AfterAll
-    void tearDown() {
-        if (Objects.nonNull(instance)) {
-            instance.shutdown();
-        }
-        if (Objects.nonNull(server)) {
-            server.shutdown(true);
-        }
-    }
-
     @Test
     public void testRestApiHttp() {
         Assertions.assertThrows(
@@ -108,7 +98,7 @@ public class RestApiHttpsForTruststoreTest extends AbstractSeaTunnelServerTest {
                     BufferedReader in = null;
                     try {
                         java.net.URL url =
-                                new java.net.URL("http://localhost:" + HTTP_PORT + "/overview");
+                                new java.net.URL("http://localhost:" + httpPort + "/overview");
                         conn = (HttpURLConnection) url.openConnection();
 
                         Assertions.assertEquals(200, conn.getResponseCode());
@@ -180,5 +170,18 @@ public class RestApiHttpsForTruststoreTest extends AbstractSeaTunnelServerTest {
                     conn.setSSLSocketFactory(sslContext.getSocketFactory());
                     conn.getInputStream();
                 });
+    }
+
+    private int findFreePortExcluding(int exclude) {
+        int port;
+        do {
+            try (ServerSocket socket = new ServerSocket(0)) {
+                socket.setReuseAddress(true);
+                port = socket.getLocalPort();
+            } catch (Exception e) {
+                throw new RuntimeException("No free port available", e);
+            }
+        } while (port == exclude);
+        return port;
     }
 }

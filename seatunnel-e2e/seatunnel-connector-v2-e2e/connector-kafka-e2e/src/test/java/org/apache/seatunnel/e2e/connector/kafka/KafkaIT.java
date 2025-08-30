@@ -54,7 +54,9 @@ import org.apache.seatunnel.format.text.TextSerializationSchema;
 import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.admin.AdminClientConfig;
 import org.apache.kafka.clients.admin.ListConsumerGroupOffsetsOptions;
+import org.apache.kafka.clients.admin.NewPartitions;
 import org.apache.kafka.clients.admin.NewTopic;
+import org.apache.kafka.clients.admin.TopicDescription;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
@@ -81,6 +83,7 @@ import org.testcontainers.containers.Container;
 import org.testcontainers.containers.KafkaContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.lifecycle.Startables;
+import org.testcontainers.shaded.org.awaitility.Awaitility;
 import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.DockerLoggerFactory;
 
@@ -110,6 +113,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
+import static java.util.concurrent.TimeUnit.MINUTES;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testcontainers.shaded.org.awaitility.Awaitility.given;
 
 @Slf4j
@@ -143,7 +148,7 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         given().ignoreExceptions()
                 .atLeast(100, TimeUnit.MILLISECONDS)
                 .pollInterval(500, TimeUnit.MILLISECONDS)
-                .atMost(180, TimeUnit.SECONDS)
+                .atMost(180, SECONDS)
                 .untilAsserted(this::initKafkaProducer);
 
         Properties adminProps = new Properties();
@@ -470,6 +475,471 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         testKafkaEarliestToConsole(container);
         testKafkaSpecificOffsetsToConsole(container);
         testKafkaTimestampToConsole(container);
+    }
+
+    @TestTemplate
+    @DisabledOnContainer(
+            type = {EngineType.SPARK, EngineType.FLINK},
+            value = {})
+    public void testDynamicPartitionDiscovery(TestContainer container)
+            throws InterruptedException, ExecutionException {
+
+        final String sourceTopic = "test_topic_dynamic_partition";
+        final String outputTopic = "test_topic_dynamic_partition_output";
+        final String jobId = "18696753645407";
+
+        // Write initial data to the existing partition (partition 0)
+        for (int i = 0; i < 10; i++) {
+            String message =
+                    String.format(
+                            "{\"id\":%d,\"message\":\"initial_message_%d\",\"timestamp\":%d}",
+                            i, i, System.currentTimeMillis());
+            producer.send(new ProducerRecord<>(sourceTopic, null, message.getBytes()));
+        }
+        producer.flush();
+
+        // Start the streaming job asynchronously
+        CompletableFuture.runAsync(
+                () -> {
+                    try {
+                        container.executeJob(
+                                "/kafka/kafka_dynamic_partition_discovery.conf", jobId);
+                    } catch (Exception e) {
+                        log.error("Dynamic partition discovery job execution exception", e);
+                        throw new RuntimeException(e);
+                    }
+                });
+
+        // Wait for job to start and process initial data
+        Awaitility.await().pollDelay(5, SECONDS).atMost(1, MINUTES).until(() -> true);
+
+        try (AdminClient adminClient = createKafkaAdmin()) {
+            Map<String, NewPartitions> newPartitions = new HashMap<>();
+            newPartitions.put(sourceTopic, NewPartitions.increaseTo(2));
+            adminClient.createPartitions(newPartitions).all().get();
+            log.info("Successfully created new partition for topic: {}", sourceTopic);
+        }
+
+        Awaitility.await().pollDelay(3, SECONDS).atMost(30, SECONDS).until(() -> true);
+
+        for (int i = 0; i < 15; i++) {
+            String message =
+                    String.format(
+                            "{\"id\":%d,\"message\":\"new_partition_message_%d\",\"timestamp\":%d}",
+                            i + 100, i, System.currentTimeMillis());
+            producer.send(new ProducerRecord<>(sourceTopic, 1, null, message.getBytes()));
+        }
+        producer.flush();
+
+        Awaitility.await()
+                .pollInterval(2, SECONDS)
+                .atMost(2, MINUTES)
+                .until(
+                        () -> {
+                            try {
+                                // Check the output topic data count
+                                List<String> outputData = getKafkaConsumerListData(outputTopic);
+                                log.info("Output topic data count: {}", outputData.size());
+                                return outputData.size() >= 15 && outputData.size() < 25;
+                            } catch (Exception e) {
+                                log.error("Error checking output topic data", e);
+                                return false;
+                            }
+                        });
+
+        try (AdminClient adminClient = createKafkaAdmin()) {
+            Map<String, TopicDescription> topicDescriptions =
+                    adminClient.describeTopics(Arrays.asList(sourceTopic)).allTopicNames().get();
+            TopicDescription topicDescription = topicDescriptions.get(sourceTopic);
+            int partitionCount = topicDescription.partitions().size();
+            log.info("Current partition count for topic {}: {}", sourceTopic, partitionCount);
+            Assertions.assertTrue(partitionCount >= 2, "Partition count should be at least 2");
+        }
+
+        log.info("Dynamic partition discovery test completed successfully");
+    }
+
+    // ------------------------------ restore --------------------------------
+    // ----------------------------- EARLIEST MODE -----------------------------
+    @TestTemplate
+    @DisabledOnContainer(
+            type = {EngineType.SPARK, EngineType.FLINK},
+            value = {})
+    public void testSourceKafkaRestoreWithEarliestMode(TestContainer container)
+            throws IOException, InterruptedException {
+
+        final String sourceTopic = "test_topic_restore_earliest";
+        final String sinkTopic = "test_topic_restore_earliest_output";
+        final String payload = "Seatunnel Restore Test Data";
+        final String jobId = "18696753645408";
+
+        // Write 20 initial records with unique keys (avoid any potential dedup logic
+        // elsewhere).
+        for (int i = 0; i < 20; i++) {
+            producer.send(
+                    new ProducerRecord<>(sourceTopic, ("key_" + i).getBytes(), payload.getBytes()));
+        }
+        producer.flush();
+
+        // Capture source end offset (LEO) on partition 0 before starting the job.
+        long srcEndBeforeStart = endOffsetOnP0(sourceTopic);
+
+        // Start the first streaming job asynchronously.
+        CompletableFuture.runAsync(
+                () -> {
+                    try {
+                        container.executeJob(
+                                "/kafka/kafkasource_restore_with_earliest_mode.conf", jobId);
+                    } catch (Exception e) {
+                        log.error("First job execution exception", e);
+                        throw new RuntimeException(e);
+                    }
+                });
+
+        // Warm up (simple delay).
+        Awaitility.await().pollDelay(5, SECONDS).atMost(1, MINUTES).until(() -> true);
+
+        // Produce 10 additional records after the job starts.
+        for (int i = 0; i < 10; i++) {
+            producer.send(
+                    new ProducerRecord<>(
+                            sourceTopic,
+                            ("key_additional_" + i).getBytes(),
+                            (payload + "_additional").getBytes()));
+        }
+        producer.flush();
+
+        // In earliest mode, first run should consume at least initial 20 + additional
+        // 10.
+        final long expectedSinkAfterFirstRun = srcEndBeforeStart + 10;
+        Awaitility.await()
+                .pollInterval(2, SECONDS)
+                .atMost(2, MINUTES)
+                .until(() -> visibleCountOnP0(sinkTopic) == expectedSinkAfterFirstRun);
+
+        // Savepoint the running job (so restore should continue from this position).
+        container.savepointJob(jobId);
+
+        // Append 15 records after savepoint, used to validate restore progress.
+        for (int i = 0; i < 15; i++) {
+            producer.send(
+                    new ProducerRecord<>(
+                            sourceTopic,
+                            ("key_restore_" + i).getBytes(),
+                            (payload + "_restore").getBytes()));
+        }
+        producer.flush();
+
+        // Source end offset should move forward by at least 25 (10 + 15) from the
+        // captured point.
+        long srcEndAfterAll = endOffsetOnP0(sourceTopic);
+        Assertions.assertTrue(
+                srcEndAfterAll == srcEndBeforeStart + 25,
+                "Final end offset should advance by at least 25");
+
+        // Restore the job from the savepoint asynchronously.
+        CompletableFuture.runAsync(
+                () -> {
+                    try {
+                        container.restoreJob(
+                                "/kafka/kafkasource_restore_with_earliest_mode.conf", jobId);
+                    } catch (Exception e) {
+                        throw new RuntimeException(e);
+                    }
+                });
+
+        // After restore, sink should advance by the 15 newly produced records at
+        // minimum.
+        Awaitility.await()
+                .pollDelay(3, SECONDS)
+                .pollInterval(2, SECONDS)
+                .atMost(5, MINUTES)
+                .until(() -> visibleCountOnP0(sinkTopic) == expectedSinkAfterFirstRun + 15);
+    }
+
+    // ------------------------------ LATEST MODE ------------------------------
+
+    @TestTemplate
+    @DisabledOnContainer(
+            type = {EngineType.SPARK, EngineType.FLINK},
+            value = {})
+    public void testSourceKafkaRestoreWithLatestMode(TestContainer container)
+            throws IOException, InterruptedException {
+
+        final String sourceTopic = "test_topic_restore_latest";
+        final String sinkTopic = "test_topic_restore_latest_output";
+        final String payload = "Seatunnel Restore Test Data Latest";
+        final String jobId = "18696753645410";
+
+        // Write 20 initial records before starting the job.
+        for (int i = 0; i < 20; i++) {
+            producer.send(
+                    new ProducerRecord<>(sourceTopic, ("key_" + i).getBytes(), payload.getBytes()));
+        }
+        producer.flush();
+
+        long srcEndBeforeStart = endOffsetOnP0(sourceTopic);
+
+        CompletableFuture.runAsync(
+                () -> {
+                    try {
+                        container.executeJob(
+                                "/kafka/kafkasource_restore_with_latest_mode.conf", jobId);
+                    } catch (Exception e) {
+                        log.error("First job execution exception", e);
+                        throw new RuntimeException(e);
+                    }
+                });
+
+        Awaitility.await().pollDelay(5, SECONDS).atMost(1, MINUTES).until(() -> true);
+
+        // Produce 10 records after job start; latest mode should consume only these 10
+        // initially.
+        for (int i = 0; i < 10; i++) {
+            producer.send(
+                    new ProducerRecord<>(
+                            sourceTopic,
+                            ("key_additional_" + i).getBytes(),
+                            (payload + "_additional").getBytes()));
+        }
+        producer.flush();
+
+        final long expectedSinkAfterFirstRun = 10;
+        Awaitility.await()
+                .pollInterval(2, SECONDS)
+                .atMost(2, MINUTES)
+                .until(() -> visibleCountOnP0(sinkTopic) == expectedSinkAfterFirstRun);
+
+        container.savepointJob(jobId);
+
+        // Append 15 more records after savepoint.
+        for (int i = 0; i < 15; i++) {
+            producer.send(
+                    new ProducerRecord<>(
+                            sourceTopic,
+                            ("key_restore_" + i).getBytes(),
+                            (payload + "_restore").getBytes()));
+        }
+        producer.flush();
+
+        long srcEndAfterAll = endOffsetOnP0(sourceTopic);
+        Assertions.assertTrue(
+                srcEndAfterAll == srcEndBeforeStart + 25,
+                "Final end offset should advance by at least 25");
+
+        CompletableFuture.runAsync(
+                () -> {
+                    try {
+                        container.restoreJob(
+                                "/kafka/kafkasource_restore_with_latest_mode.conf", jobId);
+                    } catch (Exception e) {
+                        throw new RuntimeException(e);
+                    }
+                });
+
+        Awaitility.await()
+                .pollDelay(3, SECONDS)
+                .pollInterval(2, SECONDS)
+                .atMost(5, MINUTES)
+                .until(() -> visibleCountOnP0(sinkTopic) == expectedSinkAfterFirstRun + 15);
+    }
+
+    // ---------------------------- TIMESTAMP MODE -----------------------------
+
+    @TestTemplate
+    @DisabledOnContainer(
+            type = {EngineType.SPARK, EngineType.FLINK},
+            value = {})
+    public void testSourceKafkaRestoreWithTimestampMode(TestContainer container)
+            throws IOException, InterruptedException {
+
+        final String sourceTopic = "test_topic_restore_timestamp";
+        final String sinkTopic = "test_topic_restore_timestamp_output";
+        final String payload = "Seatunnel Restore Test Data Timestamp";
+        final String jobId = "18696753645411";
+
+        for (int i = 0; i < 20; i++) {
+            producer.send(
+                    new ProducerRecord<>(sourceTopic, ("key_" + i).getBytes(), payload.getBytes()));
+        }
+        producer.flush();
+
+        long srcEndBeforeStart = endOffsetOnP0(sourceTopic);
+
+        CompletableFuture.runAsync(
+                () -> {
+                    try {
+                        container.executeJob(
+                                "/kafka/kafkasource_restore_with_timestamp_mode.conf", jobId);
+                    } catch (Exception e) {
+                        log.error("First job execution exception", e);
+                        throw new RuntimeException(e);
+                    }
+                });
+
+        Awaitility.await().pollDelay(5, SECONDS).atMost(1, MINUTES).until(() -> true);
+
+        // Produce 10 records after job start.
+        for (int i = 0; i < 10; i++) {
+            producer.send(
+                    new ProducerRecord<>(
+                            sourceTopic,
+                            ("key_additional_" + i).getBytes(),
+                            (payload + "_additional").getBytes()));
+        }
+        producer.flush();
+
+        // Keep original semantics: expected sink count depends on timestamp-based start
+        // config.
+        final long expectedSinkAfterFirstRun = srcEndBeforeStart + 10;
+        Awaitility.await()
+                .pollInterval(2, SECONDS)
+                .atMost(2, MINUTES)
+                .until(() -> visibleCountOnP0(sinkTopic) == expectedSinkAfterFirstRun);
+
+        container.savepointJob(jobId);
+
+        // Append 15 more records after savepoint.
+        for (int i = 0; i < 15; i++) {
+            producer.send(
+                    new ProducerRecord<>(
+                            sourceTopic,
+                            ("key_restore_" + i).getBytes(),
+                            (payload + "_restore").getBytes()));
+        }
+        producer.flush();
+
+        long srcEndAfterAll = endOffsetOnP0(sourceTopic);
+        Assertions.assertTrue(
+                srcEndAfterAll == srcEndBeforeStart + 25,
+                "Final end offset should advance by at least 25");
+
+        CompletableFuture.runAsync(
+                () -> {
+                    try {
+                        container.restoreJob(
+                                "/kafka/kafkasource_restore_with_timestamp_mode.conf", jobId);
+                    } catch (Exception e) {
+                        throw new RuntimeException(e);
+                    }
+                });
+
+        Awaitility.await()
+                .pollDelay(3, SECONDS)
+                .pollInterval(2, SECONDS)
+                .atMost(5, MINUTES)
+                .until(() -> visibleCountOnP0(sinkTopic) == expectedSinkAfterFirstRun + 15);
+    }
+
+    // ------------------------- SPECIFIC OFFSETS MODE -------------------------
+
+    @TestTemplate
+    @DisabledOnContainer(
+            type = {EngineType.SPARK, EngineType.FLINK},
+            value = {})
+    public void testSourceKafkaRestoreWithSpecificOffsetsMode(TestContainer container)
+            throws IOException, InterruptedException {
+
+        final String sourceTopic = "test_topic_restore_specific_offsets";
+        final String sinkTopic = "test_topic_restore_specific_offsets_output";
+        final String payload = "Seatunnel Restore Test Data Specific Offsets";
+        final String jobId = "18696753645412";
+
+        for (int i = 0; i < 20; i++) {
+            producer.send(
+                    new ProducerRecord<>(sourceTopic, ("key_" + i).getBytes(), payload.getBytes()));
+        }
+        producer.flush();
+
+        long srcEndBeforeStart = endOffsetOnP0(sourceTopic);
+
+        CompletableFuture.runAsync(
+                () -> {
+                    try {
+                        container.executeJob(
+                                "/kafka/kafkasource_restore_with_specific_offsets_mode.conf",
+                                jobId);
+                    } catch (Exception e) {
+                        log.error("First job execution exception", e);
+                        throw new RuntimeException(e);
+                    }
+                });
+
+        Awaitility.await().pollDelay(5, SECONDS).atMost(1, MINUTES).until(() -> true);
+
+        // Produce 10 records after job start.
+        for (int i = 0; i < 10; i++) {
+            producer.send(
+                    new ProducerRecord<>(
+                            sourceTopic,
+                            ("key_additional_" + i).getBytes(),
+                            (payload + "_additional").getBytes()));
+        }
+        producer.flush();
+
+        // Keep original semantics: expected sink count depends on explicit offset
+        // config. -> 11
+        final long expectedSinkAfterFirstRun = srcEndBeforeStart + 10;
+        Awaitility.await()
+                .pollInterval(2, SECONDS)
+                .atMost(2, MINUTES)
+                .until(() -> visibleCountOnP0(sinkTopic) == expectedSinkAfterFirstRun - 11);
+
+        container.savepointJob(jobId);
+
+        // Append 15 more records after savepoint.
+        for (int i = 0; i < 15; i++) {
+            producer.send(
+                    new ProducerRecord<>(
+                            sourceTopic,
+                            ("key_restore_" + i).getBytes(),
+                            (payload + "_restore").getBytes()));
+        }
+        producer.flush();
+
+        long srcEndAfterAll = endOffsetOnP0(sourceTopic);
+        Assertions.assertTrue(
+                srcEndAfterAll == srcEndBeforeStart + 25,
+                "Final end offset should advance by at least 25");
+
+        CompletableFuture.runAsync(
+                () -> {
+                    try {
+                        container.restoreJob(
+                                "/kafka/kafkasource_restore_with_specific_offsets_mode.conf",
+                                jobId);
+                    } catch (Exception e) {
+                        throw new RuntimeException(e);
+                    }
+                });
+
+        Awaitility.await()
+                .pollDelay(3, SECONDS)
+                .pollInterval(2, SECONDS)
+                .atMost(5, MINUTES)
+                .until(() -> visibleCountOnP0(sinkTopic) == expectedSinkAfterFirstRun + 15 - 11);
+    }
+
+    /**
+     * Get visible record count on partition-0: endOffset - beginningOffset (exclusive upper bound).
+     */
+    private long visibleCountOnP0(String topic) {
+        try (KafkaConsumer<String, String> c = new KafkaConsumer<>(kafkaConsumerConfig())) {
+            TopicPartition tp0 = new TopicPartition(topic, 0);
+            c.assign(Collections.singletonList(tp0));
+            long begin = c.beginningOffsets(Collections.singletonList(tp0)).get(tp0);
+            long end = c.endOffsets(Collections.singletonList(tp0)).get(tp0);
+            return end - begin;
+        }
+    }
+
+    /** Get the current end offset (LEO) on partition-0. */
+    private long endOffsetOnP0(String topic) {
+        try (KafkaConsumer<String, String> c = new KafkaConsumer<>(kafkaConsumerConfig())) {
+            TopicPartition tp0 = new TopicPartition(topic, 0);
+            c.assign(Collections.singletonList(tp0));
+            return c.endOffsets(Collections.singletonList(tp0)).get(tp0);
+        }
     }
 
     @TestTemplate
@@ -973,10 +1443,10 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                 });
         // wait for data written to kafka
         Long finalEndOffset = endOffset;
-        given().pollDelay(30, TimeUnit.SECONDS)
-                .pollInterval(5, TimeUnit.SECONDS)
+        given().pollDelay(30, SECONDS)
+                .pollInterval(5, SECONDS)
                 .await()
-                .atMost(5, TimeUnit.MINUTES)
+                .atMost(5, MINUTES)
                 .untilAsserted(
                         () ->
                                 Assertions.assertTrue(

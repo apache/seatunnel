@@ -46,16 +46,15 @@ public class PaimonSourceFactory implements TableSourceFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(
-                        PaimonSourceOptions.WAREHOUSE,
-                        PaimonSourceOptions.DATABASE,
-                        PaimonSourceOptions.TABLE)
+                .required(PaimonSourceOptions.WAREHOUSE)
                 .optional(
+                        PaimonSourceOptions.DATABASE,
                         PaimonSourceOptions.CATALOG_TYPE,
                         PaimonSourceOptions.HDFS_SITE_PATH,
                         PaimonSourceOptions.QUERY_SQL,
                         PaimonSourceOptions.HADOOP_CONF,
                         PaimonSourceOptions.HADOOP_CONF_PATH)
+                .exclusive(PaimonSourceOptions.TABLE, PaimonSourceOptions.TABLE_LIST)
                 .conditional(
                         PaimonSourceOptions.CATALOG_TYPE,
                         PaimonCatalogEnum.HIVE,

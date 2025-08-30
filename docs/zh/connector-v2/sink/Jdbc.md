@@ -91,6 +91,8 @@ Postgres 9.5及以下版本，请设置为 `postgresLow` 来支持 CDC
 
 指定的方言，如果不存在，仍然按照url获取，优先级高于url。例如，当使用 starrocks 时，你需要将其值设置为 starrocks，同理，当使用mysql时，你需要将其值设置为mysql。
 
+如果 SeaTunnel 不支持某种方言，它将使用默认方言 `GenericDialect`。请确保您提供的驱动程序支持您想要连接的数据库。
+
 #### 示例可选
 
 |           | 方言名称       |          |
@@ -142,31 +144,31 @@ Tip: 如果目标数据库有 SCHEMA 的概念，则表参数必须写成 `xxx.x
 
 用于验证数据库连接的有效性时等待数据库操作完成所需的时间，单位是秒
 
-### max_retries[int]
+### max_retries [int]
 
 重试提交失败的最大次数（executeBatch）
 
-### batch_size[int]
+### batch_size [int]
 
 对于批量写入，当缓冲的记录数达到 `batch_size` 数量或者时间达到 `checkpoint.interval` 时，数据将被刷新到数据库中
 
-### is_exactly_once[boolean]
+### is_exactly_once [boolean]
 
 是否启用通过XA事务实现的精确一次语义。开启，你还需要设置 `xa_data_source_class_name`
 
-### generate_sink_sql[boolean]
+### generate_sink_sql [boolean]
 
 根据要写入的数据库表结构生成 sql 语句
 
-### xa_data_source_class_name[string]
+### xa_data_source_class_name [string]
 
 指数据库驱动的 XA 数据源的类名。以 MySQL 为例，其类名为 com.mysql.cj.jdbc.MysqlXADataSource。了解其他数据库的数据源类名，可以参考文档的附录部分
 
-### max_commit_attempts[int]
+### max_commit_attempts [int]
 
 事务提交失败的最大重试次数
 
-### transaction_timeout_sec[int]
+### transaction_timeout_sec [int]
 
 在事务开启后的超时时间，默认值为-1（即永不超时）。请注意，设置超时时间可能会影响到精确一次（exactly-once）的语义
 
