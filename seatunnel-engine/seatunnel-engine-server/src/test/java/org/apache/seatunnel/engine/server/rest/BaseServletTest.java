@@ -28,6 +28,7 @@ import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
 import org.apache.seatunnel.engine.server.TestUtils;
 
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -38,10 +39,11 @@ import com.hazelcast.internal.serialization.Data;
 import java.io.IOException;
 import java.net.HttpURLConnection;
 import java.util.Collections;
+import java.util.Objects;
 
 class BaseServletTest extends AbstractSeaTunnelServerTest {
 
-    private static final int HTTP_PORT = 18080;
+    private static final int HTTP_PORT = 38080;
 
     private static final Long JOB_1 = System.currentTimeMillis() + 1L;
 
@@ -62,6 +64,16 @@ class BaseServletTest extends AbstractSeaTunnelServerTest {
         nodeEngine = instance.node.nodeEngine;
         server = nodeEngine.getService(SeaTunnelServer.SERVICE_NAME);
         LOGGER = nodeEngine.getLogger(AbstractSeaTunnelServerTest.class);
+    }
+
+    @AfterAll
+    void tearDown() {
+        if (Objects.nonNull(instance)) {
+            instance.shutdown();
+        }
+        if (Objects.nonNull(server)) {
+            server.shutdown(true);
+        }
     }
 
     @Test

@@ -25,6 +25,7 @@ import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
 import org.apache.seatunnel.engine.server.TestUtils;
 
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -41,6 +42,7 @@ import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.net.ConnectException;
 import java.net.HttpURLConnection;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 /** Test for Rest API with HTTPS. */
@@ -85,6 +87,16 @@ public class RestApiHttpsForTruststoreTest extends AbstractSeaTunnelServerTest {
 
     public String getPath(String confFile) {
         return System.getProperty("user.dir") + "/src/test/resources/https/" + confFile;
+    }
+
+    @AfterAll
+    void tearDown() {
+        if (Objects.nonNull(instance)) {
+            instance.shutdown();
+        }
+        if (Objects.nonNull(server)) {
+            server.shutdown(true);
+        }
     }
 
     @Test
