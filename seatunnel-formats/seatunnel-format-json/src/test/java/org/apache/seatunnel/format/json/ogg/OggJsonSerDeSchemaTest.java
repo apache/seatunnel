@@ -38,7 +38,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 import static org.apache.seatunnel.api.table.type.BasicType.FLOAT_TYPE;
@@ -229,6 +231,38 @@ public class OggJsonSerDeSchemaTest {
                         "{\"before\":null,\"after\":{\"id\":111,\"name\":\"scooter\",\"description\":\"Big 2-wheel scooter \",\"weight\":5.17},\"op_type\":\"I\",\"table\":\"..test\",\"op_ts\":1589391130000}",
                         "{\"before\":null,\"after\":{\"id\":111,\"name\":\"scooter\",\"description\":\"Big 2-wheel scooter \",\"weight\":5.17},\"op_type\":\"D\",\"table\":\"..test\",\"op_ts\":1589391144000}");
         assertEquals(expectedResult, result);
+
+        // test merge_update_event
+        Map<String, String> options = new HashMap<>();
+        options.put(OggJsonFormatOptions.MERGE_UPDATE_EVENT.key(), "true");
+        serializationSchema =
+                new OggJsonSerializationSchema(SEATUNNEL_ROW_TYPE, StandardCharsets.UTF_8, options);
+        actual.clear();
+        for (SeaTunnelRow rowData : collector.list) {
+            if (serializationSchema.serialize(rowData) != null) {
+                actual.add(
+                        new String(serializationSchema.serialize(rowData), StandardCharsets.UTF_8));
+            }
+        }
+        expected =
+                Arrays.asList(
+                        "{\"before\":null,\"after\":{\"id\":101,\"name\":\"scooter\",\"description\":\"Small 2-wheel scooter\",\"weight\":3.14},\"op_type\":\"I\",\"table\":\"..test\",\"op_ts\":1589384406000}",
+                        "{\"before\":null,\"after\":{\"id\":102,\"name\":\"car battery\",\"description\":\"12V car battery\",\"weight\":8.1},\"op_type\":\"I\",\"table\":\"..test\",\"op_ts\":1589384407000}",
+                        "{\"before\":null,\"after\":{\"id\":103,\"name\":\"12-pack drill bits\",\"description\":\"12-pack of drill bits with sizes ranging from #40 to #3\",\"weight\":0.8},\"op_type\":\"I\",\"table\":\"..test\",\"op_ts\":1589384407000}",
+                        "{\"before\":null,\"after\":{\"id\":104,\"name\":\"hammer\",\"description\":\"12oz carpenter's hammer\",\"weight\":0.75},\"op_type\":\"I\",\"table\":\"..test\",\"op_ts\":1589384407000}",
+                        "{\"before\":null,\"after\":{\"id\":105,\"name\":\"hammer\",\"description\":\"14oz carpenter's hammer\",\"weight\":0.875},\"op_type\":\"I\",\"table\":\"..test\",\"op_ts\":1589384407000}",
+                        "{\"before\":null,\"after\":{\"id\":106,\"name\":\"hammer\",\"description\":\"16oz carpenter's hammer\",\"weight\":1.0},\"op_type\":\"I\",\"table\":\"..test\",\"op_ts\":1589384407000}",
+                        "{\"before\":null,\"after\":{\"id\":107,\"name\":\"rocks\",\"description\":\"box of assorted rocks\",\"weight\":5.3},\"op_type\":\"I\",\"table\":\"..test\",\"op_ts\":1589384407000}",
+                        "{\"before\":null,\"after\":{\"id\":108,\"name\":\"jacket\",\"description\":\"water resistent black wind breaker\",\"weight\":0.1},\"op_type\":\"I\",\"table\":\"..test\",\"op_ts\":1589384407000}",
+                        "{\"before\":null,\"after\":{\"id\":109,\"name\":\"spare tire\",\"description\":\"24 inch spare tire\",\"weight\":22.2},\"op_type\":\"I\",\"table\":\"..test\",\"op_ts\":1589384407000}",
+                        "{\"before\":{\"id\":106,\"name\":\"hammer\",\"description\":\"16oz carpenter's hammer\",\"weight\":1.0},\"after\":{\"id\":106,\"name\":\"hammer\",\"description\":\"18oz carpenter hammer\",\"weight\":1.0},\"op_type\":\"U\",\"table\":\"..test\",\"op_ts\":1589390787000}",
+                        "{\"before\":{\"id\":107,\"name\":\"rocks\",\"description\":\"box of assorted rocks\",\"weight\":5.3},\"after\":{\"id\":107,\"name\":\"rocks\",\"description\":\"box of assorted rocks\",\"weight\":5.1},\"op_type\":\"U\",\"table\":\"..test\",\"op_ts\":1589390899000}",
+                        "{\"before\":null,\"after\":{\"id\":110,\"name\":\"jacket\",\"description\":\"water resistent white wind breaker\",\"weight\":0.2},\"op_type\":\"I\",\"table\":\"..test\",\"op_ts\":1589391010000}",
+                        "{\"before\":null,\"after\":{\"id\":111,\"name\":\"scooter\",\"description\":\"Big 2-wheel scooter \",\"weight\":5.18},\"op_type\":\"I\",\"table\":\"..test\",\"op_ts\":1589391043000}",
+                        "{\"before\":{\"id\":110,\"name\":\"jacket\",\"description\":\"water resistent white wind breaker\",\"weight\":0.2},\"after\":{\"id\":110,\"name\":\"jacket\",\"description\":\"new water resistent white wind breaker\",\"weight\":0.5},\"op_type\":\"U\",\"table\":\"..test\",\"op_ts\":1589391140000}",
+                        "{\"before\":{\"id\":111,\"name\":\"scooter\",\"description\":\"Big 2-wheel scooter \",\"weight\":5.18},\"after\":{\"id\":111,\"name\":\"scooter\",\"description\":\"Big 2-wheel scooter \",\"weight\":5.17},\"op_type\":\"U\",\"table\":\"..test\",\"op_ts\":1589391130000}",
+                        "{\"before\":null,\"after\":{\"id\":111,\"name\":\"scooter\",\"description\":\"Big 2-wheel scooter \",\"weight\":5.17},\"op_type\":\"D\",\"table\":\"..test\",\"op_ts\":1589391144000}");
+        assertEquals(expected, actual);
     }
 
     // --------------------------------------------------------------------------------------------
