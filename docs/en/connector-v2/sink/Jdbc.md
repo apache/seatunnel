@@ -94,6 +94,8 @@ Postgres 9.5 version or below,please set it to `postgresLow` to support cdc
 
 The appointed dialect, if it does not exist, is still obtained according to the url, and the priority is higher than the url. For example,when using starrocks, you need set it to `starrocks`. Similarly, when using mysql, you need to set its value to `mysql`.
 
+If one dialect not supported by SeaTunnel, it will use the default dialect `GenericDialect`. Just make sure the driver you provided support the database you want to connect.
+
 #### dialect list
 
 |           | Dialect Name |          |

@@ -33,6 +33,7 @@ import org.apache.seatunnel.transform.sql.zeta.functions.DateTimeFunction;
 import org.apache.seatunnel.transform.sql.zeta.functions.NumericFunction;
 import org.apache.seatunnel.transform.sql.zeta.functions.StringFunction;
 import org.apache.seatunnel.transform.sql.zeta.functions.SystemFunction;
+import org.apache.seatunnel.transform.sql.zeta.functions.VectorFunction;
 
 import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.tuple.Pair;
@@ -202,6 +203,14 @@ public class ZetaSQLFunction {
     public static final String UUID = "UUID";
 
     public static final String TRY_CAST = "TRY_CAST";
+
+    // -------------------------vector functions----------------------------
+    public static final String COSINE_DISTANCE = "COSINE_DISTANCE";
+    public static final String L1_DISTANCE = "L1_DISTANCE";
+    public static final String L2_DISTANCE = "L2_DISTANCE";
+    public static final String VECTOR_DIMS = "VECTOR_DIMS";
+    public static final String VECTOR_NORM = "VECTOR_NORM";
+    public static final String INNER_PRODUCT = "INNER_PRODUCT";
 
     private final SeaTunnelRowType inputRowType;
 
@@ -598,6 +607,18 @@ public class ZetaSQLFunction {
                 return ArrayFunction.arrayMin(args);
             case UUID:
                 return randomUUID().toString();
+            case COSINE_DISTANCE:
+                return VectorFunction.cosineDistance(args);
+            case L1_DISTANCE:
+                return VectorFunction.l1Distance(args);
+            case L2_DISTANCE:
+                return VectorFunction.l2Distance(args);
+            case VECTOR_DIMS:
+                return VectorFunction.vectorDims(args);
+            case VECTOR_NORM:
+                return VectorFunction.vectorNorm(args);
+            case INNER_PRODUCT:
+                return VectorFunction.innerProduct(args);
             default:
                 for (ZetaUDF udf : udfList) {
                     if (udf.functionName().equalsIgnoreCase(functionName)) {
