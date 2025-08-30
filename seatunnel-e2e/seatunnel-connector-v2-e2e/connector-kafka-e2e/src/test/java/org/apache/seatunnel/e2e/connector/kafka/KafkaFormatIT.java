@@ -90,7 +90,7 @@ import static org.awaitility.Awaitility.given;
 
 @DisabledOnContainer(
         value = {},
-        type = {EngineType.SPARK,EngineType.SEATUNNEL},
+        type = {EngineType.SPARK},
         disabledReason = "Spark engine will lose the row kind of record")
 public class KafkaFormatIT extends TestSuiteBase implements TestResource {
 
