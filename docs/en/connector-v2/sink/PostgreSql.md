@@ -113,7 +113,7 @@ for example:
 2. dbo.tt_${table_name}_sink
 3. public.sink_table
 
-### schema_save_mode[Enum]
+### schema_save_mode [Enum]
 
 Before the synchronous task is turned on, different treatment schemes are selected for the existing surface structure of the target side.  
 Option introduction：  
@@ -122,7 +122,7 @@ Option introduction：
 `ERROR_WHEN_SCHEMA_NOT_EXIST` ：Error will be reported when the table does not exist  
 `IGNORE` ：Ignore the treatment of the table
 
-### data_save_mode[Enum]
+### data_save_mode [Enum]
 
 Before the synchronous task is turned on, different processing schemes are selected for data existing data on the target side.  
 Option introduction：  
@@ -131,7 +131,7 @@ Option introduction：
 `CUSTOM_PROCESSING`：User defined processing  
 `ERROR_WHEN_DATA_EXISTS`：When there is data, an error is reported
 
-### custom_sql[String]
+### custom_sql [String]
 
 When data_save_mode selects CUSTOM_PROCESSING, you should fill in the CUSTOM_SQL parameter. This parameter usually fills in a SQL that can be executed. SQL will be executed before synchronization tasks.
 

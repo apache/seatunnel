@@ -111,7 +111,7 @@ public class KuduRowSerializer implements SeaTunnelRowSerializer {
                 }
             } catch (ClassCastException e) {
                 throw new KuduConnectorException(
-                        KuduConnectorErrorCode.DATA_TYPE_CAST_FILED,
+                        KuduConnectorErrorCode.DATA_TYPE_CAST_FIELD,
                         "Value type does not match column type "
                                 + type.getSqlType()
                                 + " for column "

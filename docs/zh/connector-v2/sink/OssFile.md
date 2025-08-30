@@ -298,7 +298,7 @@ Sink插件常用参数，请参考[Sink common Options]（../Sink common Options
 仅当file_format_type为json、text、csv、xml时使用。
 要写入的文件的编码。此参数将由`Charset.forName（encoding）`解析。
 
-### schema_save_mode[Enum]
+### schema_save_mode [Enum]
 
 在开启同步任务之前，对目标路径进行不同的处理。  
 选项介绍：  
@@ -307,7 +307,7 @@ Sink插件常用参数，请参考[Sink common Options]（../Sink common Options
 `ERROR_WHEN_SCHEMA_NOT_EXIST` ：当路径不存在时报错  
 `IGNORE` ：忽略表的处理
 
-### data_save_mode[Enum]
+### data_save_mode [Enum]
 
 在开启同步任务之前，对目标路径中的数据文件进行不同的处理。
 选项介绍：  

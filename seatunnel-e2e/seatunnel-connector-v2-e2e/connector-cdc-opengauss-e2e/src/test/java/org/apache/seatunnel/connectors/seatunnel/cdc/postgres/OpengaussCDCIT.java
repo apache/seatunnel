@@ -429,7 +429,7 @@ public class OpengaussCDCIT extends TestSuiteBase implements TestResource {
             value = {},
             type = {EngineType.SPARK, EngineType.FLINK},
             disabledReason = "Currently SPARK and FLINK do not support restore")
-    public void testAddFiledWithRestore(TestContainer container)
+    public void testAddFieldWithRestore(TestContainer container)
             throws IOException, InterruptedException {
         Long jobId = JobIdGenerator.newJobId();
         try {
@@ -463,7 +463,7 @@ public class OpengaussCDCIT extends TestSuiteBase implements TestResource {
 
             Assertions.assertEquals(0, container.savepointJob(String.valueOf(jobId)).getExitCode());
 
-            // add filed add insert source table data
+            // add field add insert source table data
             addFieldsForTable(OPENGAUSS_SCHEMA, SOURCE_TABLE_3);
             addFieldsForTable(OPENGAUSS_SCHEMA, SINK_TABLE_3);
             insertSourceTableForAddFields(OPENGAUSS_SCHEMA, SOURCE_TABLE_3);

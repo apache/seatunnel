@@ -28,7 +28,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class FieldNamedPreparedStatementTest {
 
-    private static final String[] SPECIAL_FILEDNAMES =
+    private static final String[] SPECIAL_FIELDNAMES =
             new String[] {
                 "USER@TOKEN",
                 "字段%名称",
@@ -60,9 +60,9 @@ public class FieldNamedPreparedStatementTest {
         Map<String, List<Integer>> paramMap = new HashMap<>();
         String actualSQL = FieldNamedPreparedStatement.parseNamedStatement(sql, paramMap);
         assertEquals(exceptPreparedstatement, actualSQL);
-        for (int i = 0; i < SPECIAL_FILEDNAMES.length; i++) {
-            assertTrue(paramMap.containsKey(SPECIAL_FILEDNAMES[i]));
-            assertEquals(i + 1, paramMap.get(SPECIAL_FILEDNAMES[i]).get(0));
+        for (int i = 0; i < SPECIAL_FIELDNAMES.length; i++) {
+            assertTrue(paramMap.containsKey(SPECIAL_FIELDNAMES[i]));
+            assertEquals(i + 1, paramMap.get(SPECIAL_FIELDNAMES[i]).get(0));
         }
     }
 

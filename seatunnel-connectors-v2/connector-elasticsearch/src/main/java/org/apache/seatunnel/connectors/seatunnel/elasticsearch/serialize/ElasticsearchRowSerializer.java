@@ -24,7 +24,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
-import org.apache.seatunnel.common.utils.BufferUtils;
+import org.apache.seatunnel.common.utils.VectorUtils;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.ElasticsearchClusterInfo;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.IndexInfo;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.exception.ElasticsearchConnectorException;
@@ -218,7 +218,7 @@ public class ElasticsearchRowSerializer implements SeaTunnelRowSerializer {
             // Check if this field is configured as a vectorization field
             if (vectorizationFields != null && vectorizationFields.contains(fieldName)) {
                 ByteBuffer buffer = (ByteBuffer) value;
-                Float[] floats = BufferUtils.toFloatArray(buffer);
+                Float[] floats = VectorUtils.toFloatArray(buffer);
 
                 // Use the configured dimension or calculate it from the buffer size
                 int dimension = vectorDimension > 0 ? vectorDimension : buffer.remaining() / 4;
@@ -232,7 +232,7 @@ public class ElasticsearchRowSerializer implements SeaTunnelRowSerializer {
             } else {
                 // Default behavior for ByteBuffer fields not specified as vectorization fields
                 ByteBuffer buffer = (ByteBuffer) value;
-                Float[] floats = BufferUtils.toFloatArray(buffer);
+                Float[] floats = VectorUtils.toFloatArray(buffer);
                 int floatCount = buffer.remaining() / 4;
 
                 for (int i = 0; i < floatCount; i++) {

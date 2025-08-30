@@ -41,6 +41,7 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcCommonOptions;
 
 import java.time.ZoneId;
 import java.util.List;
+import java.util.Optional;
 
 public class SqlServerIncrementalSource<T> extends IncrementalSource<T, JdbcSourceConfig>
         implements SupportParallelism {
@@ -107,5 +108,10 @@ public class SqlServerIncrementalSource<T> extends IncrementalSource<T, JdbcSour
     public OffsetFactory createOffsetFactory(ReadonlyConfig config) {
         return new LsnOffsetFactory(
                 (SqlServerSourceConfigFactory) configFactory, (SqlServerDialect) dataSourceDialect);
+    }
+
+    @Override
+    public Optional<String> driverName() {
+        return Optional.of("com.microsoft.sqlserver.jdbc.SQLServerDriver");
     }
 }

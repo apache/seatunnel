@@ -459,7 +459,7 @@ public class ArrowToSeatunnelRowReaderTest {
         String[] fieldNames =
                 seaTunnelDataTypeHolder.stream()
                         .filter(h -> allType ? h.getFlag() >= 0 : h.getFlag() == 1)
-                        .map(SeaTunnelDataTypeHolder::getFiledName)
+                        .map(SeaTunnelDataTypeHolder::getFieldName)
                         .toArray(String[]::new);
         SeaTunnelDataType[] seaTunnelDataTypes =
                 seaTunnelDataTypeHolder.stream()

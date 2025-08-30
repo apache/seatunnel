@@ -81,6 +81,8 @@ It only supports hadoop version **2.9.X+**.
 | schema                    | config  | no       | -                   | [Tips](#schema)                                                                                                           |
 | common-options            |         | no       | -                   | [Tips](#common_options)                                                                                                   |
 | sheet_name                | string  | no       | -                   | Reader the sheet of the workbook,Only used when file_format is excel.                                                     |
+| file_filter_modified_start  | string  | no       | -                   | File modification time filter. The connector will filter some files base on the last modification start time (include start time). The default data format is `yyyy-MM-dd HH:mm:ss`.                                                                                                                                                       |
+| file_filter_modified_end    | string  | no       | -                   | File modification time filter. The connector will filter some files base on the last modification end time (not include end time). The default data format is `yyyy-MM-dd HH:mm:ss`.                                                                                                                                                |
 
 ### Tips
 

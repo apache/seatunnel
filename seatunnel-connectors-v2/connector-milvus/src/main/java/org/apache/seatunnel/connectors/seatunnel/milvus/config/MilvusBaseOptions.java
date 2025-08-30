@@ -30,6 +30,12 @@ public abstract class MilvusBaseOptions {
                     .noDefaultValue()
                     .withDescription("Milvus public endpoint");
 
+    public static final Option<String> COLLECTION =
+            Options.key("collection")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("Milvus collection");
+
     public static final Option<String> TOKEN =
             Options.key("token")
                     .stringType()

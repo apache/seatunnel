@@ -28,8 +28,8 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.table.type.SqlType;
-import org.apache.seatunnel.common.utils.BufferUtils;
 import org.apache.seatunnel.common.utils.JsonUtils;
+import org.apache.seatunnel.common.utils.VectorUtils;
 import org.apache.seatunnel.connectors.seatunnel.milvus.exception.MilvusConnectionErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.milvus.exception.MilvusConnectorException;
 
@@ -38,7 +38,6 @@ import org.apache.commons.lang3.StringUtils;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
-import io.milvus.common.utils.JacksonUtils;
 import io.milvus.grpc.DataType;
 import io.milvus.param.collection.FieldType;
 
@@ -75,7 +74,7 @@ public class MilvusSinkConverter {
                 return value.toString();
             case FLOAT_VECTOR:
                 ByteBuffer floatVectorBuffer = (ByteBuffer) value;
-                Float[] floats = BufferUtils.toFloatArray(floatVectorBuffer);
+                Float[] floats = VectorUtils.toFloatArray(floatVectorBuffer);
                 return Arrays.stream(floats).collect(Collectors.toList());
             case BINARY_VECTOR:
             case BFLOAT16_VECTOR:
@@ -83,7 +82,7 @@ public class MilvusSinkConverter {
                 ByteBuffer binaryVector = (ByteBuffer) value;
                 return gson.toJsonTree(binaryVector.array());
             case SPARSE_FLOAT_VECTOR:
-                return JsonParser.parseString(JacksonUtils.toJsonString(value)).getAsJsonObject();
+                return JsonParser.parseString(JsonUtils.toJsonString(value)).getAsJsonObject();
             case FLOAT:
                 return Float.parseFloat(value.toString());
             case BOOLEAN:
@@ -119,7 +118,7 @@ public class MilvusSinkConverter {
                 SeaTunnelRow row = (SeaTunnelRow) value;
                 return JsonUtils.toJsonString(row.getFields());
             case MAP:
-                return JacksonUtils.toJsonString(value);
+                return JsonUtils.toJsonString(value);
             default:
                 throw new MilvusConnectorException(
                         MilvusConnectionErrorCode.NOT_SUPPORT_TYPE, sqlType.name());
