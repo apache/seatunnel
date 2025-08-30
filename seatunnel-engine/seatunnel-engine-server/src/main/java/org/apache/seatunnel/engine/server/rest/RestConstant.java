@@ -49,8 +49,6 @@ public class RestConstant {
 
     public static final String METRICS = "metrics";
 
-    public static final String HOCON = "hocon";
-
     public static final String TABLE_SOURCE_RECEIVED_COUNT = "TableSourceReceivedCount";
     public static final String TABLE_SINK_WRITE_COUNT = "TableSinkWriteCount";
     public static final String TABLE_SOURCE_RECEIVED_QPS = "TableSourceReceivedQPS";

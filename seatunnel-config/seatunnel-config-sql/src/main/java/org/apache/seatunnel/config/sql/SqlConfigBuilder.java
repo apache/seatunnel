@@ -49,6 +49,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -81,6 +82,25 @@ public class SqlConfigBuilder {
     public static Config of(@NonNull Path sqlFilePath) {
         try {
             List<String> lines = Files.readAllLines(sqlFilePath);
+            return of(lines);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to parse job config file: " + sqlFilePath, e);
+        }
+    }
+
+    public static Config of(@NonNull String sqlContent) {
+        try {
+            List<String> lines = new ArrayList<>();
+            String[] lineArray = sqlContent.split("\\r?\\n");
+            Collections.addAll(lines, lineArray);
+            return of(lines);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to parse job config: ", e);
+        }
+    }
+
+    private static Config of(@NonNull List<String> lines) {
+        try {
             Map<String, BaseConfig> sqlTables = new LinkedHashMap<>();
             SeaTunnelConfig seaTunnelConfig = new SeaTunnelConfig();
 
