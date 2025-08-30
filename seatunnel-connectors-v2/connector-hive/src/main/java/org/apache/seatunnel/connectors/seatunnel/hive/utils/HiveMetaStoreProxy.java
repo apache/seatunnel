@@ -240,6 +240,16 @@ public class HiveMetaStoreProxy implements Closeable, Serializable {
         }
     }
 
+    /**
+     * Create table using template-based approach This method creates a Table object from template
+     * information and uses MetaStore API
+     */
+    public void createTableFromTemplate(@NonNull Table table) throws TException {
+        log.info("Creating table from template: {}.{}", table.getDbName(), table.getTableName());
+        createTableIfNotExists(table);
+        log.info("Successfully created table from template");
+    }
+
     public static HiveMetaStoreProxy getInstance(ReadonlyConfig config) {
         return new HiveMetaStoreProxy(config);
     }

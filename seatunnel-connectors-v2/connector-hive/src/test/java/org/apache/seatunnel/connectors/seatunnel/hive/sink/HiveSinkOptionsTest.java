@@ -23,11 +23,11 @@ import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveOptions;
 
 import org.junit.jupiter.api.Test;
 
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -44,17 +44,12 @@ public class HiveSinkOptionsTest {
     }
 
     @Test
-    void testTableFormatOption() {
-        assertNotNull(HiveSinkOptions.TABLE_FORMAT);
-        assertEquals("table_format", HiveSinkOptions.TABLE_FORMAT.key());
-        assertEquals("PARQUET", HiveSinkOptions.TABLE_FORMAT.defaultValue());
-    }
-
-    @Test
-    void testPartitionFieldsOption() {
-        assertNotNull(HiveSinkOptions.PARTITION_FIELDS);
-        assertEquals("partition_fields", HiveSinkOptions.PARTITION_FIELDS.key());
-        assertTrue(HiveSinkOptions.PARTITION_FIELDS.defaultValue().isEmpty());
+    void testSaveModeCreateTemplateOption() {
+        assertNotNull(HiveSinkOptions.SAVE_MODE_CREATE_TEMPLATE);
+        assertEquals("save_mode_create_template", HiveSinkOptions.SAVE_MODE_CREATE_TEMPLATE.key());
+        // Template option has no default value - we can't directly test this, but we can verify
+        // it's optional
+        assertNotNull(HiveSinkOptions.SAVE_MODE_CREATE_TEMPLATE);
     }
 
     @Test
@@ -69,14 +64,16 @@ public class HiveSinkOptionsTest {
     }
 
     @Test
-    void testReadTableFormatFromConfig() {
+    void testReadTemplateFromConfig() {
         Map<String, Object> configMap = new HashMap<>();
-        configMap.put(HiveSinkOptions.TABLE_FORMAT.key(), "ORC");
+        String template =
+                "CREATE TABLE IF NOT EXISTS `${database}`.`${table}` (${rowtype_fields}) STORED AS PARQUET";
+        configMap.put(HiveSinkOptions.SAVE_MODE_CREATE_TEMPLATE.key(), template);
 
         ReadonlyConfig config = ReadonlyConfig.fromMap(configMap);
 
-        String format = config.get(HiveSinkOptions.TABLE_FORMAT);
-        assertEquals("ORC", format);
+        String readTemplate = config.get(HiveSinkOptions.SAVE_MODE_CREATE_TEMPLATE);
+        assertEquals(template, readTemplate);
     }
 
     @Test
@@ -90,9 +87,8 @@ public class HiveSinkOptionsTest {
         SchemaSaveMode defaultSaveMode = config.get(HiveSinkOptions.SCHEMA_SAVE_MODE);
         assertEquals(SchemaSaveMode.CREATE_SCHEMA_WHEN_NOT_EXIST, defaultSaveMode);
 
-        // Test default table format
-        String defaultFormat = config.get(HiveSinkOptions.TABLE_FORMAT);
-        assertEquals("PARQUET", defaultFormat);
+        // Template option should not have default value
+        assertFalse(config.getOptional(HiveSinkOptions.SAVE_MODE_CREATE_TEMPLATE).isPresent());
     }
 
     @Test
@@ -108,8 +104,8 @@ public class HiveSinkOptionsTest {
         SchemaSaveMode defaultSaveMode = config.get(HiveSinkOptions.SCHEMA_SAVE_MODE);
         assertEquals(SchemaSaveMode.CREATE_SCHEMA_WHEN_NOT_EXIST, defaultSaveMode);
 
-        String defaultFormat = config.get(HiveSinkOptions.TABLE_FORMAT);
-        assertEquals("PARQUET", defaultFormat);
+        // Template should be optional
+        assertFalse(config.getOptional(HiveSinkOptions.SAVE_MODE_CREATE_TEMPLATE).isPresent());
     }
 
     @Test
@@ -133,17 +129,29 @@ public class HiveSinkOptionsTest {
     }
 
     @Test
-    void testTableFormatValues() {
-        String[] supportedFormats = {"PARQUET", "ORC", "TEXTFILE", "TEXT"};
+    void testTemplateWithVariables() {
+        String[] templateVariables = {
+            "${database}",
+            "${table}",
+            "${rowtype_fields}",
+            "${rowtype_partition_fields}",
+            "${table_location}"
+        };
 
-        for (String format : supportedFormats) {
-            Map<String, Object> configMap = new HashMap<>();
-            configMap.put(HiveSinkOptions.TABLE_FORMAT.key(), format);
+        String template =
+                "CREATE TABLE IF NOT EXISTS `${database}`.`${table}` (${rowtype_fields}) PARTITIONED BY (${rowtype_partition_fields}) STORED AS PARQUET LOCATION '${table_location}'";
 
-            ReadonlyConfig config = ReadonlyConfig.fromMap(configMap);
-            String readFormat = config.get(HiveSinkOptions.TABLE_FORMAT);
+        Map<String, Object> configMap = new HashMap<>();
+        configMap.put(HiveSinkOptions.SAVE_MODE_CREATE_TEMPLATE.key(), template);
 
-            assertEquals(format, readFormat, "Failed to read table format: " + format);
+        ReadonlyConfig config = ReadonlyConfig.fromMap(configMap);
+        String readTemplate = config.get(HiveSinkOptions.SAVE_MODE_CREATE_TEMPLATE);
+
+        // Verify all template variables are present
+        for (String variable : templateVariables) {
+            assertTrue(
+                    readTemplate.contains(variable),
+                    "Template should contain variable: " + variable);
         }
     }
 
@@ -156,8 +164,17 @@ public class HiveSinkOptionsTest {
 
         // New SaveMode options
         configMap.put(HiveSinkOptions.SCHEMA_SAVE_MODE.key(), "RECREATE_SCHEMA");
-        configMap.put(HiveSinkOptions.TABLE_FORMAT.key(), "ORC");
-        configMap.put(HiveSinkOptions.PARTITION_FIELDS.key(), Arrays.asList("year", "month"));
+        String template =
+                "CREATE TABLE IF NOT EXISTS `${database}`.`${table}` (\n"
+                        + "              ${rowtype_fields}\n"
+                        + "            )\n"
+                        + "            PARTITIONED BY (\n"
+                        + "              year int COMMENT 'Year partition',\n"
+                        + "              month int COMMENT 'Month partition'\n"
+                        + "            )\n"
+                        + "            STORED AS ORC\n"
+                        + "            LOCATION '${table_location}'";
+        configMap.put(HiveSinkOptions.SAVE_MODE_CREATE_TEMPLATE.key(), template);
 
         ReadonlyConfig config = ReadonlyConfig.fromMap(configMap);
 
@@ -165,6 +182,6 @@ public class HiveSinkOptionsTest {
         assertEquals("analytics.user_events", config.get(HiveOptions.TABLE_NAME));
         assertEquals("thrift://hive-metastore:9083", config.get(HiveOptions.METASTORE_URI));
         assertEquals(SchemaSaveMode.RECREATE_SCHEMA, config.get(HiveSinkOptions.SCHEMA_SAVE_MODE));
-        assertEquals("ORC", config.get(HiveSinkOptions.TABLE_FORMAT));
+        assertEquals(template, config.get(HiveSinkOptions.SAVE_MODE_CREATE_TEMPLATE));
     }
 }

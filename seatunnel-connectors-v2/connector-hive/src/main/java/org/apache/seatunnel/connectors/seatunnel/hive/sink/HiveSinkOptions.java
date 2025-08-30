@@ -22,9 +22,6 @@ import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.api.sink.SchemaSaveMode;
 import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveOptions;
 
-import java.util.ArrayList;
-import java.util.List;
-
 public class HiveSinkOptions extends HiveOptions {
 
     public static final Option<Boolean> ABORT_DROP_PARTITION_METADATA =
@@ -53,17 +50,13 @@ public class HiveSinkOptions extends HiveOptions {
                                     + "ERROR_WHEN_SCHEMA_NOT_EXIST: Throw error when table not exists. "
                                     + "IGNORE: Skip table creation.");
 
-    public static final Option<String> TABLE_FORMAT =
-            Options.key("table_format")
+    public static final Option<String> SAVE_MODE_CREATE_TEMPLATE =
+            Options.key("save_mode_create_template")
                     .stringType()
-                    .defaultValue("PARQUET")
+                    .noDefaultValue()
                     .withDescription(
-                            "Storage format for auto-created Hive table. Options: PARQUET (default), ORC, TEXTFILE, TEXT.");
-
-    public static final Option<List<String>> PARTITION_FIELDS =
-            Options.key("partition_fields")
-                    .listType()
-                    .defaultValue(new ArrayList<>())
-                    .withDescription(
-                            "Partition fields for auto-created Hive table. Empty list means non-partitioned table.");
+                            "We use templates to automatically create Hive tables, "
+                                    + "which will create corresponding table creation statements based on the type of upstream data and schema type, "
+                                    + "and the default template can be modified according to the situation. "
+                                    + "Available template variables: ${database}, ${table}, ${rowtype_fields}, ${rowtype_partition_fields}, ${table_location}.");
 }

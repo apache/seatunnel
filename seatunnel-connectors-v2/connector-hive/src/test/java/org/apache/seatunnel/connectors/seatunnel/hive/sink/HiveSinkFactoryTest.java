@@ -86,7 +86,9 @@ public class HiveSinkFactoryTest {
         configMap.put(HiveConfig.TABLE_NAME.key(), "test_db.test_table");
         configMap.put(HiveConfig.METASTORE_URI.key(), "thrift://localhost:9083");
         configMap.put(HiveSinkOptions.SCHEMA_SAVE_MODE.key(), "CREATE_SCHEMA_WHEN_NOT_EXIST");
-        configMap.put(HiveSinkOptions.TABLE_FORMAT.key(), "PARQUET");
+        configMap.put(
+                HiveSinkOptions.SAVE_MODE_CREATE_TEMPLATE.key(),
+                "CREATE TABLE IF NOT EXISTS `${database}`.`${table}` (${rowtype_fields}) STORED AS PARQUET");
 
         ReadonlyConfig config = ReadonlyConfig.fromMap(configMap);
 
@@ -135,12 +137,12 @@ public class HiveSinkFactoryTest {
     }
 
     @Test
-    void testCreateSinkWithSaveModeButNoTableFormat() {
+    void testCreateSinkWithSaveModeButNoTemplate() {
         Map<String, Object> configMap = new HashMap<>();
         configMap.put(HiveConfig.TABLE_NAME.key(), "test_db.test_table");
         configMap.put(HiveConfig.METASTORE_URI.key(), "thrift://localhost:9083");
         configMap.put(HiveSinkOptions.SCHEMA_SAVE_MODE.key(), "CREATE_SCHEMA_WHEN_NOT_EXIST");
-        // No table format provided - should use default PARQUET
+        // No template provided - should use default template
 
         ReadonlyConfig config = ReadonlyConfig.fromMap(configMap);
 
@@ -167,7 +169,9 @@ public class HiveSinkFactoryTest {
             configMap.put(HiveConfig.TABLE_NAME.key(), "test_db.test_table");
             configMap.put(HiveConfig.METASTORE_URI.key(), "thrift://localhost:9083");
             configMap.put(HiveSinkOptions.SCHEMA_SAVE_MODE.key(), mode);
-            configMap.put(HiveSinkOptions.TABLE_FORMAT.key(), "PARQUET");
+            configMap.put(
+                    HiveSinkOptions.SAVE_MODE_CREATE_TEMPLATE.key(),
+                    "CREATE TABLE IF NOT EXISTS `${database}`.`${table}` (${rowtype_fields}) STORED AS PARQUET");
 
             ReadonlyConfig config = ReadonlyConfig.fromMap(configMap);
 
@@ -182,15 +186,19 @@ public class HiveSinkFactoryTest {
     }
 
     @Test
-    void testCreateSinkWithDifferentTableFormats() {
-        String[] formats = {"PARQUET", "ORC", "TEXTFILE"};
+    void testCreateSinkWithDifferentTemplates() {
+        String[] templates = {
+            "CREATE TABLE IF NOT EXISTS `${database}`.`${table}` (${rowtype_fields}) STORED AS PARQUET",
+            "CREATE TABLE IF NOT EXISTS `${database}`.`${table}` (${rowtype_fields}) STORED AS ORC",
+            "CREATE TABLE IF NOT EXISTS `${database}`.`${table}` (${rowtype_fields}) PARTITIONED BY (${rowtype_partition_fields}) STORED AS PARQUET"
+        };
 
-        for (String format : formats) {
+        for (String template : templates) {
             Map<String, Object> configMap = new HashMap<>();
             configMap.put(HiveConfig.TABLE_NAME.key(), "test_db.test_table");
             configMap.put(HiveConfig.METASTORE_URI.key(), "thrift://localhost:9083");
             configMap.put(HiveSinkOptions.SCHEMA_SAVE_MODE.key(), "CREATE_SCHEMA_WHEN_NOT_EXIST");
-            configMap.put(HiveSinkOptions.TABLE_FORMAT.key(), format);
+            configMap.put(HiveSinkOptions.SAVE_MODE_CREATE_TEMPLATE.key(), template);
 
             ReadonlyConfig config = ReadonlyConfig.fromMap(configMap);
 
@@ -200,7 +208,7 @@ public class HiveSinkFactoryTest {
                         TableSink<?, ?, ?, ?> tableSink = factory.createSink(context);
                         assertNotNull(tableSink);
                     },
-                    "Failed to create sink with table format: " + format);
+                    "Failed to create sink with template: " + template);
         }
     }
 
@@ -249,7 +257,9 @@ public class HiveSinkFactoryTest {
                         .getOptionalOptions()
                         .contains(HiveSinkOptions.SCHEMA_SAVE_MODE));
         assertTrue(
-                factory.optionRule().getOptionalOptions().contains(HiveSinkOptions.TABLE_FORMAT));
+                factory.optionRule()
+                        .getOptionalOptions()
+                        .contains(HiveSinkOptions.SAVE_MODE_CREATE_TEMPLATE));
     }
 
     @Test

@@ -55,8 +55,7 @@ public class HiveSinkFactory
                 .optional(FileBaseSinkOptions.PARQUET_AVRO_WRITE_TIMESTAMP_AS_INT96)
                 // SaveMode related options
                 .optional(HiveSinkOptions.SCHEMA_SAVE_MODE)
-                .optional(HiveSinkOptions.TABLE_FORMAT)
-                .optional(HiveSinkOptions.PARTITION_FIELDS)
+                .optional(HiveSinkOptions.SAVE_MODE_CREATE_TEMPLATE)
                 .build();
     }
 

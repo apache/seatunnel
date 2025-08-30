@@ -107,13 +107,9 @@ Kerberos 的 keytab 文件路径
 
 
 
-### table_format [字符串]
+### save_mode_create_template [字符串]
 
-自动创建 Hive 表的存储格式。选项：`PARQUET`（默认）、`ORC`, `TEXTFILE`。
-
-### partition_fields [数组]
-
-自动创建 Hive 表的分区字段。空列表表示非分区表。
+我们使用模板来自动创建 Hive 表，它将根据上游数据类型和模式类型创建相应的建表语句，默认模板可以根据情况进行修改。可用的模板变量：${database}, ${table}, ${rowtype_fields}, ${rowtype_partition_fields}, ${table_location}。
 
 ### 通用选项
 

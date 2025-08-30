@@ -112,13 +112,9 @@ Option values:
 
 
 
-### table_format [string]
+### save_mode_create_template [string]
 
-Storage format for auto-created Hive table. Options: `PARQUET` (default), `ORC`, `TEXTFILE`.
-
-### partition_fields [array]
-
-Partition fields for auto-created Hive table. Empty list means non-partitioned table.
+We use templates to automatically create Hive tables, which will create corresponding table creation statements based on the type of upstream data and schema type, and the default template can be modified according to the situation. Available template variables: ${database}, ${table}, ${rowtype_fields}, ${rowtype_partition_fields}, ${table_location}.
 
 ### common options
 
@@ -535,8 +531,19 @@ sink {
     table_name = "warehouse.employees"
     metastore_uri = "thrift://metastore:9083"
     schema_save_mode = "CREATE_SCHEMA_WHEN_NOT_EXIST"
-    table_format = "PARQUET"
-    partition_fields = ["department"]
+    save_mode_create_template = """
+      CREATE TABLE IF NOT EXISTS `${database}`.`${table}` (
+        ${rowtype_fields}
+      )
+      PARTITIONED BY (
+        department string COMMENT 'Department partition'
+      )
+      STORED AS PARQUET
+      LOCATION '${table_location}'
+      TBLPROPERTIES (
+        'seatunnel.creation.mode' = 'template'
+      )
+    """
   }
 }
 ```
