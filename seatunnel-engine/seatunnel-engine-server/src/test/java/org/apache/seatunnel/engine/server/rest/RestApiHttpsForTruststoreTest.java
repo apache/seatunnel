@@ -165,7 +165,7 @@ public class RestApiHttpsForTruststoreTest extends AbstractSeaTunnelServerTest {
                     HttpsURLConnection conn =
                             (HttpsURLConnection)
                                     new java.net.URL(
-                                                    "https://localhost:" + HTTPS_PORT + "/overview")
+                                            "https://localhost:" + HTTPS_PORT + "/overview")
                                             .openConnection();
                     conn.setSSLSocketFactory(sslContext.getSocketFactory());
                     conn.getInputStream();
