@@ -46,8 +46,10 @@ import com.clickhouse.client.data.ClickHouseStringValue;
 import lombok.extern.slf4j.Slf4j;
 
 import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -100,7 +102,6 @@ public class ClickhouseValueReaderTest {
                         new ArrayList<>(parts),
                         shard,
                         "",
-                        0,
                         "split-1");
 
         mockProxy = Mockito.mock(ClickhouseProxy.class, Mockito.RETURNS_DEEP_STUBS);
@@ -130,9 +131,11 @@ public class ClickhouseValueReaderTest {
         Assertions.assertEquals(BATCH_SIZE, result.size());
         Assertions.assertEquals(0, reader.currentPartIndex);
 
-        // Make sure the offset has been updated but the part has not been marked as end of part
+        // In keyset mode, lastOrderingKeyValues should be updated, offset remains 0
         List<ClickhousePart> parts = new ArrayList<>(split.getParts());
-        Assertions.assertEquals(BATCH_SIZE, parts.get(0).getOffset());
+        Assertions.assertNotNull(parts.get(0).getLastOrderingKeyValues());
+        Assertions.assertEquals(
+                (long) (BATCH_SIZE - 1), parts.get(0).getLastOrderingKeyValues().get(0));
         Assertions.assertFalse(parts.get(0).isEndOfPart());
     }
 
@@ -150,9 +153,11 @@ public class ClickhouseValueReaderTest {
         List<SeaTunnelRow> result = reader.next();
         Assertions.assertEquals(partialSize, result.size());
 
-        // Make sure the offset has been updated
+        // In keyset mode, lastOrderingKeyValues should be updated to last row id, and no EOS
         List<ClickhousePart> parts = new ArrayList<>(split.getParts());
-        Assertions.assertEquals(partialSize, parts.get(0).getOffset());
+        Assertions.assertNotNull(parts.get(0).getLastOrderingKeyValues());
+        Assertions.assertEquals(
+                (long) (partialSize - 1), parts.get(0).getLastOrderingKeyValues().get(0));
 
         Assertions.assertTrue(reader.hasNext());
     }
@@ -193,9 +198,13 @@ public class ClickhouseValueReaderTest {
                         invocation -> {
                             ClickhousePart part = parts.get(reader.currentPartIndex);
                             if ("part1".equals(part.getName())) {
-                                return part.getOffset() == 0 ? mockRows1 : new ArrayList<>();
+                                return part.getLastOrderingKeyValues() == null
+                                        ? mockRows1
+                                        : new ArrayList<>();
                             } else {
-                                return part.getOffset() == 0 ? mockRows2 : new ArrayList<>();
+                                return part.getLastOrderingKeyValues() == null
+                                        ? mockRows2
+                                        : new ArrayList<>();
                             }
                         });
 
@@ -220,7 +229,14 @@ public class ClickhouseValueReaderTest {
 
     @Test
     public void testPartStrategyReadWithNoSortingKey() {
-        when(sourceTable.getClickhouseTable().getSortingKey()).thenReturn("");
+        try {
+            Field shouldUseStreamReader =
+                    ClickhouseValueReader.class.getDeclaredField("shouldUseStreamReader");
+            shouldUseStreamReader.setAccessible(true);
+            shouldUseStreamReader.set(reader, true);
+        } catch (Exception e) {
+            Assertions.fail("Failed to set shouldUseStreamReader field", e);
+        }
 
         Assertions.assertTrue(reader.hasNext());
         List<SeaTunnelRow> result = reader.next();
@@ -244,7 +260,14 @@ public class ClickhouseValueReaderTest {
             Assertions.fail("Failed to set isSqlStrategyRead field", e);
         }
 
-        when(sourceTable.getClickhouseTable().getSortingKey()).thenReturn("");
+        try {
+            Field shouldUseStreamReader =
+                    ClickhouseValueReader.class.getDeclaredField("shouldUseStreamReader");
+            shouldUseStreamReader.setAccessible(true);
+            shouldUseStreamReader.set(reader, true);
+        } catch (Exception e) {
+            Assertions.fail("Failed to set shouldUseStreamReader field", e);
+        }
 
         Assertions.assertTrue(reader.hasNext());
 
@@ -267,18 +290,18 @@ public class ClickhouseValueReaderTest {
 
         when(sourceTable.getClickhouseTable().getSortingKey()).thenReturn("id");
 
+        // In Keyset mode, we expect multiple batches without relying on sqlOffset
         List<SeaTunnelRow> firstBatch = createMockRows(BATCH_SIZE);
         List<SeaTunnelRow> secondBatch = createMockRows(5);
         List<SeaTunnelRow> emptyBatch = new ArrayList<>();
 
-        when(mockProxy.batchFetchRecords(any(), eq(sourceTable.getTablePath()), eq(rowType)))
-                .thenAnswer(
-                        x ->
-                                split.getSqlOffset() == 0
-                                        ? firstBatch
-                                        : split.getSqlOffset() == BATCH_SIZE
-                                                ? secondBatch
-                                                : emptyBatch);
+        // Simulate: first call returns firstBatch, second call returns secondBatch, then empty
+        Mockito.when(
+                        mockProxy.batchFetchRecords(
+                                any(), eq(sourceTable.getTablePath()), eq(rowType)))
+                .thenReturn(firstBatch)
+                .thenReturn(secondBatch)
+                .thenReturn(emptyBatch);
 
         Assertions.assertTrue(reader.hasNext());
         List<SeaTunnelRow> result1 = reader.next();
@@ -317,6 +340,68 @@ public class ClickhouseValueReaderTest {
             Assertions.assertEquals(20 + i, rows.get(i).getField(2));
             Assertions.assertEquals(tablePath.getFullName(), rows.get(i).getTableId());
         }
+    }
+
+    @Test
+    public void testBuildKeysetWhereCondition() throws Exception {
+        Method buildKeysetWhereConditionMethod =
+                ClickhouseValueReader.class.getDeclaredMethod(
+                        "buildKeysetWhereCondition", String.class, List.class);
+        buildKeysetWhereConditionMethod.setAccessible(true);
+
+        // Test a single sort key
+        String sortingKey = "id";
+        List<Object> keyValues = Collections.singletonList(100L);
+        Object result = buildKeysetWhereConditionMethod.invoke(reader, sortingKey, keyValues);
+        Assertions.assertEquals("(id) > (100)", result);
+
+        // Test the composite sort key
+        sortingKey = "id, name";
+        keyValues = Arrays.asList(100L, "test");
+        result = buildKeysetWhereConditionMethod.invoke(reader, sortingKey, keyValues);
+        Assertions.assertEquals("(id, name) > (100, 'test')", result);
+
+        // Test values containing special characters
+        sortingKey = "id, name";
+        keyValues = Arrays.asList(100L, "test'with quote");
+        result = buildKeysetWhereConditionMethod.invoke(reader, sortingKey, keyValues);
+        Assertions.assertEquals("(id, name) > (100, 'test''with quote')", result);
+
+        // Test the list of null key values
+        result = buildKeysetWhereConditionMethod.invoke(reader, sortingKey, null);
+        Assertions.assertEquals("", result);
+
+        result = buildKeysetWhereConditionMethod.invoke(reader, sortingKey, new ArrayList<>());
+        Assertions.assertEquals("", result);
+
+        // The number of test keys and values does not match
+        sortingKey = "id, name, age";
+        keyValues = Arrays.asList(100L, "test");
+        result = buildKeysetWhereConditionMethod.invoke(reader, sortingKey, keyValues);
+        Assertions.assertEquals("", result);
+    }
+
+    @Test
+    public void testIsAllSortKeyInRowType() throws Exception {
+        Method isAllSortKeyInRowTypeMethod =
+                ClickhouseValueReader.class.getDeclaredMethod("isAllSortKeyInRowType");
+        isAllSortKeyInRowTypeMethod.setAccessible(true);
+
+        // Test case 1: Valid composite sorting key
+        when(sourceTable.getClickhouseTable().getSortingKey()).thenReturn("id, age");
+        boolean result = (boolean) isAllSortKeyInRowTypeMethod.invoke(reader);
+        Assertions.assertTrue(result);
+
+        // Test case 2: Empty sorting key
+        when(sourceTable.getClickhouseTable().getSortingKey()).thenReturn("");
+        result = (boolean) isAllSortKeyInRowTypeMethod.invoke(reader);
+        Assertions.assertFalse(result);
+
+        // Test case 3: row type not contains all sort key
+        when(sourceTable.getClickhouseTable().getSortingKey())
+                .thenReturn("id, name, age, non_existent_field");
+        result = (boolean) isAllSortKeyInRowTypeMethod.invoke(reader);
+        Assertions.assertFalse(result);
     }
 
     private void initStreamValueReaderMock() throws ClickHouseException {
