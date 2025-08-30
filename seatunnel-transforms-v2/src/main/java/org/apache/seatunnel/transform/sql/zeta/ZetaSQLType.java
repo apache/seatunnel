@@ -368,6 +368,7 @@ public class ZetaSQLType {
             case ZetaSQLFunction.WEEK:
             case ZetaSQLFunction.YEAR:
             case ZetaSQLFunction.SIGN:
+            case ZetaSQLFunction.VECTOR_DIMS:
                 return BasicType.INT_TYPE;
             case ZetaSQLFunction.BIT_LENGTH:
             case ZetaSQLFunction.CHAR_LENGTH:
@@ -402,6 +403,11 @@ public class ZetaSQLType {
             case ZetaSQLFunction.RANDOM:
             case ZetaSQLFunction.TRUNC:
             case ZetaSQLFunction.TRUNCATE:
+            case ZetaSQLFunction.COSINE_DISTANCE:
+            case ZetaSQLFunction.L1_DISTANCE:
+            case ZetaSQLFunction.L2_DISTANCE:
+            case ZetaSQLFunction.VECTOR_NORM:
+            case ZetaSQLFunction.INNER_PRODUCT:
                 return BasicType.DOUBLE_TYPE;
             case ZetaSQLFunction.ARRAY:
                 return ArrayFunction.castArrayTypeMapping(function, inputRowType);

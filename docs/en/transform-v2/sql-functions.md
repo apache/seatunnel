@@ -1156,3 +1156,69 @@ SELECT * FROM dual
 	LATERAL VIEW OUTER EXPLODE ( age ) AS age
 	LATERAL VIEW OUTER EXPLODE ( ARRAY(1,1) ) AS num
 ```
+
+## Vector Functions
+
+### VECTOR_DIMS
+
+```VECTOR_DIMS(vector) -> INT```
+
+Returns an INT value representing the number of dimensions (elements) in the vector.
+
+Example:
+
+VECTOR_DIMS(vector)
+
+### VECTOR_NORM
+
+```VECTOR_NORM(vector) -> DOUBLE```
+
+Calculates the L2 norm (Euclidean norm) of a vector, which represents the length or magnitude of the vector.
+
+Example:
+
+VECTOR_NORM(vector)
+
+### INNER_PRODUCT
+
+```INNER_PRODUCT(vector1, vector2) -> DOUBLE```
+
+Calculates the inner product (dot product) of two vectors, which is used to measure the similarity and projection between the vectors.
+
+Example:
+
+INNER_PRODUCT(vector1, vector2)
+
+### COSINE_DISTANCE
+
+```COSINE_DISTANCE(vector1, vector2) -> DOUBLE```
+
+Returns a DOUBLE value between 0 and 1:
+
+0: Identical vectors (completely similar)
+
+1: Orthogonal vectors (completely dissimilar)
+
+Example:
+
+COSINE_DISTANCE(vector1, vector2)
+
+### L1_DISTANCE
+
+```L1_DISTANCE(vector1, vector2) -> DOUBLE```
+
+Calculates the Manhattan (L1) distance between two vectors.
+
+Example:
+
+L1_DISTANCE(vector1, vector2)
+
+### L2_DISTANCE
+
+```L2_DISTANCE(vector1, vector2) -> DOUBLE```
+
+Calculates the Euclidean (L2) distance between two vectors.
+
+Example:
+
+L2_DISTANCE(vector1, vector2)

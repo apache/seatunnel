@@ -1150,3 +1150,69 @@ SELECT * FROM dual
 	LATERAL VIEW OUTER EXPLODE ( age ) AS age
 	LATERAL VIEW OUTER EXPLODE ( ARRAY(1,1) ) AS num
 ```
+
+## 向量函数
+
+### VECTOR_DIMS
+
+```VECTOR_DIMS(vector) -> INT```
+
+返回一个INT值，表示向量中的维数（元素）。
+
+示例:
+
+VECTOR_DIMS(vector)
+
+### VECTOR_NORM
+
+```VECTOR_NORM(vector) -> DOUBLE```
+
+计算向量的L2范数（欧几里得范数），表示向量的长度或大小。
+
+示例:
+
+VECTOR_NORM(vector)
+
+### INNER_PRODUCT
+
+```INNER_PRODUCT(vector1, vector2) -> DOUBLE```
+
+计算两个向量的内积（点积），用于测量向量之间的相似性和投影。
+
+示例:
+
+INNER_PRODUCT(vector1, vector2)
+
+### COSINE_DISTANCE
+
+```COSINE_DISTANCE(vector1, vector2) -> DOUBLE```
+
+返回介于 0 和 1 之间的 DOUBLE 值：
+
+0：相同的向量（完全相似）
+
+1：正交向量（完全不同）
+
+示例:
+
+COSINE_DISTANCE(vector1, vector2)
+
+### L1_DISTANCE
+
+```L1_DISTANCE(vector1, vector2) -> DOUBLE```
+
+计算两个向量之间的曼哈顿（L1）距离。
+
+示例:
+
+L1_DISTANCE(vector1, vector2)
+
+### L2_DISTANCE
+
+```L2_DISTANCE(vector1, vector2) -> DOUBLE```
+
+计算两个向量之间的欧几里得（L2）距离。
+
+示例:
+
+L2_DISTANCE(vector1, vector2)

@@ -19,7 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.fake.utils;
 
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.type.DecimalType;
-import org.apache.seatunnel.common.utils.BufferUtils;
+import org.apache.seatunnel.common.utils.VectorUtils;
 import org.apache.seatunnel.connectors.seatunnel.fake.config.FakeConfig;
 
 import org.apache.commons.collections4.CollectionUtils;
@@ -231,7 +231,7 @@ public class FakeDataRandomUtils {
                     RandomUtils.nextFloat(
                             fakeConfig.getVectorFloatMin(), fakeConfig.getVectorFloatMax());
         }
-        return BufferUtils.toByteBuffer(floatVector);
+        return VectorUtils.toByteBuffer(floatVector);
     }
 
     public ByteBuffer randomFloat16Vector(Column column) {
@@ -244,7 +244,7 @@ public class FakeDataRandomUtils {
                             fakeConfig.getVectorFloatMin(), fakeConfig.getVectorFloatMax());
             float16Vector[i] = floatToFloat16(value);
         }
-        return BufferUtils.toByteBuffer(float16Vector);
+        return VectorUtils.toByteBuffer(float16Vector);
     }
 
     public ByteBuffer randomBFloat16Vector(Column column) {
@@ -257,7 +257,7 @@ public class FakeDataRandomUtils {
                             fakeConfig.getVectorFloatMin(), fakeConfig.getVectorFloatMax());
             bfloat16Vector[i] = floatToBFloat16(value);
         }
-        return BufferUtils.toByteBuffer(bfloat16Vector);
+        return VectorUtils.toByteBuffer(bfloat16Vector);
     }
 
     public Map<Integer, Float> randomSparseFloatVector(Column column) {
