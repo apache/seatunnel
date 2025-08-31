@@ -315,6 +315,43 @@ public class ConfigShadeTest {
     }
 
     @Test
+    public void testComplexNestedStructurePlaceholderReplacement() throws URISyntaxException {
+        String mapValue = "map_replaced";
+        String listValue = "list_replaced";
+        List<String> variables = new ArrayList<>();
+        variables.add("map_placeholder=" + mapValue);
+        variables.add("list_placeholder=" + listValue);
+
+        URL resource = ConfigShadeTest.class.getResource("/config_complex_nested_variables.conf");
+        Assertions.assertNotNull(resource);
+        Config config = ConfigBuilder.of(Paths.get(resource.toURI()), variables);
+
+        // Verify placeholder substitution in complex nested structures
+        List<? extends ConfigObject> sourceConfigs = config.getObjectList("source");
+        for (ConfigObject configObject : sourceConfigs) {
+            Config sourceConfig = configObject.toConfig();
+            if (sourceConfig.hasPath("complex_data")) {
+                List<Object> complexData = (List<Object>) sourceConfig.getAnyRef("complex_data");
+
+                // Verify placeholder substitution for Map objects in List
+                Map<String, Object> mapInList = (Map<String, Object>) complexData.get(0);
+                Assertions.assertTrue(
+                        mapInList.get("field").toString().contains(mapValue),
+                        "Map in list should contain replaced placeholder");
+
+                // Verify placeholder replacement for nested Lists in List
+                List<String> nestedList = (List<String>) complexData.get(1);
+                Assertions.assertTrue(
+                        nestedList.contains(listValue),
+                        "Nested list should contain replaced placeholder");
+                Assertions.assertFalse(
+                        nestedList.contains("${list_placeholder}"),
+                        "Nested list should not contain unreplaced placeholder");
+            }
+        }
+    }
+
+    @Test
     public void testDecryptAndEncrypt() {
         String encryptUsername = ConfigShadeUtils.encryptOption("base64", USERNAME);
         String decryptUsername = ConfigShadeUtils.decryptOption("base64", encryptUsername);

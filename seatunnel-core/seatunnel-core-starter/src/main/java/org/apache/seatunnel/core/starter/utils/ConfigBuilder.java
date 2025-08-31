@@ -269,6 +269,8 @@ public class ConfigBuilder {
                             } else if (variable instanceof Map) {
                                 processVariablesMap((Map<String, Object>) variable);
                                 return variable;
+                            } else if (variable instanceof List) {
+                                return processVariablesList((List<?>) variable);
                             }
                             return variable;
                         })
