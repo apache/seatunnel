@@ -32,16 +32,25 @@ The configuration of the `seatunnel-server` module is in the `seatunnel.yaml` fi
 seatunnel:
     engine:
         checkpoint:
+            interval: 300000 # checkpoint interval in milliseconds, default is 300000 (5 minutes)
+            timeout: 30000   # checkpoint timeout in milliseconds, default is 30000 (30 seconds)
+            min-pause: 5000   # minimum pause between checkpoints in milliseconds
             storage:
                 type: hdfs #plugin name of checkpoint storage, we support hdfs(S3, local, hdfs), localfile (native local file) is the default, but this plugin is de
               # plugin configuration
-                plugin-config: 
+                plugin-config:
                   namespace: #checkpoint storage parent path, the default value is /seatunnel/checkpoint/
                   K1: V1 # plugin other configuration
-                  K2: V2 # plugin other configuration   
+                  K2: V2 # plugin other configuration
 ```
 
 Notice: namespace must end with "/".
+
+#### Checkpoint Configuration Parameters
+
+- **interval**: The interval (in milliseconds) between two consecutive checkpoints. Default is 300000 (5 minutes).
+- **timeout**: The timeout (in milliseconds) for a checkpoint operation. Default is 30000 (30 seconds).
+- **min-pause**: The minimum pause (in milliseconds) between consecutive checkpoints. This ensures that checkpoints are not triggered too frequently.
 
 #### OSS
 
