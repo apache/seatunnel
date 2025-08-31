@@ -18,15 +18,24 @@
 package org.apache.seatunnel.format.json.debezium;
 
 import org.apache.seatunnel.api.serialization.SerializationSchema;
+import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.format.json.JsonSerializationSchema;
 
-import java.nio.charset.Charset;
+import org.apache.commons.lang3.StringUtils;
 
+import java.nio.charset.Charset;
+import java.util.HashMap;
+import java.util.Map;
+
+import static org.apache.seatunnel.api.table.type.BasicType.LONG_TYPE;
 import static org.apache.seatunnel.api.table.type.BasicType.STRING_TYPE;
+import static org.apache.seatunnel.api.table.type.CommonOptions.EVENT_TIME;
 import static org.apache.seatunnel.format.json.debezium.DebeziumJsonFormatOptions.GENERATE_ROW_SIZE;
 
 public class DebeziumJsonSerializationSchema implements SerializationSchema {
@@ -53,18 +62,37 @@ public class DebeziumJsonSerializationSchema implements SerializationSchema {
     @Override
     public byte[] serialize(SeaTunnelRow row) {
         try {
+            Map<String, String> source = new HashMap<>();
+            if (!StringUtils.isEmpty(row.getTableId())) {
+                source.put("schema", TablePath.of(row.getTableId()).getSchemaName());
+                source.put("database", TablePath.of(row.getTableId()).getDatabaseName());
+                source.put("table", TablePath.of(row.getTableId()).getTableName());
+            }
             switch (row.getRowKind()) {
                 case INSERT:
                 case UPDATE_AFTER:
                     genericRow.setField(0, null);
                     genericRow.setField(1, row);
                     genericRow.setField(2, OP_INSERT);
+                    genericRow.setField(3, source);
+
+                    if (row.getOptions() != null
+                            && row.getOptions().containsKey(EVENT_TIME.getName())) {
+                        genericRow.setField(4, row.getOptions().get(EVENT_TIME.getName()));
+                    } else {
+                        genericRow.setField(4, null);
+                    }
                     return jsonSerializer.serialize(genericRow);
                 case UPDATE_BEFORE:
                 case DELETE:
                     genericRow.setField(0, row);
                     genericRow.setField(1, null);
                     genericRow.setField(2, OP_DELETE);
+                    genericRow.setField(3, source);
+                    if (row.getOptions() != null
+                            && row.getOptions().containsKey(EVENT_TIME.getName())) {
+                        genericRow.setField(4, row.getOptions().get(EVENT_TIME.getName()));
+                    }
                     return jsonSerializer.serialize(genericRow);
                 default:
                     throw new UnsupportedOperationException(
@@ -78,7 +106,13 @@ public class DebeziumJsonSerializationSchema implements SerializationSchema {
 
     private static SeaTunnelRowType createJsonRowType(SeaTunnelRowType databaseSchema) {
         return new SeaTunnelRowType(
-                new String[] {"before", "after", "op"},
-                new SeaTunnelDataType[] {databaseSchema, databaseSchema, STRING_TYPE});
+                new String[] {"before", "after", "op", "source", "ts_ms"},
+                new SeaTunnelDataType[] {
+                    databaseSchema,
+                    databaseSchema,
+                    STRING_TYPE,
+                    new MapType<>(BasicType.STRING_TYPE, BasicType.STRING_TYPE),
+                    LONG_TYPE
+                });
     }
 }

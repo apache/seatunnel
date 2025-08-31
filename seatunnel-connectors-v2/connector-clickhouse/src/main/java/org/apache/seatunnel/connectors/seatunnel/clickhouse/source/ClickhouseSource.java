@@ -24,7 +24,6 @@ import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.source.split.ClickhouseSourceSplit;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.source.split.ClickhouseSourceSplitEnumerator;
@@ -32,27 +31,22 @@ import org.apache.seatunnel.connectors.seatunnel.clickhouse.state.ClickhouseSour
 
 import com.clickhouse.client.ClickHouseNode;
 
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 public class ClickhouseSource
         implements SeaTunnelSource<SeaTunnelRow, ClickhouseSourceSplit, ClickhouseSourceState> {
 
-    private final List<ClickHouseNode> servers;
-    private final CatalogTable catalogTable;
-    private final SeaTunnelRowType rowTypeInfo;
+    private final Map<TablePath, List<ClickHouseNode>> servers;
     private final ClickhouseSourceConfig clickhouseSourceConfig;
     private final Map<TablePath, ClickhouseSourceTable> clickhouseSourceTables;
 
     public ClickhouseSource(
-            List<ClickHouseNode> servers,
-            CatalogTable catalogTable,
+            Map<TablePath, List<ClickHouseNode>> servers,
             Map<TablePath, ClickhouseSourceTable> clickhouseSourceTables,
             ClickhouseSourceConfig clickhouseSourceConfig) {
         this.servers = servers;
-        this.catalogTable = catalogTable;
-        this.rowTypeInfo = catalogTable.getSeaTunnelRowType();
         this.clickhouseSourceTables = clickhouseSourceTables;
         this.clickhouseSourceConfig = clickhouseSourceConfig;
     }
@@ -69,14 +63,16 @@ public class ClickhouseSource
 
     @Override
     public List<CatalogTable> getProducedCatalogTables() {
-        return Collections.singletonList(catalogTable);
+
+        return clickhouseSourceTables.values().stream()
+                .map(ClickhouseSourceTable::getCatalogTable)
+                .collect(Collectors.toList());
     }
 
     @Override
     public SourceReader<SeaTunnelRow, ClickhouseSourceSplit> createReader(
             SourceReader.Context readerContext) {
-        return new ClickhouseSourceReader(
-                servers, readerContext, rowTypeInfo, clickhouseSourceTables);
+        return new ClickhouseSourceReader(servers, readerContext, clickhouseSourceTables);
     }
 
     @Override

@@ -18,10 +18,6 @@
 package org.apache.seatunnel.connectors.seatunnel.clickhouse.config;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
-import org.apache.seatunnel.api.table.catalog.TablePath;
-import org.apache.seatunnel.connectors.seatunnel.clickhouse.util.ClickhouseUtil;
-
-import org.apache.commons.lang3.StringUtils;
 
 import lombok.Builder;
 import lombok.Data;
@@ -41,46 +37,20 @@ public class ClickhouseSourceConfig implements Serializable {
     private String host;
     private String username;
     private String password;
-    private String tablePath;
-    private String filterQuery;
-    private List<String> partitionList;
-    private int batchSize;
-    private int splitSize;
-    private String sql;
     private Map<String, String> clickhouseConfig;
     private String serverTimeZone;
-    private boolean isSqlStrategyRead;
+    private List<ClickhouseTableConfig> tableconfigList;
 
     public static ClickhouseSourceConfig of(ReadonlyConfig config) {
-        if (!config.getOptional(ClickhouseBaseOptions.TABLE_PATH).isPresent()
-                && !config.getOptional(ClickhouseSourceOptions.SQL).isPresent()) {
-            throw new IllegalArgumentException(
-                    "`table_path` and `sql` parameter cannot be both empty.");
-        }
-
         ClickhouseSourceConfig.Builder builder = ClickhouseSourceConfig.builder();
         builder.host(config.get(ClickhouseBaseOptions.HOST));
         builder.username(config.get(ClickhouseBaseOptions.USERNAME));
         builder.password(config.get(ClickhouseBaseOptions.PASSWORD));
-        builder.tablePath(config.get(ClickhouseBaseOptions.TABLE_PATH));
-        builder.filterQuery(config.get(ClickhouseSourceOptions.CLICKHOUSE_FILTER_QUERY));
-        builder.partitionList(config.get(ClickhouseSourceOptions.CLICKHOUSE_PARTITION_LIST));
-        builder.batchSize(config.get(ClickhouseSourceOptions.CLICKHOUSE_BATCH_SIZE));
-        builder.splitSize(config.get(ClickhouseSourceOptions.CLICKHOUSE_SPLIT_SIZE));
-        builder.sql(config.get(ClickhouseSourceOptions.SQL));
         builder.clickhouseConfig(config.get(ClickhouseBaseOptions.CLICKHOUSE_CONFIG));
         builder.serverTimeZone(config.get(ClickhouseBaseOptions.SERVER_TIME_ZONE));
-        builder.isSqlStrategyRead(config.getOptional(ClickhouseSourceOptions.SQL).isPresent());
+
+        builder.tableconfigList(ClickhouseTableConfig.of(config));
 
         return builder.build();
-    }
-
-    public TablePath getTableIdentifier() {
-        if (StringUtils.isEmpty(tablePath)) {
-            // Extract table identifier from SQL
-            return ClickhouseUtil.extractTablePathFromSql(sql);
-        }
-
-        return TablePath.of(tablePath);
     }
 }

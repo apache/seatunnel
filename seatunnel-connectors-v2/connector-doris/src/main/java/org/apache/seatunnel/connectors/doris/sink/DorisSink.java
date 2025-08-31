@@ -45,6 +45,8 @@ import org.apache.seatunnel.connectors.doris.sink.writer.DorisSinkState;
 import org.apache.seatunnel.connectors.doris.sink.writer.DorisSinkStateSerializer;
 import org.apache.seatunnel.connectors.doris.sink.writer.DorisSinkWriter;
 
+import lombok.extern.slf4j.Slf4j;
+
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collections;
@@ -53,6 +55,7 @@ import java.util.Optional;
 
 import static org.apache.seatunnel.api.table.factory.FactoryUtil.discoverFactory;
 
+@Slf4j
 public class DorisSink
         implements SeaTunnelSink<SeaTunnelRow, DorisSinkState, DorisCommitInfo, DorisCommitInfo>,
                 SupportSaveMode,
@@ -68,6 +71,12 @@ public class DorisSink
         this.config = config;
         this.catalogTable = catalogTable;
         this.dorisSinkConfig = DorisSinkConfig.of(config);
+        // Load the JDBC driver in to DriverManager
+        try {
+            Class.forName("com.mysql.cj.jdbc.Driver");
+        } catch (Exception e) {
+            log.warn("Failed to load JDBC driver com.mysql.cj.jdbc.Driver ", e);
+        }
     }
 
     @Override
@@ -82,6 +91,12 @@ public class DorisSink
 
     @Override
     public DorisSinkWriter createWriter(SinkWriter.Context context) throws IOException {
+        // Load the JDBC driver in to DriverManager
+        try {
+            Class.forName("com.mysql.cj.jdbc.Driver");
+        } catch (Exception e) {
+            log.warn("Failed to load JDBC driver com.mysql.cj.jdbc.Driver ", e);
+        }
         return new DorisSinkWriter(
                 context, Collections.emptyList(), catalogTable, dorisSinkConfig, jobId);
     }
@@ -89,6 +104,12 @@ public class DorisSink
     @Override
     public SinkWriter<SeaTunnelRow, DorisCommitInfo, DorisSinkState> restoreWriter(
             SinkWriter.Context context, List<DorisSinkState> states) throws IOException {
+        // Load the JDBC driver in to DriverManager
+        try {
+            Class.forName("com.mysql.cj.jdbc.Driver");
+        } catch (Exception e) {
+            log.warn("Failed to load JDBC driver com.mysql.cj.jdbc.Driver ", e);
+        }
         return new DorisSinkWriter(context, states, catalogTable, dorisSinkConfig, jobId);
     }
 
@@ -99,6 +120,12 @@ public class DorisSink
 
     @Override
     public Optional<SinkCommitter<DorisCommitInfo>> createCommitter() throws IOException {
+        // Load the JDBC driver in to DriverManager
+        try {
+            Class.forName("com.mysql.cj.jdbc.Driver");
+        } catch (Exception e) {
+            log.warn("Failed to load JDBC driver com.mysql.cj.jdbc.Driver ", e);
+        }
         return Optional.of(new DorisCommitter(dorisSinkConfig));
     }
 
@@ -112,8 +139,8 @@ public class DorisSink
         // Load the JDBC driver in to DriverManager
         try {
             Class.forName("com.mysql.cj.jdbc.Driver");
-        } catch (ClassNotFoundException e) {
-            throw new RuntimeException(e);
+        } catch (Exception e) {
+            log.warn("Failed to load JDBC driver com.mysql.cj.jdbc.Driver ", e);
         }
         CatalogFactory catalogFactory =
                 discoverFactory(

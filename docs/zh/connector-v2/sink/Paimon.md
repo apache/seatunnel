@@ -59,22 +59,24 @@ libfb303-xxx.jar
 
 ## 连接器选项
 
-| 名称                          | 类型   | 是否必须 | 默认值                          | 描述                                                                                                   |
-|-----------------------------|------|------|------------------------------|------------------------------------------------------------------------------------------------------|
-| warehouse                   | 字符串  | 是    | -                            | Paimon warehouse路径                                                                                   |
-| catalog_type                | 字符串  | 否    | filesystem                   | Paimon的catalog类型，目前支持filesystem和hive                                                                 |
-| catalog_uri                 | 字符串  | 否    | -                            | Paimon catalog的uri，仅当catalog_type为hive时需要配置                                                          |
-| database                    | 字符串  | 是    | -                            | 数据库名称                                                                                                |
-| table                       | 字符串  | 是    | -                            | 表名                                                                                                   |
-| hdfs_site_path              | 字符串  | 否    | -                            | hdfs-site.xml文件路径                                                                                    |
-| schema_save_mode            | 枚举   | 否    | CREATE_SCHEMA_WHEN_NOT_EXIST | Schema保存模式                                                                                           |
-| data_save_mode              | 枚举   | 否    | APPEND_DATA                  | 数据保存模式                                                                                               |
-| paimon.table.primary-keys   | 字符串  | 否    | -                            | 主键字段列表，联合主键使用逗号分隔(注意：分区字段需要包含在主键字段中)                                                                 |
-| paimon.table.partition-keys | 字符串  | 否    | -                            | 分区字段列表，多字段使用逗号分隔                                                                                     |
-| paimon.table.write-props    | Map  | 否    | -                            | Paimon表初始化指定的属性, [参考](https://paimon.apache.org/docs/master/maintenance/configurations/#coreoptions) |
-| paimon.hadoop.conf          | Map  | 否    | -                            | Hadoop配置文件属性信息                                                                                       |
-| paimon.hadoop.conf-path     | 字符串  | 否    | -                            | Hadoop配置文件目录，用于加载'core-site.xml', 'hdfs-site.xml', 'hive-site.xml'文件配置                               |
-| paimon.table.non-primary-key | Boolean | false    | -                            | 控制创建主键表或者非主键表. 当为true时,创建非主键表, 为false时,创建主键表                                                                   |
+| 名称                           | 类型   | 是否必须 | 默认值                          | 描述                                                                                                   |
+|------------------------------|------|------|------------------------------|------------------------------------------------------------------------------------------------------|
+| warehouse                    | 字符串  | 是    | -                            | Paimon warehouse路径                                                                                   |
+| catalog_type                 | 字符串  | 否    | filesystem                   | Paimon的catalog类型，目前支持filesystem和hive                                                                 |
+| catalog_uri                  | 字符串  | 否    | -                            | Paimon catalog的uri，仅当catalog_type为hive时需要配置                                                          |
+| database                     | 字符串  | 是    | -                            | 数据库名称                                                                                                |
+| table                        | 字符串  | 是    | -                            | 表名                                                                                                   |
+| user                         | 字符串  | 否    | -                            | paimon开启权限后，用户名                                                                                      |
+| password                     | 字符串  | 否    | -                            | paimon开启权限后，用户名对应密码                                                                                  |
+| hdfs_site_path               | 字符串  | 否    | -                            | hdfs-site.xml文件路径                                                                                    |
+| schema_save_mode             | 枚举   | 否    | CREATE_SCHEMA_WHEN_NOT_EXIST | Schema保存模式                                                                                           |
+| data_save_mode               | 枚举   | 否    | APPEND_DATA                  | 数据保存模式                                                                                               |
+| paimon.table.primary-keys    | 字符串  | 否    | -                            | 主键字段列表，联合主键使用逗号分隔(注意：分区字段需要包含在主键字段中)                                                                 |
+| paimon.table.partition-keys  | 字符串  | 否    | -                            | 分区字段列表，多字段使用逗号分隔                                                                                     |
+| paimon.table.write-props     | Map  | 否    | -                            | Paimon表初始化指定的属性, [参考](https://paimon.apache.org/docs/master/maintenance/configurations/#coreoptions) |
+| paimon.hadoop.conf           | Map  | 否    | -                            | Hadoop配置文件属性信息                                                                                       |
+| paimon.hadoop.conf-path      | 字符串  | 否    | -                            | Hadoop配置文件目录，用于加载'core-site.xml', 'hdfs-site.xml', 'hive-site.xml'文件配置                               |
+| paimon.table.non-primary-key | Boolean | false    | -                            | 控制创建主键表或者非主键表. 当为true时,创建非主键表, 为false时,创建主键表                                                         |
 
 ## 批模式下的checkpoint
 
@@ -582,6 +584,41 @@ sink {
     warehouse="file:///tmp/seatunnel/paimon/hadoop-sink/"
     database="${schema_name}_test"
     table="${table_name}_test"
+  }
+}
+```
+
+### paimon开启权限认证
+
+#### 示例1
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 5000
+}
+
+source {
+  Mysql-CDC {
+    url = "jdbc:mysql://127.0.0.1:3306/seatunnel"
+    username = "root"
+    password = "******"
+    table-names = ["seatunnel.role","seatunnel.user","galileo.Bucket"]
+  }
+}
+
+transform {
+}
+
+sink {
+  Paimon {
+    catalog_name = "seatunnel_test"
+    warehouse = "file:///tmp/seatunnel/paimon/hadoop-sink/"
+    database = "${database_name}"
+    table = "${table_name}"
+    user = "paimon"
+    password = "******"
   }
 }
 ```

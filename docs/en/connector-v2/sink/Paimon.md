@@ -67,6 +67,8 @@ libfb303-xxx.jar
 | catalog_uri                  | String  | No       | -                            | Catalog uri of Paimon, only needed when catalog_type is hive                                                                                                     |
 | database                     | String  | Yes      | -                            | The database you want to access                                                                                                                                  |
 | table                        | String  | Yes      | -                            | The table you want to access                                                                                                                                     |
+| user                         | String  | No       | -                            | Paimon user to access table                                                                                                                                      |
+| password                     | String  | No      | -                            | Paimon user password to access table                                                                                                                             |
 | hdfs_site_path               | String  | No       | -                            | The path of hdfs-site.xml                                                                                                                                        |
 | schema_save_mode             | Enum    | No       | CREATE_SCHEMA_WHEN_NOT_EXIST | The schema save mode                                                                                                                                             |
 | data_save_mode               | Enum    | No       | APPEND_DATA                  | The data save mode                                                                                                                                               |
@@ -590,6 +592,41 @@ sink {
     warehouse="file:///tmp/seatunnel/paimon/hadoop-sink/"
     database="${schema_name}_test"
     table="${table_name}_test"
+  }
+}
+```
+
+### paimon enable privilege
+
+#### example1
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 5000
+}
+
+source {
+  Mysql-CDC {
+    url = "jdbc:mysql://127.0.0.1:3306/seatunnel"
+    username = "root"
+    password = "******"
+    table-names = ["seatunnel.role","seatunnel.user","galileo.Bucket"]
+  }
+}
+
+transform {
+}
+
+sink {
+  Paimon {
+    catalog_name = "seatunnel_test"
+    warehouse = "file:///tmp/seatunnel/paimon/hadoop-sink/"
+    database = "${database_name}"
+    table = "${table_name}"
+    user = "paimon"
+    password = "******"
   }
 }
 ```

@@ -19,8 +19,8 @@ package org.apache.seatunnel.engine.server.checkpoint;
 
 import org.apache.seatunnel.common.utils.FileUtils;
 import org.apache.seatunnel.engine.common.exception.SavePointFailedException;
+import org.apache.seatunnel.engine.common.job.JobStatus;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
-import org.apache.seatunnel.engine.core.job.JobStatus;
 import org.apache.seatunnel.engine.server.AbstractSeaTunnelServerTest;
 
 import org.junit.jupiter.api.Assertions;

@@ -31,9 +31,22 @@ import org.apache.spark.sql.connector.write.DataWriterFactory;
 import org.apache.spark.sql.connector.write.streaming.StreamingDataWriterFactory;
 
 import java.io.IOException;
+import java.sql.DriverManager;
 
 public class SeaTunnelSparkDataWriterFactory<CommitInfoT, StateT>
         implements DataWriterFactory, StreamingDataWriterFactory {
+
+    static {
+        // Load DriverManager first to avoid deadlock between DriverManager's
+        // static initialization block and specific driver class's static
+        // initialization block when two different driver classes are loading
+        // concurrently using Class.forName while DriverManager is uninitialized
+        // before.
+        //
+        // This could happen in JDK 8 but not above as driver loading has been
+        // moved out of DriverManager's static initialization block since JDK 9.
+        DriverManager.getDrivers();
+    }
 
     private final SeaTunnelSink<SeaTunnelRow, StateT, CommitInfoT, ?> sink;
     private final CatalogTable[] catalogTables;

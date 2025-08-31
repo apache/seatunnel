@@ -65,7 +65,7 @@ import ChangeLog from '../changelog/connector-http.md';
 | common-options                |         | 否       | -           | 源插件通用参数，请参考 [Source Common Options](../source-common-options.md) 获取详细信息                                                                 |
 | keep_params_as_form           | Boolean | 否       | false       | 是否按照表单提交参数，用于兼容旧行为。当为 true 时，params 参数的值通过表单提交。 |
 | keep_page_param_as_http_param | Boolean | 否       | false       | 是否将分页参数设置为 params。用于兼容旧行为。                                                                                          |
-
+| json_filed_missed_return_null | Boolean | 否      | false        | 当 JSON 字段缺失时，设置为 true 并返回 null，否则返回错误。|
 
 ## 如何创建 Http 数据同步作业
 
