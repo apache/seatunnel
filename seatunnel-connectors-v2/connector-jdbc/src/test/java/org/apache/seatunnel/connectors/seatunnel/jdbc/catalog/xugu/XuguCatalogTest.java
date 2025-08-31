@@ -62,23 +62,25 @@ class XuguCatalogTest {
     @Test
     void testDatabaseExists() {
         // Test specific database existence with case sensitivity
-        Assertions.assertTrue(catalog.databaseExists(TEST_DATABASE_NAME),
-            "TEST_DATABASE should exist");
-        Assertions.assertTrue(catalog.databaseExists(TEST_DATABASE_NAME.toUpperCase()),
-            "Database existence check should be case-insensitive (uppercase)");
+        Assertions.assertTrue(
+                catalog.databaseExists(TEST_DATABASE_NAME), "TEST_DATABASE should exist");
+        Assertions.assertTrue(
+                catalog.databaseExists(TEST_DATABASE_NAME.toUpperCase()),
+                "Database existence check should be case-insensitive (uppercase)");
 
         // Test mixed case scenarios for TEST_DATABASE
-        Assertions.assertTrue(catalog.databaseExists("test_database"),
-            "test_database should exist (lowercase)");
-        Assertions.assertTrue(catalog.databaseExists("Test_Database"),
-            "Test_Database should exist (mixed case)");
-
+        Assertions.assertTrue(
+                catalog.databaseExists("test_database"), "test_database should exist (lowercase)");
+        Assertions.assertTrue(
+                catalog.databaseExists("Test_Database"), "Test_Database should exist (mixed case)");
 
         // Test non-existent database
-        Assertions.assertFalse(catalog.databaseExists("NON_EXISTENT_DB"),
-            "Non-existent database should return false");
-        Assertions.assertFalse(catalog.databaseExists("non_existent_db"),
-            "Non-existent database (lowercase) should return false");
+        Assertions.assertFalse(
+                catalog.databaseExists("NON_EXISTENT_DB"),
+                "Non-existent database should return false");
+        Assertions.assertFalse(
+                catalog.databaseExists("non_existent_db"),
+                "Non-existent database (lowercase) should return false");
     }
 
     @Test
@@ -95,41 +97,49 @@ class XuguCatalogTest {
     @Test
     void testTableExists() {
         // Test specific table existence
-        TablePath testTablePath = TablePath.of(TEST_DATABASE_NAME, TEST_SCHEMA_NAME, TEST_TABLE_NAME);
-        Assertions.assertTrue(catalog.tableExists(testTablePath),
-            "XUGU_DATA_TYPES_TEST table should exist in SYSDBA schema");
+        TablePath testTablePath =
+                TablePath.of(TEST_DATABASE_NAME, TEST_SCHEMA_NAME, TEST_TABLE_NAME);
+        Assertions.assertTrue(
+                catalog.tableExists(testTablePath),
+                "XUGU_DATA_TYPES_TEST table should exist in SYSDBA schema");
 
         // Test case-insensitive database name handling
-        TablePath lowerCaseDatabasePath = TablePath.of(TEST_DATABASE_NAME.toLowerCase(), TEST_SCHEMA_NAME, TEST_TABLE_NAME);
-        Assertions.assertTrue(catalog.tableExists(lowerCaseDatabasePath),
-            "Table existence check should be case-insensitive for database name");
+        TablePath lowerCaseDatabasePath =
+                TablePath.of(TEST_DATABASE_NAME.toLowerCase(), TEST_SCHEMA_NAME, TEST_TABLE_NAME);
+        Assertions.assertTrue(
+                catalog.tableExists(lowerCaseDatabasePath),
+                "Table existence check should be case-insensitive for database name");
 
         // Test non-existent table
-        TablePath nonExistentTable = TablePath.of(TEST_DATABASE_NAME, TEST_SCHEMA_NAME, "NON_EXISTENT_TABLE");
-        Assertions.assertFalse(catalog.tableExists(nonExistentTable),
-            "Non-existent table should return false");
+        TablePath nonExistentTable =
+                TablePath.of(TEST_DATABASE_NAME, TEST_SCHEMA_NAME, "NON_EXISTENT_TABLE");
+        Assertions.assertFalse(
+                catalog.tableExists(nonExistentTable), "Non-existent table should return false");
     }
 
     @Test
     void testGetTable() {
         // Test getting specific table metadata
-        TablePath testTablePath = TablePath.of(TEST_DATABASE_NAME, TEST_SCHEMA_NAME, TEST_TABLE_NAME);
+        TablePath testTablePath =
+                TablePath.of(TEST_DATABASE_NAME, TEST_SCHEMA_NAME, TEST_TABLE_NAME);
         CatalogTable table = catalog.getTable(testTablePath);
 
         Assertions.assertNotNull(table, "XUGU_DATA_TYPES_TEST table metadata should not be null");
         Assertions.assertNotNull(table.getTableSchema(), "Table schema should not be null");
-        Assertions.assertEquals(TEST_TABLE_NAME, table.getTableId().getTableName(),
-            "Table name should match");
-        Assertions.assertEquals(TEST_SCHEMA_NAME, table.getTableId().getSchemaName(),
-            "Schema name should match");
-        Assertions.assertEquals(TEST_DATABASE_NAME, table.getTableId().getDatabaseName(),
-            "Database name should match");
+        Assertions.assertEquals(
+                TEST_TABLE_NAME, table.getTableId().getTableName(), "Table name should match");
+        Assertions.assertEquals(
+                TEST_SCHEMA_NAME, table.getTableId().getSchemaName(), "Schema name should match");
+        Assertions.assertEquals(
+                TEST_DATABASE_NAME,
+                table.getTableId().getDatabaseName(),
+                "Database name should match");
 
         // Test that table has columns (data types test table should have multiple columns)
-        Assertions.assertNotNull(table.getTableSchema().getColumns(),
-            "Table should have columns");
-        Assertions.assertFalse(table.getTableSchema().getColumns().isEmpty(),
-            "XUGU_DATA_TYPES_TEST should have multiple columns for testing data types");
+        Assertions.assertNotNull(table.getTableSchema().getColumns(), "Table should have columns");
+        Assertions.assertFalse(
+                table.getTableSchema().getColumns().isEmpty(),
+                "XUGU_DATA_TYPES_TEST should have multiple columns for testing data types");
     }
 
     @Test
