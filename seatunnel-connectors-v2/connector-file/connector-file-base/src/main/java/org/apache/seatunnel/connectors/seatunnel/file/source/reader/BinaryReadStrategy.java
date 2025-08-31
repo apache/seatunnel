@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.file.source.reader;
 
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.MetadataUtil;
 import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -48,9 +49,6 @@ public class BinaryReadStrategy extends AbstractReadStrategy {
     private int binaryChunkSize = FileBaseSourceOptions.BINARY_CHUNK_SIZE.defaultValue();
     private boolean completeFileMode =
             FileBaseSourceOptions.BINARY_COMPLETE_FILE_MODE.defaultValue();
-
-    private final String IS_COMPLETE = "is_complete";
-    private final String IS_BINARY_FORMAT = "is_binary_format";
 
     @Override
     public void init(HadoopConf conf) {
@@ -106,7 +104,7 @@ public class BinaryReadStrategy extends AbstractReadStrategy {
             byte[] endMarker = new byte[0];
             SeaTunnelRow endRow = new SeaTunnelRow(new Object[] {endMarker, relativePath, -1L});
             endRow.setTableId(tableId);
-            endRow.getOptions().put(IS_COMPLETE, true);
+            MetadataUtil.setBinaryRowComplete(endRow);
             output.collect(endRow);
         }
     }
@@ -121,7 +119,7 @@ public class BinaryReadStrategy extends AbstractReadStrategy {
         byte[] fileContent = IOUtils.toByteArray(inputStream);
         SeaTunnelRow row = new SeaTunnelRow(new Object[] {fileContent, relativePath, 0L});
         row.setTableId(tableId);
-        row.getOptions().put(IS_BINARY_FORMAT, true);
+        MetadataUtil.setBinaryFormat(row);
         output.collect(row);
     }
 
@@ -142,7 +140,7 @@ public class BinaryReadStrategy extends AbstractReadStrategy {
             SeaTunnelRow row = new SeaTunnelRow(new Object[] {buffer, relativePath, partIndex});
             buffer = new byte[binaryChunkSize];
             row.setTableId(tableId);
-            row.getOptions().put(IS_BINARY_FORMAT, true);
+            MetadataUtil.setBinaryFormat(row);
             output.collect(row);
             partIndex++;
         }

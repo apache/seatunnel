@@ -126,14 +126,6 @@ public final class SeaTunnelRow implements Serializable {
         return size;
     }
 
-    public boolean isBinaryFormat() {
-        return getOptions().getOrDefault("is_binary_format", false).equals(true);
-    }
-
-    public boolean isComplete() {
-        return getOptions().getOrDefault("is_complete", false).equals(true);
-    }
-
     /** faster version of {@link #getBytesSize(SeaTunnelRowType)}. */
     private int getBytesForValue(Object v, SeaTunnelDataType<?> dataType) {
         if (v == null) {

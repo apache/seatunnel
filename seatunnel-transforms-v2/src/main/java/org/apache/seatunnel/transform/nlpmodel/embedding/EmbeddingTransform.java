@@ -23,6 +23,7 @@ import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
+import org.apache.seatunnel.api.table.type.MetadataUtil;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowAccessor;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.table.type.VectorType;
@@ -228,7 +229,7 @@ public class EmbeddingTransform extends MultipleFieldOutputTransform {
     protected Object[] getOutputFieldValues(SeaTunnelRowAccessor inputRow) {
         tryOpen();
         try {
-            if (inputRow.isBinaryFormat()) {
+            if (MetadataUtil.isBinaryFormat(inputRow)) {
                 return vectorizationBinaryRow(inputRow);
             }
             Set<Integer> fieldOriginalIndexes = fieldSpecMap.keySet();
@@ -319,7 +320,7 @@ public class EmbeddingTransform extends MultipleFieldOutputTransform {
             checkPartOrder(relativePath, partIndex);
         }
         cacheBinaryChunk(relativePath, partIndex, data);
-        if (inputRow.isComplete()) {
+        if (MetadataUtil.isComplete(inputRow)) {
             byte[] completeFile = assembleCompleteFile(relativePath);
             cleanupFileCache(relativePath);
             log.info(

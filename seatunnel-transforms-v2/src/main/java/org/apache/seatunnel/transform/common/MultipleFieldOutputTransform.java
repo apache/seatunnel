@@ -22,6 +22,7 @@ import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.ConstraintKey;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.type.MetadataUtil;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowAccessor;
 
@@ -55,7 +56,7 @@ public abstract class MultipleFieldOutputTransform extends AbstractCatalogSuppor
     protected SeaTunnelRow transformRow(SeaTunnelRow inputRow) {
 
         Object[] fieldValues = getOutputFieldValues(new SeaTunnelRowAccessor(inputRow));
-        if (inputRow.isBinaryFormat() && !inputRow.isComplete()) {
+        if (MetadataUtil.isBinaryFormat(inputRow) && !MetadataUtil.isComplete(inputRow)) {
             return null;
         }
         SeaTunnelRow outputRow = rowContainerGenerator.apply(inputRow);
