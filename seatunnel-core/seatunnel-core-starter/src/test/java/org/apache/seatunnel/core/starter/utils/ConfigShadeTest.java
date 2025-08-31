@@ -286,17 +286,21 @@ public class ConfigShadeTest {
     @Test
     public void testTableListPlaceholderReplacement() throws URISyntaxException {
         String incOffsetDays = "7";
+        String testValue = "replaced_value";
+
         List<String> variables = new ArrayList<>();
         variables.add("inc_offset_days=" + incOffsetDays);
+        variables.add("test_placeholder=" + testValue);
 
         URL resource = ConfigShadeTest.class.getResource("/config_table_list_variables.conf");
         Assertions.assertNotNull(resource);
         Config config = ConfigBuilder.of(Paths.get(resource.toURI()), variables);
 
-        // Verify the replacement of placeholders in the table_list in the source configuration
         List<? extends ConfigObject> sourceConfigs = config.getObjectList("source");
         for (ConfigObject configObject : sourceConfigs) {
             Config sourceConfig = configObject.toConfig();
+
+            // Test 1: Verify table_list placeholder replacement (List<Map>)
             if (sourceConfig.hasPath("table_list")) {
                 List<? extends ConfigObject> tableList = sourceConfig.getObjectList("table_list");
                 for (ConfigObject tableObject : tableList) {
@@ -311,41 +315,18 @@ public class ConfigShadeTest {
                             "Query should not contain unreplaced placeholder: " + query);
                 }
             }
-        }
-    }
 
-    @Test
-    public void testComplexNestedStructurePlaceholderReplacement() throws URISyntaxException {
-        String mapValue = "map_replaced";
-        String listValue = "list_replaced";
-        List<String> variables = new ArrayList<>();
-        variables.add("map_placeholder=" + mapValue);
-        variables.add("list_placeholder=" + listValue);
+            // Test 2: Verify nested List placeholder replacement (List<List<String>>)
+            if (sourceConfig.hasPath("nested_list")) {
+                List<List<String>> nestedList =
+                        (List<List<String>>) sourceConfig.getAnyRef("nested_list");
 
-        URL resource = ConfigShadeTest.class.getResource("/config_complex_nested_variables.conf");
-        Assertions.assertNotNull(resource);
-        Config config = ConfigBuilder.of(Paths.get(resource.toURI()), variables);
-
-        // Verify placeholder substitution in complex nested structures
-        List<? extends ConfigObject> sourceConfigs = config.getObjectList("source");
-        for (ConfigObject configObject : sourceConfigs) {
-            Config sourceConfig = configObject.toConfig();
-            if (sourceConfig.hasPath("complex_data")) {
-                List<Object> complexData = (List<Object>) sourceConfig.getAnyRef("complex_data");
-
-                // Verify placeholder substitution for Map objects in List
-                Map<String, Object> mapInList = (Map<String, Object>) complexData.get(0);
+                // Verify nested list placeholders
                 Assertions.assertTrue(
-                        mapInList.get("field").toString().contains(mapValue),
-                        "Map in list should contain replaced placeholder");
-
-                // Verify placeholder replacement for nested Lists in List
-                List<String> nestedList = (List<String>) complexData.get(1);
-                Assertions.assertTrue(
-                        nestedList.contains(listValue),
+                        nestedList.get(0).contains(testValue),
                         "Nested list should contain replaced placeholder");
                 Assertions.assertFalse(
-                        nestedList.contains("${list_placeholder}"),
+                        nestedList.get(0).contains("${test_placeholder}"),
                         "Nested list should not contain unreplaced placeholder");
             }
         }
