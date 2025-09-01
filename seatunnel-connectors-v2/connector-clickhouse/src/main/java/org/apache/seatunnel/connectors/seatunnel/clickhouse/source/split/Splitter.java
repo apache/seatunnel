@@ -18,7 +18,6 @@
 package org.apache.seatunnel.connectors.seatunnel.clickhouse.source.split;
 
 import org.apache.seatunnel.api.table.catalog.TablePath;
-import org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.shard.Shard;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.source.ClickhouseSourceTable;
 
@@ -33,8 +32,8 @@ public interface Splitter {
 
     void close();
 
-    static Splitter createSplitter(ClickhouseSourceConfig clickhouseSourceConfig) {
-        if (clickhouseSourceConfig.isSqlStrategyRead()) {
+    static Splitter createSplitter(ClickhouseSourceTable clickhouseSourceTable) {
+        if (clickhouseSourceTable.isSqlStrategyRead()) {
             return new SqlStrategySplitter();
         } else {
             return new PartStrategySplitter();

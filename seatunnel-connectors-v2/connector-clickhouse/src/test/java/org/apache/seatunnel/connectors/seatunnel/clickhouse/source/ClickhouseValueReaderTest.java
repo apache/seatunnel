@@ -32,13 +32,16 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
+import com.clickhouse.client.ClickHouseColumn;
 import com.clickhouse.client.ClickHouseException;
 import com.clickhouse.client.ClickHouseNode;
 import com.clickhouse.client.ClickHouseRecord;
 import com.clickhouse.client.ClickHouseRequest;
 import com.clickhouse.client.ClickHouseResponse;
+import com.clickhouse.client.ClickHouseValue;
 import com.clickhouse.client.data.ClickHouseIntegerValue;
 import com.clickhouse.client.data.ClickHouseLongValue;
+import com.clickhouse.client.data.ClickHouseSimpleRecord;
 import com.clickhouse.client.data.ClickHouseStringValue;
 import lombok.extern.slf4j.Slf4j;
 
@@ -55,6 +58,7 @@ import static org.mockito.Mockito.when;
 public class ClickhouseValueReaderTest {
 
     private ClickhouseProxy mockProxy;
+    private ClickHouseNode node;
 
     private ClickhouseValueReader reader;
     private ClickhouseSourceSplit split;
@@ -81,7 +85,7 @@ public class ClickhouseValueReaderTest {
                         .clickhouseTable(mockClickhouseTable)
                         .build();
 
-        ClickHouseNode node = ClickHouseNode.builder().host("localhost").port(8123).build();
+        node = ClickHouseNode.builder().host("localhost").port(8123).build();
 
         Shard shard = new Shard(1, 1, node);
 
@@ -117,7 +121,8 @@ public class ClickhouseValueReaderTest {
     public void testHasNextWithFullBatch() {
         List<SeaTunnelRow> mockRows = createMockRows(BATCH_SIZE);
 
-        when(mockProxy.batchFetchRecords(any(), eq(rowType))).thenReturn(mockRows);
+        when(mockProxy.batchFetchRecords(any(), eq(sourceTable.getTablePath()), eq(rowType)))
+                .thenReturn(mockRows);
 
         Assertions.assertTrue(reader.hasNext());
 
@@ -137,7 +142,8 @@ public class ClickhouseValueReaderTest {
         int partialSize = BATCH_SIZE - 2;
         List<SeaTunnelRow> mockRows = createMockRows(partialSize);
 
-        when(mockProxy.batchFetchRecords(any(), eq(rowType))).thenReturn(mockRows);
+        when(mockProxy.batchFetchRecords(any(), eq(sourceTable.getTablePath()), eq(rowType)))
+                .thenReturn(mockRows);
 
         Assertions.assertTrue(reader.hasNext());
 
@@ -156,7 +162,8 @@ public class ClickhouseValueReaderTest {
         // create empty test data
         List<SeaTunnelRow> mockRows = new ArrayList<>();
 
-        when(mockProxy.batchFetchRecords(any(), eq(rowType))).thenReturn(mockRows);
+        when(mockProxy.batchFetchRecords(any(), eq(sourceTable.getTablePath()), eq(rowType)))
+                .thenReturn(mockRows);
 
         Assertions.assertFalse(reader.hasNext());
 
@@ -181,7 +188,7 @@ public class ClickhouseValueReaderTest {
         List<ClickhousePart> parts = split.getParts();
 
         // Return different data for different parts
-        when(mockProxy.batchFetchRecords(any(), eq(rowType)))
+        when(mockProxy.batchFetchRecords(any(), eq(sourceTable.getTablePath()), eq(rowType)))
                 .thenAnswer(
                         invocation -> {
                             ClickhousePart part = parts.get(reader.currentPartIndex);
@@ -264,7 +271,7 @@ public class ClickhouseValueReaderTest {
         List<SeaTunnelRow> secondBatch = createMockRows(5);
         List<SeaTunnelRow> emptyBatch = new ArrayList<>();
 
-        when(mockProxy.batchFetchRecords(any(), eq(rowType)))
+        when(mockProxy.batchFetchRecords(any(), eq(sourceTable.getTablePath()), eq(rowType)))
                 .thenAnswer(
                         x ->
                                 split.getSqlOffset() == 0
@@ -283,22 +290,55 @@ public class ClickhouseValueReaderTest {
 
         Assertions.assertFalse(reader.hasNext());
 
-        Mockito.verify(mockProxy, Mockito.times(3)).batchFetchRecords(any(), any());
+        Mockito.verify(mockProxy, Mockito.times(3))
+                .batchFetchRecords(any(), eq(sourceTable.getTablePath()), any());
+    }
+
+    @Test
+    public void testBatchFetchRecordsAndTableId() throws Exception {
+        // mock proxy query response
+        ClickhouseProxy proxy = Mockito.spy(new ClickhouseProxy(node));
+        Field requestField = ClickhouseProxy.class.getDeclaredField("clickhouseRequest");
+        requestField.setAccessible(true);
+        ClickHouseRequest mockRequest = Mockito.mock(ClickHouseRequest.class);
+        requestField.set(proxy, mockRequest);
+
+        mockClickhouseQueryAndResponse(proxy, mockRequest, createMockClickHouseRecords());
+
+        // test values and tableId return by batchFetchRecords
+        TablePath tablePath = sourceTable.getTablePath();
+        List<SeaTunnelRow> rows =
+                proxy.batchFetchRecords("select * from test_db.test_table", tablePath, rowType);
+        Assertions.assertEquals(BATCH_SIZE, rows.size());
+
+        for (int i = 0; i < BATCH_SIZE; i++) {
+            Assertions.assertEquals((long) i, rows.get(i).getField(0));
+            Assertions.assertEquals("name" + i, rows.get(i).getField(1));
+            Assertions.assertEquals(20 + i, rows.get(i).getField(2));
+            Assertions.assertEquals(tablePath.getFullName(), rows.get(i).getTableId());
+        }
     }
 
     private void initStreamValueReaderMock() throws ClickHouseException {
-        // mock ClickHouseResponse
-        ClickHouseRequest mockRequest = Mockito.mock(ClickHouseRequest.class);
+        mockClickhouseQueryAndResponse(mockProxy, null, createMockClickHouseRecords());
+    }
+
+    private void mockClickhouseQueryAndResponse(
+            ClickhouseProxy proxy,
+            ClickHouseRequest mockRequest,
+            List<ClickHouseRecord> mockRecords)
+            throws ClickHouseException {
+        if (mockRequest == null) {
+            mockRequest = Mockito.mock(ClickHouseRequest.class);
+        }
         ClickHouseRequest mockQueryRequest = Mockito.mock(ClickHouseRequest.class);
         ClickHouseResponse mockResponse = Mockito.mock(ClickHouseResponse.class);
 
-        when(mockProxy.getClickhouseConnection()).thenReturn(mockRequest);
+        when(proxy.getClickhouseConnection()).thenReturn(mockRequest);
         when(mockRequest.query(any(String.class))).thenReturn(mockQueryRequest);
         when(mockQueryRequest.executeAndWait()).thenReturn(mockResponse);
-
-        // create multiple batches of mock data
-        List<ClickHouseRecord> mockRecords = createMockClickHouseRecords();
         when(mockResponse.records()).thenReturn(mockRecords);
+        when(mockResponse.stream()).thenReturn(mockRecords.stream());
     }
 
     private List<SeaTunnelRow> createMockRows(int size) {
@@ -316,12 +356,20 @@ public class ClickhouseValueReaderTest {
     private List<ClickHouseRecord> createMockClickHouseRecords() {
         List<ClickHouseRecord> records = new ArrayList<>();
 
-        for (int i = 0; i < BATCH_SIZE; i++) {
-            ClickHouseRecord mockRecord = Mockito.mock(ClickHouseRecord.class);
+        List<ClickHouseColumn> clickHouseColumns = new ArrayList<>();
+        clickHouseColumns.add(ClickHouseColumn.of("id", "Int32"));
+        clickHouseColumns.add(ClickHouseColumn.of("name", "String"));
+        clickHouseColumns.add(ClickHouseColumn.of("age", "Int8"));
 
-            when(mockRecord.getValue(0)).thenReturn(ClickHouseLongValue.of((long) i));
-            when(mockRecord.getValue(1)).thenReturn(ClickHouseStringValue.of("name" + i));
-            when(mockRecord.getValue(2)).thenReturn(ClickHouseIntegerValue.of(20 + i));
+        for (int i = 0; i < BATCH_SIZE; i++) {
+
+            ClickHouseValue[] clickHouseValues = new ClickHouseValue[3];
+            clickHouseValues[0] = ClickHouseLongValue.of((long) i);
+            clickHouseValues[1] = ClickHouseStringValue.of("name" + i);
+            clickHouseValues[2] = ClickHouseIntegerValue.of(20 + i);
+
+            ClickHouseRecord mockRecord =
+                    ClickHouseSimpleRecord.of(clickHouseColumns, clickHouseValues);
             records.add(mockRecord);
         }
         return records;

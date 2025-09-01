@@ -18,11 +18,11 @@ Split a field to more than one field.
 
 The list of fields that need to be kept. Fields not in the list will be deleted
 
-### split_field[string]
+### split_field [string]
 
 The field to be split
 
-### output_fields[array]
+### output_fields [array]
 
 The result fields after split
 

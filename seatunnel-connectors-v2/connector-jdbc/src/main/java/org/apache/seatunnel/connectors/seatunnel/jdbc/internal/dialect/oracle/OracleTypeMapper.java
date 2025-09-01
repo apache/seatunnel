@@ -20,7 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.oracle;
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
 import org.apache.seatunnel.connectors.seatunnel.common.source.TypeDefineUtils;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcCommonOptions;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectTypeMapper;
 
 import lombok.extern.slf4j.Slf4j;
@@ -37,12 +37,12 @@ public class OracleTypeMapper implements JdbcDialectTypeMapper {
 
     public OracleTypeMapper() {
         this(
-                JdbcOptions.DECIMAL_TYPE_NARROWING.defaultValue(),
-                JdbcOptions.HANDLE_BLOB_AS_STRING.defaultValue());
+                JdbcCommonOptions.DECIMAL_TYPE_NARROWING.defaultValue(),
+                JdbcCommonOptions.HANDLE_BLOB_AS_STRING.defaultValue());
     }
 
     public OracleTypeMapper(boolean decimalTypeNarrowing) {
-        this(decimalTypeNarrowing, JdbcOptions.HANDLE_BLOB_AS_STRING.defaultValue());
+        this(decimalTypeNarrowing, JdbcCommonOptions.HANDLE_BLOB_AS_STRING.defaultValue());
     }
 
     public OracleTypeMapper(boolean decimalTypeNarrowing, boolean handleBlobAsString) {

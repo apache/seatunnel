@@ -200,16 +200,14 @@ public class MilvusSourceSplitEnumerator
     @Override
     public void addSplitsBack(List<MilvusSourceSplit> splits, int subtaskId) {
         if (!splits.isEmpty()) {
-            synchronized (stateLock) {
-                addPendingSplit(splits, subtaskId);
-                if (context.registeredReaders().contains(subtaskId)) {
-                    assignSplit(Collections.singletonList(subtaskId));
-                } else {
-                    log.warn(
-                            "Reader {} is not registered. Pending splits {} are not assigned.",
-                            subtaskId,
-                            splits);
-                }
+            addPendingSplit(splits, subtaskId);
+            if (context.registeredReaders().contains(subtaskId)) {
+                assignSplit(Collections.singletonList(subtaskId));
+            } else {
+                log.warn(
+                        "Reader {} is not registered. Pending splits {} are not assigned.",
+                        subtaskId,
+                        splits);
             }
         }
         log.info("Add back splits {} to JdbcSourceSplitEnumerator.", splits.size());
@@ -235,9 +233,7 @@ public class MilvusSourceSplitEnumerator
     public void registerReader(int subtaskId) {
         log.info("Register reader {} to MilvusSourceSplitEnumerator.", subtaskId);
         if (!pendingSplits.isEmpty()) {
-            synchronized (stateLock) {
-                assignSplit(Collections.singletonList(subtaskId));
-            }
+            assignSplit(Collections.singletonList(subtaskId));
         }
     }
 

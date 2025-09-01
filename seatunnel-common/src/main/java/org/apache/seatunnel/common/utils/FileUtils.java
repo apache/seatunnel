@@ -35,6 +35,7 @@ import java.nio.file.FileVisitOption;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
@@ -45,6 +46,9 @@ import java.util.stream.Stream;
 public class FileUtils {
 
     public static List<URL> searchJarFiles(@NonNull Path directory) throws IOException {
+        if (!directory.toFile().exists()) {
+            return new ArrayList<>();
+        }
         try (Stream<Path> paths = Files.walk(directory, FileVisitOption.FOLLOW_LINKS)) {
             return paths.filter(path -> path.toString().endsWith(".jar"))
                     .map(

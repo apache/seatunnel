@@ -35,4 +35,6 @@ public class PaimonAggregatedCommitInfo implements Serializable {
 
     // key: checkpointId value: Paimon commit message List
     private Map<Long, List<CommitMessage>> committablesMap;
+
+    private String commitUser;
 }

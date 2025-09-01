@@ -120,6 +120,7 @@ public class DorisSinkWriter
 
         for (int i = 0; i < feNodesNum; i++) {
             try {
+                log.info("Trying FE node {}  for stream load.", feNodes.get(i));
                 this.dorisStreamLoad =
                         new DorisStreamLoad(
                                 feNodes.get(i),
@@ -133,6 +134,7 @@ public class DorisSinkWriter
                 break;
             } catch (Exception e) {
                 if (i == feNodesNum - 1) {
+                    log.error("All {} FE nodes failed, no more nodes to try", feNodesNum);
                     throw new DorisConnectorException(
                             DorisConnectorErrorCode.STREAM_LOAD_FAILED, e);
                 }

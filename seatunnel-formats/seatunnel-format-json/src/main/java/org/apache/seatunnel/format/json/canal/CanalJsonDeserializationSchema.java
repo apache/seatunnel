@@ -26,6 +26,7 @@ import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.type.MetadataUtil;
 import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -56,6 +57,8 @@ public class CanalJsonDeserializationSchema implements DeserializationSchema<Sea
     private static final String FIELD_DATABASE = "database";
 
     private static final String FIELD_TABLE = "table";
+
+    private static final String FIELD_TS = "ts";
 
     private static final String OP_INSERT = "INSERT";
 
@@ -137,6 +140,7 @@ public class CanalJsonDeserializationSchema implements DeserializationSchema<Sea
 
             JsonNode dataNode = jsonNode.get(FIELD_DATA);
             String op = jsonNode.get(FIELD_TYPE).asText();
+            JsonNode tsNode = jsonNode.get(FIELD_TS);
             // When a null value is encountered, an exception needs to be thrown for easy sensing
             if (dataNode == null || dataNode.isNull()) {
                 // We'll skip the query or create or alter event data
@@ -153,6 +157,9 @@ public class CanalJsonDeserializationSchema implements DeserializationSchema<Sea
                         SeaTunnelRow row = convertJsonNode(dataNode.get(i));
                         if (tablePath != null && !tablePath.toString().isEmpty()) {
                             row.setTableId(tablePath.toString());
+                        }
+                        if (tsNode != null) {
+                            MetadataUtil.setEventTime(row, tsNode.asLong());
                         }
                         out.collect(row);
                     }
@@ -178,6 +185,10 @@ public class CanalJsonDeserializationSchema implements DeserializationSchema<Sea
                         if (tablePath != null && !tablePath.toString().isEmpty()) {
                             after.setTableId(tablePath.toString());
                         }
+                        if (tsNode != null) {
+                            MetadataUtil.setEventTime(before, tsNode.asLong());
+                            MetadataUtil.setEventTime(after, tsNode.asLong());
+                        }
                         out.collect(before);
                         out.collect(after);
                     }
@@ -188,6 +199,9 @@ public class CanalJsonDeserializationSchema implements DeserializationSchema<Sea
                         row.setRowKind(RowKind.DELETE);
                         if (tablePath != null && !tablePath.toString().isEmpty()) {
                             row.setTableId(tablePath.toString());
+                        }
+                        if (tsNode != null) {
+                            MetadataUtil.setEventTime(row, tsNode.asLong());
                         }
                         out.collect(row);
                     }

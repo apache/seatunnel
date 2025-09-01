@@ -44,6 +44,11 @@ public class ServerCommandArgs extends CommandArgs {
                     "The cluster node role, default is master_and_worker, support master, worker, master_and_worker")
     private String clusterRole;
 
+    @Parameter(
+            names = {"-m", "--member"},
+            description = "Show cluster members information")
+    private boolean showClusterMembers = false;
+
     @Override
     public Command<?> buildCommand() {
         return new ServerExecuteCommand(this);

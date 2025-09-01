@@ -154,6 +154,7 @@ def get_sub_it_modules(modules, total_num, current_num):
     modules_arr.remove("connector-file-local-e2e")
     modules_arr.remove("connector-file-sftp-e2e")
     modules_arr.remove("connector-redis-e2e")
+    modules_arr.remove("connector-sensorsdata-e2e")
     if "connector-seatunnel-e2e-base" in modules_arr:
         modules_arr.remove("connector-seatunnel-e2e-base")
     if "connector-console-seatunnel-e2e" in modules_arr:

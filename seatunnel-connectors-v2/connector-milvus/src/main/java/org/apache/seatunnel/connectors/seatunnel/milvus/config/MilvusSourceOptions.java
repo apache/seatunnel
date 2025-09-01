@@ -28,12 +28,6 @@ public class MilvusSourceOptions extends MilvusBaseOptions {
                     .defaultValue("default")
                     .withDescription("database");
 
-    public static final Option<String> COLLECTION =
-            Options.key("collection")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("Milvus collection to read");
-
     public static final Option<Integer> BATCH_SIZE =
             Options.key("batch_size")
                     .intType()

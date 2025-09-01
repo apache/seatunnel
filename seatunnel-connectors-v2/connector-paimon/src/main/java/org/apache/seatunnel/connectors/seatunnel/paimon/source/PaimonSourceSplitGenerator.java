@@ -29,9 +29,9 @@ public class PaimonSourceSplitGenerator {
      */
     private final char[] currentId = "0000000000".toCharArray();
 
-    public List<PaimonSourceSplit> createSplits(TableScan.Plan plan) {
+    public List<PaimonSourceSplit> createSplits(String tableId, TableScan.Plan plan) {
         return plan.splits().stream()
-                .map(s -> new PaimonSourceSplit(getNextId(), s))
+                .map(s -> new PaimonSourceSplit(getNextId(), tableId, s))
                 .collect(Collectors.toList());
     }
 

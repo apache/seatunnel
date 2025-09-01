@@ -84,6 +84,7 @@ import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaSource
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaSourceOptions.DEBEZIUM_RECORD_TABLE_FILTER;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaSourceOptions.FIELD_DELIMITER;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaSourceOptions.FORMAT;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaSourceOptions.IGNORE_NO_LEADER_PARTITION;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaSourceOptions.KAFKA_CONFIG;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaSourceOptions.KEY_PARTITION_DISCOVERY_INTERVAL_MILLIS;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaSourceOptions.KEY_POLL_TIMEOUT;
@@ -111,6 +112,7 @@ public class KafkaSourceConfig implements Serializable {
     @Getter private final String consumerGroup;
     @Getter private final long pollTimeout;
     @Getter private final int readerCacheQueueSize;
+    @Getter private final boolean ignoreNoLeaderPartition;
 
     public KafkaSourceConfig(ReadonlyConfig readonlyConfig) {
         this.bootstrap = readonlyConfig.get(BOOTSTRAP_SERVERS);
@@ -123,6 +125,12 @@ public class KafkaSourceConfig implements Serializable {
         this.pollTimeout = readonlyConfig.get(KEY_POLL_TIMEOUT);
         this.consumerGroup = readonlyConfig.get(CONSUMER_GROUP);
         this.readerCacheQueueSize = readonlyConfig.get(READER_CACHE_QUEUE_SIZE);
+        this.ignoreNoLeaderPartition = readonlyConfig.get(IGNORE_NO_LEADER_PARTITION);
+        if (this.ignoreNoLeaderPartition && this.discoveryIntervalMillis <= 0) {
+            throw new IllegalArgumentException(
+                    "partition-discovery.interval-millis must be configured when ignore_no_leader_partition is set to true. "
+                            + "Please provide a positive value for partition-discovery.interval-millis.");
+        }
     }
 
     private Properties createKafkaProperties(ReadonlyConfig readonlyConfig) {

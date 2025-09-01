@@ -113,7 +113,7 @@ table选项参数可以填入一任意表名，这个名字最终会被用作目
 2. sink_sinktable
 3. ss_${table_name}
 
-### schema_save_mode[Enum]
+### schema_save_mode [Enum]
 
 在同步任务打开之前，针对目标端已存在的表结构选择不同的处理方法。可选值有：  
 `RECREATE_SCHEMA` ：不存在的表会直接创建，已存在的表会删除并根据参数重新创建  
@@ -121,7 +121,7 @@ table选项参数可以填入一任意表名，这个名字最终会被用作目
 `ERROR_WHEN_SCHEMA_NOT_EXIST` ：当有不存在的表时会直接报错  
 `IGNORE` ：忽略对表的处理
 
-### data_save_mode[Enum]
+### data_save_mode [Enum]
 
 在同步任务打开之前，针对目标端已存在的数据选择不同的处理方法。可选值有：
 `DROP_DATA`： 保存数据库结构，但是会删除表中存量数据
@@ -129,7 +129,7 @@ table选项参数可以填入一任意表名，这个名字最终会被用作目
 `CUSTOM_PROCESSING`：自定义处理
 `ERROR_WHEN_DATA_EXISTS`：当对应表存在数据时直接报错
 
-### custom_sql[String]
+### custom_sql [String]
 
 当data_save_mode设置为CUSTOM_PROCESSING时，必须同时设置CUSTOM_SQL参数。CUSTOM_SQL的值为可执行的SQL语句，在同步任务开启前SQL将会被执行。
 

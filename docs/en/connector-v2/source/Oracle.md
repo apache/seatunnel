@@ -66,7 +66,7 @@ Read external data source data through JDBC.
 |------------------------------|------------|----------|-----------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | url                          | String     | Yes      | -               | The URL of the JDBC connection. Refer to a case: jdbc:oracle:thin:@datasource01:1523:xe                                                                                                                                                                           |
 | driver                       | String     | Yes      | -               | The jdbc class name used to connect to the remote data source,<br/> if you use Oracle the value is `oracle.jdbc.OracleDriver`.                                                                                                                                     |
-| user                         | String     | No       | -               | Connection instance user name                                                                                                                                                                                                                                     |
+| username                         | String     | No       | -               | Connection instance user name                                                                                                                                                                                                                                     |
 | password                     | String     | No       | -               | Connection instance password                                                                                                                                                                                                                                      |
 | query                        | String     | Yes      | -               | Query statement                                                                                                                                                                                                                                                   |
 | connection_check_timeout_sec | Int        | No       | 30              | The time in seconds to wait for the database operation used to validate the connection to complete                                                                                                                                                                |
@@ -190,7 +190,7 @@ source{
     Jdbc {
         url = "jdbc:oracle:thin:@datasource01:1523:xe"
         driver = "oracle.jdbc.OracleDriver"
-        user = "root"
+        username = "root"
         password = "123456"
         query = "SELECT * FROM TEST_TABLE"
     }
@@ -220,7 +220,7 @@ source {
         url = "jdbc:oracle:thin:@datasource01:1523:xe"
         driver = "oracle.jdbc.OracleDriver"
         connection_check_timeout_sec = 100
-        user = "root"
+        username = "root"
         password = "123456"
         # Define query logic as required
         query = "SELECT * FROM TEST_TABLE"
@@ -252,7 +252,7 @@ source {
         url = "jdbc:oracle:thin:@datasource01:1523:xe"
         driver = "oracle.jdbc.OracleDriver"
         connection_check_timeout_sec = 100
-        user = "root"
+        username = "root"
         password = "123456"
         table_path = "DA.SCHEMA1.TABLE1"
         query = "select * from SCHEMA1.TABLE1"
@@ -275,7 +275,7 @@ source {
         url = "jdbc:oracle:thin:@datasource01:1523:xe"
         driver = "oracle.jdbc.OracleDriver"
         connection_check_timeout_sec = 100
-        user = "root"
+        username = "root"
         password = "123456"
         # Define query logic as required
         query = "SELECT * FROM TEST_TABLE"
@@ -303,7 +303,7 @@ source {
     url = "jdbc:oracle:thin:@datasource01:1523:xe"
     driver = "oracle.jdbc.OracleDriver"
     connection_check_timeout_sec = 100
-    user = "root"
+    username = "root"
     password = "123456"
     "table_list"=[
         {

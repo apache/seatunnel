@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect;
 
 import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
 import org.apache.seatunnel.api.table.converter.TypeConverter;
 import org.apache.seatunnel.api.table.schema.event.AlterTableAddColumnEvent;
@@ -238,6 +239,25 @@ public interface JdbcDialect extends Serializable {
      */
     Optional<String> getUpsertStatement(
             String database, String tableName, String[] fieldNames, String[] uniqueKeyFields);
+
+    /**
+     * Constructs the dialects upsert statement if supported; such as MySQL's {@code DUPLICATE KEY
+     * UPDATE}, or PostgreSQL's {@code ON CONFLICT... DO UPDATE SET..}.
+     *
+     * <p>If supported, the returned string will be used as a {@link java.sql.PreparedStatement}.
+     * Fields in the statement must be in the same order as the {@code columns in tableSchema}
+     * parameter.
+     *
+     * <p>If the dialect does not support native upsert statements, the writer will fallback to
+     * {@code SELECT ROW Exists} + {@code UPDATE}/{@code INSERT} which may have poor performance.
+     *
+     * @return the dialects {@code UPSERT} statement or {@link Optional#empty()}.
+     */
+    default Optional<String> getUpsertStatementByTableSchema(
+            String database, String tableName, TableSchema tableSchema, String[] uniqueKeyFields) {
+        return getUpsertStatement(
+                database, tableName, tableSchema.getFieldNames(), uniqueKeyFields);
+    }
 
     /**
      * Different dialects optimize their PreparedStatement

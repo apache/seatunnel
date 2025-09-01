@@ -47,7 +47,6 @@ public enum FileFormat implements Serializable {
     CSV("csv") {
         @Override
         public WriteStrategy getWriteStrategy(FileSinkConfig fileSinkConfig) {
-            fileSinkConfig.setFieldDelimiter(",");
             return new CsvWriteStrategy(fileSinkConfig);
         }
 

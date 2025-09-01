@@ -54,6 +54,7 @@ They can be downloaded via install-plugin.sh or from the Maven central repositor
 | start_mode.timestamp                | Long                                                                       | No       | -                        | The time required for consumption mode to be "timestamp".                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | start_mode.end_timestamp             | Long                                                                       | No       | -                        | The end time required for consumption mode to be "timestamp" in batch mode
 | partition-discovery.interval-millis | Long                                                                       | No       | -1                       | The interval for dynamically discovering topics and partitions.                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| ignore_no_leader_partition          | Boolean                                                                    | No       | false                    | Whether to ignore partitions that have no leader. If set to true, partitions without a leader will be skipped during partition discovery. If set to false (default), the connector will include all partitions regardless of leader status. This is useful when dealing with Kafka clusters that may have temporary leadership issues.                                                                                                                                                                                                      |
 | common-options                      |                                                                            | No       | -                        | Source plugin common parameters, please refer to [Source Common Options](../source-common-options.md) for details                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | protobuf_message_name               | String                                                                     | No       | -                        | Effective when the format is set to protobuf, specifies the Message name                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | protobuf_schema                     | String                                                                     | No       | -                        | Effective when the format is set to protobuf, specifies the Schema definition                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
@@ -374,6 +375,24 @@ source {
   }
 }
 ```
+
+### Ignore No Leader Partition
+
+When dealing with Kafka clusters that may have temporary leadership issues, you can configure the connector to ignore partitions without a leader:
+
+```hocon
+source {
+  Kafka {
+    topic = "test_topic"
+    bootstrap.servers = "localhost:9092"
+    consumer.group = "test_group"
+    ignore_no_leader_partition = true
+    start_mode = "earliest"
+  }
+}
+```
+
+With `ignore_no_leader_partition = true`, the connector will skip any partitions that don't have a leader during partition discovery, allowing the job to continue processing other healthy partitions.
 
 ### format
 If you need to retain Kafka's native information, you can refer to the following configuration.

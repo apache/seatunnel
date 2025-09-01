@@ -7,17 +7,17 @@
 
 ## 支持的元数据
 
-|    Key    | DataType |       Description       |
-|:---------:|:--------:|:-----------------------:|
-| Database  |  string  |        包含该行的数据库名        |
-|   Table   |  string  |        包含该行的数表名         |
-|  RowKind  |  string  |           行类型           |
-| EventTime |   Long   |                         |
-|   Delay   |   Long   |    数据抽取时间与数据库变更时间的差     |
-| Partition |  string  | 包含该行对应数表的分区字段，多个使用`,`连接 |
+|    Key    | DataType |          Description          |
+|:---------:|:--------:|:-----------------------------:|
+| Database  |  string  |           包含该行的数据库名           |
+|   Table   |  string  |           包含该行的数表名            |
+|  RowKind  |  string  |              行类型              |
+| EventTime |   Long   |    该行的对应的数据时间，统一格式是到毫秒的时间戳    |
+|   Delay   |   Long   | 数据抽取时间与数据库变更时间的差，统一格式是到毫秒的时间戳 |
+| Partition |  string  |    包含该行对应数表的分区字段，多个使用`,`连接    |
 
 ### 注意事项
-    `Delay` `Partition`目前只适用于cdc系列连接器，除外TiDB-CDC
+    `Delay` `EventTime`目前只适用于cdc系列连接器，TiDB-CDC除外
 
 ## 配置选项
 
@@ -58,7 +58,7 @@ source {
         username = "root"
         password = "zdyk_Dev@2024"
         table-names = ["source.user"]
-        base-url = "jdbc:mysql://172.16.17.123:3306/source"
+        url = "jdbc:mysql://172.16.17.123:3306/source"
     }
 }
 

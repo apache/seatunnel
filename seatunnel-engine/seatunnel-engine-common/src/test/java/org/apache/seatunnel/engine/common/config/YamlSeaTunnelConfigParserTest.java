@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.engine.common.config;
 
+import org.apache.seatunnel.common.utils.ReflectionUtils;
+
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -24,6 +26,8 @@ import com.hazelcast.client.config.ClientConfig;
 import com.hazelcast.client.config.YamlClientConfigBuilder;
 
 import java.io.IOException;
+
+import static com.hazelcast.internal.config.DeclarativeConfigUtil.YAML_ACCEPTED_SUFFIXES;
 
 public class YamlSeaTunnelConfigParserTest {
 
@@ -76,6 +80,7 @@ public class YamlSeaTunnelConfigParserTest {
         Assertions.assertTrue(config.getEngineConfig().getHttpConfig().isEnableDynamicPort());
         Assertions.assertEquals(8080, config.getEngineConfig().getHttpConfig().getPort());
         Assertions.assertEquals(200, config.getEngineConfig().getHttpConfig().getPortRange());
+        Assertions.assertEquals(8443, config.getEngineConfig().getHttpConfig().getHttpsPort());
         Assertions.assertEquals(
                 30, config.getEngineConfig().getCoordinatorServiceConfig().getCoreThreadNum());
         Assertions.assertEquals(
@@ -85,15 +90,62 @@ public class YamlSeaTunnelConfigParserTest {
     @Test
     public void testCustomizeClientConfig() throws IOException {
         YamlClientConfigBuilder yamlClientConfigBuilder =
-                new YamlClientConfigBuilder("custmoize-client.yaml");
+                new YamlClientConfigBuilder("customize-client.yaml");
         ClientConfig clientConfig = yamlClientConfigBuilder.build();
 
-        Assertions.assertEquals("custmoize", clientConfig.getClusterName());
+        Assertions.assertEquals("customize", clientConfig.getClusterName());
         Assertions.assertEquals(
                 3000L,
                 clientConfig
                         .getConnectionStrategyConfig()
                         .getConnectionRetryConfig()
                         .getClusterConnectTimeoutMillis());
+    }
+
+    @Test
+    public void testCustomizeSeaTunnelYaml() throws IOException {
+        YamlSeaTunnelConfigLocator yamlConfigLocator =
+                new YamlSeaTunnelConfigLocator() {
+                    @Override
+                    protected boolean locateInWorkDir() {
+                        return loadFromWorkingDirectory(
+                                "customize-seatunnel", YAML_ACCEPTED_SUFFIXES);
+                    }
+
+                    @Override
+                    protected boolean locateOnClasspath() {
+                        return loadConfigurationFromClasspath(
+                                "customize-seatunnel", YAML_ACCEPTED_SUFFIXES);
+                    }
+                };
+        SeaTunnelConfig config;
+        if (yamlConfigLocator.locateInWorkDirOrOnClasspath()) {
+            // 2. Try loading YAML config from the working directory or from the classpath
+            config = new YamlSeaTunnelConfigBuilder(yamlConfigLocator).setProperties(null).build();
+        } else {
+            throw new RuntimeException("can't find yaml in resources");
+        }
+
+        Assertions.assertFalse(config.getEngineConfig().getSlotServiceConfig().isDynamicSlot());
+        // test the default slot number should be 2 * availableProcessors
+        Assertions.assertEquals(
+                Runtime.getRuntime().availableProcessors() * 2,
+                config.getEngineConfig().getSlotServiceConfig().getSlotNum());
+    }
+
+    @Test
+    public void testCustomizeHttpsServerConfig() throws IOException {
+        YamlSeaTunnelConfigLocator yamlConfigLocator = new YamlSeaTunnelConfigLocator();
+        ReflectionUtils.invoke(
+                yamlConfigLocator, "loadDefaultConfigurationFromClasspath", "seatunnel-https.yaml");
+        SeaTunnelConfig config =
+                new YamlSeaTunnelConfigBuilder(yamlConfigLocator).setProperties(null).build();
+        Assertions.assertTrue(config.getEngineConfig().getHttpConfig().isEnableHttps());
+        Assertions.assertEquals(18443, config.getEngineConfig().getHttpConfig().getHttpsPort());
+        Assertions.assertEquals(
+                "/seatunnel/seatunnel.keystore",
+                config.getEngineConfig().getHttpConfig().getKeyStorePath());
+        Assertions.assertEquals(
+                "123456", config.getEngineConfig().getHttpConfig().getKeyStorePassword());
     }
 }

@@ -14,6 +14,10 @@ import ChangeLog from '../changelog/connector-file-obs.md';
 
 ## Key features
 
+- [x] [multimodal](../../concept/connector-v2-features.md#multimodal)
+
+  Use binary file format to read and write files in any format, such as videos, pictures, etc. In short, any files can be synchronized to the target place.
+
 - [x] [exactly-once](../../concept/connector-v2-features.md)
 
 By default, we use 2PC commit to ensure `exactly-once`
@@ -78,6 +82,7 @@ It only supports hadoop version **2.9.X+**.
 | common-options                   | object  | no       | -                                          | [Tips](#common_options)                                                                                                                                                |
 | max_rows_in_memory               | int     | no       | -                                          | When File Format is Excel,The maximum number of data items that can be cached in the memory.Only used when file_format is excel.                                       |
 | sheet_name                       | string  | no       | Sheet${Random number}                      | Writer the sheet of the workbook. Only used when file_format is excel.                                                                                                 |
+| sheet_max_rows                   | int     | no       | 1048576                                    | Only used when file format_type is excel.                                                                                                                              |
 
 ### Tips
 

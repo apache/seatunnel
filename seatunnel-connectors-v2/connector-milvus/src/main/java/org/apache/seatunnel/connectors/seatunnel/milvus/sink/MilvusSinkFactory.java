@@ -60,20 +60,25 @@ public class MilvusSinkFactory implements TableSinkFactory {
 
     private CatalogTable renameCatalogTable(
             ReadonlyConfig config, CatalogTable sourceCatalogTable) {
-        TableIdentifier sourceTableId = sourceCatalogTable.getTableId();
-        String databaseName;
+        TableIdentifier sourceTable = sourceCatalogTable.getTableId();
+        String databaseName, tableName;
         if (StringUtils.isNotEmpty(config.get(MilvusSinkOptions.DATABASE))) {
             databaseName = config.get(MilvusSinkOptions.DATABASE);
         } else {
-            databaseName = sourceTableId.getDatabaseName();
+            databaseName = sourceTable.getDatabaseName();
+        }
+        if (StringUtils.isNotEmpty(config.get(MilvusSinkOptions.COLLECTION))) {
+            tableName = config.get(MilvusSinkOptions.COLLECTION);
+        } else {
+            tableName = sourceTable.getTableName();
         }
 
         TableIdentifier newTableId =
                 TableIdentifier.of(
-                        sourceTableId.getCatalogName(),
+                        sourceTable.getCatalogName(),
                         databaseName,
-                        sourceTableId.getSchemaName(),
-                        sourceTableId.getTableName());
+                        sourceTable.getSchemaName(),
+                        tableName);
 
         return CatalogTable.of(newTableId, sourceCatalogTable);
     }

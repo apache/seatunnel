@@ -21,24 +21,24 @@ import ChangeLog from '../changelog/connector-starrocks.md';
 
 ## 配置选项
 
-| 名称                      | 类型        | 是否必须  | 默认值               |
-|-------------------------|-----------|-------|-------------------|
-| nodeUrls                | list      | 是     | -                 |
-| username                | string    | 是     | -                 |
-| password                | string    | 是     | -                 |
-| database                | string    | 是     | -                 |
-| table                   | string    | 否     | -                 |
-| scan_filter             | string    | 否     | -                 |
-| schema                  | config    | 否     | -                 |
-| table_list              | array     | 否     | -                 |
-| request_tablet_size     | int       | 否     | Integer.MAX_VALUE |
-| scan_connect_timeout_ms | int       | 否     | 30000             |
-| scan_query_timeout_sec  | int       | 否     | 3600              |
-| scan_keep_alive_min     | int       | 否     | 10                |
-| scan_batch_rows         | int       | 否     | 1024              |
-| scan_mem_limit          | long      | 否     | 2147483648        |
-| max_retries             | int       | 否     | 3                 |
-| scan.params.*           | string    | 否     | -                 |
+| 名称                      | 类型        | 是否必须 | 默认值               |
+|-------------------------|-----------|------|-------------------|
+| nodeUrls                | list      | 是    | -                 |
+| username                | string    | 是    | -                 |
+| password                | string    | 是    | -                 |
+| database                | string    | 是    | -                 |
+| table                   | string    | 否    | -                 |
+| scan_filter             | string    | 否    | -                 |
+| schema                  | config    | 是    | -                 |
+| table_list              | array     | 否    | -                 |
+| request_tablet_size     | int       | 否    | Integer.MAX_VALUE |
+| scan_connect_timeout_ms | int       | 否    | 30000             |
+| scan_query_timeout_sec  | int       | 否    | 3600              |
+| scan_keep_alive_min     | int       | 否    | 10                |
+| scan_batch_rows         | int       | 否    | 1024              |
+| scan_mem_limit          | long      | 否    | 2147483648        |
+| max_retries             | int       | 否    | 3                 |
+| scan.params.*           | string    | 否    | -                 |
 
 ### nodeUrls [list]
 

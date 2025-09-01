@@ -189,7 +189,6 @@ public class ConnectorOptionCheckTest {
 
     private Set<String> buildWhiteList() {
         Set<String> whiteList = new HashSet<>();
-        whiteList.add("JdbcSinkOptions");
         whiteList.add("MongodbSinkOptions");
         whiteList.add("PostgresIncrementalSourceOptions");
         whiteList.add("SqlServerIncrementalSourceOptions");
