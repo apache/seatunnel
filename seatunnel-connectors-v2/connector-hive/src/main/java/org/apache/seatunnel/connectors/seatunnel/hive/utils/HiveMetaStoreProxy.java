@@ -55,6 +55,7 @@ import java.net.MalformedURLException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
@@ -314,19 +315,39 @@ public class HiveMetaStoreProxy implements Catalog, Closeable, Serializable {
     @Override
     public CatalogTable getTable(TablePath tablePath)
             throws CatalogException, TableNotExistException {
-        // This method would need to be implemented to convert Hive Table to CatalogTable
-        // For now, throw UnsupportedOperationException as this requires complex conversion logic
-        throw new UnsupportedOperationException(
-                "getTable method needs to be implemented with proper Hive to CatalogTable conversion");
+        try {
+            if (!tableExists(tablePath.getDatabaseName(), tablePath.getTableName())) {
+                throw new TableNotExistException("hive", tablePath);
+            }
+            Table hiveTable = getTable(tablePath.getDatabaseName(), tablePath.getTableName());
+            return convertHiveTableToCatalogTable(hiveTable);
+        } catch (Exception e) {
+            throw new CatalogException("Failed to get table: " + tablePath, e);
+        }
     }
 
     @Override
     public void createTable(TablePath tablePath, CatalogTable table, boolean ignoreIfExists)
             throws TableAlreadyExistException, DatabaseNotExistException, CatalogException {
-        // This method would need to be implemented to convert CatalogTable to Hive Table
-        // For now, throw UnsupportedOperationException as this requires complex conversion logic
-        throw new UnsupportedOperationException(
-                "createTable method needs to be implemented with proper CatalogTable to Hive conversion");
+        try {
+            if (!databaseExists(tablePath.getDatabaseName())) {
+                throw new DatabaseNotExistException("hive", tablePath.getDatabaseName());
+            }
+
+            if (tableExists(tablePath.getDatabaseName(), tablePath.getTableName())) {
+                if (!ignoreIfExists) {
+                    throw new TableAlreadyExistException("hive", tablePath);
+                }
+                return;
+            }
+
+            Table hiveTable = convertCatalogTableToHiveTable(tablePath, table);
+            createTableIfNotExists(hiveTable);
+        } catch (TableAlreadyExistException | DatabaseNotExistException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new CatalogException("Failed to create table: " + tablePath, e);
+        }
     }
 
     @Override
@@ -375,5 +396,119 @@ public class HiveMetaStoreProxy implements Catalog, Closeable, Serializable {
         if (Objects.nonNull(hiveClient)) {
             hiveClient.close();
         }
+    }
+
+    // ========== 简单的转换方法 ==========
+
+    private CatalogTable convertHiveTableToCatalogTable(Table hiveTable) {
+        // 简化的转换实现，只处理基本情况
+        List<org.apache.seatunnel.api.table.catalog.Column> columns = new ArrayList<>();
+
+        // 转换常规列
+        if (hiveTable.getSd() != null && hiveTable.getSd().getCols() != null) {
+            for (org.apache.hadoop.hive.metastore.api.FieldSchema field :
+                    hiveTable.getSd().getCols()) {
+                org.apache.seatunnel.api.table.type.SeaTunnelDataType<?> dataType =
+                        HiveTypeConvertor.covertHiveTypeToSeaTunnelType(
+                                field.getName(), field.getType());
+                columns.add(
+                        org.apache.seatunnel.api.table.catalog.PhysicalColumn.of(
+                                field.getName(), dataType, 0, true, null, field.getComment()));
+            }
+        }
+
+        // 转换分区列
+        if (hiveTable.getPartitionKeys() != null) {
+            for (org.apache.hadoop.hive.metastore.api.FieldSchema partitionKey :
+                    hiveTable.getPartitionKeys()) {
+                org.apache.seatunnel.api.table.type.SeaTunnelDataType<?> dataType =
+                        HiveTypeConvertor.covertHiveTypeToSeaTunnelType(
+                                partitionKey.getName(), partitionKey.getType());
+                columns.add(
+                        org.apache.seatunnel.api.table.catalog.PhysicalColumn.of(
+                                partitionKey.getName(),
+                                dataType,
+                                0,
+                                true,
+                                null,
+                                partitionKey.getComment()));
+            }
+        }
+
+        org.apache.seatunnel.api.table.catalog.TableSchema tableSchema =
+                org.apache.seatunnel.api.table.catalog.TableSchema.builder()
+                        .columns(columns)
+                        .build();
+
+        org.apache.seatunnel.api.table.catalog.TableIdentifier tableId =
+                org.apache.seatunnel.api.table.catalog.TableIdentifier.of(
+                        "hive", hiveTable.getDbName(), hiveTable.getTableName());
+
+        String comment =
+                hiveTable.getParameters() != null ? hiveTable.getParameters().get("comment") : null;
+
+        return org.apache.seatunnel.api.table.catalog.CatalogTable.of(
+                tableId,
+                tableSchema,
+                hiveTable.getParameters() != null
+                        ? hiveTable.getParameters()
+                        : new java.util.HashMap<>(),
+                new ArrayList<>(),
+                comment);
+    }
+
+    private Table convertCatalogTableToHiveTable(TablePath tablePath, CatalogTable catalogTable) {
+        // 简化的转换实现，使用默认的PARQUET格式
+        Table hiveTable = new Table();
+        hiveTable.setDbName(tablePath.getDatabaseName());
+        hiveTable.setTableName(tablePath.getTableName());
+        hiveTable.setOwner(System.getProperty("user.name", "seatunnel"));
+        hiveTable.setCreateTime((int) (System.currentTimeMillis() / 1000));
+        hiveTable.setTableType("MANAGED_TABLE");
+
+        org.apache.hadoop.hive.metastore.api.StorageDescriptor sd =
+                new org.apache.hadoop.hive.metastore.api.StorageDescriptor();
+
+        // 转换列
+        List<org.apache.hadoop.hive.metastore.api.FieldSchema> cols = new ArrayList<>();
+        for (org.apache.seatunnel.api.table.catalog.Column column :
+                catalogTable.getTableSchema().getColumns()) {
+            String hiveType = HiveTypeConvertor.seatunnelToHiveType(column.getDataType());
+            cols.add(
+                    new org.apache.hadoop.hive.metastore.api.FieldSchema(
+                            column.getName(), hiveType, column.getComment()));
+        }
+        sd.setCols(cols);
+
+        // 设置默认的PARQUET格式
+        sd.setInputFormat("org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat");
+        sd.setOutputFormat("org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat");
+        sd.getSerdeInfo()
+                .setSerializationLib("org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe");
+        sd.getSerdeInfo().setName(hiveTable.getTableName());
+
+        // 设置默认位置
+        String defaultLocation =
+                String.format(
+                        "/user/hive/warehouse/%s.db/%s",
+                        tablePath.getDatabaseName(), tablePath.getTableName());
+        sd.setLocation(defaultLocation);
+
+        sd.setCompressed(true);
+        sd.setStoredAsSubDirectories(false);
+
+        hiveTable.setSd(sd);
+        hiveTable.setPartitionKeys(new ArrayList<>()); // 默认无分区
+
+        // 设置表参数
+        java.util.Map<String, String> parameters = new java.util.HashMap<>();
+        parameters.put("seatunnel.created", "true");
+        parameters.put("seatunnel.created.time", String.valueOf(System.currentTimeMillis()));
+        if (catalogTable.getComment() != null) {
+            parameters.put("comment", catalogTable.getComment());
+        }
+        hiveTable.setParameters(parameters);
+
+        return hiveTable;
     }
 }

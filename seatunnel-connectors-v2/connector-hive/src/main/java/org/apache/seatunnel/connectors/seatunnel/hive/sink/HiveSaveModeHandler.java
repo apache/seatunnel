@@ -55,6 +55,7 @@ public class HiveSaveModeHandler implements SaveModeHandler, AutoCloseable {
     private final List<String> partitionFields;
 
     private HiveMetaStoreProxy hiveMetaStoreProxy;
+    private Catalog optionalCatalog; // 可选的Catalog支持
 
     public HiveSaveModeHandler(
             ReadonlyConfig readonlyConfig,
@@ -70,6 +71,16 @@ public class HiveSaveModeHandler implements SaveModeHandler, AutoCloseable {
 
         // Initialize partition fields from template if available
         this.partitionFields = extractPartitionFieldsFromConfig();
+    }
+
+    // 可选的构造函数，支持Catalog（不影响现有逻辑）
+    public HiveSaveModeHandler(
+            ReadonlyConfig readonlyConfig,
+            CatalogTable catalogTable,
+            SchemaSaveMode schemaSaveMode,
+            Catalog catalog) {
+        this(readonlyConfig, catalogTable, schemaSaveMode);
+        this.optionalCatalog = catalog;
     }
 
     @Override
@@ -90,8 +101,8 @@ public class HiveSaveModeHandler implements SaveModeHandler, AutoCloseable {
 
     @Override
     public Catalog getHandleCatalog() {
-        // Hive doesn't use Catalog interface directly, return null
-        return null;
+        // 返回可选的Catalog，如果没有则返回null（保持向后兼容）
+        return optionalCatalog;
     }
 
     @Override
@@ -109,6 +120,9 @@ public class HiveSaveModeHandler implements SaveModeHandler, AutoCloseable {
     public void close() throws Exception {
         if (hiveMetaStoreProxy != null) {
             hiveMetaStoreProxy.close();
+        }
+        if (optionalCatalog != null) {
+            optionalCatalog.close();
         }
     }
 
