@@ -296,7 +296,7 @@ Sink 插件通用参数，请参考 [Sink 通用选项](../sink-common-options.m
 
 支持将 12-byte 字段写入 Parquet INT96，仅对 parquet 文件有效。
 
-### schema_save_mode[Enum]
+### schema_save_mode [Enum]
 
 在开启同步任务之前，对目标路径进行不同的处理。  
 选项介绍：  
@@ -305,7 +305,7 @@ Sink 插件通用参数，请参考 [Sink 通用选项](../sink-common-options.m
 `ERROR_WHEN_SCHEMA_NOT_EXIST` ：当路径不存在时报错  
 `IGNORE` ：忽略表的处理
 
-### data_save_mode[Enum]
+### data_save_mode [Enum]
 
 在开启同步任务之前，对目标路径中的数据文件进行不同的处理。
 选项介绍：  

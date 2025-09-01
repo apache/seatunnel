@@ -52,7 +52,7 @@ The Databend sink internally implements bulk data import through stage attachmen
 | conflict_key        | String | No | - | Conflict key for CDC mode, used to determine the primary key for conflict resolution |
 | enable_delete       | Boolean | No | false | Whether to allow delete operations in CDC mode |
 
-### schema_save_mode[Enum]
+### schema_save_mode [Enum]
 
 Before starting the synchronization task, choose different processing schemes for existing table structures.
 Option descriptions:  
@@ -61,7 +61,7 @@ Option descriptions:
 `ERROR_WHEN_SCHEMA_NOT_EXIST`: Report error when table doesn't exist.  
 `IGNORE`: Ignore table processing.
 
-### data_save_mode[Enum]
+### data_save_mode [Enum]
 
 Before starting the synchronization task, choose different processing schemes for existing data on the target side.
 Option descriptions:  

@@ -4,16 +4,13 @@ sidebar_position: 4
 
 # Run Jobs In Local Mode
 
-Only for testing.
-
 In local mode, each task will start a separate process, and the process will exit when the task is completed. There are the following limitations in this mode:
 
 1. Pausing and resuming tasks are not supported.
 2. Viewing the task list is not supported.
 3. Jobs cannot be cancelled via commands, only by killing the process.
-4. REST API is not supported.
 
-The [Separated Cluster Mode](separated-cluster-deployment.md) of SeaTunnel Engine is recommended for use in production environments.
+However, each task is controlled by a separate process, and there will be no mutual impact between tasks. It is suitable for scenarios with strong requirements for task stability.
 
 ## Deploying SeaTunnel Engine In Local Mode
 

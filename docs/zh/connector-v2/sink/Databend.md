@@ -52,7 +52,7 @@ Databend sink 内部通过 stage attachment 实现数据的批量导入。
 | conflict_key        | String | 否 | - | cdc 模式下的冲突键，用于确定冲突解决的主键 |
 | enable_delete       | Boolean | 否 | false | cdc 模式下是否允许删除操作 |
 
-### schema_save_mode[Enum]
+### schema_save_mode [Enum]
 
 在开启同步任务之前，针对现有的表结构选择不同的处理方案。
 选项介绍：  
@@ -61,7 +61,7 @@ Databend sink 内部通过 stage attachment 实现数据的批量导入。
 `ERROR_WHEN_SCHEMA_NOT_EXIST` ：表不存在时会报错。  
 `IGNORE` ：忽略对表的处理。
 
-### data_save_mode[Enum]
+### data_save_mode [Enum]
 
 在开启同步任务之前，针对目标端已有的数据选择不同的处理方案。
 选项介绍：  

@@ -701,10 +701,11 @@ public class DateTimeFunction {
     }
 
     public static String fromUnixTime(List<Object> args) {
-        Long unixTime = (Long) args.get(0);
-        if (unixTime == null) {
+        Object unixTimeObj = args.get(0);
+        if (unixTimeObj == null) {
             return null;
         }
+        long unixTime = ((Number) unixTimeObj).longValue();
         String format = (String) args.get(1);
         ZoneId zoneId = ZoneId.systemDefault();
         if (args.size() == 3) {
