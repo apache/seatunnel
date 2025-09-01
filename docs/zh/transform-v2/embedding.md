@@ -310,6 +310,10 @@ sink {
 
 ### 多模态 Embedding（火山引擎豆包）
 
+多模态 Embedding 支持输入可访问 URL 或 二进制数据格式处理多模态数据
+
+#### 可访问 URL
+
 ```hocon
 env {
   job.mode = "BATCH"
@@ -456,6 +460,79 @@ sink {
         {
           field_name = demo_video_vector
           field_type = float_vector
+          field_value = [
+            {
+              rule_type = NOT_NULL
+            }
+          ]
+        }
+      ]
+    }
+  }
+}
+```
+
+#### 二进制格式
+
+```hocon
+env {
+  job.mode = "BATCH"
+}
+
+source {
+  LocalFile {
+    path = "/seatunnel/read/binary/"
+    file_format_type = "binary"
+    binary_complete_file_mode = false
+    binary_chunk_size = 1024
+    plugin_output = "binary_source"
+  }
+}
+
+transform {
+  Embedding {
+    plugin_input = "binary_source"
+    model_provider = DOUBAO
+    model = "doubao-embedding-vision-250615"
+    api_key = "test-api-key"
+    api_path = "http://mockserver:1080/api/v3/embeddings/multimodal"
+    single_vectorized_input_number = 1
+
+    vectorization_fields = {
+      image_embedding = {
+        field = "data"
+        modality = "jpeg"
+        format = "binary"
+      }
+    }
+
+    plugin_output = "binary_embedding_output"
+  }
+}
+
+sink {
+  Assert {
+    plugin_input = "binary_embedding_output"
+    rules = {
+      row_rules = [
+        {
+          rule_type = MAX_ROW
+          rule_value = 1
+        }
+      ],
+      field_rules = [
+        {
+          field_name = image_embedding
+          field_type = float_vector
+          field_value = [
+            {
+              rule_type = NOT_NULL
+            }
+          ]
+        },
+        {
+          field_name = relativePath
+          field_type = string
           field_value = [
             {
               rule_type = NOT_NULL
