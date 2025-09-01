@@ -208,7 +208,7 @@ public class VectorFunction {
             return null;
         }
 
-        Float[] sourceVector = extractFloatArray(vectorData);
+        Float[] sourceVector = convertToFloatArray(vectorData);
         if (sourceVector.length <= targetDimension) {
             return vectorData; // No need to truncate
         }
@@ -227,7 +227,7 @@ public class VectorFunction {
             return null;
         }
 
-        Float[] sourceVector = extractFloatArray(vectorData);
+        Float[] sourceVector = convertToFloatArray(vectorData);
         if (sourceVector.length <= targetDimension) {
             return vectorData; // No need to reduce
         }
@@ -247,7 +247,7 @@ public class VectorFunction {
             return null;
         }
 
-        Float[] sourceVector = extractFloatArray(vectorData);
+        Float[] sourceVector = convertToFloatArray(vectorData);
         if (sourceVector.length <= targetDimension) {
             return vectorData; // No need to reduce
         }
@@ -285,7 +285,7 @@ public class VectorFunction {
             return null;
         }
 
-        Float[] vector = extractFloatArray(vectorData);
+        Float[] vector = convertToFloatArray(vectorData);
         double magnitude = 0.0;
         for (Float value : vector) {
             if (value != null) {
@@ -304,42 +304,6 @@ public class VectorFunction {
         }
 
         return VectorUtils.toByteBuffer(normalized);
-    }
-
-    // Helper methods
-
-    private static Float[] extractFloatArray(Object vectorData) {
-        if (vectorData instanceof ByteBuffer) {
-            return VectorUtils.toFloatArray((ByteBuffer) vectorData);
-        } else if (vectorData instanceof Float[]) {
-            return (Float[]) vectorData;
-        } else if (vectorData instanceof Object[]) {
-            // Handle Object[] arrays from FakeSource or other sources
-            Object[] objArray = (Object[]) vectorData;
-            Float[] array = new Float[objArray.length];
-            for (int i = 0; i < objArray.length; i++) {
-                if (objArray[i] instanceof Number) {
-                    array[i] = ((Number) objArray[i]).floatValue();
-                } else if (objArray[i] == null) {
-                    array[i] = null;
-                } else {
-                    throw new IllegalArgumentException(
-                            "Invalid element type in Object array: " + objArray[i].getClass());
-                }
-            }
-            return array;
-        } else if (vectorData instanceof List) {
-            @SuppressWarnings("unchecked")
-            List<Number> list = (List<Number>) vectorData;
-            Float[] array = new Float[list.size()];
-            for (int i = 0; i < list.size(); i++) {
-                array[i] = list.get(i).floatValue();
-            }
-            return array;
-        } else {
-            throw new IllegalArgumentException(
-                    "Unsupported vector data type: " + vectorData.getClass());
-        }
     }
 
     private static Float[] applyProjection(

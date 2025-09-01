@@ -212,7 +212,6 @@ public class ZetaSQLFunction {
     public static final String VECTOR_NORM = "VECTOR_NORM";
     public static final String INNER_PRODUCT = "INNER_PRODUCT";
 
-    // -------------------------vector functions----------------------------
     public static final String VECTOR_REDUCE = "VECTOR_REDUCE";
     public static final String VECTOR_NORMALIZE = "VECTOR_NORMALIZE";
 
