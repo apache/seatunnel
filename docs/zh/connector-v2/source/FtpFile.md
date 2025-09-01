@@ -73,6 +73,8 @@ import ChangeLog from '../changelog/connector-file-ftp.md';
 | binary_chunk_size           | int     | 否    | 1024                |
 | binary_complete_file_mode   | boolean | 否    | false               |
 | common-options              |         | 否    | -                   |
+| file_filter_modified_start  | string  | 否    | -                   | 按照最后修改时间过滤文件。 要过滤的开始时间(包括改时间),时间格式是：`yyyy-MM-dd HH:mm:ss`                                                                                  |
+| file_filter_modified_end    | string  | 否    | -                   | 按照最后修改时间过滤文件。 要过滤的结束时间(不包括改时间),时间格式是：`yyyy-MM-dd HH:mm:ss`                                                                                                                |
 
 ### host [string]
 

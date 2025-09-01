@@ -25,6 +25,7 @@ import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.util.Utf8;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.Path;
 import org.apache.parquet.avro.AvroParquetWriter;
 import org.apache.parquet.hadoop.ParquetWriter;
@@ -37,6 +38,8 @@ import org.junit.jupiter.api.condition.OS;
 
 import java.io.File;
 import java.io.IOException;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.List;
 
 import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.FS_DEFAULT_NAME_DEFAULT;
@@ -129,6 +132,99 @@ public class AbstractReadStrategyTest {
                     Assertions.assertTrue(b);
                 }
             }
+        }
+    }
+
+    @Test
+    void testBothStartAndEndWithinRange() throws Exception {
+        try (CsvReadStrategy strategy = new CsvReadStrategy()) {
+            SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+            Date startDateStr = dateFormat.parse("2024-01-01 00:00:00");
+            Date endDateStr = dateFormat.parse("2024-12-31 00:00:00");
+
+            long modificationTime =
+                    new SimpleDateFormat("yyyy-MM-dd").parse("2024-06-01").getTime();
+
+            strategy.fileModifiedStartDate = startDateStr;
+            strategy.fileModifiedEndDate = endDateStr;
+
+            FileStatus fileStatus =
+                    new FileStatus(0L, false, 0, 0, modificationTime, 0, null, null, null, null);
+            boolean result = strategy.filterFileByModificationDate(fileStatus);
+            Assertions.assertTrue(result);
+        }
+    }
+
+    @Test
+    void testOnlyEndDateOutOfRange() throws Exception {
+
+        try (CsvReadStrategy strategy = new CsvReadStrategy()) {
+            SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+            Date endDateStr = dateFormat.parse("2024-07-01 00:00:00");
+
+            strategy.fileModifiedStartDate = null;
+            strategy.fileModifiedEndDate = endDateStr;
+
+            long modificationTime =
+                    new SimpleDateFormat("yyyy-MM-dd").parse("2024-06-01").getTime();
+
+            FileStatus fileStatus =
+                    new FileStatus(0L, false, 0, 0, modificationTime, 0, null, null, null, null);
+            boolean result = strategy.filterFileByModificationDate(fileStatus);
+            Assertions.assertTrue(result);
+        }
+    }
+
+    @Test
+    void testOnlyEndDateOutOfRangeWithHour() throws Exception {
+
+        try (CsvReadStrategy strategy = new CsvReadStrategy()) {
+            SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+            Date endDateStr = dateFormat.parse("2024-07-01 14:00:00");
+
+            strategy.fileModifiedStartDate = null;
+            strategy.fileModifiedEndDate = endDateStr;
+
+            long modificationTime = dateFormat.parse("2024-07-01 13:00:00").getTime();
+
+            FileStatus fileStatus =
+                    new FileStatus(0L, false, 0, 0, modificationTime, 0, null, null, null, null);
+            boolean result = strategy.filterFileByModificationDate(fileStatus);
+            Assertions.assertTrue(result);
+        }
+    }
+
+    @Test
+    void testNoDateSet() throws Exception {
+
+        try (CsvReadStrategy strategy = new CsvReadStrategy()) {
+            strategy.fileModifiedStartDate = null;
+            strategy.fileModifiedEndDate = null;
+            FileStatus fileStatus =
+                    new FileStatus(
+                            0L, false, 0, 0, System.currentTimeMillis(), 0, null, null, null, null);
+            boolean result = strategy.filterFileByModificationDate(fileStatus);
+            Assertions.assertTrue(result);
+        }
+    }
+
+    @Test
+    void testOnlyStartDateOutOfRange() throws Exception {
+
+        try (CsvReadStrategy strategy = new CsvReadStrategy()) {
+            Date startDateStr =
+                    new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").parse("2024-04-01 00:00:00");
+
+            strategy.fileModifiedStartDate = startDateStr;
+            strategy.fileModifiedEndDate = null;
+
+            long modificationTime =
+                    new SimpleDateFormat("yyyy-MM-dd").parse("2024-06-01").getTime();
+
+            FileStatus fileStatus =
+                    new FileStatus(0L, false, 0, 0, modificationTime, 0, null, null, null, null);
+            boolean result = strategy.filterFileByModificationDate(fileStatus);
+            Assertions.assertTrue(result);
         }
     }
 }

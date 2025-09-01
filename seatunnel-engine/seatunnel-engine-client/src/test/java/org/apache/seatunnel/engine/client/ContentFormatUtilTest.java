@@ -18,8 +18,8 @@
 package org.apache.seatunnel.engine.client;
 
 import org.apache.seatunnel.engine.client.util.ContentFormatUtil;
-import org.apache.seatunnel.engine.core.job.JobStatus;
-import org.apache.seatunnel.engine.core.job.JobStatusData;
+import org.apache.seatunnel.engine.common.job.JobStatus;
+import org.apache.seatunnel.engine.common.job.JobStatusData;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;

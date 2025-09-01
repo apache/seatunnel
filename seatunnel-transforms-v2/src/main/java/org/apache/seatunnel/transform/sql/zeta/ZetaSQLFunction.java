@@ -33,6 +33,7 @@ import org.apache.seatunnel.transform.sql.zeta.functions.DateTimeFunction;
 import org.apache.seatunnel.transform.sql.zeta.functions.NumericFunction;
 import org.apache.seatunnel.transform.sql.zeta.functions.StringFunction;
 import org.apache.seatunnel.transform.sql.zeta.functions.SystemFunction;
+import org.apache.seatunnel.transform.sql.zeta.functions.VectorFunction;
 
 import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.tuple.Pair;
@@ -121,6 +122,7 @@ public class ZetaSQLFunction {
     public static final String TO_CHAR = "TO_CHAR";
     public static final String TRANSLATE = "TRANSLATE";
     public static final String SPLIT = "SPLIT";
+    public static final String MURMUR64 = "MURMUR64";
 
     // -------------------------numeric functions----------------------------
     public static final String ABS = "ABS";
@@ -202,6 +204,14 @@ public class ZetaSQLFunction {
 
     public static final String TRY_CAST = "TRY_CAST";
 
+    // -------------------------vector functions----------------------------
+    public static final String COSINE_DISTANCE = "COSINE_DISTANCE";
+    public static final String L1_DISTANCE = "L1_DISTANCE";
+    public static final String L2_DISTANCE = "L2_DISTANCE";
+    public static final String VECTOR_DIMS = "VECTOR_DIMS";
+    public static final String VECTOR_NORM = "VECTOR_NORM";
+    public static final String INNER_PRODUCT = "INNER_PRODUCT";
+
     private final SeaTunnelRowType inputRowType;
 
     private final ZetaSQLType zetaSQLType;
@@ -235,7 +245,7 @@ public class ZetaSQLFunction {
                     functionArgs.add(((StringValue) function.getFromExpression()).getValue());
                 }
             }
-            return executeFunctionExpr(TRIM, functionArgs);
+            return executeFunctionExpr(TRIM, functionArgs, expression);
         }
         if (expression instanceof SignedExpression) {
             SignedExpression signedExpression = (SignedExpression) expression;
@@ -345,7 +355,7 @@ public class ZetaSQLFunction {
                     functionArgs.add(computeForValue(funcArgExpression, inputFields));
                 }
             }
-            return executeFunctionExpr(functionName, functionArgs);
+            return executeFunctionExpr(functionName, functionArgs, expression);
         }
         if (expression instanceof TimeKeyExpression) {
             return executeTimeKeyExpr(((TimeKeyExpression) expression).getStringValue());
@@ -355,7 +365,7 @@ public class ZetaSQLFunction {
             List<Object> functionArgs = new ArrayList<>();
             functionArgs.add(computeForValue(extract.getExpression(), inputFields));
             functionArgs.add(extract.getName());
-            return executeFunctionExpr(ZetaSQLFunction.EXTRACT, functionArgs);
+            return executeFunctionExpr(ZetaSQLFunction.EXTRACT, functionArgs, expression);
         }
         if (expression instanceof Parenthesis) {
             Parenthesis parenthesis = (Parenthesis) expression;
@@ -405,7 +415,9 @@ public class ZetaSQLFunction {
         return elseExpression == null ? null : computeForValue(elseExpression, inputFields);
     }
 
-    public Object executeFunctionExpr(String functionName, List<Object> args) {
+    public Object executeFunctionExpr(
+            String functionName, List<Object> args, Expression expression) {
+        SeaTunnelDataType<?> targetType = zetaSQLType.getExpressionType(expression);
         switch (functionName.toUpperCase()) {
             case ASCII:
                 return StringFunction.ascii(args);
@@ -476,6 +488,8 @@ public class ZetaSQLFunction {
                 return StringFunction.translate(args);
             case SPLIT:
                 return StringFunction.split(args);
+            case MURMUR64:
+                return StringFunction.murmur64(args);
             case ABS:
                 return NumericFunction.abs(args);
             case ACOS:
@@ -580,9 +594,9 @@ public class ZetaSQLFunction {
             case YEAR:
                 return DateTimeFunction.year(args);
             case COALESCE:
-                return SystemFunction.coalesce(args);
+                return SystemFunction.coalesce(args, targetType);
             case IFNULL:
-                return SystemFunction.ifnull(args);
+                return SystemFunction.ifnull(args, targetType);
             case NULLIF:
                 return SystemFunction.nullif(args);
             case ARRAY:
@@ -593,6 +607,18 @@ public class ZetaSQLFunction {
                 return ArrayFunction.arrayMin(args);
             case UUID:
                 return randomUUID().toString();
+            case COSINE_DISTANCE:
+                return VectorFunction.cosineDistance(args);
+            case L1_DISTANCE:
+                return VectorFunction.l1Distance(args);
+            case L2_DISTANCE:
+                return VectorFunction.l2Distance(args);
+            case VECTOR_DIMS:
+                return VectorFunction.vectorDims(args);
+            case VECTOR_NORM:
+                return VectorFunction.vectorNorm(args);
+            case INNER_PRODUCT:
+                return VectorFunction.innerProduct(args);
             default:
                 for (ZetaUDF udf : udfList) {
                     if (udf.functionName().equalsIgnoreCase(functionName)) {

@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.transform.sql.zeta.functions;
 
+import org.apache.seatunnel.shade.com.google.common.hash.Hashing;
+
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.transform.exception.TransformException;
 import org.apache.seatunnel.transform.sql.zeta.ZetaSQLFunction;
@@ -696,5 +698,19 @@ public class StringFunction {
             }
         }
         return builder == null ? original : builder.toString();
+    }
+
+    /**
+     * Calculate MurmurHash 128 for the input string and return the lower 64 bits as a long value
+     *
+     * @param args List containing the input string
+     * @return Lower 64 bits of MurmurHash 128 as Long, or null if input is null
+     */
+    public static Long murmur64(List<Object> args) {
+        String arg = (String) args.get(0);
+        if (arg == null) {
+            return null;
+        }
+        return Hashing.murmur3_128().hashString(arg, StandardCharsets.UTF_8).asLong();
     }
 }

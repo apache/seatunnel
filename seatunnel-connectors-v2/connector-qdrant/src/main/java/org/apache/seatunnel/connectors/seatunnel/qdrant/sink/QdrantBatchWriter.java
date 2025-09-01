@@ -24,7 +24,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
-import org.apache.seatunnel.common.utils.BufferUtils;
+import org.apache.seatunnel.common.utils.VectorUtils;
 import org.apache.seatunnel.connectors.seatunnel.qdrant.config.QdrantParameters;
 import org.apache.seatunnel.connectors.seatunnel.qdrant.exception.QdrantConnectorException;
 
@@ -181,7 +181,7 @@ public class QdrantBatchWriter {
             case BFLOAT16_VECTOR:
             case BINARY_VECTOR:
                 ByteBuffer floatVectorBuffer = (ByteBuffer) value;
-                Float[] floats = BufferUtils.toFloatArray(floatVectorBuffer);
+                Float[] floats = VectorUtils.toFloatArray(floatVectorBuffer);
                 return VectorFactory.vector(Arrays.stream(floats).collect(Collectors.toList()));
             default:
                 return null;
