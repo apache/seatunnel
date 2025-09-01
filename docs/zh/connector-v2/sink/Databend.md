@@ -160,7 +160,7 @@ sink {
 sink {
   Databend {
     url = "jdbc:databend://databend:8000/default?ssl=false"
-    user = "root"
+    username = "root"
     password = ""
     database = "default"
     table = "sink_table"
