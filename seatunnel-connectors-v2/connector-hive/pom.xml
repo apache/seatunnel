@@ -83,6 +83,7 @@
             <groupId>org.apache.hive</groupId>
             <artifactId>hive-exec</artifactId>
             <version>${hive.exec.version}</version>
+            <scope>provided</scope>
             <exclusions>
                 <!-- Exclude logging dependencies to avoid conflicts -->
                 <exclusion>
@@ -131,6 +132,7 @@
             <groupId>org.apache.hive</groupId>
             <artifactId>hive-common</artifactId>
             <version>${hive.exec.version}</version>
+            <scope>provided</scope>
             <exclusions>
                 <!-- Exclude logging dependencies to avoid conflicts -->
                 <exclusion>
@@ -153,6 +155,7 @@
             <groupId>org.apache.hive</groupId>
             <artifactId>hive-metastore</artifactId>
             <version>${hive.exec.version}</version>
+            <scope>provided</scope>
             <exclusions>
                 <!-- Exclude logging dependencies to avoid conflicts -->
                 <exclusion>

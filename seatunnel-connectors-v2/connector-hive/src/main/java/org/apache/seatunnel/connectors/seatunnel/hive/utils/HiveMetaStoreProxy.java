@@ -20,6 +20,14 @@ package org.apache.seatunnel.connectors.seatunnel.hive.utils;
 import org.apache.seatunnel.shade.com.google.common.collect.ImmutableList;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.table.catalog.Catalog;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.catalog.exception.CatalogException;
+import org.apache.seatunnel.api.table.catalog.exception.DatabaseAlreadyExistException;
+import org.apache.seatunnel.api.table.catalog.exception.DatabaseNotExistException;
+import org.apache.seatunnel.api.table.catalog.exception.TableAlreadyExistException;
+import org.apache.seatunnel.api.table.catalog.exception.TableNotExistException;
 import org.apache.seatunnel.connectors.seatunnel.file.hadoop.HadoopLoginFactory;
 import org.apache.seatunnel.connectors.seatunnel.file.hdfs.source.config.HdfsSourceConfigOptions;
 import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConfig;
@@ -51,7 +59,7 @@ import java.util.List;
 import java.util.Objects;
 
 @Slf4j
-public class HiveMetaStoreProxy implements Closeable, Serializable {
+public class HiveMetaStoreProxy implements Catalog, Closeable, Serializable {
     private static final List<String> HADOOP_CONF_FILES = ImmutableList.of("hive-site.xml");
 
     private final String metastoreUri;
@@ -219,14 +227,13 @@ public class HiveMetaStoreProxy implements Closeable, Serializable {
         }
     }
 
-    public boolean databaseExists(@NonNull String dbName) {
+    @Override
+    public boolean databaseExists(String dbName) throws CatalogException {
         try {
             List<String> databases = getClient().getAllDatabases();
             return databases.contains(dbName);
         } catch (TException e) {
-            String msg = String.format("Failed to check if database %s exists", dbName);
-            throw new HiveConnectorException(
-                    HiveConnectorErrorCode.GET_HIVE_TABLE_INFORMATION_FAILED, msg, e);
+            throw new CatalogException("Failed to check if database exists: " + dbName, e);
         }
     }
 
@@ -254,8 +261,117 @@ public class HiveMetaStoreProxy implements Closeable, Serializable {
         return new HiveMetaStoreProxy(config);
     }
 
+    // ========== Catalog Interface Implementation ==========
+
     @Override
-    public synchronized void close() {
+    public void open() throws CatalogException {
+        try {
+            getClient();
+        } catch (Exception e) {
+            throw new CatalogException("Failed to open Hive catalog", e);
+        }
+    }
+
+    @Override
+    public String name() {
+        return "hive";
+    }
+
+    @Override
+    public String getDefaultDatabase() throws CatalogException {
+        return "default";
+    }
+
+    // Note: databaseExists method is already implemented above, reusing it for Catalog interface
+
+    @Override
+    public List<String> listDatabases() throws CatalogException {
+        try {
+            return getClient().getAllDatabases();
+        } catch (TException e) {
+            throw new CatalogException("Failed to list databases", e);
+        }
+    }
+
+    @Override
+    public List<String> listTables(String databaseName)
+            throws CatalogException, DatabaseNotExistException {
+        try {
+            if (!databaseExists(databaseName)) {
+                throw new DatabaseNotExistException("hive", databaseName);
+            }
+            return getClient().getAllTables(databaseName);
+        } catch (TException e) {
+            throw new CatalogException("Failed to list tables in database: " + databaseName, e);
+        }
+    }
+
+    @Override
+    public boolean tableExists(TablePath tablePath) throws CatalogException {
+        return tableExists(tablePath.getDatabaseName(), tablePath.getTableName());
+    }
+
+    @Override
+    public CatalogTable getTable(TablePath tablePath)
+            throws CatalogException, TableNotExistException {
+        // This method would need to be implemented to convert Hive Table to CatalogTable
+        // For now, throw UnsupportedOperationException as this requires complex conversion logic
+        throw new UnsupportedOperationException(
+                "getTable method needs to be implemented with proper Hive to CatalogTable conversion");
+    }
+
+    @Override
+    public void createTable(TablePath tablePath, CatalogTable table, boolean ignoreIfExists)
+            throws TableAlreadyExistException, DatabaseNotExistException, CatalogException {
+        // This method would need to be implemented to convert CatalogTable to Hive Table
+        // For now, throw UnsupportedOperationException as this requires complex conversion logic
+        throw new UnsupportedOperationException(
+                "createTable method needs to be implemented with proper CatalogTable to Hive conversion");
+    }
+
+    @Override
+    public void dropTable(TablePath tablePath, boolean ignoreIfNotExists)
+            throws TableNotExistException, CatalogException {
+        if (!tableExists(tablePath) && !ignoreIfNotExists) {
+            throw new TableNotExistException("hive", tablePath);
+        }
+        if (tableExists(tablePath)) {
+            dropTable(tablePath.getDatabaseName(), tablePath.getTableName());
+        }
+    }
+
+    @Override
+    public void createDatabase(TablePath tablePath, boolean ignoreIfExists)
+            throws DatabaseAlreadyExistException, CatalogException {
+        try {
+            createDatabaseIfNotExists(tablePath.getDatabaseName());
+        } catch (TException e) {
+            if (e instanceof AlreadyExistsException && !ignoreIfExists) {
+                throw new DatabaseAlreadyExistException("hive", tablePath.getDatabaseName());
+            }
+            throw new CatalogException(
+                    "Failed to create database: " + tablePath.getDatabaseName(), e);
+        }
+    }
+
+    @Override
+    public void dropDatabase(TablePath tablePath, boolean ignoreIfNotExists)
+            throws DatabaseNotExistException, CatalogException {
+        try {
+            if (!databaseExists(tablePath.getDatabaseName()) && !ignoreIfNotExists) {
+                throw new DatabaseNotExistException("hive", tablePath.getDatabaseName());
+            }
+            if (databaseExists(tablePath.getDatabaseName())) {
+                getClient().dropDatabase(tablePath.getDatabaseName());
+            }
+        } catch (TException e) {
+            throw new CatalogException(
+                    "Failed to drop database: " + tablePath.getDatabaseName(), e);
+        }
+    }
+
+    @Override
+    public synchronized void close() throws CatalogException {
         if (Objects.nonNull(hiveClient)) {
             hiveClient.close();
         }

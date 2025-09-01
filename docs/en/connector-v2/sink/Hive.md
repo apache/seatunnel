@@ -104,6 +104,8 @@ Flag to decide whether to use overwrite mode when inserting data into Hive. If s
 
 Before starting the synchronization task, different processing schemes are selected for the existing table structure on the target side.
 
+**Default value**: `CREATE_SCHEMA_WHEN_NOT_EXIST`
+
 Option values:
 - `RECREATE_SCHEMA`: Will create when the table does not exist, delete and rebuild when the table exists
 - `CREATE_SCHEMA_WHEN_NOT_EXIST`: Will create when the table does not exist, skip when the table exists
@@ -115,6 +117,15 @@ Option values:
 ### save_mode_create_template [string]
 
 We use templates to automatically create Hive tables, which will create corresponding table creation statements based on the type of upstream data and schema type, and the default template can be modified according to the situation. Available template variables: ${database}, ${table}, ${rowtype_fields}, ${rowtype_partition_fields}, ${table_location}.
+
+**Default value**: When not specified, uses a default PARQUET non-partitioned table template:
+```sql
+CREATE TABLE IF NOT EXISTS `${database}`.`${table}` (
+  ${rowtype_fields}
+)
+STORED AS PARQUET
+LOCATION '${table_location}'
+```
 
 ### common options
 
