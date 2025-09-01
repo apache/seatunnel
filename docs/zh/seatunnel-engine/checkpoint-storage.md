@@ -30,9 +30,6 @@ SeaTunnel Engine支持以下检查点存储类型:
 seatunnel:
     engine:
         checkpoint:
-            interval: 300000 # 两个连续检查点之间的间隔时间（以毫秒为单位）。默认值为 300000（5分钟）
-            timeout: 30000   # 检查点操作的超时时间（以毫秒为单位）。默认值为 30000（30秒）
-            min-pause: 5000 # 连续检查点之间的最小暂停时间（以毫秒为单位）。这确保检查点不会被触发得过于频繁。
             storage:
                 type: hdfs #检查点存储的插件名称，支持hdfs(S3, local, hdfs), 默认为localfile (本地文件), 但这种方式已弃用
               # 插件配置
@@ -43,12 +40,6 @@ seatunnel:
 ```
 
 注意: namespace必须以"/"结尾。
-
-#### 检查点配置参数
-
-- **interval**: 两个连续检查点之间的间隔时间（以毫秒为单位）。默认值为 300000（5分钟）。
-- **timeout**: 检查点操作的超时时间（以毫秒为单位）。默认值为 30000（30秒）。
-- **min-pause**: 连续检查点之间的最小暂停时间（以毫秒为单位）。这确保检查点不会被触发得过于频繁。
 
 #### OSS
 
@@ -260,4 +251,3 @@ seatunnel:
           disable.cache: false
           fs.defaultFS: file:/// 
 ```
-

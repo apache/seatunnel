@@ -58,7 +58,6 @@ public class CheckpointConfig implements Serializable {
     }
 
     public void setCheckpointMinPause(long checkpointMinPause) {
-        checkArgument(checkpointMinPause >= 0, "The minimum checkpoint min-pause is 0 mills.");
         this.checkpointMinPause = checkpointMinPause;
     }
 

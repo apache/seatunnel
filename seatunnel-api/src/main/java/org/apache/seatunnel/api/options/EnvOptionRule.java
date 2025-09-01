@@ -42,6 +42,7 @@ public class EnvOptionRule implements Factory {
                         EnvCommonOptions.JARS,
                         EnvCommonOptions.CHECKPOINT_INTERVAL,
                         EnvCommonOptions.CHECKPOINT_TIMEOUT,
+                        EnvCommonOptions.CHECKPOINT_MIN_PAUSE,
                         EnvCommonOptions.READ_LIMIT_ROW_PER_SECOND,
                         EnvCommonOptions.READ_LIMIT_BYTES_PER_SECOND,
                         EnvCommonOptions.SAVEMODE_EXECUTE_LOCATION,
