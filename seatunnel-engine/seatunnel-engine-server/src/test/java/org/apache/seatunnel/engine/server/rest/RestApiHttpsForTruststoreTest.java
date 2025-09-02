@@ -46,8 +46,8 @@ import java.util.stream.Collectors;
 /** Test for Rest API with HTTPS. */
 @DisabledOnOs(OS.WINDOWS)
 public class RestApiHttpsForTruststoreTest extends AbstractSeaTunnelServerTest {
-    private static final int HTTP_PORT = 18080;
-    private static final int HTTPS_PORT = 18443;
+    private static final int HTTP_PORT = 10080;
+    private static final int HTTPS_PORT = 10443;
     private static final String SERVER_KEYSTORE_PASSWORD = "server_keystore_password";
     private static final String SERVER_TRUSTSTORE_PASSWORD = "server_truststore_password";
     private static final String CLIENT_KEYSTORE_PASSWORD = "client_keystore_password";
