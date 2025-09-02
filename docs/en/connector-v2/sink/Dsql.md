@@ -1,4 +1,4 @@
-import ChangeLog from '../changelog/connector-dsql.md';
+
 
 # Amazon Aurora DSQL 
 
@@ -237,6 +237,3 @@ Verify database permissions
 - Complex data types are serialized as JSON
 
 
-## Changelog
-
-<ChangeLog />
