@@ -1,5 +1,3 @@
-
-
 # Amazon Aurora DSQL 
 
 > Amazon Aurora DSQL sink connector
