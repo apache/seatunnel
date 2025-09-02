@@ -262,8 +262,6 @@ public class HiveMetaStoreProxy implements Catalog, Closeable, Serializable {
         return new HiveMetaStoreProxy(config);
     }
 
-    // ========== Catalog Interface Implementation ==========
-
     @Override
     public void open() throws CatalogException {
         try {
@@ -282,8 +280,6 @@ public class HiveMetaStoreProxy implements Catalog, Closeable, Serializable {
     public String getDefaultDatabase() throws CatalogException {
         return "default";
     }
-
-    // Note: databaseExists method is already implemented above, reusing it for Catalog interface
 
     @Override
     public List<String> listDatabases() throws CatalogException {
@@ -398,13 +394,9 @@ public class HiveMetaStoreProxy implements Catalog, Closeable, Serializable {
         }
     }
 
-    // ========== 简单的转换方法 ==========
-
     private CatalogTable convertHiveTableToCatalogTable(Table hiveTable) {
-        // 简化的转换实现，只处理基本情况
         List<org.apache.seatunnel.api.table.catalog.Column> columns = new ArrayList<>();
 
-        // 转换常规列
         if (hiveTable.getSd() != null && hiveTable.getSd().getCols() != null) {
             for (org.apache.hadoop.hive.metastore.api.FieldSchema field :
                     hiveTable.getSd().getCols()) {
@@ -417,7 +409,6 @@ public class HiveMetaStoreProxy implements Catalog, Closeable, Serializable {
             }
         }
 
-        // 转换分区列
         if (hiveTable.getPartitionKeys() != null) {
             for (org.apache.hadoop.hive.metastore.api.FieldSchema partitionKey :
                     hiveTable.getPartitionKeys()) {
@@ -458,7 +449,6 @@ public class HiveMetaStoreProxy implements Catalog, Closeable, Serializable {
     }
 
     private Table convertCatalogTableToHiveTable(TablePath tablePath, CatalogTable catalogTable) {
-        // 简化的转换实现，使用默认的PARQUET格式
         Table hiveTable = new Table();
         hiveTable.setDbName(tablePath.getDatabaseName());
         hiveTable.setTableName(tablePath.getTableName());
@@ -469,7 +459,6 @@ public class HiveMetaStoreProxy implements Catalog, Closeable, Serializable {
         org.apache.hadoop.hive.metastore.api.StorageDescriptor sd =
                 new org.apache.hadoop.hive.metastore.api.StorageDescriptor();
 
-        // 转换列
         List<org.apache.hadoop.hive.metastore.api.FieldSchema> cols = new ArrayList<>();
         for (org.apache.seatunnel.api.table.catalog.Column column :
                 catalogTable.getTableSchema().getColumns()) {
@@ -480,14 +469,12 @@ public class HiveMetaStoreProxy implements Catalog, Closeable, Serializable {
         }
         sd.setCols(cols);
 
-        // 设置默认的PARQUET格式
         sd.setInputFormat("org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat");
         sd.setOutputFormat("org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat");
         sd.getSerdeInfo()
                 .setSerializationLib("org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe");
         sd.getSerdeInfo().setName(hiveTable.getTableName());
 
-        // 设置默认位置
         String defaultLocation =
                 String.format(
                         "/user/hive/warehouse/%s.db/%s",
@@ -498,9 +485,8 @@ public class HiveMetaStoreProxy implements Catalog, Closeable, Serializable {
         sd.setStoredAsSubDirectories(false);
 
         hiveTable.setSd(sd);
-        hiveTable.setPartitionKeys(new ArrayList<>()); // 默认无分区
+        hiveTable.setPartitionKeys(new ArrayList<>());
 
-        // 设置表参数
         java.util.Map<String, String> parameters = new java.util.HashMap<>();
         parameters.put("seatunnel.created", "true");
         parameters.put("seatunnel.created.time", String.valueOf(System.currentTimeMillis()));
