@@ -62,11 +62,11 @@ public class MetadataUtil {
     }
 
     public static boolean isComplete(Object row) {
-        return checkOption(row, IS_COMPLETE.name(), false);
+        return checkOption(row, IS_COMPLETE.getName(), false);
     }
 
     public static boolean isBinaryFormat(Object row) {
-        return checkOption(row, IS_BINARY_FORMAT.name(), false);
+        return checkOption(row, IS_BINARY_FORMAT.getName(), false);
     }
 
     public static String getDatabase(SeaTunnelRowAccessor row) {
