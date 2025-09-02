@@ -48,8 +48,6 @@ test.conf
 spark-warehouse
 *.flattened-pom.xml
 
-seatunnel-examples
-
 # vscode
 .vscode
 
