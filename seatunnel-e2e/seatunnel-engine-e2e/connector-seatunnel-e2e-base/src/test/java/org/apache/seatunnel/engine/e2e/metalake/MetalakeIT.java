@@ -69,8 +69,6 @@ public class MetalakeIT extends SeaTunnelEngineContainer {
 
     protected GenericContainer<?> dbServer;
 
-    protected GenericContainer<?> gravitinoServer;
-
     protected JdbcCase jdbcCase;
 
     protected Connection connection;
@@ -165,7 +163,7 @@ public class MetalakeIT extends SeaTunnelEngineContainer {
                 "sleep 60 && curl -L 'http://127.0.0.1:8090/api/metalakes' -H 'Content-Type: application/json' -H 'Accept: application/vnd.gravitino.v1+json' -d '{\"name\":\"test_metalake\",\"comment\":\"for metalake test\",\"properties\":{}}'"
                         + "&& curl -L 'http://127.0.0.1:8090/api/metalakes/test_metalake/catalogs' -H 'Content-Type: application/json' -H 'Accept: application/vnd.gravitino.v1+json' -d '{\"name\":\"test_catalog\",\"type\":\"relational\",\"provider\":\"jdbc-mysql\",\"comment\":\"for metalake test\",\"properties\":{\"jdbc-driver\":\"com.mysql.cj.jdbc.Driver\",\"jdbc-url\":\"not used\",\"jdbc-user\":\"root\",\"jdbc-password\":\"Abc!@#135_seatunnel\"}}'");
 
-        dbServer = initContainer().withImagePullPolicy(PullPolicy.defaultPolicy());
+        dbServer = initContainer().withImagePullPolicy(PullPolicy.alwaysPull());
 
         Startables.deepStart(Stream.of(dbServer)).join();
 
@@ -194,20 +192,12 @@ public class MetalakeIT extends SeaTunnelEngineContainer {
         if (dbServer != null) {
             dbServer.close();
             try {
-                //dockerClient.removeImageCmd(dbServer.getDockerImageName()).exec();
+                dockerClient.removeImageCmd(dbServer.getDockerImageName()).exec();
             } catch (Exception ignored) {
                 ignored.printStackTrace();
             }
         }
 
-        if (gravitinoServer != null) {
-            gravitinoServer.close();
-            try {
-                //dockerClient.removeImageCmd(gravitinoServer.getDockerImageName()).exec();
-            } catch (Exception ignored) {
-                ignored.printStackTrace();
-            }
-        }
         super.tearDown();
     }
 
