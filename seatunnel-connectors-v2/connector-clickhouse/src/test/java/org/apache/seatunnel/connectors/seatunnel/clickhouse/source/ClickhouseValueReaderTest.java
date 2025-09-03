@@ -22,6 +22,7 @@ import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.utils.ReflectionUtils;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.shard.Shard;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.file.ClickhouseTable;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.source.split.ClickhouseSourceSplit;
@@ -51,6 +52,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -109,13 +111,8 @@ public class ClickhouseValueReaderTest {
         initStreamValueReaderMock();
 
         reader = new ClickhouseValueReader(split, rowType, sourceTable);
-        try {
-            Field proxyField = ClickhouseValueReader.class.getDeclaredField("proxy");
-            proxyField.setAccessible(true);
-            proxyField.set(reader, mockProxy);
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to set mock proxy", e);
-        }
+
+        ReflectionUtils.setField(reader, ClickhouseValueReader.class, "proxy", mockProxy);
     }
 
     @Test
@@ -229,14 +226,8 @@ public class ClickhouseValueReaderTest {
 
     @Test
     public void testPartStrategyReadWithNoSortingKey() {
-        try {
-            Field shouldUseStreamReader =
-                    ClickhouseValueReader.class.getDeclaredField("shouldUseStreamReader");
-            shouldUseStreamReader.setAccessible(true);
-            shouldUseStreamReader.set(reader, true);
-        } catch (Exception e) {
-            Assertions.fail("Failed to set shouldUseStreamReader field", e);
-        }
+        ReflectionUtils.setField(
+                reader, ClickhouseValueReader.class, "shouldUseStreamReader", true);
 
         Assertions.assertTrue(reader.hasNext());
         List<SeaTunnelRow> result = reader.next();
@@ -251,23 +242,10 @@ public class ClickhouseValueReaderTest {
 
     @Test
     public void testSqlStrategyReadWithNoSortingKey() {
-        try {
-            Field sqlStrategyField =
-                    ClickhouseSourceTable.class.getDeclaredField("isSqlStrategyRead");
-            sqlStrategyField.setAccessible(true);
-            sqlStrategyField.set(sourceTable, true);
-        } catch (Exception e) {
-            Assertions.fail("Failed to set isSqlStrategyRead field", e);
-        }
-
-        try {
-            Field shouldUseStreamReader =
-                    ClickhouseValueReader.class.getDeclaredField("shouldUseStreamReader");
-            shouldUseStreamReader.setAccessible(true);
-            shouldUseStreamReader.set(reader, true);
-        } catch (Exception e) {
-            Assertions.fail("Failed to set shouldUseStreamReader field", e);
-        }
+        ReflectionUtils.setField(
+                sourceTable, ClickhouseSourceTable.class, "isSqlStrategyRead", true);
+        ReflectionUtils.setField(
+                reader, ClickhouseValueReader.class, "shouldUseStreamReader", true);
 
         Assertions.assertTrue(reader.hasNext());
 
@@ -279,14 +257,8 @@ public class ClickhouseValueReaderTest {
 
     @Test
     public void testSqlStrategyReadWithSortingKey() {
-        try {
-            Field sqlStrategyField =
-                    ClickhouseSourceTable.class.getDeclaredField("isSqlStrategyRead");
-            sqlStrategyField.setAccessible(true);
-            sqlStrategyField.set(sourceTable, true);
-        } catch (Exception e) {
-            Assertions.fail("Failed to set isSqlStrategyRead field", e);
-        }
+        ReflectionUtils.setField(
+                sourceTable, ClickhouseSourceTable.class, "isSqlStrategyRead", true);
 
         when(sourceTable.getClickhouseTable().getSortingKey()).thenReturn("id");
 
@@ -344,10 +316,15 @@ public class ClickhouseValueReaderTest {
 
     @Test
     public void testBuildKeysetWhereCondition() throws Exception {
-        Method buildKeysetWhereConditionMethod =
-                ClickhouseValueReader.class.getDeclaredMethod(
-                        "buildKeysetWhereCondition", String.class, List.class);
-        buildKeysetWhereConditionMethod.setAccessible(true);
+        Optional<Method> methodOpt =
+                ReflectionUtils.getDeclaredMethod(
+                        ClickhouseValueReader.class,
+                        "buildKeysetWhereCondition",
+                        String.class,
+                        List.class);
+        Assertions.assertTrue(methodOpt.isPresent());
+
+        Method buildKeysetWhereConditionMethod = methodOpt.get();
 
         // Test a single sort key
         String sortingKey = "id";
@@ -383,9 +360,12 @@ public class ClickhouseValueReaderTest {
 
     @Test
     public void testIsAllSortKeyInRowType() throws Exception {
-        Method isAllSortKeyInRowTypeMethod =
-                ClickhouseValueReader.class.getDeclaredMethod("isAllSortKeyInRowType");
-        isAllSortKeyInRowTypeMethod.setAccessible(true);
+        Optional<Method> methodOpt =
+                ReflectionUtils.getDeclaredMethod(
+                        ClickhouseValueReader.class, "isAllSortKeyInRowType");
+        Assertions.assertTrue(methodOpt.isPresent());
+
+        Method isAllSortKeyInRowTypeMethod = methodOpt.get();
 
         // Test case 1: Valid composite sorting key
         when(sourceTable.getClickhouseTable().getSortingKey()).thenReturn("id, age");
