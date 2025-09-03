@@ -34,9 +34,12 @@ import org.apache.seatunnel.connectors.seatunnel.databend.exception.DatabendConn
 import org.apache.seatunnel.connectors.seatunnel.databend.exception.DatabendConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.databend.schema.SchemaChangeManager;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -46,6 +49,7 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -474,29 +478,49 @@ public class DatabendSinkWriter
                 "Conflict key field '" + conflictKey + "' value is null or not found in row");
     }
 
+    private final ObjectMapper objectMapper = new ObjectMapper();
+
     private String convertRowToJson(SeaTunnelRow row) {
-        StringBuilder jsonBuilder = new StringBuilder("{");
-        String[] fieldNames = catalogTable.getSeaTunnelRowType().getFieldNames();
-        Object[] fields = row.getFields();
+        try {
+            ObjectNode jsonNode = objectMapper.createObjectNode();
+            String[] fieldNames = catalogTable.getSeaTunnelRowType().getFieldNames();
+            Object[] fields = row.getFields();
 
-        for (int i = 0; i < fieldNames.length; i++) {
-            if (i > 0) jsonBuilder.append(",");
-            jsonBuilder.append("\"").append(fieldNames[i]).append("\":");
-            Object value = fields[i];
-            if (value == null) {
-                jsonBuilder.append("null");
-            } else if (value instanceof String) {
-                jsonBuilder
-                        .append("\"")
-                        .append(value.toString().replace("\"", "\\\""))
-                        .append("\"");
-            } else {
-                jsonBuilder.append(value.toString());
+            for (int i = 0; i < fieldNames.length; i++) {
+                String fieldName = fieldNames[i];
+                Object value = fields[i];
+
+                if (value == null) {
+                    jsonNode.putNull(fieldName);
+                } else if (value instanceof String) {
+                    jsonNode.put(fieldName, (String) value);
+                } else if (value instanceof Integer) {
+                    jsonNode.put(fieldName, (Integer) value);
+                } else if (value instanceof Long) {
+                    jsonNode.put(fieldName, (Long) value);
+                } else if (value instanceof Float) {
+                    jsonNode.put(fieldName, (Float) value);
+                } else if (value instanceof Double) {
+                    jsonNode.put(fieldName, (Double) value);
+                } else if (value instanceof Boolean) {
+                    jsonNode.put(fieldName, (Boolean) value);
+                } else if (value instanceof BigDecimal) {
+                    jsonNode.put(fieldName, (BigDecimal) value);
+                } else if (value instanceof java.sql.Timestamp) {
+                    jsonNode.put(fieldName, value.toString());
+                } else if (value instanceof java.sql.Date) {
+                    jsonNode.put(fieldName, value.toString());
+                } else if (value instanceof byte[]) {
+                    jsonNode.put(fieldName, Base64.getEncoder().encodeToString((byte[]) value));
+                } else {
+                    jsonNode.put(fieldName, value.toString());
+                }
             }
-        }
 
-        jsonBuilder.append("}");
-        return jsonBuilder.toString();
+            return objectMapper.writeValueAsString(jsonNode);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to convert row to JSON", e);
+        }
     }
 
     private void initializePreparedStatement(SeaTunnelRow row) throws SQLException {
