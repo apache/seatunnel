@@ -17,6 +17,9 @@
 
 package org.apache.seatunnel.api.table.type;
 
+import org.apache.seatunnel.common.exception.CommonError;
+
+import java.lang.reflect.Array;
 import java.util.Objects;
 
 public class ArrayType<T, E> implements SeaTunnelDataType<T> {
@@ -51,6 +54,8 @@ public class ArrayType<T, E> implements SeaTunnelDataType<T> {
     public static final ArrayType<LocalTimeType[], LocalTimeType> OFFSET_DATE_TIME_ARRAY_TYPE =
             new ArrayType(LocalTimeType[].class, LocalTimeType.OFFSET_DATE_TIME_TYPE);
 
+    public static final String OPERATION = "create ArrayType";
+
     // --------------------------------------------------------------------------------------------
 
     private final Class<T> arrayClass;
@@ -59,6 +64,33 @@ public class ArrayType<T, E> implements SeaTunnelDataType<T> {
     public ArrayType(Class<T> arrayClass, SeaTunnelDataType<E> elementType) {
         this.arrayClass = arrayClass;
         this.elementType = elementType;
+    }
+
+    public static <E> ArrayType<E[], E> of(SeaTunnelDataType<E> elementType) {
+        if (elementType == null) {
+            throw CommonError.illegalArgument("elementType is null", OPERATION);
+        }
+        Class<E[]> arrayClass = (Class<E[]>) toArrayClass(elementType);
+        return new ArrayType<>(arrayClass, elementType);
+    }
+
+    public static <E> ArrayType<?, ?> of(SeaTunnelDataType<E> elementType, int dimensions) {
+        if (dimensions < 1) {
+            throw CommonError.illegalArgument("dimensions must be >= 1", OPERATION);
+        }
+        SeaTunnelDataType<?> current = elementType;
+        for (int i = 0; i < dimensions; i++) {
+            current = of(current);
+        }
+        return (ArrayType<?, ?>) current;
+    }
+
+    public ArrayType<T[], T> addDimension() {
+        return ArrayType.of(this);
+    }
+
+    public int getDimensions() {
+        return dimensionOf(arrayClass);
     }
 
     public SeaTunnelDataType<E> getElementType() {
@@ -96,5 +128,20 @@ public class ArrayType<T, E> implements SeaTunnelDataType<T> {
     @Override
     public String toString() {
         return String.format("ARRAY<%s>", elementType);
+    }
+
+    private int dimensionOf(Class<?> cls) {
+        int dimension = 0;
+        Class<?> c = cls;
+        while (c.isArray()) {
+            dimension++;
+            c = c.getComponentType();
+        }
+        return dimension;
+    }
+
+    private static Class<?> toArrayClass(SeaTunnelDataType<?> elementType) {
+        Class<?> elementClass = elementType.getTypeClass();
+        return Array.newInstance(elementClass, 0).getClass();
     }
 }
