@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.server;
 
+import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
 import org.apache.seatunnel.shade.com.google.common.util.concurrent.ThreadFactoryBuilder;
 
 import org.apache.seatunnel.api.common.metrics.JobMetrics;
@@ -522,7 +523,6 @@ public class CoordinatorService {
                         runningJobStateTimestampsIMap,
                         ownedSlotProfilesIMap,
                         runningJobInfoIMap,
-                        metricsImap,
                         engineConfig,
                         seaTunnelServer);
 
@@ -642,7 +642,6 @@ public class CoordinatorService {
                         runningJobStateTimestampsIMap,
                         ownedSlotProfilesIMap,
                         runningJobInfoIMap,
-                        metricsImap,
                         engineConfig,
                         seaTunnelServer);
         mdcExecutorService.submit(
@@ -1079,5 +1078,10 @@ public class CoordinatorService {
                     "The user is not configured to enable connector package service, can not get connector package service service from master node.");
         }
         return connectorPackageService;
+    }
+
+    @VisibleForTesting
+    protected IMap<Long, HashMap<TaskLocation, SeaTunnelMetricsContext>> getMetricsImap() {
+        return metricsImap;
     }
 }

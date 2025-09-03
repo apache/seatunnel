@@ -1022,6 +1022,152 @@ public class RestApiIT {
                         });
     }
 
+    @Test
+    public void testSubmitJobWithSqlFormat() {
+        String sqlConfig =
+                "/* config\n"
+                        + "env {\n"
+                        + "  parallelism = 1\n"
+                        + "  job.mode = \"BATCH\"\n"
+                        + "}\n"
+                        + "*/\n"
+                        + "\n"
+                        + "CREATE TABLE test_source (\n"
+                        + "    id INT,\n"
+                        + "    name STRING,\n"
+                        + "    c_time TIMESTAMP\n"
+                        + ") WITH (\n"
+                        + "    'connector' = 'FakeSource',\n"
+                        + "    'schema' = '{ \n"
+                        + "      fields { \n"
+                        + "        id = \"int\", \n"
+                        + "        name = \"string\",\n"
+                        + "        c_time = \"timestamp\"\n"
+                        + "      } \n"
+                        + "    }',\n"
+                        + "    'rows' = '[ \n"
+                        + "      { fields = [1, \"test\", null], kind = INSERT }\n"
+                        + "    ]',\n"
+                        + "    'type' = 'source'\n"
+                        + ");\n"
+                        + "\n"
+                        + "CREATE TABLE test_sink (\n"
+                        + "    id INT,\n"
+                        + "    name STRING,\n"
+                        + "    c_time TIMESTAMP\n"
+                        + ") WITH (\n"
+                        + "    'connector' = 'Console',\n"
+                        + "    'type' = 'sink'\n"
+                        + ");\n"
+                        + "\n"
+                        + "INSERT INTO test_sink SELECT * FROM test_source;";
+
+        Arrays.asList(node2, node1)
+                .forEach(
+                        instance -> {
+                            ports.forEach(
+                                    (key, value) -> {
+                                        given().body(sqlConfig)
+                                                .queryParam("format", "sql")
+                                                .queryParam("jobName", "test-sql-job")
+                                                .post(HOST + key + CONTEXT_PATH + "/submit-job")
+                                                .then()
+                                                .statusCode(200)
+                                                .body("jobId", notNullValue())
+                                                .body("jobName", equalTo("test-sql-job"));
+                                    });
+                        });
+    }
+
+    @Test
+    public void testSubmitJobWithJsonFormat() {
+        String jsonConfig =
+                "{\n"
+                        + "    \"env\": {\n"
+                        + "        \"parallelism\": 1,\n"
+                        + "        \"job.mode\": \"BATCH\"\n"
+                        + "    },\n"
+                        + "    \"source\": [\n"
+                        + "        {\n"
+                        + "            \"plugin_name\": \"FakeSource\",\n"
+                        + "            \"plugin_output\": \"fake\",\n"
+                        + "            \"row.num\": 2,\n"
+                        + "            \"schema\": {\n"
+                        + "                \"fields\": {\n"
+                        + "                    \"name\": \"string\",\n"
+                        + "                    \"age\": \"int\"\n"
+                        + "                }\n"
+                        + "            }\n"
+                        + "        }\n"
+                        + "    ],\n"
+                        + "    \"sink\": [\n"
+                        + "        {\n"
+                        + "            \"plugin_name\": \"Console\",\n"
+                        + "            \"plugin_input\": [\"fake\"]\n"
+                        + "        }\n"
+                        + "    ]\n"
+                        + "}";
+
+        Arrays.asList(node2, node1)
+                .forEach(
+                        instance -> {
+                            ports.forEach(
+                                    (key, value) -> {
+                                        given().body(jsonConfig)
+                                                .queryParam("jobName", "test-json-job")
+                                                .post(HOST + key + CONTEXT_PATH + "/submit-job")
+                                                .then()
+                                                .statusCode(200)
+                                                .body("jobId", notNullValue())
+                                                .body("jobName", equalTo("test-json-job"));
+                                    });
+                        });
+    }
+
+    @Test
+    public void testSubmitJobWithHoconFormat() {
+        String hoconConfig =
+                "env {\n"
+                        + "  parallelism = 1\n"
+                        + "  job.mode = \"BATCH\"\n"
+                        + "}\n"
+                        + "\n"
+                        + "source {\n"
+                        + "  FakeSource {\n"
+                        + "    plugin_output = \"fake\"\n"
+                        + "    row.num = 2\n"
+                        + "    schema = {\n"
+                        + "      fields {\n"
+                        + "        name = \"string\"\n"
+                        + "        age = \"int\"\n"
+                        + "      }\n"
+                        + "    }\n"
+                        + "  }\n"
+                        + "}\n"
+                        + "\n"
+                        + "sink {\n"
+                        + "  Console {\n"
+                        + "    plugin_input = \"fake\"\n"
+                        + "  }\n"
+                        + "}";
+
+        Arrays.asList(node2, node1)
+                .forEach(
+                        instance -> {
+                            ports.forEach(
+                                    (key, value) -> {
+                                        given().body(hoconConfig)
+                                                .queryParam("format", "hocon")
+                                                .queryParam("jobName", "test-hocon-job")
+                                                .post(HOST + key + CONTEXT_PATH + "/submit-job")
+                                                .then()
+                                                .statusCode(200)
+                                                .body("jobId", notNullValue())
+                                                .body("jobName", equalTo("test-hocon-job"));
+                                    });
+                        });
+    }
+
     @AfterEach
     void afterClass() {
         if (engineClient != null) {
