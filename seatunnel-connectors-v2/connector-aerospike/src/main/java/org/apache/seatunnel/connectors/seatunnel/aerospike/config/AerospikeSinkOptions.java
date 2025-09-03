@@ -104,7 +104,7 @@ public class AerospikeSinkOptions {
                     .defaultValue(new HashMap<>())
                     .withDescription(
                             "Fields to be written with their Aerospike data types. Example:  \"schema\": {\n"
-                                    + "        \"filed\": {\n"
+                                    + "        \"field\": {\n"
                                     + "          \"name\": \"STRING\"\n"
                                     + "        }\n"
                                     + "      }");

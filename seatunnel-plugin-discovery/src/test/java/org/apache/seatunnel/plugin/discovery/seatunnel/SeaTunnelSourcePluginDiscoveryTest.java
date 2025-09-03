@@ -23,6 +23,7 @@ import org.apache.seatunnel.api.common.PluginIdentifier;
 import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.config.DeployMode;
 import org.apache.seatunnel.common.constants.PluginType;
+import org.apache.seatunnel.common.utils.FileUtils;
 import org.apache.seatunnel.common.utils.SeaTunnelException;
 
 import org.junit.jupiter.api.AfterEach;
@@ -32,9 +33,11 @@ import org.junit.jupiter.api.Test;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.MalformedURLException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -65,6 +68,28 @@ class SeaTunnelSourcePluginDiscoveryTest {
             Lists.newArrayList(
                     Paths.get(seatunnelHome, "connectors", "connector-http-jira.jar"),
                     Paths.get(seatunnelHome, "connectors", "connector-http.jar"),
+                    Paths.get(seatunnelHome, "connectors", "connector-clickhouse.jar"),
+                    Paths.get(
+                            seatunnelHome,
+                            "plugins",
+                            "connector-clickhouse",
+                            "clickhouse-jdbc-driver.jar"),
+                    Paths.get(
+                            seatunnelHome,
+                            "plugins",
+                            "connector-clickhouse",
+                            "clickhouse-jdbc-driver2.jar"),
+                    Paths.get(seatunnelHome, "plugins", "connector-jdbc", "mysql-jdbc-driver.jar"),
+                    Paths.get(seatunnelHome, "plugins", "connector-jdbc", "mysql-jdbc-driver2.jar"),
+                    Paths.get(seatunnelHome, "plugins", "other", "common-dependency.jar"),
+                    Paths.get(seatunnelHome, "plugins", "other", "common-dependency2.jar"),
+                    Paths.get(seatunnelHome, "plugins", "common-dependency3.jar"),
+                    Paths.get(
+                            seatunnelHome,
+                            "plugins",
+                            "otherWithLib",
+                            "lib",
+                            "common-dependency3.jar"),
                     Paths.get(seatunnelHome, "connectors", "connector-kafka.jar"),
                     Paths.get(seatunnelHome, "connectors", "connector-kafka-alcs.jar"),
                     Paths.get(seatunnelHome, "connectors", "connector-kafka-blcs.jar"),
@@ -84,7 +109,7 @@ class SeaTunnelSourcePluginDiscoveryTest {
 
         // The file is created under target directory.
         for (Path pluginJar : pluginJars) {
-            Files.createFile(pluginJar);
+            FileUtils.createNewFile(pluginJar.toString());
         }
     }
 
@@ -178,6 +203,116 @@ class SeaTunnelSourcePluginDiscoveryTest {
                                     }
                                 })
                         .collect(Collectors.toList()));
+    }
+
+    @Test
+    public void testGetPluginDependencies() throws MalformedURLException {
+        PluginIdentifier jdbc =
+                PluginIdentifier.of("seatunnel", PluginType.SOURCE.getType(), "JDBC");
+        PluginIdentifier clickhouse =
+                PluginIdentifier.of("seatunnel", PluginType.SOURCE.getType(), "ClickHouse");
+        SeaTunnelSourcePluginDiscovery discovery = new SeaTunnelSourcePluginDiscovery();
+        List<String> jdbcAndClickHouseJars =
+                discovery.getPluginJarAndDependencyPaths(Lists.newArrayList(jdbc, clickhouse))
+                        .stream()
+                        .map(
+                                url -> {
+                                    try {
+                                        return new File(url.toURI()).getPath();
+                                    } catch (Exception e) {
+                                        throw new RuntimeException(e);
+                                    }
+                                })
+                        .collect(Collectors.toList());
+        Assertions.assertIterableEquals(
+                Lists.newArrayList(
+                        Paths.get(seatunnelHome, "/connectors/connector-clickhouse.jar").toString(),
+                        Paths.get(seatunnelHome, "/connectors/connector-jdbc-release-1.1.jar")
+                                .toString(),
+                        Paths.get(seatunnelHome, "/plugins/common-dependency3.jar").toString(),
+                        Paths.get(
+                                        seatunnelHome,
+                                        "/plugins/connector-clickhouse/clickhouse-jdbc-driver.jar")
+                                .toString(),
+                        Paths.get(
+                                        seatunnelHome,
+                                        "/plugins/connector-clickhouse/clickhouse-jdbc-driver2.jar")
+                                .toString(),
+                        Paths.get(seatunnelHome, "/plugins/connector-jdbc/mysql-jdbc-driver.jar")
+                                .toString(),
+                        Paths.get(seatunnelHome, "/plugins/connector-jdbc/mysql-jdbc-driver2.jar")
+                                .toString(),
+                        Paths.get(seatunnelHome, "/plugins/other/common-dependency.jar").toString(),
+                        Paths.get(seatunnelHome, "/plugins/other/common-dependency2.jar")
+                                .toString(),
+                        Paths.get(seatunnelHome, "/plugins/otherWithLib/lib/common-dependency3.jar")
+                                .toString()),
+                jdbcAndClickHouseJars);
+        List<String> jdbcJars =
+                discovery.getPluginJarAndDependencyPaths(Lists.newArrayList(jdbc)).stream()
+                        .map(
+                                url -> {
+                                    try {
+                                        return new File(url.toURI()).getPath();
+                                    } catch (Exception e) {
+                                        throw new RuntimeException(e);
+                                    }
+                                })
+                        .collect(Collectors.toList());
+        Assertions.assertIterableEquals(
+                Lists.newArrayList(
+                        Paths.get(seatunnelHome, "/connectors/connector-jdbc-release-1.1.jar")
+                                .toString(),
+                        Paths.get(seatunnelHome, "/plugins/common-dependency3.jar").toString(),
+                        Paths.get(seatunnelHome, "/plugins/connector-jdbc/mysql-jdbc-driver.jar")
+                                .toString(),
+                        Paths.get(seatunnelHome, "/plugins/connector-jdbc/mysql-jdbc-driver2.jar")
+                                .toString(),
+                        Paths.get(seatunnelHome, "/plugins/other/common-dependency.jar").toString(),
+                        Paths.get(seatunnelHome, "/plugins/other/common-dependency2.jar")
+                                .toString(),
+                        Paths.get(seatunnelHome, "/plugins/otherWithLib/lib/common-dependency3.jar")
+                                .toString()),
+                jdbcJars);
+        List<String> clickhouseJars =
+                discovery.getPluginJarAndDependencyPaths(Lists.newArrayList(clickhouse)).stream()
+                        .map(
+                                url -> {
+                                    try {
+                                        return new File(url.toURI()).getPath();
+                                    } catch (Exception e) {
+                                        throw new RuntimeException(e);
+                                    }
+                                })
+                        .collect(Collectors.toList());
+        Assertions.assertIterableEquals(
+                Lists.newArrayList(
+                        Paths.get(seatunnelHome, "/connectors/connector-clickhouse.jar").toString(),
+                        Paths.get(seatunnelHome, "/plugins/common-dependency3.jar").toString(),
+                        Paths.get(
+                                        seatunnelHome,
+                                        "/plugins/connector-clickhouse/clickhouse-jdbc-driver.jar")
+                                .toString(),
+                        Paths.get(
+                                        seatunnelHome,
+                                        "/plugins/connector-clickhouse/clickhouse-jdbc-driver2.jar")
+                                .toString(),
+                        Paths.get(seatunnelHome, "/plugins/other/common-dependency.jar").toString(),
+                        Paths.get(seatunnelHome, "/plugins/other/common-dependency2.jar")
+                                .toString(),
+                        Paths.get(seatunnelHome, "/plugins/otherWithLib/lib/common-dependency3.jar")
+                                .toString()),
+                clickhouseJars);
+    }
+
+    @Test
+    public void testGetPluginsJarDependenciesWithoutConnectorDependency() {
+        List<Path> paths = Common.getPluginsJarDependenciesWithoutConnectorDependency();
+        Assertions.assertIterableEquals(
+                Collections.singletonList(
+                        Paths.get(
+                                seatunnelHome, "/plugins/otherWithLib/lib/common-dependency3.jar")),
+                paths);
     }
 
     @AfterEach

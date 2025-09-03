@@ -43,9 +43,9 @@ import java.util.Objects;
 public class SQLTransformTest {
 
     private static final String TEST_NAME = "test";
-    private static final String TIMESTAMP_FILEDNAME = "create_time";
-    private static final String[] FILED_NAMES =
-            new String[] {"id", "name", "age", TIMESTAMP_FILEDNAME};
+    private static final String TIMESTAMP_FIELDNAME = "create_time";
+    private static final String[] FIELD_NAMES =
+            new String[] {"id", "name", "age", TIMESTAMP_FIELDNAME};
     private static final String GENERATE_PARTITION_KEY = "dt";
     private static final ReadonlyConfig READONLY_CONFIG =
             ReadonlyConfig.fromMap(
@@ -65,7 +65,7 @@ public class SQLTransformTest {
                 .getColumns()
                 .forEach(
                         column -> {
-                            if (column.getName().equals(TIMESTAMP_FILEDNAME)) {
+                            if (column.getName().equals(TIMESTAMP_FIELDNAME)) {
                                 Assertions.assertEquals(9, column.getScale());
                             } else if (column.getName().equals(GENERATE_PARTITION_KEY)) {
                                 Assertions.assertTrue(Objects.isNull(column.getScale()));
@@ -110,7 +110,7 @@ public class SQLTransformTest {
     private CatalogTable getCatalogTable() {
         SeaTunnelRowType rowType =
                 new SeaTunnelRowType(
-                        FILED_NAMES,
+                        FIELD_NAMES,
                         new SeaTunnelDataType[] {
                             BasicType.INT_TYPE,
                             BasicType.STRING_TYPE,
@@ -121,7 +121,7 @@ public class SQLTransformTest {
         for (int i = 0; i < rowType.getTotalFields(); i++) {
             Integer scale = null;
             Long columnLength = null;
-            if (rowType.getFieldName(i).equals(TIMESTAMP_FILEDNAME)) {
+            if (rowType.getFieldName(i).equals(TIMESTAMP_FIELDNAME)) {
                 scale = 9;
             } else {
                 columnLength = 3L;
@@ -500,6 +500,215 @@ public class SQLTransformTest {
     }
 
     @Test
+    public void testCoalesceTypeConversion() {
+        String tableName = "test";
+        String[] fields = new String[] {"id", "stringField", "intField", "doubleField"};
+        CatalogTable table =
+                CatalogTableUtil.getCatalogTable(
+                        tableName,
+                        new SeaTunnelRowType(
+                                fields,
+                                new SeaTunnelDataType[] {
+                                    BasicType.INT_TYPE,
+                                    BasicType.STRING_TYPE,
+                                    BasicType.INT_TYPE,
+                                    BasicType.DOUBLE_TYPE
+                                }));
+
+        // The first parameter to test COALESCE is the string type, followed by the integer type
+        ReadonlyConfig config =
+                ReadonlyConfig.fromMap(
+                        Collections.singletonMap(
+                                "query",
+                                "select id, COALESCE(stringField, intField) as result from dual"));
+        SQLTransform sqlTransform = new SQLTransform(config, table);
+        TableSchema tableSchema = sqlTransform.transformTableSchema();
+
+        // Verify that the field type is STRING
+        Assertions.assertEquals("result", tableSchema.getFieldNames()[1]);
+        Assertions.assertEquals(
+                BasicType.STRING_TYPE, tableSchema.getColumns().get(1).getDataType());
+
+        // The first field is not null, and the value of the first field should be directly returned
+        List<SeaTunnelRow> result =
+                sqlTransform.transformRow(new SeaTunnelRow(new Object[] {1, "test", 123, 123.45}));
+        Assertions.assertEquals("test", result.get(0).getField(1));
+
+        // The first field is null, and the value converted to the string should be returned.
+        result = sqlTransform.transformRow(new SeaTunnelRow(new Object[] {1, null, 123, 123.45}));
+        Assertions.assertEquals("123", result.get(0).getField(1));
+        // Make sure the return value is a string type rather than an integer type
+        Assertions.assertTrue(
+                result.get(0).getField(1) instanceof String,
+                "The result should be a string type, but is actually "
+                        + result.get(0).getField(1).getClass().getName());
+
+        // The first parameter to test COALESCE is the integer type, followed by the floating point
+        // type
+        config =
+                ReadonlyConfig.fromMap(
+                        Collections.singletonMap(
+                                "query",
+                                "select id, COALESCE(intField, doubleField) as result from dual"));
+        sqlTransform = new SQLTransform(config, table);
+        tableSchema = sqlTransform.transformTableSchema();
+
+        // Verify that the field type is INT
+        Assertions.assertEquals("result", tableSchema.getFieldNames()[1]);
+        Assertions.assertEquals(BasicType.INT_TYPE, tableSchema.getColumns().get(1).getDataType());
+
+        // The first field is not null, and the value of the first field should be directly
+        // returned
+        result = sqlTransform.transformRow(new SeaTunnelRow(new Object[] {1, "test", 123, 123.45}));
+        Assertions.assertEquals(123, result.get(0).getField(1));
+        Assertions.assertTrue(
+                result.get(0).getField(1) instanceof Integer,
+                "The result should be an integer type, but is actually "
+                        + result.get(0).getField(1).getClass().getName());
+
+        // The first field is null, and the value converted to an integer should be returned.
+        result =
+                sqlTransform.transformRow(new SeaTunnelRow(new Object[] {1, "test", null, 456.78}));
+        Assertions.assertEquals(456, result.get(0).getField(1));
+        Assertions.assertTrue(
+                result.get(0).getField(1) instanceof Integer,
+                "The result should be an integer type, but is actually "
+                        + result.get(0).getField(1).getClass().getName());
+
+        // Test COALESCE with null as first argument
+        config =
+                ReadonlyConfig.fromMap(
+                        Collections.singletonMap(
+                                "query",
+                                "select id, COALESCE(null, stringField, intField) as result from dual"));
+        sqlTransform = new SQLTransform(config, table);
+        tableSchema = sqlTransform.transformTableSchema();
+
+        // Verify that the result field type is STRING (since stringField is the first non-null
+        // parameter)
+        Assertions.assertEquals("result", tableSchema.getFieldNames()[1]);
+        Assertions.assertEquals(
+                BasicType.STRING_TYPE, tableSchema.getColumns().get(1).getDataType());
+
+        // Test with both stringField and intField having values
+        result = sqlTransform.transformRow(new SeaTunnelRow(new Object[] {1, "test", 123, 123.45}));
+        Assertions.assertEquals("test", result.get(0).getField(1));
+        Assertions.assertTrue(
+                result.get(0).getField(1) instanceof String,
+                "The result should be a string type, but is actually "
+                        + result.get(0).getField(1).getClass().getName());
+
+        // Test with stringField being null, should return intField as string
+        result = sqlTransform.transformRow(new SeaTunnelRow(new Object[] {1, null, 123, 123.45}));
+        Assertions.assertEquals("123", result.get(0).getField(1));
+        Assertions.assertTrue(
+                result.get(0).getField(1) instanceof String,
+                "The result should be a string type, but is actually "
+                        + result.get(0).getField(1).getClass().getName());
+    }
+
+    @Test
+    public void testIfNullTypeConversion() {
+        String tableName = "test";
+        String[] fields = new String[] {"id", "stringField", "intField", "doubleField"};
+        CatalogTable table =
+                CatalogTableUtil.getCatalogTable(
+                        tableName,
+                        new SeaTunnelRowType(
+                                fields,
+                                new SeaTunnelDataType[] {
+                                    BasicType.INT_TYPE,
+                                    BasicType.STRING_TYPE,
+                                    BasicType.INT_TYPE,
+                                    BasicType.DOUBLE_TYPE
+                                }));
+
+        // Test IFNULL with string field as first parameter and integer as second
+        ReadonlyConfig config =
+                ReadonlyConfig.fromMap(
+                        Collections.singletonMap(
+                                "query",
+                                "select id, IFNULL(stringField, intField) as result from dual"));
+        SQLTransform sqlTransform = new SQLTransform(config, table);
+        TableSchema tableSchema = sqlTransform.transformTableSchema();
+
+        // Verify that the field type is STRING
+        Assertions.assertEquals("result", tableSchema.getFieldNames()[1]);
+        Assertions.assertEquals(
+                BasicType.STRING_TYPE, tableSchema.getColumns().get(1).getDataType());
+
+        // The first field is not null, and the value of the first field should be directly returned
+        List<SeaTunnelRow> result =
+                sqlTransform.transformRow(new SeaTunnelRow(new Object[] {1, "test", 123, 123.45}));
+        Assertions.assertEquals("test", result.get(0).getField(1));
+
+        // The first field is null, and the value converted to the string should be returned.
+        result = sqlTransform.transformRow(new SeaTunnelRow(new Object[] {1, null, 123, 123.45}));
+        Assertions.assertEquals("123", result.get(0).getField(1));
+        // Make sure the return value is a string type rather than an integer type
+        Assertions.assertTrue(
+                result.get(0).getField(1) instanceof String,
+                "The result should be a string type, but is actually "
+                        + result.get(0).getField(1).getClass().getName());
+
+        // Test IFNULL with integer field as first parameter and double as second
+        config =
+                ReadonlyConfig.fromMap(
+                        Collections.singletonMap(
+                                "query",
+                                "select id, IFNULL(intField, doubleField) as result from dual"));
+        sqlTransform = new SQLTransform(config, table);
+        tableSchema = sqlTransform.transformTableSchema();
+
+        // Verify that the field type is INT
+        Assertions.assertEquals("result", tableSchema.getFieldNames()[1]);
+        Assertions.assertEquals(BasicType.INT_TYPE, tableSchema.getColumns().get(1).getDataType());
+
+        // The first field is not null, and the value of the first field should be directly
+        // returned
+        result = sqlTransform.transformRow(new SeaTunnelRow(new Object[] {1, "test", 123, 123.45}));
+        Assertions.assertEquals(123, result.get(0).getField(1));
+        Assertions.assertTrue(
+                result.get(0).getField(1) instanceof Integer,
+                "The result should be an integer type, but is actually "
+                        + result.get(0).getField(1).getClass().getName());
+
+        // The first field is null, and the value converted to an integer should be returned.
+        result =
+                sqlTransform.transformRow(new SeaTunnelRow(new Object[] {1, "test", null, 456.78}));
+        Assertions.assertEquals(456, result.get(0).getField(1));
+        Assertions.assertTrue(
+                result.get(0).getField(1) instanceof Integer,
+                "The result should be an integer type, but is actually "
+                        + result.get(0).getField(1).getClass().getName());
+
+        // Test IFNULL with null literal as first argument
+        config =
+                ReadonlyConfig.fromMap(
+                        Collections.singletonMap(
+                                "query",
+                                "select id, IFNULL(null, stringField) as result from dual"));
+        sqlTransform = new SQLTransform(config, table);
+        tableSchema = sqlTransform.transformTableSchema();
+
+        // Verify that the result field type is STRING
+        Assertions.assertEquals("result", tableSchema.getFieldNames()[1]);
+        Assertions.assertEquals(
+                BasicType.STRING_TYPE, tableSchema.getColumns().get(1).getDataType());
+
+        // Test with stringField having a value
+        result = sqlTransform.transformRow(new SeaTunnelRow(new Object[] {1, "test", 123, 123.45}));
+        Assertions.assertEquals("test", result.get(0).getField(1));
+        Assertions.assertTrue(
+                result.get(0).getField(1) instanceof String,
+                "The result should be a string type, but is actually "
+                        + result.get(0).getField(1).getClass().getName());
+
+        // Test with stringField being null, should return null
+        result = sqlTransform.transformRow(new SeaTunnelRow(new Object[] {1, null, 123, 123.45}));
+        Assertions.assertNull(result.get(0).getField(1));
+    }
+
     public void testCastTimestampValidate() {
         String querySql = "select CAST(`id` AS TIMESTAMP) AS idStr, name AS name from dual";
         SQLTransform sqlTransform =

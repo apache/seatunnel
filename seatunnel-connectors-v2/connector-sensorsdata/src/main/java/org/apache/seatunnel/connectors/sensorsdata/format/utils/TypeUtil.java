@@ -144,7 +144,7 @@ public class TypeUtil {
             return Arrays.asList(StringUtils.split((String) str, sep));
         } else {
             throw new SensorsDataException(
-                    SensorsDataErrorCode.DATA_TYPE_CAST_FILED,
+                    SensorsDataErrorCode.DATA_TYPE_CAST_FIELD,
                     "Value type must be STRING when target column type is LIST.");
         }
     }

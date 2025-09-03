@@ -22,13 +22,13 @@ import org.junit.jupiter.api.Test;
 
 import java.nio.ByteBuffer;
 
-public class BufferUtilsTest {
+public class VectorUtilsTest {
 
     @Test
     public void testToByteBufferAndToShortArray() {
         Short[] shortArray = {1, 2, 3, 4, 5};
-        ByteBuffer byteBuffer = BufferUtils.toByteBuffer(shortArray);
-        Short[] resultArray = BufferUtils.toShortArray(byteBuffer);
+        ByteBuffer byteBuffer = VectorUtils.toByteBuffer(shortArray);
+        Short[] resultArray = VectorUtils.toShortArray(byteBuffer);
 
         Assertions.assertArrayEquals(shortArray, resultArray, "Short array conversion failed");
     }
@@ -36,8 +36,8 @@ public class BufferUtilsTest {
     @Test
     public void testToByteBufferAndToFloatArray() {
         Float[] floatArray = {1.1f, 2.2f, 3.3f, 4.4f, 5.5f};
-        ByteBuffer byteBuffer = BufferUtils.toByteBuffer(floatArray);
-        Float[] resultArray = BufferUtils.toFloatArray(byteBuffer);
+        ByteBuffer byteBuffer = VectorUtils.toByteBuffer(floatArray);
+        Float[] resultArray = VectorUtils.toFloatArray(byteBuffer);
 
         Assertions.assertArrayEquals(floatArray, resultArray, "Float array conversion failed");
     }
@@ -45,8 +45,8 @@ public class BufferUtilsTest {
     @Test
     public void testToByteBufferAndToDoubleArray() {
         Double[] doubleArray = {1.1, 2.2, 3.3, 4.4, 5.5};
-        ByteBuffer byteBuffer = BufferUtils.toByteBuffer(doubleArray);
-        Double[] resultArray = BufferUtils.toDoubleArray(byteBuffer);
+        ByteBuffer byteBuffer = VectorUtils.toByteBuffer(doubleArray);
+        Double[] resultArray = VectorUtils.toDoubleArray(byteBuffer);
 
         Assertions.assertArrayEquals(doubleArray, resultArray, "Double array conversion failed");
     }
@@ -54,8 +54,8 @@ public class BufferUtilsTest {
     @Test
     public void testToByteBufferAndToIntArray() {
         Integer[] intArray = {1, 2, 3, 4, 5};
-        ByteBuffer byteBuffer = BufferUtils.toByteBuffer(intArray);
-        Integer[] resultArray = BufferUtils.toIntArray(byteBuffer);
+        ByteBuffer byteBuffer = VectorUtils.toByteBuffer(intArray);
+        Integer[] resultArray = VectorUtils.toIntArray(byteBuffer);
 
         Assertions.assertArrayEquals(intArray, resultArray, "Integer array conversion failed");
     }
@@ -64,26 +64,26 @@ public class BufferUtilsTest {
     public void testEmptyArrayConversion() {
         // Test empty arrays
         Short[] shortArray = {};
-        ByteBuffer shortBuffer = BufferUtils.toByteBuffer(shortArray);
-        Short[] shortResultArray = BufferUtils.toShortArray(shortBuffer);
+        ByteBuffer shortBuffer = VectorUtils.toByteBuffer(shortArray);
+        Short[] shortResultArray = VectorUtils.toShortArray(shortBuffer);
         Assertions.assertArrayEquals(
                 shortArray, shortResultArray, "Empty Short array conversion failed");
 
         Float[] floatArray = {};
-        ByteBuffer floatBuffer = BufferUtils.toByteBuffer(floatArray);
-        Float[] floatResultArray = BufferUtils.toFloatArray(floatBuffer);
+        ByteBuffer floatBuffer = VectorUtils.toByteBuffer(floatArray);
+        Float[] floatResultArray = VectorUtils.toFloatArray(floatBuffer);
         Assertions.assertArrayEquals(
                 floatArray, floatResultArray, "Empty Float array conversion failed");
 
         Double[] doubleArray = {};
-        ByteBuffer doubleBuffer = BufferUtils.toByteBuffer(doubleArray);
-        Double[] doubleResultArray = BufferUtils.toDoubleArray(doubleBuffer);
+        ByteBuffer doubleBuffer = VectorUtils.toByteBuffer(doubleArray);
+        Double[] doubleResultArray = VectorUtils.toDoubleArray(doubleBuffer);
         Assertions.assertArrayEquals(
                 doubleArray, doubleResultArray, "Empty Double array conversion failed");
 
         Integer[] intArray = {};
-        ByteBuffer intBuffer = BufferUtils.toByteBuffer(intArray);
-        Integer[] intResultArray = BufferUtils.toIntArray(intBuffer);
+        ByteBuffer intBuffer = VectorUtils.toByteBuffer(intArray);
+        Integer[] intResultArray = VectorUtils.toIntArray(intBuffer);
         Assertions.assertArrayEquals(
                 intArray, intResultArray, "Empty Integer array conversion failed");
     }

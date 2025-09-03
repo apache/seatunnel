@@ -44,7 +44,7 @@ import ChangeLog from '../changelog/connector-neo4j.md';
 
 `Neo4j`密码。如果提供了“用户名”，则需要。
 
-### max_batch_size[Integer]
+### max_batch_size [Integer]
 
 `max_batch_size` 是指写入数据时，单个事务中可以写入的最大数据条目数。
 

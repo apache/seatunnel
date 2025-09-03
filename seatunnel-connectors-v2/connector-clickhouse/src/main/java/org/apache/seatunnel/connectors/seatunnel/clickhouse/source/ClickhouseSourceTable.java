@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.clickhouse.source;
 
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.file.ClickhouseTable;
 
@@ -40,4 +41,5 @@ public class ClickhouseSourceTable implements Serializable {
     private ClickhouseTable clickhouseTable;
     private boolean isSqlStrategyRead;
     private boolean isComplexSql;
+    private CatalogTable catalogTable;
 }

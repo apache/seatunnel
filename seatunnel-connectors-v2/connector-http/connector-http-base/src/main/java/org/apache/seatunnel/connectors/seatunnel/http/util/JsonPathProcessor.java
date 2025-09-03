@@ -15,23 +15,24 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.core.job;
+package org.apache.seatunnel.connectors.seatunnel.http.util;
 
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NonNull;
+import com.jayway.jsonpath.JsonPath;
+import com.jayway.jsonpath.ReadContext;
 
-import java.io.Serializable;
+import java.util.List;
 
-@Data
-@AllArgsConstructor
-public class JobResult implements Serializable {
-
-    @NonNull private JobStatus status;
-
-    private String error;
-
-    public JobResult(@NonNull JobStatus status) {
-        this.status = status;
-    }
+/**
+ * Interface for processing JsonPath operations. Different implementations can handle various
+ * JsonPath formats.
+ */
+public interface JsonPathProcessor {
+    /**
+     * Process objects from a JSON structure based on JsonPaths.
+     *
+     * @param jsonReadContext The JSON read context
+     * @param paths Array of JsonPath objects
+     * @return List of extracted data
+     */
+    List<List<String>> processJsonData(ReadContext jsonReadContext, JsonPath[] paths);
 }

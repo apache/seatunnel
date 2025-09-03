@@ -15,22 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.core.job;
+package org.apache.seatunnel.engine.common.job;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.NonNull;
 
 import java.io.Serializable;
 
-@AllArgsConstructor
 @Data
-@NoArgsConstructor
-public final class JobStatusData implements Serializable {
-    private Long jobId;
-    private String jobName;
-    private JobStatus jobStatus;
-    private long submitTime;
-    private Long startTime;
-    private Long finishTime;
+@AllArgsConstructor
+public class JobResult implements Serializable {
+
+    @NonNull private JobStatus status;
+
+    private String error;
+
+    public JobResult(@NonNull JobStatus status) {
+        this.status = status;
+    }
 }

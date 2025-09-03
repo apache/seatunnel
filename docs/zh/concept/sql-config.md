@@ -122,7 +122,7 @@ CREATE TABLE sink_table WITH (
 INSERT INTO sink_table SELECT id, name, age, email FROM source_table;
 ```
 
-* `SELECT FROM` 部分为源端映射表的表名，`SELECT` 部分的语法参考：[SQL-transform](../transform-v2/sql.md) `query` 配置项。如果select的字段是关键字([参考](https://github.com/JSQLParser/JSqlParser/blob/master/src/main/jjtree/net/sf/jsqlparser/parser/JSqlParserCC.jjt))，你应该像这样使用\`filedName\`
+* `SELECT FROM` 部分为源端映射表的表名，`SELECT` 部分的语法参考：[SQL-transform](../transform-v2/sql.md) `query` 配置项。如果select的字段是关键字([参考](https://github.com/JSQLParser/JSqlParser/blob/master/src/main/jjtree/net/sf/jsqlparser/parser/JSqlParserCC.jjt))，你应该像这样使用\`fieldName\`
 ```sql
 INSERT INTO sink_table SELECT id, name, age, email,`output` FROM source_table;
 ```

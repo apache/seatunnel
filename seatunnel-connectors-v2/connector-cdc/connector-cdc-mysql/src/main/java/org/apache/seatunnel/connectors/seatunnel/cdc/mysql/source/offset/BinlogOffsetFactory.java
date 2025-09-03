@@ -76,6 +76,7 @@ public class BinlogOffsetFactory extends OffsetFactory {
 
     @Override
     public Offset timestamp(long timestamp) {
-        throw new UnsupportedOperationException("not supported create new Offset by timestamp.");
+        // mysql binlog timestamp is second, so we need to divide 1000
+        return new BinlogOffset(timestamp / 1000);
     }
 }
