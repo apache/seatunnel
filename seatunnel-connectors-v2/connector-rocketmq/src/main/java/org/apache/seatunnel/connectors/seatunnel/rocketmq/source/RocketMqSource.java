@@ -201,7 +201,11 @@ public class RocketMqSource
     @Override
     public SourceSplitEnumerator<RocketMQPartitionSplit, RocketMqSourceState> createEnumerator(
             SourceSplitEnumerator.Context<RocketMQPartitionSplit> context) throws Exception {
-        return new RocketMqSourceSplitEnumerator(this.metadata, context, discoveryIntervalMillis);
+        return new RocketMqSourceSplitEnumerator(
+                this.metadata,
+                context,
+                discoveryIntervalMillis,
+                getBoundedness() == Boundedness.UNBOUNDED);
     }
 
     @Override
@@ -210,7 +214,11 @@ public class RocketMqSource
             RocketMqSourceState sourceState)
             throws Exception {
         return new RocketMqSourceSplitEnumerator(
-                this.metadata, sourceState.getAssignSplits(), context, discoveryIntervalMillis);
+                this.metadata,
+                sourceState.getAssignSplits(),
+                context,
+                discoveryIntervalMillis,
+                getBoundedness() == Boundedness.UNBOUNDED);
     }
 
     private void setDeserialization(ReadonlyConfig config) {

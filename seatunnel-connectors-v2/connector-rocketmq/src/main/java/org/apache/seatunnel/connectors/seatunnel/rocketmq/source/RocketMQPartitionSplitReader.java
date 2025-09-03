@@ -71,12 +71,13 @@ public class RocketMQPartitionSplitReader
 
     private final DefaultLitePullConsumer consumer;
 
-    // todo batch mode need
     private final Map<MessageQueue, Long> stoppingOffsets;
 
     private final Map<MessageQueue, Long> commitOffsets;
 
     private volatile boolean wakeup = false;
+
+    private boolean isStop = false;
 
     public RocketMQPartitionSplitReader(
             ConsumerMetadata metadata, SourceReader.Context readerContext) {
@@ -103,7 +104,7 @@ public class RocketMQPartitionSplitReader
 
     @Override
     public RecordsWithSplitIds<MessageExt> fetch() throws IOException {
-        List<MessageExt> messageExts;
+        List<MessageExt> messageExts = new ArrayList<>();
         RocketMQPartitionSplitRecords recordsBySplits = new RocketMQPartitionSplitRecords();
         if (wakeup) {
             wakeup = false;
@@ -111,7 +112,7 @@ public class RocketMQPartitionSplitReader
             return recordsBySplits;
         }
         try {
-            messageExts = consumer.poll(pollTimeOut);
+            if (!isStop) messageExts = consumer.poll(pollTimeOut);
         } catch (Exception e) {
             LOG.error(
                     String.format(
@@ -122,15 +123,8 @@ public class RocketMQPartitionSplitReader
             recordsBySplits.prepareForRead();
             return recordsBySplits;
         }
-        if (!messageExts.isEmpty()) {
-            MessageExt messageExt = messageExts.get(messageExts.size() - 1);
-            commitOffsets.put(
-                    new MessageQueue(
-                            messageExt.getTopic(),
-                            messageExt.getBrokerName(),
-                            messageExt.getQueueId()),
-                    messageExt.getQueueOffset());
-        }
+        Set<MessageQueue> finishedPartitions = new HashSet<>();
+
         messageExts =
                 messageExts.stream()
                         .filter(
@@ -141,14 +135,41 @@ public class RocketMQPartitionSplitReader
                                                 || metadata.getTags().contains(record.getTags()))
                         .collect(Collectors.toList());
 
-        messageExts.forEach(
-                record -> {
-                    Collection<MessageExt> recordsForSplit =
-                            recordsBySplits.recordsForSplit(toSplitId(record));
-                    recordsForSplit.add(record);
-                });
+        for (MessageExt record : messageExts) {
+            Collection<MessageExt> recordsForSplit =
+                    recordsBySplits.recordsForSplit(
+                            toSplitId(
+                                    record.getTopic(),
+                                    record.getBrokerName(),
+                                    record.getQueueId()));
+            recordsForSplit.add(record);
 
+            MessageQueue mq =
+                    new MessageQueue(
+                            record.getTopic(), record.getBrokerName(), record.getQueueId());
+            final long stoppingOffset = getStoppingOffset(mq);
+            commitOffsets.put(mq, record.getQueueOffset());
+            // After processing a record with offset of "stoppingOffset - 1", the
+            // split reader
+            // should not continue fetching because the record with stoppingOffset
+            // may not
+            // exist. Keep polling will just block forever.
+            if (record.getQueueOffset() >= stoppingOffset - 1) {
+                recordsBySplits.setPartitionStoppingOffset(
+                        toSplitId(record.getTopic(), record.getBrokerName(), record.getQueueId()),
+                        record.getQueueOffset());
+                finishSplitAtRecord(
+                        mq, record.getQueueOffset(), finishedPartitions, recordsBySplits);
+                break;
+            }
+        }
         recordsBySplits.prepareForRead();
+
+        markEmptySplitsAsFinished(recordsBySplits);
+
+        if (!finishedPartitions.isEmpty()) {
+            unassignPartitions(finishedPartitions);
+        }
         LOG.debug(
                 String.format(
                         "Fetch record splits for MetaQ subscribe message queues of topic[%s].",
@@ -262,6 +283,47 @@ public class RocketMQPartitionSplitReader
         stoppingOffsets.putAll(endOffset);
     }
 
+    private void finishSplitAtRecord(
+            MessageQueue mq,
+            long stoppingOffset,
+            Set<MessageQueue> finishedPartitions,
+            RocketMQPartitionSplitRecords recordsBySplits) {
+        LOG.debug(
+                "{} has reached stopping offset {}, current offset is {}",
+                mq,
+                stoppingOffset,
+                stoppingOffset);
+        finishedPartitions.add(mq);
+        recordsBySplits.addFinishedSplit(
+                toSplitId(mq.getTopic(), mq.getBrokerName(), mq.getQueueId()));
+    }
+
+    private void unassignPartitions(Set<MessageQueue> partitionsToUnassign) {
+        Map<MessageQueue, Long> consumerOffsetMap = new HashMap<>();
+        Collection<MessageQueue> newAssignment;
+        try {
+            newAssignment = new HashSet<>(consumer.assignment());
+        } catch (MQClientException e) {
+            throw new RocketMqConnectorException(
+                    RocketMqConnectorErrorCode.GET_CONSUMER_GROUP_OFFSETS_ERROR, e);
+        }
+        newAssignment.removeAll(partitionsToUnassign);
+        if (!partitionsToUnassign.isEmpty()) {
+            partitionsToUnassign.forEach(mq -> consumerOffsetMap.put(mq, commitOffsets.get(mq)));
+            consumer.commitSync(consumerOffsetMap, true);
+        }
+
+        if (!newAssignment.isEmpty()) {
+            consumer.assign(newAssignment);
+        } else {
+            isStop = true;
+        }
+    }
+
+    private long getStoppingOffset(MessageQueue messageQueue) {
+        return stoppingOffsets.getOrDefault(messageQueue, Long.MAX_VALUE);
+    }
+
     private void parseStartingOffsets(RocketMQPartitionSplit split) {
         MessageQueue messageQueue = split.getMessageQueue();
         try {
@@ -270,7 +332,7 @@ public class RocketMQPartitionSplitReader
                     messageQueue.getBrokerName(),
                     messageQueue.getQueueId(),
                     split.getStartOffset());
-            consumer.seek(messageQueue, split.getStartOffset());
+            if (split.getStartOffset() > 0) consumer.seek(messageQueue, split.getStartOffset());
         } catch (MQClientException e) {
             LOG.error(
                     "error Seeking broker:{},queueId:{}, starting offsets to : {}",
@@ -306,23 +368,20 @@ public class RocketMQPartitionSplitReader
         callback.onComplete();
     }
 
-    public String toSplitId(MessageExt messageExt) {
-        return messageExt.getTopic()
-                + "-"
-                + messageExt.getBrokerName()
-                + "-"
-                + messageExt.getQueueId();
+    public String toSplitId(String topic, String brokerName, int queueId) {
+        return topic + "-" + brokerName + "-" + queueId;
     }
 
     // ---------------- private helper class ------------------------
 
     private static class RocketMQPartitionSplitRecords implements RecordsWithSplitIds<MessageExt> {
         private final Set<String> finishedSplits = new HashSet<>();
-        private final Map<MessageExt, Long> stoppingOffsets = new HashMap<>();
+        private final Map<String, Long> stoppingOffsets = new HashMap<>();
         private final Map<String, Collection<MessageExt>> recordsBySplits;
         private Iterator<Map.Entry<String, Collection<MessageExt>>> splitIterator;
         private Iterator<MessageExt> recordIterator;
         private String currentSplitId;
+        private Long currentSplitStoppingOffset;
 
         public RocketMQPartitionSplitRecords() {
             this.recordsBySplits = new HashMap<>();
@@ -330,6 +389,10 @@ public class RocketMQPartitionSplitReader
 
         private Collection<MessageExt> recordsForSplit(String splitId) {
             return recordsBySplits.computeIfAbsent(splitId, id -> new ArrayList<>());
+        }
+
+        private void setPartitionStoppingOffset(String splitId, long stoppingOffset) {
+            stoppingOffsets.put(splitId, stoppingOffset);
         }
 
         private void addFinishedSplit(String splitId) {
@@ -346,10 +409,13 @@ public class RocketMQPartitionSplitReader
                 Map.Entry<String, Collection<MessageExt>> entry = splitIterator.next();
                 recordIterator = entry.getValue().iterator();
                 currentSplitId = entry.getKey();
+                currentSplitStoppingOffset =
+                        stoppingOffsets.getOrDefault(currentSplitId, Long.MAX_VALUE);
                 return currentSplitId;
             } else {
                 currentSplitId = null;
                 recordIterator = null;
+                currentSplitStoppingOffset = null;
                 return null;
             }
         }
@@ -361,7 +427,11 @@ public class RocketMQPartitionSplitReader
                     "Make sure nextSplit() did not return null before "
                             + "iterate over the records split.");
             if (recordIterator.hasNext()) {
-                return recordIterator.next();
+                MessageExt messageExt = recordIterator.next();
+                // Only emit records before stopping offset
+                if (messageExt.getQueueOffset() < currentSplitStoppingOffset) {
+                    return messageExt;
+                }
             }
             return null;
         }

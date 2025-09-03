@@ -99,11 +99,6 @@ public class RocketMqSourceReader
     }
 
     @Override
-    public void handleNoMoreSplits() {
-        // No-op
-    }
-
-    @Override
     public List<RocketMQPartitionSplit> snapshotState(long checkpointId) {
         List<RocketMQPartitionSplit> sourceSplits = super.snapshotState(checkpointId);
         if (!this.metadata.isEnabledCommitCheckpoint()) {
