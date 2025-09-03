@@ -26,7 +26,7 @@ import org.apache.seatunnel.connectors.seatunnel.iotdb.serialize.IoTDBRecord;
 import org.apache.iotdb.rpc.IoTDBConnectionException;
 import org.apache.iotdb.rpc.StatementExecutionException;
 import org.apache.iotdb.session.Session;
-import org.apache.iotdb.tsfile.file.metadata.enums.TSDataType;
+import org.apache.tsfile.enums.TSDataType;
 
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;

@@ -28,13 +28,13 @@ import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.iotdb.rpc.IoTDBConnectionException;
 import org.apache.iotdb.rpc.StatementExecutionException;
 import org.apache.iotdb.session.Session;
-import org.apache.iotdb.session.SessionDataSet;
-import org.apache.iotdb.tsfile.file.metadata.enums.CompressionType;
-import org.apache.iotdb.tsfile.file.metadata.enums.TSDataType;
-import org.apache.iotdb.tsfile.file.metadata.enums.TSEncoding;
-import org.apache.iotdb.tsfile.read.common.Field;
-import org.apache.iotdb.tsfile.read.common.RowRecord;
-import org.apache.iotdb.tsfile.utils.Binary;
+import org.apache.iotdb.isession.SessionDataSet;
+import org.apache.tsfile.file.metadata.enums.CompressionType;
+import org.apache.tsfile.enums.TSDataType;
+import org.apache.tsfile.file.metadata.enums.TSEncoding;
+import org.apache.tsfile.read.common.Field;
+import org.apache.tsfile.read.common.RowRecord;
+import org.apache.tsfile.utils.Binary;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
@@ -157,7 +157,7 @@ public class IoTDBIT extends TestSuiteBase implements TestResource {
             for (int rowCount = 0; rowCount < 100; rowCount++) {
                 long timestamp = System.currentTimeMillis() - TimeUnit.MINUTES.toMillis(rowCount);
                 RowRecord record = new RowRecord(timestamp);
-                record.addField(new Binary(deviceId), TSDataType.TEXT);
+                record.addField(new Binary(deviceId.getBytes()), TSDataType.TEXT);
                 record.addField(Boolean.FALSE, TSDataType.BOOLEAN);
                 record.addField(Byte.valueOf(Byte.MAX_VALUE).intValue(), TSDataType.INT32);
                 record.addField(Short.valueOf(Short.MAX_VALUE).intValue(), TSDataType.INT32);

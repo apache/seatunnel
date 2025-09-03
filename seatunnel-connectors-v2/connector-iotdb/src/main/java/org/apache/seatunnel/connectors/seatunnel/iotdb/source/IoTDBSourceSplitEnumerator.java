@@ -36,7 +36,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import static org.apache.iotdb.tsfile.common.constant.QueryConstant.RESERVED_TIME;
+import static org.apache.tsfile.common.constant.QueryConstant.RESERVED_TIME;
 import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.IoTDBSourceOptions.LOWER_BOUND;
 import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.IoTDBSourceOptions.NUM_PARTITIONS;
 import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.IoTDBSourceOptions.SQL;

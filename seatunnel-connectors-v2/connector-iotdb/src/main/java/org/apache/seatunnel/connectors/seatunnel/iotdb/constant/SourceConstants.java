@@ -30,4 +30,8 @@ public class SourceConstants {
     public static final String SQL_ALIGN = "align by";
 
     public static final String DEFAULT_PARTITIONS = "0";
+
+    public static final String TABLE =  "table";
+
+    public static final String TREE =  "tree";
 }

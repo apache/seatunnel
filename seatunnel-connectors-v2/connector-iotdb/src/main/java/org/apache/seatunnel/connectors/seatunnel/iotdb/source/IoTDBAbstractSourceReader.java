@@ -1,0 +1,91 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.seatunnel.connectors.seatunnel.iotdb.source;
+
+import lombok.extern.slf4j.Slf4j;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.source.Boundedness;
+import org.apache.seatunnel.api.source.Collector;
+import org.apache.seatunnel.api.source.SourceReader;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.connectors.seatunnel.iotdb.serialize.SeaTunnelRowDeserializer;
+
+import java.util.ArrayList;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Queue;
+
+@Slf4j
+public abstract class IoTDBAbstractSourceReader implements SourceReader<SeaTunnelRow, IoTDBSourceSplit> {
+
+    protected final ReadonlyConfig conf;
+
+    private final Queue<IoTDBSourceSplit> pendingSplits;
+
+    private final SourceReader.Context context;
+
+    protected SeaTunnelRowDeserializer deserializer;
+
+    private volatile boolean noMoreSplitsAssignment;
+
+    public IoTDBAbstractSourceReader(
+            ReadonlyConfig conf, SourceReader.Context readerContext) {
+        this.conf = conf;
+        this.pendingSplits = new LinkedList<>();
+        this.context = readerContext;
+    }
+
+    @Override
+    public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
+        while (!pendingSplits.isEmpty()) {
+            synchronized (output.getCheckpointLock()) {
+                IoTDBSourceSplit split = pendingSplits.poll();
+                read(split, output);
+            }
+        }
+        if (Boundedness.BOUNDED.equals(context.getBoundedness())
+                && noMoreSplitsAssignment
+                && pendingSplits.isEmpty()) {
+            log.info("Closed the bounded iotdb source");
+            context.signalNoMoreElement();
+        }
+    }
+
+    abstract public void read(IoTDBSourceSplit split, Collector<SeaTunnelRow> output) throws Exception;
+
+    @Override
+    public List<IoTDBSourceSplit> snapshotState(long checkpointId) {
+        return new ArrayList<>(pendingSplits);
+    }
+
+    @Override
+    public void addSplits(List<IoTDBSourceSplit> splits) {
+        pendingSplits.addAll(splits);
+    }
+
+    @Override
+    public void handleNoMoreSplits() {
+        log.info("Reader received NoMoreSplits event.");
+        noMoreSplitsAssignment = true;
+    }
+
+    @Override
+    public void notifyCheckpointComplete(long checkpointId) throws Exception {
+        // do nothing
+    }
+}

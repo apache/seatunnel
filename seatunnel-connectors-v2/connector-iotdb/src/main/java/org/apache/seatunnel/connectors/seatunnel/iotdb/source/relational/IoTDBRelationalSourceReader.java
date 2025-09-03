@@ -15,8 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.iotdb.source;
+package org.apache.seatunnel.connectors.seatunnel.iotdb.source.relational;
 
+import org.apache.iotdb.isession.ITableSession;
+import org.apache.iotdb.isession.SessionDataSet;
+import org.apache.iotdb.isession.util.Version;
+import org.apache.iotdb.rpc.IoTDBConnectionException;
+import org.apache.iotdb.session.TableSessionBuilder;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.source.SourceReader;
@@ -26,11 +31,8 @@ import org.apache.seatunnel.connectors.seatunnel.iotdb.constant.SourceConstants;
 import org.apache.seatunnel.connectors.seatunnel.iotdb.exception.IotdbConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.iotdb.exception.IotdbConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.iotdb.serialize.DefaultSeaTunnelRowDeserializer;
-
-import org.apache.iotdb.rpc.IoTDBConnectionException;
-import org.apache.iotdb.session.Session;
-import org.apache.iotdb.isession.SessionDataSet;
-import org.apache.iotdb.isession.util.Version;
+import org.apache.seatunnel.connectors.seatunnel.iotdb.source.IoTDBAbstractSourceReader;
+import org.apache.seatunnel.connectors.seatunnel.iotdb.source.IoTDBSourceSplit;
 import org.apache.tsfile.read.common.RowRecord;
 
 import java.io.IOException;
@@ -38,7 +40,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.IoTDBSourceOptions.ENABLE_CACHE_LEADER;
+import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.IoTDBSourceOptions.DATABASE;
 import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.IoTDBSourceOptions.FETCH_SIZE;
 import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.IoTDBSourceOptions.NODE_URLS;
 import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.IoTDBSourceOptions.PASSWORD;
@@ -48,26 +50,25 @@ import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.IoTDBSource
 import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.IoTDBSourceOptions.VERSION;
 import static org.apache.seatunnel.connectors.seatunnel.iotdb.constant.SourceConstants.NODES_SPLIT;
 
-public class IoTDBSourceReader extends IoTDBAbstractSourceReader {
+public class IoTDBRelationalSourceReader extends IoTDBAbstractSourceReader {
 
-    private Session session;
+    private ITableSession tableSession;
 
-    public IoTDBSourceReader(ReadonlyConfig conf, SourceReader.Context readerContext, SeaTunnelRowType rowType) {
+    public IoTDBRelationalSourceReader(ReadonlyConfig conf, SourceReader.Context readerContext, SeaTunnelRowType rowType) {
         super(conf, readerContext);
-        this.deserializer = new DefaultSeaTunnelRowDeserializer(rowType, SourceConstants.TREE);
+        this.deserializer = new DefaultSeaTunnelRowDeserializer(rowType, SourceConstants.TABLE);
     }
 
     @Override
     public void open() throws Exception {
-        session = buildSession(conf);
-        session.open();
+        tableSession = buildTableSession(conf);
     }
 
     @Override
     public void close() throws IOException {
         try {
-            if (session != null) {
-                session.close();
+            if (tableSession != null) {
+                tableSession.close();
             }
         } catch (IoTDBConnectionException e) {
             throw new IotdbConnectorException(
@@ -75,8 +76,8 @@ public class IoTDBSourceReader extends IoTDBAbstractSourceReader {
         }
     }
 
-    private Session buildSession(ReadonlyConfig conf) {
-        Session.Builder sessionBuilder = new Session.Builder();
+    private ITableSession buildTableSession(ReadonlyConfig conf) throws IoTDBConnectionException {
+        TableSessionBuilder sessionBuilder = new TableSessionBuilder();
         String nodeUrlsString = conf.get(NODE_URLS);
         List<String> nodes =
                 Stream.of(nodeUrlsString.split(NODES_SPLIT)).collect(Collectors.toList());
@@ -90,6 +91,9 @@ public class IoTDBSourceReader extends IoTDBAbstractSourceReader {
         if (null != conf.get(PASSWORD)) {
             sessionBuilder.password(conf.get(PASSWORD));
         }
+        if (null != conf.get(DATABASE)) {
+            sessionBuilder.database(conf.get(DATABASE));
+        }
         if (null != conf.get(THRIFT_DEFAULT_BUFFER_SIZE)) {
             sessionBuilder.thriftDefaultBufferSize(
                     Integer.parseInt(conf.get(THRIFT_DEFAULT_BUFFER_SIZE).toString()));
@@ -99,19 +103,15 @@ public class IoTDBSourceReader extends IoTDBAbstractSourceReader {
                     Integer.parseInt(conf.get(THRIFT_MAX_FRAME_SIZE).toString()));
         }
         if (null != conf.get(VERSION)) {
-            Version version = Version.valueOf(conf.get(VERSION));
-            sessionBuilder.version(version);
+            sessionBuilder.version = Version.valueOf(conf.get(VERSION));
         }
-        Session session = sessionBuilder.build();
-        if (null != conf.get(ENABLE_CACHE_LEADER)) {
-            session.setEnableCacheLeader(Boolean.parseBoolean(conf.get(ENABLE_CACHE_LEADER).toString()));
-        }
-        return session;
+
+        return sessionBuilder.build();
     }
 
     @Override
     public void read(IoTDBSourceSplit split, Collector<SeaTunnelRow> output) throws Exception {
-        try (SessionDataSet dataSet = session.executeQueryStatement(split.getQuery())) {
+        try (SessionDataSet dataSet = tableSession.executeQueryStatement(split.getQuery(), Long.MAX_VALUE)) {
             while (dataSet.hasNext()) {
                 RowRecord rowRecord = dataSet.next();
                 SeaTunnelRow seaTunnelRow = deserializer.deserialize(rowRecord);
