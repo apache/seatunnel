@@ -47,7 +47,7 @@ public class DatabendSinkWriterTest {
         setPrivateField(sinkWriter, "conflictKey", "id");
         setPrivateField(sinkWriter, "sinkTablePath", TablePath.of("test_db", "target_table"));
         setPrivateField(sinkWriter, "streamName", "cdc_stream");
-        setPrivateField(sinkWriter, "allowDelete", true);
+        setPrivateField(sinkWriter, "enableDelete", true);
         setPrivateField(sinkWriter, "targetTableName", "target_table");
 
         // Mock catalogTable
@@ -91,7 +91,7 @@ public class DatabendSinkWriterTest {
         setPrivateField(sinkWriter, "conflictKey", "id");
         setPrivateField(sinkWriter, "sinkTablePath", TablePath.of("test_db", "target_table"));
         setPrivateField(sinkWriter, "streamName", "cdc_stream");
-        setPrivateField(sinkWriter, "allowDelete", false);
+        setPrivateField(sinkWriter, "enableDelete", false);
         setPrivateField(sinkWriter, "targetTableName", "target_table");
 
         // Mock catalogTable
