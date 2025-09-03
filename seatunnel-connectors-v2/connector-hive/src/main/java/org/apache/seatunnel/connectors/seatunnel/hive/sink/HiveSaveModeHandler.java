@@ -85,6 +85,9 @@ public class HiveSaveModeHandler implements SaveModeHandler, AutoCloseable {
     @Override
     public void open() {
         this.hiveMetaStoreProxy = HiveMetaStoreProxy.getInstance(readonlyConfig);
+        if (this.optionalCatalog == null) {
+            this.optionalCatalog = this.hiveMetaStoreProxy;
+        }
     }
 
     @Override
