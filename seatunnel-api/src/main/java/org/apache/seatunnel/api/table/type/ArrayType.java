@@ -66,6 +66,7 @@ public class ArrayType<T, E> implements SeaTunnelDataType<T> {
         this.elementType = elementType;
     }
 
+    @SuppressWarnings("unchecked")
     public static <E> ArrayType<E[], E> of(SeaTunnelDataType<E> elementType) {
         if (elementType == null) {
             throw CommonError.illegalArgument("elementType is null", OPERATION);
@@ -74,6 +75,7 @@ public class ArrayType<T, E> implements SeaTunnelDataType<T> {
         return new ArrayType<>(arrayClass, elementType);
     }
 
+    @SuppressWarnings("unchecked")
     public static <E> ArrayType<?, ?> of(SeaTunnelDataType<E> elementType, int dimensions) {
         if (dimensions < 1) {
             throw CommonError.illegalArgument("dimensions must be >= 1", OPERATION);
