@@ -31,7 +31,6 @@
 
     <properties>
         <hive.exec.version>3.1.3</hive.exec.version>
-        <thrift.version>0.16.0</thrift.version>
         <connector.name>connector.hive</connector.name>
     </properties>
 
@@ -91,7 +90,15 @@
                 </exclusion>
                 <exclusion>
                     <groupId>org.apache.logging.log4j</groupId>
-                    <artifactId>*</artifactId>
+                    <artifactId>log4j-1.2-api</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.apache.logging.log4j</groupId>
+                    <artifactId>log4j-slf4j-impl</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.apache.logging.log4j</groupId>
+                    <artifactId>log4j-web</artifactId>
                 </exclusion>
                 <exclusion>
                     <groupId>org.slf4j</groupId>
@@ -99,11 +106,7 @@
                 </exclusion>
                 <exclusion>
                     <groupId>org.apache.parquet</groupId>
-                    <artifactId>*</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.apache.avro</groupId>
-                    <artifactId>avro</artifactId>
+                    <artifactId>parquet-hadoop-bundle</artifactId>
                 </exclusion>
                 <exclusion>
                     <groupId>jdk.tools</groupId>
@@ -113,82 +116,11 @@
                     <groupId>org.pentaho</groupId>
                     <artifactId>pentaho-aggdesigner-algorithm</artifactId>
                 </exclusion>
-                <!-- Exclude to include separately with proper exclusions -->
-                <exclusion>
-                    <groupId>org.apache.hive</groupId>
-                    <artifactId>hive-common</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.apache.hive</groupId>
-                    <artifactId>hive-metastore</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
-        <!-- Hive Common dependency - contains HiveConf class -->
-        <dependency>
-            <groupId>org.apache.hive</groupId>
-            <artifactId>hive-common</artifactId>
-            <version>${hive.exec.version}</version>
-            <scope>provided</scope>
-            <exclusions>
-                <!-- Exclude logging dependencies to avoid conflicts -->
-                <exclusion>
-                    <groupId>log4j</groupId>
-                    <artifactId>log4j</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.apache.logging.log4j</groupId>
-                    <artifactId>*</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.slf4j</groupId>
-                    <artifactId>slf4j-log4j12</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
-
-        <!-- Hive MetaStore dependency - contains HiveMetaStoreClient, AlreadyExistsException and other metastore API classes -->
-        <dependency>
-            <groupId>org.apache.hive</groupId>
-            <artifactId>hive-metastore</artifactId>
-            <version>${hive.exec.version}</version>
-            <scope>provided</scope>
-            <exclusions>
-                <!-- Exclude logging dependencies to avoid conflicts -->
-                <exclusion>
-                    <groupId>log4j</groupId>
-                    <artifactId>log4j</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.apache.logging.log4j</groupId>
-                    <artifactId>*</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.slf4j</groupId>
-                    <artifactId>slf4j-log4j12</artifactId>
-                </exclusion>
-                <!-- Exclude format dependencies to avoid version conflicts -->
-                <exclusion>
-                    <groupId>org.apache.parquet</groupId>
-                    <artifactId>*</artifactId>
-                </exclusion>
                 <exclusion>
                     <groupId>org.apache.avro</groupId>
                     <artifactId>avro</artifactId>
                 </exclusion>
-                <!-- Exclude hive-exec to avoid circular dependency -->
-                <exclusion>
-                    <groupId>org.apache.hive</groupId>
-                    <artifactId>hive-exec</artifactId>
-                </exclusion>
             </exclusions>
-        </dependency>
-
-        <!-- Apache Thrift dependency for Hive MetaStore communication -->
-        <dependency>
-            <groupId>org.apache.thrift</groupId>
-            <artifactId>libthrift</artifactId>
-            <version>${thrift.version}</version>
         </dependency>
     </dependencies>
     <build>
