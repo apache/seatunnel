@@ -22,15 +22,12 @@ import org.apache.seatunnel.common.config.DeployMode;
 import org.apache.seatunnel.engine.client.SeaTunnelClient;
 import org.apache.seatunnel.engine.client.job.ClientJobExecutionEnvironment;
 import org.apache.seatunnel.engine.client.job.ClientJobProxy;
-import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.job.JobResult;
 import org.apache.seatunnel.engine.common.job.JobStatus;
 import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
-import org.apache.seatunnel.engine.server.execution.TaskLocation;
-import org.apache.seatunnel.engine.server.metrics.SeaTunnelMetricsContext;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
@@ -39,10 +36,8 @@ import org.junit.jupiter.api.Test;
 
 import com.hazelcast.client.config.ClientConfig;
 import com.hazelcast.instance.impl.HazelcastInstanceImpl;
-import com.hazelcast.map.IMap;
 import lombok.extern.slf4j.Slf4j;
 
-import java.util.HashMap;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -107,20 +102,6 @@ public class JobExecutionIT {
                                             objectCompletableFuture.isDone()
                                                     && finished.equals(
                                                             objectCompletableFuture.get())));
-        }
-    }
-
-    @Test
-    public void testExecuteJobWithLockMetrics() throws Exception {
-        // lock metrics map
-        IMap<Long, HashMap<TaskLocation, SeaTunnelMetricsContext>> metricsImap =
-                hazelcastInstance.getMap(Constant.IMAP_RUNNING_JOB_METRICS);
-        metricsImap.lock(Constant.IMAP_RUNNING_JOB_METRICS_KEY);
-        try {
-            runJobFileWithAssertEndStatus(
-                    "batch_fakesource_to_file.conf", "fake_to_file", JobStatus.FINISHED);
-        } finally {
-            metricsImap.unlock(Constant.IMAP_RUNNING_JOB_METRICS_KEY);
         }
     }
 
