@@ -47,9 +47,6 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
-
-import static org.testcontainers.shaded.org.awaitility.Awaitility.await;
 
 @DisabledOnContainer(
         value = {TestContainerId.FLINK_1_13, TestContainerId.SPARK_2_4},
@@ -130,9 +127,11 @@ public class PaimonIT extends TestSuiteBase implements TestResource {
         }
 
         // create user and grant privilege on table
+        Identifier tableIdentifier = Identifier.create(DATABASE_NAME, TABLE_NAME);
+        Identifier tableIdentifier1 = Identifier.create(DATABASE_NAME, "st_test_p1");
         privilegedCatalog.privilegeManager().createUser(paimonUser, paimonUserPassword);
-        String fullTableName = Identifier.create(DATABASE_NAME, TABLE_NAME).getFullName();
-        String fullTableName1 = Identifier.create(DATABASE_NAME, "st_test_p1").getFullName();
+        String fullTableName = tableIdentifier.getFullName();
+        String fullTableName1 = tableIdentifier1.getFullName();
         privilegedCatalog.privilegeManager().grant(paimonUser, "", PrivilegeType.CREATE_DATABASE);
         privilegedCatalog
                 .privilegeManager()
@@ -152,6 +151,8 @@ public class PaimonIT extends TestSuiteBase implements TestResource {
                 privilegedCatalog.privilegeManager().grant(paimonUser, fullTableName1, type);
             }
         }
+        PrivilegeUtil.awaitPrivilegeApplied(
+                privilegedCatalog, privilegeTypes, List.of(tableIdentifier, tableIdentifier1));
     }
 
     /** User not grant read privilege read data test cases for the Paimon table */
@@ -164,11 +165,8 @@ public class PaimonIT extends TestSuiteBase implements TestResource {
         initPrivilege(privilegeTypes, warehouse);
 
         // fake to paimon
-        await().atMost(60, TimeUnit.SECONDS).untilAsserted(() -> {
-            Container.ExecResult result = container.executeJob("/fake_to_paimon_privilege.conf");
-            Assertions.assertEquals(0, result.getExitCode(),
-                    "Expected job success but failed: " + result.getStderr());
-        });
+        Container.ExecResult execResult = container.executeJob("/fake_to_paimon_privilege.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
 
         // paimon to paimon
         Container.ExecResult execResult1 = container.executeJob("/paimon_to_paimon_privilege.conf");
@@ -184,11 +182,8 @@ public class PaimonIT extends TestSuiteBase implements TestResource {
         initPrivilege(privilegeTypes, warehouse);
 
         // fake to paimon
-        await().atMost(60, TimeUnit.SECONDS).untilAsserted(() -> {
-            Container.ExecResult result = container.executeJob("/fake_to_paimon_privilege1.conf");
-            Assertions.assertEquals(0, result.getExitCode(),
-                    "Expected job success but failed: " + result.getStderr());
-        });
+        Container.ExecResult execResult = container.executeJob("/fake_to_paimon_privilege1.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
 
         // paimon to paimon
         Container.ExecResult execResult1 =
