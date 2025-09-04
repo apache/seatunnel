@@ -108,7 +108,6 @@ public class HiveSink
                             .map(column -> column.getName())
                             .collect(Collectors.toList());
 
-            // 1) 解析模板中的存储格式（ORC/PARQUET/TEXTFILE），默认 PARQUET
             String fileFormatStr = FileFormat.PARQUET.toString();
             if (readonlyConfig.getOptional(HiveSinkOptions.SAVE_MODE_CREATE_TEMPLATE).isPresent()) {
                 String template = readonlyConfig.get(HiveSinkOptions.SAVE_MODE_CREATE_TEMPLATE);

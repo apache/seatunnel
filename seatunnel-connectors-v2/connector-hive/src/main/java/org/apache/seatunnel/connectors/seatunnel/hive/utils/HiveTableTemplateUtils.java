@@ -121,7 +121,6 @@ public class HiveTableTemplateUtils {
 
     /** Get default table location */
     public static String getDefaultTableLocation(String database, String table) {
-        // e2e 友好：优先使用本地文件系统，避免依赖外部 HDFS；同时满足 StorageFactory 的 file: 识别
         return String.format("file:/tmp/hive/warehouse/%s.db/%s", database, table);
     }
 
