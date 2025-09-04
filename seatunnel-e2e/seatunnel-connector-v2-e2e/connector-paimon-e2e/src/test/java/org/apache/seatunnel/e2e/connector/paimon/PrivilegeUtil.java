@@ -46,13 +46,13 @@ public class PrivilegeUtil {
                                             switch (type) {
                                                 case SELECT:
                                                     for (Identifier tableIdentifier : identifiers) {
-                                                        privilegeChecker.assertCanInsert(
+                                                        privilegeChecker.assertCanSelect(
                                                                 tableIdentifier);
                                                     }
                                                     break;
                                                 case INSERT:
                                                     for (Identifier tableIdentifier : identifiers) {
-                                                        privilegeChecker.assertCanSelect(
+                                                        privilegeChecker.assertCanInsert(
                                                                 tableIdentifier);
                                                     }
                                                     break;

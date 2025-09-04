@@ -70,6 +70,7 @@ public class PaimonWithS3IT extends SeaTunnelContainer {
     private String paimonUserPassword = "123456";
 
     private PrivilegedCatalog privilegedCatalog;
+    private PrivilegedCatalog privilegedCatalogForUser;
     private final String DATABASE_NAME = "seatunnel_namespace11";
     private final String TABLE_NAME = "st_test";
 
@@ -192,6 +193,12 @@ public class PaimonWithS3IT extends SeaTunnelContainer {
                         CatalogFactory.createCatalog(catalogContext),
                         new FileBasedPrivilegeManagerLoader(
                                 warehouse, fileIO, rootUser, rootPassword));
+
+        privilegedCatalogForUser =
+                new PrivilegedCatalog(
+                        CatalogFactory.createCatalog(catalogContext),
+                        new FileBasedPrivilegeManagerLoader(
+                                warehouse, fileIO, rootUser, rootPassword));
         if (!privilegedCatalog.privilegeManager().privilegeEnabled()) {
             privilegedCatalog.privilegeManager().initializePrivilege(rootPassword);
         }
@@ -220,7 +227,7 @@ public class PaimonWithS3IT extends SeaTunnelContainer {
             }
         }
         PrivilegeUtil.awaitPrivilegeApplied(
-                privilegedCatalog, privilegeTypes, Arrays.asList(tableIdentifier));
+                privilegedCatalogForUser, privilegeTypes, Arrays.asList(tableIdentifier));
     }
 
     private void revokePrivilege(List<PrivilegeType> privilegeTypes) {
