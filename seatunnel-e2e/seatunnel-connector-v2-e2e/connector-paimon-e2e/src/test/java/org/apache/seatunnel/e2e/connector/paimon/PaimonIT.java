@@ -60,6 +60,7 @@ public class PaimonIT extends TestSuiteBase implements TestResource {
     private String paimonUserPassword = "123456";
 
     private PrivilegedCatalog privilegedCatalog;
+    private PrivilegedCatalog privilegedCatalogForPaimonUser;
     private final String DATABASE_NAME = "default";
     private final String TABLE_NAME = "st_test_p";
 
@@ -127,6 +128,12 @@ public class PaimonIT extends TestSuiteBase implements TestResource {
             privilegedCatalog.privilegeManager().initializePrivilege(rootPassword);
         }
 
+        privilegedCatalogForPaimonUser =
+                new PrivilegedCatalog(
+                        CatalogFactory.createCatalog(catalogContext),
+                        new FileBasedPrivilegeManagerLoader(
+                                warehouse, fileIO, paimonUser, rootPassword));
+
         // create user and grant privilege on table
         Identifier tableIdentifier = Identifier.create(DATABASE_NAME, TABLE_NAME);
         Identifier tableIdentifier1 = Identifier.create(DATABASE_NAME, "st_test_p1");
@@ -153,7 +160,7 @@ public class PaimonIT extends TestSuiteBase implements TestResource {
             }
         }
         PrivilegeUtil.awaitPrivilegeApplied(
-                privilegedCatalog,
+                privilegedCatalogForPaimonUser,
                 privilegeTypes,
                 Arrays.asList(tableIdentifier, tableIdentifier1));
     }
