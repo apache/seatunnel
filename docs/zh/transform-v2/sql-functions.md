@@ -954,7 +954,7 @@ YEAR(CREATED)
 
 最重要的格式字符包括：y（年）、M（月）、d（日）、H（时）、m（分）、s（秒）。有关格式的详细信息，请参阅 `java.time.format.DateTimeFormatter`。
 
-`timeZone` 是可选的，默认值为系统的时区。`timezone` 的值可以是一个 `UTC+ 时区偏移`，例如，`UTC+8` 表示亚洲/上海时区，请参阅 `java.time.ZoneId`。
+`timeZone` 是可选的，默认值为系统的时区。`timezone` 的值可以是一个 `UTC+ 时区偏移`，例如，`UTC+8` 表示亚洲/上海时区，请参阅 https://en.wikipedia.org/wiki/List_of_tz_database_time_zones 。
 
 示例:
 
@@ -967,6 +967,21 @@ or
 // 使用指定时区
 
 CALL FROM_UNIXTIME(1672502400, 'yyyy-MM-dd HH:mm:ss','UTC+6')
+
+
+### AT TIME ZONE
+
+```dateAndTime AT TIME ZONE 'timeZone' -> TIMESTAMP_TZ```
+
+转换一个时间戳值为指定时区的带时区时间戳值。
+
+`timezone` 的值可以是一个 `UTC+ 时区偏移`，例如，`+08:00` 表示亚洲/上海时区，请参阅 https://en.wikipedia.org/wiki/List_of_tz_database_time_zones 。
+
+Example:
+
+local_date_time AT TIME ZONE '+09:00'
+
+offset_date_time AT TIME ZONE 'Pacific/Honolulu'
 
 ## System Functions
 
@@ -1216,3 +1231,42 @@ L1_DISTANCE(vector1, vector2)
 示例:
 
 L2_DISTANCE(vector1, vector2)
+
+### VECTOR_REDUCE
+
+```VECTOR_REDUCE(vector_field, target_dimension, method)```
+
+通用向量降维函数，支持多种降维方法。
+
+**参数:**
+- `vector_field`: 要降维的向量字段 (VECTOR 类型)
+- `target_dimension`: 目标维度 (INTEGER，必须小于源维度)
+- `method`: 降维方法 (STRING)：
+  - **'TRUNCATE'**: 截断法，通过保留前N个元素来缩减向量维度。这是最简单、最快速的降维方法，但可能会丢失被截断维度中的重要信息。
+  - **'RANDOM_PROJECTION'**: 随机投影法，使用高斯随机投影和正态分布的随机矩阵。该方法在降维的同时保持向量间的相对距离，遵循Johnson-Lindenstrauss引理。
+  - **'SPARSE_RANDOM_PROJECTION'**: 稀疏随机投影法，矩阵元素大多为零（±√3, 0）。比常规随机投影在计算上更高效，同时保持相似的距离保持特性。
+
+**返回值:** 降维后的 VECTOR 类型
+
+**示例:**
+```sql
+SELECT id, VECTOR_REDUCE(embedding, 256, 'TRUNCATE') as reduced_embedding FROM table
+SELECT id, VECTOR_REDUCE(embedding, 128, 'RANDOM_PROJECTION') as reduced_embedding FROM table
+SELECT id, VECTOR_REDUCE(embedding, 64, 'SPARSE_RANDOM_PROJECTION') as reduced_embedding FROM table
+```
+
+### VECTOR_NORMALIZE
+
+```VECTOR_NORMALIZE(vector_field)```
+
+将向量归一化为单位长度（模长 = 1）。这对于计算余弦相似度很有用。
+
+**参数:**
+- `vector_field`: 要归一化的向量字段 (VECTOR 类型)
+
+**返回值:** VECTOR 类型 - 归一化后的向量
+
+**示例:**
+```sql
+SELECT id, VECTOR_NORMALIZE(embedding) as normalized_embedding FROM table
+```

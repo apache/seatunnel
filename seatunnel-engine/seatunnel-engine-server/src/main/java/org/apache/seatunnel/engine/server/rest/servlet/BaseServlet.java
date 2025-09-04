@@ -19,6 +19,7 @@ package org.apache.seatunnel.engine.server.rest.servlet;
 
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
+import org.apache.seatunnel.engine.server.rest.ConfigFormat;
 
 import com.google.gson.Gson;
 import com.hazelcast.internal.json.JsonArray;
@@ -110,13 +111,17 @@ public class BaseServlet extends HttpServlet {
         return seaTunnelServer;
     }
 
-    protected byte[] requestBody(HttpServletRequest req) throws IOException {
+    protected byte[] requestBody(HttpServletRequest req, ConfigFormat configFormat)
+            throws IOException {
         StringBuilder stringBuilder = new StringBuilder();
         String line;
 
         try (BufferedReader reader = req.getReader()) {
             while ((line = reader.readLine()) != null) {
                 stringBuilder.append(line);
+                if (ConfigFormat.JSON != configFormat) {
+                    stringBuilder.append("\n");
+                }
             }
         }
 
@@ -124,18 +129,8 @@ public class BaseServlet extends HttpServlet {
         return requestBody.getBytes(StandardCharsets.UTF_8);
     }
 
-    public byte[] requestHoconBody(HttpServletRequest req) throws IOException {
-        StringBuilder stringBuilder = new StringBuilder();
-        String line;
-
-        try (BufferedReader reader = req.getReader()) {
-            while ((line = reader.readLine()) != null) {
-                stringBuilder.append(line).append("\n");
-            }
-        }
-
-        String requestBody = stringBuilder.toString();
-        return requestBody.getBytes(StandardCharsets.UTF_8);
+    protected byte[] requestBody(HttpServletRequest req) throws IOException {
+        return requestBody(req, ConfigFormat.JSON);
     }
 
     protected Map<String, String> getParameterMap(HttpServletRequest req) {

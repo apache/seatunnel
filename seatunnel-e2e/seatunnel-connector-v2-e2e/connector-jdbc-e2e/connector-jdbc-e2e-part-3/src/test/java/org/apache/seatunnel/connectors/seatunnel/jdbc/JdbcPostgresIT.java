@@ -33,6 +33,7 @@ import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
+import org.apache.seatunnel.e2e.common.util.JdbcUtil;
 
 import org.apache.commons.lang3.StringUtils;
 
@@ -53,10 +54,8 @@ import lombok.extern.slf4j.Slf4j;
 import java.io.IOException;
 import java.sql.Connection;
 import java.sql.DriverManager;
-import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
@@ -500,21 +499,15 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
     }
 
     private List<List<Object>> querySql(String sql) {
-        try (Connection connection = getJdbcConnection();
-                ResultSet resultSet = connection.createStatement().executeQuery(sql)) {
-            List<List<Object>> result = new ArrayList<>();
-            int columnCount = resultSet.getMetaData().getColumnCount();
-            while (resultSet.next()) {
-                ArrayList<Object> objects = new ArrayList<>();
-                for (int i = 1; i <= columnCount; i++) {
-                    objects.add(resultSet.getObject(i));
-                }
-                result.add(objects);
-            }
-            return result;
-        } catch (SQLException e) {
-            throw new RuntimeException(e);
-        }
+        return JdbcUtil.querySql(
+                sql,
+                () -> {
+                    try {
+                        return this.getJdbcConnection();
+                    } catch (SQLException e) {
+                        throw new RuntimeException(e);
+                    }
+                });
     }
 
     private void executeSQL(String sql) {

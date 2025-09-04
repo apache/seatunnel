@@ -22,12 +22,14 @@ import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
 import org.apache.seatunnel.api.common.metrics.JobMetrics;
 import org.apache.seatunnel.common.utils.JsonUtils;
+import org.apache.seatunnel.config.sql.SqlConfigBuilder;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.core.job.JobDAGInfo;
 import org.apache.seatunnel.engine.core.job.JobInfo;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.master.JobHistoryService.JobState;
 import org.apache.seatunnel.engine.server.operation.GetJobMetricsOperation;
+import org.apache.seatunnel.engine.server.rest.ConfigFormat;
 import org.apache.seatunnel.engine.server.rest.RestConstant;
 import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
 import org.apache.seatunnel.engine.server.utils.RestUtil;
@@ -36,6 +38,7 @@ import com.hazelcast.internal.json.JsonArray;
 import com.hazelcast.internal.json.JsonObject;
 import com.hazelcast.map.IMap;
 import com.hazelcast.spi.impl.NodeEngineImpl;
+import lombok.extern.slf4j.Slf4j;
 import scala.Tuple2;
 
 import java.nio.charset.StandardCharsets;
@@ -45,8 +48,8 @@ import java.util.List;
 import java.util.Map;
 
 import static org.apache.seatunnel.engine.server.rest.RestConstant.CONFIG_FORMAT;
-import static org.apache.seatunnel.engine.server.rest.RestConstant.HOCON;
 
+@Slf4j
 public class JobInfoService extends BaseService {
 
     public JobInfoService(NodeEngineImpl nodeEngine) {
@@ -163,11 +166,18 @@ public class JobInfoService extends BaseService {
             throw new IllegalArgumentException("Please provide jobId when start with save point.");
         }
         Config config;
-        if (HOCON.equalsIgnoreCase(requestParams.get(CONFIG_FORMAT))) {
-            String requestBodyStr = new String(requestBody, StandardCharsets.UTF_8);
-            config = ConfigFactory.parseString(requestBodyStr);
-        } else {
-            config = RestUtil.buildConfig(requestHandle(requestBody), false);
+        ConfigFormat configFormat = ConfigFormat.fromString(requestParams.get(CONFIG_FORMAT));
+        switch (configFormat) {
+            case HOCON:
+                config = ConfigFactory.parseString(new String(requestBody, StandardCharsets.UTF_8));
+                break;
+            case SQL:
+                config = SqlConfigBuilder.of(new String(requestBody, StandardCharsets.UTF_8));
+                break;
+            case JSON:
+            default:
+                config = RestUtil.buildConfig(requestHandle(requestBody), false);
+                break;
         }
         SeaTunnelServer seaTunnelServer = getSeaTunnelServer(false);
         return submitJobInternal(config, requestParams, seaTunnelServer, nodeEngine.getNode());
