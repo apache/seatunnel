@@ -119,11 +119,11 @@ public class HiveSaveModeHandler implements SaveModeHandler, AutoCloseable {
 
     @Override
     public void close() throws Exception {
-        if (hiveMetaStoreProxy != null) {
-            hiveMetaStoreProxy.close();
-        }
         if (optionalCatalog != null) {
             optionalCatalog.close();
+        }
+        if (hiveMetaStoreProxy != null && hiveMetaStoreProxy != optionalCatalog) {
+            hiveMetaStoreProxy.close();
         }
     }
 
@@ -243,6 +243,12 @@ public class HiveSaveModeHandler implements SaveModeHandler, AutoCloseable {
         // Set storage descriptor
         StorageDescriptor sd = new StorageDescriptor();
 
+        // Initialize SerDe to avoid NPE when configuring serialization library
+        org.apache.hadoop.hive.metastore.api.SerDeInfo serdeInfo =
+                new org.apache.hadoop.hive.metastore.api.SerDeInfo();
+        serdeInfo.setName(table.getTableName());
+        sd.setSerdeInfo(serdeInfo);
+
         // Set columns (exclude partition fields from regular columns)
         List<FieldSchema> cols = new ArrayList<>();
         tableSchema.getColumns().stream()
@@ -256,16 +262,13 @@ public class HiveSaveModeHandler implements SaveModeHandler, AutoCloseable {
                         });
         sd.setCols(cols);
 
-        // Set table location
+        // Set table location (align with default computation used by sink path)
         String tableLocation = HiveTableTemplateUtils.getDefaultTableLocation(dbName, tableName);
         sd.setLocation(tableLocation);
 
         // Set storage format based on template or default to PARQUET
         String storageFormat = extractStorageFormatFromTemplate();
         configureStorageDescriptor(sd, storageFormat);
-
-        // Set SerDe name
-        sd.getSerdeInfo().setName(table.getTableName());
 
         // Set compression and storage settings
         sd.setCompressed(shouldEnableCompression(storageFormat));

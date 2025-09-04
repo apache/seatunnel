@@ -56,7 +56,6 @@ import org.apache.hadoop.hive.metastore.api.Table;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -102,17 +101,41 @@ public class HiveSink
         Config pluginConfig = readonlyConfig.toConfig();
 
         if (tableInformation == null) {
-            LOGGER.info("Table information is null, creating default config");
+            LOGGER.info(
+                    "Table information is null, creating default config aligned with template if present");
             List<String> sinkFields =
                     catalogTable.getTableSchema().getColumns().stream()
                             .map(column -> column.getName())
                             .collect(Collectors.toList());
 
+            // 1) 解析模板中的存储格式（ORC/PARQUET/TEXTFILE），默认 PARQUET
+            String fileFormatStr = FileFormat.PARQUET.toString();
+            if (readonlyConfig.getOptional(HiveSinkOptions.SAVE_MODE_CREATE_TEMPLATE).isPresent()) {
+                String template = readonlyConfig.get(HiveSinkOptions.SAVE_MODE_CREATE_TEMPLATE);
+                String upper = template.toUpperCase();
+                if (upper.contains("STORED AS ORC")) {
+                    fileFormatStr = FileFormat.ORC.toString();
+                } else if (upper.contains("STORED AS TEXTFILE")) {
+                    fileFormatStr = FileFormat.TEXT.toString();
+                } else if (upper.contains("STORED AS PARQUET")) {
+                    fileFormatStr = FileFormat.PARQUET.toString();
+                }
+            }
+
+            // 2) 解析模板中的分区字段，默认不分区
+            java.util.List<String> partitionFields = new java.util.ArrayList<>();
+            if (readonlyConfig.getOptional(HiveSinkOptions.SAVE_MODE_CREATE_TEMPLATE).isPresent()) {
+                String template = readonlyConfig.get(HiveSinkOptions.SAVE_MODE_CREATE_TEMPLATE);
+                partitionFields =
+                        org.apache.seatunnel.connectors.seatunnel.hive.utils.HiveTableTemplateUtils
+                                .extractPartitionFieldsFromTemplate(template);
+            }
+
             pluginConfig =
                     pluginConfig
                             .withValue(
                                     FILE_FORMAT_TYPE.key(),
-                                    ConfigValueFactory.fromAnyRef(FileFormat.PARQUET.toString()))
+                                    ConfigValueFactory.fromAnyRef(fileFormatStr))
                             .withValue(
                                     IS_PARTITION_FIELD_WRITE_IN_FILE.key(),
                                     ConfigValueFactory.fromAnyRef(false))
@@ -123,7 +146,11 @@ public class HiveSink
                                     SINK_COLUMNS.key(), ConfigValueFactory.fromAnyRef(sinkFields))
                             .withValue(
                                     PARTITION_BY.key(),
-                                    ConfigValueFactory.fromAnyRef(new ArrayList<>()));
+                                    ConfigValueFactory.fromAnyRef(partitionFields))
+                            .withValue(
+                                    FILE_PATH.key(),
+                                    ConfigValueFactory.fromAnyRef(
+                                            getDefaultTableLocation(readonlyConfig)));
 
             return new FileSinkConfig(pluginConfig, catalogTable.getSeaTunnelRowType());
         }
@@ -201,12 +228,21 @@ public class HiveSink
     @Override
     public Optional<SinkAggregatedCommitter<FileCommitInfo, FileAggregatedCommitInfo>>
             createAggregatedCommitter() {
+        String dbName;
+        String tableName;
+        if (getTableInformation() != null) {
+            dbName = getTableInformation().getDbName();
+            tableName = getTableInformation().getTableName();
+        } else {
+            // Derive from config to ensure non-null values during commit
+            String table = readonlyConfig.get(HiveOptions.TABLE_NAME);
+            org.apache.seatunnel.api.table.catalog.TablePath path =
+                    org.apache.seatunnel.api.table.catalog.TablePath.of(table);
+            dbName = path.getDatabaseName();
+            tableName = path.getTableName();
+        }
         return Optional.of(
-                new HiveSinkAggregatedCommitter(
-                        readonlyConfig,
-                        getTableInformation().getDbName(),
-                        getTableInformation().getTableName(),
-                        hadoopConf));
+                new HiveSinkAggregatedCommitter(readonlyConfig, dbName, tableName, hadoopConf));
     }
 
     @Override
@@ -240,7 +276,8 @@ public class HiveSink
     }
 
     private HadoopConf createHadoopConf(ReadonlyConfig readonlyConfig) {
-        String hdfsLocation = getTableInformation().getSd().getLocation();
+        // Default to Hive's conventional warehouse path when table info is not available yet
+        String hdfsLocation = getDefaultTableLocation(readonlyConfig);
 
         /**
          * Build hadoop conf(support s3、cos、oss、hdfs). The returned hadoop conf can be
@@ -268,9 +305,32 @@ public class HiveSink
         return hadoopConf;
     }
 
+    // Try to read from configuration, fallback to Hive default warehouse dir on HDFS
+    private String getDefaultTableLocation(ReadonlyConfig config) {
+        try {
+            String table = config.get(HiveOptions.TABLE_NAME);
+            org.apache.seatunnel.api.table.catalog.TablePath path =
+                    org.apache.seatunnel.api.table.catalog.TablePath.of(table);
+            return org.apache.seatunnel.connectors.seatunnel.hive.utils.HiveTableTemplateUtils
+                    .getDefaultTableLocation(path.getDatabaseName(), path.getTableName());
+        } catch (Exception e) {
+            LOGGER.warn(
+                    "Failed to derive default table location from config, fallback to /user/hive/warehouse: {}",
+                    e.getMessage());
+            return "/user/hive/warehouse";
+        }
+    }
+
     private Table getTableInformation() {
         if (tableInformation == null) {
-            tableInformation = HiveTableUtils.getTableInfo(readonlyConfig);
+            try {
+                tableInformation = HiveTableUtils.getTableInfo(readonlyConfig);
+            } catch (Exception e) {
+                LOGGER.warn(
+                        "Hive table not available yet or metastore not reachable: {}. Will continue with lazy creation via SaveMode.",
+                        e.getMessage());
+                tableInformation = null;
+            }
         }
         return tableInformation;
     }
