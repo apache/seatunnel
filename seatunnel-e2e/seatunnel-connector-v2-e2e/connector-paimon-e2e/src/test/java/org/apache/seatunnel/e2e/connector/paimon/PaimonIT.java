@@ -153,7 +153,9 @@ public class PaimonIT extends TestSuiteBase implements TestResource {
             }
         }
         PrivilegeUtil.awaitPrivilegeApplied(
-                privilegedCatalog, privilegeTypes, Arrays.asList(tableIdentifier, tableIdentifier1));
+                privilegedCatalog,
+                privilegeTypes,
+                Arrays.asList(tableIdentifier, tableIdentifier1));
     }
 
     /** User not grant read privilege read data test cases for the Paimon table */
