@@ -47,6 +47,9 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
+
+import static org.testcontainers.shaded.org.awaitility.Awaitility.await;
 
 @DisabledOnContainer(
         value = {TestContainerId.FLINK_1_13, TestContainerId.SPARK_2_4},
@@ -159,10 +162,13 @@ public class PaimonIT extends TestSuiteBase implements TestResource {
         privilegeTypes.add(PrivilegeType.SELECT);
         privilegeTypes.add(PrivilegeType.INSERT);
         initPrivilege(privilegeTypes, warehouse);
-        PrivilegeUtil.awaitSelectAndInsertPrivilegeApplied(container);
+
         // fake to paimon
-        Container.ExecResult execResult = container.executeJob("/fake_to_paimon_privilege.conf");
-        Assertions.assertEquals(0, execResult.getExitCode());
+        await().atMost(60, TimeUnit.SECONDS).untilAsserted(() -> {
+            Container.ExecResult result = container.executeJob("/fake_to_paimon_privilege.conf");
+            Assertions.assertEquals(0, result.getExitCode(),
+                    "Expected job success but failed: " + result.getStderr());
+        });
 
         // paimon to paimon
         Container.ExecResult execResult1 = container.executeJob("/paimon_to_paimon_privilege.conf");
@@ -176,10 +182,13 @@ public class PaimonIT extends TestSuiteBase implements TestResource {
         List<PrivilegeType> privilegeTypes = new ArrayList<>();
         privilegeTypes.add(PrivilegeType.INSERT);
         initPrivilege(privilegeTypes, warehouse);
-        PrivilegeUtil.awaitInsertPrivilegeApplied(container);
+
         // fake to paimon
-        Container.ExecResult execResult = container.executeJob("/fake_to_paimon_privilege1.conf");
-        Assertions.assertEquals(0, execResult.getExitCode());
+        await().atMost(60, TimeUnit.SECONDS).untilAsserted(() -> {
+            Container.ExecResult result = container.executeJob("/fake_to_paimon_privilege1.conf");
+            Assertions.assertEquals(0, result.getExitCode(),
+                    "Expected job success but failed: " + result.getStderr());
+        });
 
         // paimon to paimon
         Container.ExecResult execResult1 =

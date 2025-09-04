@@ -46,6 +46,9 @@ import io.minio.MinioClient;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
+
+import static org.testcontainers.shaded.org.awaitility.Awaitility.await;
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public class PaimonWithS3IT extends SeaTunnelContainer {
@@ -235,10 +238,13 @@ public class PaimonWithS3IT extends SeaTunnelContainer {
         privilegeTypes.add(PrivilegeType.SELECT);
         privilegeTypes.add(PrivilegeType.INSERT);
         grantPrivilege(privilegeTypes);
-        PrivilegeUtil.awaitSelectAndInsertPrivilegeApplied(this);
+
         // fake to paimon
-        Container.ExecResult execResult = executeJob("/fake_to_paimon_with_s3_with_privilege.conf");
-        Assertions.assertEquals(0, execResult.getExitCode());
+        await().atMost(60, TimeUnit.SECONDS).untilAsserted(() -> {
+            Container.ExecResult result = executeJob("/fake_to_paimon_with_s3_with_privilege.conf");
+            Assertions.assertEquals(0, result.getExitCode(),
+                    "Expected job success but failed: " + result.getStderr());
+        });
 
         // paimon to paimon
         Container.ExecResult execResult1 =
@@ -253,10 +259,13 @@ public class PaimonWithS3IT extends SeaTunnelContainer {
         List<PrivilegeType> privilegeTypes = new ArrayList<>();
         privilegeTypes.add(PrivilegeType.INSERT);
         grantPrivilege(privilegeTypes);
-        PrivilegeUtil.awaitInsertPrivilegeApplied(this);
+
         // fake to paimon
-        Container.ExecResult execResult = executeJob("/fake_to_paimon_with_s3_with_privilege.conf");
-        Assertions.assertEquals(0, execResult.getExitCode());
+        await().atMost(60, TimeUnit.SECONDS).untilAsserted(() -> {
+            Container.ExecResult result = executeJob("/fake_to_paimon_with_s3_with_privilege.conf");
+            Assertions.assertEquals(0, result.getExitCode(),
+                    "Expected job success but failed: " + result.getStderr());
+        });
 
         // paimon to paimon
         Container.ExecResult execResult1 =
