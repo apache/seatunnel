@@ -114,6 +114,41 @@ public class HiveMetaStoreProxy implements Catalog, Closeable, Serializable {
                     HiveConnectorErrorCode.INITIALIZE_HIVE_METASTORE_CLIENT_FAILED, errMsg, e);
         }
     }
+    // Simple retry helper to mitigate transient HMS startup/connection issues in e2e
+    @FunctionalInterface
+    private interface SupplierEx<T> {
+        T get() throws Exception;
+    }
+
+    private <T> T withRetry(SupplierEx<T> action, String desc) throws Exception {
+        int attempts = 5;
+        for (int i = 1; i <= attempts; i++) {
+            try {
+                return action.get();
+            } catch (Exception e) {
+                if (i == attempts) {
+                    throw e;
+                }
+                log.warn(
+                        "HiveMetaStore operation '{}' failed on attempt {}/{}: {}. Will retry...",
+                        desc,
+                        i,
+                        attempts,
+                        e.getMessage());
+                // force re-initialize client on next try
+                try {
+                    this.hiveClient = null;
+                } catch (Exception ignore) {
+                }
+                try {
+                    Thread.sleep(2000L);
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                }
+            }
+        }
+        return null; // unreachable
+    }
 
     private HiveConf buildHiveConf() {
         HiveConf hiveConf = new HiveConf();
@@ -160,8 +195,10 @@ public class HiveMetaStoreProxy implements Catalog, Closeable, Serializable {
 
     public Table getTable(@NonNull String dbName, @NonNull String tableName) {
         try {
-            return getClient().getTable(dbName, tableName);
-        } catch (TException e) {
+            return withRetry(
+                    () -> getClient().getTable(dbName, tableName),
+                    String.format("getTable %s.%s", dbName, tableName));
+        } catch (Exception e) {
             String msg = String.format("Failed to get table %s.%s", dbName, tableName);
             throw new HiveConnectorException(
                     HiveConnectorErrorCode.GET_HIVE_TABLE_INFORMATION_FAILED, msg, e);
@@ -169,32 +206,56 @@ public class HiveMetaStoreProxy implements Catalog, Closeable, Serializable {
     }
 
     public void createDatabaseIfNotExists(String db) throws TException {
-        List<String> databases = getClient().getAllDatabases();
-        if (databases.contains(db)) {
-            return;
+        try {
+            List<String> databases =
+                    withRetry(() -> getClient().getAllDatabases(), "getAllDatabases");
+            if (databases.contains(db)) {
+                return;
+            }
+            Database database = new Database();
+            database.setName(db);
+            withRetry(
+                    () -> {
+                        getClient().createDatabase(database);
+                        return null;
+                    },
+                    "createDatabase");
+        } catch (Exception e) {
+            if (e instanceof TException) throw (TException) e;
+            throw new TException(e);
         }
-        Database database = new Database();
-        database.setName(db);
-        getClient().createDatabase(database);
     }
 
     public void createTableIfNotExists(@NonNull Table tbl) throws TException {
-        if (getClient().tableExists(tbl.getDbName(), tbl.getTableName())) {
-            return;
-        }
         try {
-            getClient().createTable(tbl);
-        } catch (TException e) {
-            log.error(
-                    "Failed to create table: {}.{}, error: {}",
-                    tbl.getDbName(),
-                    tbl.getTableName(),
-                    e.getMessage());
-            String errorMsg =
-                    String.format(
-                            "Failed to create table [%s.%s]", tbl.getDbName(), tbl.getTableName());
-            throw new HiveConnectorException(
-                    HiveConnectorErrorCode.CREATE_HIVE_TABLE_FAILED, errorMsg, e);
+            Boolean exists =
+                    withRetry(
+                            () -> getClient().tableExists(tbl.getDbName(), tbl.getTableName()),
+                            "tableExists");
+            if (exists) {
+                return;
+            }
+            withRetry(
+                    () -> {
+                        getClient().createTable(tbl);
+                        return null;
+                    },
+                    "createTable");
+        } catch (Exception e) {
+            if (e instanceof TException) {
+                log.error(
+                        "Failed to create table: {}.{}, error: {}",
+                        tbl.getDbName(),
+                        tbl.getTableName(),
+                        e.getMessage());
+                String errorMsg =
+                        String.format(
+                                "Failed to create table [%s.%s]",
+                                tbl.getDbName(), tbl.getTableName());
+                throw new HiveConnectorException(
+                        HiveConnectorErrorCode.CREATE_HIVE_TABLE_FAILED, errorMsg, (TException) e);
+            }
+            throw new TException(e);
         }
     }
 

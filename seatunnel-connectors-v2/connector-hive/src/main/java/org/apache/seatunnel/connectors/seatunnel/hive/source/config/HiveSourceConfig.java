@@ -82,7 +82,15 @@ public class HiveSourceConfig implements Serializable {
         readonlyConfig
                 .getOptional(HdfsSourceConfigOptions.READ_PARTITIONS)
                 .ifPresent(this::validatePartitions);
-        Table table = HiveTableUtils.getTableInfo(readonlyConfig);
+        Table table;
+        try {
+            table = HiveTableUtils.getTableInfo(readonlyConfig);
+        } catch (Exception e) {
+            throw new HiveConnectorException(
+                    HiveConnectorErrorCode.GET_HIVE_TABLE_INFORMATION_FAILED,
+                    "Hive metastore not reachable while initializing HiveSource. Please ensure metastore is available or provide explicit file path-based config.",
+                    e);
+        }
         this.hadoopConf = parseHiveHadoopConfig(readonlyConfig, table);
         this.fileFormat = HiveTableUtils.parseFileFormat(table);
         this.readStrategy = parseReadStrategy(table, readonlyConfig, fileFormat, hadoopConf);
