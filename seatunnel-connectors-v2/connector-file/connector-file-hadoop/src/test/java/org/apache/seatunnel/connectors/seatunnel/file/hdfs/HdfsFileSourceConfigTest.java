@@ -48,6 +48,8 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.DisabledOnOs;
+import org.junit.jupiter.api.condition.OS;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -60,6 +62,7 @@ import java.util.Map;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 @Slf4j
+@DisabledOnOs(value = OS.WINDOWS)
 class HdfsFileSourceConfigTest {
 
     public static final String DATA_FILE_PATH1 = "/tmp/seatunnel/data1.parquet";
