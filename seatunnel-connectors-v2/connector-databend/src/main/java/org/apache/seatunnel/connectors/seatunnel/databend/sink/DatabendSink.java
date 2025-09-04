@@ -342,4 +342,9 @@ public class DatabendSink
             log.info("Stream {} created successfully", streamName);
         }
     }
+
+    @Override
+    public Optional<CatalogTable> getWriteCatalogTable() {
+        return SeaTunnelSink.super.getWriteCatalogTable();
+    }
 }
