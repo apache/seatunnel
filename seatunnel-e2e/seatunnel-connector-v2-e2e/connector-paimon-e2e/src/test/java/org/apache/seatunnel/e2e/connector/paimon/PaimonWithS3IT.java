@@ -45,6 +45,7 @@ import io.minio.MinioClient;
 
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
@@ -219,7 +220,7 @@ public class PaimonWithS3IT extends SeaTunnelContainer {
             }
         }
         PrivilegeUtil.awaitPrivilegeApplied(
-                privilegedCatalog, privilegeTypes, List.of(tableIdentifier));
+                privilegedCatalog, privilegeTypes, Arrays.asList(tableIdentifier));
     }
 
     private void revokePrivilege(List<PrivilegeType> privilegeTypes) {
