@@ -18,6 +18,7 @@
 package org.apache.seatunnel.transform.sql.zeta;
 
 import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -26,6 +27,10 @@ import org.apache.seatunnel.transform.sql.SQLEngineFactory;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.util.ArrayList;
 
 public class DateTimeFunctionTest {
 
@@ -61,6 +66,70 @@ public class DateTimeFunctionTest {
         SeaTunnelRow outRow1 = sqlEngine.transformBySQL(inputRow, rowType).get(0);
         Object field1 = outRow1.getField(0);
         Assertions.assertEquals("2023-01-01 10:00:00", field1.toString());
+    }
+
+    @Test
+    public void testAtTimeZoneFunction() {
+        SQLEngine sqlEngine = SQLEngineFactory.getSQLEngine(SQLEngineFactory.EngineType.ZETA);
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"local_date_time", "offset_date_time"},
+                        new SeaTunnelDataType[] {
+                            LocalTimeType.LOCAL_DATE_TIME_TYPE, LocalTimeType.OFFSET_DATE_TIME_TYPE
+                        });
+
+        LocalDateTime now = LocalDateTime.now();
+        SeaTunnelRow inputRow =
+                new SeaTunnelRow(
+                        new Object[] {now, now.atZone(ZoneId.systemDefault()).toOffsetDateTime()});
+
+        sqlEngine.init(
+                "test",
+                null,
+                rowType,
+                "select local_date_time AT TIME ZONE '+09:00' as date_time_with_zone,"
+                        + "offset_date_time AT TIME ZONE '-05:00' as offset_date_time_with_zone"
+                        + " from dual");
+        SeaTunnelRowType seaTunnelRowType = sqlEngine.typeMapping(new ArrayList<>());
+        Assertions.assertEquals(
+                LocalTimeType.OFFSET_DATE_TIME_TYPE, seaTunnelRowType.getFieldType(0));
+
+        SeaTunnelRow outRow = sqlEngine.transformBySQL(inputRow, rowType).get(0);
+        Assertions.assertEquals(
+                now.atZone(ZoneId.systemDefault())
+                        .withZoneSameInstant(ZoneId.of("+09:00"))
+                        .toOffsetDateTime(),
+                outRow.getField(0));
+        Assertions.assertEquals(
+                now.atZone(ZoneId.systemDefault())
+                        .withZoneSameInstant(ZoneId.of("-05:00"))
+                        .toOffsetDateTime(),
+                outRow.getField(1));
+
+        sqlEngine.init(
+                "test",
+                null,
+                rowType,
+                "select local_date_time AT TIME ZONE 'Asia/Tokyo' as date_time_with_zone,"
+                        + "offset_date_time AT TIME ZONE 'Pacific/Honolulu' as offset_date_time_with_zone"
+                        + " from dual");
+        seaTunnelRowType = sqlEngine.typeMapping(new ArrayList<>());
+        Assertions.assertEquals(
+                LocalTimeType.OFFSET_DATE_TIME_TYPE, seaTunnelRowType.getFieldType(0));
+        Assertions.assertEquals(
+                LocalTimeType.OFFSET_DATE_TIME_TYPE, seaTunnelRowType.getFieldType(1));
+
+        outRow = sqlEngine.transformBySQL(inputRow, rowType).get(0);
+        Assertions.assertEquals(
+                now.atZone(ZoneId.systemDefault())
+                        .withZoneSameInstant(ZoneId.of("+09:00"))
+                        .toOffsetDateTime(),
+                outRow.getField(0));
+        Assertions.assertEquals(
+                now.atZone(ZoneId.systemDefault())
+                        .withZoneSameInstant(ZoneId.of("-10:00"))
+                        .toOffsetDateTime(),
+                outRow.getField(1));
     }
 
     @Test
