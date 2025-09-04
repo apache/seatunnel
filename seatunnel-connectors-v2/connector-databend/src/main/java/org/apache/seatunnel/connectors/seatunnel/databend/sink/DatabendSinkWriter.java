@@ -17,6 +17,9 @@
 
 package org.apache.seatunnel.connectors.seatunnel.databend.sink;
 
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode;
+
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SupportSchemaEvolutionSinkWriter;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
@@ -34,8 +37,6 @@ import org.apache.seatunnel.connectors.seatunnel.databend.exception.DatabendConn
 import org.apache.seatunnel.connectors.seatunnel.databend.exception.DatabendConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.databend.schema.SchemaChangeManager;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
