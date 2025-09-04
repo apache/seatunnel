@@ -171,9 +171,15 @@ public class SnowflakeTypeConverter implements TypeConverter<BasicTypeDefine> {
                 break;
             case SNOWFLAKE_DATE_TIME:
             case SNOWFLAKE_TIMESTAMP:
+                builder.dataType(LocalTimeType.LOCAL_DATE_TIME_TYPE);
+                builder.scale(9);
+                break;
             case SNOWFLAKE_TIMESTAMP_LTZ:
-            case SNOWFLAKE_TIMESTAMP_NTZ:
             case SNOWFLAKE_TIMESTAMP_TZ:
+                builder.dataType(LocalTimeType.OFFSET_DATE_TIME_TYPE);
+                builder.scale(9);
+                break;
+            case SNOWFLAKE_TIMESTAMP_NTZ:
                 builder.dataType(LocalTimeType.LOCAL_DATE_TIME_TYPE);
                 builder.scale(9);
                 break;
