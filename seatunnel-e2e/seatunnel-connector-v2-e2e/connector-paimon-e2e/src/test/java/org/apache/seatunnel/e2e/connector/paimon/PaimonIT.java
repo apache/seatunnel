@@ -159,6 +159,7 @@ public class PaimonIT extends TestSuiteBase implements TestResource {
         privilegeTypes.add(PrivilegeType.SELECT);
         privilegeTypes.add(PrivilegeType.INSERT);
         initPrivilege(privilegeTypes, warehouse);
+        PrivilegeUtil.awaitSelectAndInsertPrivilegeApplied(container);
         // fake to paimon
         Container.ExecResult execResult = container.executeJob("/fake_to_paimon_privilege.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
@@ -175,6 +176,7 @@ public class PaimonIT extends TestSuiteBase implements TestResource {
         List<PrivilegeType> privilegeTypes = new ArrayList<>();
         privilegeTypes.add(PrivilegeType.INSERT);
         initPrivilege(privilegeTypes, warehouse);
+        PrivilegeUtil.awaitInsertPrivilegeApplied(container);
         // fake to paimon
         Container.ExecResult execResult = container.executeJob("/fake_to_paimon_privilege1.conf");
         Assertions.assertEquals(0, execResult.getExitCode());

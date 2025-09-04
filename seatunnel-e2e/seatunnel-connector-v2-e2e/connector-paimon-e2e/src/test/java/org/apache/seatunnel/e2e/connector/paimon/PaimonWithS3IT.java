@@ -235,6 +235,7 @@ public class PaimonWithS3IT extends SeaTunnelContainer {
         privilegeTypes.add(PrivilegeType.SELECT);
         privilegeTypes.add(PrivilegeType.INSERT);
         grantPrivilege(privilegeTypes);
+        PrivilegeUtil.awaitSelectAndInsertPrivilegeApplied(this);
         // fake to paimon
         Container.ExecResult execResult = executeJob("/fake_to_paimon_with_s3_with_privilege.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
@@ -252,6 +253,7 @@ public class PaimonWithS3IT extends SeaTunnelContainer {
         List<PrivilegeType> privilegeTypes = new ArrayList<>();
         privilegeTypes.add(PrivilegeType.INSERT);
         grantPrivilege(privilegeTypes);
+        PrivilegeUtil.awaitInsertPrivilegeApplied(this);
         // fake to paimon
         Container.ExecResult execResult = executeJob("/fake_to_paimon_with_s3_with_privilege.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
