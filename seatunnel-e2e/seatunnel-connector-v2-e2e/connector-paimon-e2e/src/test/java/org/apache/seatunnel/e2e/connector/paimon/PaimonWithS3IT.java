@@ -198,7 +198,7 @@ public class PaimonWithS3IT extends SeaTunnelContainer {
                 new PrivilegedCatalog(
                         CatalogFactory.createCatalog(catalogContext),
                         new FileBasedPrivilegeManagerLoader(
-                                warehouse, fileIO, paimonUser, rootPassword));
+                                warehouse, fileIO, paimonUser, paimonUserPassword));
         if (!privilegedCatalog.privilegeManager().privilegeEnabled()) {
             privilegedCatalog.privilegeManager().initializePrivilege(rootPassword);
         }

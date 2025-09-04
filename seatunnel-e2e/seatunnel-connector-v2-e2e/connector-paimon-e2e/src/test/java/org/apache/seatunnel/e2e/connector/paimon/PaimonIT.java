@@ -132,7 +132,7 @@ public class PaimonIT extends TestSuiteBase implements TestResource {
                 new PrivilegedCatalog(
                         CatalogFactory.createCatalog(catalogContext),
                         new FileBasedPrivilegeManagerLoader(
-                                warehouse, fileIO, paimonUser, rootPassword));
+                                warehouse, fileIO, paimonUser, paimonUserPassword));
 
         // create user and grant privilege on table
         Identifier tableIdentifier = Identifier.create(DATABASE_NAME, TABLE_NAME);
