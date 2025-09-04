@@ -87,7 +87,7 @@ import static org.apache.seatunnel.e2e.connector.rocketmq.RocketMqContainer.NAME
 @Slf4j
 public class RocketMqIT extends TestSuiteBase implements TestResource {
 
-    private static final String IMAGE = "apache/rocketmq:4.9.4";
+    private static final String IMAGE = "apache/rocketmq:4.9.8";
     private static final String ROCKETMQ_GROUP = "SeaTunnel-rocketmq-group";
     private static final String HOST = "rocketmq-e2e";
     private static final SchemaFormat DEFAULT_FORMAT = SchemaFormat.JSON;

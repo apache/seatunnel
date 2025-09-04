@@ -77,8 +77,6 @@ public class RocketMQPartitionSplitReader
 
     private volatile boolean wakeup = false;
 
-    private boolean isStop = false;
-
     public RocketMQPartitionSplitReader(
             ConsumerMetadata metadata, SourceReader.Context readerContext) {
         this.metadata = metadata;
@@ -104,7 +102,7 @@ public class RocketMQPartitionSplitReader
 
     @Override
     public RecordsWithSplitIds<MessageExt> fetch() throws IOException {
-        List<MessageExt> messageExts = new ArrayList<>();
+        List<MessageExt> messageExts;
         RocketMQPartitionSplitRecords recordsBySplits = new RocketMQPartitionSplitRecords();
         if (wakeup) {
             wakeup = false;
@@ -112,7 +110,7 @@ public class RocketMQPartitionSplitReader
             return recordsBySplits;
         }
         try {
-            if (!isStop) messageExts = consumer.poll(pollTimeOut);
+            messageExts = consumer.poll(pollTimeOut);
         } catch (Exception e) {
             LOG.error(
                     String.format(
@@ -136,19 +134,10 @@ public class RocketMQPartitionSplitReader
                         .collect(Collectors.toList());
 
         for (MessageExt record : messageExts) {
-            Collection<MessageExt> recordsForSplit =
-                    recordsBySplits.recordsForSplit(
-                            toSplitId(
-                                    record.getTopic(),
-                                    record.getBrokerName(),
-                                    record.getQueueId()));
-            recordsForSplit.add(record);
-
             MessageQueue mq =
                     new MessageQueue(
                             record.getTopic(), record.getBrokerName(), record.getQueueId());
             final long stoppingOffset = getStoppingOffset(mq);
-            commitOffsets.put(mq, record.getQueueOffset());
             // After processing a record with offset of "stoppingOffset - 1", the
             // split reader
             // should not continue fetching because the record with stoppingOffset
@@ -162,6 +151,15 @@ public class RocketMQPartitionSplitReader
                         mq, record.getQueueOffset(), finishedPartitions, recordsBySplits);
                 break;
             }
+            Collection<MessageExt> recordsForSplit =
+                    recordsBySplits.recordsForSplit(
+                            toSplitId(
+                                    record.getTopic(),
+                                    record.getBrokerName(),
+                                    record.getQueueId()));
+            recordsForSplit.add(record);
+
+            commitOffsets.put(mq, record.getQueueOffset());
         }
         recordsBySplits.prepareForRead();
 
@@ -315,8 +313,6 @@ public class RocketMQPartitionSplitReader
 
         if (!newAssignment.isEmpty()) {
             consumer.assign(newAssignment);
-        } else {
-            isStop = true;
         }
     }
 
