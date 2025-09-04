@@ -121,7 +121,6 @@ public class HiveSink
                 }
             }
 
-            // 2) 解析模板中的分区字段，默认不分区
             java.util.List<String> partitionFields = new java.util.ArrayList<>();
             if (readonlyConfig.getOptional(HiveSinkOptions.SAVE_MODE_CREATE_TEMPLATE).isPresent()) {
                 String template = readonlyConfig.get(HiveSinkOptions.SAVE_MODE_CREATE_TEMPLATE);
