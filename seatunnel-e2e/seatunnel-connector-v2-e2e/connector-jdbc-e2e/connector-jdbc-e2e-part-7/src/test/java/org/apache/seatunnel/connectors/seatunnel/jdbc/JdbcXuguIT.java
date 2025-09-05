@@ -28,13 +28,12 @@ import org.apache.seatunnel.e2e.common.container.TestContainer;
 
 import org.apache.commons.lang3.tuple.Pair;
 
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.utility.DockerLoggerFactory;
-
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Test;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -102,30 +101,30 @@ public class JdbcXuguIT extends AbstractJdbcIT {
                     + ")";
     private static final String[] fieldNames =
             new String[] {
-                    "XUGU_NUMERIC",
-                    "XUGU_NUMBER",
-                    "XUGU_INTEGER",
-                    "XUGU_INT",
-                    "XUGU_BIGINT",
-                    "XUGU_TINYINT",
-                    "XUGU_SMALLINT",
-                    "XUGU_FLOAT",
-                    "XUGU_DOUBLE",
-                    "XUGU_CHAR",
-                    "XUGU_NCHAR",
-                    "XUGU_VARCHAR",
-                    "XUGU_VARCHAR2",
-                    "XUGU_CLOB",
-                    "XUGU_DATE",
-                    "XUGU_TIME",
-                    "XUGU_TIMESTAMP",
-                    "XUGU_DATETIME",
-                    "XUGU_TIME_WITH_TIME_ZONE",
-                    "XUGU_TIMESTAMP_WITH_TIME_ZONE",
-                    "XUGU_BINARY",
-                    "XUGU_BLOB",
-                    "XUGU_GUID",
-                    "XUGU_BOOLEAN"
+                "XUGU_NUMERIC",
+                "XUGU_NUMBER",
+                "XUGU_INTEGER",
+                "XUGU_INT",
+                "XUGU_BIGINT",
+                "XUGU_TINYINT",
+                "XUGU_SMALLINT",
+                "XUGU_FLOAT",
+                "XUGU_DOUBLE",
+                "XUGU_CHAR",
+                "XUGU_NCHAR",
+                "XUGU_VARCHAR",
+                "XUGU_VARCHAR2",
+                "XUGU_CLOB",
+                "XUGU_DATE",
+                "XUGU_TIME",
+                "XUGU_TIMESTAMP",
+                "XUGU_DATETIME",
+                "XUGU_TIME_WITH_TIME_ZONE",
+                "XUGU_TIMESTAMP_WITH_TIME_ZONE",
+                "XUGU_BINARY",
+                "XUGU_BLOB",
+                "XUGU_GUID",
+                "XUGU_BOOLEAN"
             };
 
     @Override
@@ -181,30 +180,30 @@ public class JdbcXuguIT extends AbstractJdbcIT {
             SeaTunnelRow row =
                     new SeaTunnelRow(
                             new Object[] {
-                                    BigDecimal.valueOf(1.12),
-                                    BigDecimal.valueOf(i, 2),
-                                    i,
-                                    i,
-                                    Long.parseLong("1"),
-                                    i,
-                                    i,
-                                    Float.parseFloat("1.1"),
-                                    Double.parseDouble("1.1"),
-                                    String.format("f1_%s", i),
-                                    String.format("f1_%s", i),
-                                    String.format("f1_%s", i),
-                                    String.format("f1_%s", i),
-                                    String.format("f1_%s", i),
-                                    Date.valueOf(LocalDate.now()),
-                                    Time.valueOf(LocalTime.now()),
-                                    new Timestamp(System.currentTimeMillis()),
-                                    Timestamp.valueOf(LocalDateTime.now()),
-                                    Time.valueOf(LocalTime.now()),
-                                    new Timestamp(System.currentTimeMillis()),
-                                    null,
-                                    null,
-                                    null,
-                                    false
+                                BigDecimal.valueOf(1.12),
+                                BigDecimal.valueOf(i, 2),
+                                i,
+                                i,
+                                Long.parseLong("1"),
+                                i,
+                                i,
+                                Float.parseFloat("1.1"),
+                                Double.parseDouble("1.1"),
+                                String.format("f1_%s", i),
+                                String.format("f1_%s", i),
+                                String.format("f1_%s", i),
+                                String.format("f1_%s", i),
+                                String.format("f1_%s", i),
+                                Date.valueOf(LocalDate.now()),
+                                Time.valueOf(LocalTime.now()),
+                                new Timestamp(System.currentTimeMillis()),
+                                Timestamp.valueOf(LocalDateTime.now()),
+                                Time.valueOf(LocalTime.now()),
+                                new Timestamp(System.currentTimeMillis()),
+                                null,
+                                null,
+                                null,
+                                false
                             });
             rows.add(row);
         }
@@ -273,10 +272,8 @@ public class JdbcXuguIT extends AbstractJdbcIT {
                 "Database existence check should be case-insensitive (uppercase)");
 
         // Test mixed case scenarios for SYSTEM database
-        Assertions.assertTrue(
-                catalog.databaseExists("system"), "system should exist (lowercase)");
-        Assertions.assertTrue(
-                catalog.databaseExists("System"), "System should exist (mixed case)");
+        Assertions.assertTrue(catalog.databaseExists("system"), "system should exist (lowercase)");
+        Assertions.assertTrue(catalog.databaseExists("System"), "System should exist (mixed case)");
 
         // Test non-existent database
         Assertions.assertFalse(
@@ -287,8 +284,7 @@ public class JdbcXuguIT extends AbstractJdbcIT {
     @Test
     void testTableExists() {
         // Test specific table existence
-        TablePath testTablePath =
-                TablePath.of(XUGU_DATABASE, XUGU_SCHEMA, XUGU_SOURCE);
+        TablePath testTablePath = TablePath.of(XUGU_DATABASE, XUGU_SCHEMA, XUGU_SOURCE);
         Assertions.assertTrue(
                 catalog.tableExists(testTablePath),
                 "e2e_table_source should exist in SYSDBA schema");
@@ -301,8 +297,7 @@ public class JdbcXuguIT extends AbstractJdbcIT {
                 "Table existence check should be case-insensitive for database name");
 
         // Test non-existent table
-        TablePath nonExistentTable =
-                TablePath.of(XUGU_DATABASE, XUGU_SCHEMA, "NON_EXISTENT_TABLE");
+        TablePath nonExistentTable = TablePath.of(XUGU_DATABASE, XUGU_SCHEMA, "NON_EXISTENT_TABLE");
         Assertions.assertFalse(
                 catalog.tableExists(nonExistentTable), "Non-existent table should return false");
     }
@@ -310,8 +305,7 @@ public class JdbcXuguIT extends AbstractJdbcIT {
     @Test
     void testGetTable() {
         // Test getting specific table metadata
-        TablePath testTablePath =
-                TablePath.of(XUGU_DATABASE, XUGU_SCHEMA, XUGU_SOURCE);
+        TablePath testTablePath = TablePath.of(XUGU_DATABASE, XUGU_SCHEMA, XUGU_SOURCE);
         CatalogTable table = catalog.getTable(testTablePath);
 
         Assertions.assertNotNull(table, "Table metadata should not be null");
@@ -321,9 +315,7 @@ public class JdbcXuguIT extends AbstractJdbcIT {
         Assertions.assertEquals(
                 XUGU_SCHEMA, table.getTableId().getSchemaName(), "Schema name should match");
         Assertions.assertEquals(
-                XUGU_DATABASE,
-                table.getTableId().getDatabaseName(),
-                "Database name should match");
+                XUGU_DATABASE, table.getTableId().getDatabaseName(), "Database name should match");
 
         // Test that table has columns
         Assertions.assertNotNull(table.getTableSchema().getColumns(), "Table should have columns");
@@ -340,20 +332,28 @@ public class JdbcXuguIT extends AbstractJdbcIT {
 
         Assertions.assertNotNull(table, "Table should not be null");
         Assertions.assertNotNull(table.getTableSchema(), "Table schema should not be null");
-        Assertions.assertNotNull(table.getTableSchema().getConstraintKeys(),
-                "Constraint keys should not be null");
+        Assertions.assertNotNull(
+                table.getTableSchema().getConstraintKeys(), "Constraint keys should not be null");
 
         // Test Xugu-specific constraint key processing (removes double quotes)
-        table.getTableSchema().getConstraintKeys().forEach(constraintKey -> {
-            if (constraintKey.getColumnNames() != null) {
-                constraintKey.getColumnNames().forEach(column -> {
-                    if (column.getColumnName() != null) {
-                        Assertions.assertFalse(column.getColumnName().contains("\""),
-                                "Column names should not contain double quotes after Xugu processing");
-                    }
-                });
-            }
-        });
+        table.getTableSchema()
+                .getConstraintKeys()
+                .forEach(
+                        constraintKey -> {
+                            if (constraintKey.getColumnNames() != null) {
+                                constraintKey
+                                        .getColumnNames()
+                                        .forEach(
+                                                column -> {
+                                                    if (column.getColumnName() != null) {
+                                                        Assertions.assertFalse(
+                                                                column.getColumnName()
+                                                                        .contains("\""),
+                                                                "Column names should not contain double quotes after Xugu processing");
+                                                    }
+                                                });
+                            }
+                        });
     }
 
     @Test
@@ -372,12 +372,12 @@ public class JdbcXuguIT extends AbstractJdbcIT {
 
             // Test various case combinations all resolve to the same database
             String[] testCases = {
-                    firstDatabase,
-                    firstDatabase.toLowerCase(),
-                    firstDatabase.toUpperCase(),
-                    firstDatabase.substring(0, 1).toLowerCase() + firstDatabase.substring(1),
-                    firstDatabase.substring(0, 1).toUpperCase()
-                            + firstDatabase.substring(1).toLowerCase()
+                firstDatabase,
+                firstDatabase.toLowerCase(),
+                firstDatabase.toUpperCase(),
+                firstDatabase.substring(0, 1).toLowerCase() + firstDatabase.substring(1),
+                firstDatabase.substring(0, 1).toUpperCase()
+                        + firstDatabase.substring(1).toLowerCase()
             };
 
             for (String testCase : testCases) {
