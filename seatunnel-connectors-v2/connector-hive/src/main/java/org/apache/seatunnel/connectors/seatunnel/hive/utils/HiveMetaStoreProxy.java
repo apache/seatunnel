@@ -121,29 +121,36 @@ public class HiveMetaStoreProxy implements Catalog, Closeable, Serializable {
     }
 
     private <T> T withRetry(SupplierEx<T> action, String desc) throws Exception {
-        int attempts = 5;
+        int attempts = 10; // 增加重试次数，应对 e2e 环境中 HMS 启动较慢的情况
         for (int i = 1; i <= attempts; i++) {
             try {
                 return action.get();
             } catch (Exception e) {
                 if (i == attempts) {
+                    log.error(
+                            "HiveMetaStore operation '{}' failed after {} attempts. Final error: {}",
+                            desc,
+                            attempts,
+                            e.getMessage());
                     throw e;
                 }
                 log.warn(
-                        "HiveMetaStore operation '{}' failed on attempt {}/{}: {}. Will retry...",
+                        "HiveMetaStore operation '{}' failed on attempt {}/{}: {}. Will retry in {}ms...",
                         desc,
                         i,
                         attempts,
-                        e.getMessage());
+                        e.getMessage(),
+                        3000L);
                 // force re-initialize client on next try
                 try {
                     this.hiveClient = null;
                 } catch (Exception ignore) {
                 }
                 try {
-                    Thread.sleep(2000L);
+                    Thread.sleep(3000L);
                 } catch (InterruptedException ie) {
                     Thread.currentThread().interrupt();
+                    throw new RuntimeException("Interrupted during HMS retry", ie);
                 }
             }
         }

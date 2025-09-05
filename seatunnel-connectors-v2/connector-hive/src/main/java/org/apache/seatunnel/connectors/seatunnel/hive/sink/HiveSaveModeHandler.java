@@ -181,7 +181,7 @@ public class HiveSaveModeHandler implements SaveModeHandler, AutoCloseable {
             log.info("Dropped existing table {}.{}", dbName, tableName);
         }
 
-        // Create table
+        // Create table using template
         createTable();
     }
 
@@ -194,10 +194,13 @@ public class HiveSaveModeHandler implements SaveModeHandler, AutoCloseable {
         // Create table if not exists
         if (!hiveMetaStoreProxy.tableExists(dbName, tableName)) {
             createTable();
+        } else {
+            log.info("Table {}.{} already exists, skipping creation", dbName, tableName);
         }
     }
 
     private void handleErrorWhenSchemaNotExist() throws TException {
+        log.info("Error when schema not exist mode: checking table {}.{}", dbName, tableName);
 
         // Check if database exists
         if (!hiveMetaStoreProxy.databaseExists(dbName)) {
@@ -206,6 +209,7 @@ public class HiveSaveModeHandler implements SaveModeHandler, AutoCloseable {
                     "Database " + dbName + " does not exist");
         }
 
+        // Check if table exists
         if (!hiveMetaStoreProxy.tableExists(dbName, tableName)) {
             throw new HiveConnectorException(
                     HiveConnectorErrorCode.CREATE_HIVE_TABLE_FAILED,
@@ -233,6 +237,21 @@ public class HiveSaveModeHandler implements SaveModeHandler, AutoCloseable {
     }
 
     private Table buildTableFromTemplate() {
+        log.info("Building table {}.{} from template", dbName, tableName);
+
+        if (readonlyConfig.getOptional(HiveSinkOptions.SAVE_MODE_CREATE_TEMPLATE).isPresent()) {
+            return buildTableFromCustomTemplate();
+        } else {
+            return buildTableFromDefaultTemplate();
+        }
+    }
+
+    private Table buildTableFromDefaultTemplate() {
+        log.info(
+                "Building table {}.{} using default template (PARQUET, no partitions)",
+                dbName,
+                tableName);
+
         Table table = new Table();
         table.setDbName(dbName);
         table.setTableName(tableName);
@@ -240,10 +259,81 @@ public class HiveSaveModeHandler implements SaveModeHandler, AutoCloseable {
         table.setCreateTime((int) (System.currentTimeMillis() / 1000));
         table.setTableType("MANAGED_TABLE");
 
+        // 默认不分区
+        table.setPartitionKeys(new ArrayList<>());
+
         // Set storage descriptor
         StorageDescriptor sd = new StorageDescriptor();
 
-        // Initialize SerDe to avoid NPE when configuring serialization library
+        // Initialize SerDe
+        org.apache.hadoop.hive.metastore.api.SerDeInfo serdeInfo =
+                new org.apache.hadoop.hive.metastore.api.SerDeInfo();
+        serdeInfo.setName(table.getTableName());
+        sd.setSerdeInfo(serdeInfo);
+
+        // Set all columns as regular columns (no partitions in default template)
+        List<FieldSchema> cols = new ArrayList<>();
+        tableSchema
+                .getColumns()
+                .forEach(
+                        column -> {
+                            String hiveType =
+                                    HiveTypeConvertor.seatunnelToHiveType(column.getDataType());
+                            String comment = column.getComment();
+                            cols.add(new FieldSchema(column.getName(), hiveType, comment));
+                        });
+        sd.setCols(cols);
+
+        // Set table location
+        String tableLocation = HiveTableTemplateUtils.getDefaultTableLocation(dbName, tableName);
+        sd.setLocation(tableLocation);
+
+        // 默认使用 PARQUET 格式
+        configureStorageDescriptor(sd, "PARQUET");
+        sd.setCompressed(false);
+        sd.setStoredAsSubDirectories(false);
+
+        table.setSd(sd);
+
+        // Set table parameters
+        table.putToParameters("seatunnel.creation.mode", "default_template");
+        table.putToParameters("seatunnel.created.time", String.valueOf(System.currentTimeMillis()));
+
+        return table;
+    }
+
+    private Table buildTableFromCustomTemplate() {
+        log.info("Building table {}.{} using custom template", dbName, tableName);
+
+        Table table = new Table();
+        table.setDbName(dbName);
+        table.setTableName(tableName);
+        table.setOwner(System.getProperty("user.name", "seatunnel"));
+        table.setCreateTime((int) (System.currentTimeMillis() / 1000));
+        table.setTableType("MANAGED_TABLE");
+
+        // 从自定义模板解析分区字段
+        List<String> partitionFields = extractPartitionFieldsFromConfig();
+        List<FieldSchema> partitionKeys = new ArrayList<>();
+        for (String partitionField : partitionFields) {
+            tableSchema.getColumns().stream()
+                    .filter(column -> column.getName().equals(partitionField))
+                    .findFirst()
+                    .ifPresent(
+                            column -> {
+                                String hiveType =
+                                        HiveTypeConvertor.seatunnelToHiveType(column.getDataType());
+                                String comment = column.getComment();
+                                partitionKeys.add(
+                                        new FieldSchema(partitionField, hiveType, comment));
+                            });
+        }
+        table.setPartitionKeys(partitionKeys);
+
+        // Set storage descriptor
+        StorageDescriptor sd = new StorageDescriptor();
+
+        // Initialize SerDe
         org.apache.hadoop.hive.metastore.api.SerDeInfo serdeInfo =
                 new org.apache.hadoop.hive.metastore.api.SerDeInfo();
         serdeInfo.setName(table.getTableName());
@@ -262,33 +352,20 @@ public class HiveSaveModeHandler implements SaveModeHandler, AutoCloseable {
                         });
         sd.setCols(cols);
 
-        // Set table location (align with default computation used by sink path)
+        // Set table location
         String tableLocation = HiveTableTemplateUtils.getDefaultTableLocation(dbName, tableName);
         sd.setLocation(tableLocation);
 
-        // Set storage format based on template or default to PARQUET
+        // 从模板解析存储格式
         String storageFormat = extractStorageFormatFromTemplate();
         configureStorageDescriptor(sd, storageFormat);
-
-        // Set compression and storage settings
         sd.setCompressed(shouldEnableCompression(storageFormat));
         sd.setStoredAsSubDirectories(false);
 
         table.setSd(sd);
 
-        // Set partition keys if this is a partitioned table
-        if (isPartitionedTable()) {
-            List<FieldSchema> partitionKeys = new ArrayList<>();
-            for (String partitionField : partitionFields) {
-                String hiveType = getPartitionFieldType(partitionField);
-                partitionKeys.add(new FieldSchema(partitionField, hiveType, "Partition field"));
-            }
-            table.setPartitionKeys(partitionKeys);
-            log.info("Set partition keys for table {}.{}: {}", dbName, tableName, partitionFields);
-        }
-
-        // Set table properties
-        table.putToParameters("seatunnel.creation.mode", "template");
+        // Set table parameters
+        table.putToParameters("seatunnel.creation.mode", "custom_template");
         table.putToParameters("seatunnel.created.time", String.valueOf(System.currentTimeMillis()));
 
         return table;
