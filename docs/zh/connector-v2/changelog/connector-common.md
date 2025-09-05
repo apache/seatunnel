@@ -2,7 +2,9 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
-|[Fix][Connector-V2] ArrowToSeatunnelRowReader convertSeatunnelRowValue add handle Second TIMESTAMP type (#9393)|https://github.com/apache/seatunnel/commit/0555f8520b| dev |
+|[Chore] fix typos filed -&gt; field (#9757)|https://github.com/apache/seatunnel/commit/e3e1c67d29|2.3.12|
+|[Feature][Connector-File-Hadoop]Support multi table sink feature for HdfsFile (#9651)|https://github.com/apache/seatunnel/commit/bb4f743c05|2.3.12|
+|[Fix][Connector-V2] ArrowToSeatunnelRowReader convertSeatunnelRowValue add handle Second TIMESTAMP type (#9393)|https://github.com/apache/seatunnel/commit/0555f8520b|2.3.12|
 |[Feature][Checkpoint] Add check script for source/sink state class serialVersionUID missing (#9118)|https://github.com/apache/seatunnel/commit/4f5adeb1c7|2.3.11|
 |[Fix][API] Fixed not invoke the `SinkAggregatedCommitter`&#x27;s init method (#9070)|https://github.com/apache/seatunnel/commit/df0d11d632|2.3.11|
 |[Improve] Refactor file enumerator to prevent duplicate put split (#8989)|https://github.com/apache/seatunnel/commit/fdf1beae9c|2.3.11|

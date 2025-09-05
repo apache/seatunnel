@@ -2,7 +2,9 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
-|[Feature][Connectors-V2][Elasticsearch] Support vector transformation sink (#9330)|https://github.com/apache/seatunnel/commit/a1ce97155f| dev |
+|[Feature][Transform-V2] Support vector series sql function (#9765)|https://github.com/apache/seatunnel/commit/a40114cf7a|2.3.12|
+|[Feature][elasticsearch-connector] Add API key authentication support (#9610)|https://github.com/apache/seatunnel/commit/a2bfe1a530|2.3.12|
+|[Feature][Connectors-V2][Elasticsearch] Support vector transformation sink (#9330)|https://github.com/apache/seatunnel/commit/a1ce97155f|2.3.12|
 |[Feature][Checkpoint] Add check script for source/sink state class serialVersionUID missing (#9118)|https://github.com/apache/seatunnel/commit/4f5adeb1c7|2.3.11|
 |[Feature][connector-elasticsearch] elasticsearch source support PIT (#9150)|https://github.com/apache/seatunnel/commit/948d588d06|2.3.11|
 |[Bugfix][Elasticsearch] Fix add column event (#9069)|https://github.com/apache/seatunnel/commit/3455316981|2.3.11|

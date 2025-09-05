@@ -2,6 +2,8 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
+|[Improve][Connector-V2] Use key_field_name option when reading Redis hash data (#9642)|https://github.com/apache/seatunnel/commit/5d214a7305|2.3.12|
+|[Feature][Redis] Add redis key into the result record (#9574)|https://github.com/apache/seatunnel/commit/6e8b7c5da5|2.3.12|
 |[Fix][Connector-Redis] Redis did not write successfully, but the task did not fail (#9055)|https://github.com/apache/seatunnel/commit/07510ed937|2.3.11|
 |[hotfix][redis] fix npe cause by null host parameter (#8881)|https://github.com/apache/seatunnel/commit/7bd5865165|2.3.10|
 |[Improve][Redis] Optimized Redis connection params (#8841)|https://github.com/apache/seatunnel/commit/e56f06cdf0|2.3.10|
