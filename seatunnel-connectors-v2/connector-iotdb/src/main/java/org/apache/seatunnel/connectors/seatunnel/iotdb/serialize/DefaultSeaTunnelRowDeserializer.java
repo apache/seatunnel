@@ -134,6 +134,8 @@ public class DefaultSeaTunnelRowDeserializer implements SeaTunnelRowDeserializer
                 }
             case DATE:
                 return field.getObjectValue(TSDataType.DATE);
+            case BLOB:
+                return field.getStringValue();
             default:
                 throw new IotdbConnectorException(
                         CommonErrorCode.UNSUPPORTED_DATA_TYPE,

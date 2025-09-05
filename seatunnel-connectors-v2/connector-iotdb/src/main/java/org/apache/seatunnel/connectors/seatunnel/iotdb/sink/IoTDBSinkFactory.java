@@ -17,15 +17,21 @@
 
 package org.apache.seatunnel.connectors.seatunnel.iotdb.sink;
 
+import lombok.extern.slf4j.Slf4j;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.iotdb.config.IoTDBSinkOptions;
 
 import com.google.auto.service.AutoService;
+import org.apache.seatunnel.connectors.seatunnel.iotdb.constant.SinkConstants;
+import org.apache.seatunnel.connectors.seatunnel.iotdb.exception.IotdbConnectorException;
 
+@Slf4j
 @AutoService(Factory.class)
 public class IoTDBSinkFactory implements TableSinkFactory {
     @Override
@@ -40,11 +46,14 @@ public class IoTDBSinkFactory implements TableSinkFactory {
                         IoTDBSinkOptions.NODE_URLS,
                         IoTDBSinkOptions.USERNAME,
                         IoTDBSinkOptions.PASSWORD,
+                        IoTDBSinkOptions.STORAGE_GROUP,
                         IoTDBSinkOptions.KEY_DEVICE)
                 .optional(
+                        IoTDBSinkOptions.SQL_DIALECT,
                         IoTDBSinkOptions.KEY_TIMESTAMP,
+                        IoTDBSinkOptions.KEY_TAG_FIELDS,
+                        IoTDBSinkOptions.KEY_ATTRIBUTE_FIELDS,
                         IoTDBSinkOptions.KEY_MEASUREMENT_FIELDS,
-                        IoTDBSinkOptions.STORAGE_GROUP,
                         IoTDBSinkOptions.BATCH_SIZE,
                         IoTDBSinkOptions.MAX_RETRIES,
                         IoTDBSinkOptions.RETRY_BACKOFF_MULTIPLIER_MS,
@@ -59,6 +68,25 @@ public class IoTDBSinkFactory implements TableSinkFactory {
 
     @Override
     public TableSink createSink(TableSinkFactoryContext context) {
-        return () -> new IoTDBSink(context.getOptions(), context.getCatalogTable());
+        ReadonlyConfig conf = context.getOptions();
+        String targetSqlDialect;
+        if (conf.get(IoTDBSinkOptions.SQL_DIALECT) != null) {
+            String sqlDialect = conf.get(IoTDBSinkOptions.SQL_DIALECT);
+            if (SinkConstants.TABLE.equalsIgnoreCase(sqlDialect)) {
+                targetSqlDialect = SinkConstants.TABLE;
+            } else {
+                if (SinkConstants.TREE.equalsIgnoreCase(sqlDialect)) {
+                    targetSqlDialect = SinkConstants.TREE;
+                } else {
+                    throw new IotdbConnectorException(
+                            CommonErrorCode.ILLEGAL_ARGUMENT, "Sql dialect not supported");
+                }
+            }
+        } else {
+            targetSqlDialect = SinkConstants.TREE;
+        }
+
+        log.info("targetSqlDialect:{}", targetSqlDialect); // to-delete
+        return () -> new IoTDBSink(context.getOptions(), context.getCatalogTable(), targetSqlDialect);
     }
 }

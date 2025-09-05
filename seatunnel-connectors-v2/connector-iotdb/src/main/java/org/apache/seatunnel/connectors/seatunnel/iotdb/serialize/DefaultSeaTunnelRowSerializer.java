@@ -37,7 +37,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer {
+public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer<IoTDBRecord> {
 
     private final Function<SeaTunnelRow, Long> timestampExtractor;
     private final Function<SeaTunnelRow, String> deviceExtractor;

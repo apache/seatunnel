@@ -82,4 +82,15 @@ public class IoTDBSinkOptions extends IoTDBCommonOptions {
                     .intType()
                     .noDefaultValue()
                     .withDescription("connection timeout ms");
+    // --------------------------------------------------------------
+    public static final Option<List<String>> KEY_TAG_FIELDS =
+            Options.key("key_tag_fields")
+                    .listType()
+                    .noDefaultValue()
+                    .withDescription("key tag fields");
+    public static final Option<List<String>> KEY_ATTRIBUTE_FIELDS =
+            Options.key("key_attribute_fields")
+                    .listType()
+                    .noDefaultValue()
+                    .withDescription("key attribute fields");
 }
