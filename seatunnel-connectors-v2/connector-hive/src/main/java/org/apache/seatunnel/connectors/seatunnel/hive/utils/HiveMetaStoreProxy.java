@@ -384,7 +384,6 @@ public class HiveMetaStoreProxy implements Catalog, Closeable, Serializable {
         try {
             return getClient().getAllDatabases();
         } catch (TException e) {
-            // 提示性增强，帮助定位 HMS 兼容问题
             log.warn(
                     "listDatabases failed via getAllDatabases(), check HMS version compatibility: {}",
                     e.getMessage());
