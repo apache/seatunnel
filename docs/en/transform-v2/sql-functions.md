@@ -958,7 +958,7 @@ Convert the number of seconds from the UNIX epoch (1970-01-01 00:00:00 UTC) to a
 
 The most important format characters are: y year, M month, d day, H hour, m minute, s second. For details of the format, see `java.time.format.DateTimeFormatter`.
 
-`timeZone` is optional, default value is system's time zone. `timezone` value can be a `UTC+ timezone offset`, for example, `UTC+8` represents the Asia/Shanghai time zone, see `java.time.ZoneId`
+`timeZone` is optional, default value is system's time zone. `timezone` value can be a `UTC+ timezone offset`, for example, `UTC+8` represents the Asia/Shanghai time zone, see  https://en.wikipedia.org/wiki/List_of_tz_database_time_zones .
 
 
 Example:
@@ -972,6 +972,20 @@ or
 // use given zone
 
 CALL FROM_UNIXTIME(1672502400, 'yyyy-MM-dd HH:mm:ss','UTC+6')
+
+### AT TIME ZONE
+
+```dateAndTime AT TIME ZONE 'timeZone' -> TIMESTAMP_TZ```
+
+Convert a timestamp value to a TIMESTAMP WITH TIME ZONE value in the specified time zone.
+
+`timeZone` value can be a `UTC+ timezone offset`, for example, `+08:00` represents the Asia/Shanghai time zone, see https://en.wikipedia.org/wiki/List_of_tz_database_time_zones .
+
+Example:
+
+local_date_time AT TIME ZONE '+09:00'
+
+offset_date_time AT TIME ZONE 'Pacific/Honolulu'
 
 ## System Functions
 
@@ -1222,3 +1236,43 @@ Calculates the Euclidean (L2) distance between two vectors.
 Example:
 
 L2_DISTANCE(vector1, vector2)
+
+### VECTOR_REDUCE
+
+```VECTOR_REDUCE(vector_field, target_dimension, method)```
+
+Generic vector dimension reduction function that supports multiple reduction methods.
+
+**Parameters:**
+- `vector_field`: The vector field to reduce (VECTOR type)
+- `target_dimension`: The target dimension (INTEGER, must be smaller than source dimension)
+- `method`: The reduction method (STRING):
+  - **'TRUNCATE'**: Truncates the vector by keeping only the first N elements. This is the simplest and fastest dimension reduction method, but may lose important information in the truncated dimensions.
+  - **'RANDOM_PROJECTION'**: Uses Gaussian random projection with normally distributed random matrix. This method preserves relative distances between vectors while reducing dimensionality, following the Johnson-Lindenstrauss lemma.
+  - **'SPARSE_RANDOM_PROJECTION'**: Uses sparse random projection where matrix elements are mostly zero (±√3, 0). This is more computationally efficient than regular random projection while maintaining similar distance preservation properties.
+
+**Returns:** VECTOR type with reduced dimensions
+
+**Example:**
+```sql
+SELECT id, VECTOR_REDUCE(embedding, 256, 'TRUNCATE') as reduced_embedding FROM table
+SELECT id, VECTOR_REDUCE(embedding, 128, 'RANDOM_PROJECTION') as reduced_embedding FROM table
+SELECT id, VECTOR_REDUCE(embedding, 64, 'SPARSE_RANDOM_PROJECTION') as reduced_embedding FROM table
+```
+
+### VECTOR_NORMALIZE
+
+```VECTOR_NORMALIZE(vector_field)```
+
+Normalizes a vector to unit length (magnitude = 1). This is useful for computing cosine similarity.
+
+**Parameters:**
+- `vector_field`: The vector field to normalize (VECTOR type)
+
+**Returns:** VECTOR type - the normalized vector
+
+**Example:**
+```sql
+SELECT id, VECTOR_NORMALIZE(embedding) as normalized_embedding FROM table
+```
+

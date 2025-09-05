@@ -266,6 +266,11 @@ public class ConfigBuilder {
                                                             System.getProperty(placeholder),
                                                             null);
                                                 });
+                            } else if (variable instanceof Map) {
+                                processVariablesMap((Map<String, Object>) variable);
+                                return variable;
+                            } else if (variable instanceof List) {
+                                return processVariablesList((List<?>) variable);
                             }
                             return variable;
                         })

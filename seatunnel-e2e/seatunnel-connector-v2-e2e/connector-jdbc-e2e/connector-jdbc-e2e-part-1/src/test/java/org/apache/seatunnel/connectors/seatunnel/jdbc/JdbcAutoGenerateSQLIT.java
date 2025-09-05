@@ -41,9 +41,11 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
+import static org.apache.seatunnel.e2e.common.util.JdbcUtil.querySql;
 import static org.awaitility.Awaitility.given;
 
 @Slf4j
@@ -90,6 +92,24 @@ public class JdbcAutoGenerateSQLIT extends TestSuiteBase implements TestResource
             throws IOException, InterruptedException {
         Container.ExecResult execResult = container.executeJob("/jdbc_sink_auto_generate_sql.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
+        List<Object> result =
+                querySql(
+                                "select * from sink limit 1",
+                                () -> {
+                                    try {
+                                        return DriverManager.getConnection(
+                                                postgreSQLContainer.getJdbcUrl(),
+                                                postgreSQLContainer.getUsername(),
+                                                postgreSQLContainer.getPassword());
+                                    } catch (SQLException e) {
+                                        throw new RuntimeException(e);
+                                    }
+                                })
+                        .get(0);
+        Assertions.assertInstanceOf(Long.class, result.get(0));
+        Assertions.assertInstanceOf(String.class, result.get(1));
+        Assertions.assertInstanceOf(Integer.class, result.get(2));
+        Assertions.assertInstanceOf(java.sql.Timestamp.class, result.get(3));
     }
 
     @TestTemplate
@@ -111,7 +131,8 @@ public class JdbcAutoGenerateSQLIT extends TestSuiteBase implements TestResource
                     "create table sink(\n"
                             + "user_id BIGINT NOT NULL PRIMARY KEY,\n"
                             + "name varchar(255),\n"
-                            + "age INT\n"
+                            + "age INT,\n"
+                            + "timestamp_tz TIMESTAMPTZ \n"
                             + ")";
             statement.execute(sink);
         } catch (SQLException e) {
