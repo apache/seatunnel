@@ -85,6 +85,11 @@ public abstract class AbstractWriteStrategy<T> implements WriteStrategy<T> {
     protected int batchSize;
     protected boolean singleFileMode;
     protected int currentBatchSize = 0;
+    // When true, we've already rotated to the next transaction (checkpointId+1)
+    // during prepareCommit to ensure any records arriving between prepareCommit
+    // and snapshotState are written into a new transaction directory. In that case
+    // snapshotState must NOT rotate again.
+    protected boolean rotatedAfterPrepare = false;
 
     public AbstractWriteStrategy(FileSinkConfig fileSinkConfig) {
         this.fileSinkConfig = fileSinkConfig;
@@ -274,7 +279,20 @@ public abstract class AbstractWriteStrategy<T> implements WriteStrategy<T> {
                                         e -> new ArrayList<>(e.getValue()),
                                         (e1, e2) -> e1,
                                         LinkedHashMap::new));
-        return Optional.of(new FileCommitInfo(commitMap, copyMap, transactionDirectory));
+        // Keep current transaction dir for this commit before rotating
+        String commitTransactionDir = transactionDirectory;
+
+        // Rotate file part so that any records coming after prepareCommit will be written
+        // into a new temp file path, preventing overwrite of files included in this commit.
+        newFilePart();
+        currentBatchSize = 0;
+
+        // Also rotate the transaction directory immediately so any writes between
+        // prepareCommit and snapshotState go into the next checkpoint transaction.
+        rotatedAfterPrepare = true;
+        beginTransaction(this.checkpointId + 1);
+
+        return Optional.of(new FileCommitInfo(commitMap, copyMap, commitTransactionDir));
     }
 
     /** abort prepare commit operation */
@@ -353,7 +371,12 @@ public abstract class AbstractWriteStrategy<T> implements WriteStrategy<T> {
                                 commitMap,
                                 this.getTransactionDir(transactionId)));
         this.beingWrittenFile.clear();
-        this.beginTransaction(checkpointId + 1);
+        // Only rotate here if we didn't already move to the next transaction in prepareCommit.
+        if (!rotatedAfterPrepare) {
+            this.beginTransaction(checkpointId + 1);
+        } else {
+            rotatedAfterPrepare = false;
+        }
         return fileState;
     }
 

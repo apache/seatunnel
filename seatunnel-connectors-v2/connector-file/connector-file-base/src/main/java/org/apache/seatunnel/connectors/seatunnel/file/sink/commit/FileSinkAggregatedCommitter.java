@@ -21,6 +21,8 @@ import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.hadoop.HadoopFileSystemProxy;
 
+import org.apache.hadoop.fs.FileStatus;
+
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
@@ -59,8 +61,37 @@ public class FileSinkAggregatedCommitter
                                 hadoopFileSystemProxy.renameFile(
                                         mvFileEntry.getKey(), mvFileEntry.getValue(), true);
                             }
-                            // second delete transaction directory
-                            hadoopFileSystemProxy.deleteFile(entry.getKey());
+                            // second delete transaction directory if and only if empty
+                            try {
+                                FileStatus[] statuses =
+                                        hadoopFileSystemProxy.listStatus(entry.getKey());
+                                boolean empty = true;
+                                if (statuses != null) {
+                                    for (FileStatus s : statuses) {
+                                        String name = s.getPath().getName();
+                                        // ignore hidden/system files
+                                        if (!name.startsWith("._")
+                                                && !name.startsWith("_")
+                                                && !name.equals(".")
+                                                && !name.equals("..")) {
+                                            empty = false;
+                                            break;
+                                        }
+                                    }
+                                }
+                                if (empty) {
+                                    hadoopFileSystemProxy.deleteFile(entry.getKey());
+                                } else {
+                                    log.warn(
+                                            "Skip deleting non-empty transaction dir: {}",
+                                            entry.getKey());
+                                }
+                            } catch (IOException ioe) {
+                                log.warn(
+                                        "Check/delete transaction dir failed, path={}, err={}",
+                                        entry.getKey(),
+                                        ioe.getMessage());
+                            }
                         }
                     } catch (Throwable e) {
                         log.error(

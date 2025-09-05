@@ -101,14 +101,61 @@ public class HadoopFileSystemProxy implements Serializable, Closeable {
                     Path oldPath = new Path(oldFilePath);
                     Path newPath = new Path(newFilePath);
 
+                    // Short visibility wait to handle close->commit race on some FS
+                    int attempts = 0;
+                    int maxAttempts = 10; // ~2s total
+                    long backoffMs = 200L;
+                    while (!fileExist(oldPath.toString()) && !fileExist(newFilePath)) {
+                        if (++attempts >= maxAttempts) {
+                            break;
+                        }
+                        try {
+                            Thread.sleep(backoffMs);
+                        } catch (InterruptedException ie) {
+                            Thread.currentThread().interrupt();
+                            break;
+                        }
+                    }
+
                     if (!fileExist(oldPath.toString())) {
-                        log.warn(
-                                "rename file :["
-                                        + oldPath
-                                        + "] to ["
-                                        + newPath
-                                        + "] already finished in the last commit, skip");
-                        return Void.class;
+                        // If target exists, treat as idempotent success
+                        if (fileExist(newFilePath)) {
+                            log.warn(
+                                    "rename file :[{}] to [{}] already finished in the last commit, skip",
+                                    oldPath,
+                                    newPath);
+                            return Void.class;
+                        } else {
+                            // Extra diagnostics
+                            try {
+                                Path parent = oldPath.getParent();
+                                if (parent != null && fileExist(parent.toString())) {
+                                    FileStatus[] statuses = getFileSystem().listStatus(parent);
+                                    if (statuses != null) {
+                                        StringBuilder children = new StringBuilder();
+                                        for (FileStatus s : statuses) {
+                                            children.append(s.getPath())
+                                                    .append("|isFile=")
+                                                    .append(s.isFile())
+                                                    .append("\n");
+                                        }
+                                        log.warn(
+                                                "rename diagnostics, source parent [{}] children:\n{}",
+                                                parent,
+                                                children.toString());
+                                    }
+                                }
+                            } catch (Exception ignore) {
+                                // best-effort diagnostics only
+                            }
+                            throw CommonError.fileOperationFailed(
+                                    "SeaTunnel",
+                                    "rename",
+                                    oldFilePath
+                                            + " -> "
+                                            + newFilePath
+                                            + " (source missing and target not found)");
+                        }
                     }
 
                     if (removeWhenNewFilePathExist) {
