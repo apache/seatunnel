@@ -36,6 +36,7 @@ import org.apache.seatunnel.connectors.seatunnel.milvus.exception.MilvusConnecto
 import org.apache.commons.lang3.StringUtils;
 
 import com.google.gson.Gson;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import io.milvus.grpc.DataType;
@@ -69,7 +70,12 @@ public class MilvusSinkConverter {
             case STRING:
             case DATE:
                 if (isJson) {
-                    return gson.fromJson(value.toString(), JsonObject.class);
+                    JsonElement element = gson.fromJson(value.toString(), JsonElement.class);
+                    if (element.isJsonObject()) {
+                        return element.getAsJsonObject();
+                    } else {
+                        return element.toString();
+                    }
                 }
                 return value.toString();
             case FLOAT_VECTOR:
