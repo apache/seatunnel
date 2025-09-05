@@ -25,9 +25,11 @@ import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 import java.util.stream.IntStream;
 
 public class VectorFunction {
+    private static final Random random = new Random(42);
 
     public static Object cosineDistance(List<Object> args) {
         if (args.size() != 2) {
@@ -198,5 +200,159 @@ public class VectorFunction {
                     CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
                     String.format("Unsupported vector type: %s", obj.getClass().getName()));
         }
+    }
+
+    /** Truncate vector to target dimension Usage: VECTOR_REDUCE(embedding, 256, 'TRUNCATE') */
+    public static Object vectorTruncate(Object vectorData, Integer targetDimension) {
+        if (vectorData == null || targetDimension == null) {
+            return null;
+        }
+
+        Float[] sourceVector = convertToFloatArray(vectorData);
+        if (sourceVector.length <= targetDimension) {
+            return vectorData; // No need to truncate
+        }
+
+        Float[] result = new Float[targetDimension];
+        System.arraycopy(sourceVector, 0, result, 0, targetDimension);
+        return VectorUtils.toByteBuffer(result);
+    }
+
+    /**
+     * Random projection for dimension reduction Usage: VECTOR_REDUCE(embedding, 128,
+     * 'RANDOM_PROJECTION')
+     */
+    public static Object vectorRandomProjection(Object vectorData, Integer targetDimension) {
+        if (vectorData == null || targetDimension == null) {
+            return null;
+        }
+
+        Float[] sourceVector = convertToFloatArray(vectorData);
+        if (sourceVector.length <= targetDimension) {
+            return vectorData; // No need to reduce
+        }
+
+        float[][] projectionMatrix =
+                createGaussianProjectionMatrix(sourceVector.length, targetDimension);
+        Float[] result = applyProjection(sourceVector, projectionMatrix, targetDimension);
+        return VectorUtils.toByteBuffer(result);
+    }
+
+    /**
+     * Sparse random projection for dimension reduction Usage: VECTOR_REDUCE(embedding, 64,
+     * 'SPARSE_RANDOM_PROJECTION')
+     */
+    public static Object vectorSparseProjection(Object vectorData, Integer targetDimension) {
+        if (vectorData == null || targetDimension == null) {
+            return null;
+        }
+
+        Float[] sourceVector = convertToFloatArray(vectorData);
+        if (sourceVector.length <= targetDimension) {
+            return vectorData; // No need to reduce
+        }
+
+        float[][] projectionMatrix =
+                createSparseProjectionMatrix(sourceVector.length, targetDimension);
+        Float[] result = applyProjection(sourceVector, projectionMatrix, targetDimension);
+        return VectorUtils.toByteBuffer(result);
+    }
+
+    /**
+     * Generic vector dimension reduction function Usage: VECTOR_REDUCE(vector_field,
+     * target_dimension, method) method: 'TRUNCATE', 'RANDOM_PROJECTION', 'SPARSE_RANDOM_PROJECTION'
+     */
+    public static Object vectorReduce(Object vectorData, Integer targetDimension, String method) {
+        if (vectorData == null || targetDimension == null || method == null) {
+            return null;
+        }
+
+        switch (method.toUpperCase()) {
+            case "TRUNCATE":
+                return vectorTruncate(vectorData, targetDimension);
+            case "RANDOM_PROJECTION":
+                return vectorRandomProjection(vectorData, targetDimension);
+            case "SPARSE_RANDOM_PROJECTION":
+                return vectorSparseProjection(vectorData, targetDimension);
+            default:
+                throw new IllegalArgumentException("Unknown reduction method: " + method);
+        }
+    }
+
+    /** Normalize vector to unit length Usage: VECTOR_NORMALIZE(vector_field) */
+    public static Object vectorNormalize(Object vectorData) {
+        if (vectorData == null) {
+            return null;
+        }
+
+        Float[] vector = convertToFloatArray(vectorData);
+        double magnitude = 0.0;
+        for (Float value : vector) {
+            if (value != null) {
+                magnitude += value * value;
+            }
+        }
+        magnitude = Math.sqrt(magnitude);
+
+        if (magnitude == 0.0) {
+            return vectorData; // Return original if zero vector
+        }
+
+        Float[] normalized = new Float[vector.length];
+        for (int i = 0; i < vector.length; i++) {
+            normalized[i] = vector[i] == null ? null : (float) (vector[i] / magnitude);
+        }
+
+        return VectorUtils.toByteBuffer(normalized);
+    }
+
+    private static Float[] applyProjection(
+            Float[] sourceVector, float[][] projectionMatrix, int targetDimension) {
+        Float[] result = new Float[targetDimension];
+        for (int i = 0; i < targetDimension; i++) {
+            float sum = 0.0f;
+            for (int j = 0; j < sourceVector.length; j++) {
+                if (projectionMatrix[i][j] != 0 && sourceVector[j] != null) {
+                    sum += sourceVector[j] * projectionMatrix[i][j];
+                }
+            }
+            result[i] = sum;
+        }
+        return result;
+    }
+
+    private static float[][] createGaussianProjectionMatrix(
+            int sourceDimension, int targetDimension) {
+        float[][] matrix = new float[targetDimension][sourceDimension];
+        float scale = (float) Math.sqrt(1.0 / targetDimension);
+
+        for (int i = 0; i < targetDimension; i++) {
+            for (int j = 0; j < sourceDimension; j++) {
+                matrix[i][j] = (float) random.nextGaussian() * scale;
+            }
+        }
+        return matrix;
+    }
+
+    private static float[][] createSparseProjectionMatrix(
+            int sourceDimension, int targetDimension) {
+        float[][] matrix = new float[targetDimension][sourceDimension];
+        float scale = (float) Math.sqrt(3.0);
+        double p1 = 1.0 / 6.0;
+        double p2 = 2.0 / 6.0;
+
+        for (int i = 0; i < targetDimension; i++) {
+            for (int j = 0; j < sourceDimension; j++) {
+                double rand = random.nextDouble();
+                if (rand < p1) {
+                    matrix[i][j] = scale;
+                } else if (rand < p2) {
+                    matrix[i][j] = -scale;
+                } else {
+                    matrix[i][j] = 0;
+                }
+            }
+        }
+        return matrix;
     }
 }
