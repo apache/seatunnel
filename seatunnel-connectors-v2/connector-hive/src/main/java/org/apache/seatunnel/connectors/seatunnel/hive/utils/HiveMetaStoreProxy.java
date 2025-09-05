@@ -176,8 +176,15 @@ public class HiveMetaStoreProxy implements Catalog, Closeable, Serializable {
     private HiveConf buildHiveConf() {
         HiveConf hiveConf = new HiveConf();
         hiveConf.set("hive.metastore.uris", metastoreUri);
-        // Avoid calling set_ugi for compatibility with older Metastore servers
+
         hiveConf.setBoolVar(HiveConf.ConfVars.METASTORE_EXECUTE_SET_UGI, false);
+        // Disable capability checks that cause TTransportException
+        hiveConf.setBoolean("hive.metastore.client.capability.check", false);
+        hiveConf.setBoolean("hive.metastore.client.filter.enabled", false);
+        // Increase timeouts for better stability
+        hiveConf.setInt("hive.metastore.client.socket.timeout", 600);
+        hiveConf.setInt("hive.metastore.client.connect.retry.delay", 5);
+        hiveConf.setInt("hive.metastore.failure.retries", 3);
 
         if (StringUtils.isNotBlank(hadoopConfDir)) {
             for (String fileName : HADOOP_CONF_FILES) {

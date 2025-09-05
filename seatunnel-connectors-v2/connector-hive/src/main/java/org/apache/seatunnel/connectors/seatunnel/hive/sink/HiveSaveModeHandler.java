@@ -172,8 +172,12 @@ public class HiveSaveModeHandler implements SaveModeHandler, AutoCloseable {
     private void handleRecreateSchema() throws TException {
         log.info("Recreate schema mode: dropping and recreating table {}.{}", dbName, tableName);
 
-        // Create database if not exists
-        createDatabaseIfNotExists();
+        // Do NOT create database automatically. Ensure database exists first.
+        if (!hiveMetaStoreProxy.databaseExists(dbName)) {
+            throw new HiveConnectorException(
+                    HiveConnectorErrorCode.CREATE_HIVE_TABLE_FAILED,
+                    "Database " + dbName + " does not exist. Please create it manually.");
+        }
 
         // Drop table if exists
         if (hiveMetaStoreProxy.tableExists(dbName, tableName)) {
@@ -188,10 +192,12 @@ public class HiveSaveModeHandler implements SaveModeHandler, AutoCloseable {
     private void handleCreateSchemaWhenNotExist() throws TException {
         log.info("Create schema when not exist mode for table {}.{}", dbName, tableName);
 
-        // Create database if not exists
-        createDatabaseIfNotExists();
+        if (!hiveMetaStoreProxy.databaseExists(dbName)) {
+            throw new HiveConnectorException(
+                    HiveConnectorErrorCode.CREATE_HIVE_TABLE_FAILED,
+                    "Database " + dbName + " does not exist. Please create it manually.");
+        }
 
-        // Create table if not exists
         if (!hiveMetaStoreProxy.tableExists(dbName, tableName)) {
             createTable();
         } else {
@@ -215,10 +221,6 @@ public class HiveSaveModeHandler implements SaveModeHandler, AutoCloseable {
                     HiveConnectorErrorCode.CREATE_HIVE_TABLE_FAILED,
                     "Table " + dbName + "." + tableName + " does not exist");
         }
-    }
-
-    private void createDatabaseIfNotExists() throws TException {
-        hiveMetaStoreProxy.createDatabaseIfNotExists(dbName);
     }
 
     private void createTable() throws TException {

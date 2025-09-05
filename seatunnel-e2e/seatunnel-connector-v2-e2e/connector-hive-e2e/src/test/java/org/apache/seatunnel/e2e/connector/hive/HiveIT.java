@@ -205,10 +205,7 @@ public class HiveIT extends TestSuiteBase implements TestResource {
     }
 
     private void prepareTable() throws Exception {
-        log.info(
-                String.format(
-                        "Databases are %s",
-                        this.hmsContainer.createMetaStoreClient().getAllDatabases()));
+        // Avoid fragile HMS list calls; rely on default database existing in test images
         try (Statement statement = this.hiveConnection.createStatement()) {
             statement.execute(CREATE_SQL);
         } catch (Exception exception) {
