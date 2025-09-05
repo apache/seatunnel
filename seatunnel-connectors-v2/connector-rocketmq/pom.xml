@@ -29,7 +29,7 @@
     <name>SeaTunnel : Connectors V2 : Rocketmq</name>
 
     <properties>
-        <rocketmq.version>4.9.8</rocketmq.version>
+        <rocketmq.version>4.9.7</rocketmq.version>
     </properties>
     <dependencies>
 

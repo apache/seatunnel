@@ -66,7 +66,7 @@ public class RocketMqRecordEmitter
         outputCollector.output = collector;
         reportMetrics(consumerRecord);
         deserializationSchema.deserialize(consumerRecord.getBody(), outputCollector);
-        // consumerRecord.offset + 1 is the offset commit to Kafka and also the start offset
+        // consumerRecord.offset + 1 is the offset commit to RocketMq and also the start offset
         // for the next run
         splitState.setCurrentOffset(consumerRecord.getQueueOffset() + 1);
     }

@@ -44,6 +44,10 @@ public enum RocketMqConnectorErrorCode implements SeaTunnelErrorCode {
     TOPIC_NOT_EXIST_ERROR("ROCKETMQ-12", "Check the topic for errors"),
 
     CREATE_TOPIC_ERROR("ROCKETMQ-13", "Failed to create topic"),
+
+    SEEK_MESSAGE_QUEUE_OFFSET_ERROR("ROCKETMQ-14", "Failed to seek messageQueue error"),
+
+    GET_ASSIGNMENT_QUEUE_ERROR("ROCKETMQ-15", "Failed to get assignment queue error"),
     ;
 
     private final String code;

@@ -22,15 +22,19 @@ import org.apache.seatunnel.api.source.SourceSplit;
 
 import org.apache.rocketmq.common.message.MessageQueue;
 
+import lombok.Getter;
+import lombok.Setter;
+
 import java.util.Objects;
 
 /** A {@link SourceSplit} for a RocketMQ partition. */
 public class RocketMQPartitionSplit implements SourceSplit {
+    private static final long serialVersionUID = -8246971453713064872L;
 
-    private static final long serialVersionUID = -928041877587828579L;
     private MessageQueue messageQueue;
-    private long startOffset = -1;
-    private long endOffset = -1;
+    private long startOffset = -1L;
+    private long endOffset = -1L;
+    @Setter @Getter private transient volatile boolean finish = false;
 
     public RocketMQPartitionSplit(MessageQueue messageQueue) {
         this.messageQueue = messageQueue;
@@ -44,10 +48,6 @@ public class RocketMQPartitionSplit implements SourceSplit {
 
     public MessageQueue getMessageQueue() {
         return messageQueue;
-    }
-
-    public void setMessageQueue(MessageQueue messageQueue) {
-        this.messageQueue = messageQueue;
     }
 
     public long getEndOffset() {
@@ -104,6 +104,7 @@ public class RocketMQPartitionSplit implements SourceSplit {
     }
 
     public RocketMQPartitionSplit copy() {
-        return new RocketMQPartitionSplit(this.messageQueue);
+        return new RocketMQPartitionSplit(
+                this.messageQueue, this.getStartOffset(), this.getEndOffset());
     }
 }

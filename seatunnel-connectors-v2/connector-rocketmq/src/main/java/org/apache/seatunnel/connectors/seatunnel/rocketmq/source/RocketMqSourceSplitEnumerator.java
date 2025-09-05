@@ -372,6 +372,7 @@ public class RocketMqSourceSplitEnumerator
 
         readySplit.forEach(
                 (id, split) -> {
+                    log.info("Assigning split {} to {}", split, id);
                     context.assignSplit(id, split);
                     if (discoveryIntervalMillis <= 0) {
                         context.signalNoMoreSplits(id);
