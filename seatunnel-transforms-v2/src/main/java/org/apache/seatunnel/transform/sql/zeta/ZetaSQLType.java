@@ -25,6 +25,7 @@ import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.table.type.SqlType;
+import org.apache.seatunnel.api.table.type.VectorType;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.transform.exception.TransformException;
 import org.apache.seatunnel.transform.sql.zeta.functions.ArrayFunction;
@@ -45,6 +46,7 @@ import net.sf.jsqlparser.expression.Parenthesis;
 import net.sf.jsqlparser.expression.SignedExpression;
 import net.sf.jsqlparser.expression.StringValue;
 import net.sf.jsqlparser.expression.TimeKeyExpression;
+import net.sf.jsqlparser.expression.TimezoneExpression;
 import net.sf.jsqlparser.expression.TrimFunction;
 import net.sf.jsqlparser.expression.WhenClause;
 import net.sf.jsqlparser.expression.operators.arithmetic.Concat;
@@ -238,6 +240,9 @@ public class ZetaSQLType {
                             || rightType.getSqlType() == SqlType.DOUBLE)) {
                 return BasicType.DOUBLE_TYPE;
             }
+        }
+        if (expression instanceof TimezoneExpression) {
+            return LocalTimeType.OFFSET_DATE_TIME_TYPE;
         }
         throw new TransformException(
                 CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
@@ -489,6 +494,10 @@ public class ZetaSQLType {
             case ZetaSQLFunction.MOD:
                 // Result has the same type as second argument
                 return getExpressionType(function.getParameters().getExpressions().get(1));
+                // Vector functions
+            case ZetaSQLFunction.VECTOR_REDUCE:
+            case ZetaSQLFunction.VECTOR_NORMALIZE:
+                return VectorType.VECTOR_FLOAT_TYPE;
             default:
                 for (ZetaUDF udf : udfList) {
                     if (udf.functionName().equalsIgnoreCase(function.getName())) {

@@ -35,9 +35,11 @@ import javax.annotation.Nullable;
 
 import java.math.BigDecimal;
 import java.sql.PreparedStatement;
+import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.OffsetDateTime;
 
 public class InceptorJdbcRowConverter extends HiveJdbcRowConverter {
 
@@ -102,6 +104,11 @@ public class InceptorJdbcRowConverter extends HiveJdbcRowConverter {
                         LocalDateTime localDateTime = (LocalDateTime) row.getField(fieldIndex);
                         statement.setTimestamp(
                                 statementIndex, java.sql.Timestamp.valueOf(localDateTime));
+                        break;
+                    case TIMESTAMP_TZ:
+                        OffsetDateTime offsetDateTime = (OffsetDateTime) row.getField(fieldIndex);
+                        statement.setTimestamp(
+                                statementIndex, Timestamp.from(offsetDateTime.toInstant()));
                         break;
                     case BYTES:
                         statement.setBytes(statementIndex, (byte[]) row.getField(fieldIndex));
