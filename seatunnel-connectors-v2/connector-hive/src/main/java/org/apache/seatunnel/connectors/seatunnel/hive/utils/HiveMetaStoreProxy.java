@@ -97,6 +97,12 @@ public class HiveMetaStoreProxy implements Catalog, Closeable, Serializable {
 
     private HiveMetaStoreClient initializeClient() {
         HiveConf hiveConf = buildHiveConf();
+        hiveConf.setBoolean("hive.metastore.client.capability.check", false);
+        hiveConf.setBoolean("hive.metastore.client.filter.enabled", false);
+        hiveConf.setInt("hive.metastore.client.socket.timeout", 600);
+        hiveConf.setInt("hive.metastore.client.connect.retry.delay", 5);
+        hiveConf.setInt("hive.metastore.failure.retries", 3);
+
         try {
             if (kerberosEnabled) {
                 return loginWithKerberos(hiveConf);
@@ -104,12 +110,20 @@ public class HiveMetaStoreProxy implements Catalog, Closeable, Serializable {
             if (remoteUserEnabled) {
                 return loginWithRemoteUser(hiveConf);
             }
-            return new HiveMetaStoreClient(hiveConf);
+
+            log.info("Initializing HiveMetaStoreClient with URI: {}", metastoreUri);
+            HiveMetaStoreClient client = new HiveMetaStoreClient(hiveConf);
+            log.info("Successfully initialized HiveMetaStoreClient");
+            return client;
+
         } catch (Exception e) {
+            log.error("Failed to initialize HiveMetaStoreClient: {}", e.getMessage(), e);
             String errMsg =
                     String.format(
-                            "Failed to initialize HiveMetaStoreClient [uris=%s, hiveSite=%s]",
-                            metastoreUri, hiveSitePath);
+                            "Failed to initialize HiveMetaStoreClient [uris=%s, hiveSite=%s]. "
+                                    + "This may be due to version compatibility issues between client and server. "
+                                    + "Error: %s",
+                            metastoreUri, hiveSitePath, e.getMessage());
             throw new HiveConnectorException(
                     HiveConnectorErrorCode.INITIALIZE_HIVE_METASTORE_CLIENT_FAILED, errMsg, e);
         }
@@ -126,12 +140,14 @@ public class HiveMetaStoreProxy implements Catalog, Closeable, Serializable {
             try {
                 return action.get();
             } catch (Exception e) {
+                String err = (e.getMessage() == null) ? e.toString() : e.getMessage();
                 if (i == attempts) {
                     log.error(
                             "HiveMetaStore operation '{}' failed after {} attempts. Final error: {}",
                             desc,
                             attempts,
-                            e.getMessage());
+                            err,
+                            e);
                     throw e;
                 }
                 log.warn(
@@ -139,7 +155,7 @@ public class HiveMetaStoreProxy implements Catalog, Closeable, Serializable {
                         desc,
                         i,
                         attempts,
-                        e.getMessage(),
+                        err,
                         3000L);
                 // force re-initialize client on next try
                 try {
@@ -160,6 +176,8 @@ public class HiveMetaStoreProxy implements Catalog, Closeable, Serializable {
     private HiveConf buildHiveConf() {
         HiveConf hiveConf = new HiveConf();
         hiveConf.set("hive.metastore.uris", metastoreUri);
+        // Avoid calling set_ugi for compatibility with older Metastore servers
+        hiveConf.setBoolVar(HiveConf.ConfVars.METASTORE_EXECUTE_SET_UGI, false);
 
         if (StringUtils.isNotBlank(hadoopConfDir)) {
             for (String fileName : HADOOP_CONF_FILES) {
@@ -214,55 +232,63 @@ public class HiveMetaStoreProxy implements Catalog, Closeable, Serializable {
 
     public void createDatabaseIfNotExists(String db) throws TException {
         try {
-            List<String> databases =
-                    withRetry(() -> getClient().getAllDatabases(), "getAllDatabases");
-            if (databases.contains(db)) {
+            // Prefer a direct getDatabase check to avoid listing all dbs (more efficient and
+            // robust)
+            try {
+                getClient().getDatabase(db);
+                log.info("Database {} already exists, skipping creation", db);
                 return;
+            } catch (org.apache.hadoop.hive.metastore.api.NoSuchObjectException ignored) {
+                // database does not exist, will create below
             }
+
             Database database = new Database();
             database.setName(db);
-            withRetry(
-                    () -> {
-                        getClient().createDatabase(database);
-                        return null;
-                    },
-                    "createDatabase");
+            log.info("Creating database: {}", db);
+            getClient().createDatabase(database);
+            log.info("Successfully created database: {}", db);
+        } catch (org.apache.hadoop.hive.metastore.api.AlreadyExistsException e) {
+            // concurrent creation, safe to ignore
+            log.info("Database {} already exists (concurrent creation)", db);
+        } catch (TException e) {
+            String errorMsg = String.format("Failed to create database [%s]", db);
+            throw new HiveConnectorException(
+                    HiveConnectorErrorCode.CREATE_HIVE_TABLE_FAILED, errorMsg, e);
         } catch (Exception e) {
-            if (e instanceof TException) throw (TException) e;
-            throw new TException(e);
+            throw new TException("Unexpected error creating database: " + db, e);
         }
     }
 
     public void createTableIfNotExists(@NonNull Table tbl) throws TException {
         try {
-            Boolean exists =
-                    withRetry(
-                            () -> getClient().tableExists(tbl.getDbName(), tbl.getTableName()),
-                            "tableExists");
-            if (exists) {
+            if (getClient().tableExists(tbl.getDbName(), tbl.getTableName())) {
+                log.info(
+                        "Table {}.{} already exists, skipping creation",
+                        tbl.getDbName(),
+                        tbl.getTableName());
                 return;
             }
-            withRetry(
-                    () -> {
-                        getClient().createTable(tbl);
-                        return null;
-                    },
-                    "createTable");
+            log.info("Creating table: {}.{}", tbl.getDbName(), tbl.getTableName());
+            getClient().createTable(tbl);
+            log.info("Successfully created table: {}.{}", tbl.getDbName(), tbl.getTableName());
+        } catch (org.apache.hadoop.hive.metastore.api.AlreadyExistsException e) {
+            log.info(
+                    "Table {}.{} already exists (concurrent creation)",
+                    tbl.getDbName(),
+                    tbl.getTableName());
+        } catch (TException e) {
+            String errorMsg =
+                    String.format(
+                            "Failed to create table [%s.%s]", tbl.getDbName(), tbl.getTableName());
+            throw new HiveConnectorException(
+                    HiveConnectorErrorCode.CREATE_HIVE_TABLE_FAILED, errorMsg, e);
         } catch (Exception e) {
-            if (e instanceof TException) {
-                log.error(
-                        "Failed to create table: {}.{}, error: {}",
-                        tbl.getDbName(),
-                        tbl.getTableName(),
-                        e.getMessage());
-                String errorMsg =
-                        String.format(
-                                "Failed to create table [%s.%s]",
-                                tbl.getDbName(), tbl.getTableName());
-                throw new HiveConnectorException(
-                        HiveConnectorErrorCode.CREATE_HIVE_TABLE_FAILED, errorMsg, (TException) e);
-            }
-            throw new TException(e);
+            throw new TException(
+                    "Unexpected error creating table: "
+                            + tbl.getDbName()
+                            + "."
+                            + tbl.getTableName(),
+                    e);
         }
     }
 
@@ -299,8 +325,12 @@ public class HiveMetaStoreProxy implements Catalog, Closeable, Serializable {
     @Override
     public boolean databaseExists(String dbName) throws CatalogException {
         try {
-            List<String> databases = getClient().getAllDatabases();
-            return databases.contains(dbName);
+            try {
+                getClient().getDatabase(dbName);
+                return true;
+            } catch (org.apache.hadoop.hive.metastore.api.NoSuchObjectException e) {
+                return false;
+            }
         } catch (TException e) {
             throw new CatalogException("Failed to check if database exists: " + dbName, e);
         }
@@ -354,6 +384,10 @@ public class HiveMetaStoreProxy implements Catalog, Closeable, Serializable {
         try {
             return getClient().getAllDatabases();
         } catch (TException e) {
+            // 提示性增强，帮助定位 HMS 兼容问题
+            log.warn(
+                    "listDatabases failed via getAllDatabases(), check HMS version compatibility: {}",
+                    e.getMessage());
             throw new CatalogException("Failed to list databases", e);
         }
     }
