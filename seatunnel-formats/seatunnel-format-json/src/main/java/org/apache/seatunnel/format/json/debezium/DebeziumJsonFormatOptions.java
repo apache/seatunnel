@@ -39,14 +39,6 @@ public class DebeziumJsonFormatOptions {
                                     + "This option indicates the Debezium JSON data include the schema in the message or not. "
                                     + "Default is false.");
 
-    public static final Option<Boolean> MERGE_UPDATE_EVENT =
-            Options.key("merge_update_event")
-                    .booleanType()
-                    .defaultValue(false)
-                    .withDescription(
-                            "set true,then when serialize data,UPDATE_AFTER and UPDATE_BEFORE event will merge into UPDATE data;"
-                                    + "if set false, when serialize data will get UPDATE_AFTER and UPDATE_BEFORE event ");
-
     public static boolean getSchemaInclude(Map<String, String> options) {
         return Boolean.parseBoolean(
                 options.getOrDefault(
@@ -57,11 +49,5 @@ public class DebeziumJsonFormatOptions {
         return Boolean.parseBoolean(
                 options.getOrDefault(
                         IGNORE_PARSE_ERRORS.key(), IGNORE_PARSE_ERRORS.defaultValue().toString()));
-    }
-
-    public static boolean getMergeUpdateEvent(Map<String, String> options) {
-        return Boolean.parseBoolean(
-                options.getOrDefault(
-                        MERGE_UPDATE_EVENT.key(), MERGE_UPDATE_EVENT.defaultValue().toString()));
     }
 }

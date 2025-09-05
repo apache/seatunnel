@@ -50,20 +50,20 @@ public class OggJsonSerializationSchema implements SerializationSchema {
 
     private final JsonSerializationSchema jsonSerializer;
 
-    boolean mergeUpdateEventFlag;
+    private final boolean mergeUpdateEventFlag;
     SeaTunnelRow cacheUpdateBeforeRow;
 
     public OggJsonSerializationSchema(SeaTunnelRowType rowType) {
         this.jsonSerializer = new JsonSerializationSchema(createJsonRowType(rowType));
         this.reuse = new SeaTunnelRow(5);
-        mergeUpdateEventFlag = OggJsonFormatOptions.MERGE_UPDATE_EVENT.defaultValue();
+        mergeUpdateEventFlag = false;
     }
 
     public OggJsonSerializationSchema(
-            SeaTunnelRowType rowType, Charset charset, Map<String, String> options) {
+            SeaTunnelRowType rowType, Charset charset, boolean mergeUpdateEventFlag) {
         this.jsonSerializer = new JsonSerializationSchema(createJsonRowType(rowType), charset);
         this.reuse = new SeaTunnelRow(5);
-        mergeUpdateEventFlag = OggJsonFormatOptions.getMergeUpdateEvent(options);
+        this.mergeUpdateEventFlag = mergeUpdateEventFlag;
     }
 
     @Override

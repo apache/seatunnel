@@ -59,14 +59,14 @@ public class CanalJsonSerializationSchema implements SerializationSchema {
     public CanalJsonSerializationSchema(SeaTunnelRowType rowType) {
         this.jsonSerializer = new JsonSerializationSchema(createJsonRowType(rowType));
         this.reuse = new SeaTunnelRow(6);
-        mergeUpdateEventFlag = CanalJsonFormatOptions.MERGE_UPDATE_EVENT.defaultValue();
+        mergeUpdateEventFlag = false;
     }
 
     public CanalJsonSerializationSchema(
-            SeaTunnelRowType rowType, Charset charset, Map<String, String> options) {
+            SeaTunnelRowType rowType, Charset charset, boolean mergeUpdateEventFlag) {
         this.jsonSerializer = new JsonSerializationSchema(createJsonRowType(rowType), charset);
         this.reuse = new SeaTunnelRow(6);
-        mergeUpdateEventFlag = CanalJsonFormatOptions.getMergeUpdateEvent(options);
+        this.mergeUpdateEventFlag = mergeUpdateEventFlag;
     }
 
     @Override

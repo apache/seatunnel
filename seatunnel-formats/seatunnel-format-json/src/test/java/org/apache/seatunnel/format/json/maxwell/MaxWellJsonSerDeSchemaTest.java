@@ -152,11 +152,9 @@ public class MaxWellJsonSerDeSchemaTest {
         assertEquals(expectedResult, result);
 
         // test merge_update_event
-        Map<String, String> options = new HashMap<>();
-        options.put(MaxWellJsonFormatOptions.MERGE_UPDATE_EVENT.key(), "true");
         serializationSchema =
                 new MaxWellJsonSerializationSchema(
-                        catalogTables.getSeaTunnelRowType(), StandardCharsets.UTF_8, options);
+                        catalogTables.getSeaTunnelRowType(), StandardCharsets.UTF_8, true);
         actual.clear();
         for (SeaTunnelRow rowData : collector.list) {
             if (serializationSchema.serialize(rowData) != null) {

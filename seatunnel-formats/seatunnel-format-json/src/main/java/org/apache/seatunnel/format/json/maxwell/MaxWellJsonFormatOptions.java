@@ -44,15 +44,6 @@ public class MaxWellJsonFormatOptions {
                     .withDescription(
                             "An optional regular expression to only read the specific tables changelog rows by regular matching the \"table\" meta field in the MaxWell record."
                                     + "The pattern string is compatible with Java's Pattern.");
-
-    public static final Option<Boolean> MERGE_UPDATE_EVENT =
-            Options.key("merge_update_event")
-                    .booleanType()
-                    .defaultValue(false)
-                    .withDescription(
-                            "set true,then when serialize data,UPDATE_AFTER and UPDATE_BEFORE event will merge into UPDATE data;"
-                                    + "if set false, when serialize data will get UPDATE_AFTER and UPDATE_BEFORE event ");
-
     public static String getTableInclude(Map<String, String> options) {
         return options.getOrDefault(TABLE_INCLUDE.key(), null);
     }
@@ -64,11 +55,5 @@ public class MaxWellJsonFormatOptions {
     public static boolean getIgnoreParseErrors(Map<String, String> options) {
         return Boolean.parseBoolean(
                 options.getOrDefault(IGNORE_PARSE_ERRORS.key(), IGNORE_PARSE_ERRORS.toString()));
-    }
-
-    public static boolean getMergeUpdateEvent(Map<String, String> options) {
-        return Boolean.parseBoolean(
-                options.getOrDefault(
-                        MERGE_UPDATE_EVENT.key(), MERGE_UPDATE_EVENT.defaultValue().toString()));
     }
 }

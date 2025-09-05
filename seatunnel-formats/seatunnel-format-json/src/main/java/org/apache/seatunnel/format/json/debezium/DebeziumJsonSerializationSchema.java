@@ -57,14 +57,14 @@ public class DebeziumJsonSerializationSchema implements SerializationSchema {
     public DebeziumJsonSerializationSchema(SeaTunnelRowType rowType) {
         this.jsonSerializer = new JsonSerializationSchema(createJsonRowType(rowType));
         this.genericRow = new SeaTunnelRow(GENERATE_ROW_SIZE);
-        mergeUpdateEventFlag = DebeziumJsonFormatOptions.MERGE_UPDATE_EVENT.defaultValue();
+        this.mergeUpdateEventFlag = false;
     }
 
     public DebeziumJsonSerializationSchema(
-            SeaTunnelRowType rowType, Charset charset, Map<String, String> options) {
+            SeaTunnelRowType rowType, Charset charset, boolean mergeUpdateEventFlag) {
         this.jsonSerializer = new JsonSerializationSchema(createJsonRowType(rowType), charset);
         this.genericRow = new SeaTunnelRow(GENERATE_ROW_SIZE);
-        this.mergeUpdateEventFlag = DebeziumJsonFormatOptions.getMergeUpdateEvent(options);
+        this.mergeUpdateEventFlag = mergeUpdateEventFlag;
     }
 
     @Override

@@ -238,11 +238,9 @@ public class CanalJsonSerDeSchemaTest {
         assertEquals(expectedResult, result);
 
         // test merge_update_event
-        Map<String, String> options = new HashMap<>();
-        options.put(CanalJsonFormatOptions.MERGE_UPDATE_EVENT.key(), "true");
         serializationSchema =
                 new CanalJsonSerializationSchema(
-                        SEATUNNEL_ROW_TYPE, StandardCharsets.UTF_8, options);
+                        SEATUNNEL_ROW_TYPE, StandardCharsets.UTF_8, true);
         result.clear();
         for (SeaTunnelRow rowData : collector.list) {
             if (serializationSchema.serialize(rowData) != null) {

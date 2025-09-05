@@ -233,10 +233,8 @@ public class OggJsonSerDeSchemaTest {
         assertEquals(expectedResult, result);
 
         // test merge_update_event
-        Map<String, String> options = new HashMap<>();
-        options.put(OggJsonFormatOptions.MERGE_UPDATE_EVENT.key(), "true");
         serializationSchema =
-                new OggJsonSerializationSchema(SEATUNNEL_ROW_TYPE, StandardCharsets.UTF_8, options);
+                new OggJsonSerializationSchema(SEATUNNEL_ROW_TYPE, StandardCharsets.UTF_8, true);
         actual.clear();
         for (SeaTunnelRow rowData : collector.list) {
             if (serializationSchema.serialize(rowData) != null) {
