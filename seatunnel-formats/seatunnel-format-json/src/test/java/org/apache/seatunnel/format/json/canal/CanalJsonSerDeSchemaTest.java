@@ -37,9 +37,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.stream.Collectors;
 
 import static org.apache.seatunnel.api.table.type.BasicType.FLOAT_TYPE;
@@ -239,8 +237,7 @@ public class CanalJsonSerDeSchemaTest {
 
         // test merge_update_event
         serializationSchema =
-                new CanalJsonSerializationSchema(
-                        SEATUNNEL_ROW_TYPE, StandardCharsets.UTF_8, true);
+                new CanalJsonSerializationSchema(SEATUNNEL_ROW_TYPE, StandardCharsets.UTF_8, true);
         result.clear();
         for (SeaTunnelRow rowData : collector.list) {
             if (serializationSchema.serialize(rowData) != null) {

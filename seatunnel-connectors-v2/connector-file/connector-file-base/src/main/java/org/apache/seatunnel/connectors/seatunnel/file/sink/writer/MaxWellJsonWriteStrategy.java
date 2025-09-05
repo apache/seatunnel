@@ -25,7 +25,6 @@ import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.common.utils.EncodingUtils;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.config.FileSinkConfig;
-import org.apache.seatunnel.format.json.maxwell.MaxWellJsonFormatOptions;
 import org.apache.seatunnel.format.json.maxwell.MaxWellJsonSerializationSchema;
 
 import org.apache.hadoop.fs.FSDataOutputStream;

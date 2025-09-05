@@ -44,6 +44,7 @@ public class CanalJsonFormatOptions {
                     .withDescription(
                             "An optional regular expression to only read the specific tables changelog rows by regular matching the \"table\" meta field in the Canal record."
                                     + "The pattern string is compatible with Java's Pattern.");
+
     public static String getTableInclude(Map<String, String> options) {
         return options.getOrDefault(TABLE_INCLUDE.key(), null);
     }

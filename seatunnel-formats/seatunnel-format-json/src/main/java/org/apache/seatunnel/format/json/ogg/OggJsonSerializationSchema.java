@@ -31,7 +31,6 @@ import org.apache.seatunnel.format.json.exception.SeaTunnelJsonFormatException;
 import org.apache.commons.lang3.StringUtils;
 
 import java.nio.charset.Charset;
-import java.util.Map;
 
 import static org.apache.seatunnel.api.table.type.BasicType.LONG_TYPE;
 import static org.apache.seatunnel.api.table.type.BasicType.STRING_TYPE;
