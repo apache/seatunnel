@@ -121,7 +121,7 @@ public class HiveMetaStoreProxy implements Catalog, Closeable, Serializable {
     }
 
     private <T> T withRetry(SupplierEx<T> action, String desc) throws Exception {
-        int attempts = 10; // 增加重试次数，应对 e2e 环境中 HMS 启动较慢的情况
+        int attempts = 10;
         for (int i = 1; i <= attempts; i++) {
             try {
                 return action.get();

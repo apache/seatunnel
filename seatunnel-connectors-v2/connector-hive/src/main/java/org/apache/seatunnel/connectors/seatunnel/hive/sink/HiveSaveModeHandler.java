@@ -259,7 +259,6 @@ public class HiveSaveModeHandler implements SaveModeHandler, AutoCloseable {
         table.setCreateTime((int) (System.currentTimeMillis() / 1000));
         table.setTableType("MANAGED_TABLE");
 
-        // 默认不分区
         table.setPartitionKeys(new ArrayList<>());
 
         // Set storage descriptor
@@ -288,7 +287,6 @@ public class HiveSaveModeHandler implements SaveModeHandler, AutoCloseable {
         String tableLocation = HiveTableTemplateUtils.getDefaultTableLocation(dbName, tableName);
         sd.setLocation(tableLocation);
 
-        // 默认使用 PARQUET 格式
         configureStorageDescriptor(sd, "PARQUET");
         sd.setCompressed(false);
         sd.setStoredAsSubDirectories(false);
@@ -312,7 +310,6 @@ public class HiveSaveModeHandler implements SaveModeHandler, AutoCloseable {
         table.setCreateTime((int) (System.currentTimeMillis() / 1000));
         table.setTableType("MANAGED_TABLE");
 
-        // 从自定义模板解析分区字段
         List<String> partitionFields = extractPartitionFieldsFromConfig();
         List<FieldSchema> partitionKeys = new ArrayList<>();
         for (String partitionField : partitionFields) {
@@ -356,7 +353,6 @@ public class HiveSaveModeHandler implements SaveModeHandler, AutoCloseable {
         String tableLocation = HiveTableTemplateUtils.getDefaultTableLocation(dbName, tableName);
         sd.setLocation(tableLocation);
 
-        // 从模板解析存储格式
         String storageFormat = extractStorageFormatFromTemplate();
         configureStorageDescriptor(sd, storageFormat);
         sd.setCompressed(shouldEnableCompression(storageFormat));
