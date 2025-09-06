@@ -361,14 +361,13 @@ public class SeaTunnelServer
 
         partitioned.forEach(
                 (partition, metrics) ->
-                    metricsImap.compute(
-                            partition,
-                            (k, oldVal) -> {
-                                if (oldVal == null) oldVal = new HashMap<>();
-                                oldVal.putAll(metrics);
-                                return oldVal;
-                            })
-                );
+                        metricsImap.compute(
+                                partition,
+                                (k, oldVal) -> {
+                                    if (oldVal == null) oldVal = new HashMap<>();
+                                    oldVal.putAll(metrics);
+                                    return oldVal;
+                                }));
     }
 
     public void removeMetrics(PipelineLocation pipelineLocation) {
