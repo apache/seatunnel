@@ -376,7 +376,7 @@ public class SeaTunnelServer
 
         int partitionCount = seaTunnelConfig.getEngineConfig().getJobMetricsPartitionCount();
 
-        List<TaskLocation> taskLocations = getTaskLocations(pipelineLocation, new HashMap<>());
+        List<TaskLocation> taskLocations = getTaskLocations(pipelineLocation, metricsImap);
         for (TaskLocation key : taskLocations) {
             long partition = (key.hashCode() & 0x7FFFFFFF) % partitionCount;
             metricsImap.compute(
@@ -393,8 +393,9 @@ public class SeaTunnelServer
 
     private List<TaskLocation> getTaskLocations(
             PipelineLocation pipelineLocation,
-            Map<TaskLocation, SeaTunnelMetricsContext> centralMap) {
-        return centralMap.keySet().stream()
+            IMap<Long, Map<TaskLocation, SeaTunnelMetricsContext>> metricsImap) {
+        return metricsImap.values().stream()
+                .flatMap(map -> map.keySet().stream())
                 .filter(
                         taskLocation ->
                                 taskLocation

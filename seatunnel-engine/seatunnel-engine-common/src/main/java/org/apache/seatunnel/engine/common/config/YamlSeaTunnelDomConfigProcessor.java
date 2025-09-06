@@ -188,8 +188,7 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
                                         .JOB_METRICS_PARTITION_COUNT
                                         .key(),
                                 getTextContent(node)));
-            }
-            else if (ServerConfigOptions.WorkerServerConfigOptions
+            } else if (ServerConfigOptions.WorkerServerConfigOptions
                     .TASK_EXECUTION_THREAD_SHARE_MODE
                     .key()
                     .equals(name)) {

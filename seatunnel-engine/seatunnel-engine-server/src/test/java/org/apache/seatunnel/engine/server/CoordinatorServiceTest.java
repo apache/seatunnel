@@ -218,12 +218,35 @@ public class CoordinatorServiceTest {
         CoordinatorService coordinatorService = jobInformation.coordinatorService;
         IMap<Long, HashMap<TaskLocation, SeaTunnelMetricsContext>> metricsImap =
                 coordinatorService.getMetricsImap();
-
+        await().atMost(10000, TimeUnit.MILLISECONDS)
+                .untilAsserted(() -> Assertions.assertFalse(metricsImap.isEmpty()));
         await().atMost(10000, TimeUnit.MILLISECONDS)
                 .untilAsserted(() -> Assertions.assertTrue(metricsImap.isEmpty()));
 
         jobInformation.coordinatorService.clearCoordinatorService();
         jobInformation.coordinatorServiceTest.shutdown();
+    }
+
+    @Test
+    void testMetricsImapWithPartitionConfig() {
+        setConfigFile("seatunnel_multiple_metrics_key.yaml");
+
+        JobInformation jobInformation =
+                submitJob(
+                        "CoordinatorServiceTest_testMetricsImapWithPartitionConfig",
+                        "batch_fake_to_console.conf",
+                        "test_metrics_imap_with_partition_config");
+        CoordinatorService coordinatorService = jobInformation.coordinatorService;
+        IMap<Long, HashMap<TaskLocation, SeaTunnelMetricsContext>> metricsImap =
+                coordinatorService.getMetricsImap();
+        await().atMost(10000, TimeUnit.MILLISECONDS)
+                .untilAsserted(() -> Assertions.assertFalse(metricsImap.isEmpty()));
+        await().atMost(10000, TimeUnit.MILLISECONDS)
+                .untilAsserted(() -> Assertions.assertTrue(metricsImap.isEmpty()));
+
+        jobInformation.coordinatorService.clearCoordinatorService();
+        jobInformation.coordinatorServiceTest.shutdown();
+        setDefaultConfigFile();
     }
 
     private void setDefaultConfigFile() {
