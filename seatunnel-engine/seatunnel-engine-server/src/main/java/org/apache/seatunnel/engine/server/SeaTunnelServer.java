@@ -355,7 +355,7 @@ public class SeaTunnelServer
         Map<Long, Map<TaskLocation, SeaTunnelMetricsContext>> partitioned = new HashMap<>();
         localMap.forEach(
                 (key, value) -> {
-                    long partition = (key.hashCode() & 0x7FFFFFFF) % partitionCount;
+                    long partition = getMetricsImapPartition(key, partitionCount);
                     partitioned.computeIfAbsent(partition, k -> new HashMap<>()).put(key, value);
                 });
 
@@ -378,7 +378,7 @@ public class SeaTunnelServer
 
         List<TaskLocation> taskLocations = getTaskLocations(pipelineLocation, metricsImap);
         for (TaskLocation key : taskLocations) {
-            long partition = (key.hashCode() & 0x7FFFFFFF) % partitionCount;
+            long partition = getMetricsImapPartition(key, partitionCount);
             metricsImap.compute(
                     partition,
                     (k, oldVal) -> {
@@ -389,6 +389,11 @@ public class SeaTunnelServer
                         return oldVal;
                     });
         }
+    }
+
+    public static long getMetricsImapPartition(TaskLocation key, int partitionCount) {
+        long partition = (key.hashCode() & 0x7FFFFFFF) % partitionCount;
+        return partition;
     }
 
     private List<TaskLocation> getTaskLocations(
