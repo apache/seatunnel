@@ -475,11 +475,16 @@ public class CoordinatorServiceTest {
         try {
             NodeEngineImpl nodeEngine = instance2.node.getNodeEngine();
             Map<TaskLocation, SeaTunnelMetricsContext> localMap = new HashMap<>();
+            for (int i = 0; i < 2000; i++) {
+                TaskLocation taskLocation = new TaskLocation();
+                taskLocation.setTaskID(i);
+                localMap.put(taskLocation, new SeaTunnelMetricsContext());
+            }
 
             // warm-up
-            runOps(executor, nodeEngine, localMap, 2000);
+            runOps(executor, nodeEngine, localMap, 100);
 
-            int ops = 10000;
+            int ops = 100;
             double seconds = runOps(executor, nodeEngine, localMap, ops);
             double tps = ops / seconds;
 

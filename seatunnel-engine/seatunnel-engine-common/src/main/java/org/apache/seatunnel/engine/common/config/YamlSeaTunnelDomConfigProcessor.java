@@ -179,7 +179,17 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
                                         .JOB_METRICS_BACKUP_INTERVAL
                                         .key(),
                                 getTextContent(node)));
-            } else if (ServerConfigOptions.WorkerServerConfigOptions
+            } else if (ServerConfigOptions.MasterServerConfigOptions.JOB_METRICS_PARTITION_COUNT
+                    .key()
+                    .equals(name)) {
+                engineConfig.setJobMetricsPartitionCount(
+                        getIntegerValue(
+                                ServerConfigOptions.MasterServerConfigOptions
+                                        .JOB_METRICS_PARTITION_COUNT
+                                        .key(),
+                                getTextContent(node)));
+            }
+            else if (ServerConfigOptions.WorkerServerConfigOptions
                     .TASK_EXECUTION_THREAD_SHARE_MODE
                     .key()
                     .equals(name)) {

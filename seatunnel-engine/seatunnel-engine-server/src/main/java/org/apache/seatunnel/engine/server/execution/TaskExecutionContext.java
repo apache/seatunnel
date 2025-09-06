@@ -60,8 +60,13 @@ public class TaskExecutionContext {
     public SeaTunnelMetricsContext getOrCreateMetricsContext(TaskLocation taskLocation) {
         IMap<Long, HashMap<TaskLocation, SeaTunnelMetricsContext>> map =
                 nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_METRICS);
-        HashMap<TaskLocation, SeaTunnelMetricsContext> centralMap =
-                map.get(Constant.IMAP_RUNNING_JOB_METRICS_KEY);
+        int partitionCount =
+                taskExecutionService
+                        .getSeaTunnelConfig()
+                        .getEngineConfig()
+                        .getJobMetricsPartitionCount();
+        long partition = Math.abs(taskLocation.hashCode() & 0x7FFFFFFF) % partitionCount;
+        HashMap<TaskLocation, SeaTunnelMetricsContext> centralMap = map.get(partition);
         return centralMap == null || centralMap.get(taskLocation) == null
                 ? new SeaTunnelMetricsContext()
                 : centralMap.get(taskLocation);
