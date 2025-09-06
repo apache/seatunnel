@@ -17,10 +17,17 @@
 
 package org.apache.seatunnel.core.starter.flink.command;
 
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigList;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigObject;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigUtil;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigValue;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigValueFactory;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigValueType;
 
+import org.apache.seatunnel.api.metalake.MetalakeClient;
+import org.apache.seatunnel.api.metalake.MetalakeClientFactory;
 import org.apache.seatunnel.common.Constants;
 import org.apache.seatunnel.core.starter.command.Command;
 import org.apache.seatunnel.core.starter.exception.CommandExecuteException;
@@ -31,7 +38,11 @@ import org.apache.seatunnel.core.starter.utils.FileUtils;
 
 import lombok.extern.slf4j.Slf4j;
 
+import java.io.IOException;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 
 import static org.apache.seatunnel.core.starter.utils.FileUtils.checkConfigExist;
 
@@ -48,7 +59,16 @@ public class FlinkTaskExecuteCommand implements Command<FlinkCommandArgs> {
     public void execute() throws CommandExecuteException {
         Path configFile = FileUtils.getConfigPath(flinkCommandArgs);
         checkConfigExist(configFile);
-        Config config = ConfigBuilder.of(configFile, flinkCommandArgs.getVariables());
+        Config config = null;
+        boolean metalakeEnabled =
+                Boolean.parseBoolean(System.getenv().getOrDefault("METALAKE_ENABLED", "false"));
+        if (metalakeEnabled) {
+            config =
+                    getMetalakeConfig(
+                            ConfigBuilder.of(configFile, flinkCommandArgs.getVariables()));
+        } else {
+            config = ConfigBuilder.of(configFile, flinkCommandArgs.getVariables());
+        }
         // if user specified job name using command line arguments, override config option
         if (!flinkCommandArgs.getJobName().equals(Constants.LOGO)) {
             config =
@@ -62,5 +82,88 @@ public class FlinkTaskExecuteCommand implements Command<FlinkCommandArgs> {
         } catch (Exception e) {
             throw new CommandExecuteException("Flink job executed failed", e);
         }
+    }
+
+    private Config getMetalakeConfig(Config jobConfigTmp) {
+        Config update = jobConfigTmp;
+        String metalakeType = System.getenv("METALAKE_TYPE");
+        String metalakeUrl = System.getenv("METALAKE_URL");
+
+        MetalakeClient metalakeClient = MetalakeClientFactory.create(metalakeType, metalakeUrl);
+
+        try {
+            ConfigList sourceList = jobConfigTmp.getList("source");
+            List<ConfigValue> newSourceList = new ArrayList<>(sourceList);
+
+            for (int i = 0; i < sourceList.size(); i++) {
+                ConfigObject sourceObj = (ConfigObject) sourceList.get(i);
+                if (sourceObj.containsKey("sourceId")) {
+                    ConfigObject tmp = sourceObj;
+                    String sourceId = sourceObj.toConfig().getString("sourceId");
+                    JsonNode metalakeJson = metalakeClient.getMetaInfo(sourceId);
+                    for (Map.Entry<String, ConfigValue> entry : sourceObj.entrySet()) {
+                        String subKey = entry.getKey();
+                        ConfigValue value = entry.getValue();
+
+                        if (value.valueType() == ConfigValueType.STRING) {
+                            String strValue = (String) value.unwrapped();
+                            if (strValue.startsWith("${") && strValue.endsWith("}")) {
+                                String placeholder = strValue.substring(2, strValue.length() - 1);
+
+                                if (metalakeJson.has(placeholder)) {
+                                    String replaced = metalakeJson.get(placeholder).asText();
+                                    tmp =
+                                            tmp.withValue(
+                                                    subKey,
+                                                    ConfigValueFactory.fromAnyRef(replaced));
+                                }
+                            }
+                        }
+                    }
+                    newSourceList.set(i, tmp);
+                }
+            }
+            update = update.withValue("source", ConfigValueFactory.fromIterable(newSourceList));
+        } catch (IOException e) {
+            log.error("Fail to get MetaInfo, metalakeUrl: {}", metalakeUrl, e);
+        }
+
+        try {
+            ConfigList sinkList = jobConfigTmp.getList("sink");
+            List<ConfigValue> newSinkList = new ArrayList<>(sinkList);
+
+            for (int i = 0; i < sinkList.size(); i++) {
+                ConfigObject sinkObj = (ConfigObject) sinkList.get(i);
+                if (sinkObj.containsKey("sourceId")) {
+                    ConfigObject tmp = sinkObj;
+                    String sourceId = sinkObj.toConfig().getString("sourceId");
+                    JsonNode metalakeJson = metalakeClient.getMetaInfo(sourceId);
+                    for (Map.Entry<String, ConfigValue> entry : sinkObj.entrySet()) {
+                        String subKey = entry.getKey();
+                        ConfigValue value = entry.getValue();
+
+                        if (value.valueType() == ConfigValueType.STRING) {
+                            String strValue = (String) value.unwrapped();
+                            if (strValue.startsWith("${") && strValue.endsWith("}")) {
+                                String placeholder = strValue.substring(2, strValue.length() - 1);
+
+                                if (metalakeJson.has(placeholder)) {
+                                    String replaced = metalakeJson.get(placeholder).asText();
+                                    tmp =
+                                            tmp.withValue(
+                                                    subKey,
+                                                    ConfigValueFactory.fromAnyRef(replaced));
+                                }
+                            }
+                        }
+                    }
+                    newSinkList.set(i, tmp);
+                }
+            }
+            update = update.withValue("sink", ConfigValueFactory.fromIterable(newSinkList));
+        } catch (IOException e) {
+            log.error("Fail to get MetaInfo, metalakeUrl: {}", metalakeUrl, e);
+        }
+        return update;
     }
 }
