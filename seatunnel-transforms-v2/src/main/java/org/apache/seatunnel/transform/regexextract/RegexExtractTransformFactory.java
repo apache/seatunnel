@@ -22,6 +22,7 @@ import org.apache.seatunnel.api.table.connector.TableTransform;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableTransformFactory;
 import org.apache.seatunnel.api.table.factory.TableTransformFactoryContext;
+import org.apache.seatunnel.transform.common.TransformCommonOptions;
 
 import com.google.auto.service.AutoService;
 
@@ -40,7 +41,9 @@ public class RegexExtractTransformFactory implements TableTransformFactory {
                         RegexExtractTransformConfig.KEY_SOURCE_FIELD,
                         RegexExtractTransformConfig.KEY_REGEX_PATTERN,
                         RegexExtractTransformConfig.KEY_OUTPUT_FIELDS)
-                .optional(RegexExtractTransformConfig.KEY_DEFAULT_VALUES)
+                .optional(
+                        RegexExtractTransformConfig.KEY_DEFAULT_VALUES,
+                        TransformCommonOptions.MULTI_TABLES)
                 .build();
     }
 
