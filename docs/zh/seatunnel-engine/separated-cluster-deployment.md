@@ -322,6 +322,27 @@ coordinator-service:
   max-thread-num: 1000
 ```
 
+### 4.9 作业指标分区数量（此参数在 Worker 节点上无效）
+
+新的配置选项 JOB_METRICS_PARTITION_COUNT 用于控制在 Hazelcast IMap 中存储运行作业指标时所使用的分区数量。
+
+- 默认值: 1（单个 key，向后兼容）
+
+- 用法: 增加该值可以将指标分布到多个分区中，从而在大量任务同时更新指标时减少竞争。
+
+示例:
+
+```yaml
+seatunnel:
+engine:
+job-metrics-partition-count: 4
+```
+
+上述配置会将指标分布到 4 个分区中，而不是使用单个 key。
+
+注意:
+在高并发竞争的情况下，增加分区数量可能会提高并行度；但如果设置过大，会引入额外的分布与合并开销，从而降低整体性能。
+
 ## 5. 配置 SeaTunnel Engine 网络服务
 
 所有 SeaTunnel Engine 网络相关的配置都在 `hazelcast-master.yaml`和`hazelcast-worker.yaml` 文件中.
