@@ -288,8 +288,8 @@ public class CoordinatorServiceTest {
                     .untilAsserted(() -> Assertions.assertEquals(10, metricsImap.size()));
         } finally {
             instance1.shutdown();
+            setDefaultConfigFile();
         }
-        setDefaultConfigFile();
     }
 
     private void setDefaultConfigFile() {
