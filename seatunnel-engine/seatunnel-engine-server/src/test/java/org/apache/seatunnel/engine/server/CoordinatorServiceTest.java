@@ -228,14 +228,14 @@ public class CoordinatorServiceTest {
     }
 
     @Test
-    void testMetricsImapWithPartitionConfig() {
+    void testCleanupMetricsImapWithPartitionConfig() {
         setConfigFile("seatunnel_multiple_metrics_key.yaml");
 
         JobInformation jobInformation =
                 submitJob(
-                        "CoordinatorServiceTest_testMetricsImapWithPartitionConfig",
+                        "CoordinatorServiceTest_testCleanupMetricsImapWithPartitionConfig",
                         "batch_fake_to_console.conf",
-                        "test_metrics_imap_with_partition_config");
+                        "test_cleanup_metrics_imap_with_partition_config");
         CoordinatorService coordinatorService = jobInformation.coordinatorService;
         IMap<Long, HashMap<TaskLocation, SeaTunnelMetricsContext>> metricsImap =
                 coordinatorService.getMetricsImap();
@@ -246,6 +246,49 @@ public class CoordinatorServiceTest {
 
         jobInformation.coordinatorService.clearCoordinatorService();
         jobInformation.coordinatorServiceTest.shutdown();
+        setDefaultConfigFile();
+    }
+
+    @Test
+    void testMetricsImaSizeWithPartitionConfig() {
+        setConfigFile("seatunnel_multiple_metrics_key.yaml");
+
+        String clusterName = TestUtils.getClusterName("testMetricsImapSizeWithPartitionConfig");
+        HazelcastInstanceImpl instance1 =
+                SeaTunnelServerStarter.createHazelcastInstance(clusterName);
+        SeaTunnelServer server1 =
+                instance1.node.getNodeEngine().getService(SeaTunnelServer.SERVICE_NAME);
+
+        try {
+            NodeEngineImpl nodeEngine = instance1.node.getNodeEngine();
+            Map<TaskLocation, SeaTunnelMetricsContext> localMap = new HashMap<>();
+            for (int i = 0; i < 100; i++) {
+                TaskLocation taskLocation = new TaskLocation();
+                taskLocation.setTaskID(i);
+                localMap.put(taskLocation, new SeaTunnelMetricsContext());
+            }
+            IMap<Long, HashMap<TaskLocation, SeaTunnelMetricsContext>> metricsImap =
+                    server1.getCoordinatorService().getMetricsImap();
+            CompletableFuture.runAsync(
+                    () -> {
+                        try {
+                            nodeEngine
+                                    .getOperationService()
+                                    .createInvocationBuilder(
+                                            SeaTunnelServer.SERVICE_NAME,
+                                            new ReportMetricsOperation(localMap),
+                                            nodeEngine.getMasterAddress())
+                                    .invoke()
+                                    .get();
+                        } catch (Exception e) {
+                            throw new CompletionException(e);
+                        }
+                    });
+            await().atMost(10000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(() -> Assertions.assertEquals(10, metricsImap.size()));
+        } finally {
+            instance1.shutdown();
+        }
         setDefaultConfigFile();
     }
 
@@ -545,7 +588,7 @@ public class CoordinatorServiceTest {
                                             .invoke()
                                             .get();
                                 } catch (Exception e) {
-                                    throw new java.util.concurrent.CompletionException(e);
+                                    throw new CompletionException(e);
                                 }
                             },
                             executor));
@@ -553,8 +596,7 @@ public class CoordinatorServiceTest {
 
         long startNs = System.nanoTime();
         startGate.countDown();
-        CompletableFuture.allOf(futures.toArray(new java.util.concurrent.CompletableFuture[0]))
-                .join();
+        CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
         long elapsedNs = System.nanoTime() - startNs;
 
         return elapsedNs / 1_000_000_000.0;
