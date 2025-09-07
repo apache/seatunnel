@@ -379,11 +379,14 @@ public class MetalakeIT extends SeaTunnelEngineContainer {
                 row =
                         new SeaTunnelRow(
                                 new Object[] {
-                                    null,
-                                    null,
-                                    null,
-                                    null,
-                                    null,
+                                    (byte) 0,
+                                    new byte[] {byteArr},
+                                    new byte[] {byteArr, byteArr},
+                                    new byte[] {byteArr, byteArr, byteArr, byteArr},
+                                    new byte[] {
+                                            byteArr, byteArr, byteArr, byteArr, byteArr, byteArr,
+                                            byteArr, byteArr
+                                    },
                                     // https://github.com/apache/seatunnel/issues/5559 this value
                                     // cannot set null, this null
                                     // value column's row will be lost in
