@@ -103,30 +103,63 @@ public class HiveMetaStoreProxy implements Catalog, Closeable, Serializable {
         hiveConf.setInt("hive.metastore.client.connect.retry.delay", 5);
         hiveConf.setInt("hive.metastore.failure.retries", 3);
 
-        try {
-            if (kerberosEnabled) {
-                return loginWithKerberos(hiveConf);
+        int attempts = 8;
+        long sleepMs = 3000L;
+        Exception last = null;
+        for (int i = 1; i <= attempts; i++) {
+            try {
+                HiveMetaStoreClient client;
+                if (kerberosEnabled) {
+                    client = loginWithKerberos(hiveConf);
+                } else if (remoteUserEnabled) {
+                    client = loginWithRemoteUser(hiveConf);
+                } else {
+                    log.info(
+                            "Initializing HiveMetaStoreClient (attempt {}/{}) with URI: {}",
+                            i,
+                            attempts,
+                            metastoreUri);
+                    client = new HiveMetaStoreClient(hiveConf);
+                }
+                log.info(
+                        "Successfully initialized HiveMetaStoreClient on attempt {}/{}",
+                        i,
+                        attempts);
+                return client;
+            } catch (Exception e) {
+                last = e;
+                String msg = (e.getMessage() == null) ? e.toString() : e.getMessage();
+                if (i == attempts) {
+                    log.error(
+                            "Failed to initialize HiveMetaStoreClient after {} attempts: {}",
+                            attempts,
+                            msg,
+                            e);
+                    break;
+                }
+                log.warn(
+                        "Initialize HiveMetaStoreClient attempt {}/{} failed: {}. Sleep {}ms then retry...",
+                        i,
+                        attempts,
+                        msg,
+                        sleepMs);
+                try {
+                    Thread.sleep(sleepMs);
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    break;
+                }
             }
-            if (remoteUserEnabled) {
-                return loginWithRemoteUser(hiveConf);
-            }
-
-            log.info("Initializing HiveMetaStoreClient with URI: {}", metastoreUri);
-            HiveMetaStoreClient client = new HiveMetaStoreClient(hiveConf);
-            log.info("Successfully initialized HiveMetaStoreClient");
-            return client;
-
-        } catch (Exception e) {
-            log.error("Failed to initialize HiveMetaStoreClient: {}", e.getMessage(), e);
-            String errMsg =
-                    String.format(
-                            "Failed to initialize HiveMetaStoreClient [uris=%s, hiveSite=%s]. "
-                                    + "This may be due to version compatibility issues between client and server. "
-                                    + "Error: %s",
-                            metastoreUri, hiveSitePath, e.getMessage());
-            throw new HiveConnectorException(
-                    HiveConnectorErrorCode.INITIALIZE_HIVE_METASTORE_CLIENT_FAILED, errMsg, e);
         }
+        String errMsg =
+                String.format(
+                        "Failed to initialize HiveMetaStoreClient after %d attempts [uris=%s, hiveSite=%s]. Error: %s",
+                        attempts,
+                        metastoreUri,
+                        hiveSitePath,
+                        (last == null ? "unknown" : last.getMessage()));
+        throw new HiveConnectorException(
+                HiveConnectorErrorCode.INITIALIZE_HIVE_METASTORE_CLIENT_FAILED, errMsg, last);
     }
     // Simple retry helper to mitigate transient HMS startup/connection issues in e2e
     @FunctionalInterface
@@ -268,15 +301,25 @@ public class HiveMetaStoreProxy implements Catalog, Closeable, Serializable {
 
     public void createTableIfNotExists(@NonNull Table tbl) throws TException {
         try {
-            if (getClient().tableExists(tbl.getDbName(), tbl.getTableName())) {
+            boolean exists =
+                    withRetry(
+                            () -> getClient().tableExists(tbl.getDbName(), tbl.getTableName()),
+                            String.format(
+                                    "tableExists %s.%s", tbl.getDbName(), tbl.getTableName()));
+            if (exists) {
                 log.info(
                         "Table {}.{} already exists, skipping creation",
                         tbl.getDbName(),
                         tbl.getTableName());
                 return;
             }
-            log.info("Creating table: {}.{}", tbl.getDbName(), tbl.getTableName());
-            getClient().createTable(tbl);
+            withRetry(
+                    () -> {
+                        log.info("Creating table: {}.{}", tbl.getDbName(), tbl.getTableName());
+                        getClient().createTable(tbl);
+                        return null; // Void semantics
+                    },
+                    String.format("createTable %s.%s", tbl.getDbName(), tbl.getTableName()));
             log.info("Successfully created table: {}.{}", tbl.getDbName(), tbl.getTableName());
         } catch (org.apache.hadoop.hive.metastore.api.AlreadyExistsException e) {
             log.info(
