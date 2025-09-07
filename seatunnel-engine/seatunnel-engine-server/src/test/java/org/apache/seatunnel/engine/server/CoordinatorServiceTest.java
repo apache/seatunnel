@@ -45,10 +45,9 @@ import com.hazelcast.spi.impl.NodeEngineImpl;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.CountDownLatch;
@@ -250,7 +249,7 @@ public class CoordinatorServiceTest {
     }
 
     @Test
-    void testMetricsImaSizeWithPartitionConfig() {
+    void testMetricsImapSizeWithPartitionConfig() {
         setConfigFile("seatunnel_multiple_metrics_key.yaml");
 
         String clusterName = TestUtils.getClusterName("testMetricsImapSizeWithPartitionConfig");
@@ -537,7 +536,7 @@ public class CoordinatorServiceTest {
                                 Assertions.assertEquals(
                                         2, instance1.getCluster().getMembers().size()));
 
-        ExecutorService executor = Executors.newFixedThreadPool(50);
+        ExecutorService executor = Executors.newFixedThreadPool(32);
         try {
             NodeEngineImpl nodeEngine = instance2.node.getNodeEngine();
             Map<TaskLocation, SeaTunnelMetricsContext> localMap = new HashMap<>();
@@ -550,7 +549,7 @@ public class CoordinatorServiceTest {
             // warm-up
             runOps(executor, nodeEngine, localMap, 100);
 
-            int ops = 100;
+            int ops = 2000;
             double seconds = runOps(executor, nodeEngine, localMap, ops);
             double tps = ops / seconds;
 
@@ -571,14 +570,16 @@ public class CoordinatorServiceTest {
             int ops) {
 
         CountDownLatch startGate = new CountDownLatch(1);
-        List<CompletableFuture<Void>> futures = new ArrayList<>(ops);
+
+        CompletableFuture<Long>[] futures = new CompletableFuture[ops];
 
         for (int i = 0; i < ops; i++) {
-            futures.add(
-                    CompletableFuture.runAsync(
+            futures[i] =
+                    CompletableFuture.supplyAsync(
                             () -> {
                                 try {
                                     startGate.await();
+                                    long start = System.nanoTime();
                                     nodeEngine
                                             .getOperationService()
                                             .createInvocationBuilder(
@@ -587,17 +588,27 @@ public class CoordinatorServiceTest {
                                                     nodeEngine.getMasterAddress())
                                             .invoke()
                                             .get();
+                                    long end = System.nanoTime();
+                                    return end - start;
                                 } catch (Exception e) {
                                     throw new CompletionException(e);
                                 }
                             },
-                            executor));
+                            executor);
         }
 
         long startNs = System.nanoTime();
         startGate.countDown();
-        CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+
+        long[] durations = new long[ops];
+        for (int i = 0; i < ops; i++) {
+            durations[i] = futures[i].join();
+        }
+
         long elapsedNs = System.nanoTime() - startNs;
+        double avgSeconds = Arrays.stream(durations).average().orElse(0) / 1_000_000_000.0;
+
+        System.out.printf("Average completion time per op: %.6f seconds%n", avgSeconds);
 
         return elapsedNs / 1_000_000_000.0;
     }

@@ -359,55 +359,63 @@ public class SeaTunnelServer
                     partitioned.computeIfAbsent(partition, k -> new HashMap<>()).put(key, value);
                 });
 
-        partitioned.forEach(
-                (partition, metrics) ->
-                        metricsImap.compute(
-                                partition,
-                                (k, oldVal) -> {
-                                    if (oldVal == null) oldVal = new HashMap<>();
-                                    oldVal.putAll(metrics);
-                                    return oldVal;
-                                }));
+        partitioned
+                .entrySet()
+                .parallelStream()
+                .forEach(
+                        entry -> {
+                            metricsImap.compute(
+                                    entry.getKey(),
+                                    (k, oldVal) -> {
+                                        if (oldVal == null) oldVal = new HashMap<>();
+                                        oldVal.putAll(entry.getValue());
+                                        return oldVal;
+                                    });
+                        });
     }
 
     public void removeMetrics(PipelineLocation pipelineLocation) {
         IMap<Long, Map<TaskLocation, SeaTunnelMetricsContext>> metricsImap =
                 getNodeEngine().getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_METRICS);
 
-        int partitionCount = seaTunnelConfig.getEngineConfig().getJobMetricsPartitionCount();
-
-        List<TaskLocation> taskLocations = getTaskLocations(pipelineLocation, metricsImap);
-        for (TaskLocation key : taskLocations) {
-            long partition = getMetricsImapPartition(key, partitionCount);
-            metricsImap.compute(
-                    partition,
-                    (k, oldVal) -> {
-                        if (oldVal != null) {
-                            oldVal.remove(key);
-                            if (oldVal.isEmpty()) return null;
-                        }
-                        return oldVal;
-                    });
+        Map<Long, List<TaskLocation>> partitionedTasks = new HashMap<>();
+        for (Map.Entry<Long, Map<TaskLocation, SeaTunnelMetricsContext>> entry :
+                metricsImap.entrySet()) {
+            long partition = entry.getKey();
+            List<TaskLocation> tasksToRemove =
+                    entry.getValue().keySet().stream()
+                            .filter(
+                                    t ->
+                                            t.getTaskGroupLocation()
+                                                    .getPipelineLocation()
+                                                    .equals(pipelineLocation))
+                            .collect(Collectors.toList());
+            if (!tasksToRemove.isEmpty()) {
+                partitionedTasks.put(partition, tasksToRemove);
+            }
         }
+
+        partitionedTasks
+                .entrySet()
+                .parallelStream()
+                .forEach(
+                        entry -> {
+                            long partition = entry.getKey();
+                            List<TaskLocation> tasks = entry.getValue();
+                            metricsImap.compute(
+                                    partition,
+                                    (k, oldVal) -> {
+                                        if (oldVal != null) {
+                                            tasks.forEach(oldVal::remove);
+                                            if (oldVal.isEmpty()) return null;
+                                        }
+                                        return oldVal;
+                                    });
+                        });
     }
 
     public static long getMetricsImapPartition(TaskLocation key, int partitionCount) {
-        long partition = (key.hashCode() & 0x7FFFFFFF) % partitionCount;
-        return partition;
-    }
-
-    private List<TaskLocation> getTaskLocations(
-            PipelineLocation pipelineLocation,
-            IMap<Long, Map<TaskLocation, SeaTunnelMetricsContext>> metricsImap) {
-        return metricsImap.values().stream()
-                .flatMap(map -> map.keySet().stream())
-                .filter(
-                        taskLocation ->
-                                taskLocation
-                                        .getTaskGroupLocation()
-                                        .getPipelineLocation()
-                                        .equals(pipelineLocation))
-                .collect(Collectors.toList());
+        return (key.hashCode() & 0x7FFFFFFF) % partitionCount;
     }
 
     public SeaTunnelConfig getSeaTunnelConfig() {
