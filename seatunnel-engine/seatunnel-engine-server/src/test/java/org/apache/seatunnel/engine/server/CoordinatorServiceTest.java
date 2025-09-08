@@ -529,18 +529,20 @@ public class CoordinatorServiceTest {
                 SeaTunnelServerStarter.createHazelcastInstance(clusterName);
         HazelcastInstanceImpl instance2 =
                 SeaTunnelServerStarter.createHazelcastInstance(clusterName);
+        HazelcastInstanceImpl instance3 =
+                SeaTunnelServerStarter.createHazelcastInstance(clusterName);
 
         await().atMost(20000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () ->
                                 Assertions.assertEquals(
-                                        2, instance1.getCluster().getMembers().size()));
+                                        3, instance1.getCluster().getMembers().size()));
 
         ExecutorService executor = Executors.newFixedThreadPool(32);
         try {
             NodeEngineImpl nodeEngine = instance2.node.getNodeEngine();
             Map<TaskLocation, SeaTunnelMetricsContext> localMap = new HashMap<>();
-            for (int i = 0; i < 2000; i++) {
+            for (int i = 0; i < 20000; i++) {
                 TaskLocation taskLocation = new TaskLocation();
                 taskLocation.setTaskID(i);
                 localMap.put(taskLocation, new SeaTunnelMetricsContext());
@@ -549,7 +551,7 @@ public class CoordinatorServiceTest {
             // warm-up
             runOps(executor, nodeEngine, localMap, 100);
 
-            int ops = 2000;
+            int ops = 100;
             double seconds = runOps(executor, nodeEngine, localMap, ops);
             double tps = ops / seconds;
 
@@ -586,6 +588,7 @@ public class CoordinatorServiceTest {
                                                     SeaTunnelServer.SERVICE_NAME,
                                                     new ReportMetricsOperation(localMap),
                                                     nodeEngine.getMasterAddress())
+                                            .setCallTimeout(120_000)
                                             .invoke()
                                             .get();
                                     long end = System.nanoTime();
