@@ -17,11 +17,11 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc;
 
-import org.apache.seatunnel.e2e.common.container.seatunnel.SeaTunnelContainer;
 import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 
 import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.e2e.common.container.seatunnel.SeaTunnelContainer;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
@@ -204,7 +204,7 @@ public class MetalakeIT extends SeaTunnelContainer {
     @Test
     public void TestMetalake() throws IOException, InterruptedException {
         Container.ExecResult execResult =
-                executeJob("/mysql_to_console_with_metalake.conf");
+                executeJob("/jdbc_mysql_source_to_assert_sink_with_metalake.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
     }
 
@@ -344,7 +344,7 @@ public class MetalakeIT extends SeaTunnelContainer {
 
     protected void insertTestData() {
         try (PreparedStatement preparedStatement =
-                     connection.prepareStatement(jdbcCase.getInsertSql())) {
+                connection.prepareStatement(jdbcCase.getInsertSql())) {
 
             List<SeaTunnelRow> rows = jdbcCase.getTestData().getValue();
 
@@ -366,7 +366,7 @@ public class MetalakeIT extends SeaTunnelContainer {
     Pair<String[], List<SeaTunnelRow>> initTestData() {
         String[] fieldNames =
                 new String[] {
-                        "c-bit_1", "c_bit_8", "c_bit_16", "c_bit_32", "c_bit_64", "c_bigint_30",
+                    "c-bit_1", "c_bit_8", "c_bit_16", "c_bit_32", "c_bit_64", "c_bigint_30",
                 };
 
         List<SeaTunnelRow> rows = new ArrayList<>();
@@ -379,33 +379,33 @@ public class MetalakeIT extends SeaTunnelContainer {
                 row =
                         new SeaTunnelRow(
                                 new Object[] {
-                                        (byte) 0,
-                                        new byte[] {byteArr},
-                                        new byte[] {byteArr, byteArr},
-                                        new byte[] {byteArr, byteArr, byteArr, byteArr},
-                                        new byte[] {
-                                                byteArr, byteArr, byteArr, byteArr, byteArr, byteArr,
-                                                byteArr, byteArr
-                                        },
-                                        // https://github.com/apache/seatunnel/issues/5559 this value
-                                        // cannot set null, this null
-                                        // value column's row will be lost in
-                                        // jdbc_mysql_source_and_sink_parallel.conf,jdbc_mysql_source_and_sink_parallel_upper_lower.conf.
-                                        bigintValue.add(BigDecimal.valueOf(i)),
+                                    (byte) 0,
+                                    new byte[] {byteArr},
+                                    new byte[] {byteArr, byteArr},
+                                    new byte[] {byteArr, byteArr, byteArr, byteArr},
+                                    new byte[] {
+                                        byteArr, byteArr, byteArr, byteArr, byteArr, byteArr,
+                                        byteArr, byteArr
+                                    },
+                                    // https://github.com/apache/seatunnel/issues/5559 this value
+                                    // cannot set null, this null
+                                    // value column's row will be lost in
+                                    // jdbc_mysql_source_and_sink_parallel.conf,jdbc_mysql_source_and_sink_parallel_upper_lower.conf.
+                                    bigintValue.add(BigDecimal.valueOf(i)),
                                 });
             } else {
                 row =
                         new SeaTunnelRow(
                                 new Object[] {
-                                        i % 2 == 0 ? (byte) 1 : (byte) 0,
-                                        new byte[] {byteArr},
-                                        new byte[] {byteArr, byteArr},
-                                        new byte[] {byteArr, byteArr, byteArr, byteArr},
-                                        new byte[] {
-                                                byteArr, byteArr, byteArr, byteArr, byteArr, byteArr,
-                                                byteArr, byteArr
-                                        },
-                                        bigintValue.add(BigDecimal.valueOf(i)),
+                                    i % 2 == 0 ? (byte) 1 : (byte) 0,
+                                    new byte[] {byteArr},
+                                    new byte[] {byteArr, byteArr},
+                                    new byte[] {byteArr, byteArr, byteArr, byteArr},
+                                    new byte[] {
+                                        byteArr, byteArr, byteArr, byteArr, byteArr, byteArr,
+                                        byteArr, byteArr
+                                    },
+                                    bigintValue.add(BigDecimal.valueOf(i)),
                                 });
             }
             rows.add(row);
@@ -454,4 +454,3 @@ public class MetalakeIT extends SeaTunnelContainer {
         return "`" + field + "`";
     }
 }
-

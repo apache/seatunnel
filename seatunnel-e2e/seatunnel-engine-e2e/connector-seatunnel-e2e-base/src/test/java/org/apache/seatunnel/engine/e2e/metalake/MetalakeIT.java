@@ -384,8 +384,8 @@ public class MetalakeIT extends SeaTunnelEngineContainer {
                                     new byte[] {byteArr, byteArr},
                                     new byte[] {byteArr, byteArr, byteArr, byteArr},
                                     new byte[] {
-                                            byteArr, byteArr, byteArr, byteArr, byteArr, byteArr,
-                                            byteArr, byteArr
+                                        byteArr, byteArr, byteArr, byteArr, byteArr, byteArr,
+                                        byteArr, byteArr
                                     },
                                     // https://github.com/apache/seatunnel/issues/5559 this value
                                     // cannot set null, this null
