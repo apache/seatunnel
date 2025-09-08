@@ -28,7 +28,7 @@ import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveOptions;
 import org.apache.seatunnel.connectors.seatunnel.hive.exception.HiveConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.hive.exception.HiveConnectorException;
-import org.apache.seatunnel.connectors.seatunnel.hive.utils.HiveMetaStoreProxy;
+import org.apache.seatunnel.connectors.seatunnel.hive.utils.HiveMetaStoreCatalog;
 import org.apache.seatunnel.connectors.seatunnel.hive.utils.HiveTableTemplateUtils;
 import org.apache.seatunnel.connectors.seatunnel.hive.utils.HiveTypeConvertor;
 
@@ -54,7 +54,7 @@ public class HiveSaveModeHandler implements SaveModeHandler, AutoCloseable {
     private final TableSchema tableSchema;
     private final List<String> partitionFields;
 
-    private HiveMetaStoreProxy hiveMetaStoreProxy;
+    private HiveMetaStoreCatalog hiveCatalog;
     private Catalog optionalCatalog;
 
     public HiveSaveModeHandler(
@@ -84,9 +84,9 @@ public class HiveSaveModeHandler implements SaveModeHandler, AutoCloseable {
 
     @Override
     public void open() {
-        this.hiveMetaStoreProxy = HiveMetaStoreProxy.getInstance(readonlyConfig);
+        this.hiveCatalog = HiveMetaStoreCatalog.create(readonlyConfig);
         if (this.optionalCatalog == null) {
-            this.optionalCatalog = this.hiveMetaStoreProxy;
+            this.optionalCatalog = this.hiveCatalog;
         }
     }
 
@@ -122,8 +122,8 @@ public class HiveSaveModeHandler implements SaveModeHandler, AutoCloseable {
         if (optionalCatalog != null) {
             optionalCatalog.close();
         }
-        if (hiveMetaStoreProxy != null && hiveMetaStoreProxy != optionalCatalog) {
-            hiveMetaStoreProxy.close();
+        if (hiveCatalog != null && hiveCatalog != optionalCatalog) {
+            hiveCatalog.close();
         }
     }
 
@@ -173,15 +173,15 @@ public class HiveSaveModeHandler implements SaveModeHandler, AutoCloseable {
         log.info("Recreate schema mode: dropping and recreating table {}.{}", dbName, tableName);
 
         // Do NOT create database automatically. Ensure database exists first.
-        if (!hiveMetaStoreProxy.databaseExists(dbName)) {
+        if (!hiveCatalog.databaseExists(dbName)) {
             throw new HiveConnectorException(
                     HiveConnectorErrorCode.CREATE_HIVE_TABLE_FAILED,
                     "Database " + dbName + " does not exist. Please create it manually.");
         }
 
         // Drop table if exists
-        if (hiveMetaStoreProxy.tableExists(dbName, tableName)) {
-            hiveMetaStoreProxy.dropTable(dbName, tableName);
+        if (hiveCatalog.tableExists(dbName, tableName)) {
+            hiveCatalog.dropTable(dbName, tableName);
             log.info("Dropped existing table {}.{}", dbName, tableName);
         }
 
@@ -192,13 +192,13 @@ public class HiveSaveModeHandler implements SaveModeHandler, AutoCloseable {
     private void handleCreateSchemaWhenNotExist() throws TException {
         log.info("Create schema when not exist mode for table {}.{}", dbName, tableName);
 
-        if (!hiveMetaStoreProxy.databaseExists(dbName)) {
+        if (!hiveCatalog.databaseExists(dbName)) {
             throw new HiveConnectorException(
                     HiveConnectorErrorCode.CREATE_HIVE_TABLE_FAILED,
                     "Database " + dbName + " does not exist. Please create it manually.");
         }
 
-        if (!hiveMetaStoreProxy.tableExists(dbName, tableName)) {
+        if (!hiveCatalog.tableExists(dbName, tableName)) {
             createTable();
         } else {
             log.info("Table {}.{} already exists, skipping creation", dbName, tableName);
@@ -209,14 +209,14 @@ public class HiveSaveModeHandler implements SaveModeHandler, AutoCloseable {
         log.info("Error when schema not exist mode: checking table {}.{}", dbName, tableName);
 
         // Check if database exists
-        if (!hiveMetaStoreProxy.databaseExists(dbName)) {
+        if (!hiveCatalog.databaseExists(dbName)) {
             throw new HiveConnectorException(
                     HiveConnectorErrorCode.CREATE_HIVE_TABLE_FAILED,
                     "Database " + dbName + " does not exist");
         }
 
         // Check if table exists
-        if (!hiveMetaStoreProxy.tableExists(dbName, tableName)) {
+        if (!hiveCatalog.tableExists(dbName, tableName)) {
             throw new HiveConnectorException(
                     HiveConnectorErrorCode.CREATE_HIVE_TABLE_FAILED,
                     "Table " + dbName + "." + tableName + " does not exist");
@@ -226,7 +226,7 @@ public class HiveSaveModeHandler implements SaveModeHandler, AutoCloseable {
     private void createTable() throws TException {
         log.info("Creating table {}.{} using template-based approach", dbName, tableName);
         Table table = buildTableFromTemplate();
-        hiveMetaStoreProxy.createTableFromTemplate(table);
+        hiveCatalog.createTableFromTemplate(table);
         log.info("Successfully created table {}.{}", dbName, tableName);
     }
 

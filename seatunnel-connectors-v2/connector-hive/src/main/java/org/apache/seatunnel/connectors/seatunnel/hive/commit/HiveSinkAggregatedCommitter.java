@@ -22,7 +22,7 @@ import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.commit.FileAggregatedCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.commit.FileSinkAggregatedCommitter;
 import org.apache.seatunnel.connectors.seatunnel.hive.sink.HiveSinkOptions;
-import org.apache.seatunnel.connectors.seatunnel.hive.utils.HiveMetaStoreProxy;
+import org.apache.seatunnel.connectors.seatunnel.hive.utils.HiveMetaStoreCatalog;
 
 import org.apache.thrift.TException;
 
@@ -43,13 +43,13 @@ public class HiveSinkAggregatedCommitter extends FileSinkAggregatedCommitter {
     private final boolean overwrite;
 
     private final ReadonlyConfig readonlyConfig;
-    private final HiveMetaStoreProxy hiveMetaStore;
+    private final HiveMetaStoreCatalog hiveMetaStore;
 
     public HiveSinkAggregatedCommitter(
             ReadonlyConfig readonlyConfig, String dbName, String tableName, HadoopConf hadoopConf) {
         super(hadoopConf);
         this.readonlyConfig = readonlyConfig;
-        this.hiveMetaStore = new HiveMetaStoreProxy(readonlyConfig);
+        this.hiveMetaStore = HiveMetaStoreCatalog.create(readonlyConfig);
         this.dbName = dbName;
         this.tableName = tableName;
         this.abortDropPartitionMetadata =
