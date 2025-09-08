@@ -371,14 +371,11 @@ public class SeaTunnelEngineClusterRoleTest {
         HazelcastInstanceImpl masterNode2 = null;
         SeaTunnelClient seatunnelClient = null;
         HazelcastClientInstanceImpl hazelcastClient = null;
-
-        String testClusterName = "Test_testClusterWillDownWhenNoMasterNode";
-
+        String testClusterName = "Test_testWorkerIsFirstMemberThenGetJobDetailStatus";
         SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
         seaTunnelConfig
                 .getHazelcastConfig()
                 .setClusterName(ContentFormatUtilTest.getClusterName(testClusterName));
-
         try {
             // master node must start first in ci
             masterNode1 = SeaTunnelServerStarter.createMasterHazelcastInstance(seaTunnelConfig);
@@ -393,8 +390,11 @@ public class SeaTunnelEngineClusterRoleTest {
             workerNode1 = SeaTunnelServerStarter.createWorkerHazelcastInstance(seaTunnelConfig);
             workerNode2 = SeaTunnelServerStarter.createWorkerHazelcastInstance(seaTunnelConfig);
             // start another master node
-            masterNode2 = SeaTunnelServerStarter.createMasterHazelcastInstance(seaTunnelConfig);
-
+            SeaTunnelConfig seaTunnelConfig2 = ConfigProvider.locateAndGetSeaTunnelConfig();
+            seaTunnelConfig2
+                    .getHazelcastConfig()
+                    .setClusterName(ContentFormatUtilTest.getClusterName(testClusterName));
+            masterNode2 = SeaTunnelServerStarter.createMasterHazelcastInstance(seaTunnelConfig2);
             HazelcastInstanceImpl finalWorkerNode = workerNode1;
             Awaitility.await()
                     .atMost(10000, TimeUnit.MILLISECONDS)
@@ -402,7 +402,6 @@ public class SeaTunnelEngineClusterRoleTest {
                             () ->
                                     Assertions.assertEquals(
                                             4, finalWorkerNode.getCluster().getMembers().size()));
-            // shutdown master node1
             masterNode1.shutdown();
             Awaitility.await()
                     .atMost(10000, TimeUnit.MILLISECONDS)
@@ -416,9 +415,9 @@ public class SeaTunnelEngineClusterRoleTest {
                             .collect(
                                     Collectors.toMap(
                                             Member::getUuid, member -> member, (a, b) -> b));
-
             // get master member
             ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
+            clientConfig.setClusterName(ContentFormatUtilTest.getClusterName(testClusterName));
             hazelcastClient =
                     ((HazelcastClientProxy) HazelcastClient.newHazelcastClient(clientConfig))
                             .client;
@@ -434,7 +433,6 @@ public class SeaTunnelEngineClusterRoleTest {
                                                 .getUuid();
                                 Assertions.assertTrue(memberMap.get(masterUuid).isLiteMember());
                             });
-
             // start client job
             Common.setDeployMode(DeployMode.CLIENT);
             String filePath = ContentFormatUtilTest.getResource("/streaming_fake_to_console.conf");
@@ -454,6 +452,12 @@ public class SeaTunnelEngineClusterRoleTest {
                                                     && jobClient
                                                             .listJobStatus(true)
                                                             .contains("RUNNING")));
+            jobClient.cancelJob(jobId);
+            await().atMost(30000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            "CANCELED", jobClient.getJobStatus(jobId)));
         } finally {
             if (hazelcastClient != null) {
                 hazelcastClient.shutdown();
