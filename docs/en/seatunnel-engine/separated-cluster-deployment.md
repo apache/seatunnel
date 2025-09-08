@@ -340,6 +340,8 @@ This will distribute metrics across 4 partitions instead of using a single key.
 Note:
 Increasing the partition count may improve concurrency under heavy contention,
 but setting it too high can introduce additional overhead in distribution and merging, which can reduce overall performance.
+The partition count should be configured before starting a job. 
+Changing the partition count after a job has started may result in metric key mismatches, so it is recommended to restart Seatunnel after modifying this option.
 
 ## 5. Configuring SeaTunnel Engine Network Services
 
