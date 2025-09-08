@@ -166,6 +166,7 @@
         <hadoop-aws.version>3.1.4</hadoop-aws.version>
         <software.amazon.awssdk.version>2.31.30</software.amazon.awssdk.version>
         <arrow.version>15.0.1</arrow.version>
+        <okhttp.version>4.12.0</okhttp.version>
 
     </properties>
 
@@ -323,6 +324,19 @@
                 <groupId>commons-codec</groupId>
                 <artifactId>commons-codec</artifactId>
                 <version>${codec.version}</version>
+            </dependency>
+
+            <!-- OkHttp dependencies -->
+            <dependency>
+                <groupId>com.squareup.okhttp3</groupId>
+                <artifactId>okhttp</artifactId>
+                <version>${okhttp.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.squareup.okhttp3</groupId>
+                <artifactId>mockwebserver</artifactId>
+                <version>${okhttp.version}</version>
+                <scope>test</scope>
             </dependency>
 
             <dependency>

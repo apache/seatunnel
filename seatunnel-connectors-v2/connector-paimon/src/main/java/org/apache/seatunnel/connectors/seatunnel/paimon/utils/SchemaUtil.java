@@ -102,8 +102,8 @@ public class SchemaUtil {
                 fields.stream().filter(field -> field.name().equals(fieldName)).findFirst();
         if (!firstField.isPresent()) {
             throw new PaimonConnectorException(
-                    PaimonConnectorErrorCode.GET_FILED_FAILED,
-                    "Can not get the filed [" + fieldName + "] from source table");
+                    PaimonConnectorErrorCode.GET_FIELD_FAILED,
+                    "Can not get the field [" + fieldName + "] from source table");
         }
         return firstField.get();
     }

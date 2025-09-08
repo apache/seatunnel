@@ -35,8 +35,10 @@ package org.apache.seatunnel.common.utils;
 
 import java.nio.Buffer;
 import java.nio.ByteBuffer;
+import java.util.Arrays;
+import java.util.Map;
 
-public class BufferUtils {
+public class VectorUtils {
 
     public static ByteBuffer toByteBuffer(Short[] shortArray) {
         ByteBuffer byteBuffer = ByteBuffer.allocate(shortArray.length * 2);
@@ -126,5 +128,47 @@ public class BufferUtils {
         }
 
         return intArray;
+    }
+
+    public static Float[] convertSparseVectorToFloatArray(Map<?, ?> sparseVector) {
+        if (sparseVector.isEmpty()) {
+            return new Float[0];
+        }
+        int maxIndex = -1;
+        for (Map.Entry<?, ?> entry : sparseVector.entrySet()) {
+            Object key = entry.getKey();
+            if (!(key instanceof Integer)) {
+                throw new IllegalArgumentException(
+                        String.format(
+                                "Sparse vector key must be Integer, but got: %s,",
+                                key.getClass().getName()));
+            }
+            int index = (Integer) key;
+            if (index < 0) {
+                throw new IllegalArgumentException(
+                        String.format("Sparse vector index cannot be negative: %d", index));
+            }
+            // prevent OOM
+            if (index > 1000000) {
+                throw new IllegalArgumentException(
+                        String.format("Sparse vector index too large: %d", index));
+            }
+            maxIndex = Math.max(maxIndex, index);
+        }
+        Float[] denseVector = new Float[maxIndex + 1];
+        Arrays.fill(denseVector, 0.0f);
+        for (Map.Entry<?, ?> entry : sparseVector.entrySet()) {
+            Object key = entry.getKey();
+            Object value = entry.getValue();
+            if (!(value instanceof Number)) {
+                throw new IllegalArgumentException(
+                        String.format(
+                                "Sparse vector value must be a Number, but got: %s",
+                                value.getClass().getName()));
+            }
+            int index = (Integer) key;
+            denseVector[index] = ((Number) value).floatValue();
+        }
+        return denseVector;
     }
 }

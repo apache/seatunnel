@@ -85,7 +85,7 @@ public class SlsSourceConfig implements Serializable {
         if (schemaOptions.isPresent()) {
             tableSchema = new ReadonlyConfigParser().parse(readonlyConfig);
         } else {
-            // no scheam, all value in content filed
+            // no schema, all value in content field
             tableSchema =
                     TableSchema.builder()
                             .column(

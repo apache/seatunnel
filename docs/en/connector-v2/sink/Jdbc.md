@@ -94,6 +94,8 @@ Postgres 9.5 version or below,please set it to `postgresLow` to support cdc
 
 The appointed dialect, if it does not exist, is still obtained according to the url, and the priority is higher than the url. For example,when using starrocks, you need set it to `starrocks`. Similarly, when using mysql, you need to set its value to `mysql`.
 
+If one dialect not supported by SeaTunnel, it will use the default dialect `GenericDialect`. Just make sure the driver you provided support the database you want to connect.
+
 #### dialect list
 
 |           | Dialect Name |          |
@@ -143,34 +145,34 @@ This option is used to support operations such as `insert`, `delete`, and `updat
 
 The time in seconds to wait for the database operation used to validate the connection to complete.
 
-### max_retries[int]
+### max_retries [int]
 
 The number of retries to submit failed (executeBatch)
 
-### batch_size[int]
+### batch_size [int]
 
 For batch writing, when the number of buffered records reaches the number of `batch_size` or the time reaches `checkpoint.interval`
 , the data will be flushed into the database
 
-### is_exactly_once[boolean]
+### is_exactly_once [boolean]
 
 Whether to enable exactly-once semantics, which will use Xa transactions. If on, you need to
 set `xa_data_source_class_name`.
 
-### generate_sink_sql[boolean]
+### generate_sink_sql [boolean]
 
 Generate sql statements based on the database table you want to write to
 
-### xa_data_source_class_name[string]
+### xa_data_source_class_name [string]
 
 The xa data source class name of the database Driver, for example, mysql is `com.mysql.cj.jdbc.MysqlXADataSource`, and
 please refer to appendix for other data sources
 
-### max_commit_attempts[int]
+### max_commit_attempts [int]
 
 The number of retries for transaction commit failures
 
-### transaction_timeout_sec[int]
+### transaction_timeout_sec [int]
 
 The timeout after the transaction is opened, the default is -1 (never timeout). Note that setting the timeout may affect
 exactly-once semantics

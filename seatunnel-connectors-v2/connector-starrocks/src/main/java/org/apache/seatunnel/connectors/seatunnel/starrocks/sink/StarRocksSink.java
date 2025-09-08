@@ -37,10 +37,13 @@ import org.apache.seatunnel.connectors.seatunnel.starrocks.catalog.StarRocksCata
 import org.apache.seatunnel.connectors.seatunnel.starrocks.config.SinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.config.StarRocksBaseOptions;
 
+import lombok.extern.slf4j.Slf4j;
+
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
+@Slf4j
 public class StarRocksSink extends AbstractSimpleSink<SeaTunnelRow, Void>
         implements SupportSaveMode, SupportSchemaEvolutionSink, SupportMultiTableSink {
 
@@ -56,6 +59,12 @@ public class StarRocksSink extends AbstractSimpleSink<SeaTunnelRow, Void>
         this.catalogTable = catalogTable;
         this.dataSaveMode = sinkConfig.getDataSaveMode();
         this.schemaSaveMode = sinkConfig.getSchemaSaveMode();
+        // Load the JDBC driver in to DriverManager
+        try {
+            Class.forName("com.mysql.cj.jdbc.Driver");
+        } catch (Exception e) {
+            log.warn("Failed to load JDBC driver {}", "com.mysql.cj.jdbc.Driver", e);
+        }
     }
 
     @Override
@@ -65,12 +74,24 @@ public class StarRocksSink extends AbstractSimpleSink<SeaTunnelRow, Void>
 
     @Override
     public StarRocksSinkWriter createWriter(SinkWriter.Context context) {
+        // Load the JDBC driver in to DriverManager
+        try {
+            Class.forName("com.mysql.cj.jdbc.Driver");
+        } catch (Exception e) {
+            log.warn("Failed to load JDBC driver {}", "com.mysql.cj.jdbc.Driver", e);
+        }
         TablePath sinkTablePath = catalogTable.getTablePath();
         return new StarRocksSinkWriter(sinkConfig, tableSchema, sinkTablePath);
     }
 
     @Override
     public Optional<SaveModeHandler> getSaveModeHandler() {
+        // Load the JDBC driver in to DriverManager
+        try {
+            Class.forName("com.mysql.cj.jdbc.Driver");
+        } catch (Exception e) {
+            log.warn("Failed to load JDBC driver {}", "com.mysql.cj.jdbc.Driver", e);
+        }
         TablePath tablePath =
                 TablePath.of(
                         catalogTable.getTableId().getDatabaseName(),

@@ -108,6 +108,7 @@ public class KafkaSource
                 kafkaSourceConfig,
                 enumeratorContext,
                 null,
+                false,
                 getBoundedness() == Boundedness.UNBOUNDED);
     }
 
@@ -119,6 +120,7 @@ public class KafkaSource
                 kafkaSourceConfig,
                 enumeratorContext,
                 checkpointState,
+                true,
                 getBoundedness() == Boundedness.UNBOUNDED);
     }
 

@@ -57,16 +57,15 @@ public class ClickhouseSourceSplitEnumerator
     private final Map<TablePath, ClickhouseSourceTable> clickhouseSourceTables;
     private volatile boolean shouldEnumerate;
     private final Map<Integer, List<ClickhouseSourceSplit>> pendingSplit;
-    private final Splitter splitter;
     private final Context<ClickhouseSourceSplit> context;
-    private final List<ClickHouseNode> nodes;
+    private final Map<TablePath, List<ClickHouseNode>> nodesMap;
     private final Object stateLock = new Object();
 
     public ClickhouseSourceSplitEnumerator(
             Context<ClickhouseSourceSplit> context,
             ClickhouseSourceConfig clickhouseSourceConfig,
             Map<TablePath, ClickhouseSourceTable> clickhouseSourceTables,
-            List<ClickHouseNode> nodes) {
+            Map<TablePath, List<ClickHouseNode>> nodes) {
         this(context, clickhouseSourceConfig, clickhouseSourceTables, nodes, null);
     }
 
@@ -74,13 +73,12 @@ public class ClickhouseSourceSplitEnumerator
             Context<ClickhouseSourceSplit> context,
             ClickhouseSourceConfig clickhouseSourceConfig,
             Map<TablePath, ClickhouseSourceTable> clickhouseSourceTables,
-            List<ClickHouseNode> nodes,
+            Map<TablePath, List<ClickHouseNode>> nodes,
             ClickhouseSourceState sourceState) {
         this.context = context;
         this.clickhouseSourceConfig = clickhouseSourceConfig;
         this.clickhouseSourceTables = clickhouseSourceTables;
-        this.nodes = nodes;
-        this.splitter = Splitter.createSplitter(clickhouseSourceConfig);
+        this.nodesMap = nodes;
         this.pendingSplit = new ConcurrentHashMap<>();
         this.shouldEnumerate = (sourceState == null);
         if (sourceState != null) {
@@ -114,9 +112,7 @@ public class ClickhouseSourceSplitEnumerator
     }
 
     @Override
-    public void close() throws IOException {
-        splitter.close();
-    }
+    public void close() throws IOException {}
 
     @Override
     public void addSplitsBack(List<ClickhouseSourceSplit> splits, int subtaskId) {
@@ -168,11 +164,21 @@ public class ClickhouseSourceSplitEnumerator
 
     private List<ClickhouseSourceSplit> getClickhouseSourceSplits() {
         List<ClickhouseSourceSplit> splits = new ArrayList<>();
-        for (ClickhouseSourceTable clickhouseSourceTable : clickhouseSourceTables.values()) {
-            List<Shard> clusterShardList = getClusterShardList(clickhouseSourceTable);
+        for (Map.Entry<TablePath, ClickhouseSourceTable> entry :
+                clickhouseSourceTables.entrySet()) {
+            List<ClickHouseNode> nodes = nodesMap.get(entry.getKey());
+            ClickhouseSourceTable clickhouseSourceTable = entry.getValue();
+            List<Shard> clusterShardList = getClusterShardList(clickhouseSourceTable, nodes);
+
+            Splitter splitter = Splitter.createSplitter(clickhouseSourceTable);
+
             List<ClickhouseSourceSplit> sourceSplits =
                     splitter.generateSplits(clickhouseSourceTable, clusterShardList);
+
+            LOG.info("Generated {} splits for table {}.", sourceSplits.size(), entry.getKey());
+
             splits.addAll(sourceSplits);
+            splitter.close();
         }
 
         return splits;
@@ -208,7 +214,8 @@ public class ClickhouseSourceSplitEnumerator
         return (tp.hashCode() & Integer.MAX_VALUE) % numReaders;
     }
 
-    private List<Shard> getClusterShardList(ClickhouseSourceTable clickhouseSourceTable) {
+    private List<Shard> getClusterShardList(
+            ClickhouseSourceTable clickhouseSourceTable, List<ClickHouseNode> nodes) {
 
         ClickhouseTable clickhouseTable = clickhouseSourceTable.getClickhouseTable();
         ClickHouseNode currentNode = nodes.get(ThreadLocalRandom.current().nextInt(nodes.size()));
@@ -238,7 +245,7 @@ public class ClickhouseSourceSplitEnumerator
                 localTableEngine = clickhouseTable.getEngine();
             }
 
-            if (StringUtils.isEmpty(clickhouseSourceConfig.getSql())
+            if (StringUtils.isEmpty(clickhouseSourceTable.getOriginQuery())
                     && !localTableEngine.contains("MergeTree")) {
                 throw new ClickhouseConnectorException(
                         ClickhouseConnectorErrorCode.QUERY_TABLE_NOT_SUPPORT_NON_MERGE_TREE_TABLE,

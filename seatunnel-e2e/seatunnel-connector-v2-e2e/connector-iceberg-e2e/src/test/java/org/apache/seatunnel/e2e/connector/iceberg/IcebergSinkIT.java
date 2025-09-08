@@ -18,7 +18,6 @@
 package org.apache.seatunnel.e2e.connector.iceberg;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
-import org.apache.seatunnel.common.utils.FileUtils;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.IcebergTableLoader;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergCommonOptions;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergSourceConfig;
@@ -39,7 +38,6 @@ import org.junit.jupiter.api.TestTemplate;
 import org.junit.jupiter.api.condition.DisabledOnOs;
 import org.junit.jupiter.api.condition.OS;
 import org.testcontainers.containers.Container;
-import org.testcontainers.containers.GenericContainer;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -61,9 +59,7 @@ import static org.awaitility.Awaitility.given;
 @DisabledOnOs(OS.WINDOWS)
 public class IcebergSinkIT extends TestSuiteBase {
 
-    private static final String CATALOG_DIR = "/tmp/seatunnel/iceberg/hadoop-sink/";
-
-    private static final String NAMESPACE = "seatunnel_namespace";
+    private static final String CATALOG_DIR = "/tmp/seatunnel_mnt/iceberg/hadoop-sink/";
 
     private String zstdUrl() {
         return "https://repo1.maven.org/maven2/com/github/luben/zstd-jni/1.5.5-5/zstd-jni-1.5.5-5.jar";
@@ -72,53 +68,26 @@ public class IcebergSinkIT extends TestSuiteBase {
     @TestContainerExtension
     protected final ContainerExtendedFactory extendedFactory =
             container -> {
-                container.execInContainer("sh", "-c", "mkdir -p " + CATALOG_DIR);
+                // TODO: remove this after fix the issue of encountering a failure to create the
+                // metadata and data directories under the /tmp/seatunnel_mnt path in the container
+                // Manually create iceberg metadata and data directory in container
+                container.execInContainer(
+                        "sh",
+                        "-c",
+                        "mkdir -p " + CATALOG_DIR + "seatunnel_namespace/iceberg_sink_table/data");
+                container.execInContainer(
+                        "sh",
+                        "-c",
+                        "mkdir -p "
+                                + CATALOG_DIR
+                                + "seatunnel_namespace/iceberg_sink_table/metadata");
                 container.execInContainer("sh", "-c", "chmod -R 777  " + CATALOG_DIR);
+
                 container.execInContainer(
                         "sh",
                         "-c",
                         "mkdir -p /tmp/seatunnel/plugins/Iceberg/lib && cd /tmp/seatunnel/plugins/Iceberg/lib && wget "
                                 + zstdUrl());
-            };
-
-    private final String NAMESPACE_TAR = NAMESPACE + ".tar.gz";
-    protected final ContainerExtendedFactory containerExtendedFactory =
-            new ContainerExtendedFactory() {
-                @Override
-                public void extend(GenericContainer<?> container)
-                        throws IOException, InterruptedException {
-                    FileUtils.createNewDir(CATALOG_DIR);
-                    container.execInContainer(
-                            "sh",
-                            "-c",
-                            "cd "
-                                    + CATALOG_DIR
-                                    + " && tar -czvf "
-                                    + NAMESPACE_TAR
-                                    + " "
-                                    + NAMESPACE);
-                    container.copyFileFromContainer(
-                            CATALOG_DIR + NAMESPACE_TAR, CATALOG_DIR + NAMESPACE_TAR);
-                    extractFiles();
-                }
-
-                private void extractFiles() {
-                    ProcessBuilder processBuilder = new ProcessBuilder();
-                    processBuilder.command(
-                            "sh", "-c", "cd " + CATALOG_DIR + " && tar -zxvf " + NAMESPACE_TAR);
-                    try {
-                        Process process = processBuilder.start();
-                        // Wait for the command to complete
-                        int exitCode = process.waitFor();
-                        if (exitCode == 0) {
-                            log.info("Extract files successful.");
-                        } else {
-                            log.error("Extract files failed with exit code " + exitCode);
-                        }
-                    } catch (IOException | InterruptedException e) {
-                        e.printStackTrace();
-                    }
-                }
             };
 
     @TestTemplate
@@ -133,8 +102,6 @@ public class IcebergSinkIT extends TestSuiteBase {
                 .atMost(60000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () -> {
-                            // copy iceberg to local
-                            container.executeExtraCommands(containerExtendedFactory);
                             Assertions.assertEquals(100, loadIcebergTable().size());
                         });
     }

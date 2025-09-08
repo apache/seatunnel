@@ -7,7 +7,7 @@ completed jobs. The monitoring API is a RESTful API that accepts HTTP requests a
 
 The v2 version of the api uses jetty support. It is the same as the interface specification of v1 version
 , you can specify the port and context-path by modifying the configuration items in `seatunnel.yaml`,
-you can configure `enable-dynamic-port` to enable dynamic ports (the default port is accumulated starting from `port`), and the default is closed,
+you can configure `enable-dynamic-port` to enable dynamic ports (the default port is accumulated starting from `port`), and the default is enabled,
 If enable-dynamic-port is true, We will use the unused port in the range within the range of `port` and `port` + `port-range`, default range is 100
 
 ```yaml
@@ -400,16 +400,16 @@ When we can't get the job info, the response will be:
 
 #### Parameters
 
-> | name                 |   type   | data type |            description            |
-> |----------------------|----------|-----------|-----------------------------------|
-> | jobId                | optional | string    | job id                            |
-> | jobName              | optional | string    | job name                          |
-> | isStartWithSavePoint | optional | string    | if job is started with save point |
-> | format               | optional | string    | config format, support json and hocon, default json |
+> | name                 |   type   | data type | description                                              |
+> |----------------------|----------|-----------|----------------------------------------------------------|
+> | jobId                | optional | string    | job id                                                   |
+> | jobName              | optional | string    | job name                                                 |
+> | isStartWithSavePoint | optional | string    | if job is started with save point                        |
+> | format               | optional | string    | config format, support json, hocon and sql, default json |
 
 #### Body
 
-You can choose json or hocon to pass request body.
+You can choose json, hocon or sql to pass request body.
 The json format example:
 ``` json
 {
@@ -471,6 +471,46 @@ sink {
 
 ```
 
+The SQL format example:
+```sql
+/* config
+env {
+  parallelism = 2
+  job.mode = "BATCH"
+}
+*/
+
+CREATE TABLE fake_source (
+    id INT,
+    name STRING,
+    age INT
+) WITH (
+    'connector' = 'FakeSource',
+    'rows' = '[
+        { fields = [1, "Alice", 25], kind = INSERT },
+        { fields = [2, "Bob", 30], kind = INSERT }
+    ]',
+    'schema' = '{
+        fields {
+            id = "int",
+            name = "string",
+            age = "int"
+        }
+    }',
+    'type' = 'source'
+);
+
+CREATE TABLE console_sink (
+    id INT,
+    name STRING,
+    age INT
+) WITH (
+    'connector' = 'Console',
+    'type' = 'sink'
+);
+
+INSERT INTO console_sink SELECT * FROM fake_source;
+```
 
 #### Responses
 
@@ -499,12 +539,18 @@ sink {
 > | isStartWithSavePoint | optional | string    | if job is started with save point |
 
 #### Request Body
-The name of the uploaded file key is config_file, and the file suffix json is parsed in json format. The conf or config file suffix is parsed in hocon format
+The name of the uploaded file key is config_file, and supports the following formats:
+- `.json` files: parsed in JSON format
+- `.conf` or `.config` files: parsed in HOCON format
+- `.sql` files: parsed in SQL format, supports CREATE TABLE and INSERT INTO syntax
 
 curl Example :
-```
+```bash
+# Upload HOCON config file
 curl --location 'http://127.0.0.1:8080/submit-job/upload' --form 'config_file=@"/temp/fake_to_console.conf"'
 
+# Upload SQL config file
+curl --location 'http://127.0.0.1:8080/submit-job/upload' --form 'config_file=@"/temp/job.sql"'
 ```
 #### Responses
 

@@ -701,10 +701,11 @@ public class DateTimeFunction {
     }
 
     public static String fromUnixTime(List<Object> args) {
-        Long unixTime = (Long) args.get(0);
-        if (unixTime == null) {
+        Object unixTimeObj = args.get(0);
+        if (unixTimeObj == null) {
             return null;
         }
+        long unixTime = ((Number) unixTimeObj).longValue();
         String format = (String) args.get(1);
         ZoneId zoneId = ZoneId.systemDefault();
         if (args.size() == 3) {
@@ -714,5 +715,31 @@ public class DateTimeFunction {
         DateTimeFormatter df = DateTimeFormatter.ofPattern(format);
         LocalDateTime datetime = Instant.ofEpochSecond(unixTime).atZone(zoneId).toLocalDateTime();
         return df.format(datetime);
+    }
+
+    public static OffsetDateTime atTimeZone(TemporalAccessor datetime, Object timeZone) {
+        if (datetime == null) {
+            return null;
+        }
+        if (timeZone == null) {
+            throw new TransformException(
+                    CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
+                    "The timeZone argument of function: AT TIME ZONE can not be null");
+        }
+        ZoneId zoneId = ZoneId.of(timeZone.toString());
+        if (datetime instanceof LocalDateTime) {
+            return ((LocalDateTime) datetime)
+                    .atZone(ZoneId.systemDefault())
+                    .withZoneSameInstant(zoneId)
+                    .toOffsetDateTime();
+        } else if (datetime instanceof OffsetDateTime) {
+            Instant instant = ((OffsetDateTime) datetime).toInstant();
+            return instant.atZone(zoneId).toOffsetDateTime();
+        } else {
+            throw new TransformException(
+                    CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
+                    String.format(
+                            "Unsupported type %s for function: AT TIME ZONE", datetime.getClass()));
+        }
     }
 }

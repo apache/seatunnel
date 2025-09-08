@@ -212,6 +212,8 @@ If you assign file type to `parquet` `orc`, schema option not required, connecto
 | binary_complete_file_mode | boolean | no       | false               | Only used when file_format_type is binary. Whether to read the complete file as a single chunk instead of splitting into chunks. When enabled, the entire file content will be read into memory at once. Default is false.                                                                                                          |
 | file_filter_pattern       | string  | no       |                     | Filter pattern, which used for filtering files.                                                                                                                                                                                                                                                                                     |
 | common-options            | config  | no       | -                   | Source plugin common parameters, please refer to [Source Common Options](../source-common-options.md) for details.                                                                                                                                                                                                                  |
+| file_filter_modified_start  | string  | no       | -                   | File modification time filter. The connector will filter some files base on the last modification start time (include start time). The default data format is `yyyy-MM-dd HH:mm:ss`.                                                                                                                                                       |
+| file_filter_modified_end    | string  | no       | -                   | File modification time filter. The connector will filter some files base on the last modification end time (not include end time). The default data format is `yyyy-MM-dd HH:mm:ss`.                                                                                                                                                |
 
 ### compress_codec [string]
 
@@ -552,6 +554,9 @@ source {
     file_format_type = "orc"
     // file example abcD2024.csv
     file_filter_pattern = "abc[DX]*.*"
+    // file filter by modified date between 20240101 and 20240105(not include), actually 20240104 is end date
+    file_filter_modified_start = "2024-01-01 00:00:00"
+    file_filter_modified_end = "2024-01-05 00:00:00"
   }
 }
 

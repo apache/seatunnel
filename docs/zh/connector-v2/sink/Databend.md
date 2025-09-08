@@ -50,7 +50,7 @@ Databend sink 内部通过 stage attachment 实现数据的批量导入。
 | execute_timeout_sec | Integer | 否 | 300 | 执行SQL的超时时间（秒）                      |
 | jdbc_config | Map | 否 | - | 额外的 JDBC 连接配置，如连接超时参数等             |
 
-### schema_save_mode[Enum]
+### schema_save_mode [Enum]
 
 在开启同步任务之前，针对现有的表结构选择不同的处理方案。
 选项介绍：  
@@ -59,7 +59,7 @@ Databend sink 内部通过 stage attachment 实现数据的批量导入。
 `ERROR_WHEN_SCHEMA_NOT_EXIST` ：表不存在时会报错。  
 `IGNORE` ：忽略对表的处理。
 
-### data_save_mode[Enum]
+### data_save_mode [Enum]
 
 在开启同步任务之前，针对目标端已有的数据选择不同的处理方案。
 选项介绍：  
