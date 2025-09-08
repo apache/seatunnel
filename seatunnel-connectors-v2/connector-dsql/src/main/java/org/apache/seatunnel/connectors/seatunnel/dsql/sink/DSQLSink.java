@@ -25,6 +25,7 @@ import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSimpleSink;
 import org.apache.seatunnel.connectors.seatunnel.dsql.config.DSQLSinkConfig;
 
 import java.io.IOException;
+import java.util.Optional;
 
 public class DSQLSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
 
@@ -39,6 +40,11 @@ public class DSQLSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
     @Override
     public String getPluginName() {
         return "DSQL";
+    }
+
+    @Override
+    public Optional<CatalogTable> getWriteCatalogTable() {
+        return Optional.of(catalogTable);
     }
 
     @Override
