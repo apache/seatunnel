@@ -265,20 +265,19 @@ public class HiveIT extends TestSuiteBase implements TestResource {
                 "/auto_table_creation/hive_auto_create_to_assert.conf");
     }
 
-    //    @TestTemplate
-    //    public void testAutoTableCreationRecreateSchema(TestContainer container) throws Exception
-    // {
-    //        executeJob(
-    //                container,
-    //                "/auto_table_creation/fake_to_hive_recreate_schema.conf",
-    //                "/auto_table_creation/hive_auto_create_to_assert.conf");
-    //    }
-    //
-    //    @TestTemplate
-    //    public void testAutoTableCreationORCFormat(TestContainer container) throws Exception {
-    //        executeJob(
-    //                container,
-    //                "/auto_table_creation/fake_to_hive_custom_template.conf",
-    //                "/auto_table_creation/hive_auto_create_to_assert.conf");
-    //    }
+    @TestTemplate
+    public void testAutoTableCreationRecreateSchema(TestContainer container) throws Exception {
+        executeJob(
+                container,
+                "/auto_table_creation/fake_to_hive_recreate_schema.conf",
+                "/auto_table_creation/hive_auto_recreate_to_assert.conf");
+    }
+
+    @TestTemplate
+    public void testAutoTableCreationORCFormat(TestContainer container) throws Exception {
+        executeJob(
+                container,
+                "/auto_table_creation/fake_to_hive_custom_template.conf",
+                "/auto_table_creation/hive_auto_orc_format_to_assert.conf");
+    }
 }
