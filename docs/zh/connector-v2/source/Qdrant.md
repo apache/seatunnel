@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-qdrant.md';
+
 # Qdrant
 
 > Qdrant 数据源连接器
@@ -77,3 +79,7 @@ Qdrant 实例的 gRPC 端口。
 ### 通用选项
 
 源插件的通用参数，请参考[源通用选项](../source-common-options.md)了解详情。****
+
+## 变更日志
+
+<ChangeLog />

@@ -26,21 +26,25 @@ import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SupportMultiTableSink;
 import org.apache.seatunnel.api.sink.SupportSaveMode;
+import org.apache.seatunnel.api.sink.SupportSchemaEvolutionSink;
 import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.factory.CatalogFactory;
+import org.apache.seatunnel.api.table.schema.SchemaChangeType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.SinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.ElasticsearchSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.state.ElasticsearchAggregatedCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.state.ElasticsearchCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.state.ElasticsearchSinkState;
 
+import java.util.Arrays;
+import java.util.List;
 import java.util.Optional;
 
 import static org.apache.seatunnel.api.table.factory.FactoryUtil.discoverFactory;
-import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.SinkConfig.MAX_BATCH_SIZE;
-import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.SinkConfig.MAX_RETRY_COUNT;
+import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.ElasticsearchSinkOptions.MAX_BATCH_SIZE;
+import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.ElasticsearchSinkOptions.MAX_RETRY_COUNT;
 
 public class ElasticsearchSink
         implements SeaTunnelSink<
@@ -49,7 +53,8 @@ public class ElasticsearchSink
                         ElasticsearchCommitInfo,
                         ElasticsearchAggregatedCommitInfo>,
                 SupportMultiTableSink,
-                SupportSaveMode {
+                SupportSaveMode,
+                SupportSchemaEvolutionSink {
 
     private ReadonlyConfig config;
     private CatalogTable catalogTable;
@@ -87,8 +92,8 @@ public class ElasticsearchSink
             return Optional.empty();
         }
         Catalog catalog = catalogFactory.createCatalog(catalogFactory.factoryIdentifier(), config);
-        SchemaSaveMode schemaSaveMode = config.get(SinkConfig.SCHEMA_SAVE_MODE);
-        DataSaveMode dataSaveMode = config.get(SinkConfig.DATA_SAVE_MODE);
+        SchemaSaveMode schemaSaveMode = config.get(ElasticsearchSinkOptions.SCHEMA_SAVE_MODE);
+        DataSaveMode dataSaveMode = config.get(ElasticsearchSinkOptions.DATA_SAVE_MODE);
 
         TablePath tablePath = TablePath.of("", catalogTable.getTableId().getTableName());
         return Optional.of(
@@ -99,5 +104,10 @@ public class ElasticsearchSink
     @Override
     public Optional<CatalogTable> getWriteCatalogTable() {
         return Optional.ofNullable(catalogTable);
+    }
+
+    @Override
+    public List<SchemaChangeType> supports() {
+        return Arrays.asList(SchemaChangeType.ADD_COLUMN);
     }
 }

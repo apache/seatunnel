@@ -23,27 +23,24 @@ import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConstants;
+import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveOptions;
 import org.apache.seatunnel.connectors.seatunnel.hive.exception.HiveConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.hive.exception.HiveConnectorException;
-import org.apache.seatunnel.connectors.seatunnel.hive.source.config.HiveSourceOptions;
 
 import org.apache.hadoop.hive.metastore.api.Table;
 
 public class HiveTableUtils {
 
     public static Table getTableInfo(ReadonlyConfig readonlyConfig) {
-        String table = readonlyConfig.get(HiveSourceOptions.TABLE_NAME);
+        String table = readonlyConfig.get(HiveOptions.TABLE_NAME);
         TablePath tablePath = TablePath.of(table);
         if (tablePath.getDatabaseName() == null || tablePath.getTableName() == null) {
             throw new SeaTunnelRuntimeException(
                     HiveConnectorErrorCode.HIVE_TABLE_NAME_ERROR, "Current table name is " + table);
         }
-        HiveMetaStoreProxy hiveMetaStoreProxy = HiveMetaStoreProxy.getInstance(readonlyConfig);
-        try {
+        try (HiveMetaStoreProxy hiveMetaStoreProxy = new HiveMetaStoreProxy(readonlyConfig)) {
             return hiveMetaStoreProxy.getTable(
                     tablePath.getDatabaseName(), tablePath.getTableName());
-        } finally {
-            hiveMetaStoreProxy.close();
         }
     }
 

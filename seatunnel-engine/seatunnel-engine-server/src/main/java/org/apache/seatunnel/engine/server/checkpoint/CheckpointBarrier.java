@@ -17,11 +17,12 @@
 
 package org.apache.seatunnel.engine.server.checkpoint;
 
+import org.apache.seatunnel.shade.com.google.common.base.Objects;
+
 import org.apache.seatunnel.engine.core.checkpoint.CheckpointType;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.task.record.Barrier;
 
-import com.google.common.base.Objects;
 import lombok.Getter;
 
 import java.io.Serializable;
@@ -29,7 +30,7 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkNotNull;
 
 @Getter
 public class CheckpointBarrier implements Barrier, Serializable {

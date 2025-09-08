@@ -17,20 +17,29 @@
 
 package org.apache.seatunnel.connectors.seatunnel.iceberg.source.enumerator.scan;
 
-import org.apache.seatunnel.connectors.seatunnel.iceberg.config.SourceConfig;
+import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergSourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.iceberg.config.SourceTableConfig;
+import org.apache.seatunnel.connectors.seatunnel.iceberg.utils.ExpressionUtils;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.expressions.Expression;
+import org.apache.iceberg.expressions.Expressions;
 
 import lombok.Builder;
 import lombok.Getter;
 import lombok.ToString;
+import lombok.extern.slf4j.Slf4j;
+import net.sf.jsqlparser.JSQLParserException;
 
 @Getter
 @Builder(toBuilder = true)
 @ToString
+@Slf4j
 public class IcebergScanContext {
 
+    private final TablePath tablePath;
     private final boolean streaming;
     private final IcebergStreamScanStrategy streamScanStrategy;
 
@@ -59,27 +68,43 @@ public class IcebergScanContext {
                 .build();
     }
 
-    public static IcebergScanContext scanContext(SourceConfig sourceConfig, Schema schema) {
+    public static IcebergScanContext scanContext(
+            IcebergSourceConfig sourceConfig, SourceTableConfig tableConfig, Schema schema) {
         return IcebergScanContext.builder()
-                .startSnapshotTimestamp(sourceConfig.getStartSnapshotTimestamp())
-                .startSnapshotId(sourceConfig.getStartSnapshotId())
-                .endSnapshotId(sourceConfig.getEndSnapshotId())
-                .useSnapshotId(sourceConfig.getUseSnapshotId())
-                .useSnapshotTimestamp(sourceConfig.getUseSnapshotTimestamp())
+                .tablePath(tableConfig.getTablePath())
+                .startSnapshotTimestamp(tableConfig.getStartSnapshotTimestamp())
+                .startSnapshotId(tableConfig.getStartSnapshotId())
+                .endSnapshotId(tableConfig.getEndSnapshotId())
+                .useSnapshotId(tableConfig.getUseSnapshotId())
+                .useSnapshotTimestamp(tableConfig.getUseSnapshotTimestamp())
                 .caseSensitive(sourceConfig.isCaseSensitive())
                 .schema(schema)
-                .filter(sourceConfig.getFilter())
-                .splitSize(sourceConfig.getSplitSize())
-                .splitLookback(sourceConfig.getSplitLookback())
-                .splitOpenFileCost(sourceConfig.getSplitOpenFileCost())
+                .filter(getFilter(tableConfig.getQuery()))
+                .splitSize(tableConfig.getSplitSize())
+                .splitLookback(tableConfig.getSplitLookback())
+                .splitOpenFileCost(tableConfig.getSplitOpenFileCost())
                 .build();
     }
 
-    public static IcebergScanContext streamScanContext(SourceConfig sourceConfig, Schema schema) {
-        return scanContext(sourceConfig, schema)
+    private static Expression getFilter(String selectStr) {
+        if (StringUtils.isNotBlank(selectStr)) {
+            try {
+                Expression expression =
+                        ExpressionUtils.parseWhereClauseToIcebergExpression(selectStr);
+                return expression;
+            } catch (JSQLParserException e) {
+                log.error("Failed to parse where clause to iceberg expression", e);
+            }
+        }
+        return Expressions.alwaysTrue();
+    }
+
+    public static IcebergScanContext streamScanContext(
+            IcebergSourceConfig sourceConfig, SourceTableConfig tableConfig, Schema schema) {
+        return scanContext(sourceConfig, tableConfig, schema)
                 .toBuilder()
                 .streaming(true)
-                .streamScanStrategy(sourceConfig.getStreamScanStrategy())
+                .streamScanStrategy(tableConfig.getStreamScanStrategy())
                 .build();
     }
 }

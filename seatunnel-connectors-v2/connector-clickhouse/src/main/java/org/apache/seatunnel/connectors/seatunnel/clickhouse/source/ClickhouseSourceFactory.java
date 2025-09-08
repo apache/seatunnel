@@ -18,42 +18,53 @@
 package org.apache.seatunnel.connectors.seatunnel.clickhouse.source;
 
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
-import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.connector.TableSource;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.common.constants.PluginType;
+import org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseSourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseTableConfig;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.exception.ClickhouseConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.file.ClickhouseTable;
+import org.apache.seatunnel.connectors.seatunnel.clickhouse.util.ClickhouseProxy;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.util.ClickhouseUtil;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.util.TypeConvertUtil;
 
-import com.clickhouse.client.ClickHouseClient;
+import org.apache.commons.lang3.StringUtils;
+
 import com.clickhouse.client.ClickHouseColumn;
 import com.clickhouse.client.ClickHouseException;
-import com.clickhouse.client.ClickHouseFormat;
 import com.clickhouse.client.ClickHouseNode;
 import com.clickhouse.client.ClickHouseResponse;
 import com.google.auto.service.AutoService;
 
 import java.io.Serializable;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
 
-import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.CLICKHOUSE_CONFIG;
-import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.DATABASE;
-import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.HOST;
-import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.PASSWORD;
-import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.SQL;
-import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.USERNAME;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseBaseOptions.CLICKHOUSE_CONFIG;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseBaseOptions.HOST;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseBaseOptions.PASSWORD;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseBaseOptions.SERVER_TIME_ZONE;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseBaseOptions.TABLE_PATH;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseBaseOptions.USERNAME;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseSourceOptions.CLICKHOUSE_BATCH_SIZE;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseSourceOptions.CLICKHOUSE_FILTER_QUERY;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseSourceOptions.CLICKHOUSE_PARTITION_LIST;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseSourceOptions.CLICKHOUSE_SPLIT_SIZE;
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseSourceOptions.SQL;
 
 @AutoService(Factory.class)
 public class ClickhouseSourceFactory implements TableSourceFactory {
@@ -65,63 +76,143 @@ public class ClickhouseSourceFactory implements TableSourceFactory {
     @Override
     public <T, SplitT extends SourceSplit, StateT extends Serializable>
             TableSource<T, SplitT, StateT> createSource(TableSourceFactoryContext context) {
-        ReadonlyConfig readonlyConfig = context.getOptions();
-        List<ClickHouseNode> nodes = ClickhouseUtil.createNodes(readonlyConfig);
+        ClickhouseSourceConfig clickhouseSourceConfig =
+                ClickhouseSourceConfig.of(context.getOptions());
 
-        String sql = readonlyConfig.get(SQL);
-        ClickHouseNode currentServer = nodes.get(ThreadLocalRandom.current().nextInt(nodes.size()));
-        try (ClickHouseClient client = ClickHouseClient.newInstance(currentServer.getProtocol());
-                ClickHouseResponse response =
-                        client.connect(currentServer)
-                                .format(ClickHouseFormat.RowBinaryWithNamesAndTypes)
-                                .query(modifySQLToLimit1(sql))
-                                .executeAndWait()) {
-            TableSchema.Builder builder = TableSchema.builder();
-            List<ClickHouseColumn> columns = response.getColumns();
-            columns.forEach(
-                    column -> {
-                        PhysicalColumn physicalColumn =
-                                PhysicalColumn.of(
-                                        column.getColumnName(),
-                                        TypeConvertUtil.convert(column),
-                                        (long) column.getEstimatedLength(),
-                                        column.getScale(),
-                                        column.isNullable(),
-                                        null,
-                                        null);
-                        builder.column(physicalColumn);
-                    });
-            String catalogName = "clickhouse_catalog";
-            CatalogTable catalogTable =
-                    CatalogTable.of(
-                            TableIdentifier.of(
-                                    catalogName, readonlyConfig.get(DATABASE), "default"),
-                            builder.build(),
-                            Collections.emptyMap(),
-                            Collections.emptyList(),
-                            "",
-                            catalogName);
-            return () ->
-                    (SeaTunnelSource<T, SplitT, StateT>)
-                            new ClickhouseSource(nodes, catalogTable, sql);
-        } catch (ClickHouseException e) {
-            throw new ClickhouseConnectorException(
-                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                    String.format(
-                            "PluginName: %s, PluginType: %s, Message: %s",
-                            factoryIdentifier(), PluginType.SOURCE, e.getMessage()));
+        List<ClickhouseTableConfig> tableConfigs = clickhouseSourceConfig.getTableconfigList();
+
+        Map<TablePath, ClickhouseSourceTable> clickhouseSourceTables = new HashMap<>();
+        Map<TablePath, List<ClickHouseNode>> nodesMap = new HashMap<>();
+
+        for (ClickhouseTableConfig tableConfig : tableConfigs) {
+
+            String sql = tableConfig.getSql();
+            TablePath tablePath = tableConfig.getTableIdentifier();
+
+            List<ClickHouseNode> nodes =
+                    ClickhouseUtil.createNodes(
+                            clickhouseSourceConfig.getHost(),
+                            tablePath.getDatabaseName(),
+                            clickhouseSourceConfig.getServerTimeZone(),
+                            clickhouseSourceConfig.getUsername(),
+                            clickhouseSourceConfig.getPassword(),
+                            clickhouseSourceConfig.getClickhouseConfig());
+
+            ClickHouseNode currentServer =
+                    nodes.get(ThreadLocalRandom.current().nextInt(nodes.size()));
+
+            try (ClickhouseProxy proxy = new ClickhouseProxy(currentServer);
+                    ClickHouseResponse response =
+                            proxy.getClickhouseConnection()
+                                    .query(
+                                            generateQuerySql(
+                                                    sql,
+                                                    tablePath.getDatabaseName(),
+                                                    tablePath.getTableName()))
+                                    .executeAndWait()) {
+
+                TableSchema.Builder builder = TableSchema.builder();
+                List<ClickHouseColumn> columns = response.getColumns();
+
+                columns.forEach(
+                        column -> {
+                            PhysicalColumn physicalColumn =
+                                    PhysicalColumn.of(
+                                            column.getColumnName(),
+                                            TypeConvertUtil.convert(column),
+                                            (long) column.getEstimatedLength(),
+                                            column.getScale(),
+                                            column.isNullable(),
+                                            null,
+                                            null);
+                            builder.column(physicalColumn);
+                        });
+
+                String catalogName = "clickhouse_catalog";
+
+                CatalogTable catalogTable =
+                        CatalogTable.of(
+                                TableIdentifier.of(
+                                        catalogName,
+                                        tablePath.getDatabaseName(),
+                                        tablePath.getTableName()),
+                                builder.build(),
+                                Collections.emptyMap(),
+                                Collections.emptyList(),
+                                "",
+                                catalogName);
+
+                boolean isComplexSql =
+                        StringUtils.isNotEmpty(sql)
+                                && (tablePath == TablePath.DEFAULT || proxy.isComplexSql(sql));
+
+                ClickhouseTable clickhouseTable =
+                        isComplexSql
+                                ? null
+                                : proxy.getClickhouseTable(
+                                        proxy.getClickhouseConnection(),
+                                        tablePath.getDatabaseName(),
+                                        tablePath.getTableName());
+
+                ClickhouseSourceTable clickhouseSourceTable =
+                        ClickhouseSourceTable.builder()
+                                .tablePath(tablePath)
+                                .clickhouseTable(clickhouseTable)
+                                .originQuery(sql)
+                                .filterQuery(tableConfig.getFilterQuery())
+                                .splitSize(tableConfig.getSplitSize())
+                                .batchSize(tableConfig.getBatchSize())
+                                .partitionList(tableConfig.getPartitionList())
+                                .isSqlStrategyRead(tableConfig.isSqlStrategyRead())
+                                .isComplexSql(isComplexSql)
+                                .catalogTable(catalogTable)
+                                .build();
+
+                clickhouseSourceTables.put(tablePath, clickhouseSourceTable);
+                // The database may be different for each tableConfig
+                // so create a separate nodes for each tablePath
+                nodesMap.put(tablePath, nodes);
+
+            } catch (ClickHouseException e) {
+                throw new ClickhouseConnectorException(
+                        SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                        String.format(
+                                "PluginName: %s, PluginType: %s, Message: %s",
+                                factoryIdentifier(), PluginType.SOURCE, e.getMessage()));
+            }
         }
+
+        return () ->
+                (SeaTunnelSource<T, SplitT, StateT>)
+                        new ClickhouseSource(
+                                nodesMap, clickhouseSourceTables, clickhouseSourceConfig);
     }
 
     private String modifySQLToLimit1(String sql) {
         return String.format("SELECT * FROM (%s) s LIMIT 1", sql);
     }
 
+    private String generateQuerySql(String sql, String database, String table) {
+        if (StringUtils.isNotEmpty(sql)) {
+            return modifySQLToLimit1(sql);
+        }
+
+        return String.format("SELECT * FROM %s.%s LIMIT 1", database, table);
+    }
+
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(HOST, DATABASE, SQL, USERNAME, PASSWORD)
-                .optional(CLICKHOUSE_CONFIG)
+                .required(HOST, USERNAME, PASSWORD)
+                .optional(
+                        TABLE_PATH,
+                        CLICKHOUSE_CONFIG,
+                        SERVER_TIME_ZONE,
+                        SQL,
+                        CLICKHOUSE_SPLIT_SIZE,
+                        CLICKHOUSE_PARTITION_LIST,
+                        CLICKHOUSE_BATCH_SIZE,
+                        CLICKHOUSE_FILTER_QUERY)
                 .build();
     }
 

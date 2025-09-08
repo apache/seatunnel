@@ -26,7 +26,7 @@ import lombok.Data;
 public abstract class BaseConfig {
     protected String type;
 
-    protected String sourceTableName;
+    protected String pluginInputIdentifier;
 
-    protected String resultTableName;
+    protected String pluginOutputIdentifier;
 }

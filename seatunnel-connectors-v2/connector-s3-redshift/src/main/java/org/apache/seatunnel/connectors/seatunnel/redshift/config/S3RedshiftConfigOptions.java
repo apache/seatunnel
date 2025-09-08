@@ -19,9 +19,9 @@ package org.apache.seatunnel.connectors.seatunnel.redshift.config;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
-import org.apache.seatunnel.connectors.seatunnel.file.s3.config.S3ConfigOptions;
+import org.apache.seatunnel.connectors.seatunnel.file.s3.config.S3FileBaseOptions;
 
-public class S3RedshiftConfigOptions extends S3ConfigOptions {
+public class S3RedshiftConfigOptions extends S3FileBaseOptions {
 
     public static final Option<String> JDBC_URL =
             Options.key("jdbc_url")

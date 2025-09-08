@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.kafka.source;
 
+import org.apache.seatunnel.shade.com.google.common.base.Supplier;
+
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.source.Boundedness;
@@ -29,12 +31,11 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.connectors.seatunnel.common.source.reader.RecordsWithSplitIds;
 import org.apache.seatunnel.connectors.seatunnel.common.source.reader.SourceReaderOptions;
+import org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaBaseOptions;
 import org.apache.seatunnel.connectors.seatunnel.kafka.source.fetch.KafkaSourceFetcherManager;
 import org.apache.seatunnel.connectors.seatunnel.kafka.state.KafkaSourceState;
 
 import org.apache.kafka.clients.consumer.ConsumerRecord;
-
-import com.google.common.base.Supplier;
 
 import java.util.List;
 import java.util.concurrent.BlockingQueue;
@@ -64,7 +65,7 @@ public class KafkaSource
 
     @Override
     public String getPluginName() {
-        return org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.CONNECTOR_IDENTITY;
+        return KafkaBaseOptions.CONNECTOR_IDENTITY;
     }
 
     @Override
@@ -77,9 +78,8 @@ public class KafkaSource
     @Override
     public SourceReader<SeaTunnelRow, KafkaSourceSplit> createReader(
             SourceReader.Context readerContext) {
-
         BlockingQueue<RecordsWithSplitIds<ConsumerRecord<byte[], byte[]>>> elementsQueue =
-                new LinkedBlockingQueue<>();
+                new LinkedBlockingQueue<>(kafkaSourceConfig.getReaderCacheQueueSize());
 
         Supplier<KafkaPartitionSplitReader> kafkaPartitionSplitReaderSupplier =
                 () -> new KafkaPartitionSplitReader(kafkaSourceConfig, readerContext);
@@ -104,7 +104,12 @@ public class KafkaSource
     @Override
     public SourceSplitEnumerator<KafkaSourceSplit, KafkaSourceState> createEnumerator(
             SourceSplitEnumerator.Context<KafkaSourceSplit> enumeratorContext) {
-        return new KafkaSourceSplitEnumerator(kafkaSourceConfig, enumeratorContext, null);
+        return new KafkaSourceSplitEnumerator(
+                kafkaSourceConfig,
+                enumeratorContext,
+                null,
+                false,
+                getBoundedness() == Boundedness.UNBOUNDED);
     }
 
     @Override
@@ -112,7 +117,11 @@ public class KafkaSource
             SourceSplitEnumerator.Context<KafkaSourceSplit> enumeratorContext,
             KafkaSourceState checkpointState) {
         return new KafkaSourceSplitEnumerator(
-                kafkaSourceConfig, enumeratorContext, checkpointState);
+                kafkaSourceConfig,
+                enumeratorContext,
+                checkpointState,
+                true,
+                getBoundedness() == Boundedness.UNBOUNDED);
     }
 
     @Override

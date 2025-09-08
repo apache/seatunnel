@@ -32,6 +32,14 @@ public class TestJsonPathTransformIT extends TestSuiteBase {
     }
 
     @TestTemplate
+    public void testBasicTypeMultiTable(TestContainer container) throws Exception {
+        Container.ExecResult execResult =
+                container.executeJob(
+                        "/json_path_transform/json_path_basic_type_test_multi_table.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+    }
+
+    @TestTemplate
     public void testArray(TestContainer container) throws Exception {
         Container.ExecResult execResult =
                 container.executeJob("/json_path_transform/array_test.conf");
@@ -49,6 +57,20 @@ public class TestJsonPathTransformIT extends TestSuiteBase {
     public void testErrorHandleWay(TestContainer container) throws Exception {
         Container.ExecResult execResult =
                 container.executeJob("/json_path_transform/json_path_with_error_handle_way.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+    }
+
+    @TestTemplate
+    public void testArrayType(TestContainer container) throws Exception {
+        Container.ExecResult execResult =
+                container.executeJob("/json_path_transform/json_path_array_map.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+    }
+
+    @TestTemplate
+    public void testBatchFields(TestContainer container) throws Exception {
+        Container.ExecResult execResult =
+                container.executeJob("/json_path_transform/json_path_batch_fields_test.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
     }
 }

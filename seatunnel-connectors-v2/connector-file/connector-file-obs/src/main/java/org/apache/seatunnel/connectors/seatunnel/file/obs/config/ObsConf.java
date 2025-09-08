@@ -44,11 +44,12 @@ public class ObsConf extends HadoopConf {
     }
 
     public static HadoopConf buildWithConfig(Config config) {
-        HadoopConf hadoopConf = new ObsConf(config.getString(ObsConfig.BUCKET.key()));
+        HadoopConf hadoopConf = new ObsConf(config.getString(ObsFileBaseOptions.BUCKET.key()));
         HashMap<String, String> ossOptions = new HashMap<>();
-        ossOptions.put(Constants.ACCESS_KEY, config.getString(ObsConfig.ACCESS_KEY.key()));
-        ossOptions.put(Constants.SECRET_KEY, config.getString(ObsConfig.ACCESS_SECRET.key()));
-        ossOptions.put(Constants.ENDPOINT, config.getString(ObsConfig.ENDPOINT.key()));
+        ossOptions.put(Constants.ACCESS_KEY, config.getString(ObsFileBaseOptions.ACCESS_KEY.key()));
+        ossOptions.put(
+                Constants.SECRET_KEY, config.getString(ObsFileBaseOptions.ACCESS_SECRET.key()));
+        ossOptions.put(Constants.ENDPOINT, config.getString(ObsFileBaseOptions.ENDPOINT.key()));
         hadoopConf.setExtraOptions(ossOptions);
         return hadoopConf;
     }

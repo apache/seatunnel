@@ -24,7 +24,7 @@
 - FAIL：选择`FAIL`时，数据格式错误会阻塞并抛出异常。
 - SKIP：选择`SKIP`时，数据格式错误会跳过该行数据。
 
-### columns[array]
+### columns [array]
 
 #### 属性
 
@@ -83,7 +83,8 @@
     "c_decimal": 10.55,
     "c_date": "2023-10-29",
     "c_datetime": "16:12:43.459",
-    "c_array":["item1", "item2", "item3"]
+    "c_array":["item1", "item2", "item3"],
+    "c_map_array": [{"c_string_1":"c_string_1","c_string_2":"c_string_2","c_string_3":"c_string_3"},{"c_string_1":"c_string_1","c_string_2":"c_string_2","c_string_3":"c_string_3"}]
   }
 }
 ```
@@ -93,8 +94,8 @@
 ```json
 transform {
   JsonPath {
-    source_table_name = "fake"
-    result_table_name = "fake1"
+    plugin_input = "fake"
+    plugin_output = "fake1"
     columns = [
      {
         "src_field" = "data"
@@ -143,16 +144,42 @@ transform {
          "dest_field" = "c1_datetime"
          "dest_type" = "time"
       },
-			{
+	  {
          "src_field" = "data"
          "path" = "$.data.c_array"
          "dest_field" = "c1_array"
-         "dest_type" = "array<string>"        
+         "dest_type" = "array<string>"
+      },
+      {
+        "src_field" = "data"
+        "path" = "$.data.c_map_array"
+        "dest_field" = "c1_map_array"
+        "dest_type" = "array<map<string, string>>"
       }
     ]
   }
 }
 ```
+
+使用批量字段提取功能可以用更简洁的数组格式配置实现相同的结果：
+
+```hocon
+transform {
+  JsonPath {
+    plugin_input = "fake"
+    plugin_output = "fake1"
+    columns = [
+     {
+        "src_field" = "data"
+        "path" = ["$.data.c_string", "$.data.c_boolean", "$.data.c_integer", "$.data.c_float", "$.data.c_double", "$.data.c_decimal", "$.data.c_date", "$.data.c_datetime", "$.data.c_array", "$.data.c_map_array"]
+        "dest_field" = ["c1_string", "c1_boolean", "c1_integer", "c1_float", "c1_double", "c1_decimal", "c1_date", "c1_datetime", "c1_array", "c1_map_array"]
+        "dest_type" = ["string", "boolean", "int", "float", "double", "decimal(4,2)", "date", "time", "array<string>", "array<map<string, string>>"]
+     }
+    ]
+  }
+}
+```
+**重要提示：** 当使用批量字段提取（多个 paths、dest_fields 和 dest_types）时，`dest_type` 参数是必填的，不能省略。每个提取的字段都必须指定一个对应的类型。数组格式提供了更好的可读性，比基于字符串的配置更不容易出错。
 
 那么数据结果表 `fake1` 将会像这样
 
@@ -175,8 +202,8 @@ JsonPath 转换将 seatunnel 的值转换为一个数组。
 ```hocon
 transform {
   JsonPath {
-    source_table_name = "fake"
-    result_table_name = "fake1"
+    plugin_input = "fake"
+    plugin_output = "fake1"
 
     row_error_handle_way = FAIL
     columns = [
@@ -202,6 +229,8 @@ transform {
 | name | age |   col    | other |
 |------|-----|----------|-------|
 | a    | 18  | ["a",18] | ...   |
+
+
 
 ## 配置异常数据处理策略
 

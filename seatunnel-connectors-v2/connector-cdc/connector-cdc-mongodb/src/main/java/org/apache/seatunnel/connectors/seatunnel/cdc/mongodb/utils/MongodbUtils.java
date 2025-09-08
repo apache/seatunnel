@@ -32,6 +32,7 @@ import org.bson.Document;
 import org.bson.conversions.Bson;
 
 import com.mongodb.ConnectionString;
+import com.mongodb.MongoCommandException;
 import com.mongodb.client.ChangeStreamIterable;
 import com.mongodb.client.MongoChangeStreamCursor;
 import com.mongodb.client.MongoClient;
@@ -49,6 +50,7 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
@@ -63,13 +65,20 @@ import static com.mongodb.client.model.Projections.include;
 import static com.mongodb.client.model.Sorts.ascending;
 import static org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.ADD_NS_FIELD_NAME;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.CHANGE_STREAM_FATAL_ERROR;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.COMMAND_SUCCEED_FLAG;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.DOCUMENT_KEY;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.DOES_NOT_EXIST;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.DROPPED_FIELD;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.ID_FIELD;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.INVALID_CHANGE_STREAM_ERRORS;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.INVALID_RESUME_TOKEN;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.MAX_FIELD;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.MIN_FIELD;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.NOT_FOUND;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.NO_LONGER_IN_THE_OPLOG;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.NS_FIELD;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.RESUME_TOKEN;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.SHARD_FIELD;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.UUID_FIELD;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.utils.CollectionDiscoveryUtils.ADD_NS_FIELD;
@@ -403,5 +412,26 @@ public class MongodbUtils {
         } catch (UnsupportedEncodingException e) {
             throw new MongodbConnectorException(ILLEGAL_ARGUMENT, e.getMessage());
         }
+    }
+
+    // Checks if given exception is caused by change stream cursor issues, including
+    // network connection failures, sharded cluster changes, or invalidate events.
+    // See: https://www.mongodb.com/docs/manual/changeStreams/ for more details.
+    public static boolean checkIfChangeStreamCursorExpires(final MongoCommandException e) {
+        return INVALID_CHANGE_STREAM_ERRORS.contains(e.getCode());
+    }
+
+    // This check is stricter than checkIfChangeStreamCursorExpires, which specifically
+    // checks if given exception is caused by an expired resume token.
+    public static boolean checkIfResumeTokenExpires(final MongoCommandException e) {
+        if (e.getCode() != CHANGE_STREAM_FATAL_ERROR) {
+            return false;
+        }
+        String errorMessage = e.getErrorMessage().toLowerCase(Locale.ROOT);
+        return (errorMessage.contains(RESUME_TOKEN))
+                && (errorMessage.contains(NOT_FOUND)
+                        || errorMessage.contains(DOES_NOT_EXIST)
+                        || errorMessage.contains(INVALID_RESUME_TOKEN)
+                        || errorMessage.contains(NO_LONGER_IN_THE_OPLOG));
     }
 }

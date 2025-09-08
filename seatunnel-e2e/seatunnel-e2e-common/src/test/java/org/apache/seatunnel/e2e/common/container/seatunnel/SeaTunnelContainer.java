@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.e2e.common.container.seatunnel;
 
+import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode;
 
 import org.apache.seatunnel.common.utils.FileUtils;
@@ -37,15 +39,15 @@ import org.apache.http.util.EntityUtils;
 
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.Assertions;
+import org.testcontainers.containers.BindMode;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
+import org.testcontainers.containers.Network;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.utility.DockerLoggerFactory;
 import org.testcontainers.utility.MountableFile;
 
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.auto.service.AutoService;
 import groovy.lang.Tuple2;
 import lombok.NoArgsConstructor;
@@ -83,10 +85,25 @@ public class SeaTunnelContainer extends AbstractTestContainer {
 
     @Override
     public void startUp() throws Exception {
+        FileUtils.createNewDir(HOST_VOLUME_MOUNT_PATH);
         server = createSeaTunnelServer();
     }
 
+    /**
+     * Start up the seatunnel server with the given network.
+     *
+     * @param NETWORK the network to use
+     */
+    public void startUp(Network NETWORK) throws Exception {
+        server = createSeaTunnelServer(NETWORK);
+    }
+
     private GenericContainer<?> createSeaTunnelServer() throws IOException, InterruptedException {
+        return createSeaTunnelServer(NETWORK);
+    }
+
+    private GenericContainer<?> createSeaTunnelServer(Network NETWORK)
+            throws IOException, InterruptedException {
         GenericContainer<?> server =
                 new GenericContainer<>(getDockerImage())
                         .withNetwork(NETWORK)
@@ -99,6 +116,10 @@ public class SeaTunnelContainer extends AbstractTestContainer {
                                 new Slf4jLogConsumer(
                                         DockerLoggerFactory.getLogger(
                                                 "seatunnel-engine:" + JDK_DOCKER_IMAGE)))
+                        .withFileSystemBind(
+                                HOST_VOLUME_MOUNT_PATH,
+                                CONTAINER_VOLUME_MOUNT_PATH,
+                                BindMode.READ_WRITE)
                         .waitingFor(Wait.forLogMessage(".*received new worker register:.*", 1));
         copySeaTunnelStarterToContainer(server);
         server.setPortBindings(Arrays.asList("5801:5801", "8080:8080"));
@@ -144,8 +165,8 @@ public class SeaTunnelContainer extends AbstractTestContainer {
                                                 "seatunnel-engine:" + JDK_DOCKER_IMAGE)))
                         .waitingFor(Wait.forLogMessage(".*received new worker register:.*", 1));
         copySeaTunnelStarterToContainer(server);
-        server.setPortBindings(Collections.singletonList("5801:5801"));
-        server.setExposedPorts(Collections.singletonList(5801));
+        server.setPortBindings(Arrays.asList("5801:5801", "8080:8080"));
+        server.setExposedPorts(Arrays.asList(5801, 8080));
 
         server.withCopyFileToContainer(
                 MountableFile.forHostPath(
@@ -198,8 +219,11 @@ public class SeaTunnelContainer extends AbstractTestContainer {
     @Override
     public void tearDown() throws Exception {
         if (server != null) {
+            // delete the volume
+            server.execInContainer("rm", "-rf", CONTAINER_VOLUME_MOUNT_PATH);
             server.close();
         }
+        FileUtils.deleteFile(HOST_VOLUME_MOUNT_PATH);
     }
 
     @Override
@@ -298,16 +322,16 @@ public class SeaTunnelContainer extends AbstractTestContainer {
     @Override
     public Container.ExecResult executeJob(String confFile, List<String> variables)
             throws IOException, InterruptedException {
-        return executeJob(confFile, null, variables);
+        return doExecuteJob(confFile, null, variables);
     }
 
     @Override
-    public Container.ExecResult executeJob(String confFile, String jobId)
+    public Container.ExecResult executeJob(String confFile, String jobId, String... variables)
             throws IOException, InterruptedException {
-        return executeJob(confFile, jobId, null);
+        return doExecuteJob(confFile, jobId, variables != null ? Arrays.asList(variables) : null);
     }
 
-    private Container.ExecResult executeJob(String confFile, String jobId, List<String> variables)
+    private Container.ExecResult doExecuteJob(String confFile, String jobId, List<String> variables)
             throws IOException, InterruptedException {
         log.info("test in container: {}", identifier());
         List<String> beforeThreads = ContainerUtil.getJVMThreadNames(server);
@@ -323,9 +347,9 @@ public class SeaTunnelContainer extends AbstractTestContainer {
             //            classLoaderObjectCheck(1);
             return result;
         } else {
-            // Waiting 10s for release thread
+            // Waiting 120s for release thread
             Awaitility.await()
-                    .atMost(30, TimeUnit.SECONDS)
+                    .atMost(120, TimeUnit.SECONDS)
                     .untilAsserted(
                             () -> {
                                 List<String> threads = ContainerUtil.getJVMThreadNames(server);
@@ -378,6 +402,7 @@ public class SeaTunnelContainer extends AbstractTestContainer {
                 || s.startsWith("seatunnel-coordinator-service")
                 || s.startsWith("GC task thread")
                 || s.contains("CompilerThread")
+                || s.startsWith("SeaTunnel-CompletableFuture-Thread-")
                 || s.contains("NioNetworking-closeListenerExecutor")
                 || s.contains("ForkJoinPool.commonPool")
                 || s.contains("DestroyJavaVM")
@@ -439,7 +464,7 @@ public class SeaTunnelContainer extends AbstractTestContainer {
     }
 
     /** The thread should be recycled but not, we should fix it in the future. */
-    private boolean isIssueWeAlreadyKnow(String threadName) {
+    protected boolean isIssueWeAlreadyKnow(String threadName) {
         // ClickHouse com.clickhouse.client.ClickHouseClientBuilder
         return threadName.startsWith("ClickHouseClientWorker")
                 // InfluxDB okio.AsyncTimeout$Watchdog
@@ -472,7 +497,10 @@ public class SeaTunnelContainer extends AbstractTestContainer {
                 // JNA Cleaner
                 || threadName.startsWith("JNA Cleaner")
                 // GRPC client
-                || threadName.startsWith("grpc");
+                || threadName.startsWith("grpc")
+                // Paimon
+                || threadName.startsWith("AsyncOutputStream")
+                || threadName.startsWith("MANIFEST-READ-THREAD-POOL");
     }
 
     @Override
@@ -482,10 +510,15 @@ public class SeaTunnelContainer extends AbstractTestContainer {
     }
 
     @Override
-    public Container.ExecResult restoreJob(String confFile, String jobId)
+    public Container.ExecResult restoreJob(String confFile, String jobId, String... variables)
             throws IOException, InterruptedException {
         runningCount.incrementAndGet();
-        Container.ExecResult result = restoreJob(server, confFile, jobId);
+        Container.ExecResult result =
+                restoreJob(
+                        server,
+                        confFile,
+                        jobId,
+                        variables != null ? Arrays.asList(variables) : null);
         runningCount.decrementAndGet();
         return result;
     }
@@ -497,7 +530,11 @@ public class SeaTunnelContainer extends AbstractTestContainer {
 
     @Override
     public String getJobStatus(String jobId) {
-        HttpGet get = new HttpGet("http://" + server.getHost() + ":8080/job-info/" + jobId);
+        HttpGet get =
+                new HttpGet(
+                        String.format(
+                                "http://%s:%d/job-info/%s",
+                                server.getHost(), server.getMappedPort(8080), jobId));
         try (CloseableHttpClient client = HttpClients.createDefault()) {
             CloseableHttpResponse response = client.execute(get);
             if (response.getStatusLine().getStatusCode() == HttpStatus.SC_OK) {
@@ -522,5 +559,10 @@ public class SeaTunnelContainer extends AbstractTestContainer {
     public void copyFileToContainer(String path, String targetPath) {
         ContainerUtil.copyFileIntoContainers(
                 ContainerUtil.getResourcesFile(path).toPath(), targetPath, server);
+    }
+
+    @Override
+    public void copyAbsolutePathToContainer(String path, String targetPath) {
+        ContainerUtil.copyFileIntoContainers(Paths.get(path), targetPath, server);
     }
 }

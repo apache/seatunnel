@@ -36,6 +36,7 @@
         <mysql.version>8.0.16</mysql.version>
         <starrocks.thrift.sdk.version>1.0.1</starrocks.thrift.sdk.version>
         <arrow.version>5.0.0</arrow.version>
+        <mavenartifact.version>3.6.3</mavenartifact.version>
     </properties>
 
     <dependencies>
@@ -56,11 +57,6 @@
             <scope>provided</scope>
         </dependency>
         <dependency>
-            <groupId>org.apache.seatunnel</groupId>
-            <artifactId>seatunnel-common</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-        <dependency>
             <groupId>org.apache.httpcomponents</groupId>
             <artifactId>httpclient</artifactId>
             <version>${httpclient.version}</version>
@@ -76,51 +72,10 @@
             <version>${starrocks.thrift.sdk.version}</version>
         </dependency>
         <dependency>
-            <groupId>org.apache.arrow</groupId>
-            <artifactId>arrow-vector</artifactId>
-            <version>${arrow.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.arrow</groupId>
-            <artifactId>arrow-memory-netty</artifactId>
-            <version>${arrow.version}</version>
+            <groupId>org.apache.maven</groupId>
+            <artifactId>maven-artifact</artifactId>
+            <version>${mavenartifact.version}</version>
         </dependency>
     </dependencies>
 
-    <build>
-        <plugins>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-shade-plugin</artifactId>
-                <configuration>
-                    <relocations>
-                        <relocation>
-                            <pattern>org.apache.arrow</pattern>
-                            <shadedPattern>${seatunnel.shade.package}.${connector.name}.org.apache.arrow</shadedPattern>
-                        </relocation>
-                        <relocation>
-                            <pattern>io.netty</pattern>
-                            <shadedPattern>${seatunnel.shade.package}.${connector.name}.io.netty</shadedPattern>
-                        </relocation>
-                        <relocation>
-                            <pattern>com.google.flatbuffers</pattern>
-                            <shadedPattern>${seatunnel.shade.package}.${connector.name}.com.google.flatbuffers</shadedPattern>
-                        </relocation>
-                        <relocation>
-                            <pattern>com.fasterxml.jackson</pattern>
-                            <shadedPattern>${seatunnel.shade.package}.${connector.name}.com.fasterxml.jackson</shadedPattern>
-                        </relocation>
-                    </relocations>
-                </configuration>
-                <executions>
-                    <execution>
-                        <goals>
-                            <goal>shade</goal>
-                        </goals>
-                        <phase>package</phase>
-                    </execution>
-                </executions>
-            </plugin>
-        </plugins>
-    </build>
 </project>

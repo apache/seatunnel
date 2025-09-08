@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.iotdb.serialize;
 
+import org.apache.seatunnel.shade.com.google.common.base.Strings;
+
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -25,7 +27,6 @@ import org.apache.seatunnel.connectors.seatunnel.iotdb.exception.IotdbConnectorE
 
 import org.apache.iotdb.tsfile.file.metadata.enums.TSDataType;
 
-import com.google.common.base.Strings;
 import lombok.NonNull;
 
 import java.time.LocalDateTime;

@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-jdbc.md';
+
 # JDBC
 
 > JDBC 数据接收器
@@ -27,7 +29,7 @@
 
 ## Options
 
-|                    名称                     |   类型    | 是否必须 |             默认值              |
+| 名称                                        | 类型      | 是否必须 | 默认值                          |
 |-------------------------------------------|---------|------|------------------------------|
 | url                                       | String  | 是    | -                            |
 | driver                                    | String  | 是    | -                            |
@@ -35,10 +37,10 @@
 | password                                  | String  | 否    | -                            |
 | query                                     | String  | 否    | -                            |
 | compatible_mode                           | String  | 否    | -                            |
+| dialect                                   | String  | 否    | -                            | 
 | database                                  | String  | 否    | -                            |
 | table                                     | String  | 否    | -                            |
 | primary_keys                              | Array   | 否    | -                            |
-| support_upsert_by_query_primary_key_exist | Boolean | 否    | false                        |
 | connection_check_timeout_sec              | Int     | 否    | 30                           |
 | max_retries                               | Int     | 否    | 0                            |
 | batch_size                                | Int     | 否    | 1000                         |
@@ -85,6 +87,26 @@ JDBC 连接的 URL。参考案例：`jdbc:postgresql://localhost/test`
 
 Postgres 9.5及以下版本，请设置为 `postgresLow` 来支持 CDC
 
+### dialect [string]
+
+指定的方言，如果不存在，仍然按照url获取，优先级高于url。例如，当使用 starrocks 时，你需要将其值设置为 starrocks，同理，当使用mysql时，你需要将其值设置为mysql。
+
+如果 SeaTunnel 不支持某种方言，它将使用默认方言 `GenericDialect`。请确保您提供的驱动程序支持您想要连接的数据库。
+
+#### 示例可选
+
+|           | 方言名称       |          |
+|-----------|------------|----------|
+| Greenplum | DB2        | Dameng   |
+| Gbase8a   | HIVE       | KingBase |
+| MySQL     | StarRocks  | Oracle   |
+| Phoenix   | Postgres   | Redshift |
+| SapHana   | Snowflake  | Sqlite   |
+| SqlServer | Tablestore | Teradata |
+| Vertica   | OceanBase  | XUGU     |
+| IRIS      | Inceptor   | Highgo   |
+
+
 ### database [string]
 
 使用此 `database` 和 `table-name` 自动生成 SQL，并接收上游输入的数据写入数据库。
@@ -118,40 +140,35 @@ Tip: 如果目标数据库有 SCHEMA 的概念，则表参数必须写成 `xxx.x
 
 该选项用于辅助生成 insert、delete、update 等 sql 语句。设置了该选项，将会根据该选项生成对应的 sql 语句
 
-### support_upsert_by_query_primary_key_exist [boolean]
-
-根据查询主键是否存在来选择使用 INSERT sql、UPDATE sql 来处理变更事件(INSERT、UPDATE_AFTER)。仅当数据库不支持 upsert 语法时才使用此配置
-**注意**：该方法性能较低
-
 ### connection_check_timeout_sec [int]
 
 用于验证数据库连接的有效性时等待数据库操作完成所需的时间，单位是秒
 
-### max_retries[int]
+### max_retries [int]
 
 重试提交失败的最大次数（executeBatch）
 
-### batch_size[int]
+### batch_size [int]
 
 对于批量写入，当缓冲的记录数达到 `batch_size` 数量或者时间达到 `checkpoint.interval` 时，数据将被刷新到数据库中
 
-### is_exactly_once[boolean]
+### is_exactly_once [boolean]
 
 是否启用通过XA事务实现的精确一次语义。开启，你还需要设置 `xa_data_source_class_name`
 
-### generate_sink_sql[boolean]
+### generate_sink_sql [boolean]
 
 根据要写入的数据库表结构生成 sql 语句
 
-### xa_data_source_class_name[string]
+### xa_data_source_class_name [string]
 
 指数据库驱动的 XA 数据源的类名。以 MySQL 为例，其类名为 com.mysql.cj.jdbc.MysqlXADataSource。了解其他数据库的数据源类名，可以参考文档的附录部分
 
-### max_commit_attempts[int]
+### max_commit_attempts [int]
 
 事务提交失败的最大重试次数
 
-### transaction_timeout_sec[int]
+### transaction_timeout_sec [int]
 
 在事务开启后的超时时间，默认值为-1（即永不超时）。请注意，设置超时时间可能会影响到精确一次（exactly-once）的语义
 
@@ -161,7 +178,8 @@ Tip: 如果目标数据库有 SCHEMA 的概念，则表参数必须写成 `xxx.x
 
 ### field_ide [String]
 
-字段 `field_ide` 用于在从 source 同步到 sink 时，确定字段是否需要转换为大写或小写。'ORIGINAL' 表示不需要转换，'UPPERCASE' 表示转换为大写，'LOWERCASE' 表示转换为小写
+字段 `field_ide` 用于在从 source 同步到 sink 时，确定字段是否需要转换为大写或小写。'ORIGINAL' 表示不需要转换，'UPPERCASE'
+表示转换为大写，'LOWERCASE' 表示转换为小写
 
 ### properties
 
@@ -216,27 +234,28 @@ Sink插件常用参数，请参考 [Sink常用选项](../sink-common-options.md)
 
 附录参数仅提供参考
 
-|    数据源     |                    driver                    |                                url                                 |             xa_data_source_class_name              | maven                                                                                                |
-|------------|----------------------------------------------|--------------------------------------------------------------------|----------------------------------------------------|------------------------------------------------------------------------------------------------------|
-| MySQL      | com.mysql.cj.jdbc.Driver                     | jdbc:mysql://localhost:3306/test                                   | com.mysql.cj.jdbc.MysqlXADataSource                | https://mvnrepository.com/artifact/mysql/mysql-connector-java                                        |
-| PostgreSQL | org.postgresql.Driver                        | jdbc:postgresql://localhost:5432/postgres                          | org.postgresql.xa.PGXADataSource                   | https://mvnrepository.com/artifact/org.postgresql/postgresql                                         |
-| DM         | dm.jdbc.driver.DmDriver                      | jdbc:dm://localhost:5236                                           | dm.jdbc.driver.DmdbXADataSource                    | https://mvnrepository.com/artifact/com.dameng/DmJdbcDriver18                                         |
-| Phoenix    | org.apache.phoenix.queryserver.client.Driver | jdbc:phoenix:thin:url=http://localhost:8765;serialization=PROTOBUF | /                                                  | https://mvnrepository.com/artifact/com.aliyun.phoenix/ali-phoenix-shaded-thin-client                 |
-| SQL Server | com.microsoft.sqlserver.jdbc.SQLServerDriver | jdbc:sqlserver://localhost:1433                                    | com.microsoft.sqlserver.jdbc.SQLServerXADataSource | https://mvnrepository.com/artifact/com.microsoft.sqlserver/mssql-jdbc                                |
-| Oracle     | oracle.jdbc.OracleDriver                     | jdbc:oracle:thin:@localhost:1521/xepdb1                            | oracle.jdbc.xa.OracleXADataSource                  | https://mvnrepository.com/artifact/com.oracle.database.jdbc/ojdbc8                                   |
-| sqlite     | org.sqlite.JDBC                              | jdbc:sqlite:test.db                                                | /                                                  | https://mvnrepository.com/artifact/org.xerial/sqlite-jdbc                                            |
-| GBase8a    | com.gbase.jdbc.Driver                        | jdbc:gbase://e2e_gbase8aDb:5258/test                               | /                                                  | https://cdn.gbase.cn/products/30/p5CiVwXBKQYIUGN8ecHvk/gbase-connector-java-9.5.0.7-build1-bin.jar   |
-| StarRocks  | com.mysql.cj.jdbc.Driver                     | jdbc:mysql://localhost:3306/test                                   | /                                                  | https://mvnrepository.com/artifact/mysql/mysql-connector-java                                        |
-| db2        | com.ibm.db2.jcc.DB2Driver                    | jdbc:db2://localhost:50000/testdb                                  | com.ibm.db2.jcc.DB2XADataSource                    | https://mvnrepository.com/artifact/com.ibm.db2.jcc/db2jcc/db2jcc4                                    |
-| saphana    | com.sap.db.jdbc.Driver                       | jdbc:sap://localhost:39015                                         | /                                                  | https://mvnrepository.com/artifact/com.sap.cloud.db.jdbc/ngdbc                                       |
-| Doris      | com.mysql.cj.jdbc.Driver                     | jdbc:mysql://localhost:3306/test                                   | /                                                  | https://mvnrepository.com/artifact/mysql/mysql-connector-java                                        |
-| teradata   | com.teradata.jdbc.TeraDriver                 | jdbc:teradata://localhost/DBS_PORT=1025,DATABASE=test              | /                                                  | https://mvnrepository.com/artifact/com.teradata.jdbc/terajdbc                                        |
-| Redshift   | com.amazon.redshift.jdbc42.Driver            | jdbc:redshift://localhost:5439/testdb                              | com.amazon.redshift.xa.RedshiftXADataSource        | https://mvnrepository.com/artifact/com.amazon.redshift/redshift-jdbc42                               |
-| Snowflake  | net.snowflake.client.jdbc.SnowflakeDriver    | jdbc&#58;snowflake://<account_name>.snowflakecomputing.com         | /                                                  | https://mvnrepository.com/artifact/net.snowflake/snowflake-jdbc                                      |
-| Vertica    | com.vertica.jdbc.Driver                      | jdbc:vertica://localhost:5433                                      | /                                                  | https://repo1.maven.org/maven2/com/vertica/jdbc/vertica-jdbc/12.0.3-0/vertica-jdbc-12.0.3-0.jar      |
-| Kingbase   | com.kingbase8.Driver                         | jdbc:kingbase8://localhost:54321/db_test                           | /                                                  | https://repo1.maven.org/maven2/cn/com/kingbase/kingbase8/8.6.0/kingbase8-8.6.0.jar                   |
-| OceanBase  | com.oceanbase.jdbc.Driver                    | jdbc:oceanbase://localhost:2881                                    | /                                                  | https://repo1.maven.org/maven2/com/oceanbase/oceanbase-client/2.4.12/oceanbase-client-2.4.12.jar     |
-| opengauss  | org.opengauss.Driver                         | jdbc:opengauss://localhost:5432/postgres                           | /                                                  | https://repo1.maven.org/maven2/org/opengauss/opengauss-jdbc/5.1.0-og/opengauss-jdbc-5.1.0-og.jar     |
+| 数据源        | driver                                       | url                                                                | xa_data_source_class_name                          | maven                                                                                              |
+|------------|----------------------------------------------|--------------------------------------------------------------------|----------------------------------------------------|----------------------------------------------------------------------------------------------------|
+| MySQL      | com.mysql.cj.jdbc.Driver                     | jdbc:mysql://localhost:3306/test                                   | com.mysql.cj.jdbc.MysqlXADataSource                | https://mvnrepository.com/artifact/mysql/mysql-connector-java                                      |
+| PostgreSQL | org.postgresql.Driver                        | jdbc:postgresql://localhost:5432/postgres                          | org.postgresql.xa.PGXADataSource                   | https://mvnrepository.com/artifact/org.postgresql/postgresql                                       |
+| DM         | dm.jdbc.driver.DmDriver                      | jdbc:dm://localhost:5236                                           | dm.jdbc.driver.DmdbXADataSource                    | https://mvnrepository.com/artifact/com.dameng/DmJdbcDriver18                                       |
+| Phoenix    | org.apache.phoenix.queryserver.client.Driver | jdbc:phoenix:thin:url=http://localhost:8765;serialization=PROTOBUF | /                                                  | https://mvnrepository.com/artifact/com.aliyun.phoenix/ali-phoenix-shaded-thin-client               |
+| SQL Server | com.microsoft.sqlserver.jdbc.SQLServerDriver | jdbc:sqlserver://localhost:1433                                    | com.microsoft.sqlserver.jdbc.SQLServerXADataSource | https://mvnrepository.com/artifact/com.microsoft.sqlserver/mssql-jdbc                              |
+| Oracle     | oracle.jdbc.OracleDriver                     | jdbc:oracle:thin:@localhost:1521/xepdb1                            | oracle.jdbc.xa.OracleXADataSource                  | https://mvnrepository.com/artifact/com.oracle.database.jdbc/ojdbc8                                 |
+| sqlite     | org.sqlite.JDBC                              | jdbc:sqlite:test.db                                                | /                                                  | https://mvnrepository.com/artifact/org.xerial/sqlite-jdbc                                          |
+| GBase8a    | com.gbase.jdbc.Driver                        | jdbc:gbase://e2e_gbase8aDb:5258/test                               | /                                                  | https://cdn.gbase.cn/products/30/p5CiVwXBKQYIUGN8ecHvk/gbase-connector-java-9.5.0.7-build1-bin.jar |
+| StarRocks  | com.mysql.cj.jdbc.Driver                     | jdbc:mysql://localhost:3306/test                                   | /                                                  | https://mvnrepository.com/artifact/mysql/mysql-connector-java                                      |
+| db2        | com.ibm.db2.jcc.DB2Driver                    | jdbc:db2://localhost:50000/testdb                                  | com.ibm.db2.jcc.DB2XADataSource                    | https://mvnrepository.com/artifact/com.ibm.db2.jcc/db2jcc/db2jcc4                                  |
+| saphana    | com.sap.db.jdbc.Driver                       | jdbc:sap://localhost:39015                                         | /                                                  | https://mvnrepository.com/artifact/com.sap.cloud.db.jdbc/ngdbc                                     |
+| Doris      | com.mysql.cj.jdbc.Driver                     | jdbc:mysql://localhost:3306/test                                   | /                                                  | https://mvnrepository.com/artifact/mysql/mysql-connector-java                                      |
+| teradata   | com.teradata.jdbc.TeraDriver                 | jdbc:teradata://localhost/DBS_PORT=1025,DATABASE=test              | /                                                  | https://mvnrepository.com/artifact/com.teradata.jdbc/terajdbc                                      |
+| Redshift   | com.amazon.redshift.jdbc42.Driver            | jdbc:redshift://localhost:5439/testdb                              | com.amazon.redshift.xa.RedshiftXADataSource        | https://mvnrepository.com/artifact/com.amazon.redshift/redshift-jdbc42                             |
+| Snowflake  | net.snowflake.client.jdbc.SnowflakeDriver    | jdbc&#58;snowflake://<account_name>.snowflakecomputing.com         | /                                                  | https://mvnrepository.com/artifact/net.snowflake/snowflake-jdbc                                    |
+| Vertica    | com.vertica.jdbc.Driver                      | jdbc:vertica://localhost:5433                                      | /                                                  | https://repo1.maven.org/maven2/com/vertica/jdbc/vertica-jdbc/12.0.3-0/vertica-jdbc-12.0.3-0.jar    |
+| Kingbase   | com.kingbase8.Driver                         | jdbc:kingbase8://localhost:54321/db_test                           | /                                                  | https://repo1.maven.org/maven2/cn/com/kingbase/kingbase8/8.6.0/kingbase8-8.6.0.jar                 |
+| OceanBase  | com.oceanbase.jdbc.Driver                    | jdbc:oceanbase://localhost:2881                                    | /                                                  | https://repo1.maven.org/maven2/com/oceanbase/oceanbase-client/2.4.12/oceanbase-client-2.4.12.jar   |
+| opengauss  | org.opengauss.Driver                         | jdbc:opengauss://localhost:5432/postgres                           | /                                                  | https://repo1.maven.org/maven2/org/opengauss/opengauss-jdbc/5.1.0-og/opengauss-jdbc-5.1.0-og.jar   |
+| Highgo     | com.highgo.jdbc.Driver                       | jdbc:highgo://localhost:5866/highgo                                | /                                                  | https://repo1.maven.org/maven2/com/highgo/HgdbJdbc/6.2.3/HgdbJdbc-6.2.3.jar                        |
 
 ## 示例
 
@@ -293,7 +312,7 @@ sink {
 }
 ```
 
-配置表生成策略 (schema_save_mode)
+配置表生成策略
 
 通过设置 `schema_save_mode` 配置为 `CREATE_SCHEMA_WHEN_NOT_EXIST` 来支持不存在表时创建表
 
@@ -328,7 +347,6 @@ sink {
         compatible_mode="postgresLow"
         database = "sink_database"
         table = "sink_table"
-        support_upsert_by_query_primary_key_exist = true
         generate_sink_sql = true
         primary_keys = ["key1", "key2", ...]
     }
@@ -338,24 +356,4 @@ sink {
 
 ## 变更日志
 
-### 2.3.0-beta 2022-10-20
-
-- [BugFix] Fix JDBC split exception ([2904](https://github.com/apache/seatunnel/pull/2904))
-- [Feature] Support Phoenix JDBC Sink ([2499](https://github.com/apache/seatunnel/pull/2499))
-- [Feature] Support SQL Server JDBC Sink ([2646](https://github.com/apache/seatunnel/pull/2646))
-- [Feature] Support Oracle JDBC Sink ([2550](https://github.com/apache/seatunnel/pull/2550))
-- [Feature] Support StarRocks JDBC Sink ([3060](https://github.com/apache/seatunnel/pull/3060))
-- [Feature] Support DB2 JDBC Sink ([2410](https://github.com/apache/seatunnel/pull/2410))
-
-### next version
-
-- [Feature] Support CDC write DELETE/UPDATE/INSERT events ([3378](https://github.com/apache/seatunnel/issues/3378))
-- [Feature] Support Teradata JDBC Sink ([3362](https://github.com/apache/seatunnel/pull/3362))
-- [Feature] Support Sqlite JDBC Sink ([3089](https://github.com/apache/seatunnel/pull/3089))
-- [Feature] Support CDC write DELETE/UPDATE/INSERT events ([3378](https://github.com/apache/seatunnel/issues/3378))
-- [Feature] Support Doris JDBC Sink
-- [Feature] Support Redshift JDBC Sink([#3615](https://github.com/apache/seatunnel/pull/3615))
-- [Improve] Add config item enable upsert by query([#3708](https://github.com/apache/seatunnel/pull/3708))
-- [Improve] Add database field to sink config([#4199](https://github.com/apache/seatunnel/pull/4199))
-- [Improve] Add Vertica connector([#4303](https://github.com/apache/seatunnel/pull/4303))
-
+<ChangeLog />

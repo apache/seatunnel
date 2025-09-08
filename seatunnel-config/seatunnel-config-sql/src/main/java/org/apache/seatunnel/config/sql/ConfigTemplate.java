@@ -77,16 +77,16 @@ public class ConfigTemplate {
         for (TransformConfig transformConfig : transformConfigs) {
             transformItems.append("  sql {\n");
             transformItems
-                    .append("    source_table_name = \"")
-                    .append(transformConfig.getSourceTableName())
+                    .append("    plugin_input = \"")
+                    .append(transformConfig.getPluginInputIdentifier())
                     .append("\"\n");
             transformItems
                     .append("    query = \"\"\"")
                     .append(transformConfig.getQuery())
                     .append("\"\"\"\n");
             transformItems
-                    .append("    result_table_name = \"")
-                    .append(transformConfig.getResultTableName())
+                    .append("    plugin_output = \"")
+                    .append(transformConfig.getPluginOutputIdentifier())
                     .append("\"\n");
             transformItems.append("  }\n");
         }

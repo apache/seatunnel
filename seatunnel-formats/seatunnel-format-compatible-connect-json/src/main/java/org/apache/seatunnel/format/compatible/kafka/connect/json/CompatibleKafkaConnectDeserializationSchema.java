@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.format.compatible.kafka.connect.json;
 
-import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
-
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
@@ -28,6 +26,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonError;
+import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.common.utils.ReflectionUtils;
 import org.apache.seatunnel.format.json.JsonToRowConverters;
 
@@ -39,6 +38,7 @@ import org.apache.kafka.connect.json.JsonConverterConfig;
 import org.apache.kafka.connect.sink.SinkRecord;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
@@ -49,7 +49,7 @@ import java.lang.reflect.Method;
 import java.util.Collections;
 import java.util.Optional;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkNotNull;
 
 /** Compatible kafka connect deserialization schema */
 @RequiredArgsConstructor
@@ -144,7 +144,7 @@ public class CompatibleKafkaConnectDeserializationSchema
 
         try {
             org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode jsonData =
-                    objectMapper.readTree(jsonNode.toString());
+                    JsonUtils.stringToJsonNode(jsonNode.toString());
             return (SeaTunnelRow) runtimeConverter.convert(jsonData, null);
         } catch (Throwable t) {
             throw CommonError.jsonOperationError(FORMAT, jsonNode.toString(), t);

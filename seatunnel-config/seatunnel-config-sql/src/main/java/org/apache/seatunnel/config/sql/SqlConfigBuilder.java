@@ -49,6 +49,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -60,9 +61,9 @@ import java.util.stream.Collectors;
 import static org.apache.seatunnel.config.sql.utils.Constant.OPTION_DELIMITER;
 import static org.apache.seatunnel.config.sql.utils.Constant.OPTION_DOUBLE_SINGLE_QUOTES;
 import static org.apache.seatunnel.config.sql.utils.Constant.OPTION_KV_DELIMITER;
-import static org.apache.seatunnel.config.sql.utils.Constant.OPTION_RESULT_TABLE_NAME_KEY;
+import static org.apache.seatunnel.config.sql.utils.Constant.OPTION_PLUGIN_INPUT_KEY;
+import static org.apache.seatunnel.config.sql.utils.Constant.OPTION_PLUGIN_OUTPUT_KEY;
 import static org.apache.seatunnel.config.sql.utils.Constant.OPTION_SINGLE_QUOTES;
-import static org.apache.seatunnel.config.sql.utils.Constant.OPTION_SOURCE_TABLE_NAME_KEY;
 import static org.apache.seatunnel.config.sql.utils.Constant.OPTION_TABLE_CONNECTOR_KEY;
 import static org.apache.seatunnel.config.sql.utils.Constant.OPTION_TABLE_TYPE_KEY;
 import static org.apache.seatunnel.config.sql.utils.Constant.OPTION_TABLE_TYPE_SINK;
@@ -81,6 +82,25 @@ public class SqlConfigBuilder {
     public static Config of(@NonNull Path sqlFilePath) {
         try {
             List<String> lines = Files.readAllLines(sqlFilePath);
+            return of(lines);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to parse job config file: " + sqlFilePath, e);
+        }
+    }
+
+    public static Config of(@NonNull String sqlContent) {
+        try {
+            List<String> lines = new ArrayList<>();
+            String[] lineArray = sqlContent.split("\\r?\\n");
+            Collections.addAll(lines, lineArray);
+            return of(lines);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to parse job config: ", e);
+        }
+    }
+
+    private static Config of(@NonNull List<String> lines) {
+        try {
             Map<String, BaseConfig> sqlTables = new LinkedHashMap<>();
             SeaTunnelConfig seaTunnelConfig = new SeaTunnelConfig();
 
@@ -117,15 +137,14 @@ public class SqlConfigBuilder {
                 }
             }
 
-            // filter out the sink config without 'source_table_name' option
+            // filter out the sink config without 'plugin_input' option
             seaTunnelConfig.setSinkConfigs(
                     seaTunnelConfig.getSinkConfigs().stream()
                             .filter(
                                     sinkConfig -> {
                                         boolean containSourceTable = false;
                                         for (Option option : sinkConfig.getOptions()) {
-                                            if (option.getKey()
-                                                    .equals(OPTION_SOURCE_TABLE_NAME_KEY)) {
+                                            if (option.getKey().equals(OPTION_PLUGIN_INPUT_KEY)) {
                                                 containSourceTable = true;
                                                 break;
                                             }
@@ -264,12 +283,12 @@ public class SqlConfigBuilder {
         SourceConfig sourceConfig = new SourceConfig();
         sourceConfig.setConnector(connector);
 
-        String resultTableName = createTable.getTable().getName();
-        sourceConfig.setResultTableName(resultTableName);
+        String pluginOutputIdentifier = createTable.getTable().getName();
+        sourceConfig.setPluginOutputIdentifier(pluginOutputIdentifier);
         convertOptions(options, sourceConfig.getOptions());
         sourceConfig
                 .getOptions()
-                .add(Option.of(OPTION_RESULT_TABLE_NAME_KEY, "\"" + resultTableName + "\""));
+                .add(Option.of(OPTION_PLUGIN_OUTPUT_KEY, "\"" + pluginOutputIdentifier + "\""));
         return sourceConfig;
     }
 
@@ -280,8 +299,8 @@ public class SqlConfigBuilder {
         }
         SinkConfig sinkConfig = new SinkConfig();
         sinkConfig.setConnector(connector);
-        // original sink table without source_table_name
-        options.remove(OPTION_SOURCE_TABLE_NAME_KEY);
+        // original sink table without plugin_input
+        options.remove(OPTION_PLUGIN_INPUT_KEY);
         convertOptions(options, sinkConfig.getOptions());
 
         return sinkConfig;
@@ -292,7 +311,7 @@ public class SqlConfigBuilder {
                 (k, v) -> {
                     if (OPTION_TABLE_CONNECTOR_KEY.equalsIgnoreCase(k)
                             || OPTION_TABLE_TYPE_KEY.equalsIgnoreCase(k)
-                            || OPTION_RESULT_TABLE_NAME_KEY.equalsIgnoreCase(k)) {
+                            || OPTION_PLUGIN_OUTPUT_KEY.equalsIgnoreCase(k)) {
                         return;
                     }
                     String trimVal = v.trim();
@@ -313,22 +332,22 @@ public class SqlConfigBuilder {
             TransformConfig transformConfig = new TransformConfig();
             PlainSelect plainSelect = (PlainSelect) select.getSelectBody();
             Table table = (Table) plainSelect.getFromItem();
-            String sourceTableName = table.getName();
-            if (!sqlTables.containsKey(sourceTableName)) {
+            String pluginInputIdentifier = table.getName();
+            if (!sqlTables.containsKey(pluginInputIdentifier)) {
                 throw new ParserException(
-                        String.format("The source table[%s] is not found", sourceTableName));
+                        String.format("The source table[%s] is not found", pluginInputIdentifier));
             }
 
-            String resultTableName = createTable.getTable().getName();
-            if (sqlTables.containsKey(resultTableName)) {
+            String pluginOutputIdentifier = createTable.getTable().getName();
+            if (sqlTables.containsKey(pluginOutputIdentifier)) {
                 throw new ParserException(
-                        String.format("Table name duplicate: %s", resultTableName));
+                        String.format("Table name duplicate: %s", pluginOutputIdentifier));
             }
-            sqlTables.put(resultTableName, transformConfig);
+            sqlTables.put(pluginOutputIdentifier, transformConfig);
 
             String query = select.toString();
-            transformConfig.setSourceTableName(sourceTableName);
-            transformConfig.setResultTableName(resultTableName);
+            transformConfig.setPluginInputIdentifier(pluginInputIdentifier);
+            transformConfig.setPluginOutputIdentifier(pluginOutputIdentifier);
             transformConfig.setQuery(query);
 
             return transformConfig;
@@ -356,8 +375,8 @@ public class SqlConfigBuilder {
         if (select.getSelectBody() instanceof PlainSelect) {
             PlainSelect plainSelect = (PlainSelect) select.getSelectBody();
 
-            String sourceTableName;
-            String resultTableName;
+            String pluginInputIdentifier;
+            String pluginOutputIdentifier;
             if (plainSelect.getFromItem() == null) {
                 List<SelectItem<?>> selectItems = plainSelect.getSelectItems();
                 if (selectItems.size() != 1) {
@@ -366,46 +385,48 @@ public class SqlConfigBuilder {
                 }
                 SelectItem<?> selectItem = selectItems.get(0);
                 Column column = (Column) selectItem.getExpression();
-                sourceTableName = column.getColumnName();
-                resultTableName = sourceTableName;
+                pluginInputIdentifier = column.getColumnName();
+                pluginOutputIdentifier = pluginInputIdentifier;
             } else {
                 if (!(plainSelect.getFromItem() instanceof Table)) {
                     throw new ParserException("Unsupported syntax: " + insertSql);
                 }
                 Table table = (Table) plainSelect.getFromItem();
-                sourceTableName = table.getName();
-                resultTableName =
-                        sourceTableName + TEMP_TABLE_SUFFIX + tempTableIndex.getAndIncrement();
+                pluginInputIdentifier = table.getName();
+                pluginOutputIdentifier =
+                        pluginInputIdentifier
+                                + TEMP_TABLE_SUFFIX
+                                + tempTableIndex.getAndIncrement();
                 String query = select.toString();
-                transformConfig.setSourceTableName(sourceTableName);
-                transformConfig.setResultTableName(resultTableName);
+                transformConfig.setPluginInputIdentifier(pluginInputIdentifier);
+                transformConfig.setPluginOutputIdentifier(pluginOutputIdentifier);
                 transformConfig.setQuery(query);
                 seaTunnelConfig.getTransformConfigs().add(transformConfig);
             }
 
-            if (!sqlTables.containsKey(sourceTableName)
+            if (!sqlTables.containsKey(pluginInputIdentifier)
                     || (!OPTION_TABLE_TYPE_SOURCE.equalsIgnoreCase(
-                                    sqlTables.get(sourceTableName).getType())
+                                    sqlTables.get(pluginInputIdentifier).getType())
                             && !OPTION_TABLE_TYPE_TRANSFORM.equalsIgnoreCase(
-                                    sqlTables.get(sourceTableName).getType()))) {
+                                    sqlTables.get(pluginInputIdentifier).getType()))) {
                 throw new ParserException(
-                        String.format("The source table[%s] is not found", sourceTableName));
+                        String.format("The source table[%s] is not found", pluginInputIdentifier));
             }
             if (!sqlTables.containsKey(targetTableName)
                     || !OPTION_TABLE_TYPE_SINK.equalsIgnoreCase(
                             sqlTables.get(targetTableName).getType())) {
                 throw new ParserException(
-                        String.format("The sink table[%s] is not found", sourceTableName));
+                        String.format("The sink table[%s] is not found", pluginInputIdentifier));
             }
 
             SinkConfig sinkConfig = (SinkConfig) sqlTables.get(targetTableName);
             SinkConfig sinkConfigNew = new SinkConfig();
             sinkConfigNew.setConnector(sinkConfig.getConnector());
-            sinkConfigNew.setSourceTableName(resultTableName);
+            sinkConfigNew.setPluginInputIdentifier(pluginOutputIdentifier);
             sinkConfigNew.getOptions().addAll(sinkConfig.getOptions());
             sinkConfigNew
                     .getOptions()
-                    .add(Option.of(OPTION_SOURCE_TABLE_NAME_KEY, "\"" + resultTableName + "\""));
+                    .add(Option.of(OPTION_PLUGIN_INPUT_KEY, "\"" + pluginOutputIdentifier + "\""));
 
             seaTunnelConfig.getSinkConfigs().add(sinkConfigNew);
         } else {

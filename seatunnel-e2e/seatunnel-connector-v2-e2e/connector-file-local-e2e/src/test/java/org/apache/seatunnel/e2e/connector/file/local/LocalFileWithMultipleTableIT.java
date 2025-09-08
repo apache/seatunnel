@@ -65,6 +65,11 @@ public class LocalFileWithMultipleTableIT extends TestSuiteBase {
                         "/seatunnel/read/text/name=tyrantlucifer/hobby=coding/e2e.txt",
                         container);
 
+                ContainerUtil.copyFileIntoContainers(
+                        "/binary/cat.png",
+                        "/seatunnel/read/binary/name=tyrantlucifer/hobby=coding/cat.png",
+                        container);
+
                 container.execInContainer("mkdir", "-p", "/tmp/fake_empty");
             };
 
@@ -108,5 +113,12 @@ public class LocalFileWithMultipleTableIT extends TestSuiteBase {
             throws IOException, InterruptedException {
         TestHelper helper = new TestHelper(container);
         helper.execute("/text/local_file_text_to_assert_with_multipletable.conf");
+    }
+
+    @TestTemplate
+    public void testLocalFileReadAndWriteInMultipleTableMode_binary(TestContainer container)
+            throws IOException, InterruptedException {
+        TestHelper helper = new TestHelper(container);
+        helper.execute("/binary/local_file_binary_to_local_file_binary_with_multipletable.conf");
     }
 }

@@ -24,8 +24,8 @@ import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSimpleSink;
-import org.apache.seatunnel.connectors.seatunnel.email.config.EmailConfig;
 import org.apache.seatunnel.connectors.seatunnel.email.config.EmailSinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.email.config.EmailSinkOptions;
 
 import lombok.Getter;
 
@@ -53,7 +53,7 @@ public class EmailSink extends AbstractSimpleSink<SeaTunnelRow, Void>
 
     @Override
     public String getPluginName() {
-        return EmailConfig.CONNECTOR_IDENTITY;
+        return EmailSinkOptions.CONNECTOR_IDENTITY;
     }
 
     @Override

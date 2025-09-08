@@ -18,10 +18,12 @@
 package org.apache.seatunnel.engine.core.job;
 
 import org.apache.seatunnel.engine.common.config.JobConfig;
+import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
 import org.apache.seatunnel.engine.core.serializable.JobDataSerializerHook;
 
 import com.hazelcast.internal.nio.IOUtil;
 import com.hazelcast.internal.serialization.Data;
+import com.hazelcast.internal.serialization.SerializationService;
 import com.hazelcast.nio.ObjectDataInput;
 import com.hazelcast.nio.ObjectDataOutput;
 import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
@@ -29,7 +31,9 @@ import lombok.NonNull;
 
 import java.io.IOException;
 import java.net.URL;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 public class JobImmutableInformation implements IdentifiedDataSerializable {
     private long jobId;
@@ -41,6 +45,10 @@ public class JobImmutableInformation implements IdentifiedDataSerializable {
     private long createTime;
 
     private Data logicalDag;
+
+    private final List<Data> logicalVertexDataList = new ArrayList<>();
+
+    private final List<Set<URL>> logicalVertexJarsList = new ArrayList<>();
 
     private JobConfig jobConfig;
 
@@ -64,16 +72,23 @@ public class JobImmutableInformation implements IdentifiedDataSerializable {
             long jobId,
             String jobName,
             boolean isStartWithSavePoint,
-            @NonNull Data logicalDag,
-            @NonNull JobConfig jobConfig,
+            SerializationService serializationService,
+            @NonNull LogicalDag logicalDag,
             @NonNull List<URL> pluginJarsUrls,
             @NonNull List<ConnectorJarIdentifier> connectorJarIdentifiers) {
         this.createTime = System.currentTimeMillis();
         this.jobId = jobId;
         this.jobName = jobName;
         this.isStartWithSavePoint = isStartWithSavePoint;
-        this.logicalDag = logicalDag;
-        this.jobConfig = jobConfig;
+        logicalDag
+                .getLogicalVertexMap()
+                .forEach(
+                        (k, v) -> {
+                            logicalVertexDataList.add(serializationService.toData(v));
+                            logicalVertexJarsList.add(v.getAction().getJarUrls());
+                        });
+        this.logicalDag = serializationService.toData(logicalDag);
+        this.jobConfig = logicalDag.getJobConfig();
         this.pluginJarsUrls = pluginJarsUrls;
         this.connectorJarIdentifiers = connectorJarIdentifiers;
     }
@@ -81,11 +96,18 @@ public class JobImmutableInformation implements IdentifiedDataSerializable {
     public JobImmutableInformation(
             long jobId,
             String jobName,
-            @NonNull Data logicalDag,
-            @NonNull JobConfig jobConfig,
+            SerializationService serializationService,
+            @NonNull LogicalDag logicalDag,
             @NonNull List<URL> pluginJarsUrls,
             @NonNull List<ConnectorJarIdentifier> connectorJarIdentifiers) {
-        this(jobId, jobName, false, logicalDag, jobConfig, pluginJarsUrls, connectorJarIdentifiers);
+        this(
+                jobId,
+                jobName,
+                false,
+                serializationService,
+                logicalDag,
+                pluginJarsUrls,
+                connectorJarIdentifiers);
     }
 
     public long getJobId() {
@@ -120,6 +142,14 @@ public class JobImmutableInformation implements IdentifiedDataSerializable {
         return connectorJarIdentifiers;
     }
 
+    public List<Data> getLogicalVertexDataList() {
+        return logicalVertexDataList;
+    }
+
+    public List<Set<URL>> getLogicalVertexJarsList() {
+        return logicalVertexJarsList;
+    }
+
     @Override
     public int getFactoryId() {
         return JobDataSerializerHook.FACTORY_ID;
@@ -136,6 +166,11 @@ public class JobImmutableInformation implements IdentifiedDataSerializable {
         out.writeString(jobName);
         out.writeBoolean(isStartWithSavePoint);
         out.writeLong(createTime);
+        out.writeInt(logicalVertexDataList.size());
+        for (int i = 0; i < logicalVertexDataList.size(); i++) {
+            IOUtil.writeData(out, logicalVertexDataList.get(i));
+            out.writeObject(logicalVertexJarsList.get(i));
+        }
         IOUtil.writeData(out, logicalDag);
         out.writeObject(jobConfig);
         out.writeObject(pluginJarsUrls);
@@ -148,6 +183,11 @@ public class JobImmutableInformation implements IdentifiedDataSerializable {
         jobName = in.readString();
         isStartWithSavePoint = in.readBoolean();
         createTime = in.readLong();
+        int size = in.readInt();
+        for (int i = 0; i < size; i++) {
+            logicalVertexDataList.add(IOUtil.readData(in));
+            logicalVertexJarsList.add(in.readObject());
+        }
         logicalDag = IOUtil.readData(in);
         jobConfig = in.readObject();
         pluginJarsUrls = in.readObject();

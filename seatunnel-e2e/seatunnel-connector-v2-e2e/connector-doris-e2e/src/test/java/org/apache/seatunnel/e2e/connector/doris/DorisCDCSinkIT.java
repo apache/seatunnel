@@ -26,6 +26,7 @@ import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestTemplate;
@@ -127,6 +128,13 @@ public class DorisCDCSinkIT extends AbstractDorisIT {
         inventoryDatabase.createAndInitialize();
         log.info("Mysql ddl execution is complete");
         initializeJdbcTable();
+    }
+
+    @AfterAll
+    public void close() {
+        if (MYSQL_CONTAINER != null) {
+            MYSQL_CONTAINER.close();
+        }
     }
 
     @TestTemplate

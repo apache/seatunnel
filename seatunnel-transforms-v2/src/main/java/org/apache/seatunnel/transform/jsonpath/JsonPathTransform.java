@@ -20,7 +20,6 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
 
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
-import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowAccessor;
@@ -54,7 +53,7 @@ public class JsonPathTransform extends MultipleFieldOutputTransform {
     private final SeaTunnelRowType seaTunnelRowType;
 
     private JsonToRowConverters.JsonToObjectConverter[] converters;
-    private SeaTunnelRowType outputSeaTunnelRowType;
+    private Column[] outputColumns;
 
     private int[] srcFieldIndexArr;
 
@@ -87,17 +86,10 @@ public class JsonPathTransform extends MultipleFieldOutputTransform {
     }
 
     private void initOutputSeaTunnelRowType() {
-
-        SeaTunnelDataType<?>[] dataTypes =
+        this.outputColumns =
                 this.config.getColumnConfigs().stream()
-                        .map(ColumnConfig::getDestType)
-                        .toArray(SeaTunnelDataType<?>[]::new);
-        this.outputSeaTunnelRowType =
-                new SeaTunnelRowType(
-                        this.config.getColumnConfigs().stream()
-                                .map(ColumnConfig::getDestField)
-                                .toArray(String[]::new),
-                        dataTypes);
+                        .map(ColumnConfig::getDestColumn)
+                        .toArray(Column[]::new);
     }
 
     private void initSrcFieldIndexArr() {
@@ -189,13 +181,6 @@ public class JsonPathTransform extends MultipleFieldOutputTransform {
 
     @Override
     protected Column[] getOutputColumns() {
-        int len = this.outputSeaTunnelRowType.getTotalFields();
-        Column[] columns = new Column[len];
-        for (int i = 0; i < len; i++) {
-            String fieldName = this.outputSeaTunnelRowType.getFieldName(i);
-            SeaTunnelDataType<?> fieldType = this.outputSeaTunnelRowType.getFieldType(i);
-            columns[i] = PhysicalColumn.of(fieldName, fieldType, 200, true, "", "");
-        }
-        return columns;
+        return outputColumns;
     }
 }

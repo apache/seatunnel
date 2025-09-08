@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.cdc.base.source.reader.external;
 
+import org.apache.seatunnel.shade.com.google.common.util.concurrent.ThreadFactoryBuilder;
+
 import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.cdc.base.schema.SchemaChangeResolver;
 import org.apache.seatunnel.connectors.cdc.base.source.offset.Offset;
@@ -29,7 +31,6 @@ import org.apache.seatunnel.connectors.cdc.base.utils.SourceRecordUtils;
 
 import org.apache.kafka.connect.source.SourceRecord;
 
-import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import io.debezium.connector.base.ChangeEventQueue;
 import io.debezium.pipeline.DataChangeEvent;
 import io.debezium.relational.TableId;

@@ -15,6 +15,12 @@
 
 配置文件类似下面这个例子：
 
+:::caution 警告
+
+旧的配置名称 `result_table_name`/`source_table_name` 已经过时，请尽快迁移到新名称 `plugin_output`/`plugin_input`。
+
+:::
+
 ### hocon
 
 ```hocon
@@ -24,7 +30,7 @@ env {
 
 source {
   FakeSource {
-    result_table_name = "fake"
+    plugin_output = "fake"
     row.num = 100
     schema = {
       fields {
@@ -38,8 +44,8 @@ source {
 
 transform {
   Filter {
-    source_table_name = "fake"
-    result_table_name = "fake1"
+    plugin_input = "fake"
+    plugin_output = "fake1"
     fields = [name, card]
   }
 }
@@ -52,7 +58,7 @@ sink {
     fields = ["name", "card"]
     username = "default"
     password = ""
-    source_table_name = "fake1"
+    plugin_input = "fake1"
   }
 }
 ```
@@ -71,8 +77,8 @@ sink {
 ### source
 
 source用于定义SeaTunnel在哪儿检索数据，并将检索的数据用于下一步。
-可以同时定义多个source。目前支持的source请看[Source of SeaTunnel](../../en/connector-v2/source)。每种source都有自己特定的参数用来
-定义如何检索数据，SeaTunnel也抽象了每种source所使用的参数，例如 `result_table_name` 参数，用于指定当前source生成的数据的名称，
+可以同时定义多个source。目前支持的source请看[Source of SeaTunnel](../connector-v2/source)。每种source都有自己特定的参数用来
+定义如何检索数据，SeaTunnel也抽象了每种source所使用的参数，例如 `plugin_output` 参数，用于指定当前source生成的数据的名称，
 方便后续其他模块使用。
 
 ### transform
@@ -87,7 +93,7 @@ env {
 
 source {
   FakeSource {
-    result_table_name = "fake"
+    plugin_output = "fake"
     row.num = 100
     schema = {
       fields {
@@ -107,26 +113,26 @@ sink {
     fields = ["name", "age", "card"]
     username = "default"
     password = ""
-    source_table_name = "fake1"
+    plugin_input = "fake"
   }
 }
 ```
 
-与source类似, transform也有属于每个模块的特定参数。目前支持的source请看。目前支持的transform请看 [Transform V2 of SeaTunnel](../../en/transform-v2)
+与source类似, transform也有属于每个模块的特定参数。目前支持的source请看。目前支持的transform请看 [Transform V2 of SeaTunnel](../transform-v2)
 
 <!-- TODO missing source links --->
 
 ### sink
 
 我们使用SeaTunnel的作用是将数据从一个地方同步到其它地方，所以定义数据如何写入，写入到哪里是至关重要的。通过SeaTunnel提供的
-sink模块，你可以快速高效地完成这个操作。Sink和source非常相似，区别在于读取和写入。所以去看看我们[Sink of SeaTunnel](../../en/connector-v2/sink)吧。
+sink模块，你可以快速高效地完成这个操作。Sink和source非常相似，区别在于读取和写入。所以去看看我们[Sink of SeaTunnel](../connector-v2/sink)吧。
 
 ### 其它
 
-你会疑惑当定义了多个source和多个sink时，每个sink读取哪些数据，每个transform读取哪些数据？我们使用`result_table_name` 和
-`source_table_name` 两个配置。每个source模块都会配置一个`result_table_name`来指示数据源生成的数据源名称，其它transform和sink
-模块可以使用`source_table_name` 引用相应的数据源名称，表示要读取数据进行处理。然后transform，作为一个中间的处理模块，可以同时使用
-`result_table_name` 和 `source_table_name` 配置。但你会发现在上面的配置例子中，不是每个模块都配置了这些参数，因为在SeaTunnel中，
+你会疑惑当定义了多个source和多个sink时，每个sink读取哪些数据，每个transform读取哪些数据？我们使用`plugin_output` 和
+`plugin_input` 两个配置。每个source模块都会配置一个`plugin_output`来指示数据源生成的数据源名称，其它transform和sink
+模块可以使用`plugin_input` 引用相应的数据源名称，表示要读取数据进行处理。然后transform，作为一个中间的处理模块，可以同时使用
+`plugin_output` 和 `plugin_input` 配置。但你会发现在上面的配置例子中，不是每个模块都配置了这些参数，因为在SeaTunnel中，
 有一个默认的约定，如果这两个参数没有配置，则使用上一个节点的最后一个模块生成的数据。当只有一个source时这是非常方便的。
 
 ## 多行文本支持
@@ -155,7 +161,7 @@ sql = """ select * from "table" """
   "source": [
     {
       "plugin_name": "FakeSource",
-      "result_table_name": "fake",
+      "plugin_output": "fake",
       "row.num": 100,
       "schema": {
         "fields": {
@@ -169,8 +175,8 @@ sql = """ select * from "table" """
   "transform": [
     {
       "plugin_name": "Filter",
-      "source_table_name": "fake",
-      "result_table_name": "fake1",
+      "plugin_input": "fake",
+      "plugin_output": "fake1",
       "fields": ["name", "card"]
     }
   ],
@@ -183,7 +189,7 @@ sql = """ select * from "table" """
       "fields": ["name", "card"],
       "username": "default",
       "password": "",
-      "source_table_name": "fake1"
+      "plugin_input": "fake1"
     }
   ]
 }
@@ -218,7 +224,7 @@ env {
 
 source {
   FakeSource {
-    result_table_name = "${resName:fake_test}_table"
+    plugin_output = "${resName:fake_test}_table"
     row.num = "${rowNum:50}"
     string.template = ${strTemplate}
     int.template = [20, 21]
@@ -233,8 +239,8 @@ source {
 
 transform {
     sql {
-      source_table_name = "${resName:fake_test}_table"
-      result_table_name = "sql"
+      plugin_input = "${resName:fake_test}_table"
+      plugin_output = "sql"
       query = "select * from ${resName:fake_test}_table where name = '${nameVal}' "
     }
 
@@ -242,7 +248,7 @@ transform {
 
 sink {
   Console {
-     source_table_name = "sql"
+     plugin_input = "sql"
      username = ${username}
      password = ${password}
   }
@@ -277,7 +283,7 @@ env {
 
 source {
   FakeSource {
-    result_table_name = "fake_test_table"
+    plugin_output = "fake_test_table"
     row.num = 50
     string.template = ['abc','d~f','hi']
     int.template = [20, 21]
@@ -292,16 +298,16 @@ source {
 
 transform {
     sql {
-      source_table_name = "fake_test_table"
-      result_table_name = "sql"
-      query = "select * from fake_test_table where name = 'abc' "
+      plugin_input = "fake_test_table"
+      plugin_output = "sql"
+      query = "select * from dual where name = 'abc' "
     }
 
 }
 
 sink {
   Console {
-     source_table_name = "sql"
+     plugin_input = "sql"
      username = "seatunnel=2.3.1"
      password = "$a^b%c.d~e0*9("
     }

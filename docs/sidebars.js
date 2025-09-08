@@ -157,6 +157,7 @@ const sidebars = {
                 },
                 "connector-v2/source-common-options",
                 "connector-v2/sink-common-options",
+                "connector-v2/connector-isolated-dependency",
                 "connector-v2/Error-Quick-Reference-Manual",
                 "connector-v2/Config-Encryption-Decryption"
             ]
@@ -192,22 +193,37 @@ const sidebars = {
             "label": "SeaTunnel Engine",
             "items": [
                 "seatunnel-engine/about",
-                "seatunnel-engine/download-seatunnel",
-                "seatunnel-engine/deployment",
-                "seatunnel-engine/local-mode-deployment",
-                "seatunnel-engine/hybrid-cluster-deployment",
-                "seatunnel-engine/separated-cluster-deployment",
+                {
+                    "type": "category",
+                    "label": "Deployment",
+                    "items": [
+                        "seatunnel-engine/download-seatunnel",
+                        "seatunnel-engine/deployment",
+                        "seatunnel-engine/local-mode-deployment",
+                        "seatunnel-engine/hybrid-cluster-deployment",
+                        "seatunnel-engine/separated-cluster-deployment"
+                    ]
+                },
                 "seatunnel-engine/savepoint",
                 "seatunnel-engine/checkpoint-storage",
                 "seatunnel-engine/engine-jar-storage-mode",
                 "seatunnel-engine/tcp",
                 "seatunnel-engine/resource-isolation",
-                "seatunnel-engine/rest-api-v1",
-                "seatunnel-engine/rest-api-v2",
+                {
+                    "type": "category",
+                    "label": "RESTFul API",
+                    "items": [
+                        "seatunnel-engine/rest-api-v1",
+                        "seatunnel-engine/rest-api-v2",
+                        "seatunnel-engine/security"
+                    ]
+                },
                 "seatunnel-engine/user-command",
                 "seatunnel-engine/logging",
                 "seatunnel-engine/telemetry",
-                "seatunnel-engine/web-ui"
+                "seatunnel-engine/web-ui",
+                "seatunnel-engine/slot-allocation-strategy",
+                "seatunnel-engine/tuning-guide"
             ]
         },
         {
@@ -226,6 +242,8 @@ const sidebars = {
                 'contribution/new-license',
                 'contribution/coding-guide',
                 'contribution/contribute-transform-v2-guide',
+                'contribution/how-to-create-your-connector',
+                'contribution/docs-format-specification'
             ],
         },
         "faq"

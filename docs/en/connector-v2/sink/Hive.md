@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-hive.md';
+
 # Hive
 
 > Hive sink connector
@@ -8,7 +10,7 @@ Write data to Hive.
 
 :::tip
 
-In order to use this connector, You must ensure your spark/flink cluster already integrated hive. The tested hive version is 2.3.9.
+In order to use this connector, You must ensure your spark/flink cluster already integrated hive. The tested hive version is 2.3.9 and 3.1.3 .
 
 If you use SeaTunnel Engine, You need put seatunnel-hadoop3-3.1.4-uber.jar and hive-exec-3.1.3.jar and libfb303-0.9.3.jar in $SEATUNNEL_HOME/lib/ dir.
 :::
@@ -31,20 +33,22 @@ By default, we use 2PC commit to ensure `exactly-once`
 
 ## Options
 
-|             name              |  type   | required | default value  |
-|-------------------------------|---------|----------|----------------|
-| table_name                    | string  | yes      | -              |
-| metastore_uri                 | string  | yes      | -              |
-| compress_codec                | string  | no       | none           |
-| hdfs_site_path                | string  | no       | -              |
-| hive_site_path                | string  | no       | -              |
-| hive.hadoop.conf              | Map     | no       | -              |
-| hive.hadoop.conf-path         | string  | no       | -              |
-| krb5_path                     | string  | no       | /etc/krb5.conf |
-| kerberos_principal            | string  | no       | -              |
-| kerberos_keytab_path          | string  | no       | -              |
-| abort_drop_partition_metadata | boolean | no       | true           |
-| common-options                |         | no       | -              |
+| name                                  | type    | required | default value  |
+|---------------------------------------|---------|----------|----------------|
+| table_name                            | string  | yes      | -              |
+| metastore_uri                         | string  | yes      | -              |
+| compress_codec                        | string  | no       | none           |
+| hdfs_site_path                        | string  | no       | -              |
+| hive_site_path                        | string  | no       | -              |
+| hive.hadoop.conf                      | Map     | no       | -              |
+| hive.hadoop.conf-path                 | string  | no       | -              |
+| krb5_path                             | string  | no       | /etc/krb5.conf |
+| kerberos_principal                    | string  | no       | -              |
+| kerberos_keytab_path                  | string  | no       | -              |
+| abort_drop_partition_metadata         | boolean | no       | true           |
+| parquet_avro_write_timestamp_as_int96 | boolean | no       | false          |
+| overwrite                             | boolean | no       | false          |
+| common-options                        |         | no       | -              |
 
 ### table_name [string]
 
@@ -87,6 +91,14 @@ The keytab path of kerberos
 ### abort_drop_partition_metadata [boolean]
 
 Flag to decide whether to drop partition metadata from Hive Metastore during an abort operation. Note: this only affects the metadata in the metastore, the data in the partition will always be deleted(data generated during the synchronization process).
+
+### parquet_avro_write_timestamp_as_int96 [boolean]
+
+Support writing Parquet INT96 from a timestamp, only valid for parquet files.
+
+### overwrite [boolean]
+
+Flag to decide whether to use overwrite mode when inserting data into Hive. If set to true, for non-partitioned tables, the existing data in the table will be deleted before inserting new data. For partitioned tables, the data in the relevant partition will be deleted before inserting new data.
 
 ### common options
 
@@ -179,6 +191,78 @@ sink {
       bucket = "s3a://mybucket"
       fs.s3a.aws.credentials.provider="com.amazonaws.auth.InstanceProfileCredentialsProvider"
     }
+}
+```
+
+### example2: Kerberos
+
+```bash
+sink {
+  Hive {
+    table_name = "default.test_hive_sink_on_hdfs_with_kerberos"
+    metastore_uri = "thrift://metastore:9083"
+    hive_site_path = "/tmp/hive-site.xml"
+    kerberos_principal = "hive/metastore.seatunnel@EXAMPLE.COM"
+    kerberos_keytab_path = "/tmp/hive.keytab"
+    krb5_path = "/tmp/krb5.conf"
+  }
+}
+```
+
+Description:
+
+- `hive_site_path`: The path to the `hive-site.xml` file.
+- `kerberos_principal`: The principal for Kerberos authentication.
+- `kerberos_keytab_path`: The keytab file path for Kerberos authentication.
+- `krb5_path`: The path to the `krb5.conf` file used for Kerberos authentication.
+
+Run the case:
+
+```bash
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  FakeSource {
+    schema = {
+      fields {
+        pk_id = bigint
+        name = string
+        score = int
+      }
+      primaryKey {
+        name = "pk_id"
+        columnNames = [pk_id]
+      }
+    }
+    rows = [
+      {
+        kind = INSERT
+        fields = [1, "A", 100]
+      },
+      {
+        kind = INSERT
+        fields = [2, "B", 100]
+      },
+      {
+        kind = INSERT
+        fields = [3, "C", 100]
+      }
+    ]
+  }
+}
+
+sink {
+  Hive {
+    table_name = "default.test_hive_sink_on_hdfs_with_kerberos"
+    metastore_uri = "thrift://metastore:9083"
+    hive_site_path = "/tmp/hive-site.xml"
+    kerberos_principal = "hive/metastore.seatunnel@EXAMPLE.COM"
+    kerberos_keytab_path = "/tmp/hive.keytab"
+    krb5_path = "/tmp/krb5.conf"
+  }
 }
 ```
 
@@ -398,23 +482,4 @@ sink {
 
 ## Changelog
 
-### 2.2.0-beta 2022-09-26
-
-- Add Hive Sink Connector
-
-### 2.3.0-beta 2022-10-20
-
-- [Improve] Hive Sink supports automatic partition repair ([3133](https://github.com/apache/seatunnel/pull/3133))
-
-### 2.3.0 2022-12-30
-
-- [BugFix] Fixed the following bugs that failed to write data to files ([3258](https://github.com/apache/seatunnel/pull/3258))
-  - When field from upstream is null it will throw NullPointerException
-  - Sink columns mapping failed
-  - When restore writer from states getting transaction directly failed
-
-### Next version
-
-- [Improve] Support kerberos authentication ([3840](https://github.com/apache/seatunnel/pull/3840))
-- [Improve] Added partition_dir_expression validation logic ([3886](https://github.com/apache/seatunnel/pull/3886))
-
+<ChangeLog />

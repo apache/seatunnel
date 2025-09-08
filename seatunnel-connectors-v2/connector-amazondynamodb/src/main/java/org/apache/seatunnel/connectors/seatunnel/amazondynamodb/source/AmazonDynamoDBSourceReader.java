@@ -21,7 +21,7 @@ import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.connectors.seatunnel.amazondynamodb.config.AmazonDynamoDBSourceOptions;
+import org.apache.seatunnel.connectors.seatunnel.amazondynamodb.config.AmazonDynamoDBConfig;
 import org.apache.seatunnel.connectors.seatunnel.amazondynamodb.serialize.DefaultSeaTunnelRowDeserializer;
 import org.apache.seatunnel.connectors.seatunnel.amazondynamodb.serialize.SeaTunnelRowDeserializer;
 
@@ -46,7 +46,7 @@ public class AmazonDynamoDBSourceReader
 
     protected DynamoDbClient dynamoDbClient;
     protected SourceReader.Context context;
-    protected AmazonDynamoDBSourceOptions amazondynamodbSourceOptions;
+    protected AmazonDynamoDBConfig amazondynamodbConfig;
     protected SeaTunnelRowDeserializer seaTunnelRowDeserializer;
     Queue<AmazonDynamoDBSourceSplit> pendingSplits = new ConcurrentLinkedDeque<>();
 
@@ -54,10 +54,10 @@ public class AmazonDynamoDBSourceReader
 
     public AmazonDynamoDBSourceReader(
             SourceReader.Context context,
-            AmazonDynamoDBSourceOptions amazondynamodbSourceOptions,
+            AmazonDynamoDBConfig amazondynamodbConfig,
             SeaTunnelRowType typeInfo) {
         this.context = context;
-        this.amazondynamodbSourceOptions = amazondynamodbSourceOptions;
+        this.amazondynamodbConfig = amazondynamodbConfig;
         this.seaTunnelRowDeserializer = new DefaultSeaTunnelRowDeserializer(typeInfo);
     }
 
@@ -65,15 +65,15 @@ public class AmazonDynamoDBSourceReader
     public void open() {
         dynamoDbClient =
                 DynamoDbClient.builder()
-                        .endpointOverride(URI.create(amazondynamodbSourceOptions.getUrl()))
+                        .endpointOverride(URI.create(amazondynamodbConfig.getUrl()))
                         // The region is meaningless for local DynamoDb but required for client
                         // builder validation
-                        .region(Region.of(amazondynamodbSourceOptions.getRegion()))
+                        .region(Region.of(amazondynamodbConfig.getRegion()))
                         .credentialsProvider(
                                 StaticCredentialsProvider.create(
                                         AwsBasicCredentials.create(
-                                                amazondynamodbSourceOptions.getAccessKeyId(),
-                                                amazondynamodbSourceOptions.getSecretAccessKey())))
+                                                amazondynamodbConfig.getAccessKeyId(),
+                                                amazondynamodbConfig.getSecretAccessKey())))
                         .build();
     }
 
@@ -124,7 +124,7 @@ public class AmazonDynamoDBSourceReader
         ScanIterable scan;
         ScanRequest scanRequest =
                 ScanRequest.builder()
-                        .tableName(amazondynamodbSourceOptions.getTable())
+                        .tableName(amazondynamodbConfig.getTable())
                         .limit(split.getItemCount())
                         .segment(split.getSplitId())
                         .totalSegments(split.getTotalSegments())

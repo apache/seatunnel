@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.e2e.connector.google.firestore;
 
-import org.apache.seatunnel.connectors.seatunnel.google.firestore.config.FirestoreConfig;
+import org.apache.seatunnel.connectors.seatunnel.google.firestore.config.FirestoreSinkOptions;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
@@ -86,9 +86,9 @@ public class GoogleFirestoreIT extends TestSuiteBase implements TestResource {
         File file = ContainerUtil.getResourcesFile(FIRESTORE_CONF_FILE);
         Config config = ConfigFactory.parseFile(file);
         Config firestoreConfig = config.getConfig("sink").getConfig("GoogleFirestore");
-        this.projectId = firestoreConfig.getString(FirestoreConfig.PROJECT_ID.key());
-        this.collection = firestoreConfig.getString(FirestoreConfig.COLLECTION.key());
-        this.credentials = firestoreConfig.getString(FirestoreConfig.CREDENTIALS.key());
+        this.projectId = firestoreConfig.getString(FirestoreSinkOptions.PROJECT_ID.key());
+        this.collection = firestoreConfig.getString(FirestoreSinkOptions.COLLECTION.key());
+        this.credentials = firestoreConfig.getString(FirestoreSinkOptions.CREDENTIALS.key());
     }
 
     @AfterAll

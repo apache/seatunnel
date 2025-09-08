@@ -19,7 +19,8 @@ package org.apache.seatunnel.connectors.seatunnel.typesense.client;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
-import org.apache.seatunnel.connectors.seatunnel.typesense.config.TypesenseConnectionConfig;
+import org.apache.seatunnel.connectors.seatunnel.typesense.config.TypesenseBaseOptions;
+import org.apache.seatunnel.connectors.seatunnel.typesense.config.TypesenseSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.typesense.exception.TypesenseConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.typesense.util.URLParamsConverter;
 
@@ -47,7 +48,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import static org.apache.seatunnel.connectors.seatunnel.typesense.config.SourceConfig.QUERY_BATCH_SIZE;
 import static org.apache.seatunnel.connectors.seatunnel.typesense.exception.TypesenseConnectorErrorCode.CREATE_COLLECTION_ERROR;
 import static org.apache.seatunnel.connectors.seatunnel.typesense.exception.TypesenseConnectorErrorCode.DELETE_COLLECTION_ERROR;
 import static org.apache.seatunnel.connectors.seatunnel.typesense.exception.TypesenseConnectorErrorCode.DROP_COLLECTION_ERROR;
@@ -61,15 +61,17 @@ import static org.apache.seatunnel.connectors.seatunnel.typesense.exception.Type
 @Slf4j
 public class TypesenseClient {
     private final Client tsClient;
+    private final ObjectMapper mapper;
 
     TypesenseClient(Client tsClient) {
         this.tsClient = tsClient;
+        this.mapper = new ObjectMapper();
     }
 
     public static TypesenseClient createInstance(ReadonlyConfig config) {
-        List<String> hosts = config.get(TypesenseConnectionConfig.HOSTS);
-        String protocol = config.get(TypesenseConnectionConfig.PROTOCOL);
-        String apiKey = config.get(TypesenseConnectionConfig.APIKEY);
+        List<String> hosts = config.get(TypesenseBaseOptions.HOSTS);
+        String protocol = config.get(TypesenseBaseOptions.PROTOCOL);
+        String apiKey = config.get(TypesenseBaseOptions.APIKEY);
         return createInstance(hosts, apiKey, protocol);
     }
 
@@ -112,7 +114,8 @@ public class TypesenseClient {
     }
 
     public SearchResult search(String collection, String query, int offset) throws Exception {
-        return search(collection, query, offset, QUERY_BATCH_SIZE.defaultValue());
+        return search(
+                collection, query, offset, TypesenseSourceOptions.QUERY_BATCH_SIZE.defaultValue());
     }
 
     public SearchResult search(String collection, String query, int offset, int pageSize)
@@ -120,8 +123,7 @@ public class TypesenseClient {
         SearchParameters searchParameters;
         if (StringUtils.isNotBlank(query)) {
             String jsonQuery = URLParamsConverter.convertParamsToJson(query);
-            ObjectMapper objectMapper = new ObjectMapper();
-            searchParameters = objectMapper.readValue(jsonQuery, SearchParameters.class);
+            searchParameters = mapper.readValue(jsonQuery, SearchParameters.class);
         } else {
             searchParameters = new SearchParameters().q("*");
         }

@@ -32,4 +32,12 @@ public class TestFilterIT extends TestSuiteBase {
         Container.ExecResult execResult = container.executeJob("/filter_transform.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
     }
+
+    @TestTemplate
+    public void testFilterMultiTable(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                container.executeJob("/filter_transform_multi_table.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+    }
 }

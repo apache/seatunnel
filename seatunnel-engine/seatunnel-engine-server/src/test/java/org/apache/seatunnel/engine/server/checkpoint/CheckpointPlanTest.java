@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.server.checkpoint;
 
+import org.apache.seatunnel.shade.com.google.common.collect.ImmutableMap;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
@@ -50,7 +51,6 @@ import org.apache.seatunnel.engine.server.dag.physical.PlanUtils;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-import com.google.common.collect.ImmutableMap;
 import com.hazelcast.map.IMap;
 
 import java.util.ArrayList;
@@ -65,19 +65,18 @@ public class CheckpointPlanTest extends AbstractSeaTunnelServerTest {
     @Test
     public void testGenerateCheckpointPlan() {
         final IdGenerator idGenerator = new IdGenerator();
-        final LogicalDag logicalDag = new LogicalDag();
-        fillVirtualVertex(idGenerator, logicalDag, 2);
-        fillVirtualVertex(idGenerator, logicalDag, 3);
-
         JobConfig config = new JobConfig();
         config.setName("test");
+        final LogicalDag logicalDag = new LogicalDag(config, idGenerator);
+        fillVirtualVertex(idGenerator, logicalDag, 2);
+        fillVirtualVertex(idGenerator, logicalDag, 3);
 
         JobImmutableInformation jobInfo =
                 new JobImmutableInformation(
                         1,
                         "Test",
-                        nodeEngine.getSerializationService().toData(logicalDag),
-                        config,
+                        nodeEngine.getSerializationService(),
+                        logicalDag,
                         Collections.emptyList(),
                         Collections.emptyList());
 
@@ -93,6 +92,7 @@ public class CheckpointPlanTest extends AbstractSeaTunnelServerTest {
                                 jobInfo,
                                 System.currentTimeMillis(),
                                 Executors.newCachedThreadPool(),
+                                server.getClassLoaderService(),
                                 instance.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME),
                                 runningJobState,
                                 runningJobStateTimestamp,

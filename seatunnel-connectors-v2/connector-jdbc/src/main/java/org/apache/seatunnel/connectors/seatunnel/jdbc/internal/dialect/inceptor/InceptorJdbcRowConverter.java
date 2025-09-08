@@ -31,11 +31,15 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.hive.Hive
 
 import org.apache.commons.lang3.StringUtils;
 
+import javax.annotation.Nullable;
+
 import java.math.BigDecimal;
 import java.sql.PreparedStatement;
+import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.OffsetDateTime;
 
 public class InceptorJdbcRowConverter extends HiveJdbcRowConverter {
 
@@ -46,7 +50,10 @@ public class InceptorJdbcRowConverter extends HiveJdbcRowConverter {
 
     @Override
     public PreparedStatement toExternal(
-            TableSchema tableSchema, SeaTunnelRow row, PreparedStatement statement) {
+            TableSchema tableSchema,
+            @Nullable TableSchema databaseTableSchema,
+            SeaTunnelRow row,
+            PreparedStatement statement) {
         SeaTunnelRowType rowType = tableSchema.toPhysicalRowDataType();
         for (int fieldIndex = 0; fieldIndex < rowType.getTotalFields(); fieldIndex++) {
             try {
@@ -97,6 +104,11 @@ public class InceptorJdbcRowConverter extends HiveJdbcRowConverter {
                         LocalDateTime localDateTime = (LocalDateTime) row.getField(fieldIndex);
                         statement.setTimestamp(
                                 statementIndex, java.sql.Timestamp.valueOf(localDateTime));
+                        break;
+                    case TIMESTAMP_TZ:
+                        OffsetDateTime offsetDateTime = (OffsetDateTime) row.getField(fieldIndex);
+                        statement.setTimestamp(
+                                statementIndex, Timestamp.from(offsetDateTime.toInstant()));
                         break;
                     case BYTES:
                         statement.setBytes(statementIndex, (byte[]) row.getField(fieldIndex));

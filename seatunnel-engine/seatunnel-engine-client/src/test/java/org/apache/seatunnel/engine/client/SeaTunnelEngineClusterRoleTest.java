@@ -26,9 +26,9 @@ import org.apache.seatunnel.engine.common.config.EngineConfig;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.config.server.ScheduleStrategy;
+import org.apache.seatunnel.engine.common.job.JobResult;
+import org.apache.seatunnel.engine.common.job.JobStatus;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
-import org.apache.seatunnel.engine.core.job.JobResult;
-import org.apache.seatunnel.engine.core.job.JobStatus;
 import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
 
 import org.awaitility.Awaitility;
@@ -38,6 +38,7 @@ import org.junit.jupiter.api.condition.DisabledOnOs;
 import org.junit.jupiter.api.condition.OS;
 
 import com.hazelcast.client.config.ClientConfig;
+import com.hazelcast.config.Config;
 import com.hazelcast.instance.impl.HazelcastInstanceImpl;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
@@ -63,7 +64,7 @@ public class SeaTunnelEngineClusterRoleTest {
         SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
         seaTunnelConfig
                 .getHazelcastConfig()
-                .setClusterName(TestUtils.getClusterName(testClusterName));
+                .setClusterName(ContentFormatUtilTest.getClusterName(testClusterName));
 
         try {
             // master node must start first in ci
@@ -125,11 +126,11 @@ public class SeaTunnelEngineClusterRoleTest {
         SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
         seaTunnelConfig
                 .getHazelcastConfig()
-                .setClusterName(TestUtils.getClusterName(testClusterName));
+                .setClusterName(ContentFormatUtilTest.getClusterName(testClusterName));
 
         // submit job
         Common.setDeployMode(DeployMode.CLIENT);
-        String filePath = TestUtils.getResource("/client_test.conf");
+        String filePath = ContentFormatUtilTest.getResource("/client_test.conf");
         JobConfig jobConfig = new JobConfig();
         jobConfig.setName("Test_canNotSubmitJobWhenHaveNoWorkerNode");
 
@@ -150,18 +151,17 @@ public class SeaTunnelEngineClusterRoleTest {
             ClientJobExecutionEnvironment jobExecutionEnv =
                     seaTunnelClient.createExecutionContext(filePath, jobConfig, seaTunnelConfig);
             final ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
-            await().atMost(60000, TimeUnit.MILLISECONDS)
-                    .until(
+            PassiveCompletableFuture<JobResult> jobResultPassiveCompletableFuture =
+                    clientJobProxy.doWaitForJobComplete();
+            await().pollDelay(30, TimeUnit.SECONDS)
+                    .atMost(60000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
                             () -> {
-                                try {
-                                    PassiveCompletableFuture<JobResult>
-                                            jobResultPassiveCompletableFuture =
-                                                    clientJobProxy.doWaitForJobComplete();
-                                    String mes = jobResultPassiveCompletableFuture.get().getError();
-                                    return mes.contains("NoEnoughResourceException");
-                                } catch (Exception e) {
-                                    return false;
+                                String mes = "";
+                                if (jobResultPassiveCompletableFuture.isDone()) {
+                                    mes = jobResultPassiveCompletableFuture.get().getError();
                                 }
+                                Assertions.assertTrue(mes.contains("NoEnoughResourceException"));
                             });
 
         } catch (ExecutionException | InterruptedException e) {
@@ -191,11 +191,11 @@ public class SeaTunnelEngineClusterRoleTest {
         engineConfig.getSlotServiceConfig().setSlotNum(3);
         seaTunnelConfig
                 .getHazelcastConfig()
-                .setClusterName(TestUtils.getClusterName(testClusterName));
+                .setClusterName(ContentFormatUtilTest.getClusterName(testClusterName));
 
         // submit job
         Common.setDeployMode(DeployMode.CLIENT);
-        String filePath = TestUtils.getResource("/client_test.conf");
+        String filePath = ContentFormatUtilTest.getResource("/client_test.conf");
         JobConfig jobConfig = new JobConfig();
         jobConfig.setName("Test_enterPendingWhenResourcesNotEnough");
 
@@ -222,6 +222,9 @@ public class SeaTunnelEngineClusterRoleTest {
                             () ->
                                     Assertions.assertEquals(
                                             clientJobProxy.getJobStatus(), JobStatus.PENDING));
+            String status = seaTunnelClient.listJobStatus();
+            status.contains("PENDING");
+
             // start two worker nodes
             SeaTunnelServerStarter.createWorkerHazelcastInstance(seaTunnelConfig);
             SeaTunnelServerStarter.createWorkerHazelcastInstance(seaTunnelConfig);
@@ -261,11 +264,11 @@ public class SeaTunnelEngineClusterRoleTest {
 
         seaTunnelConfig
                 .getHazelcastConfig()
-                .setClusterName(TestUtils.getClusterName(clusterAndJobName));
+                .setClusterName(ContentFormatUtilTest.getClusterName(clusterAndJobName));
 
         // submit job
         Common.setDeployMode(DeployMode.CLIENT);
-        String filePath = TestUtils.getResource("/client_test.conf");
+        String filePath = ContentFormatUtilTest.getResource("/client_test.conf");
         JobConfig jobConfig = new JobConfig();
         jobConfig.setName(clusterAndJobName);
 
@@ -284,6 +287,8 @@ public class SeaTunnelEngineClusterRoleTest {
                             () ->
                                     Assertions.assertEquals(
                                             clientJobProxy.getJobStatus(), JobStatus.PENDING));
+            String status = seaTunnelClient.listJobStatus();
+            status.contains("PENDING");
 
             // Cancel the job in the pending state
             seaTunnelClient.getJobClient().cancelJob(clientJobProxy.getJobId());
@@ -306,9 +311,65 @@ public class SeaTunnelEngineClusterRoleTest {
         }
     }
 
+    @Test
+    public void testStartMasterNodeWithTcpIp() {
+        SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
+        HazelcastInstanceImpl instance =
+                SeaTunnelServerStarter.createMasterHazelcastInstance(seaTunnelConfig);
+        Assertions.assertNotNull(instance);
+        Assertions.assertEquals(1, instance.getCluster().getMembers().size());
+        instance.shutdown();
+    }
+
+    @Test
+    public void testStartMasterNodeWithMulticastJoin() {
+        SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
+        seaTunnelConfig.setHazelcastConfig(Config.loadFromString(getMulticastConfig()));
+        HazelcastInstanceImpl instance =
+                SeaTunnelServerStarter.createMasterHazelcastInstance(seaTunnelConfig);
+        Assertions.assertNotNull(instance);
+        Assertions.assertEquals(1, instance.getCluster().getMembers().size());
+        instance.shutdown();
+    }
+
+    @Test
+    public void testCannotOnlyStartWorkerNodeWithTcpIp() {
+        SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
+        Assertions.assertThrows(
+                IllegalStateException.class,
+                () -> {
+                    SeaTunnelServerStarter.createWorkerHazelcastInstance(seaTunnelConfig);
+                });
+    }
+
+    @Test
+    public void testCannotOnlyStartWorkerNodeWithMulticastJoin() {
+        SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
+        seaTunnelConfig.setHazelcastConfig(Config.loadFromString(getMulticastConfig()));
+        Assertions.assertThrows(
+                IllegalStateException.class,
+                () -> {
+                    SeaTunnelServerStarter.createWorkerHazelcastInstance(seaTunnelConfig);
+                });
+    }
+
+    private String getMulticastConfig() {
+        return "hazelcast:\n"
+                + "  network:\n"
+                + "    join:\n"
+                + "      multicast:\n"
+                + "        enabled: true\n"
+                + "        multicast-group: 224.2.2.3\n"
+                + "        multicast-port: 54327\n"
+                + "        multicast-time-to-live: 32\n"
+                + "        multicast-timeout-seconds: 2\n"
+                + "        trusted-interfaces:\n"
+                + "          - 192.168.1.1\n";
+    }
+
     private SeaTunnelClient createSeaTunnelClient(String clusterName) {
         ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
-        clientConfig.setClusterName(TestUtils.getClusterName(clusterName));
+        clientConfig.setClusterName(ContentFormatUtilTest.getClusterName(clusterName));
         return new SeaTunnelClient(clientConfig);
     }
 }

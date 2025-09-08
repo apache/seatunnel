@@ -23,21 +23,26 @@ import static com.hazelcast.internal.util.Preconditions.checkNotNull;
 
 @Data
 public class ConnectorJarStorageConfig {
-    private Boolean enable = ServerConfigOptions.ENABLE_CONNECTOR_JAR_STORAGE.defaultValue();
+    private Boolean enable =
+            ServerConfigOptions.MasterServerConfigOptions.ENABLE_CONNECTOR_JAR_STORAGE
+                    .defaultValue();
 
     private ConnectorJarStorageMode storageMode =
-            ServerConfigOptions.CONNECTOR_JAR_STORAGE_MODE.defaultValue();
+            ServerConfigOptions.MasterServerConfigOptions.CONNECTOR_JAR_STORAGE_MODE.defaultValue();
 
-    private String storagePath = ServerConfigOptions.CONNECTOR_JAR_STORAGE_PATH.defaultValue();
+    private String storagePath =
+            ServerConfigOptions.MasterServerConfigOptions.CONNECTOR_JAR_STORAGE_PATH.defaultValue();
 
     private Integer cleanupTaskInterval =
-            ServerConfigOptions.CONNECTOR_JAR_CLEANUP_TASK_INTERVAL.defaultValue();
+            ServerConfigOptions.MasterServerConfigOptions.CONNECTOR_JAR_CLEANUP_TASK_INTERVAL
+                    .defaultValue();
 
     private Integer connectorJarExpiryTime =
-            ServerConfigOptions.CONNECTOR_JAR_EXPIRY_TIME.defaultValue();
+            ServerConfigOptions.MasterServerConfigOptions.CONNECTOR_JAR_EXPIRY_TIME.defaultValue();
 
     private ConnectorJarHAStorageConfig connectorJarHAStorageConfig =
-            ServerConfigOptions.CONNECTOR_JAR_HA_STORAGE_CONFIG.defaultValue();
+            ServerConfigOptions.MasterServerConfigOptions.CONNECTOR_JAR_HA_STORAGE_CONFIG
+                    .defaultValue();
 
     public ConnectorJarStorageConfig setStorageMode(ConnectorJarStorageMode storageMode) {
         checkNotNull(storageMode);

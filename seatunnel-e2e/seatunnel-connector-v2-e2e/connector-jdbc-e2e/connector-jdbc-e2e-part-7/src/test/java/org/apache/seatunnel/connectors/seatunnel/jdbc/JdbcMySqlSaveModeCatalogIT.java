@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc;
 
+import org.apache.seatunnel.shade.com.google.common.collect.Lists;
+
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.TablePath;
@@ -38,7 +40,6 @@ import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.DockerLoggerFactory;
 
-import com.google.common.collect.Lists;
 import lombok.extern.slf4j.Slf4j;
 
 import java.sql.Connection;
@@ -155,7 +156,8 @@ public class JdbcMySqlSaveModeCatalogIT extends TestSuiteBase implements TestRes
     public void testCatalog() {
         TablePath tablePathMySql = TablePath.of("auto", "mysql_auto_create");
         TablePath tablePathMySqlSink = TablePath.of("auto", "mysql_auto_create_sink");
-        MySqlCatalog mySqlCatalog = new MySqlCatalog("mysql", "root", MYSQL_PASSWORD, MysqlUrlInfo);
+        MySqlCatalog mySqlCatalog =
+                new MySqlCatalog("mysql", "root", MYSQL_PASSWORD, MysqlUrlInfo, null);
         mySqlCatalog.open();
         CatalogTable catalogTable = mySqlCatalog.getTable(tablePathMySql);
         // source comment

@@ -25,9 +25,11 @@ import org.apache.seatunnel.common.Handover;
 import org.apache.seatunnel.translation.spark.serialization.InternalMultiRowCollector;
 import org.apache.seatunnel.translation.spark.serialization.InternalRowCollector;
 import org.apache.seatunnel.translation.spark.serialization.InternalRowConverter;
+import org.apache.seatunnel.translation.spark.serialization.SeaTunnelRowConverter;
 import org.apache.seatunnel.translation.spark.utils.TypeConverterUtils;
 
 import org.apache.spark.sql.catalyst.InternalRow;
+import org.apache.spark.sql.catalyst.expressions.GenericRow;
 import org.apache.spark.sql.types.StructType;
 
 import lombok.extern.slf4j.Slf4j;
@@ -45,8 +47,11 @@ import java.util.stream.IntStream;
 public class MultiTableManager implements Serializable {
 
     private Map<String, InternalRowConverter> rowSerializationMap;
+    private Map<String, SeaTunnelRowConverter> genericRowSerializationMap;
 
     private InternalRowConverter rowSerialization;
+
+    private SeaTunnelRowConverter genericRowSerialization;
     private CatalogTable mergeCatalogTable;
     private boolean isMultiTable = false;
 
@@ -67,8 +72,23 @@ public class MultiTableManager implements Serializable {
                                                     new InternalRowConverter(
                                                             mergeCatalogTable.getSeaTunnelRowType(),
                                                             columnWithIndex.getIndex())));
+            genericRowSerializationMap =
+                    columnWithIndexes.stream()
+                            .collect(
+                                    Collectors.toMap(
+                                            columnWithIndex ->
+                                                    columnWithIndex
+                                                            .getCatalogTable()
+                                                            .getTablePath()
+                                                            .toString(),
+                                            columnWithIndex ->
+                                                    new SeaTunnelRowConverter(
+                                                            mergeCatalogTable.getSeaTunnelRowType(),
+                                                            columnWithIndex.getIndex())));
         } else {
             rowSerialization = new InternalRowConverter(catalogTables[0].getSeaTunnelRowType());
+            genericRowSerialization =
+                    new SeaTunnelRowConverter(catalogTables[0].getSeaTunnelRowType());
         }
         log.info("Multi-table enabled:{}", isMultiTable);
         log.info(
@@ -86,6 +106,22 @@ public class MultiTableManager implements Serializable {
             return rowSerializationMap.get(tableId).reconvert(record);
         }
         return rowSerialization.reconvert(record);
+    }
+
+    public SeaTunnelRow reconvert(GenericRow record) throws IOException {
+        if (isMultiTable) {
+            String tableId = record.getString(1);
+            return genericRowSerializationMap.get(tableId).reconvert(record);
+        }
+        return genericRowSerialization.reconvert(record);
+    }
+
+    public GenericRow convert(SeaTunnelRow record) throws IOException {
+        if (isMultiTable) {
+            String tableId = record.getTableId();
+            return genericRowSerializationMap.get(tableId).convert(record);
+        }
+        return genericRowSerialization.convert(record);
     }
 
     public StructType getTableSchema() {

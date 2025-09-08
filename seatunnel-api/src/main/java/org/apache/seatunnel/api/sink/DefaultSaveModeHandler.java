@@ -22,7 +22,6 @@ import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 
-import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 import javax.annotation.Nonnull;
@@ -33,7 +32,6 @@ import java.util.Optional;
 import static org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode.SINK_TABLE_NOT_EXIST;
 import static org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode.SOURCE_ALREADY_HAS_DATA;
 
-@AllArgsConstructor
 @Slf4j
 public class DefaultSaveModeHandler implements SaveModeHandler {
 
@@ -43,6 +41,7 @@ public class DefaultSaveModeHandler implements SaveModeHandler {
     @Nonnull public TablePath tablePath;
     @Nullable public CatalogTable catalogTable;
     @Nullable public String customSql;
+    private boolean isNewTableCreated = false;
 
     public DefaultSaveModeHandler(
             SchemaSaveMode schemaSaveMode,
@@ -57,6 +56,21 @@ public class DefaultSaveModeHandler implements SaveModeHandler {
                 catalogTable.getTableId().toTablePath(),
                 catalogTable,
                 customSql);
+    }
+
+    public DefaultSaveModeHandler(
+            SchemaSaveMode schemaSaveMode,
+            DataSaveMode dataSaveMode,
+            Catalog catalog,
+            TablePath tablePath,
+            CatalogTable catalogTable,
+            String customSql) {
+        this.schemaSaveMode = schemaSaveMode;
+        this.dataSaveMode = dataSaveMode;
+        this.catalog = catalog;
+        this.tablePath = tablePath;
+        this.catalogTable = catalogTable;
+        this.customSql = customSql;
     }
 
     @Override
@@ -103,6 +117,16 @@ public class DefaultSaveModeHandler implements SaveModeHandler {
         }
     }
 
+    @Override
+    public void handleSchemaSaveModeWithRestore() {
+        if (SchemaSaveMode.ERROR_WHEN_SCHEMA_NOT_EXIST == schemaSaveMode) {
+            errorWhenSchemaNotExist();
+        } else if (SchemaSaveMode.CREATE_SCHEMA_WHEN_NOT_EXIST == schemaSaveMode
+                || SchemaSaveMode.RECREATE_SCHEMA == schemaSaveMode) {
+            createSchemaWhenNotExist();
+        }
+    }
+
     protected void recreateSchema() {
         if (tableExists()) {
             dropTable();
@@ -123,7 +147,7 @@ public class DefaultSaveModeHandler implements SaveModeHandler {
     }
 
     protected void keepSchemaDropData() {
-        if (tableExists()) {
+        if (tableExists() && !isNewTableCreated) {
             truncateTable();
         }
     }
@@ -187,6 +211,7 @@ public class DefaultSaveModeHandler implements SaveModeHandler {
     protected void createTable() {
         createTablePreCheck();
         catalog.createTable(tablePath, catalogTable, true);
+        isNewTableCreated = true;
     }
 
     protected void truncateTable() {

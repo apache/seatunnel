@@ -37,7 +37,7 @@ env {
 source {
   FakeSource {
     row.num = 16
-    result_table_name = "fake_table"
+    plugin_output = "fake_table"
     schema = {
       fields {
         c_map = "map<string, string>"

@@ -71,7 +71,7 @@ SeaTunnel Engine implements cluster management based on [Hazelcast IMDG](https:/
 
 The `backup count` is a parameter that defines the number of synchronous backups. For example, if it is set to 1, the backup of the partition will be placed on one other member. If it is set to 2, it will be placed on two other members.
 
-We recommend that the value of `backup-count` be `min(1, max(5, N/2))`. `N` is the number of cluster nodes.
+We recommend that the value of `backup-count` be `max(1, min(5, N/2))`. `N` is the number of cluster nodes.
 
 ```yaml
 seatunnel:
@@ -88,7 +88,8 @@ Since in the separated cluster mode, the Worker node does not store Imap data, t
 
 ### 4.2 Slot configuration (this parameter is not effective on the Master node)
 
-The number of Slots determines the number of task groups that can be run in parallel on the cluster node. The number of Slots required by a task is formulated as N = 2 + P (parallelism configured by the task). By default, the number of Slots of SeaTunnel Engine is dynamic, that is, there is no limit on the number. We recommend that the number of Slots be set to twice the number of CPU cores of the node.
+The number of Slots determines the number of task groups that can be run in parallel on the cluster node. The number of Slots required by a task is formulated as N = 2 + P (parallelism configured by the task). By default, the number of Slots of SeaTunnel Engine is dynamic, that is, there is no limit on the number.
+We recommend that the number of slots be set to twice the number of CPU cores on the node, it's a default value when `dynamic-slot` is set to false and not set `slot-num`.
 
 The configuration of dynamic slot number (default) is as follows:
 
@@ -128,6 +129,11 @@ The interval between two checkpoints, in milliseconds. If the `checkpoint.interv
 
 The timeout time of the checkpoint. If the checkpoint cannot be completed within the timeout time, it will trigger a checkpoint failure and the job fails. If the `checkpoint.timeout` parameter is configured in the `env` of the job configuration file, it will be subject to the setting in the job configuration file.
 
+
+**min-pause**
+
+The minimum pause (in milliseconds) between consecutive checkpoints. This ensures that checkpoints are not triggered too frequently.
+
 Example
 
 ```yaml
@@ -140,6 +146,7 @@ seatunnel:
         checkpoint:
             interval: 300000
             timeout: 10000
+            min-pause: 5000
 ```
 
 **checkpoint storage**
@@ -296,6 +303,29 @@ seatunnel:
     job-schedule-strategy: WAIT
 ```
 When `dynamic-slot: true` is used, the `job-schedule-strategy: WAIT` configuration will become invalid and will be forcibly changed to `job-schedule-strategy: REJECT`, because this parameter is meaningless in dynamic slots.
+
+
+### 4.8 Coordinator Service
+
+CoordinatorService responsible for the process of generating each job from a LogicalDag to an ExecutionDag,
+and then to a PhysicalDag. It ultimately creates the JobMaster for the job to handle scheduling, execution, and state monitoring.
+
+**core-thread-num**
+
+The corePoolSize of seatunnel coordinator job's executor cached thread pool
+
+**max-thread-num**
+
+The max job count can be executed at same time
+
+Example
+
+```yaml
+coordinator-service:
+  core-thread-num: 30
+  max-thread-num: 1000
+```
+
 
 ## 5. Configuring SeaTunnel Engine Network Services
 

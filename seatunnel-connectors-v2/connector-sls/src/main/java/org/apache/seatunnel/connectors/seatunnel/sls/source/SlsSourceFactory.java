@@ -24,7 +24,7 @@ import org.apache.seatunnel.api.table.connector.TableSource;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
-import org.apache.seatunnel.connectors.seatunnel.sls.config.Config;
+import org.apache.seatunnel.connectors.seatunnel.sls.config.SlsSourceOptions;
 
 import com.google.auto.service.AutoService;
 
@@ -39,24 +39,24 @@ public class SlsSourceFactory implements TableSourceFactory {
 
     @Override
     public String factoryIdentifier() {
-        return Config.CONNECTOR_IDENTITY;
+        return SlsSourceOptions.CONNECTOR_IDENTITY;
     }
 
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
                 .required(
-                        Config.ENDPOINT,
-                        Config.PROJECT,
-                        Config.LOGSTORE,
-                        Config.ACCESS_KEY_ID,
-                        Config.ACCESS_KEY_SECRET)
+                        SlsSourceOptions.ENDPOINT,
+                        SlsSourceOptions.PROJECT,
+                        SlsSourceOptions.LOGSTORE,
+                        SlsSourceOptions.ACCESS_KEY_ID,
+                        SlsSourceOptions.ACCESS_KEY_SECRET)
                 .optional(
-                        Config.BATCH_SIZE,
-                        Config.START_MODE,
-                        Config.KEY_PARTITION_DISCOVERY_INTERVAL_MILLIS,
-                        Config.AUTO_CURSOR_RESET,
-                        Config.CONSUMER_GROUP)
+                        SlsSourceOptions.BATCH_SIZE,
+                        SlsSourceOptions.START_MODE,
+                        SlsSourceOptions.KEY_PARTITION_DISCOVERY_INTERVAL_MILLIS,
+                        SlsSourceOptions.AUTO_CURSOR_RESET,
+                        SlsSourceOptions.CONSUMER_GROUP)
                 .build();
     }
 

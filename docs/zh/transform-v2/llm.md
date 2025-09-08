@@ -26,7 +26,7 @@
 ### model_provider
 
 要使用的模型提供者。可用选项为:
-OPENAI、DOUBAO、KIMIAI、MICROSOFT, CUSTOM
+OPENAI,DOUBAO,DEEPSEEK,KIMIAI,MICROSOFT, ZHIPU, CUSTOM
 
 > tips: 如果使用 Microsoft, 请确保 api_path 配置不能为空
 
@@ -271,13 +271,13 @@ source {
       {fields = [4, "Eric"], kind = INSERT}
       {fields = [5, "Guangdong Liu"], kind = INSERT}
     ]
-    result_table_name = "fake"
+    plugin_output = "fake"
   }
 }
 
 transform {
   LLM {
-    source_table_name = "fake"
+    plugin_input = "fake"
     model_provider = CUSTOM
     model = gpt-4o-mini
     api_key = sk-xxx
@@ -302,13 +302,13 @@ transform {
                 }]
             }
         }
-    result_table_name = "llm_output"
+    plugin_output = "llm_output"
   }
 }
 
 sink {
   Assert {
-    source_table_name = "llm_output"
+    plugin_input = "llm_output"
     rules =
       {
         field_rules = [

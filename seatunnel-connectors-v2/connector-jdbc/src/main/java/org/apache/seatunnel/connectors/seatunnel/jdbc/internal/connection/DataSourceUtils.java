@@ -17,11 +17,12 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection;
 
+import org.apache.seatunnel.shade.com.google.common.base.CaseFormat;
+
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConnectionConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 
-import com.google.common.base.CaseFormat;
 import lombok.NonNull;
 
 import javax.sql.CommonDataSource;

@@ -25,6 +25,7 @@ import io.debezium.connector.sqlserver.SqlServerConnectorConfig;
 import io.debezium.relational.RelationalTableFilters;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 
 /**
@@ -41,6 +42,7 @@ public class SqlServerSourceConfig extends JdbcSourceConfig {
             List<String> databaseList,
             List<String> tableList,
             int splitSize,
+            Map<String, String> splitColumn,
             double distributionFactorUpper,
             double distributionFactorLower,
             int sampleShardingThreshold,
@@ -64,6 +66,7 @@ public class SqlServerSourceConfig extends JdbcSourceConfig {
                 databaseList,
                 tableList,
                 splitSize,
+                splitColumn,
                 distributionFactorUpper,
                 distributionFactorLower,
                 sampleShardingThreshold,

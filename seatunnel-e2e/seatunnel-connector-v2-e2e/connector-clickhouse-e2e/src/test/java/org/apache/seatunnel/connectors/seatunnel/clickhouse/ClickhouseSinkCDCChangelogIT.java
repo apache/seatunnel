@@ -144,6 +144,17 @@ public class ClickhouseSinkCDCChangelogIT extends TestSuiteBase implements TestR
         dropSinkTable();
     }
 
+    @TestTemplate
+    public void testClickhouseCompositePrimary(TestContainer container) throws Exception {
+        initializeClickhouseCompositePrimary();
+
+        Container.ExecResult execResult = container.executeJob("/fake_to_clickhouse.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+
+        checkSinkTableRows();
+        dropSinkTable();
+    }
+
     private void initConnection() throws Exception {
         final Properties info = new Properties();
         info.put("user", this.container.getUsername());
@@ -163,6 +174,23 @@ public class ClickhouseSinkCDCChangelogIT extends TestSuiteBase implements TestR
                                     + "    `name`          String,\n"
                                     + "    `score`         Int32\n"
                                     + ")engine=MergeTree ORDER BY(pk_id) PRIMARY KEY(pk_id)",
+                            DATABASE, SINK_TABLE);
+            statement.execute(sql);
+        } catch (SQLException e) {
+            throw new RuntimeException("Initializing Clickhouse table failed!", e);
+        }
+    }
+
+    private void initializeClickhouseCompositePrimary() {
+        try {
+            Statement statement = this.connection.createStatement();
+            String sql =
+                    String.format(
+                            "create table if not exists %s.%s(\n"
+                                    + "    `pk_id`         Int64,\n"
+                                    + "    `name`          String,\n"
+                                    + "    `score`         Int32\n"
+                                    + ")engine=MergeTree ORDER BY(pk_id, name) PRIMARY KEY(pk_id, name)",
                             DATABASE, SINK_TABLE);
             statement.execute(sql);
         } catch (SQLException e) {

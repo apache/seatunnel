@@ -75,7 +75,7 @@ SeaTunnel Engine 基于 [Hazelcast IMDG](https://docs.hazelcast.com/imdg/4.1/) �
 
 `backup count` 是定义同步备份数量的参数。例如，如果设置为 1，则分区的备份将放置在一个其他成员上。如果设置为 2，则将放置在两个其他成员上。
 
-我们建议 `backup-count` 的值为 `min(1, max(5, N/2))`。 `N` 是集群节点的数量。
+我们建议 `backup-count` 的值为 `max(1, min(5, N/2))`。 `N` 是集群节点的数量。
 
 ```yaml
 seatunnel:
@@ -92,7 +92,8 @@ seatunnel:
 
 ### 4.2 Slot配置（该参数在Master节点无效）
 
-Slot数量决定了集群节点可以并行运行的任务组数量。一个任务需要的Slot的个数公式为 N = 2 + P(任务配置的并行度)。 默认情况下SeaTunnel Engine的slot个数为动态，即不限制个数。我们建议slot的个数设置为节点CPU核心数的2倍。
+Slot数量决定了集群节点可以并行运行的任务组数量。一个任务需要的Slot的个数公式为 N = 2 + P(任务配置的并行度)。 默认情况下SeaTunnel Engine的slot个数为动态，即不限制个数。
+我们建议slot的个数设置为节点CPU核心数的2倍, 这也是当 `dynamic-slot` 设置为 false 且未设置 `slot-num` 时的默认值。
 
 动态slot个数（默认）配置如下：
 
@@ -132,6 +133,10 @@ seatunnel:
 
 检查点的超时时间。如果在超时时间内无法完成检查点，则会触发检查点失败，作业失败。如果在作业的配置文件的`env`中配置了`checkpoint.timeout`参数，将以作业配置文件中设置的为准。
 
+**min-pause**
+
+连续检查点之间的最小暂停时间(以毫秒为单位)，确保检查点不会频繁触发。
+
 示例
 
 ```yaml
@@ -144,6 +149,7 @@ seatunnel:
         checkpoint:
             interval: 300000
             timeout: 10000
+            min-pause: 5000
 ```
 
 **checkpoint storage**
@@ -177,7 +183,7 @@ seatunnel:
 此配置主要解决不断创建和尝试销毁类加载器所导致的资源泄漏问题。
 如果您遇到与metaspace空间溢出相关的异常，您可以尝试启用此配置。
 为了减少创建类加载器的频率，在启用此配置后，SeaTunnel 在作业完成时不会尝试释放相应的类加载器，以便它可以被后续作业使用，也就是说，当运行作业中使用的 Source/Sink 连接器类型不是太多时，它更有效。
-默认值是 false。
+默认值是 true。
 示例
 
 ```yaml
@@ -300,6 +306,26 @@ seatunnel:
 ```
 
 当`dynamic-slot: ture`时，`job-schedule-strategy: WAIT` 配置会失效，将被强制修改为`job-schedule-strategy: REJECT`，因为动态Slot时该参数没有意义，可以直接提交。
+
+### 4.8 Coordinator Service
+
+CoordinatorService 提供了每个作业从 LogicalDag 到 ExecutionDag，再到 PhysicalDag 的生成流程， 并最终创建作业的 JobMaster 进行作业的调度执行和状态监控
+
+**core-thread-num**
+
+配置 CoordinatorService 线程池核心线程数量
+
+**max-thread-num**
+
+同时可执行的最大作业数量
+
+Example
+
+```yaml
+coordinator-service:
+  core-thread-num: 30
+  max-thread-num: 1000
+```
 
 ## 5. 配置 SeaTunnel Engine 网络服务
 

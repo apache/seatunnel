@@ -43,8 +43,8 @@
 ```
 transform {
   Filter {
-    source_table_name = "fake"
-    result_table_name = "fake1"
+    plugin_input = "fake"
+    plugin_output = "fake1"
     include_fields = [name, card]
   }
 }
@@ -55,8 +55,8 @@ transform {
 ```
 transform {
   Filter {
-    source_table_name = "fake"
-    result_table_name = "fake1"
+    plugin_input = "fake"
+    plugin_output = "fake1"
     exclude_fields = [age]
   }
 }

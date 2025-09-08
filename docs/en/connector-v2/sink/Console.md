@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-console.md';
+
 # Console
 
 > Console sink connector
@@ -32,7 +34,7 @@ Used to send data to Console. Both support streaming and batch mode.
 
 ## Task Example
 
-### Simple:
+### Simple
 
 > This is a randomly generated data, written to the console, with a degree of parallelism of 1
 
@@ -44,7 +46,7 @@ env {
 
 source {
   FakeSource {
-    result_table_name = "fake"
+    plugin_output = "fake"
     schema = {
       fields {
         name = "string"
@@ -56,12 +58,12 @@ source {
 
 sink {
   Console {
-    source_table_name = "fake"
+    plugin_input = "fake"
   }
 }
 ```
 
-### Multiple Sources Simple:
+### Multiple Sources Simple
 
 > This is a multiple source and you can specify a data source to write to the specified end
 
@@ -73,7 +75,7 @@ env {
 
 source {
   FakeSource {
-    result_table_name = "fake1"
+    plugin_output = "fake1"
     schema = {
       fields {
         id = "int"
@@ -84,7 +86,7 @@ source {
     }
   }
    FakeSource {
-    result_table_name = "fake2"
+    plugin_output = "fake2"
     schema = {
       fields {
         name = "string"
@@ -96,10 +98,10 @@ source {
 
 sink {
   Console {
-    source_table_name = "fake1"
+    plugin_input = "fake1"
   }
   Console {
-    source_table_name = "fake2"
+    plugin_input = "fake2"
   }
 }
 ```
@@ -122,3 +124,6 @@ This is a printout from our console
 2022-12-19 11:01:46,490 INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=0 rowIndex=10: SeaTunnelRow#tableId=-1 SeaTunnelRow#kind=INSERT: hBoib, 929089763
 ```
 
+## Changelog
+
+<ChangeLog />

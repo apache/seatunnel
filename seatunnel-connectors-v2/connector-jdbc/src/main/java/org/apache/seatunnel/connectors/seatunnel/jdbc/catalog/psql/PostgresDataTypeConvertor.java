@@ -33,7 +33,7 @@ import com.google.auto.service.AutoService;
 import java.util.HashMap;
 import java.util.Map;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkNotNull;
 
 /** @deprecated instead by {@link PostgresTypeConverter} */
 @Deprecated

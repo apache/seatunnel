@@ -24,7 +24,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
-import org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.SinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.ElasticsearchSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.ElasticsearchClusterInfo;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.IndexInfo;
 
@@ -43,8 +43,8 @@ public class ElasticsearchRowSerializerTest {
         String index = "st_index";
         String primaryKey = "id";
         Map<String, Object> confMap = new HashMap<>();
-        confMap.put(SinkConfig.INDEX.key(), index);
-        confMap.put(SinkConfig.PRIMARY_KEYS.key(), Arrays.asList(primaryKey));
+        confMap.put(ElasticsearchSinkOptions.INDEX.key(), index);
+        confMap.put(ElasticsearchSinkOptions.PRIMARY_KEYS.key(), Arrays.asList(primaryKey));
 
         ReadonlyConfig pluginConf = ReadonlyConfig.fromMap(confMap);
         ElasticsearchClusterInfo clusterInfo =
@@ -83,7 +83,7 @@ public class ElasticsearchRowSerializerTest {
     public void testSerializeUpsertWithoutKey() {
         String index = "st_index";
         Map<String, Object> confMap = new HashMap<>();
-        confMap.put(SinkConfig.INDEX.key(), index);
+        confMap.put(ElasticsearchSinkOptions.INDEX.key(), index);
 
         ReadonlyConfig pluginConf = ReadonlyConfig.fromMap(confMap);
         ElasticsearchClusterInfo clusterInfo =
@@ -121,8 +121,8 @@ public class ElasticsearchRowSerializerTest {
         String index = "st_index";
         String primaryKey = "id";
         Map<String, Object> confMap = new HashMap<>();
-        confMap.put(SinkConfig.INDEX.key(), index);
-        confMap.put(SinkConfig.PRIMARY_KEYS.key(), Arrays.asList(primaryKey));
+        confMap.put(ElasticsearchSinkOptions.INDEX.key(), index);
+        confMap.put(ElasticsearchSinkOptions.PRIMARY_KEYS.key(), Arrays.asList(primaryKey));
 
         ReadonlyConfig pluginConf = ReadonlyConfig.fromMap(confMap);
         ElasticsearchClusterInfo clusterInfo =
@@ -159,8 +159,8 @@ public class ElasticsearchRowSerializerTest {
         String index = "st_index";
         String primaryKey = "id";
         Map<String, Object> confMap = new HashMap<>();
-        confMap.put(SinkConfig.INDEX.key(), index);
-        confMap.put(SinkConfig.PRIMARY_KEYS.key(), Arrays.asList(primaryKey));
+        confMap.put(ElasticsearchSinkOptions.INDEX.key(), index);
+        confMap.put(ElasticsearchSinkOptions.PRIMARY_KEYS.key(), Arrays.asList(primaryKey));
 
         ReadonlyConfig pluginConf = ReadonlyConfig.fromMap(confMap);
         ElasticsearchClusterInfo clusterInfo =

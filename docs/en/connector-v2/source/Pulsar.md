@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-pulsar.md';
+
 # Apache Pulsar
 
 > Apache Pulsar source connector
@@ -147,18 +149,11 @@ source {
   	subscription.name = "seatunnel"
     client.service-url = "pulsar://localhost:6650"
     admin.service-url = "http://my-broker.example.com:8080"
-    result_table_name = "test"
+    plugin_output = "test"
   }
 }
 ```
 
 ## Changelog
 
-### 2.3.0-beta 2022-10-20
-
-- Add Pulsar Source Connector
-
-### next version
-
-- [Feature] Add Pulsar canal-format and e2e ([4111](https://github.com/apache/seatunnel/pull/4111))
-
+<ChangeLog />

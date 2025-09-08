@@ -18,9 +18,9 @@
 package org.apache.seatunnel.connectors.seatunnel.cdc.opengauss;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceSplit;
-import org.apache.seatunnel.api.table.catalog.CatalogOptions;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.catalog.TablePath;
@@ -28,8 +28,6 @@ import org.apache.seatunnel.api.table.connector.TableSource;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
-import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceTableConfig;
 import org.apache.seatunnel.connectors.cdc.base.option.JdbcSourceOptions;
 import org.apache.seatunnel.connectors.cdc.base.option.StartupMode;
@@ -37,15 +35,17 @@ import org.apache.seatunnel.connectors.cdc.base.utils.CatalogTableUtils;
 import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.option.PostgresOptions;
 import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.source.PostgresIncrementalSource;
 import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.source.PostgresSourceOptions;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.JdbcCatalogOptions;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcCommonOptions;
 
 import com.google.auto.service.AutoService;
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.Serializable;
 import java.util.List;
 import java.util.Optional;
 
 @AutoService(Factory.class)
+@Slf4j
 public class OpengaussIncrementalSourceFactory implements TableSourceFactory {
     private static final String IDENTIFIER = "Opengauss-CDC";
 
@@ -60,8 +60,8 @@ public class OpengaussIncrementalSourceFactory implements TableSourceFactory {
                 .required(
                         JdbcSourceOptions.USERNAME,
                         JdbcSourceOptions.PASSWORD,
-                        JdbcCatalogOptions.BASE_URL)
-                .exclusive(CatalogOptions.TABLE_NAMES, CatalogOptions.TABLE_PATTERN)
+                        JdbcCommonOptions.URL)
+                .exclusive(ConnectorCommonOptions.TABLE_NAMES, ConnectorCommonOptions.TABLE_PATTERN)
                 .optional(
                         JdbcSourceOptions.DATABASE_NAMES,
                         JdbcSourceOptions.SERVER_TIME_ZONE,
@@ -91,6 +91,12 @@ public class OpengaussIncrementalSourceFactory implements TableSourceFactory {
     public <T, SplitT extends SourceSplit, StateT extends Serializable>
             TableSource<T, SplitT, StateT> createSource(TableSourceFactoryContext context) {
         return () -> {
+            // Load the JDBC driver in to DriverManager
+            try {
+                Class.forName("org.postgresql.Driver");
+            } catch (Exception e) {
+                log.warn("Failed to load JDBC driver org.postgresql.Driver", e);
+            }
             List<CatalogTable> catalogTables =
                     CatalogTableUtil.getCatalogTables(
                             "Postgres", context.getOptions(), context.getClassLoader());
@@ -101,10 +107,8 @@ public class OpengaussIncrementalSourceFactory implements TableSourceFactory {
                         CatalogTableUtils.mergeCatalogTableConfig(
                                 catalogTables, tableConfigs.get(), s -> TablePath.of(s, true));
             }
-            SeaTunnelDataType<SeaTunnelRow> dataType =
-                    CatalogTableUtil.convertToMultipleRowType(catalogTables);
             return (SeaTunnelSource<T, SplitT, StateT>)
-                    new PostgresIncrementalSource<>(context.getOptions(), dataType, catalogTables);
+                    new PostgresIncrementalSource<>(context.getOptions(), catalogTables);
         };
     }
 }

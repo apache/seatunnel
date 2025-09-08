@@ -66,7 +66,7 @@ public class AllNodeLogServlet extends LogBaseServlet {
             FormatType formatType = FormatType.fromString(req.getParameter("format"));
             switch (formatType) {
                 case JSON:
-                    writeJson(resp, logService.allNodeLogFormatHtml(jobId));
+                    writeJson(resp, logService.allNodeLogFormatJson(jobId));
                     return;
                 case HTML:
                 default:

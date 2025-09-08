@@ -32,10 +32,13 @@ import org.apache.seatunnel.connectors.seatunnel.fake.config.FakeConfig;
 import org.apache.seatunnel.connectors.seatunnel.fake.config.MultipleTableFakeSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.fake.state.FakeSourceState;
 
+import lombok.extern.slf4j.Slf4j;
+
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
+@Slf4j
 public class FakeSource
         implements SeaTunnelSource<SeaTunnelRow, FakeSourceSplit, FakeSourceState>,
                 SupportParallelism,
@@ -82,7 +85,8 @@ public class FakeSource
     @Override
     public SourceReader<SeaTunnelRow, FakeSourceSplit> createReader(
             SourceReader.Context readerContext) {
-        return new FakeSourceReader(readerContext, multipleTableFakeSourceConfig);
+        return new FakeSourceReader(
+                readerContext, multipleTableFakeSourceConfig, jobContext.getJobId());
     }
 
     @Override

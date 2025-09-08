@@ -33,9 +33,15 @@ import org.junit.jupiter.api.Assertions;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.utility.MountableFile;
+import org.w3c.dom.Document;
+import org.w3c.dom.Node;
+import org.w3c.dom.NodeList;
 
 import groovy.lang.Tuple2;
 import lombok.extern.slf4j.Slf4j;
+
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
 
 import java.io.File;
 import java.io.IOException;
@@ -55,6 +61,9 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.stream.Collectors;
+
+import static org.apache.seatunnel.e2e.common.container.TestContainerId.FLINK_1_18;
+import static org.apache.seatunnel.e2e.common.container.TestContainerId.SPARK_3_3;
 
 @Slf4j
 public final class ContainerUtil {
@@ -200,9 +209,27 @@ public final class ContainerUtil {
         String transformJar = "seatunnel-transforms-v2.jar";
         Path transformJarPath =
                 Paths.get(PROJECT_ROOT_PATH, "seatunnel-transforms-v2", "target", transformJar);
-        container.withCopyFileToContainer(
-                MountableFile.forHostPath(transformJarPath),
-                Paths.get(seatunnelHomeInContainer, "connectors", transformJar).toString());
+        if (transformJarPath.toFile().exists()) {
+            container.withCopyFileToContainer(
+                    MountableFile.forHostPath(transformJarPath),
+                    Paths.get(seatunnelHomeInContainer, "lib", transformJar).toString());
+        }
+
+        // copy transform-udf
+        String transformUdfJar = "seatunnel-transforms-v2-udf.jar";
+        Path transformUdfJarPath =
+                Paths.get(
+                        PROJECT_ROOT_PATH,
+                        "seatunnel-e2e",
+                        "seatunnel-transforms-v2-e2e",
+                        "seatunnel-transforms-v2-udf",
+                        "target",
+                        transformUdfJar);
+        if (transformUdfJarPath.toFile().exists()) {
+            container.withCopyFileToContainer(
+                    MountableFile.forHostPath(transformUdfJarPath),
+                    Paths.get(seatunnelHomeInContainer, "lib", transformUdfJar).toString());
+        }
 
         // copy bin
         final String startBinPath = startModulePath + File.separator + "src/main/bin/";
@@ -217,6 +244,30 @@ public final class ContainerUtil {
                 Paths.get(seatunnelHomeInContainer, "connectors", PLUGIN_MAPPING_FILE).toString());
     }
 
+    private static String getProjectVersion() {
+        try {
+            DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+            DocumentBuilder builder = factory.newDocumentBuilder();
+            Document doc = builder.parse(getProjectRootPath() + "/pom.xml");
+            doc.getDocumentElement().normalize();
+            NodeList propertiesList = doc.getElementsByTagName("properties");
+            for (int i = 0; i < propertiesList.getLength(); i++) {
+                Node propertiesNode = propertiesList.item(i);
+                NodeList childNodes = propertiesNode.getChildNodes();
+                for (int j = 0; j < childNodes.getLength(); j++) {
+                    Node node = childNodes.item(j);
+                    if (node.getNodeType() == Node.ELEMENT_NODE
+                            && "revision".equals(node.getNodeName())) {
+                        return node.getTextContent();
+                    }
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return "";
+    }
+
     public static String adaptPathForWin(String path) {
         // Running IT use cases under Windows requires replacing \ with /
         return path == null ? "" : path.replaceAll("\\\\", "/");
@@ -227,6 +278,20 @@ public final class ContainerUtil {
         List<File> connectorFiles = new ArrayList<>();
         for (File file : Objects.requireNonNull(currentModule.listFiles())) {
             getConnectorFiles(file, connectorNames, connectorPrefix, connectorFiles);
+        }
+        if (connectorNames.stream().anyMatch(connectorName -> connectorName.contains("cdc"))) {
+            // copy connector-cdc-base
+            String cdcBaseJar =
+                    String.format("%s-%s.jar", "connector-cdc-base", getProjectVersion());
+            Path cdcBaseJarPath =
+                    Paths.get(
+                            PROJECT_ROOT_PATH,
+                            "seatunnel-connectors-v2",
+                            "connector-cdc",
+                            "connector-cdc-base",
+                            "target",
+                            cdcBaseJar);
+            connectorFiles.add(new File(cdcBaseJarPath.toFile().getAbsolutePath()));
         }
         return connectorFiles;
     }
@@ -317,7 +382,9 @@ public final class ContainerUtil {
                         .filter(container -> container.identifier().isTestInPR())
                         .filter(
                                 container -> {
-                                    if (testAllContainer) {
+                                    if (testAllContainer
+                                            || container.identifier().equals(FLINK_1_18)
+                                            || container.identifier().equals(SPARK_3_3)) {
                                         return true;
                                     }
                                     if (testZetaContainer) {

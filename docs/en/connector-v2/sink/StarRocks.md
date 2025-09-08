@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-starrocks.md';
+
 # StarRocks
 
 > StarRocks sink connector
@@ -18,6 +20,16 @@
 
 Used to send data to StarRocks. Both support streaming and batch mode.
 The internal implementation of StarRocks sink connector is cached and imported by stream load in batches.
+
+## Using Dependency
+
+### For Spark/Flink Engine
+
+> 1. You need to ensure that the [jdbc driver jar package](https://mvnrepository.com/artifact/mysql/mysql-connector-java) has been placed in directory `${SEATUNNEL_HOME}/plugins/`.
+
+### For SeaTunnel Zeta Engine
+
+> 1. You need to ensure that the [jdbc driver jar package](https://mvnrepository.com/artifact/mysql/mysql-connector-java) has been placed in directory `${SEATUNNEL_HOME}/lib/`.
 
 ## Sink Options
 
@@ -57,6 +69,7 @@ ${rowtype_primary_key},
 ${rowtype_fields}
 ) ENGINE=OLAP
 PRIMARY KEY (${rowtype_primary_key})
+COMMENT '${comment}'
 DISTRIBUTED BY HASH (${rowtype_primary_key})PROPERTIES (
 "replication_num" = "1"
 )
@@ -69,7 +82,9 @@ CREATE TABLE IF NOT EXISTS `${database}`.`${table}`
 (   
     id,
     ${rowtype_fields}
-) ENGINE = OLAP DISTRIBUTED BY HASH (${rowtype_primary_key})
+) ENGINE = OLAP 
+    COMMENT '${comment}'
+    DISTRIBUTED BY HASH (${rowtype_primary_key})
     PROPERTIES
 (
     "replication_num" = "1"
@@ -87,6 +102,7 @@ You can use the following placeholders
   description of StarRocks
 - rowtype_primary_key: Used to get the primary key in the upstream schema (maybe a list)
 - rowtype_unique_key: Used to get the unique key in the upstream schema (maybe a list)
+- comment: Used to get the table comment in the upstream schema
 
 ### table [string]
 
@@ -101,7 +117,7 @@ for example:
 2. sink_sinktable
 3. ss_${table_name}
 
-### schema_save_mode[Enum]
+### schema_save_mode [Enum]
 
 Before the synchronous task is turned on, different treatment schemes are selected for the existing surface structure of the target side.  
 Option introduction：  
@@ -110,7 +126,7 @@ Option introduction：
 `ERROR_WHEN_SCHEMA_NOT_EXIST` ：Error will be reported when the table does not exist  
 `IGNORE` ：Ignore the treatment of the table
 
-### data_save_mode[Enum]
+### data_save_mode [Enum]
 
 Before the synchronous task is turned on, different processing schemes are selected for data existing data on the target side.  
 Option introduction：  
@@ -119,7 +135,7 @@ Option introduction：
 `CUSTOM_PROCESSING`：User defined processing  
 `ERROR_WHEN_DATA_EXISTS`：When there is data, an error is reported
 
-### custom_sql[String]
+### custom_sql [String]
 
 When data_save_mode selects CUSTOM_PROCESSING, you should fill in the CUSTOM_SQL parameter. This parameter usually fills in a SQL that can be executed. SQL will be executed before synchronization tasks.
 
@@ -149,7 +165,7 @@ The supported formats include CSV and JSON
 
 ## Task Example
 
-### Simple:
+### Simple
 
 > The following example describes writing multiple data types to StarRocks, and users need to create corresponding tables downstream
 
@@ -375,9 +391,5 @@ sink {
 
 ## Changelog
 
-### next version
-
-- Add StarRocks Sink Connector
-- [Improve] Change Connector Custom Config Prefix To Map [3719](https://github.com/apache/seatunnel/pull/3719)
-- [Feature] Support write cdc changelog event(INSERT/UPDATE/DELETE) [3865](https://github.com/apache/seatunnel/pull/3865)
+<ChangeLog />
 

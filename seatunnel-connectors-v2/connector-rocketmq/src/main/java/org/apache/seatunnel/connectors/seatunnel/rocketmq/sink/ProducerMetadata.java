@@ -31,6 +31,8 @@ public class ProducerMetadata implements Serializable {
     private RocketMqBaseConfiguration configuration;
     /** send topic */
     private String topic;
+    /** message tag */
+    private String tag;
 
     /** partition key fields */
     private List<String> partitionKeyFields;

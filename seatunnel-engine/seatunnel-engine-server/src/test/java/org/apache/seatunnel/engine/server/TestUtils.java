@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.engine.server;
 
+import org.apache.seatunnel.shade.com.google.common.collect.ImmutableMap;
+import org.apache.seatunnel.shade.com.google.common.collect.Sets;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
@@ -45,9 +47,6 @@ import org.apache.seatunnel.engine.core.dag.logical.LogicalVertex;
 import org.apache.seatunnel.engine.core.parse.MultipleTableJobConfigParser;
 
 import org.apache.commons.lang3.tuple.ImmutablePair;
-
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Sets;
 
 import java.net.MalformedURLException;
 import java.net.URL;

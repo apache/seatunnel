@@ -18,6 +18,7 @@
 package org.apache.seatunnel.api.table.catalog;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
 import org.apache.seatunnel.api.table.factory.TableTransformFactoryContext;
 import org.apache.seatunnel.api.table.type.BasicType;
@@ -62,7 +63,8 @@ public class CatalogTableTest {
                                                 new HashMap<String, Object>() {
                                                     {
                                                         put(
-                                                                CatalogOptions.TABLE_NAMES.key(),
+                                                                ConnectorCommonOptions.TABLE_NAMES
+                                                                        .key(),
                                                                 Arrays.asList(
                                                                         "unsupported.public.table1",
                                                                         "unsupported.public.table2"));

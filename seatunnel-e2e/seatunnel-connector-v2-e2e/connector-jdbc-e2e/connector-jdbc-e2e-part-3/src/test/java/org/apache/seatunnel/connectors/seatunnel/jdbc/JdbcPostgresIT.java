@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc;
 
+import org.apache.seatunnel.shade.com.google.common.collect.Lists;
+
 import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.ConstraintKey;
@@ -31,6 +33,7 @@ import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
+import org.apache.seatunnel.e2e.common.util.JdbcUtil;
 
 import org.apache.commons.lang3.StringUtils;
 
@@ -46,16 +49,13 @@ import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.DockerLoggerFactory;
 
-import com.google.common.collect.Lists;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.sql.Connection;
 import java.sql.DriverManager;
-import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
@@ -85,6 +85,7 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
                     + "  uuid_col UUID,\n"
                     + "  text_col TEXT,\n"
                     + "  varchar_col VARCHAR(255),\n"
+                    + "  char_one_col CHAR(1),\n"
                     + "  char_col CHAR(10),\n"
                     + "  boolean_col bool,\n"
                     + "  smallint_col int2,\n"
@@ -120,6 +121,7 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
                     + "    uuid_col UUID,\n"
                     + "    text_col TEXT,\n"
                     + "    varchar_col VARCHAR(255),\n"
+                    + "    char_one_col CHAR(1),\n"
                     + "    char_col CHAR(10),\n"
                     + "    boolean_col bool,\n"
                     + "    smallint_col int2,\n"
@@ -155,6 +157,7 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
                     + "uuid_col, \n"
                     + "text_col,\n"
                     + "varchar_col,\n"
+                    + "char_one_col,\n"
                     + "char_col,\n"
                     + "boolean_col,\n"
                     + "smallint_col,\n"
@@ -190,6 +193,7 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
                     + "uuid_col, \n"
                     + "   text_col,\n"
                     + "   varchar_col,\n"
+                    + "   char_one_col,\n"
                     + "   char_col,\n"
                     + "   boolean_col,\n"
                     + "   smallint_col,\n"
@@ -273,7 +277,8 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
                         POSTGRESQL_CONTAINER.getUsername(),
                         POSTGRESQL_CONTAINER.getPassword(),
                         JdbcUrlUtil.getUrlInfo(POSTGRESQL_CONTAINER.getJdbcUrl()),
-                        schema);
+                        schema,
+                        null);
         postgresCatalog.open();
 
         CatalogTable catalogTable = postgresCatalog.getTable(sourceTablePath);
@@ -356,7 +361,8 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
                         POSTGRESQL_CONTAINER.getUsername(),
                         POSTGRESQL_CONTAINER.getPassword(),
                         JdbcUrlUtil.getUrlInfo(POSTGRESQL_CONTAINER.getJdbcUrl()),
-                        schema);
+                        schema,
+                        null);
         catalog.open();
 
         TablePath tablePath = new TablePath(databaseName, schema, tableName);
@@ -391,6 +397,7 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
                                 + "    uuid_col,\n"
                                 + "    text_col,\n"
                                 + "    varchar_col,\n"
+                                + "    char_one_col,\n"
                                 + "    char_col,\n"
                                 + "    boolean_col,\n"
                                 + "    smallint_col,\n"
@@ -428,6 +435,7 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
                                 + "    gen_random_uuid(),\n"
                                 + "    'Hello World',\n"
                                 + "    'Test',\n"
+                                + "    'T',\n"
                                 + "    'Testing',\n"
                                 + "    true,\n"
                                 + "    10,\n"
@@ -491,21 +499,15 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
     }
 
     private List<List<Object>> querySql(String sql) {
-        try (Connection connection = getJdbcConnection();
-                ResultSet resultSet = connection.createStatement().executeQuery(sql)) {
-            List<List<Object>> result = new ArrayList<>();
-            int columnCount = resultSet.getMetaData().getColumnCount();
-            while (resultSet.next()) {
-                ArrayList<Object> objects = new ArrayList<>();
-                for (int i = 1; i <= columnCount; i++) {
-                    objects.add(resultSet.getObject(i));
-                }
-                result.add(objects);
-            }
-            return result;
-        } catch (SQLException e) {
-            throw new RuntimeException(e);
-        }
+        return JdbcUtil.querySql(
+                sql,
+                () -> {
+                    try {
+                        return this.getJdbcConnection();
+                    } catch (SQLException e) {
+                        throw new RuntimeException(e);
+                    }
+                });
     }
 
     private void executeSQL(String sql) {
@@ -537,7 +539,8 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
                         POSTGRESQL_CONTAINER.getUsername(),
                         POSTGRESQL_CONTAINER.getPassword(),
                         JdbcUrlUtil.getUrlInfo(POSTGRESQL_CONTAINER.getJdbcUrl()),
-                        schema);
+                        schema,
+                        null);
         postgresCatalog.open();
         CatalogTable catalogTable = postgresCatalog.getTable(tablePathPG);
         // sink tableExists ?
@@ -561,6 +564,7 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
                         + "  pg_ide_sink_table_2 (gid,\n"
                         + "    text_col,\n"
                         + "    varchar_col,\n"
+                        + "    char_one_col,\n"
                         + "    char_col,\n"
                         + "    boolean_col,\n"
                         + "    smallint_col,\n"
@@ -597,6 +601,7 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
                         + "',\n"
                         + "    'Hello World',\n"
                         + "    'Test',\n"
+                        + "    'T',\n"
                         + "    'Testing',\n"
                         + "    true,\n"
                         + "    10,\n"

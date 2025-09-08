@@ -18,14 +18,16 @@
 package org.apache.seatunnel.connectors.cdc.base.config;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
-import org.apache.seatunnel.api.table.catalog.CatalogOptions;
+import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.connectors.cdc.base.option.JdbcSourceOptions;
 import org.apache.seatunnel.connectors.cdc.base.option.SourceOptions;
 
 import lombok.Setter;
 
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 
 /** A {@link SourceConfig.Factory} to provide {@link SourceConfig} of JDBC data source. */
@@ -40,9 +42,10 @@ public abstract class JdbcSourceConfigFactory implements SourceConfig.Factory<Jd
     protected String originUrl;
     protected List<String> databaseList;
     protected List<String> tableList;
+    protected String databasePattern;
+    protected String tablePattern;
     protected StartupConfig startupConfig;
     protected StopConfig stopConfig;
-    protected boolean includeSchemaChanges = false;
     protected double distributionFactorUpper =
             JdbcSourceOptions.CHUNK_KEY_EVEN_DISTRIBUTION_FACTOR_UPPER_BOUND.defaultValue();
     protected double distributionFactorLower =
@@ -51,17 +54,27 @@ public abstract class JdbcSourceConfigFactory implements SourceConfig.Factory<Jd
             JdbcSourceOptions.SAMPLE_SHARDING_THRESHOLD.defaultValue();
     protected int inverseSamplingRate = JdbcSourceOptions.INVERSE_SAMPLING_RATE.defaultValue();
     protected int splitSize = SourceOptions.SNAPSHOT_SPLIT_SIZE.defaultValue();
+    protected Map<String, String> splitColumn;
     protected int fetchSize = SourceOptions.SNAPSHOT_FETCH_SIZE.defaultValue();
     protected String serverTimeZone = JdbcSourceOptions.SERVER_TIME_ZONE.defaultValue();
     protected long connectTimeoutMillis = JdbcSourceOptions.CONNECT_TIMEOUT_MS.defaultValue();
     protected int connectMaxRetries = JdbcSourceOptions.CONNECT_MAX_RETRIES.defaultValue();
     protected int connectionPoolSize = JdbcSourceOptions.CONNECTION_POOL_SIZE.defaultValue();
     @Setter protected boolean exactlyOnce = JdbcSourceOptions.EXACTLY_ONCE.defaultValue();
+
+    @Setter
+    protected boolean schemaChangeEnabled = JdbcSourceOptions.SCHEMA_CHANGES_ENABLED.defaultValue();
+
     protected Properties dbzProperties;
 
     /** String hostname of the database server. */
     public JdbcSourceConfigFactory hostname(String hostname) {
         this.hostname = hostname;
+        return this;
+    }
+
+    public JdbcSourceConfigFactory splitColumn(Map<String, String> splitColumn) {
+        this.splitColumn = splitColumn;
         return this;
     }
 
@@ -202,8 +215,8 @@ public abstract class JdbcSourceConfigFactory implements SourceConfig.Factory<Jd
     }
 
     /** Whether the {@link SourceConfig} should output the schema changes or not. */
-    public JdbcSourceConfigFactory includeSchemaChanges(boolean includeSchemaChanges) {
-        this.includeSchemaChanges = includeSchemaChanges;
+    public JdbcSourceConfigFactory schemaChangeEnabled(boolean schemaChangeEnabled) {
+        this.schemaChangeEnabled = schemaChangeEnabled;
         return this;
     }
 
@@ -231,7 +244,9 @@ public abstract class JdbcSourceConfigFactory implements SourceConfig.Factory<Jd
         this.username = config.get(JdbcSourceOptions.USERNAME);
         this.password = config.get(JdbcSourceOptions.PASSWORD);
         this.databaseList = config.get(JdbcSourceOptions.DATABASE_NAMES);
-        this.tableList = config.get(CatalogOptions.TABLE_NAMES);
+        this.tableList = config.get(ConnectorCommonOptions.TABLE_NAMES);
+        this.databasePattern = config.get(ConnectorCommonOptions.DATABASE_PATTERN);
+        this.tablePattern = config.get(ConnectorCommonOptions.TABLE_PATTERN);
         this.distributionFactorUpper =
                 config.get(JdbcSourceOptions.CHUNK_KEY_EVEN_DISTRIBUTION_FACTOR_UPPER_BOUND);
         this.distributionFactorLower =
@@ -239,12 +254,24 @@ public abstract class JdbcSourceConfigFactory implements SourceConfig.Factory<Jd
         this.sampleShardingThreshold = config.get(JdbcSourceOptions.SAMPLE_SHARDING_THRESHOLD);
         this.inverseSamplingRate = config.get(JdbcSourceOptions.INVERSE_SAMPLING_RATE);
         this.splitSize = config.get(SourceOptions.SNAPSHOT_SPLIT_SIZE);
+        this.splitColumn = new HashMap<>();
+        config.getOptional(JdbcSourceOptions.TABLE_NAMES_CONFIG)
+                .ifPresent(
+                        jtcs -> {
+                            jtcs.forEach(
+                                    jtc -> {
+                                        this.splitColumn.put(
+                                                jtc.getTable(), jtc.getSnapshotSplitColumn());
+                                    });
+                        });
+
         this.fetchSize = config.get(SourceOptions.SNAPSHOT_FETCH_SIZE);
         this.serverTimeZone = config.get(JdbcSourceOptions.SERVER_TIME_ZONE);
         this.connectTimeoutMillis = config.get(JdbcSourceOptions.CONNECT_TIMEOUT_MS);
         this.connectMaxRetries = config.get(JdbcSourceOptions.CONNECT_MAX_RETRIES);
         this.connectionPoolSize = config.get(JdbcSourceOptions.CONNECTION_POOL_SIZE);
         this.exactlyOnce = config.get(JdbcSourceOptions.EXACTLY_ONCE);
+        this.schemaChangeEnabled = config.get(JdbcSourceOptions.SCHEMA_CHANGES_ENABLED);
         this.dbzProperties = new Properties();
         config.getOptional(SourceOptions.DEBEZIUM_PROPERTIES)
                 .ifPresent(map -> dbzProperties.putAll(map));

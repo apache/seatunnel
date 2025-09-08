@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.api.configuration;
 
+import java.util.Map;
+
 /**
  * The interface that provides the ability to encrypt and decrypt {@link
  * org.apache.seatunnel.shade.com.typesafe.config.Config}
@@ -46,5 +48,16 @@ public interface ConfigShade {
     /** To expand the options that user want to encrypt */
     default String[] sensitiveOptions() {
         return new String[0];
+    }
+
+    /**
+     * this method will be called before the encrypt/decrpyt method. Users can use the props to
+     * control the behavior of the encrypt/decrypt
+     *
+     * @param props the additional properties defined with the key `shade.props` in the
+     *     configuration
+     */
+    default void open(Map<String, Object> props) {
+        // default do nothing
     }
 }

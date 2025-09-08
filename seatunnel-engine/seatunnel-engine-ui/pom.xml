@@ -35,6 +35,7 @@
         <nodemodules.dir>node_modules</nodemodules.dir>
         <dist.dir>../seatunnel-engine-server/src/main/resources/ui</dist.dir>
         <deployed.dir>.deployed</deployed.dir>
+        <skip.ui>false</skip.ui>
     </properties>
 
     <build>
@@ -70,6 +71,7 @@
                 <configuration>
                     <nodeVersion>${build.node.version}</nodeVersion>
                     <npmVersion>${build.npm.version}</npmVersion>
+                    <skip>${skip.ui}</skip>
                 </configuration>
                 <executions>
                     <execution>

@@ -25,7 +25,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
-import org.apache.seatunnel.common.utils.BufferUtils;
+import org.apache.seatunnel.common.utils.VectorUtils;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.AbstractJdbcRowConverter;
@@ -33,6 +33,8 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseI
 import org.apache.seatunnel.connectors.seatunnel.jdbc.utils.JdbcFieldTypeUtils;
 
 import org.apache.commons.lang3.StringUtils;
+
+import javax.annotation.Nullable;
 
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
@@ -44,12 +46,13 @@ import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.OffsetDateTime;
 import java.util.Optional;
 
 public class OceanBaseMysqlJdbcRowConverter extends AbstractJdbcRowConverter {
     @Override
     public String converterName() {
-        return DatabaseIdentifier.OCENABASE;
+        return DatabaseIdentifier.OCEANBASE;
     }
 
     @Override
@@ -99,7 +102,7 @@ public class OceanBaseMysqlJdbcRowConverter extends AbstractJdbcRowConverter {
                         for (int i = 0; i < stringArray.length; i++) {
                             arrays[i] = Float.parseFloat(stringArray[i]);
                         }
-                        fields[fieldIndex] = BufferUtils.toByteBuffer(arrays);
+                        fields[fieldIndex] = VectorUtils.toByteBuffer(arrays);
                     }
                     break;
                 case DOUBLE:
@@ -145,7 +148,10 @@ public class OceanBaseMysqlJdbcRowConverter extends AbstractJdbcRowConverter {
 
     @Override
     public PreparedStatement toExternal(
-            TableSchema tableSchema, SeaTunnelRow row, PreparedStatement statement)
+            TableSchema tableSchema,
+            @Nullable TableSchema databaseTableSchema,
+            SeaTunnelRow row,
+            PreparedStatement statement)
             throws SQLException {
         SeaTunnelRowType rowType = tableSchema.toPhysicalRowDataType();
         for (int fieldIndex = 0; fieldIndex < rowType.getTotalFields(); fieldIndex++) {
@@ -183,7 +189,7 @@ public class OceanBaseMysqlJdbcRowConverter extends AbstractJdbcRowConverter {
                         if (row.getField(fieldIndex) instanceof ByteBuffer) {
                             ByteBuffer byteBuffer = (ByteBuffer) row.getField(fieldIndex);
                             // Convert ByteBuffer to Float[]
-                            Float[] floatArray = BufferUtils.toFloatArray(byteBuffer);
+                            Float[] floatArray = VectorUtils.toFloatArray(byteBuffer);
                             StringBuilder vector = new StringBuilder();
                             vector.append("[");
                             for (Float aFloat : floatArray) {
@@ -214,6 +220,11 @@ public class OceanBaseMysqlJdbcRowConverter extends AbstractJdbcRowConverter {
                         LocalDateTime localDateTime = (LocalDateTime) row.getField(fieldIndex);
                         statement.setTimestamp(
                                 statementIndex, java.sql.Timestamp.valueOf(localDateTime));
+                        break;
+                    case TIMESTAMP_TZ:
+                        OffsetDateTime offsetDateTime = (OffsetDateTime) row.getField(fieldIndex);
+                        statement.setTimestamp(
+                                statementIndex, Timestamp.from(offsetDateTime.toInstant()));
                         break;
                     case BYTES:
                         statement.setBytes(statementIndex, (byte[]) row.getField(fieldIndex));

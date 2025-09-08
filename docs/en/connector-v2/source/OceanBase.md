@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-jdbc.md';
+
 # OceanBase
 
 > JDBC OceanBase Source Connector
@@ -29,8 +31,8 @@ Read external data source data through JDBC.
 
 ## Database Dependency
 
-> Please download the support list corresponding to 'Maven' and copy it to the '$SEATNUNNEL_HOME/plugins/jdbc/lib/' working directory<br/>
-> For example: cp oceanbase-client-xxx.jar $SEATNUNNEL_HOME/plugins/jdbc/lib/
+> Please download the support list corresponding to 'Maven' and copy it to the '$SEATUNNEL_HOME/plugins/jdbc/lib/' working directory<br/>
+> For example: cp oceanbase-client-xxx.jar $SEATUNNEL_HOME/plugins/jdbc/lib/
 
 ## Data Type Mapping
 
@@ -79,7 +81,7 @@ Read external data source data through JDBC.
 |------------------------------|------------|----------|-----------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | url                          | String     | Yes      | -               | The URL of the JDBC connection. Refer to a case: jdbc:oceanbase://localhost:2883/test                                                                                                                                                                                 |
 | driver                       | String     | Yes      | -               | The jdbc class name used to connect to the remote data source, should be `com.oceanbase.jdbc.Driver`.                                                                                                                                                                 |
-| user                         | String     | No       | -               | Connection instance user name                                                                                                                                                                                                                                         |
+| username                         | String     | No       | -               | Connection instance user name                                                                                                                                                                                                                                         |
 | password                     | String     | No       | -               | Connection instance password                                                                                                                                                                                                                                          |
 | compatible_mode              | String     | Yes      | -               | The compatible mode of OceanBase, can be 'mysql' or 'oracle'.                                                                                                                                                                                                         |
 | query                        | String     | Yes      | -               | Query statement                                                                                                                                                                                                                                                       |
@@ -98,7 +100,7 @@ Read external data source data through JDBC.
 
 ## Task Example
 
-### Simple:
+### Simple
 
 ```
 env {
@@ -110,7 +112,7 @@ source {
   Jdbc {
     driver = "com.oceanbase.jdbc.Driver"
     url = "jdbc:oceanbase://localhost:2883/test?useUnicode=true&characterEncoding=UTF-8&rewriteBatchedStatements=true"
-    user = "root"
+    username = "root"
     password = ""
     compatible_mode = "mysql"
     query = "select * from source"
@@ -127,7 +129,7 @@ sink {
 }
 ```
 
-### Parallel:
+### Parallel
 
 > Read your query table in parallel with the shard field you configured and the shard data. You can do this if you want to read the whole table
 
@@ -140,7 +142,7 @@ source {
   Jdbc {
     driver = "com.oceanbase.jdbc.Driver"
     url = "jdbc:oceanbase://localhost:2883/test?useUnicode=true&characterEncoding=UTF-8&rewriteBatchedStatements=true"
-    user = "root"
+    username = "root"
     password = ""
     compatible_mode = "mysql"
     query = "select * from source"
@@ -155,7 +157,7 @@ sink {
 }
 ```
 
-### Parallel Boundary:
+### Parallel Boundary
 
 > It is more efficient to read your data source according to the upper and lower boundaries you configured
 
@@ -164,7 +166,7 @@ source {
   Jdbc {
     driver = "com.oceanbase.jdbc.Driver"
     url = "jdbc:oceanbase://localhost:2883/test?useUnicode=true&characterEncoding=UTF-8&rewriteBatchedStatements=true"
-    user = "root"
+    username = "root"
     password = ""
     compatible_mode = "mysql"
     query = "select * from source"
@@ -178,3 +180,6 @@ source {
 }
 ```
 
+## Changelog
+
+<ChangeLog />

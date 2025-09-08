@@ -31,7 +31,7 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.TimeUnit;
 
-import static com.google.common.base.Preconditions.checkState;
+import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkState;
 
 /** Channel of record stream and HTTP data stream. */
 @Slf4j

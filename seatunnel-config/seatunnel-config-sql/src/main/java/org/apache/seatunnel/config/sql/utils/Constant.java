@@ -47,9 +47,9 @@ public class Constant {
 
     public static final String OPTION_TABLE_CONNECTOR_KEY = "connector";
 
-    public static final String OPTION_SOURCE_TABLE_NAME_KEY = "source_table_name";
+    public static final String OPTION_PLUGIN_INPUT_KEY = "plugin_input";
 
-    public static final String OPTION_RESULT_TABLE_NAME_KEY = "result_table_name";
+    public static final String OPTION_PLUGIN_OUTPUT_KEY = "plugin_output";
 
     public static final String OPTION_SINGLE_QUOTES = "'";
 

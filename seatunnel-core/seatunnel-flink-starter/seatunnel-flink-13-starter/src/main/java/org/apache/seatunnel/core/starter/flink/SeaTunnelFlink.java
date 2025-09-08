@@ -17,8 +17,8 @@
 
 package org.apache.seatunnel.core.starter.flink;
 
+import org.apache.seatunnel.common.constants.EngineType;
 import org.apache.seatunnel.core.starter.SeaTunnel;
-import org.apache.seatunnel.core.starter.enums.EngineType;
 import org.apache.seatunnel.core.starter.exception.CommandException;
 import org.apache.seatunnel.core.starter.flink.args.FlinkCommandArgs;
 import org.apache.seatunnel.core.starter.utils.CommandLineUtils;

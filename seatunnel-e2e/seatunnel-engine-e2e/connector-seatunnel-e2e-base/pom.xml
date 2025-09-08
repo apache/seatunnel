@@ -127,6 +127,13 @@
         </dependency>
 
         <dependency>
+            <groupId>com.github.oshi</groupId>
+            <artifactId>oshi-core</artifactId>
+            <version>6.6.5</version>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
             <groupId>io.netty</groupId>
             <artifactId>netty-buffer</artifactId>
             <version>${netty-buffer.version}</version>

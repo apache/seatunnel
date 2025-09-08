@@ -17,8 +17,15 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.oracle;
 
+import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
+import org.apache.seatunnel.api.table.converter.TypeConverter;
+import org.apache.seatunnel.api.table.schema.event.AlterTableAddColumnEvent;
+import org.apache.seatunnel.api.table.schema.event.AlterTableChangeColumnEvent;
+import org.apache.seatunnel.api.table.schema.event.AlterTableColumnEvent;
+import org.apache.seatunnel.api.table.schema.event.AlterTableModifyColumnEvent;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcCommonOptions;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.JdbcRowConverter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
@@ -47,12 +54,22 @@ public class OracleDialect implements JdbcDialect {
 
     private static final int DEFAULT_ORACLE_FETCH_SIZE = 128;
     public String fieldIde = FieldIdeEnum.ORIGINAL.getValue();
+    private final boolean handleBlobAsString;
 
     public OracleDialect(String fieldIde) {
-        this.fieldIde = fieldIde;
+        this(fieldIde, JdbcCommonOptions.HANDLE_BLOB_AS_STRING.defaultValue());
     }
 
-    public OracleDialect() {}
+    public OracleDialect() {
+        this(
+                FieldIdeEnum.ORIGINAL.getValue(),
+                JdbcCommonOptions.HANDLE_BLOB_AS_STRING.defaultValue());
+    }
+
+    public OracleDialect(String fieldIde, boolean handleBlobAsString) {
+        this.fieldIde = fieldIde;
+        this.handleBlobAsString = handleBlobAsString;
+    }
 
     @Override
     public String dialectName() {
@@ -65,13 +82,18 @@ public class OracleDialect implements JdbcDialect {
     }
 
     @Override
+    public TypeConverter<BasicTypeDefine> getTypeConverter() {
+        return new OracleTypeConverter(true, handleBlobAsString);
+    }
+
+    @Override
     public String hashModForField(String fieldName, int mod) {
         return "MOD(ORA_HASH(" + quoteIdentifier(fieldName) + ")," + mod + ")";
     }
 
     @Override
     public JdbcDialectTypeMapper getJdbcDialectTypeMapper() {
-        return new OracleTypeMapper();
+        return new OracleTypeMapper(true, handleBlobAsString);
     }
 
     @Override
@@ -329,17 +351,166 @@ public class OracleDialect implements JdbcDialect {
     }
 
     @Override
-    public String decorateWithComment(
-            String tableName, String basicSql, BasicTypeDefine typeBasicTypeDefine) {
-        String comment = typeBasicTypeDefine.getComment();
-        StringBuilder sql = new StringBuilder(basicSql);
-        if (StringUtils.isNotBlank(comment)) {
-            String commentSql =
-                    String.format(
-                            "COMMENT ON COLUMN %s.%s IS '%s'",
-                            tableName, quoteIdentifier(typeBasicTypeDefine.getName()), comment);
-            sql.append(";\n").append(commentSql);
+    public void applySchemaChange(
+            Connection connection, TablePath tablePath, AlterTableAddColumnEvent event)
+            throws SQLException {
+        List<String> ddlSQL = new ArrayList<>();
+        ddlSQL.add(buildUpdateColumnSQL(connection, tablePath, event));
+
+        if (event.getColumn().getComment() != null) {
+            ddlSQL.add(buildUpdateColumnCommentSQL(tablePath, event.getColumn()));
         }
-        return sql.toString();
+
+        try (Statement statement = connection.createStatement()) {
+            for (String sql : ddlSQL) {
+                log.info("Executing add column SQL: {}", sql);
+                statement.execute(sql);
+            }
+        }
+    }
+
+    @Override
+    public void applySchemaChange(
+            Connection connection, TablePath tablePath, AlterTableChangeColumnEvent event)
+            throws SQLException {
+        List<String> ddlSQL = new ArrayList<>();
+        if (event.getOldColumn() != null
+                && !(event.getColumn().getName().equals(event.getOldColumn()))) {
+            StringBuilder sqlBuilder =
+                    new StringBuilder()
+                            .append("ALTER TABLE ")
+                            .append(tableIdentifier(tablePath))
+                            .append(" RENAME COLUMN ")
+                            .append(quoteIdentifier(event.getOldColumn()))
+                            .append(" TO ")
+                            .append(quoteIdentifier(event.getColumn().getName()));
+            ddlSQL.add(sqlBuilder.toString());
+        }
+
+        try (Statement statement = connection.createStatement()) {
+            for (String sql : ddlSQL) {
+                log.info("Executing change column SQL: {}", sql);
+                statement.execute(sql);
+            }
+        }
+
+        if (event.getColumn().getDataType() != null) {
+            applySchemaChange(
+                    connection,
+                    tablePath,
+                    AlterTableModifyColumnEvent.modify(event.tableIdentifier(), event.getColumn()));
+        }
+    }
+
+    @Override
+    public void applySchemaChange(
+            Connection connection, TablePath tablePath, AlterTableModifyColumnEvent event)
+            throws SQLException {
+        List<String> ddlSQL = new ArrayList<>();
+        ddlSQL.add(buildUpdateColumnSQL(connection, tablePath, event));
+
+        if (event.getColumn().getComment() != null) {
+            ddlSQL.add(buildUpdateColumnCommentSQL(tablePath, event.getColumn()));
+        }
+
+        try (Statement statement = connection.createStatement()) {
+            for (String sql : ddlSQL) {
+                log.info("Executing modify column SQL: {}", sql);
+                statement.execute(sql);
+            }
+        }
+    }
+
+    private String buildUpdateColumnSQL(
+            Connection connection, TablePath tablePath, AlterTableColumnEvent event)
+            throws SQLException {
+        String actionType;
+        Column column;
+        if (event instanceof AlterTableModifyColumnEvent) {
+            actionType = "MODIFY";
+            column = ((AlterTableModifyColumnEvent) event).getColumn();
+        } else if (event instanceof AlterTableAddColumnEvent) {
+            actionType = "ADD";
+            column = ((AlterTableAddColumnEvent) event).getColumn();
+        } else {
+            throw new IllegalArgumentException("Unsupported AlterTableColumnEvent: " + event);
+        }
+        String sourceDialectName = event.getSourceDialectName();
+        boolean sameCatalog = StringUtils.equals(dialectName(), sourceDialectName);
+        BasicTypeDefine typeDefine = getTypeConverter().reconvert(column);
+        String columnType = sameCatalog ? column.getSourceType() : typeDefine.getColumnType();
+        StringBuilder sqlBuilder =
+                new StringBuilder()
+                        .append("ALTER TABLE  ")
+                        .append(tableIdentifier(tablePath))
+                        .append(" ")
+                        .append(actionType)
+                        .append(" ")
+                        .append(quoteIdentifier(column.getName()))
+                        .append(" ")
+                        .append(columnType);
+        // Only decorate with default value when source dialect is same as sink dialect
+        // Todo Support for cross-database default values for ddl statements
+        if (column.getDefaultValue() != null && sameCatalog) {
+            sqlBuilder.append(" ").append(sqlClauseWithDefaultValue(typeDefine, sourceDialectName));
+        }
+        if (event instanceof AlterTableModifyColumnEvent) {
+            boolean targetColumnNullable =
+                    columnIsNullable(connection, tablePath, column.getName());
+            if (column.isNullable() != targetColumnNullable) {
+                sqlBuilder.append(" ").append(column.isNullable() ? "NULL" : "NOT NULL");
+            }
+        } else {
+            sqlBuilder.append(" ").append(column.isNullable() ? "NULL" : "NOT NULL");
+        }
+        return sqlBuilder.toString();
+    }
+
+    private String buildUpdateColumnCommentSQL(TablePath tablePath, Column column) {
+        return String.format(
+                "COMMENT ON COLUMN %s.%s IS '%s'",
+                tableIdentifier(tablePath), quoteIdentifier(column.getName()), column.getComment());
+    }
+
+    private boolean columnIsNullable(Connection connection, TablePath tablePath, String column)
+            throws SQLException {
+        String selectColumnSQL =
+                "SELECT"
+                        + "        NULLABLE FROM"
+                        + "        ALL_TAB_COLUMNS c"
+                        + "        WHERE c.owner = '"
+                        + tablePath.getSchemaName()
+                        + "'"
+                        + "        AND c.table_name = '"
+                        + tablePath.getTableName()
+                        + "'"
+                        + "        AND c.column_name = '"
+                        + column
+                        + "'";
+        try (Statement statement = connection.createStatement()) {
+            ResultSet rs = statement.executeQuery(selectColumnSQL);
+            rs.next();
+            return rs.getString("NULLABLE").equals("Y");
+        }
+    }
+
+    @Override
+    public String dualTable() {
+        return " FROM dual ";
+    }
+
+    @Override
+    public String getCollateSql(String collate) {
+        if (StringUtils.isNotBlank(collate)) {
+            StringBuilder sql = new StringBuilder();
+            sql.append("NLSSORT(")
+                    .append("char_val")
+                    .append(", 'NLS_SORT=")
+                    .append(collate)
+                    .append("')");
+            return sql.toString();
+        } else {
+            return "char_val";
+        }
     }
 }

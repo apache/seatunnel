@@ -18,32 +18,57 @@
 package org.apache.seatunnel.connectors.seatunnel.maxcompute.sink;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.options.SinkConnectorCommonOptions;
+import org.apache.seatunnel.api.options.table.FormatOptions;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.TableIdentifier;
+import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
+import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
+import org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeSinkOptions;
 
 import com.google.auto.service.AutoService;
-
-import static org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeConfig.ACCESS_ID;
-import static org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeConfig.ACCESS_KEY;
-import static org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeConfig.ENDPOINT;
-import static org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeConfig.OVERWRITE;
-import static org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeConfig.PARTITION_SPEC;
-import static org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeConfig.PLUGIN_NAME;
-import static org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeConfig.PROJECT;
-import static org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeConfig.TABLE_NAME;
 
 @AutoService(Factory.class)
 public class MaxcomputeSinkFactory implements TableSinkFactory {
     @Override
     public String factoryIdentifier() {
-        return PLUGIN_NAME;
+        return MaxcomputeSinkOptions.PLUGIN_NAME;
     }
 
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(ACCESS_ID, ACCESS_KEY, ENDPOINT, PROJECT, TABLE_NAME)
-                .optional(PARTITION_SPEC, OVERWRITE)
+                .required(
+                        MaxcomputeSinkOptions.ACCESS_ID,
+                        MaxcomputeSinkOptions.ACCESS_KEY,
+                        MaxcomputeSinkOptions.ENDPOINT,
+                        MaxcomputeSinkOptions.PROJECT,
+                        MaxcomputeSinkOptions.TABLE_NAME)
+                .optional(
+                        MaxcomputeSinkOptions.PARTITION_SPEC,
+                        MaxcomputeSinkOptions.OVERWRITE,
+                        MaxcomputeSinkOptions.SCHEMA_SAVE_MODE,
+                        MaxcomputeSinkOptions.DATA_SAVE_MODE,
+                        MaxcomputeSinkOptions.SAVE_MODE_CREATE_TEMPLATE,
+                        MaxcomputeSinkOptions.CUSTOM_SQL,
+                        FormatOptions.DATETIME_FORMAT,
+                        MaxcomputeSinkOptions.TUNNEL_ENDPOINT,
+                        SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA)
                 .build();
+    }
+
+    @Override
+    public TableSink createSink(TableSinkFactoryContext context) {
+        return () ->
+                new MaxcomputeSink(
+                        context.getOptions(),
+                        CatalogTable.of(
+                                TableIdentifier.of(
+                                        context.getCatalogTable().getCatalogName(),
+                                        context.getOptions().get(MaxcomputeSinkOptions.PROJECT),
+                                        context.getOptions().get(MaxcomputeSinkOptions.TABLE_NAME)),
+                                context.getCatalogTable()));
     }
 }

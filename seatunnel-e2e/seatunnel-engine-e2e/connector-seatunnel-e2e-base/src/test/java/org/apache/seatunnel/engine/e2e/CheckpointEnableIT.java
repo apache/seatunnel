@@ -186,7 +186,8 @@ public class CheckpointEnableIT extends TestSuiteBase {
 
         // check sink file is right
         AtomicReference<Boolean> checkSinkFile = new AtomicReference<>(false);
-        await().atMost(300000, TimeUnit.MILLISECONDS)
+        // the default checkpoint interval is 300s, so we need to wait for 300+60s
+        await().atMost(360000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () -> {
                             Container.ExecResult disableSinkFileExecResult =
@@ -200,7 +201,7 @@ public class CheckpointEnableIT extends TestSuiteBase {
 
     @TestTemplate
     @DisabledOnContainer(
-            value = {TestContainerId.FLINK_1_17, TestContainerId.FLINK_1_18},
+            value = {},
             type = {EngineType.SEATUNNEL, EngineType.SPARK},
             disabledReason =
                     "depending on the engine, the logic for determining whether a checkpoint is enabled is different")
@@ -232,8 +233,14 @@ public class CheckpointEnableIT extends TestSuiteBase {
          * disabled. reference {@link
          * org.apache.flink.runtime.jobgraph.JobGraph#isCheckpointingEnabled()}
          */
-        Assertions.assertEquals(Long.MAX_VALUE, jobConfig.getOrDefault("interval", 0L));
-        Assertions.assertEquals(0, enableExecResult.getExitCode());
+        if (container.identifier().equals(TestContainerId.FLINK_1_13)
+                || container.identifier().equals(TestContainerId.FLINK_1_14)
+                || container.identifier().equals(TestContainerId.FLINK_1_15)
+                || container.identifier().equals(TestContainerId.FLINK_1_16)) {
+            Assertions.assertEquals(Long.MAX_VALUE, jobConfig.getOrDefault("interval", 0L));
+        } else {
+            Assertions.assertEquals(0, jobConfig.getOrDefault("interval", 0));
+        }
     }
 
     @TestTemplate

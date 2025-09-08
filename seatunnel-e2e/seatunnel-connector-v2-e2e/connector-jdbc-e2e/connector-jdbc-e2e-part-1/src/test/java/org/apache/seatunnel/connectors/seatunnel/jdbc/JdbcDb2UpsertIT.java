@@ -18,13 +18,13 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc;
 
+import org.apache.seatunnel.shade.com.google.common.collect.Lists;
+
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.Container;
-
-import com.google.common.collect.Lists;
 
 import java.io.IOException;
 import java.sql.ResultSet;

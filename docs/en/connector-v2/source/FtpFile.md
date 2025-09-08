@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-file-ftp.md';
+
 # FtpFile
 
 > Ftp file source connector
@@ -12,6 +14,10 @@
 
 - [x] [batch](../../concept/connector-v2-features.md)
 - [ ] [stream](../../concept/connector-v2-features.md)
+- [x] [multimodal](../../concept/connector-v2-features.md#multimodal)
+
+  Use binary file format to read and write files in any format, such as videos, pictures, etc. In short, any files can be synchronized to the target place.
+
 - [ ] [exactly-once](../../concept/connector-v2-features.md)
 - [x] [column projection](../../concept/connector-v2-features.md)
 - [x] [parallelism](../../concept/connector-v2-features.md)
@@ -38,31 +44,40 @@ If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you
 
 ## Options
 
-|           name            |  type   | required |    default value    |
-|---------------------------|---------|----------|---------------------|
-| host                      | string  | yes      | -                   |
-| port                      | int     | yes      | -                   |
-| user                      | string  | yes      | -                   |
-| password                  | string  | yes      | -                   |
-| path                      | string  | yes      | -                   |
-| file_format_type          | string  | yes      | -                   |
-| connection_mode           | string  | no       | active_local        |
-| delimiter/field_delimiter | string  | no       | \001                |
-| read_columns              | list    | no       | -                   |
-| parse_partition_from_path | boolean | no       | true                |
-| date_format               | string  | no       | yyyy-MM-dd          |
-| datetime_format           | string  | no       | yyyy-MM-dd HH:mm:ss |
-| time_format               | string  | no       | HH:mm:ss            |
-| skip_header_row_number    | long    | no       | 0                   |
-| schema                    | config  | no       | -                   |
-| sheet_name                | string  | no       | -                   |
-| xml_row_tag               | string  | no       | -                   |
-| xml_use_attr_format       | boolean | no       | -                   |
-| file_filter_pattern       | string  | no       | -                   |
-| compress_codec            | string  | no       | none                |
-| archive_compress_codec    | string  | no       | none                |
-| encoding                  | string  | no       | UTF-8               |
-| common-options            |         | no       | -                   |
+| name                        | type    | required | default value               |
+|-----------------------------|---------|----------|-----------------------------|
+| host                        | string  | yes      | -                           |
+| port                        | int     | yes      | -                           |
+| user                        | string  | yes      | -                           |
+| password                    | string  | yes      | -                           |
+| path                        | string  | yes      | -                           |
+| file_format_type            | string  | yes      | -                           |
+| connection_mode             | string  | no       | active_local                |
+| remote_verification_enabled | boolean | no       | true                        |
+| delimiter/field_delimiter   | string  | no       | \001 for text and , for csv |
+| row_delimiter               | string  | no       | \n                          |
+| read_columns                | list    | no       | -                           |
+| parse_partition_from_path   | boolean | no       | true                        |
+| date_format                 | string  | no       | yyyy-MM-dd                  |
+| datetime_format             | string  | no       | yyyy-MM-dd HH:mm:ss         |
+| time_format                 | string  | no       | HH:mm:ss                    |
+| skip_header_row_number      | long    | no       | 0                           |
+| schema                      | config  | no       | -                           |
+| sheet_name                  | string  | no       | -                           |
+| xml_row_tag                 | string  | no       | -                           |
+| xml_use_attr_format         | boolean | no       | -                           |
+| csv_use_header_line         | boolean | no       | -                           |
+| file_filter_pattern         | string  | no       | -                           |
+| filename_extension          | string  | no       | -                           |
+| compress_codec              | string  | no       | none                        |
+| archive_compress_codec      | string  | no       | none                        |
+| encoding                    | string  | no       | UTF-8                       |
+| null_format                 | string  | no       | -                           |
+| binary_chunk_size           | int     | no       | 1024                        |
+| binary_complete_file_mode   | boolean | no       | false                       |
+| common-options              |         | no       | -                           |
+| file_filter_modified_start  | string  | no       | -                   | File modification time filter. The connector will filter some files base on the last modification start time (include start time). The default data format is `yyyy-MM-dd HH:mm:ss`.                                                                                                                                                       |
+| file_filter_modified_end    | string  | no       | -                   | File modification time filter. The connector will filter some files base on the last modification end time (not include end time). The default data format is `yyyy-MM-dd HH:mm:ss`.                                                                                                                                                |
 
 ### host [string]
 
@@ -84,6 +99,10 @@ The target ftp password is required
 
 The source file path.
 
+### remote_verification_enabled [boolean]
+
+Whether to enable remote host verification for FTP data channels, default is `true`.
+
 ### file_filter_pattern [string]
 
 Filter pattern, which used for filtering files.
@@ -92,6 +111,7 @@ The pattern follows standard regular expressions. For details, please refer to h
 There are some examples.
 
 File Structure Example:
+
 ```
 /data/seatunnel/20241001/report.txt
 /data/seatunnel/20241007/abch202410.csv
@@ -99,43 +119,63 @@ File Structure Example:
 /data/seatunnel/20241005/old_data.csv
 /data/seatunnel/20241012/logo.png
 ```
+
 Matching Rules Example:
 
 **Example 1**: *Match all .txt files*，Regular Expression:
+
 ```
 /data/seatunnel/20241001/.*\.txt
 ```
+
 The result of this example matching is:
+
 ```
 /data/seatunnel/20241001/report.txt
 ```
+
 **Example 2**: *Match all file starting with abc*，Regular Expression:
+
 ```
 /data/seatunnel/20241002/abc.*
 ```
+
 The result of this example matching is:
+
 ```
 /data/seatunnel/20241007/abch202410.csv
 /data/seatunnel/20241002/abcg202410.csv
 ```
+
 **Example 3**: *Match all file starting with abc，And the fourth character is either h or g*, the Regular Expression:
+
 ```
 /data/seatunnel/20241007/abc[h,g].*
 ```
+
 The result of this example matching is:
+
 ```
 /data/seatunnel/20241007/abch202410.csv
 ```
+
 **Example 4**: *Match third level folders starting with 202410 and files ending with .csv*, the Regular Expression:
+
 ```
 /data/seatunnel/202410\d*/.*\.csv
 ```
+
 The result of this example matching is:
+
 ```
 /data/seatunnel/20241007/abch202410.csv
 /data/seatunnel/20241002/abcg202410.csv
 /data/seatunnel/20241005/old_data.csv
 ```
+
+### filename_extension [string]
+
+Filter filename extension, which used for filtering files with specific extension. Example: `csv` `.txt` `json` `.xml`.
 
 ### file_format_type [string]
 
@@ -171,7 +211,7 @@ schema {
 
 connector will generate data as the following:
 
-| code |    data     | success |
+| code | data        | success |
 |------|-------------|---------|
 | 200  | get success | true    |
 
@@ -187,7 +227,7 @@ tyrantlucifer#26#male
 
 If you do not assign data schema connector will treat the upstream data as the following:
 
-|        content        |
+| content               |
 |-----------------------|
 | tyrantlucifer#26#male |
 
@@ -210,7 +250,7 @@ schema {
 
 connector will generate data as the following:
 
-|     name      | age | gender |
+| name          | age | gender |
 |---------------|-----|--------|
 | tyrantlucifer | 26  | male   |
 
@@ -235,6 +275,14 @@ Field delimiter, used to tell connector how to slice and dice fields.
 
 default `\001`, the same as hive's default delimiter
 
+### row_delimiter [string]
+
+Only need to be configured when file_format is text
+
+Row delimiter, used to tell connector how to slice and dice rows
+
+default `\n`
+
 ### parse_partition_from_path [boolean]
 
 Control whether parse the partition keys and values from file path
@@ -243,7 +291,7 @@ For example if you read a file from path `ftp://hadoop-cluster/tmp/seatunnel/par
 
 Every record data from file will be added these two fields:
 
-|     name      | age |
+| name          | age |
 |---------------|-----|
 | tyrantlucifer | 26  |
 
@@ -309,6 +357,10 @@ Only need to be configured when file_format is xml.
 
 Specifies Whether to process data using the tag attribute format.
 
+### csv_use_header_line [boolean]
+
+Whether to use the header line to parse the file, only used when the file_format is `csv` and the file contains the header line that match RFC 4180
+
 ### compress_codec [string]
 
 The compress codec of files and the details that supported as the following shown:
@@ -328,12 +380,34 @@ The compress codec of archive files and the details that supported as the follow
 | ZIP                    | txt,json,excel,xml | .zip                    |
 | TAR                    | txt,json,excel,xml | .tar                    |
 | TAR_GZ                 | txt,json,excel,xml | .tar.gz                 |
+| GZ                     | txt,json,excel,xml | .gz                     |
 | NONE                   | all                | .*                      |
+
+Note: gz compressed excel file needs to compress the original file or specify the file suffix, such as e2e.xls ->e2e_test.xls.gz
 
 ### encoding [string]
 
 Only used when file_format_type is json,text,csv,xml.
 The encoding of the file to read. This param will be parsed by `Charset.forName(encoding)`.
+
+### null_format [string]
+
+Only used when file_format_type is text.
+null_format to define which strings can be represented as null.
+
+e.g: `\N`
+
+### binary_chunk_size [int]
+
+Only used when file_format_type is binary.
+
+The chunk size (in bytes) for reading binary files. Default is 1024 bytes. Larger values may improve performance for large files but use more memory.
+
+### binary_complete_file_mode [boolean]
+
+Only used when file_format_type is binary.
+
+Whether to read the complete file as a single chunk instead of splitting into chunks. When enabled, the entire file content will be read into memory at once. Default is false.
 
 ### common options
 
@@ -437,6 +511,8 @@ source {
     password = tianchao
     path = "/seatunnel/read/binary/"
     file_format_type = "binary"
+    binary_chunk_size = 2048
+    binary_complete_file_mode = false
   }
 }
 sink {
@@ -482,13 +558,5 @@ sink {
 
 ## Changelog
 
-### 2.2.0-beta 2022-09-26
-
-- Add Ftp Source Connector
-
-### 2.3.0-beta 2022-10-20
-
-- [BugFix] Fix the bug of incorrect path in windows environment ([2980](https://github.com/apache/seatunnel/pull/2980))
-- [Improve] Support extract partition from SeaTunnelRow fields ([3085](https://github.com/apache/seatunnel/pull/3085))
-- [Improve] Support parse field from file path ([2985](https://github.com/apache/seatunnel/pull/2985))
+<ChangeLog />
 

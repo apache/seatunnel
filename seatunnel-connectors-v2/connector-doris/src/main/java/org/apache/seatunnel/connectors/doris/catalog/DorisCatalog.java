@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.doris.catalog;
 
+import org.apache.seatunnel.shade.com.google.common.base.Preconditions;
+
 import org.apache.seatunnel.api.sink.SaveModePlaceHolder;
 import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
@@ -37,7 +39,7 @@ import org.apache.seatunnel.api.table.converter.TypeConverter;
 import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
-import org.apache.seatunnel.connectors.doris.config.DorisOptions;
+import org.apache.seatunnel.connectors.doris.config.DorisBaseOptions;
 import org.apache.seatunnel.connectors.doris.datatype.DorisTypeConverterFactory;
 import org.apache.seatunnel.connectors.doris.datatype.DorisTypeConverterV2;
 import org.apache.seatunnel.connectors.doris.util.DorisCatalogUtil;
@@ -47,8 +49,6 @@ import org.apache.commons.lang3.StringUtils;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import com.google.common.base.Preconditions;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -64,7 +64,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.google.common.base.Preconditions.checkArgument;
+import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkArgument;
 
 public class DorisCatalog implements Catalog {
 
@@ -463,9 +463,9 @@ public class DorisCatalog implements Catalog {
     private Map<String, String> connectorOptions() {
         Map<String, String> options = new HashMap<>();
         options.put("connector", "doris");
-        options.put(DorisOptions.FENODES.key(), String.join(",", frontEndNodes));
-        options.put(DorisOptions.USERNAME.key(), username);
-        options.put(DorisOptions.PASSWORD.key(), password);
+        options.put(DorisBaseOptions.FENODES.key(), String.join(",", frontEndNodes));
+        options.put(DorisBaseOptions.USERNAME.key(), username);
+        options.put(DorisBaseOptions.PASSWORD.key(), password);
         return options;
     }
 

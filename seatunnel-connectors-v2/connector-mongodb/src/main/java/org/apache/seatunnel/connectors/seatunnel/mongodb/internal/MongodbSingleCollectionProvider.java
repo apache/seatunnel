@@ -17,9 +17,10 @@
 
 package org.apache.seatunnel.connectors.seatunnel.mongodb.internal;
 
+import org.apache.seatunnel.shade.com.google.common.base.Preconditions;
+
 import org.bson.BsonDocument;
 
-import com.google.common.base.Preconditions;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoClients;
 import com.mongodb.client.MongoCollection;

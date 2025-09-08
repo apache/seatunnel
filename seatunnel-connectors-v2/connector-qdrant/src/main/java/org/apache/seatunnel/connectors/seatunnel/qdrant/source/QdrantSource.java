@@ -25,7 +25,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitReader;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitSource;
 import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
-import org.apache.seatunnel.connectors.seatunnel.qdrant.config.QdrantConfig;
+import org.apache.seatunnel.connectors.seatunnel.qdrant.config.QdrantBaseOptions;
 import org.apache.seatunnel.connectors.seatunnel.qdrant.config.QdrantParameters;
 
 import java.util.Collections;
@@ -37,7 +37,7 @@ public class QdrantSource extends AbstractSingleSplitSource<SeaTunnelRow> {
 
     @Override
     public String getPluginName() {
-        return QdrantConfig.CONNECTOR_IDENTITY;
+        return QdrantBaseOptions.CONNECTOR_IDENTITY;
     }
 
     public QdrantSource(ReadonlyConfig readonlyConfig) {

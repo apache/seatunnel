@@ -78,6 +78,7 @@ public class RocketMqSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
             SeaTunnelRowType seaTunnelRowType) {
         return new DefaultSeaTunnelRowSerializer(
                 producerMetadata.getTopic(),
+                producerMetadata.getTag(),
                 getPartitionKeyFields(seaTunnelRowType),
                 seaTunnelRowType,
                 producerMetadata.getFormat(),

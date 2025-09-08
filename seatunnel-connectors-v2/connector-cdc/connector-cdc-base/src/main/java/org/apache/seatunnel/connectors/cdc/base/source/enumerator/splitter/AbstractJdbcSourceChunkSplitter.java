@@ -25,6 +25,8 @@ import org.apache.seatunnel.connectors.cdc.base.dialect.JdbcDataSourceDialect;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SnapshotSplit;
 import org.apache.seatunnel.connectors.cdc.base.utils.ObjectUtils;
 
+import org.apache.commons.lang3.StringUtils;
+
 import io.debezium.jdbc.JdbcConnection;
 import io.debezium.relational.Column;
 import io.debezium.relational.Table;
@@ -36,9 +38,12 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static java.math.BigDecimal.ROUND_CEILING;
 import static org.apache.seatunnel.connectors.cdc.base.utils.ObjectUtils.doubleCompare;
@@ -379,12 +384,53 @@ public abstract class AbstractJdbcSourceChunkSplitter implements JdbcSourceChunk
     protected Column getSplitColumn(
             JdbcConnection jdbc, JdbcDataSourceDialect dialect, TableId tableId)
             throws SQLException {
-        Optional<PrimaryKey> primaryKey = dialect.getPrimaryKey(jdbc, tableId);
         Column splitColumn = null;
+        Table table = dialect.queryTableSchema(jdbc, tableId).getTable();
+
+        // first , compare user defined split column is in the primary key or unique key
+        Map<String, String> splitColumnsConfig = new HashMap<>();
+        try {
+            splitColumnsConfig = sourceConfig.getSplitColumn();
+        } catch (Exception e) {
+            log.error("Config snapshotSplitColumn get exception in {}:{}", tableId, e);
+        }
+        String tableSc =
+                splitColumnsConfig.getOrDefault(tableId.catalog() + "." + tableId.table(), null);
+
+        if (StringUtils.isNotEmpty(tableSc)) {
+            // Is tableSc（table split column） the unique key
+            AtomicBoolean isUniqueKey = new AtomicBoolean(false);
+            dialect.getUniqueKeys(jdbc, tableId)
+                    .forEach(
+                            ck ->
+                                    ck.getColumnNames()
+                                            .forEach(
+                                                    ckc -> {
+                                                        if (tableSc.equals(ckc.getColumnName())) {
+                                                            isUniqueKey.set(true);
+                                                        }
+                                                    }));
+
+            if (isUniqueKey.get()) {
+                Column column = table.columnWithName(tableSc);
+                if (isEvenlySplitColumn(column)) {
+                    return column;
+                } else {
+                    log.warn(
+                            "Config snapshotSplitColumn type in {} is not TINYINT、SMALLINT、INT、BIGINT、DECIMAL、STRING",
+                            tableId);
+                }
+            } else {
+                log.warn("Config snapshotSplitColumn not unique key for table {}", tableId);
+            }
+        } else {
+            log.info("Config snapshotSplitColumn not exists for table {}", tableId);
+        }
+
+        Optional<PrimaryKey> primaryKey = dialect.getPrimaryKey(jdbc, tableId);
         if (primaryKey.isPresent()) {
             List<String> pkColumns = primaryKey.get().getColumnNames();
 
-            Table table = dialect.queryTableSchema(jdbc, tableId).getTable();
             for (String pkColumn : pkColumns) {
                 Column column = table.columnWithName(pkColumn);
                 if (isEvenlySplitColumn(column)) {
@@ -400,7 +446,6 @@ public abstract class AbstractJdbcSourceChunkSplitter implements JdbcSourceChunk
 
         List<ConstraintKey> uniqueKeys = dialect.getUniqueKeys(jdbc, tableId);
         if (!uniqueKeys.isEmpty()) {
-            Table table = dialect.queryTableSchema(jdbc, tableId).getTable();
             for (ConstraintKey uniqueKey : uniqueKeys) {
                 List<ConstraintKey.ConstraintKeyColumn> uniqueKeyColumns =
                         uniqueKey.getColumnNames();

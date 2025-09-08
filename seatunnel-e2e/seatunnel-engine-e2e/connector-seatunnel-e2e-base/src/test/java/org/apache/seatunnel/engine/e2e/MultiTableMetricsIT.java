@@ -23,7 +23,7 @@ import org.apache.seatunnel.engine.client.job.ClientJobProxy;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
-import org.apache.seatunnel.engine.core.job.JobStatus;
+import org.apache.seatunnel.engine.common.job.JobStatus;
 import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
 import org.apache.seatunnel.engine.server.rest.RestConstant;
 
@@ -91,7 +91,7 @@ public class MultiTableMetricsIT {
                                                                     .getAddress()
                                                                     .getPort()
                                                             + RestConstant.CONTEXT_PATH
-                                                            + RestConstant.JOB_INFO_URL
+                                                            + RestConstant.REST_URL_JOB_INFO
                                                             + "/"
                                                             + batchJobProxy.getJobId());
                             // In the test example, the data size of a single [3, "C", 100] is 13

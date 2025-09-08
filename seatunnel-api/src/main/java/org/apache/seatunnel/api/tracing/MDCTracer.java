@@ -17,10 +17,16 @@
 
 package org.apache.seatunnel.api.tracing;
 
+import java.util.Comparator;
 import java.util.concurrent.Callable;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.function.Consumer;
+import java.util.function.Function;
+import java.util.function.Predicate;
+import java.util.function.Supplier;
+import java.util.stream.Stream;
 
 /**
  * Tracer for MDC context.
@@ -122,5 +128,95 @@ public class MDCTracer {
             throw new IllegalArgumentException("Already an MDCExecutor");
         }
         return new MDCScheduledExecutorService(context, delegate);
+    }
+
+    public static <T> MDCConsumer<T> tracing(Consumer<T> delegate) {
+        return tracing(MDCContext.current(), delegate);
+    }
+
+    public static <T> MDCConsumer<T> tracing(Long jobId, Consumer<T> delegate) {
+        return tracing(MDCContext.of(jobId), delegate);
+    }
+
+    public static <T> MDCConsumer<T> tracing(MDCContext context, Consumer<T> delegate) {
+        if (delegate instanceof MDCConsumer) {
+            throw new IllegalArgumentException("Already an MDCConsumer");
+        }
+        return new MDCConsumer<>(context, delegate);
+    }
+
+    public static <T, R> MDCFunction<T, R> tracing(Function<T, R> delegate) {
+        return tracing(MDCContext.current(), delegate);
+    }
+
+    public static <T, R> MDCFunction<T, R> tracing(Long jobId, Function<T, R> delegate) {
+        return tracing(MDCContext.of(jobId), delegate);
+    }
+
+    public static <T, R> MDCFunction<T, R> tracing(MDCContext context, Function<T, R> delegate) {
+        if (delegate instanceof MDCFunction) {
+            throw new IllegalArgumentException("Already an MDCFunction");
+        }
+        return new MDCFunction<>(context, delegate);
+    }
+
+    public static <T> MDCPredicate<T> tracing(Predicate<T> delegate) {
+        return tracing(MDCContext.current(), delegate);
+    }
+
+    public static <T> MDCPredicate<T> tracing(Long jobId, Predicate<T> delegate) {
+        return tracing(MDCContext.of(jobId), delegate);
+    }
+
+    public static <T> MDCPredicate<T> tracing(MDCContext context, Predicate<T> delegate) {
+        if (delegate instanceof MDCPredicate) {
+            throw new IllegalArgumentException("Already an MDCPredicate");
+        }
+        return new MDCPredicate<>(context, delegate);
+    }
+
+    public static <T> MDCComparator<T> tracing(Comparator<T> delegate) {
+        return tracing(MDCContext.current(), delegate);
+    }
+
+    public static <T> MDCComparator<T> tracing(Long jobId, Comparator<T> delegate) {
+        return tracing(MDCContext.of(jobId), delegate);
+    }
+
+    public static <T> MDCComparator<T> tracing(MDCContext context, Comparator<T> delegate) {
+        if (delegate instanceof MDCComparator) {
+            throw new IllegalArgumentException("Already an MDCComparator");
+        }
+        return new MDCComparator<>(context, delegate);
+    }
+
+    public static <T> MDCSupplier<T> tracing(Supplier<T> delegate) {
+        return tracing(MDCContext.current(), delegate);
+    }
+
+    public static <T> MDCSupplier<T> tracing(Long jobId, Supplier<T> delegate) {
+        return tracing(MDCContext.of(jobId), delegate);
+    }
+
+    public static <T> MDCSupplier<T> tracing(MDCContext context, Supplier<T> delegate) {
+        if (delegate instanceof MDCSupplier) {
+            throw new IllegalArgumentException("Already an MDCSupplier");
+        }
+        return new MDCSupplier<>(context, delegate);
+    }
+
+    public static <T> MDCStream<T> tracing(Stream<T> delegate) {
+        return tracing(MDCContext.current(), delegate);
+    }
+
+    public static <T> MDCStream<T> tracing(Long jobId, Stream<T> delegate) {
+        return tracing(MDCContext.of(jobId), delegate);
+    }
+
+    public static <T> MDCStream<T> tracing(MDCContext context, Stream<T> delegate) {
+        if (delegate instanceof MDCStream) {
+            throw new IllegalArgumentException("Already an MDCStream");
+        }
+        return new MDCStream<>(context, delegate);
     }
 }

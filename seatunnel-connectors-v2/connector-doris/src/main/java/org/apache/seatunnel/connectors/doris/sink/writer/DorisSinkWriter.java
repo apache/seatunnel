@@ -17,24 +17,31 @@
 
 package org.apache.seatunnel.connectors.doris.sink.writer;
 
+import org.apache.seatunnel.shade.com.google.common.util.concurrent.ThreadFactoryBuilder;
+
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
+import org.apache.seatunnel.api.sink.SupportSchemaEvolutionSinkWriter;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
+import org.apache.seatunnel.api.table.schema.handler.TableSchemaChangeEventDispatcher;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.doris.config.DorisSinkConfig;
 import org.apache.seatunnel.connectors.doris.exception.DorisConnectorErrorCode;
 import org.apache.seatunnel.connectors.doris.exception.DorisConnectorException;
-import org.apache.seatunnel.connectors.doris.rest.RestService;
+import org.apache.seatunnel.connectors.doris.exception.DorisSchemaChangeException;
 import org.apache.seatunnel.connectors.doris.rest.models.RespContent;
+import org.apache.seatunnel.connectors.doris.schema.SchemaChangeManager;
 import org.apache.seatunnel.connectors.doris.serialize.DorisSerializer;
-import org.apache.seatunnel.connectors.doris.serialize.SeaTunnelRowSerializer;
+import org.apache.seatunnel.connectors.doris.serialize.SeaTunnelRowSerializerFactory;
 import org.apache.seatunnel.connectors.doris.sink.LoadStatus;
 import org.apache.seatunnel.connectors.doris.sink.committer.DorisCommitInfo;
 import org.apache.seatunnel.connectors.doris.util.HttpUtil;
 import org.apache.seatunnel.connectors.doris.util.UnsupportedTypeConverterUtils;
 
-import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
@@ -48,12 +55,13 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
-import static com.google.common.base.Preconditions.checkState;
+import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkState;
 
 @Slf4j
 public class DorisSinkWriter
         implements SinkWriter<SeaTunnelRow, DorisCommitInfo, DorisSinkState>,
-                SupportMultiTableSinkWriter<Void> {
+                SupportMultiTableSinkWriter<Void>,
+                SupportSchemaEvolutionSinkWriter {
     private static final int INITIAL_DELAY = 200;
     private static final List<String> DORIS_SUCCESS_STATUS =
             new ArrayList<>(Arrays.asList(LoadStatus.SUCCESS, LoadStatus.PUBLISH_TIMEOUT));
@@ -63,10 +71,15 @@ public class DorisSinkWriter
     private final String labelPrefix;
     private final LabelGenerator labelGenerator;
     private final int intervalTime;
-    private final DorisSerializer serializer;
+    private DorisSerializer serializer;
     private final CatalogTable catalogTable;
     private final ScheduledExecutorService scheduledExecutorService;
     private volatile Exception loadException = null;
+    private TableSchema tableSchema;
+    private final TablePath sinkTablePath;
+    protected TableSchemaChangeEventDispatcher tableSchemaChanger =
+            new TableSchemaChangeEventDispatcher();
+    private SchemaChangeManager schemaChangeManager;
 
     public DorisSinkWriter(
             SinkWriter.Context context,
@@ -93,25 +106,45 @@ public class DorisSinkWriter
                         1, new ThreadFactoryBuilder().setNameFormat("stream-load-check").build());
         this.serializer = createSerializer(dorisSinkConfig, catalogTable.getSeaTunnelRowType());
         this.intervalTime = dorisSinkConfig.getCheckInterval();
+        this.tableSchema = catalogTable.getTableSchema();
+        this.sinkTablePath = catalogTable.getTablePath();
+        this.schemaChangeManager = new SchemaChangeManager(dorisSinkConfig);
         this.initializeLoad();
     }
 
     private void initializeLoad() {
-        String backend = RestService.randomEndpoint(dorisSinkConfig.getFrontends(), log);
-        try {
-            this.dorisStreamLoad =
-                    new DorisStreamLoad(
-                            backend,
-                            catalogTable.getTablePath(),
-                            dorisSinkConfig,
-                            labelGenerator,
-                            new HttpUtil().getHttpClient());
-            if (dorisSinkConfig.getEnable2PC()) {
-                dorisStreamLoad.abortPreCommit(labelPrefix, lastCheckpointId + 1);
+
+        List<String> feNodes = Arrays.asList(dorisSinkConfig.getFrontends().split(","));
+        Collections.shuffle(feNodes);
+        int feNodesNum = feNodes.size();
+
+        for (int i = 0; i < feNodesNum; i++) {
+            try {
+                log.info("Trying FE node {}  for stream load.", feNodes.get(i));
+                this.dorisStreamLoad =
+                        new DorisStreamLoad(
+                                feNodes.get(i),
+                                catalogTable.getTablePath(),
+                                dorisSinkConfig,
+                                labelGenerator,
+                                new HttpUtil().getHttpClient());
+                if (dorisSinkConfig.getEnable2PC()) {
+                    dorisStreamLoad.abortPreCommit(labelPrefix, lastCheckpointId + 1);
+                }
+                break;
+            } catch (Exception e) {
+                if (i == feNodesNum - 1) {
+                    log.error("All {} FE nodes failed, no more nodes to try", feNodesNum);
+                    throw new DorisConnectorException(
+                            DorisConnectorErrorCode.STREAM_LOAD_FAILED, e);
+                }
+                log.error(
+                        "stream load error for feNode: {} with exception: {}",
+                        feNodes.get(i),
+                        e.getMessage());
             }
-        } catch (Exception e) {
-            throw new DorisConnectorException(DorisConnectorErrorCode.STREAM_LOAD_FAILED, e);
         }
+
         startLoad(labelGenerator.generateLabel(lastCheckpointId + 1));
         // when uploading data in streaming mode, we need to regularly detect whether there are
         // exceptions.
@@ -135,6 +168,20 @@ public class DorisSinkWriter
                 && dorisStreamLoad.getRecordCount() >= dorisSinkConfig.getBatchSize()) {
             flush();
             startLoad(labelGenerator.generateLabel(lastCheckpointId));
+        }
+    }
+
+    @Override
+    public void applySchemaChange(SchemaChangeEvent event) {
+        this.tableSchema = tableSchemaChanger.reset(tableSchema).apply(event);
+        SeaTunnelRowType seaTunnelRowType = tableSchema.toPhysicalRowDataType();
+        this.serializer = createSerializer(this.dorisSinkConfig, seaTunnelRowType);
+
+        try {
+            schemaChangeManager.applySchemaChange(sinkTablePath, event);
+        } catch (Exception e) {
+            throw new DorisSchemaChangeException(
+                    DorisConnectorErrorCode.SCHEMA_CHANGE_FAILED, "Failed to schemaChange");
         }
     }
 
@@ -221,13 +268,6 @@ public class DorisSinkWriter
 
     private DorisSerializer createSerializer(
             DorisSinkConfig dorisSinkConfig, SeaTunnelRowType seaTunnelRowType) {
-        return new SeaTunnelRowSerializer(
-                dorisSinkConfig
-                        .getStreamLoadProps()
-                        .getProperty(LoadConstants.FORMAT_KEY)
-                        .toLowerCase(),
-                seaTunnelRowType,
-                dorisSinkConfig.getStreamLoadProps().getProperty(LoadConstants.FIELD_DELIMITER_KEY),
-                dorisSinkConfig.getEnableDelete());
+        return SeaTunnelRowSerializerFactory.createSerializer(dorisSinkConfig, seaTunnelRowType);
     }
 }

@@ -44,7 +44,7 @@ public interface TestContainer extends TestResource {
     Container.ExecResult executeJob(String confFile, List<String> variables)
             throws IOException, InterruptedException;
 
-    default Container.ExecResult executeJob(String confFile, String jobId)
+    default Container.ExecResult executeJob(String confFile, String jobId, String... variables)
             throws IOException, InterruptedException {
         throw new UnsupportedOperationException("Not implemented");
     }
@@ -64,7 +64,7 @@ public interface TestContainer extends TestResource {
         throw new UnsupportedOperationException("Not implemented");
     }
 
-    default Container.ExecResult restoreJob(String confFile, String jobId)
+    default Container.ExecResult restoreJob(String confFile, String jobId, String... variables)
             throws IOException, InterruptedException {
         throw new UnsupportedOperationException("Not implemented");
     }
@@ -80,4 +80,6 @@ public interface TestContainer extends TestResource {
     String getServerLogs();
 
     void copyFileToContainer(String path, String targetPath);
+
+    void copyAbsolutePathToContainer(String path, String targetPath);
 }

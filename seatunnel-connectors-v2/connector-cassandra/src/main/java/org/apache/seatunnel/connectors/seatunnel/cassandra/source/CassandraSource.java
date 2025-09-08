@@ -17,19 +17,14 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cassandra.source;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
-import org.apache.seatunnel.api.common.PrepareFailException;
-import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.source.Boundedness;
-import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SupportColumnProjection;
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
+import org.apache.seatunnel.api.table.catalog.TableIdentifier;
+import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.config.CheckConfigUtil;
-import org.apache.seatunnel.common.config.CheckResult;
-import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.cassandra.client.CassandraClient;
 import org.apache.seatunnel.connectors.seatunnel.cassandra.config.CassandraParameters;
@@ -42,40 +37,25 @@ import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReader
 
 import com.datastax.oss.driver.api.core.CqlSession;
 import com.datastax.oss.driver.api.core.cql.Row;
-import com.google.auto.service.AutoService;
 
-import static org.apache.seatunnel.connectors.seatunnel.cassandra.config.CassandraConfig.CQL;
-import static org.apache.seatunnel.connectors.seatunnel.cassandra.config.CassandraConfig.HOST;
-import static org.apache.seatunnel.connectors.seatunnel.cassandra.config.CassandraConfig.KEYSPACE;
+import java.util.Collections;
+import java.util.List;
 
-@AutoService(SeaTunnelSource.class)
+import static org.apache.seatunnel.connectors.seatunnel.cassandra.config.CassandraSourceOptions.CQL;
+
 public class CassandraSource extends AbstractSingleSplitSource<SeaTunnelRow>
         implements SupportColumnProjection {
 
-    private SeaTunnelRowType rowTypeInfo;
-    private final CassandraParameters cassandraParameters = new CassandraParameters();
+    private final CassandraParameters cassandraParameters;
+    private final CatalogTable catalogTable;
 
-    @Override
-    public String getPluginName() {
-        return "Cassandra";
-    }
+    public CassandraSource(CassandraParameters cassandraParameters, ReadonlyConfig pluginConfig) {
+        this.cassandraParameters = cassandraParameters;
 
-    @Override
-    public void prepare(Config pluginConfig) throws PrepareFailException {
-        CheckResult checkResult =
-                CheckConfigUtil.checkAllExists(pluginConfig, HOST.key(), KEYSPACE.key(), CQL.key());
-        if (!checkResult.isSuccess()) {
-            throw new CassandraConnectorException(
-                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                    String.format(
-                            "PluginName: %s, PluginType: %s, Message: %s",
-                            getPluginName(), PluginType.SOURCE, checkResult.getMsg()));
-        }
-        this.cassandraParameters.buildWithConfig(pluginConfig);
         try (CqlSession currentSession =
                 CassandraClient.getCqlSessionBuilder(
-                                pluginConfig.getString(HOST.key()),
-                                pluginConfig.getString(KEYSPACE.key()),
+                                cassandraParameters.getHost(),
+                                cassandraParameters.getKeyspace(),
                                 cassandraParameters.getUsername(),
                                 cassandraParameters.getPassword(),
                                 cassandraParameters.getDatacenter())
@@ -84,23 +64,38 @@ public class CassandraSource extends AbstractSingleSplitSource<SeaTunnelRow>
                     currentSession
                             .execute(
                                     CassandraClient.createSimpleStatement(
-                                            pluginConfig.getString(CQL.key()),
+                                            pluginConfig.get(CQL),
                                             cassandraParameters.getConsistencyLevel()))
                             .one();
             if (rs == null) {
                 throw new CassandraConnectorException(
                         CassandraConnectorErrorCode.NO_DATA_IN_SOURCE_TABLE,
-                        "No data select from this cql: " + pluginConfig.getConfig(CQL.key()));
+                        "No data select from this cql: " + pluginConfig.get(CQL));
             }
             int columnSize = rs.getColumnDefinitions().size();
-            String[] fieldNames = new String[columnSize];
-            SeaTunnelDataType<?>[] seaTunnelDataTypes = new SeaTunnelDataType[columnSize];
+            TableSchema.Builder schemaBuilder = TableSchema.builder();
+            String tableName = "default";
             for (int i = 0; i < columnSize; i++) {
-                fieldNames[i] = rs.getColumnDefinitions().get(i).getName().asInternal();
-                seaTunnelDataTypes[i] =
-                        TypeConvertUtil.convert(rs.getColumnDefinitions().get(i).getType());
+                PhysicalColumn physicalColumn =
+                        PhysicalColumn.of(
+                                rs.getColumnDefinitions().get(i).getName().asInternal(),
+                                TypeConvertUtil.convert(rs.getColumnDefinitions().get(i).getType()),
+                                null,
+                                null,
+                                true,
+                                null,
+                                null);
+                schemaBuilder.column(physicalColumn);
+                tableName = rs.getColumnDefinitions().get(i).getTable().asInternal();
             }
-            this.rowTypeInfo = new SeaTunnelRowType(fieldNames, seaTunnelDataTypes);
+            catalogTable =
+                    CatalogTable.of(
+                            TableIdentifier.of(
+                                    getPluginName(), cassandraParameters.getKeyspace(), tableName),
+                            schemaBuilder.build(),
+                            Collections.emptyMap(),
+                            Collections.emptyList(),
+                            "");
         } catch (Exception e) {
             throw new CassandraConnectorException(
                     CommonErrorCodeDeprecated.TABLE_SCHEMA_GET_FAILED,
@@ -110,13 +105,18 @@ public class CassandraSource extends AbstractSingleSplitSource<SeaTunnelRow>
     }
 
     @Override
+    public String getPluginName() {
+        return "Cassandra";
+    }
+
+    @Override
     public Boundedness getBoundedness() {
         return Boundedness.BOUNDED;
     }
 
     @Override
-    public SeaTunnelDataType<SeaTunnelRow> getProducedType() {
-        return this.rowTypeInfo;
+    public List<CatalogTable> getProducedCatalogTables() {
+        return Collections.singletonList(catalogTable);
     }
 
     @Override

@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-starrocks.md';
+
 # StarRocks
 
 > StarRocks 数据接收器
@@ -17,6 +19,16 @@
 
 该接收器用于将数据写入到StarRocks中。支持批和流两种模式。
 StarRocks数据接收器内部实现采用了缓存，通过stream load将数据批导入。
+
+## 依赖
+
+### 对于 Spark/Flink
+
+> 1. 你需要下载 [jdbc driver jar package](https://mvnrepository.com/artifact/mysql/mysql-connector-java) 并添加到目录 `${SEATUNNEL_HOME}/plugins/`.
+
+### 对于 SeaTunnel Zeta
+
+> 1. 你需要下载 [jdbc driver jar package](https://mvnrepository.com/artifact/mysql/mysql-connector-java) 并添加到目录 `${SEATUNNEL_HOME}/lib/`.
 
 ## 接收器选项
 
@@ -54,6 +66,7 @@ ${rowtype_primary_key},
 ${rowtype_fields}
 ) ENGINE=OLAP
 PRIMARY KEY (${rowtype_primary_key})
+COMMENT '${comment}'
 DISTRIBUTED BY HASH (${rowtype_primary_key})PROPERTIES (
 "replication_num" = "1"
 )
@@ -66,7 +79,9 @@ CREATE TABLE IF NOT EXISTS `${database}`.`${table_name}`
 (   
     id,
     ${rowtype_fields}
-) ENGINE = OLAP DISTRIBUTED BY HASH (${rowtype_primary_key})
+) ENGINE = OLAP 
+    COMMENT '${comment}'
+    DISTRIBUTED BY HASH (${rowtype_primary_key})
     PROPERTIES
 (
     "replication_num" = "1"
@@ -82,6 +97,7 @@ StarRocks数据接收器根据上游数据自动获取相应的信息来填充�
 - rowtype_fields: 上游数据模式的所有字段信息，连接器会将字段信息自动映射到StarRocks对应的类型
 - rowtype_primary_key: 上游数据模式的主键信息，结果可能是列表
 - rowtype_unique_key: 上游数据模式的唯一键信息，结果可能是列表
+- comment: 上游数据模式的注释信息
 
 ### table [string]
 
@@ -97,7 +113,7 @@ table选项参数可以填入一任意表名，这个名字最终会被用作目
 2. sink_sinktable
 3. ss_${table_name}
 
-### schema_save_mode[Enum]
+### schema_save_mode [Enum]
 
 在同步任务打开之前，针对目标端已存在的表结构选择不同的处理方法。可选值有：  
 `RECREATE_SCHEMA` ：不存在的表会直接创建，已存在的表会删除并根据参数重新创建  
@@ -105,7 +121,7 @@ table选项参数可以填入一任意表名，这个名字最终会被用作目
 `ERROR_WHEN_SCHEMA_NOT_EXIST` ：当有不存在的表时会直接报错  
 `IGNORE` ：忽略对表的处理
 
-### data_save_mode[Enum]
+### data_save_mode [Enum]
 
 在同步任务打开之前，针对目标端已存在的数据选择不同的处理方法。可选值有：
 `DROP_DATA`： 保存数据库结构，但是会删除表中存量数据
@@ -113,7 +129,7 @@ table选项参数可以填入一任意表名，这个名字最终会被用作目
 `CUSTOM_PROCESSING`：自定义处理
 `ERROR_WHEN_DATA_EXISTS`：当对应表存在数据时直接报错
 
-### custom_sql[String]
+### custom_sql [String]
 
 当data_save_mode设置为CUSTOM_PROCESSING时，必须同时设置CUSTOM_SQL参数。CUSTOM_SQL的值为可执行的SQL语句，在同步任务开启前SQL将会被执行。
 
@@ -286,9 +302,4 @@ sink {
 
 ## 变更日志
 
-### 随后版本
-
-- 增加StarRocks数据接收器
-- [Improve] 将连接器自定义配置前缀的数据类型更改为Map [3719](https://github.com/apache/seatunnel/pull/3719)
-- [Feature] 支持写入cdc变更事件(INSERT/UPDATE/DELETE) [3865](https://github.com/apache/seatunnel/pull/3865)
-
+<ChangeLog />

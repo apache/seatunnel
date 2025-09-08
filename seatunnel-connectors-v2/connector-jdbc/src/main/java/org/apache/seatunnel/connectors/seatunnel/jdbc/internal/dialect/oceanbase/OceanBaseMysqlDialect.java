@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.oceanbas
 
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
+import org.apache.seatunnel.api.table.converter.TypeConverter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.JdbcRowConverter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
@@ -26,7 +27,6 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDiale
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.SQLUtils;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.dialectenum.FieldIdeEnum;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.source.JdbcSourceTable;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.utils.MysqlDefaultValueUtils;
 
 import org.apache.commons.lang3.StringUtils;
 
@@ -65,12 +65,18 @@ public class OceanBaseMysqlDialect implements JdbcDialect {
 
     @Override
     public String dialectName() {
-        return DatabaseIdentifier.OCENABASE;
+        return DatabaseIdentifier.OCEANBASE;
     }
 
     @Override
     public JdbcRowConverter getRowConverter() {
         return new OceanBaseMysqlJdbcRowConverter();
+    }
+
+    @Override
+    public TypeConverter<BasicTypeDefine> getTypeConverter() {
+        TypeConverter typeConverter = OceanBaseMySqlTypeConverter.INSTANCE;
+        return typeConverter;
     }
 
     @Override
@@ -131,6 +137,7 @@ public class OceanBaseMysqlDialect implements JdbcDialect {
     public Map<String, String> defaultParameter() {
         HashMap<String, String> map = new HashMap<>();
         map.put("rewriteBatchedStatements", "true");
+        map.put("allowMultiQueries", "true");
         return map;
     }
 
@@ -231,18 +238,14 @@ public class OceanBaseMysqlDialect implements JdbcDialect {
     }
 
     @Override
-    public String decorateWithComment(
-            String tableName, String basicSql, BasicTypeDefine typeBasicTypeDefine) {
+    public boolean supportDefaultValue(BasicTypeDefine typeBasicTypeDefine) {
         OceanBaseMysqlType nativeType = (OceanBaseMysqlType) typeBasicTypeDefine.getNativeType();
-        if (NOT_SUPPORTED_DEFAULT_VALUES.contains(nativeType)) {
-            return basicSql;
-        }
-        return JdbcDialect.super.decorateWithComment(tableName, basicSql, typeBasicTypeDefine);
+        return !(NOT_SUPPORTED_DEFAULT_VALUES.contains(nativeType));
     }
 
     @Override
-    public boolean needsQuotesWithDefaultValue(String sqlType) {
-        OceanBaseMysqlType mysqlType = OceanBaseMysqlType.getByName(sqlType);
+    public boolean needsQuotesWithDefaultValue(BasicTypeDefine columnDefine) {
+        OceanBaseMysqlType mysqlType = OceanBaseMysqlType.getByName(columnDefine.getColumnType());
         switch (mysqlType) {
             case CHAR:
             case VARCHAR:
@@ -265,10 +268,5 @@ public class OceanBaseMysqlDialect implements JdbcDialect {
             default:
                 return false;
         }
-    }
-
-    @Override
-    public boolean isSpecialDefaultValue(Object defaultValue) {
-        return MysqlDefaultValueUtils.isSpecialDefaultValue(defaultValue);
     }
 }

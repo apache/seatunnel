@@ -17,40 +17,32 @@
 
 package org.apache.seatunnel.connectors.seatunnel.amazondynamodb.sink;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
-import org.apache.seatunnel.api.common.PrepareFailException;
-import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
-import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.config.CheckConfigUtil;
-import org.apache.seatunnel.common.config.CheckResult;
-import org.apache.seatunnel.common.constants.PluginType;
-import org.apache.seatunnel.connectors.seatunnel.amazondynamodb.config.AmazonDynamoDBSourceOptions;
-import org.apache.seatunnel.connectors.seatunnel.amazondynamodb.exception.AmazonDynamoDBConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.amazondynamodb.config.AmazonDynamoDBConfig;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSimpleSink;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
-
-import com.google.auto.service.AutoService;
 
 import java.io.IOException;
 import java.util.Optional;
 
-import static org.apache.seatunnel.connectors.seatunnel.amazondynamodb.config.AmazonDynamoDBConfig.ACCESS_KEY_ID;
-import static org.apache.seatunnel.connectors.seatunnel.amazondynamodb.config.AmazonDynamoDBConfig.REGION;
-import static org.apache.seatunnel.connectors.seatunnel.amazondynamodb.config.AmazonDynamoDBConfig.SECRET_ACCESS_KEY;
-import static org.apache.seatunnel.connectors.seatunnel.amazondynamodb.config.AmazonDynamoDBConfig.TABLE;
-import static org.apache.seatunnel.connectors.seatunnel.amazondynamodb.config.AmazonDynamoDBConfig.URL;
-
-@AutoService(SeaTunnelSink.class)
 public class AmazonDynamoDBSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
 
-    private SeaTunnelRowType rowType;
+    private CatalogTable catalogTable;
 
-    private AmazonDynamoDBSourceOptions amazondynamodbSourceOptions;
+    private AmazonDynamoDBConfig amazondynamodbConfig;
+
+    public AmazonDynamoDBSink(
+            CatalogTable catalogTable, AmazonDynamoDBConfig amazondynamodbConfig) {
+        this.catalogTable = catalogTable;
+        this.amazondynamodbConfig = amazondynamodbConfig;
+    }
+
+    @Override
+    public Optional<CatalogTable> getWriteCatalogTable() {
+        return Optional.of(catalogTable);
+    }
 
     @Override
     public String getPluginName() {
@@ -58,38 +50,8 @@ public class AmazonDynamoDBSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
     }
 
     @Override
-    public void prepare(Config pluginConfig) throws PrepareFailException {
-        CheckResult result =
-                CheckConfigUtil.checkAllExists(
-                        pluginConfig,
-                        URL.key(),
-                        TABLE.key(),
-                        REGION.key(),
-                        ACCESS_KEY_ID.key(),
-                        SECRET_ACCESS_KEY.key());
-        if (!result.isSuccess()) {
-            throw new AmazonDynamoDBConnectorException(
-                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                    String.format(
-                            "PluginName: %s, PluginType: %s, Message: %s",
-                            getPluginName(), PluginType.SINK, result.getMsg()));
-        }
-        amazondynamodbSourceOptions = new AmazonDynamoDBSourceOptions(pluginConfig);
-    }
-
-    @Override
-    public void setTypeInfo(SeaTunnelRowType seaTunnelRowType) {
-        this.rowType = seaTunnelRowType;
-    }
-
-    @Override
     public AbstractSinkWriter<SeaTunnelRow, Void> createWriter(SinkWriter.Context context)
             throws IOException {
-        return new AmazonDynamoDBWriter(amazondynamodbSourceOptions, rowType);
-    }
-
-    @Override
-    public Optional<CatalogTable> getWriteCatalogTable() {
-        return super.getWriteCatalogTable();
+        return new AmazonDynamoDBWriter(amazondynamodbConfig, catalogTable.getSeaTunnelRowType());
     }
 }

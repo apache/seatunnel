@@ -18,6 +18,7 @@
 package org.apache.seatunnel.api.tracing;
 
 import java.util.concurrent.Callable;
+import java.util.function.Supplier;
 
 /**
  * Callable that sets MDC context before calling the delegate and clears it afterwards.
@@ -25,7 +26,7 @@ import java.util.concurrent.Callable;
  * @param <V>
  */
 public class MDCCallable<V> implements Callable<V> {
-    private final MDCContext context;
+    private final Supplier<MDCContext> contextSupplier;
     private final Callable<V> delegate;
 
     public MDCCallable(Callable<V> delegate) {
@@ -33,18 +34,18 @@ public class MDCCallable<V> implements Callable<V> {
     }
 
     public MDCCallable(MDCContext context, Callable<V> delegate) {
-        this.context = context;
+        this(() -> context, delegate);
+    }
+
+    public MDCCallable(Supplier<MDCContext> contextSupplier, Callable<V> delegate) {
+        this.contextSupplier = contextSupplier;
         this.delegate = delegate;
     }
 
     @Override
     public V call() throws Exception {
-        try {
-            context.put();
-
+        try (MDCContext ignored = contextSupplier.get().activate()) {
             return delegate.call();
-        } finally {
-            context.clear();
         }
     }
 }

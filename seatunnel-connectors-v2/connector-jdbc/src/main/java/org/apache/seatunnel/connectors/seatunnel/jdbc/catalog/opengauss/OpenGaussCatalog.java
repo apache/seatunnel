@@ -17,10 +17,11 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.opengauss;
 
+import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
+
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.psql.PostgresCatalog;
 
-import com.google.common.annotations.VisibleForTesting;
 import lombok.extern.slf4j.Slf4j;
 
 import java.sql.Connection;
@@ -33,8 +34,9 @@ public class OpenGaussCatalog extends PostgresCatalog {
             String username,
             String pwd,
             JdbcUrlUtil.UrlInfo urlInfo,
-            String defaultSchema) {
-        super(catalogName, username, pwd, urlInfo, defaultSchema);
+            String defaultSchema,
+            String driverClass) {
+        super(catalogName, username, pwd, urlInfo, defaultSchema, driverClass);
     }
 
     @VisibleForTesting

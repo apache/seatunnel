@@ -17,14 +17,14 @@
 
 package org.apache.seatunnel.engine.core.classloader;
 
+import org.apache.seatunnel.shade.com.google.common.collect.Lists;
+
 import org.apache.seatunnel.engine.common.loader.SeaTunnelChildFirstClassLoader;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-
-import com.google.common.collect.Lists;
 
 import java.net.MalformedURLException;
 import java.net.URL;

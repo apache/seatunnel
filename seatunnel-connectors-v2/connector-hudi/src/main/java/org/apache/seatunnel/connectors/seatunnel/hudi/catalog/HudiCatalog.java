@@ -54,9 +54,10 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 import static org.apache.hbase.thirdparty.com.google.common.base.Preconditions.checkNotNull;
-import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiTableOptions.CDC_ENABLED;
-import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiTableOptions.RECORD_KEY_FIELDS;
-import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiTableOptions.TABLE_TYPE;
+import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiSinkOptions.CDC_ENABLED;
+import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiSinkOptions.PRECOMBINE_FIELD;
+import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiSinkOptions.RECORD_KEY_FIELDS;
+import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiSinkOptions.TABLE_TYPE;
 import static org.apache.seatunnel.connectors.seatunnel.hudi.sink.convert.AvroSchemaConverter.convertToSchema;
 import static org.apache.seatunnel.connectors.seatunnel.hudi.util.HudiCatalogUtil.inferTablePath;
 import static org.apache.seatunnel.connectors.seatunnel.hudi.util.SchemaUtil.convertSeaTunnelType;
@@ -100,7 +101,9 @@ public class HudiCatalog implements Catalog {
     @Override
     public void close() throws CatalogException {
         try {
-            fs.close();
+            if (fs != null) {
+                fs.close();
+            }
         } catch (Exception e) {
             log.info("Hudi catalog close error.", e);
         }
@@ -196,6 +199,9 @@ public class HudiCatalog implements Catalog {
                     RECORD_KEY_FIELDS.key(),
                     String.join(",", tableConfig.getRecordKeyFields().get()));
         }
+        if (StringUtils.isNoneBlank(tableConfig.getPreCombineField())) {
+            options.put(PRECOMBINE_FIELD.key(), tableConfig.getPreCombineField());
+        }
         options.put(TABLE_TYPE.key(), tableType.name());
         options.put(CDC_ENABLED.key(), String.valueOf(tableConfig.isCDCEnabled()));
         return CatalogTable.of(
@@ -231,6 +237,7 @@ public class HudiCatalog implements Catalog {
                         .setPayloadClassName(HoodieAvroPayload.class.getName())
                         .setCDCEnabled(
                                 Boolean.parseBoolean(table.getOptions().get(CDC_ENABLED.key())))
+                        .setPreCombineField(table.getOptions().get(PRECOMBINE_FIELD.key()))
                         .initTable(new HadoopStorageConfiguration(hadoopConf), tablePathStr);
             }
         } catch (IOException e) {

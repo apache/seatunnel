@@ -25,12 +25,14 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.seatunnel.engine.client.SeaTunnelHazelcastClient;
 import org.apache.seatunnel.engine.client.util.ContentFormatUtil;
 import org.apache.seatunnel.engine.common.Constant;
+import org.apache.seatunnel.engine.common.job.JobStatus;
+import org.apache.seatunnel.engine.common.job.JobStatusData;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.core.job.JobDAGInfo;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
-import org.apache.seatunnel.engine.core.job.JobStatus;
-import org.apache.seatunnel.engine.core.job.JobStatusData;
+import org.apache.seatunnel.engine.core.job.JobPipelineCheckpointData;
 import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelCancelJobCodec;
+import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelGetJobCheckpointCodec;
 import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelGetJobDetailStatusCodec;
 import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelGetJobInfoCodec;
 import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelGetJobMetricsCodec;
@@ -168,5 +170,14 @@ public class JobClient {
         } catch (JsonProcessingException | NullPointerException e) {
             return new JobMetricsRunner.JobMetricsSummary(sourceReadCount, sinkWriteCount);
         }
+    }
+
+    public List<JobPipelineCheckpointData> getCheckpointData(Long jobId) {
+        return hazelcastClient
+                .getSerializationService()
+                .toObject(
+                        hazelcastClient.requestOnMasterAndDecodeResponse(
+                                SeaTunnelGetJobCheckpointCodec.encodeRequest(jobId),
+                                SeaTunnelGetJobCheckpointCodec::decodeResponse));
     }
 }

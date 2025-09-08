@@ -18,6 +18,7 @@
 package org.apache.seatunnel.api.table.catalog;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.table.catalog.exception.CatalogException;
 import org.apache.seatunnel.api.table.catalog.exception.DatabaseAlreadyExistException;
 import org.apache.seatunnel.api.table.catalog.exception.DatabaseNotExistException;
@@ -39,6 +40,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 /**
  * Interface for reading and writing table metadata from SeaTunnel. Each connector need to contain
@@ -148,7 +150,7 @@ public interface Catalog extends AutoCloseable {
 
     default List<CatalogTable> getTables(ReadonlyConfig config) throws CatalogException {
         // Get the list of specified tables
-        List<String> tableNames = config.get(CatalogOptions.TABLE_NAMES);
+        List<String> tableNames = config.get(ConnectorCommonOptions.TABLE_NAMES);
         if (tableNames != null && !tableNames.isEmpty()) {
             Iterator<TablePath> tablePaths =
                     tableNames.stream().map(TablePath::of).filter(this::tableExists).iterator();
@@ -156,25 +158,49 @@ public interface Catalog extends AutoCloseable {
         }
 
         // Get the list of table pattern
-        String tablePatternStr = config.get(CatalogOptions.TABLE_PATTERN);
+        String tablePatternStr = config.get(ConnectorCommonOptions.TABLE_PATTERN);
         if (StringUtils.isBlank(tablePatternStr)) {
             return Collections.emptyList();
         }
-        Pattern databasePattern = Pattern.compile(config.get(CatalogOptions.DATABASE_PATTERN));
-        Pattern tablePattern = Pattern.compile(config.get(CatalogOptions.TABLE_PATTERN));
+        Pattern databasePattern =
+                Pattern.compile(config.get(ConnectorCommonOptions.DATABASE_PATTERN));
+        Pattern tablePattern = Pattern.compile(config.get(ConnectorCommonOptions.TABLE_PATTERN));
+
         List<String> allDatabase = this.listDatabases();
         allDatabase.removeIf(s -> !databasePattern.matcher(s).matches());
         List<TablePath> tablePaths = new ArrayList<>();
+
         for (String databaseName : allDatabase) {
-            tableNames = this.listTables(databaseName);
-            tableNames.forEach(
-                    tableName -> {
-                        if (tablePattern.matcher(databaseName + "." + tableName).matches()) {
-                            tablePaths.add(TablePath.of(databaseName, tableName));
-                        }
-                    });
+            List<TablePath> paths = this.listTablePaths(databaseName);
+            tablePaths.addAll(
+                    paths.stream()
+                            .filter(
+                                    path ->
+                                            tablePattern
+                                                    .matcher(
+                                                            path.getDatabaseName()
+                                                                    + "."
+                                                                    + path.getSchemaAndTableName())
+                                                    .matches())
+                            .collect(Collectors.toList()));
         }
         return buildCatalogTablesWithErrorCheck(tablePaths.iterator());
+    }
+
+    default List<TablePath> listTablePaths(String databaseName)
+            throws CatalogException, DatabaseNotExistException {
+        List<String> tableNames = listTables(databaseName);
+        return tableNames.stream()
+                .map(
+                        tableName -> {
+                            String[] parts = tableName.split("\\.");
+                            if (parts.length > 1) {
+                                return TablePath.of(databaseName, parts[0], parts[1]);
+                            } else {
+                                return TablePath.of(databaseName, null, tableName);
+                            }
+                        })
+                .collect(Collectors.toList());
     }
 
     default List<CatalogTable> buildCatalogTablesWithErrorCheck(Iterator<TablePath> tablePaths) {

@@ -19,7 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.fake.utils;
 
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.type.DecimalType;
-import org.apache.seatunnel.common.utils.BufferUtils;
+import org.apache.seatunnel.common.utils.VectorUtils;
 import org.apache.seatunnel.connectors.seatunnel.fake.config.FakeConfig;
 
 import org.apache.commons.collections4.CollectionUtils;
@@ -38,9 +38,11 @@ import java.util.Map;
 
 public class FakeDataRandomUtils {
     private final FakeConfig fakeConfig;
+    private final String jobId;
 
-    public FakeDataRandomUtils(FakeConfig fakeConfig) {
+    public FakeDataRandomUtils(FakeConfig fakeConfig, String jobId) {
         this.fakeConfig = fakeConfig;
+        this.jobId = jobId;
     }
 
     private static <T> T randomFromList(List<T> list) {
@@ -93,6 +95,22 @@ public class FakeDataRandomUtils {
     }
 
     public Integer randomInt(Column column) {
+        if (fakeConfig.getAutoIncrementEnabled()
+                && IdGeneratorUtils.isPrimaryColumn(fakeConfig, column.getName())) {
+            if (fakeConfig.getAutoIncrementStart()
+                            + ((long) fakeConfig.getParallelism() * fakeConfig.getRowNum())
+                    > Integer.MAX_VALUE) {
+                throw new IllegalArgumentException(
+                        "The auto increment start value is too large, please check your configuration.");
+            }
+            return IdGeneratorUtils.getIdGenerator(jobId, fakeConfig, column.getName())
+                    .orElseThrow(
+                            () ->
+                                    new IllegalArgumentException(
+                                            "Auto increment is enabled, but no id generator found."))
+                    .getNextId()
+                    .intValue();
+        }
         List<Integer> intTemplate = fakeConfig.getIntTemplate();
         if (!CollectionUtils.isEmpty(intTemplate)) {
             return randomFromList(intTemplate);
@@ -101,6 +119,15 @@ public class FakeDataRandomUtils {
     }
 
     public Long randomBigint(Column column) {
+        if (fakeConfig.getAutoIncrementEnabled()
+                && IdGeneratorUtils.isPrimaryColumn(fakeConfig, column.getName())) {
+            return IdGeneratorUtils.getIdGenerator(jobId, fakeConfig, column.getName())
+                    .orElseThrow(
+                            () ->
+                                    new IllegalArgumentException(
+                                            "Auto increment is enabled, but no id generator found."))
+                    .getNextId();
+        }
         List<Long> bigTemplate = fakeConfig.getBigTemplate();
         if (!CollectionUtils.isEmpty(bigTemplate)) {
             return randomFromList(bigTemplate);
@@ -204,7 +231,7 @@ public class FakeDataRandomUtils {
                     RandomUtils.nextFloat(
                             fakeConfig.getVectorFloatMin(), fakeConfig.getVectorFloatMax());
         }
-        return BufferUtils.toByteBuffer(floatVector);
+        return VectorUtils.toByteBuffer(floatVector);
     }
 
     public ByteBuffer randomFloat16Vector(Column column) {
@@ -217,7 +244,7 @@ public class FakeDataRandomUtils {
                             fakeConfig.getVectorFloatMin(), fakeConfig.getVectorFloatMax());
             float16Vector[i] = floatToFloat16(value);
         }
-        return BufferUtils.toByteBuffer(float16Vector);
+        return VectorUtils.toByteBuffer(float16Vector);
     }
 
     public ByteBuffer randomBFloat16Vector(Column column) {
@@ -230,7 +257,7 @@ public class FakeDataRandomUtils {
                             fakeConfig.getVectorFloatMin(), fakeConfig.getVectorFloatMax());
             bfloat16Vector[i] = floatToBFloat16(value);
         }
-        return BufferUtils.toByteBuffer(bfloat16Vector);
+        return VectorUtils.toByteBuffer(bfloat16Vector);
     }
 
     public Map<Integer, Float> randomSparseFloatVector(Column column) {

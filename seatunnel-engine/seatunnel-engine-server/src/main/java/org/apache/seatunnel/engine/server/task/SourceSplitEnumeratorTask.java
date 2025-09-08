@@ -200,6 +200,8 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
         } else {
             this.enumerator = this.source.getSource().createEnumerator(enumeratorContext);
         }
+        enumerator.open();
+        enumeratorContext.getEventListener().onEvent(new EnumeratorOpenEvent());
         restoreComplete.complete(null);
         log.debug("restoreState split enumerator [{}] finished", actionStateList);
     }
@@ -222,7 +224,9 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
 
         SourceSplitEnumerator<SplitT, Serializable> enumerator = getEnumerator();
         this.addTaskMemberMapping(readerId, memberAddr);
-        enumerator.registerReader(readerId.getTaskIndex());
+        synchronized (this) {
+            enumerator.registerReader(readerId.getTaskIndex());
+        }
         int taskSize = taskMemberMapping.size();
         if (maxReaderSize == taskSize) {
             readerRegisterComplete = true;
@@ -301,7 +305,7 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
                 reportTaskStatus(WAITING_RESTORE);
                 break;
             case WAITING_RESTORE:
-                if (restoreComplete.isDone()) {
+                if (restoreComplete.isDone() && readerRegisterComplete) {
                     currState = READY_START;
                     reportTaskStatus(READY_START);
                 } else {
@@ -309,10 +313,8 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
                 }
                 break;
             case READY_START:
-                if (startCalled && readerRegisterComplete) {
+                if (startCalled) {
                     currState = STARTING;
-                    enumerator.open();
-                    enumeratorContext.getEventListener().onEvent(new EnumeratorOpenEvent());
                 } else {
                     Thread.sleep(100);
                 }

@@ -39,4 +39,4 @@ seatunnel:
       metric:
          enabled: false
       logs:
-         scheduled-deletion-enable: true
+         scheduled-deletion-enable: false

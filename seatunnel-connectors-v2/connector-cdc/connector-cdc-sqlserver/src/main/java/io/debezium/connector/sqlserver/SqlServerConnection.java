@@ -492,6 +492,51 @@ public class SqlServerConnection extends JdbcConnection {
         prepareQuery(queries, preparers, consumer);
     }
 
+    /** Overridden to make sure the prepared statement is closed after the query is executed. */
+    @Override
+    public JdbcConnection prepareQuery(
+            String[] multiQuery,
+            StatementPreparer[] preparers,
+            BlockingMultiResultSetConsumer resultConsumer)
+            throws SQLException, InterruptedException {
+        final ResultSet[] resultSets = new ResultSet[multiQuery.length];
+        final PreparedStatement[] preparedStatements = new PreparedStatement[multiQuery.length];
+
+        try {
+            for (int i = 0; i < multiQuery.length; i++) {
+                final String query = multiQuery[i];
+                if (LOGGER.isTraceEnabled()) {
+                    LOGGER.trace("running '{}'", query);
+                }
+                final PreparedStatement statement = connection().prepareStatement(query);
+                preparedStatements[i] = statement;
+                preparers[i].accept(statement);
+                resultSets[i] = statement.executeQuery();
+            }
+            if (resultConsumer != null) {
+                resultConsumer.accept(resultSets);
+            }
+        } finally {
+            for (ResultSet rs : resultSets) {
+                if (rs != null) {
+                    try {
+                        rs.close();
+                    } catch (Exception ei) {
+                    }
+                }
+            }
+            for (PreparedStatement ps : preparedStatements) {
+                if (ps != null) {
+                    try {
+                        ps.close();
+                    } catch (Exception ei) {
+                    }
+                }
+            }
+        }
+        return this;
+    }
+
     private Lsn getFromLsn(
             String databaseName, SqlServerChangeTable changeTable, Lsn intervalFromLsn)
             throws SQLException {

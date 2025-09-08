@@ -28,7 +28,7 @@ import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.transform.common.AbstractCatalogSupportTransform;
+import org.apache.seatunnel.transform.common.AbstractCatalogSupportMapTransform;
 import org.apache.seatunnel.transform.exception.TransformCommonError;
 
 import org.apache.commons.collections4.CollectionUtils;
@@ -44,7 +44,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 @Slf4j
-public class FilterFieldTransform extends AbstractCatalogSupportTransform {
+public class FilterFieldTransform extends AbstractCatalogSupportMapTransform {
     public static final String PLUGIN_NAME = "Filter";
 
     private int[] inputValueIndexList;

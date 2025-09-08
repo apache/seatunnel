@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-influxdb.md';
+
 # InfluxDB
 
 > InfluxDB sink connector
@@ -114,7 +116,7 @@ env {
 
 source {
   Mysql-CDC {
-    base-url = "jdbc:mysql://127.0.0.1:3306/seatunnel"
+    url = "jdbc:mysql://127.0.0.1:3306/seatunnel"
     username = "root"
     password = "******"
     
@@ -136,7 +138,4 @@ sink {
 
 ## Changelog
 
-### next version
-
-- Add InfluxDB Sink Connector
-
+<ChangeLog />

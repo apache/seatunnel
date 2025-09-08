@@ -21,11 +21,13 @@ import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.common.utils.RetryUtils;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
+import org.apache.seatunnel.engine.common.job.JobResult;
+import org.apache.seatunnel.engine.common.job.JobStateEvent;
+import org.apache.seatunnel.engine.common.job.JobStatus;
 import org.apache.seatunnel.engine.common.utils.ExceptionUtil;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
+import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
-import org.apache.seatunnel.engine.core.job.JobResult;
-import org.apache.seatunnel.engine.core.job.JobStatus;
 import org.apache.seatunnel.engine.core.job.PipelineExecutionState;
 import org.apache.seatunnel.engine.core.job.PipelineStatus;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
@@ -39,7 +41,6 @@ import lombok.extern.slf4j.Slf4j;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -191,23 +192,29 @@ public class PhysicalPlan {
     }
 
     public void cancelJob() {
-        if (getJobStatus().isEndState()) {
+        JobStatus jobStatus = getJobStatus();
+        if (jobStatus.isEndState()) {
             log.warn(
                     String.format(
-                            "%s is in end state %s, can not be cancel",
-                            jobFullName, getJobStatus()));
+                            "%s is in end state %s, can not be cancel", jobFullName, jobStatus));
             return;
         }
 
-        updateJobState(JobStatus.CANCELING);
+        if (runningJobStateIMap.get(jobId) == JobStatus.PENDING) {
+            // The pending task needs to be directly set to 'cancelled' status because it has not
+            // started running yet
+            updateJobState(JobStatus.CANCELED);
+        } else {
+            updateJobState(JobStatus.CANCELING);
+        }
     }
 
     public void savepointJob() {
-        if (getJobStatus().isEndState()) {
+        JobStatus jobStatus = getJobStatus();
+        if (jobStatus.isEndState()) {
             log.warn(
                     String.format(
-                            "%s is in end state %s, can not do savepoint",
-                            jobFullName, getJobStatus()));
+                            "%s is in end state %s, can not do savepoint", jobFullName, jobStatus));
             return;
         }
         updateJobState(JobStatus.DOING_SAVEPOINT);
@@ -223,6 +230,11 @@ public class PhysicalPlan {
         Long[] stateTimestamps = runningJobStateTimestampsIMap.get(jobId);
         stateTimestamps[targetState.ordinal()] = System.currentTimeMillis();
         runningJobStateTimestampsIMap.set(jobId, stateTimestamps);
+    }
+
+    public synchronized Long getStateTimestamp(@NonNull JobStatus jobStatus) {
+        Long[] stateTimestamps = runningJobStateTimestampsIMap.get(jobId);
+        return stateTimestamps[jobStatus.ordinal()];
     }
 
     public synchronized void updateJobState(@NonNull JobStatus targetState) {
@@ -293,6 +305,7 @@ public class PhysicalPlan {
     public void startJob() {
         isRunning = true;
         log.info("{} state process is start", getJobFullName());
+        updateJobState(JobStatus.SCHEDULED);
         stateProcess();
     }
 
@@ -306,7 +319,8 @@ public class PhysicalPlan {
             log.warn(String.format("%s state process is stopped", jobFullName));
             return;
         }
-        switch (getJobStatus()) {
+        JobStatus jobStatus = getJobStatus();
+        switch (jobStatus) {
             case CREATED:
                 updateJobState(JobStatus.SCHEDULED);
                 break;
@@ -335,10 +349,18 @@ public class PhysicalPlan {
             case SAVEPOINT_DONE:
             case FINISHED:
                 stopJobStateProcess();
-                jobEndFuture.complete(new JobResult(getJobStatus(), errorBySubPlan.get()));
+                jobEndFuture.complete(new JobResult(jobStatus, errorBySubPlan.get()));
+                jobMaster
+                        .getCoordinatorService()
+                        .getEventProcessor()
+                        .process(
+                                new JobStateEvent(
+                                        jobImmutableInformation.getJobId(),
+                                        jobImmutableInformation.getJobConfig().getName(),
+                                        jobStatus));
                 return;
             default:
-                throw new IllegalArgumentException("Unknown Job State: " + getJobStatus());
+                throw new IllegalArgumentException("Unknown Job State: " + jobStatus);
         }
     }
 

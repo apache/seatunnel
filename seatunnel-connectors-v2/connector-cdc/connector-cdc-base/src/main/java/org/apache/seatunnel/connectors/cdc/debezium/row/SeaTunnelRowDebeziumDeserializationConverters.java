@@ -17,6 +17,9 @@
 
 package org.apache.seatunnel.connectors.cdc.debezium.row;
 
+import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
+
+import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -48,6 +51,7 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneId;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Optional;
 
 /** Deserialization schema from Debezium object to {@link SeaTunnelRow} */
@@ -173,10 +177,47 @@ public class SeaTunnelRowDebeziumDeserializationConverters implements Serializab
                 return createRowConverter(
                         (SeaTunnelRowType) type, serverTimeZone, userDefinedConverterFactory);
             case ARRAY:
+                return createArrayConverter(type);
             case MAP:
             default:
                 throw new UnsupportedOperationException("Unsupported type: " + type);
         }
+    }
+
+    @VisibleForTesting
+    protected static DebeziumDeserializationConverter createArrayConverter(
+            SeaTunnelDataType<?> type) {
+        SeaTunnelDataType elementType = ((ArrayType) type).getElementType();
+        switch (elementType.getSqlType()) {
+            case BOOLEAN:
+                return (dbzObj, schema) ->
+                        convertListToArray((List<Boolean>) dbzObj, Boolean.class);
+            case SMALLINT:
+                return (dbzObj, schema) -> convertListToArray((List<Short>) dbzObj, Short.class);
+            case INT:
+                return (dbzObj, schema) ->
+                        convertListToArray((List<Integer>) dbzObj, Integer.class);
+            case BIGINT:
+                return (dbzObj, schema) -> convertListToArray((List<Long>) dbzObj, Long.class);
+            case FLOAT:
+                return (dbzObj, schema) -> convertListToArray((List<Float>) dbzObj, Float.class);
+            case DOUBLE:
+                return (dbzObj, schema) -> convertListToArray((List<Double>) dbzObj, Double.class);
+            case STRING:
+                return (dbzObj, schema) -> convertListToArray((List<String>) dbzObj, String.class);
+            default:
+                throw new IllegalArgumentException(
+                        "Unsupported SQL type: " + elementType.getSqlType());
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private static <T> T[] convertListToArray(List<T> list, Class<T> clazz) {
+        T[] array = (T[]) java.lang.reflect.Array.newInstance(clazz, list.size());
+        for (int i = 0; i < list.size(); i++) {
+            array[i] = list.get(i);
+        }
+        return array;
     }
 
     private static DebeziumDeserializationConverter convertToBoolean() {

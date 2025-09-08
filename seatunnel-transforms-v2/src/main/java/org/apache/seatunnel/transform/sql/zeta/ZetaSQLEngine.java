@@ -17,10 +17,13 @@
 
 package org.apache.seatunnel.transform.sql.zeta;
 
+import org.apache.seatunnel.shade.com.google.common.collect.Lists;
+
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
+import org.apache.seatunnel.transform.exception.TransformCommonError;
 import org.apache.seatunnel.transform.exception.TransformException;
 import org.apache.seatunnel.transform.sql.SQLEngine;
 
@@ -29,7 +32,6 @@ import org.apache.commons.collections4.CollectionUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.collect.Lists;
 import net.sf.jsqlparser.JSQLParserException;
 import net.sf.jsqlparser.expression.Expression;
 import net.sf.jsqlparser.parser.CCJSqlParserUtil;
@@ -58,6 +60,7 @@ public class ZetaSQLEngine implements SQLEngine {
     private String inputTableName;
     @Nullable private String catalogTableName;
     private SeaTunnelRowType inputRowType;
+    private SeaTunnelRowType outRowType;
 
     private String sql;
     private PlainSelect selectBody;
@@ -127,7 +130,8 @@ public class ZetaSQLEngine implements SQLEngine {
                 }
                 String tableName = table.getName();
                 if (!inputTableName.equalsIgnoreCase(tableName)
-                        && !tableName.equalsIgnoreCase(catalogTableName)) {
+                        && !tableName.equalsIgnoreCase(catalogTableName)
+                        && !"DUAL".equalsIgnoreCase(tableName)) {
                     log.warn(
                             "SQL table name {} is not equal to input table name {} or catalog table name {}",
                             tableName,
@@ -182,7 +186,7 @@ public class ZetaSQLEngine implements SQLEngine {
         for (SelectItem selectItem : selectItems) {
             if (selectItem.getExpression() instanceof AllColumns) {
                 for (int i = 0; i < inputRowType.getFieldNames().length; i++) {
-                    fieldNames[idx] = inputRowType.getFieldName(i);
+                    fieldNames[idx] = cleanEscape(inputRowType.getFieldName(i));
                     seaTunnelDataTypes[idx] = inputRowType.getFieldType(i);
                     if (inputColumnsMapping != null) {
                         inputColumnsMapping.set(idx, inputRowType.getFieldName(i));
@@ -193,16 +197,12 @@ public class ZetaSQLEngine implements SQLEngine {
                 Expression expression = selectItem.getExpression();
                 if (selectItem.getAlias() != null) {
                     String aliasName = selectItem.getAlias().getName();
-                    if (aliasName.startsWith(ESCAPE_IDENTIFIER)
-                            && aliasName.endsWith(ESCAPE_IDENTIFIER)) {
-                        aliasName = aliasName.substring(1, aliasName.length() - 1);
-                    }
-                    fieldNames[idx] = aliasName;
+                    fieldNames[idx] = cleanEscape(aliasName);
                 } else {
                     if (expression instanceof Column) {
-                        fieldNames[idx] = ((Column) expression).getColumnName();
+                        fieldNames[idx] = cleanEscape(((Column) expression).getColumnName());
                     } else {
-                        fieldNames[idx] = expression.toString();
+                        fieldNames[idx] = cleanEscape(expression.toString());
                     }
                 }
 
@@ -218,10 +218,20 @@ public class ZetaSQLEngine implements SQLEngine {
         }
         List<LateralView> lateralViews = selectBody.getLateralViews();
         if (CollectionUtils.isEmpty(lateralViews)) {
-            return new SeaTunnelRowType(fieldNames, seaTunnelDataTypes);
+            outRowType = new SeaTunnelRowType(fieldNames, seaTunnelDataTypes);
+        } else {
+            outRowType =
+                    zetaSQLFunction.lateralViewMapping(
+                            fieldNames, seaTunnelDataTypes, lateralViews, inputColumnsMapping);
         }
-        return zetaSQLFunction.lateralViewMapping(
-                fieldNames, seaTunnelDataTypes, lateralViews, inputColumnsMapping);
+        return outRowType;
+    }
+
+    private static String cleanEscape(String columnName) {
+        if (columnName.startsWith(ESCAPE_IDENTIFIER) && columnName.endsWith(ESCAPE_IDENTIFIER)) {
+            columnName = columnName.substring(1, columnName.length() - 1);
+        }
+        return columnName;
     }
 
     @Override
@@ -231,9 +241,13 @@ public class ZetaSQLEngine implements SQLEngine {
         Object[] inputFields = scanTable(inputRow);
 
         // Filter
-        boolean retain = zetaSQLFilter.executeFilter(selectBody.getWhere(), inputFields);
-        if (!retain) {
-            return null;
+        try {
+            boolean retain = zetaSQLFilter.executeFilter(selectBody.getWhere(), inputFields);
+            if (!retain) {
+                return null;
+            }
+        } catch (Exception e) {
+            throw TransformCommonError.sqlWhereStatementError(selectBody.getWhere().toString(), e);
         }
 
         // Project
@@ -242,6 +256,7 @@ public class ZetaSQLEngine implements SQLEngine {
         SeaTunnelRow seaTunnelRow = new SeaTunnelRow(outputFields);
         seaTunnelRow.setRowKind(inputRow.getRowKind());
         seaTunnelRow.setTableId(inputRow.getTableId());
+        seaTunnelRow.setOptions(inputRow.getOptions());
         List<LateralView> lateralViews = selectBody.getLateralViews();
         if (CollectionUtils.isEmpty(lateralViews)) {
             return Lists.newArrayList(seaTunnelRow);
@@ -271,8 +286,12 @@ public class ZetaSQLEngine implements SQLEngine {
                 }
             } else {
                 Expression expression = selectItem.getExpression();
-                fields[idx] = zetaSQLFunction.computeForValue(expression, inputFields);
-                idx++;
+                try {
+                    fields[idx] = zetaSQLFunction.computeForValue(expression, inputFields);
+                    idx++;
+                } catch (Exception e) {
+                    throw TransformCommonError.sqlExpressionError(expression.toString(), e);
+                }
             }
         }
         return fields;

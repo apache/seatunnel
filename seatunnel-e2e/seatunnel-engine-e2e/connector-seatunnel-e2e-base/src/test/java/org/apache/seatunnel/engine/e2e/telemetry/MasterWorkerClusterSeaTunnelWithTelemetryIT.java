@@ -121,7 +121,7 @@ public class MasterWorkerClusterSeaTunnelWithTelemetryIT extends SeaTunnelContai
                                                     + colon
                                                     + server.getFirstMappedPort()
                                                     + CONTEXT_PATH
-                                                    + RestConstant.JOB_INFO_URL
+                                                    + RestConstant.REST_URL_JOB_INFO
                                                     + "/"
                                                     + JobId)
                                     .then()
@@ -615,7 +615,7 @@ public class MasterWorkerClusterSeaTunnelWithTelemetryIT extends SeaTunnelContai
                         + "    \"source\": [\n"
                         + "        {\n"
                         + "            \"plugin_name\": \"FakeSource\",\n"
-                        + "            \"result_table_name\": \"fake\",\n"
+                        + "            \"plugin_output\": \"fake\",\n"
                         + "            \"row.num\": 100,\n"
                         + "            \"schema\": {\n"
                         + "                \"fields\": {\n"
@@ -631,7 +631,7 @@ public class MasterWorkerClusterSeaTunnelWithTelemetryIT extends SeaTunnelContai
                         + "    \"sink\": [\n"
                         + "        {\n"
                         + "            \"plugin_name\": \"Console\",\n"
-                        + "            \"source_table_name\": [\"fake\"]\n"
+                        + "            \"plugin_input\": [\"fake\"]\n"
                         + "        }\n"
                         + "    ]\n"
                         + "}";
@@ -652,13 +652,13 @@ public class MasterWorkerClusterSeaTunnelWithTelemetryIT extends SeaTunnelContai
                                                 + colon
                                                 + port
                                                 + contextPath
-                                                + RestConstant.SUBMIT_JOB_URL
+                                                + RestConstant.REST_URL_SUBMIT_JOB
                                         : http
                                                 + container.getHost()
                                                 + colon
                                                 + port
                                                 + contextPath
-                                                + RestConstant.SUBMIT_JOB_URL
+                                                + RestConstant.REST_URL_SUBMIT_JOB
                                                 + "?"
                                                 + parameters);
         return response;

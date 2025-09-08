@@ -22,7 +22,7 @@ import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
-import org.apache.seatunnel.connectors.seatunnel.kafka.config.Config;
+import org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaSinkOptions;
 
 import com.google.auto.service.AutoService;
 
@@ -36,15 +36,15 @@ public class KafkaSinkFactory implements TableSinkFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(Config.TOPIC, Config.BOOTSTRAP_SERVERS)
+                .required(KafkaSinkOptions.TOPIC, KafkaSinkOptions.BOOTSTRAP_SERVERS)
                 .optional(
-                        Config.FORMAT,
-                        Config.KAFKA_CONFIG,
-                        Config.ASSIGN_PARTITIONS,
-                        Config.TRANSACTION_PREFIX,
-                        Config.SEMANTICS,
-                        Config.PARTITION,
-                        Config.PARTITION_KEY_FIELDS)
+                        KafkaSinkOptions.FORMAT,
+                        KafkaSinkOptions.KAFKA_CONFIG,
+                        KafkaSinkOptions.ASSIGN_PARTITIONS,
+                        KafkaSinkOptions.TRANSACTION_PREFIX,
+                        KafkaSinkOptions.SEMANTICS,
+                        KafkaSinkOptions.PARTITION,
+                        KafkaSinkOptions.PARTITION_KEY_FIELDS)
                 .build();
     }
 

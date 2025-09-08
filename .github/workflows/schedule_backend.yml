@@ -21,8 +21,8 @@ on:
     - cron: '0 16 * * *'
 
 concurrency:
-  group: backend-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  group: schedule-backend-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: false
 
 jobs:
   call-build-and-test:

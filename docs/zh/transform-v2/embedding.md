@@ -4,33 +4,44 @@
 
 ## 描述
 
-`Embedding` 转换插件利用 embedding 模型将文本数据转换为向量化表示。此转换可以应用于各种字段。该插件支持多种模型提供商，并且可以与不同的API集成。
+`Embedding` 转换插件利用 embedding 模型将文本和多模态数据转换为向量化表示。此转换可以应用于各种字段，包括文本、图片和视频。该插件支持多种模型提供商，并且可以与不同的API集成。
+
+> **重要提示：** 当前 embedding 精确度仅支持 float32
 
 ## 配置选项
 
-| 名称                             | 类型     | 是否必填 | 默认值 | 描述                                                               |
-|--------------------------------|--------|------|-----|------------------------------------------------------------------|
-| model_provider                 | enum   | 是    | -   | embedding模型的提供商。可选项包括 `QIANFAN`、`OPENAI` 等。                      |
-| api_key                        | string | 是    | -   | 用于验证embedding服务的API密钥。                                           |
-| secret_key                     | string | 是    | -   | 用于额外验证的密钥。一些提供商可能需要此密钥进行安全的API请求。                                |
-| single_vectorized_input_number | int    | 否    | 1   | 单次请求向量化的输入数量。默认值为1。                                              |
-| vectorization_fields           | map    | 是    | -   | 输入字段和相应的输出向量字段之间的映射。                                             |
-| model                          | string | 是    | -   | 要使用的具体embedding模型。例如，如果提供商为OPENAI，可以指定 `text-embedding-3-small`。 |
-| api_path                       | string | 否    | -   | embedding服务的API。通常由模型提供商提供。                                      |
-| oauth_path                     | string | 否    | -   | oauth 服务的 API 。                                                  |
-| custom_config                  | map    | 否    |     | 模型的自定义配置。                                                        |
-| custom_response_parse          | string | 否    |     | 使用 JsonPath 解析模型响应的方式。示例：`$.choices[*].message.content`。         |
-| custom_request_headers         | map    | 否    |     | 发送到模型的请求的自定义头信息。                                                 |
-| custom_request_body            | map    | 否    |     | 请求体的自定义配置。支持占位符如 `${model}`、`${input}`。                          |
+| 名称                             | 类型     | 是否必填 | 默认值    | 描述                                                               |
+|--------------------------------|--------|------|--------|------------------------------------------------------------------|
+| model_provider                 | enum   | 是    | -      | embedding模型的提供商。可选项包括 `AMAZON`、`QIANFAN`、`OPENAI` 等。             |
+| api_key                        | string | 是    | -      | 用于验证embedding服务的API密钥。                                           |
+| secret_key                     | string | 是    | -      | 用于额外验证的密钥。一些提供商可能需要此密钥进行安全的API请求。                                |
+| aws_region                     | string | 否    |        | 用于使用Amazon Bedrock 模型，需要指定模型请求区域.                                |
+| single_vectorized_input_number | int    | 否    | 1      | 单次请求向量化的输入数量。默认值为1。                                              |
+| vectorization_fields           | map    | 是    | -      | 输入字段和相应的输出向量字段之间的映射。                                             |
+| model                          | string | 是    | -      | 要使用的具体embedding模型。例如，如果提供商为OPENAI，可以指定 `text-embedding-3-small`。 |
+| api_path                       | string | 否    | -      | embedding服务的API。通常由模型提供商提供。                                      |
+| dimension                      | int    | 否    | 2048   | 向量维度默认为 2048，Embedding-3模型支持自定义向量维度，建议选择256、512、1024或2048维度。     |
+| oauth_path                     | string | 否    | -      | oauth 服务的 API 。                                                  |
+| custom_config                  | map    | 否    |        | 模型的自定义配置。                                                        |
+| custom_response_parse          | string | 否    |        | 使用 JsonPath 解析模型响应的方式。示例：`$.choices[*].message.content`。         |
+| custom_request_headers         | map    | 否    |        | 发送到模型的请求的自定义头信息。                                                 |
+| custom_request_body            | map    | 否    |        | 请求体的自定义配置。支持占位符如 `${model}`、`${input}`。                          |
+
+## 精度支持
+
+**重要：** 当前版本的 Embedding 插件仅支持 **float32** 精度的向量数据。
+
+- 所有生成的 embedding 向量将以 float32 格式存储
+- 如果您的模型或API返回其他精度格式（如 float64），插件会自动转换为 float32
 
 ### embedding_model_provider
 
-用于生成 embedding 的模型提供商。常见选项包括 `DOUBAO`、`QIANFAN`、`OPENAI` 等，同时可选择 `CUSTOM` 实现自定义 embedding
+用于生成 embedding 的模型提供商。常见选项包括 `AMAZON`、 `DOUBAO`、`QIANFAN`、`OPENAI` 等，同时可选择 `CUSTOM` 实现自定义 embedding
 模型的请求以及获取。
 
 ### api_key
 
-用于验证 embedding 服务请求的API密钥。通常由模型提供商在你注册他们的服务时提供。
+用于验证 embedding 服务请求的API密钥。通常由模型提供商在你注册他们的服务时提供，对于使用`AMAZON` 模型则对应IAM access key。
 
 ### secret_key
 
@@ -42,14 +53,67 @@
 
 ### vectorization_fields
 
-输入字段和相应的输出向量字段之间的映射。这使得插件可以理解要向量化的文本字段以及如何存储生成的向量。
+输入字段和相应的输出向量字段之间的映射。这使得插件可以理解要向量化的字段以及如何存储生成的向量。插件通过允许您为每个字段指定模态类型来支持多模态数据。
 
+**基本文本向量化：**
 ```hocon
 vectorization_fields {
     book_intro_vector = book_intro
-    author_biography_vector  = author_biography
+    author_biography_vector = author_biography
 }
 ```
+
+**多模态向量化：**
+```hocon
+vectorization_fields {
+    # 基本文本字段
+    text_vector = text_field
+
+    # 显式指定模态类型的配置
+    product_image_vector = {
+        field = product_image_url
+        modality = jpeg
+        format = url
+    }
+
+    # 自动检测模态类型（根据文件后缀）
+    thumbnail_vector = {
+        field = thumbnail_image  # 如果值为 "image.png"，会自动检测为 PNG 模态
+        format = url
+    }
+
+    # 视频字段配置
+    demo_video_vector = {
+        field = product_video_url
+        modality = mp4
+        format = url
+    }
+
+    # 二进制数据配置
+    binary_image_vector = {
+        field = image_data
+        modality = jpeg
+        format = binary
+    }
+}
+```
+
+**字段规范格式：**
+
+**支持的模态类型：**
+- **图片：** `jpeg` (jpg, jpeg), `png` (png, apng), `gif`, `webp`, `bmp` (bmp, dib), `tiff` (tiff, tif), `ico`, `icns`, `sgi`, `jpeg2000` (j2c, j2k, jp2, jpc, jpf, jpx)
+- **视频：** `mp4`, `avi`, `mov`
+- **文本：** `text`（默认）
+
+**数据格式：**
+- `text` - 文本格式（默认）
+- `url` - URL 格式
+- `binary` - 二进制数据格式
+
+**自动模态检测：**
+当未显式指定 `modality` 且 `format` 不是 `binary` 时，系统会根据字段值的文件后缀自动检测模态类型：
+
+> **重要：** 使用多模态字段（图片或视频）时，请确保您的模型提供商支持多模态 embedding。图片和视频字段必须包含有效的 URL 或二进制数据。目前，`DOUBAO` 提供商支持多模态数据处理。
 
 ### model
 
@@ -116,6 +180,8 @@ vectorization_fields {
 
 ## 示例配置
 
+### 基本文本 Embedding
+
 ```hocon
 env {
   job.mode = "BATCH"
@@ -154,13 +220,13 @@ source {
       "Herman Melville (1819–1891) was an American novelist, short story writer, and poet of the American Renaissance period. Born in New York City, Melville gained initial fame with novels such as Typee and Omoo, but it was Moby-Dick, published in 1851, that would later be recognized as his masterpiece. Melville’s work is known for its complexity, symbolism, and exploration of themes such as man’s place in the universe, the nature of evil, and the quest for meaning. Despite facing financial difficulties and critical neglect during his lifetime, Melville’s reputation soared posthumously, and he is now considered one of the great American authors."
       ], kind = INSERT}
     ]
-    result_table_name = "fake"
+    plugin_output = "fake"
   }
 }
 
 transform {
   Embedding {
-    source_table_name = "fake"
+    plugin_input = "fake"
     embedding_model_provider = QIANFAN
     model = bge_large_en
     api_key = xxxxxxxxxx
@@ -170,13 +236,13 @@ transform {
         book_intro_vector = book_intro
         author_biography_vector  = author_biography
     }
-    result_table_name = "embedding_output"
+    plugin_output = "embedding_output"
   }
 }
 
 sink {
   Assert {
-      source_table_name = "embedding_output"
+      plugin_input = "embedding_output"
 
 
       rules =
@@ -242,6 +308,243 @@ sink {
 }
 ```
 
+### 多模态 Embedding（火山引擎豆包）
+
+多模态 Embedding 支持输入可访问 URL 或 二进制数据格式处理多模态数据
+
+#### 可访问 URL
+
+```hocon
+env {
+  job.mode = "BATCH"
+}
+
+source {
+  FakeSource {
+    row.num = 5
+    schema = {
+      fields {
+        id = "int"
+        product_name = "string"
+        description = "string"
+        product_image_url = "string"
+        product_video_url = "string"
+        thumbnail_image = "string"
+        promotional_video = "string"
+        category = "string"
+        price = "decimal(10,2)"
+        created_at = "timestamp"
+      }
+    }
+    rows = [
+      {
+        fields = [
+          1,
+          "iPhone 15 Pro",
+          "Latest iPhone with advanced camera system and A17 Pro chip",
+          "https://example.com/images/iphone15pro.jpg",
+          "https://example.com/videos/iphone15pro_demo.mp4",
+          "https://example.com/thumbnails/iphone15pro_thumb.png",
+          "https://example.com/videos/iphone15pro_promo.mov",
+          "Electronics",
+          999.99,
+          "2024-01-15T10:30:00"
+        ],
+        kind = INSERT
+      },
+      {
+        fields = [
+          2,
+          "MacBook Air M3",
+          "Ultra-thin laptop with M3 chip for incredible performance",
+          "https://example.com/images/macbook_air_m3.jpeg",
+          "https://example.com/videos/macbook_air_review.avi",
+          "https://example.com/thumbnails/macbook_thumb.webp",
+          "https://example.com/videos/macbook_commercial.mp4",
+          "Computers",
+          1299.99,
+          "2024-02-20T14:15:00"
+        ],
+        kind = INSERT
+      }
+    ]
+    plugin_output = "fake"
+  }
+}
+
+transform {
+  Embedding {
+    plugin_input = "fake"
+    model_provider = DOUBAO
+    model = "doubao-embedding-vision"
+    api_key = "your-api-key"
+    api_path = "https://ark.cn-beijing.volces.com/api/v3/embeddings/multimodal"
+    single_vectorized_input_number = 1
+
+    vectorization_fields {
+      # 文本字段 - 默认文本模态
+      description_vector = description
+
+      # 显式指定图片模态
+      product_image_vector = {
+        field = product_image_url
+        modality = jpeg
+        format = url
+      }
+
+      thumbnail_vector = {
+        field = thumbnail_image
+        format = url
+      }
+
+      # 视频字段
+      demo_video_vector = {
+        field = product_video_url
+        modality = mp4
+        format = url
+      }
+
+      promo_video_vector = {
+        field = promotional_video  # 如果值为 "promo.mov"，自动检测为 MOV
+        format = url
+      }
+
+      product_name_vector = product_name
+    }
+
+    plugin_output = "multimodal_embedding_output"
+  }
+}
+
+sink {
+  Assert {
+    plugin_input = "multimodal_embedding_output"
+    rules = {
+      field_rules = [
+        {
+          field_name = id
+          field_type = int
+          field_value = [
+            {
+              rule_type = NOT_NULL
+            }
+          ]
+        },
+        {
+          field_name = description_vector
+          field_type = float_vector
+          field_value = [
+            {
+              rule_type = NOT_NULL
+            }
+          ]
+        },
+        {
+          field_name = product_image_vector
+          field_type = float_vector
+          field_value = [
+            {
+              rule_type = NOT_NULL
+            }
+          ]
+        },
+        {
+          field_name = thumbnail_vector
+          field_type = float_vector
+          field_value = [
+            {
+              rule_type = NOT_NULL
+            }
+          ]
+        },
+        {
+          field_name = demo_video_vector
+          field_type = float_vector
+          field_value = [
+            {
+              rule_type = NOT_NULL
+            }
+          ]
+        }
+      ]
+    }
+  }
+}
+```
+
+#### 二进制格式
+
+```hocon
+env {
+  job.mode = "BATCH"
+}
+
+source {
+  LocalFile {
+    path = "/seatunnel/read/binary/"
+    file_format_type = "binary"
+    binary_complete_file_mode = false
+    binary_chunk_size = 1024
+    plugin_output = "binary_source"
+  }
+}
+
+transform {
+  Embedding {
+    plugin_input = "binary_source"
+    model_provider = DOUBAO
+    model = "doubao-embedding-vision-250615"
+    api_key = "test-api-key"
+    api_path = "http://mockserver:1080/api/v3/embeddings/multimodal"
+    single_vectorized_input_number = 1
+
+    vectorization_fields = {
+      image_embedding = {
+        field = "data"
+        modality = "jpeg"
+        format = "binary"
+      }
+    }
+
+    plugin_output = "binary_embedding_output"
+  }
+}
+
+sink {
+  Assert {
+    plugin_input = "binary_embedding_output"
+    rules = {
+      row_rules = [
+        {
+          rule_type = MAX_ROW
+          rule_value = 1
+        }
+      ],
+      field_rules = [
+        {
+          field_name = image_embedding
+          field_type = float_vector
+          field_value = [
+            {
+              rule_type = NOT_NULL
+            }
+          ]
+        },
+        {
+          field_name = relativePath
+          field_type = string
+          field_value = [
+            {
+              rule_type = NOT_NULL
+            }
+          ]
+        }
+      ]
+    }
+  }
+}
+```
+
 ### Customize the embedding model
 
 ```hocon
@@ -283,13 +586,13 @@ source {
       "Herman Melville (1819–1891) was an American novelist, short story writer, and poet of the American Renaissance period. Born in New York City, Melville gained initial fame with novels such as Typee and Omoo, but it was Moby-Dick, published in 1851, that would later be recognized as his masterpiece. Melville’s work is known for its complexity, symbolism, and exploration of themes such as man’s place in the universe, the nature of evil, and the quest for meaning. Despite facing financial difficulties and critical neglect during his lifetime, Melville’s reputation soared posthumously, and he is now considered one of the great American authors."
       ], kind = INSERT}
     ]
-    result_table_name = "fake"
+    plugin_output = "fake"
   }
 }
 
 transform {
  Embedding {
-    source_table_name = "fake"
+    plugin_input = "fake"
     model_provider = CUSTOM
     model = text-embedding-3-small
     api_key = xxxxxxxx
@@ -310,13 +613,13 @@ transform {
             inputx = ["${input}"]
         }
     }
-    result_table_name = "embedding_output_1"
+    plugin_output = "embedding_output_1"
   }
 }
 
 sink {
   Assert {
-      source_table_name = "embedding_output_1"
+      plugin_input = "embedding_output_1"
       rules =
         {
           field_rules = [

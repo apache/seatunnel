@@ -17,6 +17,9 @@
 
 package org.apache.seatunnel.connectors.selectdb.rest;
 
+import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
+
 import org.apache.seatunnel.connectors.selectdb.config.SelectDBConfig;
 import org.apache.seatunnel.connectors.selectdb.exception.SelectDBConnectorErrorCode;
 import org.apache.seatunnel.connectors.selectdb.exception.SelectDBConnectorException;
@@ -30,8 +33,6 @@ import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.util.EntityUtils;
 
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;

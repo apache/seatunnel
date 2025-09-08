@@ -17,6 +17,11 @@
 
 package org.apache.seatunnel.connectors.doris.rest;
 
+import org.apache.seatunnel.shade.com.fasterxml.jackson.core.JsonParseException;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonMappingException;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
+
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.doris.config.DorisSourceConfig;
 import org.apache.seatunnel.connectors.doris.config.DorisSourceOptions;
@@ -38,10 +43,6 @@ import org.apache.http.entity.StringEntity;
 
 import org.slf4j.Logger;
 
-import com.fasterxml.jackson.core.JsonParseException;
-import com.fasterxml.jackson.databind.JsonMappingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.annotations.VisibleForTesting;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.BufferedReader;
@@ -239,22 +240,7 @@ public class RestService implements Serializable {
     }
 
     @VisibleForTesting
-    public static String randomEndpoint(String feNodes, Logger logger)
-            throws DorisConnectorException {
-        logger.trace("Parse fenodes '{}'.", feNodes);
-        if (StringUtils.isEmpty(feNodes)) {
-            String errMsg =
-                    String.format(ErrorMessages.ILLEGAL_ARGUMENT_MESSAGE, "fenodes", feNodes);
-            throw new DorisConnectorException(DorisConnectorErrorCode.REST_SERVICE_FAILED, errMsg);
-        }
-        List<String> nodes = Arrays.asList(feNodes.split(","));
-        Collections.shuffle(nodes);
-        return nodes.get(0).trim();
-    }
-
-    @VisibleForTesting
-    static String getUriStr(
-            DorisSourceConfig dorisSourceConfig, DorisSourceTable dorisSourceTable, Logger logger)
+    static String getUriStr(String node, DorisSourceTable dorisSourceTable, Logger logger)
             throws DorisConnectorException {
         String tableIdentifier =
                 dorisSourceTable.getTablePath().getDatabaseName()
@@ -262,7 +248,7 @@ public class RestService implements Serializable {
                         + dorisSourceTable.getTablePath().getTableName();
         String[] identifier = parseIdentifier(tableIdentifier, logger);
         return "http://"
-                + randomEndpoint(dorisSourceConfig.getFrontends(), logger)
+                + node.trim()
                 + API_PREFIX
                 + "/"
                 + identifier[0]
@@ -297,16 +283,37 @@ public class RestService implements Serializable {
         }
         logger.debug("Query SQL Sending to Doris FE is: '{}'.", sql);
 
-        HttpPost httpPost =
-                new HttpPost(getUriStr(dorisSourceConfig, dorisSourceTable, logger) + QUERY_PLAN);
         String entity = "{\"sql\": \"" + sql + "\"}";
         logger.debug("Post body Sending to Doris FE is: '{}'.", entity);
         StringEntity stringEntity = new StringEntity(entity, StandardCharsets.UTF_8);
         stringEntity.setContentEncoding("UTF-8");
         stringEntity.setContentType("application/json");
-        httpPost.setEntity(stringEntity);
 
-        String resStr = send(dorisSourceConfig, httpPost, logger);
+        List<String> feNodes = Arrays.asList(dorisSourceConfig.getFrontends().split(","));
+        Collections.shuffle(feNodes);
+        int feNodesNum = feNodes.size();
+        String resStr = null;
+
+        for (int i = 0; i < feNodesNum; i++) {
+            try {
+                HttpPost httpPost =
+                        new HttpPost(
+                                getUriStr(feNodes.get(i), dorisSourceTable, logger) + QUERY_PLAN);
+                httpPost.setEntity(stringEntity);
+                resStr = send(dorisSourceConfig, httpPost, logger);
+                break;
+            } catch (Exception e) {
+                if (i == feNodesNum - 1) {
+                    throw new DorisConnectorException(
+                            DorisConnectorErrorCode.REST_SERVICE_FAILED, e);
+                }
+                log.error(
+                        "Find partition error for feNode: {} with exception: {}",
+                        feNodes.get(i),
+                        e.getMessage());
+            }
+        }
+
         logger.debug("Find partition response is '{}'.", resStr);
         QueryPlan queryPlan = getQueryPlan(resStr, logger);
         Map<String, List<Long>> be2Tablets = selectBeForTablet(queryPlan, logger);

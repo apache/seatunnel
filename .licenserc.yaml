@@ -38,6 +38,7 @@ header:
     - '**/*.ini'
     - '**/*.svg'
     - '**/*.txt'
+    - '**/*.csv'
     - '**/.gitignore'
     - '**/LICENSE'
     - '**/NOTICE'

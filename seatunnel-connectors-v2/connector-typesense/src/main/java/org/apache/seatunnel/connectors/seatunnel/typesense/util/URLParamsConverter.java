@@ -17,12 +17,10 @@
 
 package org.apache.seatunnel.connectors.seatunnel.typesense.util;
 
-import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
-
+import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.connectors.seatunnel.typesense.exception.TypesenseConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.typesense.exception.TypesenseConnectorException;
 
-import java.io.IOException;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.Optional;
@@ -34,14 +32,7 @@ public class URLParamsConverter {
         return Optional.ofNullable(paramsString)
                 .filter(s -> !s.isEmpty())
                 .map(URLParamsConverter::parseParams)
-                .map(
-                        paramsMap -> {
-                            try {
-                                return new ObjectMapper().writeValueAsString(paramsMap);
-                            } catch (IOException e) {
-                                throw new RuntimeException("Error converting params to JSON", e);
-                            }
-                        })
+                .map(JsonUtils::toJsonString)
                 .orElseThrow(
                         () ->
                                 new IllegalArgumentException(

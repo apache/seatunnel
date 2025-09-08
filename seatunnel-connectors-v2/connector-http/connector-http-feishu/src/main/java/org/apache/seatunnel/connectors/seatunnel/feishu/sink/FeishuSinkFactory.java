@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.feishu.sink;
 
+import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
@@ -31,7 +32,12 @@ public class FeishuSinkFactory extends HttpSinkFactory {
     @Override
     public TableSink createSink(TableSinkFactoryContext context) {
         CatalogTable catalogTable = context.getCatalogTable();
-        return () -> new FeishuSink(context.getOptions().toConfig(), catalogTable);
+        return () -> new FeishuSink(context.getOptions(), catalogTable);
+    }
+
+    @Override
+    public OptionRule optionRule() {
+        return super.optionRule();
     }
 
     @Override

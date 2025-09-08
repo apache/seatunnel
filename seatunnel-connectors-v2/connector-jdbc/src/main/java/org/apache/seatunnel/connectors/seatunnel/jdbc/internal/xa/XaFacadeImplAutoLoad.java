@@ -45,8 +45,6 @@ import java.util.concurrent.Callable;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Preconditions.checkState;
 import static java.util.Optional.empty;
 import static java.util.Optional.of;
 import static javax.transaction.xa.XAException.XAER_NOTA;
@@ -61,6 +59,8 @@ import static javax.transaction.xa.XAException.XA_RBTRANSIENT;
 import static javax.transaction.xa.XAResource.TMENDRSCAN;
 import static javax.transaction.xa.XAResource.TMNOFLAGS;
 import static javax.transaction.xa.XAResource.TMSTARTRSCAN;
+import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkNotNull;
+import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkState;
 
 /**
  * Default {@link org.apache.seatunnel.connectors.seatunnel.jdbc.internal.xa.XaFacade}

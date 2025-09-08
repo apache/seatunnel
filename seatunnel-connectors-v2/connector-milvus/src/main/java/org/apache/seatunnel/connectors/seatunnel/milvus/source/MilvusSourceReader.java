@@ -26,14 +26,12 @@ import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.CommonOptions;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.connectors.seatunnel.milvus.config.MilvusSourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.milvus.config.MilvusSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.milvus.exception.MilvusConnectionErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.milvus.exception.MilvusConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.milvus.utils.source.MilvusSourceConverter;
 
-import org.apache.curator.shaded.com.google.common.collect.Lists;
-
-import org.codehaus.plexus.util.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 
 import io.milvus.client.MilvusServiceClient;
 import io.milvus.grpc.GetLoadStateResponse;
@@ -52,6 +50,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Deque;
 import java.util.HashMap;
@@ -59,8 +58,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentLinkedDeque;
 
-import static org.apache.seatunnel.connectors.seatunnel.milvus.config.MilvusSourceConfig.BATCH_SIZE;
-import static org.apache.seatunnel.connectors.seatunnel.milvus.config.MilvusSourceConfig.RATE_LIMIT;
+import static org.apache.seatunnel.connectors.seatunnel.milvus.config.MilvusSourceOptions.BATCH_SIZE;
+import static org.apache.seatunnel.connectors.seatunnel.milvus.config.MilvusSourceOptions.RATE_LIMIT;
 
 @Slf4j
 public class MilvusSourceReader implements SourceReader<SeaTunnelRow, MilvusSourceSplit> {
@@ -88,8 +87,8 @@ public class MilvusSourceReader implements SourceReader<SeaTunnelRow, MilvusSour
         client =
                 new MilvusServiceClient(
                         ConnectParam.newBuilder()
-                                .withUri(config.get(MilvusSourceConfig.URL))
-                                .withToken(config.get(MilvusSourceConfig.TOKEN))
+                                .withUri(config.get(MilvusSourceOptions.URL))
+                                .withToken(config.get(MilvusSourceOptions.TOKEN))
                                 .build());
         setRateLimit(config.get(RATE_LIMIT).toString());
     }
@@ -162,12 +161,16 @@ public class MilvusSourceReader implements SourceReader<SeaTunnelRow, MilvusSour
                     MilvusConnectionErrorCode.SOURCE_TABLE_SCHEMA_IS_NULL);
         }
 
-        R<GetLoadStateResponse> loadStateResponse =
-                client.getLoadState(
-                        GetLoadStateParam.newBuilder()
-                                .withDatabaseName(tablePath.getDatabaseName())
-                                .withCollectionName(tablePath.getTableName())
-                                .build());
+        GetLoadStateParam.Builder loadStateParam =
+                GetLoadStateParam.newBuilder()
+                        .withDatabaseName(tablePath.getDatabaseName())
+                        .withCollectionName(tablePath.getTableName());
+
+        if (StringUtils.isNotEmpty(partitionName)) {
+            loadStateParam.withPartitionNames(Collections.singletonList(partitionName));
+        }
+
+        R<GetLoadStateResponse> loadStateResponse = client.getLoadState(loadStateParam.build());
         if (loadStateResponse.getStatus() != R.Status.Success.getCode()) {
             throw new MilvusConnectorException(
                     MilvusConnectionErrorCode.SERVER_RESPONSE_FAILED,
@@ -182,7 +185,7 @@ public class MilvusSourceReader implements SourceReader<SeaTunnelRow, MilvusSour
                         .withDatabaseName(tablePath.getDatabaseName())
                         .withCollectionName(tablePath.getTableName())
                         .withExpr("")
-                        .withOutFields(Lists.newArrayList("count(*)"));
+                        .withOutFields(Arrays.asList("count(*)"));
 
         if (StringUtils.isNotEmpty(partitionName)) {
             queryParam.withPartitionNames(Collections.singletonList(partitionName));
@@ -217,7 +220,7 @@ public class MilvusSourceReader implements SourceReader<SeaTunnelRow, MilvusSour
                     QueryIteratorParam.newBuilder()
                             .withDatabaseName(tablePath.getDatabaseName())
                             .withCollectionName(tablePath.getTableName())
-                            .withOutFields(Lists.newArrayList("*"))
+                            .withOutFields(Arrays.asList("*"))
                             .withBatchSize(batchSize);
 
             if (StringUtils.isNotEmpty(partitionName)) {

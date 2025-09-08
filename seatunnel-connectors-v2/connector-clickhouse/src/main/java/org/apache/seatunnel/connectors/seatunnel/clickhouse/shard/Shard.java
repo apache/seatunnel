@@ -22,6 +22,7 @@ import com.clickhouse.client.ClickHouseNode;
 import com.clickhouse.client.ClickHouseProtocol;
 
 import java.io.Serializable;
+import java.util.Map;
 import java.util.Objects;
 
 public class Shard implements Serializable {
@@ -44,7 +45,8 @@ public class Shard implements Serializable {
             int port,
             String database,
             String username,
-            String password) {
+            String password,
+            Map<String, String> options) {
         this.shardNum = shardNum;
         this.replicaNum = replicaNum;
         this.node =
@@ -54,6 +56,7 @@ public class Shard implements Serializable {
                         .database(database)
                         .weight(shardWeight)
                         .credentials(ClickHouseCredentials.fromUserAndPassword(username, password))
+                        .options(options)
                         .build();
     }
 

@@ -493,7 +493,7 @@ public class DorisMultiReadIT extends AbstractDorisIT {
     }
 
     public void getErrorUrl(String message) {
-        // 使用正则表达式匹配URL
+        // Using regular expressions to match URLs
         Pattern pattern = Pattern.compile("http://[\\w./?=&-_]+");
         Matcher matcher = pattern.matcher(message);
         String urlString = null;
@@ -509,12 +509,12 @@ public class DorisMultiReadIT extends AbstractDorisIT {
             URL url = new URL(urlString);
             HttpURLConnection connection = (HttpURLConnection) url.openConnection();
 
-            // 设置请求方法
+            // Set the request method
             connection.setRequestMethod("GET");
 
-            // 设置连接超时时间
+            // Set the connection timeout
             connection.setConnectTimeout(5000);
-            // 设置读取超时时间
+            // Set the read timeout
             connection.setReadTimeout(5000);
 
             int responseCode = connection.getResponseCode();

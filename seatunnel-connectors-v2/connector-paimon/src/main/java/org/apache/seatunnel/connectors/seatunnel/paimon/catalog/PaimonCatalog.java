@@ -17,10 +17,12 @@
 
 package org.apache.seatunnel.connectors.seatunnel.paimon.catalog;
 
+import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
+import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.catalog.exception.CatalogException;
@@ -29,14 +31,18 @@ import org.apache.seatunnel.api.table.catalog.exception.DatabaseNotExistExceptio
 import org.apache.seatunnel.api.table.catalog.exception.TableAlreadyExistException;
 import org.apache.seatunnel.api.table.catalog.exception.TableNotExistException;
 import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
+import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonConfig;
 import org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.paimon.exception.PaimonConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.paimon.exception.PaimonConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.paimon.sink.PaimonSink;
 import org.apache.seatunnel.connectors.seatunnel.paimon.utils.SchemaUtil;
 
+import org.apache.paimon.CoreOptions;
 import org.apache.paimon.catalog.Identifier;
 import org.apache.paimon.schema.Schema;
+import org.apache.paimon.schema.SchemaChange;
 import org.apache.paimon.table.FileStoreTable;
 import org.apache.paimon.table.Table;
 import org.apache.paimon.types.DataField;
@@ -47,19 +53,23 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
+import static org.apache.seatunnel.api.table.factory.FactoryUtil.discoverFactory;
+
 @Slf4j
 public class PaimonCatalog implements Catalog, PaimonTable {
     private static final String DEFAULT_DATABASE = "default";
 
-    private String catalogName;
-    private ReadonlyConfig readonlyConfig;
-    private PaimonCatalogLoader paimonCatalogLoader;
+    private final String catalogName;
+    private final ReadonlyConfig readonlyConfig;
+    private final PaimonCatalogLoader paimonCatalogLoader;
     private org.apache.paimon.catalog.Catalog catalog;
 
     public PaimonCatalog(String catalogName, ReadonlyConfig readonlyConfig) {
@@ -79,7 +89,7 @@ public class PaimonCatalog implements Catalog, PaimonTable {
             try {
                 ((Closeable) catalog).close();
             } catch (IOException e) {
-                log.error("Error while closing IcebergCatalog.", e);
+                log.error("Error while closing PaimonCatalog.", e);
                 throw new CatalogException(e);
             }
         }
@@ -97,7 +107,8 @@ public class PaimonCatalog implements Catalog, PaimonTable {
 
     @Override
     public boolean databaseExists(String databaseName) throws CatalogException {
-        return catalog.databaseExists(databaseName);
+        List<String> listDatabases = catalog.listDatabases();
+        return listDatabases.contains(databaseName);
     }
 
     @Override
@@ -117,7 +128,16 @@ public class PaimonCatalog implements Catalog, PaimonTable {
 
     @Override
     public boolean tableExists(TablePath tablePath) throws CatalogException {
-        return catalog.tableExists(toIdentifier(tablePath));
+        Identifier identifier = toIdentifier(tablePath);
+        List<String> tables = new ArrayList<>();
+        try {
+            if (databaseExists(identifier.getDatabaseName())) {
+                tables = catalog.listTables(identifier.getDatabaseName());
+            }
+        } catch (org.apache.paimon.catalog.Catalog.DatabaseNotExistException e) {
+            return false;
+        }
+        return tables.contains(identifier.getTableName());
     }
 
     @Override
@@ -157,7 +177,9 @@ public class PaimonCatalog implements Catalog, PaimonTable {
         try {
             Schema paimonSchema =
                     SchemaUtil.toPaimonSchema(
-                            table.getTableSchema(), new PaimonSinkConfig(readonlyConfig));
+                            table.getTableSchema(),
+                            new PaimonSinkConfig(readonlyConfig),
+                            table.getComment());
             catalog.createTable(toIdentifier(tablePath), paimonSchema, ignoreIfExists);
         } catch (org.apache.paimon.catalog.Catalog.TableAlreadyExistException e) {
             throw new TableAlreadyExistException(this.catalogName, tablePath);
@@ -210,7 +232,9 @@ public class PaimonCatalog implements Catalog, PaimonTable {
         Schema.Builder builder = Schema.newBuilder();
         schema.fields()
                 .forEach(field -> builder.column(field.name(), field.type(), field.description()));
-        builder.options(schema.options());
+        Map<String, String> options = new HashMap<>(schema.options());
+        options.remove(CoreOptions.PATH.key());
+        builder.options(options);
         builder.primaryKey(schema.primaryKeys());
         builder.partitionKeys(schema.partitionKeys());
         builder.comment(schema.comment());
@@ -263,6 +287,10 @@ public class PaimonCatalog implements Catalog, PaimonTable {
                 });
 
         List<String> partitionKeys = schema.partitionKeys();
+        List<String> primaryKyes = schema.primaryKeys();
+        if (!primaryKyes.isEmpty()) {
+            builder.primaryKey(PrimaryKey.of("pk", primaryKyes));
+        }
 
         return CatalogTable.of(
                 org.apache.seatunnel.api.table.catalog.TableIdentifier.of(
@@ -270,7 +298,7 @@ public class PaimonCatalog implements Catalog, PaimonTable {
                 builder.build(),
                 paimonFileStoreTableTable.options(),
                 partitionKeys,
-                null,
+                paimonFileStoreTableTable.comment().orElse(null),
                 catalogName);
     }
 
@@ -290,11 +318,66 @@ public class PaimonCatalog implements Catalog, PaimonTable {
             }
         } else if (cause instanceof RuntimeException) {
             String message = cause.getMessage();
-            if (message.contains("Cannot define 'bucket-key' in unaware or dynamic bucket mode.")) {
+            // https://github.com/apache/paimon/pull/3320/files#diff-d3e068ea8caf83d2371f0eaa1cbf3d02ff06e1c1cdceec5fab2e065cecd96230
+            if (message.contains(
+                    "Cannot define 'bucket-key' with bucket -1, please specify a bucket number.")) {
                 throw new PaimonConnectorException(
                         PaimonConnectorErrorCode.WRITE_PROPS_BUCKET_KEY_ERROR, message);
             }
         }
         throw new CatalogException("An unexpected error occurred", e);
+    }
+
+    // --------------------------------------------------------------------------------------------
+    // SPI load paimon catalog
+    // --------------------------------------------------------------------------------------------
+
+    public static PaimonCatalog loadPaimonCatalog(ReadonlyConfig readonlyConfig) {
+        org.apache.seatunnel.api.table.factory.CatalogFactory catalogFactory =
+                discoverFactory(
+                        Thread.currentThread().getContextClassLoader(),
+                        org.apache.seatunnel.api.table.factory.CatalogFactory.class,
+                        PaimonSink.PLUGIN_NAME);
+        if (catalogFactory == null) {
+            throw new PaimonConnectorException(
+                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                    String.format(
+                            "PluginName: %s, PluginType: %s, Message: %s",
+                            PaimonSink.PLUGIN_NAME,
+                            PluginType.SINK,
+                            "Cannot find paimon catalog factory"));
+        }
+        return (PaimonCatalog)
+                catalogFactory.createCatalog(catalogFactory.factoryIdentifier(), readonlyConfig);
+    }
+
+    // --------------------------------------------------------------------------------------------
+    // alterTable
+    // --------------------------------------------------------------------------------------------
+
+    public void alterTable(
+            Identifier identifier, SchemaChange schemaChange, boolean ignoreIfNotExists) {
+        try {
+            catalog.alterTable(identifier, schemaChange, true);
+        } catch (org.apache.paimon.catalog.Catalog.TableNotExistException e) {
+            throw new CatalogException("TableNotExistException: {}", e);
+        } catch (org.apache.paimon.catalog.Catalog.ColumnAlreadyExistException e) {
+            throw new CatalogException("ColumnAlreadyExistException: {}", e);
+        } catch (org.apache.paimon.catalog.Catalog.ColumnNotExistException e) {
+            throw new CatalogException("ColumnNotExistException: {}", e);
+        }
+    }
+
+    public void alterTable(
+            Identifier identifier, List<SchemaChange> schemaChanges, boolean ignoreIfNotExists) {
+        try {
+            catalog.alterTable(identifier, schemaChanges, true);
+        } catch (org.apache.paimon.catalog.Catalog.TableNotExistException e) {
+            throw new CatalogException("TableNotExistException: {}", e);
+        } catch (org.apache.paimon.catalog.Catalog.ColumnAlreadyExistException e) {
+            throw new CatalogException("ColumnAlreadyExistException: {}", e);
+        } catch (org.apache.paimon.catalog.Catalog.ColumnNotExistException e) {
+            throw new CatalogException("ColumnNotExistException: {}", e);
+        }
     }
 }

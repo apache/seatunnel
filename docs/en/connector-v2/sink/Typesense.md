@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-typesense.md';
+
 # Typesense
 
 ## Description
@@ -77,7 +79,7 @@ Simple example:
 ```bash
 sink {
     Typesense {
-        source_table_name = "typesense_test_table"
+        plugin_input = "typesense_test_table"
         hosts = ["localhost:8108"]
         collection = "typesense_to_typesense_sink_with_query"
         max_retry_count = 3
@@ -91,3 +93,6 @@ sink {
 }
 ```
 
+## Changelog
+
+<ChangeLog />

@@ -1,4 +1,4 @@
-# Apache SeaTunnel Web UI 文档
+# Web UI
 
 ## 访问
 

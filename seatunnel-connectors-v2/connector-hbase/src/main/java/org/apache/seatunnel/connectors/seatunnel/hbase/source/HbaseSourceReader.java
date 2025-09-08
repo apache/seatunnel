@@ -18,6 +18,9 @@
 
 package org.apache.seatunnel.connectors.seatunnel.hbase.source;
 
+import org.apache.seatunnel.shade.com.google.common.base.Preconditions;
+import org.apache.seatunnel.shade.com.google.common.collect.Maps;
+
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -29,8 +32,6 @@ import org.apache.seatunnel.connectors.seatunnel.hbase.format.HBaseDeserializati
 import org.apache.hadoop.hbase.client.Result;
 import org.apache.hadoop.hbase.client.ResultScanner;
 
-import com.google.common.base.Preconditions;
-import com.google.common.collect.Maps;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;

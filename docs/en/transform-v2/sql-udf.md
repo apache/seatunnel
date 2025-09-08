@@ -110,9 +110,9 @@ We use UDF of SQL query to transform the source data like this:
 ```
 transform {
   Sql {
-    source_table_name = "fake"
-    result_table_name = "fake1"
-    query = "select id, example(name) as name, age from fake"
+    plugin_input = "fake"
+    plugin_output = "fake1"
+    query = "select id, example(name) as name, age from dual"
   }
 }
 ```

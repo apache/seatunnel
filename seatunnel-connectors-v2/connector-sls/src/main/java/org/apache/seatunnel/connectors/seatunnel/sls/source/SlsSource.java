@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.sls.source;
 
+import org.apache.seatunnel.shade.com.google.common.collect.Lists;
+
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.source.Boundedness;
@@ -27,9 +29,8 @@ import org.apache.seatunnel.api.source.SupportParallelism;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.constants.JobMode;
+import org.apache.seatunnel.connectors.seatunnel.sls.config.SlsBaseOptions;
 import org.apache.seatunnel.connectors.seatunnel.sls.state.SlsSourceState;
-
-import com.google.common.collect.Lists;
 
 import java.util.List;
 
@@ -84,6 +85,6 @@ public class SlsSource
 
     @Override
     public String getPluginName() {
-        return org.apache.seatunnel.connectors.seatunnel.sls.config.Config.CONNECTOR_IDENTITY;
+        return SlsBaseOptions.CONNECTOR_IDENTITY;
     }
 }

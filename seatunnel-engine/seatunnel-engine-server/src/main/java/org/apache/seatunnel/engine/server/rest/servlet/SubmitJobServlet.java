@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.server.rest.servlet;
 
+import org.apache.seatunnel.engine.server.rest.ConfigFormat;
 import org.apache.seatunnel.engine.server.rest.service.JobInfoService;
 
 import com.hazelcast.spi.impl.NodeEngineImpl;
@@ -26,6 +27,8 @@ import javax.servlet.http.HttpServletResponse;
 
 import java.io.IOException;
 import java.util.Map;
+
+import static org.apache.seatunnel.engine.server.rest.RestConstant.CONFIG_FORMAT;
 
 public class SubmitJobServlet extends BaseServlet {
     private final JobInfoService jobInfoService;
@@ -39,7 +42,7 @@ public class SubmitJobServlet extends BaseServlet {
     public void doPost(HttpServletRequest req, HttpServletResponse resp) throws IOException {
 
         Map<String, String> requestParams = getParameterMap(req);
-
-        writeJson(resp, jobInfoService.submitJob(requestParams, requestBody(req)));
+        ConfigFormat configFormat = ConfigFormat.fromString(requestParams.get(CONFIG_FORMAT));
+        writeJson(resp, jobInfoService.submitJob(requestParams, requestBody(req, configFormat)));
     }
 }

@@ -24,6 +24,7 @@ import java.io.Serializable;
 import java.util.Set;
 
 public class PulsarSplitEnumeratorState implements Serializable {
+    private static final long serialVersionUID = 2300561232002247799L;
     private final Set<TopicPartition> assignedPartitions;
 
     PulsarSplitEnumeratorState(Set<TopicPartition> assignedPartitions) {

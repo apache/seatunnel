@@ -86,7 +86,7 @@ source {
   Kafka {
     bootstrap.servers = "kafkaCluster:9092"
     topic = "products_binlog"
-    result_table_name = "kafka_name"
+    plugin_output = "kafka_name"
     start_mode = earliest
     schema = {
       fields {

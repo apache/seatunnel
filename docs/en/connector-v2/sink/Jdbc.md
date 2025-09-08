@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-jdbc.md';
+
 # JDBC
 
 > JDBC sink connector
@@ -29,18 +31,18 @@ support `Xa transactions`. You can set `is_exactly_once=true` to enable it.
 
 ## Options
 
-|                   Name                    |  Type   | Required |           Default            |
+| Name                                      | Type    | Required | Default                      |
 |-------------------------------------------|---------|----------|------------------------------|
 | url                                       | String  | Yes      | -                            |
 | driver                                    | String  | Yes      | -                            |
-| user                                      | String  | No       | -                            |
+| username                                      | String  | No       | -                            |
 | password                                  | String  | No       | -                            |
 | query                                     | String  | No       | -                            |
 | compatible_mode                           | String  | No       | -                            |
+| dialect                                   | String  | No       | -                            | 
 | database                                  | String  | No       | -                            |
 | table                                     | String  | No       | -                            |
 | primary_keys                              | Array   | No       | -                            |
-| support_upsert_by_query_primary_key_exist | Boolean | No       | false                        |
 | connection_check_timeout_sec              | Int     | No       | 30                           |
 | max_retries                               | Int     | No       | 0                            |
 | batch_size                                | Int     | No       | 1000                         |
@@ -88,6 +90,25 @@ For example, when using OceanBase database, you need to set it to 'mysql' or 'or
 
 Postgres 9.5 version or below,please set it to `postgresLow` to support cdc
 
+### dialect [string]
+
+The appointed dialect, if it does not exist, is still obtained according to the url, and the priority is higher than the url. For example,when using starrocks, you need set it to `starrocks`. Similarly, when using mysql, you need to set its value to `mysql`.
+
+If one dialect not supported by SeaTunnel, it will use the default dialect `GenericDialect`. Just make sure the driver you provided support the database you want to connect.
+
+#### dialect list
+
+|           | Dialect Name |          |
+|-----------|--------------|----------|
+| Greenplum | DB2          | Dameng   |
+| Gbase8a   | HIVE         | KingBase |
+| MySQL     | StarRocks    | Oracle   |
+| Phoenix   | Postgres     | Redshift |
+| SapHana   | Snowflake    | Sqlite   |
+| SqlServer | Tablestore   | Teradata |
+| Vertica   | OceanBase    | XUGU     |
+| IRIS      | Inceptor     | Highgo   |
+
 ### database [string]
 
 Use this `database` and `table-name` auto-generate sql and receive upstream input datas write to database.
@@ -103,13 +124,15 @@ This option is mutually exclusive with `query` and has a higher priority.
 The table parameter can fill in the name of an unwilling table, which will eventually be used as the table name of the creation table, and supports variables (`${table_name}`, `${schema_name}`). Replacement rules: `${schema_name}` will replace the SCHEMA name passed to the target side, and `${table_name}` will replace the name of the table passed to the table at the target side.
 
 mysql sink for example:
+
 1. test_${schema_name}_${table_name}_test
 2. sink_sinktable
 3. ss_${table_name}
 
 pgsql (Oracle Sqlserver ...) Sink for example:
-1. ${schema_name}.${table_name} _test
-2. dbo.tt_${table_name} _sink
+
+1. ${schema_name}.${table_name}_test
+2. dbo.tt_${table_name}_sink
 3. public.sink_table
 
 Tip: If the target database has the concept of SCHEMA, the table parameter must be written as `xxx.xxx`
@@ -118,43 +141,38 @@ Tip: If the target database has the concept of SCHEMA, the table parameter must 
 
 This option is used to support operations such as `insert`, `delete`, and `update` when automatically generate sql.
 
-### support_upsert_by_query_primary_key_exist [boolean]
-
-Choose to use INSERT sql, UPDATE sql to process update events(INSERT, UPDATE_AFTER) based on query primary key exists. This configuration is only used when database unsupported upsert syntax.
-**Note**: that this method has low performance
-
 ### connection_check_timeout_sec [int]
 
 The time in seconds to wait for the database operation used to validate the connection to complete.
 
-### max_retries[int]
+### max_retries [int]
 
 The number of retries to submit failed (executeBatch)
 
-### batch_size[int]
+### batch_size [int]
 
 For batch writing, when the number of buffered records reaches the number of `batch_size` or the time reaches `checkpoint.interval`
 , the data will be flushed into the database
 
-### is_exactly_once[boolean]
+### is_exactly_once [boolean]
 
 Whether to enable exactly-once semantics, which will use Xa transactions. If on, you need to
 set `xa_data_source_class_name`.
 
-### generate_sink_sql[boolean]
+### generate_sink_sql [boolean]
 
 Generate sql statements based on the database table you want to write to
 
-### xa_data_source_class_name[string]
+### xa_data_source_class_name [string]
 
 The xa data source class name of the database Driver, for example, mysql is `com.mysql.cj.jdbc.MysqlXADataSource`, and
 please refer to appendix for other data sources
 
-### max_commit_attempts[int]
+### max_commit_attempts [int]
 
 The number of retries for transaction commit failures
 
-### transaction_timeout_sec[int]
+### transaction_timeout_sec [int]
 
 The timeout after the transaction is opened, the default is -1 (never timeout). Note that setting the timeout may affect
 exactly-once semantics
@@ -226,7 +244,7 @@ In the case of is_exactly_once = "true", Xa transactions are used. This requires
 
 there are some reference value for params above.
 
-|    datasource     |                    driver                    |                                url                                 | xa_data_source_class_name                          | maven                                                                                                                         |
+| datasource        |                    driver                    | url                                                                | xa_data_source_class_name                          | maven                                                                                                                         |
 |-------------------|----------------------------------------------|--------------------------------------------------------------------|----------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------|
 | MySQL             | com.mysql.cj.jdbc.Driver                     | jdbc:mysql://localhost:3306/test                                   | com.mysql.cj.jdbc.MysqlXADataSource                | https://mvnrepository.com/artifact/mysql/mysql-connector-java                                                                 |
 | PostgreSQL        | org.postgresql.Driver                        | jdbc:postgresql://localhost:5432/postgres                          | org.postgresql.xa.PGXADataSource                   | https://mvnrepository.com/artifact/org.postgresql/postgresql                                                                  |
@@ -249,6 +267,7 @@ there are some reference value for params above.
 | xugu              | com.xugu.cloudjdbc.Driver                    | jdbc:xugu://localhost:5138                                         | /                                                  | https://repo1.maven.org/maven2/com/xugudb/xugu-jdbc/12.2.0/xugu-jdbc-12.2.0.jar                                               |
 | InterSystems IRIS | com.intersystems.jdbc.IRISDriver             | jdbc:IRIS://localhost:1972/%SYS                                    | /                                                  | https://raw.githubusercontent.com/intersystems-community/iris-driver-distribution/main/JDBC/JDK18/intersystems-jdbc-3.8.4.jar |
 | opengauss         | org.opengauss.Driver                         | jdbc:opengauss://localhost:5432/postgres                           | /                                                  | https://repo1.maven.org/maven2/org/opengauss/opengauss-jdbc/5.1.0-og/opengauss-jdbc-5.1.0-og.jar                              |
+| Highgo            | com.highgo.jdbc.Driver                       | jdbc:highgo://localhost:5866/highgo                                | /                                                  | https://repo1.maven.org/maven2/com/highgo/HgdbJdbc/6.2.3/HgdbJdbc-6.2.3.jar                                                   |
 
 ## Example
 
@@ -340,7 +359,6 @@ sink {
         compatible_mode="postgresLow"
         database = "sink_database"
         table = "sink_table"
-        support_upsert_by_query_primary_key_exist = true
         generate_sink_sql = true
         primary_keys = ["key1", "key2", ...]
     }
@@ -361,7 +379,7 @@ env {
 
 source {
   Mysql-CDC {
-    base-url = "jdbc:mysql://127.0.0.1:3306/seatunnel"
+    url = "jdbc:mysql://127.0.0.1:3306/seatunnel"
     username = "root"
     password = "******"
     
@@ -433,28 +451,5 @@ sink {
 
 ## Changelog
 
-### 2.2.0-beta 2022-09-26
-
-- Add Console Sink Connector
-
-### 2.3.0-beta 2022-10-20
-
-- [BugFix] Fix JDBC split exception ([2904](https://github.com/apache/seatunnel/pull/2904))
-- [Feature] Support Phoenix JDBC Sink ([2499](https://github.com/apache/seatunnel/pull/2499))
-- [Feature] Support SQL Server JDBC Sink ([2646](https://github.com/apache/seatunnel/pull/2646))
-- [Feature] Support Oracle JDBC Sink ([2550](https://github.com/apache/seatunnel/pull/2550))
-- [Feature] Support StarRocks JDBC Sink ([3060](https://github.com/apache/seatunnel/pull/3060))
-- [Feature] Support DB2 JDBC Sink ([2410](https://github.com/apache/seatunnel/pull/2410))
-
-### next version
-
-- [Feature] Support CDC write DELETE/UPDATE/INSERT events ([3378](https://github.com/apache/seatunnel/issues/3378))
-- [Feature] Support Teradata JDBC　Sink ([3362](https://github.com/apache/seatunnel/pull/3362))
-- [Feature] Support Sqlite JDBC Sink ([3089](https://github.com/apache/seatunnel/pull/3089))
-- [Feature] Support CDC write DELETE/UPDATE/INSERT events ([3378](https://github.com/apache/seatunnel/issues/3378))
-- [Feature] Support Doris JDBC Sink
-- [Feature] Support Redshift JDBC Sink([#3615](https://github.com/apache/seatunnel/pull/3615))
-- [Improve] Add config item enable upsert by query([#3708](https://github.com/apache/seatunnel/pull/3708))
-- [Improve] Add database field to sink config([#4199](https://github.com/apache/seatunnel/pull/4199))
-- [Improve] Add Vertica connector([#4303](https://github.com/apache/seatunnel/pull/4303))
+<ChangeLog />
 

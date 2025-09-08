@@ -26,6 +26,8 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.JdbcRow
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 
+import javax.annotation.Nullable;
+
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -42,6 +44,7 @@ public class InsertOrUpdateBatchStatementExecutor
     private final TableSchema keyTableSchema;
     private final Function<SeaTunnelRow, SeaTunnelRow> keyExtractor;
     @NonNull private final TableSchema valueTableSchema;
+    @Nullable private final TableSchema databaseTableSchema;
     @NonNull private final JdbcRowConverter rowConverter;
     private transient PreparedStatement existStatement;
     private transient PreparedStatement insertStatement;
@@ -53,6 +56,7 @@ public class InsertOrUpdateBatchStatementExecutor
             StatementFactory insertStmtFactory,
             StatementFactory updateStmtFactory,
             TableSchema valueTableSchema,
+            TableSchema databaseTableSchema,
             JdbcRowConverter rowConverter) {
         this(
                 null,
@@ -61,6 +65,7 @@ public class InsertOrUpdateBatchStatementExecutor
                 null,
                 null,
                 valueTableSchema,
+                databaseTableSchema,
                 rowConverter);
     }
 
@@ -81,14 +86,14 @@ public class InsertOrUpdateBatchStatementExecutor
                 insertStatement.executeBatch();
                 insertStatement.clearBatch();
             }
-            rowConverter.toExternal(valueTableSchema, record, updateStatement);
+            rowConverter.toExternal(valueTableSchema, databaseTableSchema, record, updateStatement);
             updateStatement.addBatch();
         } else {
             if (preExistFlag != null && preExistFlag) {
                 updateStatement.executeBatch();
                 updateStatement.clearBatch();
             }
-            rowConverter.toExternal(valueTableSchema, record, insertStatement);
+            rowConverter.toExternal(valueTableSchema, databaseTableSchema, record, insertStatement);
             insertStatement.addBatch();
         }
 
@@ -147,7 +152,7 @@ public class InsertOrUpdateBatchStatementExecutor
     }
 
     private boolean exist(SeaTunnelRow pk) throws SQLException {
-        rowConverter.toExternal(keyTableSchema, pk, existStatement);
+        rowConverter.toExternal(keyTableSchema, databaseTableSchema, pk, existStatement);
         try (ResultSet resultSet = existStatement.executeQuery()) {
             return resultSet.next();
         }

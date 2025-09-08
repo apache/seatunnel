@@ -16,6 +16,8 @@
  */
 package org.apache.seatunnel.e2e.connector.prometheus;
 
+import org.apache.seatunnel.shade.com.google.common.collect.Lists;
+
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
@@ -39,7 +41,6 @@ import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.DockerLoggerFactory;
 
-import com.google.common.collect.Lists;
 import com.jayway.jsonpath.JsonPath;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
@@ -54,7 +55,7 @@ import java.util.stream.Stream;
 @Slf4j
 public class PrometheusIT extends TestSuiteBase implements TestResource {
 
-    private static final String IMAGE = "bitnami/prometheus:2.53.0";
+    private static final String IMAGE = "bitnamilegacy/prometheus:2.53.0";
 
     private GenericContainer<?> prometheusContainer;
 

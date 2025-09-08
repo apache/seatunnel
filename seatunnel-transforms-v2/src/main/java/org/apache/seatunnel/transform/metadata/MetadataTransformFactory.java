@@ -22,6 +22,7 @@ import org.apache.seatunnel.api.table.connector.TableTransform;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableTransformFactory;
 import org.apache.seatunnel.api.table.factory.TableTransformFactoryContext;
+import org.apache.seatunnel.transform.common.TransformCommonOptions;
 
 import com.google.auto.service.AutoService;
 
@@ -34,11 +35,16 @@ public class MetadataTransformFactory implements TableTransformFactory {
 
     @Override
     public OptionRule optionRule() {
-        return OptionRule.builder().required(MetadataTransformConfig.METADATA_FIELDS).build();
+        return OptionRule.builder()
+                .optional(MetadataTransformConfig.METADATA_FIELDS)
+                .optional(TransformCommonOptions.MULTI_TABLES)
+                .optional(TransformCommonOptions.TABLE_MATCH_REGEX)
+                .build();
     }
 
     @Override
     public TableTransform createTransform(TableTransformFactoryContext context) {
-        return () -> new MetadataTransform(context.getOptions(), context.getCatalogTables().get(0));
+        return () ->
+                new MetadataMultiCatalogTransform(context.getCatalogTables(), context.getOptions());
     }
 }

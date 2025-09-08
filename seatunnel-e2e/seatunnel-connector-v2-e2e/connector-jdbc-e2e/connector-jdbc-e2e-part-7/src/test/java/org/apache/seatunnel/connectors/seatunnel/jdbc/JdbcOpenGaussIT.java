@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc;
 
+import org.apache.seatunnel.shade.com.google.common.collect.Lists;
+
 import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.ConstraintKey;
@@ -40,7 +42,6 @@ import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.utility.DockerLoggerFactory;
 
-import com.google.common.collect.Lists;
 import lombok.extern.slf4j.Slf4j;
 
 import java.math.BigDecimal;
@@ -324,7 +325,8 @@ public class JdbcOpenGaussIT extends AbstractJdbcIT {
                         jdbcCase.getUserName(),
                         jdbcCase.getPassword(),
                         JdbcUrlUtil.getUrlInfo(jdbcUrl),
-                        SCHEMA);
+                        SCHEMA,
+                        null);
         // set connection
         ((OpenGaussCatalog) catalog).setConnection(jdbcUrl, connection);
         catalog.open();

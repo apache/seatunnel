@@ -31,7 +31,7 @@
 ### compile_language [Enum]
 
 Java中的某些语法可能不受支持，请参阅https://github.com/janino-compiler/janino
-GROOVY，JAVA
+GROOVY，JAVA，SCALA(目前支持 Zeta)
 
 ### compile_pattern [Enum]
 
@@ -79,8 +79,8 @@ SOURCE_CODE,ABSOLUTE_PATH
 ```hacon
 transform {
  DynamicCompile {
-    source_table_name = "fake"
-    result_table_name = "groovy_out"
+    plugin_input = "fake"
+    plugin_output = "groovy_out"
     compile_language="GROOVY"
     compile_pattern="SOURCE_CODE"
     source_code="""
@@ -137,8 +137,8 @@ transform {
 ```hacon
 transform {
  DynamicCompile {
-    source_table_name = "fake"
-    result_table_name = "java_out"
+    plugin_input = "fake"
+    plugin_output = "java_out"
     compile_language="JAVA"
     compile_pattern="SOURCE_CODE"
     source_code="""
@@ -192,8 +192,8 @@ transform {
 ```hacon
  transform {
  DynamicCompile {
-    source_table_name = "fake"
-    result_table_name = "groovy_out"
+    plugin_input = "fake"
+    plugin_output = "groovy_out"
     compile_language="GROOVY"
     compile_pattern="ABSOLUTE_PATH"
     absolute_path="""/tmp/GroovyFile"""

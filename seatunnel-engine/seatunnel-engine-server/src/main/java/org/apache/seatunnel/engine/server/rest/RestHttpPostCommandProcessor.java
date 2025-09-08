@@ -34,12 +34,12 @@ import java.util.Map;
 import static com.hazelcast.internal.ascii.rest.HttpStatusCode.SC_400;
 import static com.hazelcast.internal.ascii.rest.HttpStatusCode.SC_500;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.CONTEXT_PATH;
-import static org.apache.seatunnel.engine.server.rest.RestConstant.ENCRYPT_CONFIG;
-import static org.apache.seatunnel.engine.server.rest.RestConstant.STOP_JOBS_URL;
-import static org.apache.seatunnel.engine.server.rest.RestConstant.STOP_JOB_URL;
-import static org.apache.seatunnel.engine.server.rest.RestConstant.SUBMIT_JOBS_URL;
-import static org.apache.seatunnel.engine.server.rest.RestConstant.SUBMIT_JOB_URL;
-import static org.apache.seatunnel.engine.server.rest.RestConstant.UPDATE_TAGS_URL;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_ENCRYPT_CONFIG;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_STOP_JOB;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_STOP_JOBS;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_SUBMIT_JOB;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_SUBMIT_JOBS;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_UPDATE_TAGS;
 
 @Slf4j
 public class RestHttpPostCommandProcessor extends HttpCommandProcessor<HttpPostCommand> {
@@ -76,17 +76,17 @@ public class RestHttpPostCommandProcessor extends HttpCommandProcessor<HttpPostC
     public void handle(HttpPostCommand httpPostCommand) {
         String uri = httpPostCommand.getURI();
         try {
-            if (uri.startsWith(CONTEXT_PATH + SUBMIT_JOBS_URL)) {
+            if (uri.startsWith(CONTEXT_PATH + REST_URL_SUBMIT_JOBS)) {
                 handleSubmitJobs(httpPostCommand);
-            } else if (uri.startsWith(CONTEXT_PATH + SUBMIT_JOB_URL)) {
+            } else if (uri.startsWith(CONTEXT_PATH + REST_URL_SUBMIT_JOB)) {
                 handleSubmitJob(httpPostCommand, uri);
-            } else if (uri.startsWith(CONTEXT_PATH + STOP_JOBS_URL)) {
+            } else if (uri.startsWith(CONTEXT_PATH + REST_URL_STOP_JOBS)) {
                 handleStopJobs(httpPostCommand);
-            } else if (uri.startsWith(CONTEXT_PATH + STOP_JOB_URL)) {
+            } else if (uri.startsWith(CONTEXT_PATH + REST_URL_STOP_JOB)) {
                 handleStopJob(httpPostCommand);
-            } else if (uri.startsWith(CONTEXT_PATH + ENCRYPT_CONFIG)) {
+            } else if (uri.startsWith(CONTEXT_PATH + REST_URL_ENCRYPT_CONFIG)) {
                 handleEncrypt(httpPostCommand);
-            } else if (uri.startsWith(CONTEXT_PATH + UPDATE_TAGS_URL)) {
+            } else if (uri.startsWith(CONTEXT_PATH + REST_URL_UPDATE_TAGS)) {
                 handleUpdateTags(httpPostCommand);
             } else {
                 original.handle(httpPostCommand);

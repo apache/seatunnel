@@ -16,8 +16,8 @@
 #
 
 # JVM Heap
--Xms2g
--Xmx2g
+# -Xms2g
+# -Xmx2g
 
 # JVM Dump
 -XX:+HeapDumpOnOutOfMemoryError

@@ -17,11 +17,12 @@
 
 package org.apache.seatunnel.api.table.factory;
 
+import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
+
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.sink.TablePlaceholderProcessor;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 
-import com.google.common.annotations.VisibleForTesting;
 import lombok.Getter;
 
 import java.util.Collection;

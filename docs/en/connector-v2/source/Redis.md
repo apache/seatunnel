@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-redis.md';
+
 # Redis
 
 > Redis source connector
@@ -17,22 +19,25 @@ Used to read data from Redis.
 
 ## Options
 
-| name                | type   | required              | default value |
-| ------------------- | ------ | --------------------- | ------------- |
-| host                | string | yes                   | -             |
-| port                | int    | yes                   | -             |
-| keys                | string | yes                   | -             |
-| batch_size          | int    | yes                   | 10            |
-| data_type           | string | yes                   | -             |
-| user                | string | no                    | -             |
-| auth                | string | no                    | -             |
-| db_num              | int    | no                    | 0             |
-| mode                | string | no                    | single        |
-| hash_key_parse_mode | string | no                    | all           |
-| nodes               | list   | yes when mode=cluster | -             |
-| schema              | config | yes when format=json  | -             |
-| format              | string | no                    | json          |
-| common-options      |        | no                    | -             |
+| name                | type   | required                       | default value |
+|---------------------| ------ |--------------------------------| ------------- |
+| host                | string | yes when mode=single           | -             |
+| port                | int    | no                             | 6379          |
+| keys                | string | yes                            | -             |
+| read_key_enabled    | boolean| no                             | false         |
+| key_field_name      | string | yes when read_key_enabled=true | key           |
+| batch_size          | int    | yes                            | 10            |
+| data_type           | string | yes                            | -             |
+| user                | string | no                             | -             |
+| auth                | string | no                             | -             |
+| db_num              | int    | no                             | 0             |
+| mode                | string | no                             | single        |
+| hash_key_parse_mode | string | no                             | all           |
+| nodes               | list   | yes when mode=cluster          | -             |
+| schema              | config | yes when format=json           | -             |
+| format              | string | no                             | json          |
+| single_field_name   | string | yes when read_key_enabled=true | -             |
+| common-options      |        | no                             | -             |
 
 ### host [string]
 
@@ -111,6 +116,52 @@ each kv that in hash key it will be treated as a row and send it to upstream.
 ### keys [string]
 
 keys pattern
+
+### read_key_enabled [boolean]
+
+This option determines whether the Redis source connector includes the Redis key in each output record when reading data.
+
+When set to `true`, both the key and its associated value are included in the record.
+
+By default (`false`), only the value is read and included.
+
+If you are using a single-value Redis data type (such as `string`, `int`, etc.) with `read_key_enabled = true`, 
+you must also specify `single_field_name` to map the value to a schema column, and `key_field_name` to map the Redis key.
+
+Note: When `read_key_enabled = true`, the schema configuration must explicitly include the key field to correctly map the deserialized data.
+
+Example :
+```hocon
+schema {
+  fields {
+      key = string
+      value = string
+  }
+}
+```
+
+### key_field_name [string]
+
+Specifies the field name to store the Redis key in the output record  when `read_key_enabled = true` or `data_type = hash`.
+
+- When read_key_enabled = true, the default field name will be `key`.
+
+- When data_type = hash and this option is not set, the default field name will be `hash_key`.
+
+This field is useful when the default field name conflicts with existing schema fields, or if a more descriptive name is preferred.
+
+Example :
+```hocon
+key_field_name = custom_key
+hash_key_parse_mode = kv
+format = "json"
+schema = {
+  fields {
+      custom_key = string
+      name = string
+  }
+}
+```
 
 ### batch_size [int]
 
@@ -222,6 +273,27 @@ connector will generate data as the following:
 
 the schema fields of redis data
 
+### single_field_name [string]
+
+Specifies the field name for Redis values when `read_key_enabled = true` and the value is a single primitive (e.g., `string`, `int`).
+
+This name is used in the schema to map the value field.
+
+**Note:** This option has no effect when reading complex Redis data types such as hashes or objects that can be directly mapped to a schema.
+
+Example :
+```hocon
+read_key_enabled = true
+key_field_name = key
+single_field_name = value
+schema {
+  fields {
+    key = string
+    value = string
+  }
+}
+```
+
 ### common options
 
 Source plugin common parameters, please refer to [Source Common Options](../source-common-options.md) for details
@@ -284,11 +356,4 @@ sink {
 
 ## Changelog
 
-### 2.2.0-beta 2022-09-26
-
-- Add Redis Source Connector
-
-### next version
-
-- [Improve] Support redis cluster mode connection and user authentication [3188](https://github.com/apache/seatunnel/pull/3188)
--  [Bug] Redis scan command supports versions 5, 6, 7 [7666](https://github.com/apache/seatunnel/pull/7666)
+<ChangeLog />

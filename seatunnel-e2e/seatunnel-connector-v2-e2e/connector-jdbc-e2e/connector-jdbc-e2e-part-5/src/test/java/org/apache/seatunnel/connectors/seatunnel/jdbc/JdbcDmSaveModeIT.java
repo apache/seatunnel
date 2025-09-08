@@ -18,7 +18,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc;
 
-import com.google.common.collect.Lists;
+import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 
 import java.util.List;
 

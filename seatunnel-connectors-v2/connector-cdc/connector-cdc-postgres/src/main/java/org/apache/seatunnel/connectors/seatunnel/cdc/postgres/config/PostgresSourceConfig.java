@@ -25,6 +25,7 @@ import io.debezium.connector.postgresql.PostgresConnectorConfig;
 import io.debezium.relational.RelationalTableFilters;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 
 public class PostgresSourceConfig extends JdbcSourceConfig {
@@ -36,6 +37,7 @@ public class PostgresSourceConfig extends JdbcSourceConfig {
             List<String> databaseList,
             List<String> tableList,
             int splitSize,
+            Map<String, String> splitColumn,
             double distributionFactorUpper,
             double distributionFactorLower,
             int sampleShardingThreshold,
@@ -59,6 +61,7 @@ public class PostgresSourceConfig extends JdbcSourceConfig {
                 databaseList,
                 tableList,
                 splitSize,
+                splitColumn,
                 distributionFactorUpper,
                 distributionFactorLower,
                 sampleShardingThreshold,

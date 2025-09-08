@@ -23,10 +23,7 @@ import org.apache.seatunnel.connectors.cdc.base.dialect.JdbcDataSourceDialect;
 import org.apache.seatunnel.connectors.cdc.base.relational.JdbcSourceEventDispatcher;
 import org.apache.seatunnel.connectors.cdc.base.source.offset.Offset;
 import org.apache.seatunnel.connectors.cdc.base.source.reader.external.JdbcSourceFetchTaskContext;
-import org.apache.seatunnel.connectors.cdc.base.source.split.IncrementalSplit;
-import org.apache.seatunnel.connectors.cdc.base.source.split.SnapshotSplit;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SourceSplitBase;
-import org.apache.seatunnel.connectors.cdc.debezium.EmbeddedDatabaseHistory;
 import org.apache.seatunnel.connectors.seatunnel.cdc.oracle.config.OracleSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.cdc.oracle.source.offset.RedoLogOffset;
 import org.apache.seatunnel.connectors.seatunnel.cdc.oracle.utils.OracleUtils;
@@ -65,9 +62,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.sql.SQLException;
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.Collection;
-import java.util.List;
 import java.util.Map;
 
 import static org.apache.seatunnel.connectors.seatunnel.cdc.oracle.utils.OracleConnectionUtils.createOracleConnection;
@@ -102,7 +97,7 @@ public class OracleSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
     @Override
     public void configure(SourceSplitBase sourceSplitBase) {
         // Initializes the table schema
-        registerDatabaseHistory(sourceSplitBase);
+        super.registerDatabaseHistory(sourceSplitBase, connection);
 
         // initial stateful objects
         final OracleConnectorConfig connectorConfig = getDbzConnectorConfig();
@@ -253,27 +248,6 @@ public class OracleSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
                 (OracleOffsetContext) loader.load(offset.getOffset());
 
         return oracleOffsetContext;
-    }
-
-    private void registerDatabaseHistory(SourceSplitBase sourceSplitBase) {
-        List<TableChanges.TableChange> engineHistory = new ArrayList<>();
-        // TODO: support save table schema
-        if (sourceSplitBase instanceof SnapshotSplit) {
-            SnapshotSplit snapshotSplit = (SnapshotSplit) sourceSplitBase;
-            engineHistory.add(
-                    dataSourceDialect.queryTableSchema(connection, snapshotSplit.getTableId()));
-        } else {
-            IncrementalSplit incrementalSplit = (IncrementalSplit) sourceSplitBase;
-            for (TableId tableId : incrementalSplit.getTableIds()) {
-                engineHistory.add(dataSourceDialect.queryTableSchema(connection, tableId));
-            }
-        }
-
-        EmbeddedDatabaseHistory.registerHistory(
-                sourceConfig
-                        .getDbzConfiguration()
-                        .getString(EmbeddedDatabaseHistory.DATABASE_HISTORY_INSTANCE_NAME),
-                engineHistory);
     }
 
     private void validateAndLoadDatabaseHistory(

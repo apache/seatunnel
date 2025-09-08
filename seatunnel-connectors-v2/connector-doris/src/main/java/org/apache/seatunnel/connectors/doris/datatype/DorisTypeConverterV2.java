@@ -36,7 +36,7 @@ import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import static org.apache.seatunnel.connectors.doris.config.DorisOptions.IDENTIFIER;
+import static org.apache.seatunnel.connectors.doris.config.DorisBaseOptions.IDENTIFIER;
 
 /** Doris type converter for version 2.x */
 @Slf4j
@@ -68,7 +68,12 @@ public class DorisTypeConverterV2 extends AbstractDorisTypeConverter {
 
     @Override
     public Column convert(BasicTypeDefine typeDefine) {
-        PhysicalColumn.PhysicalColumnBuilder builder = getPhysicalColumnBuilder(typeDefine);
+        return convert(typeDefine, true);
+    }
+
+    public Column convert(BasicTypeDefine typeDefine, boolean caseSensitive) {
+        PhysicalColumn.PhysicalColumnBuilder builder =
+                getPhysicalColumnBuilder(typeDefine, caseSensitive);
         String dorisColumnType = getDorisColumnName(typeDefine);
 
         switch (dorisColumnType) {

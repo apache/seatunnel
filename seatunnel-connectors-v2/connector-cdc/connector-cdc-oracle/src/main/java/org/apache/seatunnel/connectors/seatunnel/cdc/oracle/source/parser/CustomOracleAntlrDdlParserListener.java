@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cdc.oracle.source.parser;
 
-import org.apache.seatunnel.api.table.event.AlterTableColumnEvent;
+import org.apache.seatunnel.api.table.schema.event.AlterTableColumnEvent;
 
 import org.antlr.v4.runtime.ParserRuleContext;
 import org.antlr.v4.runtime.tree.ParseTreeListener;

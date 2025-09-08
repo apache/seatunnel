@@ -31,7 +31,8 @@
 
     <properties>
         <httpclient.version>4.5.13</httpclient.version>
-        <httpcore.version>4.4.4</httpcore.version>
+        <httpcore.version>4.4.16</httpcore.version>
+        <zhipu.version>release-V4-2.3.0</zhipu.version>
     </properties>
 
     <dependencyManagement>
@@ -46,6 +47,16 @@
     </dependencyManagement>
 
     <dependencies>
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>bedrockruntime</artifactId>
+            <version>${software.amazon.awssdk.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>apache-client</artifactId>
+            <version>${software.amazon.awssdk.version}</version>
+        </dependency>
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
             <artifactId>seatunnel-api</artifactId>
@@ -72,10 +83,18 @@
         </dependency>
 
         <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>seatunnel-scala-compiler</artifactId>
+            <version>${project.version}</version>
+            <classifier>optional</classifier>
+        </dependency>
+
+        <dependency>
             <groupId>org.apache.groovy</groupId>
             <artifactId>groovy</artifactId>
             <version>${groovy.version}</version>
         </dependency>
+
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
             <artifactId>seatunnel-janino</artifactId>
@@ -91,6 +110,17 @@
             <groupId>org.apache.httpcomponents</groupId>
             <artifactId>httpcore</artifactId>
             <version>${httpcore.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.squareup.okhttp3</groupId>
+            <artifactId>mockwebserver</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>seatunnel-guava</artifactId>
+            <version>${project.version}</version>
+            <classifier>optional</classifier>
         </dependency>
     </dependencies>
 

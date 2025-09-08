@@ -17,14 +17,18 @@
 
 package org.apache.seatunnel.connectors.seatunnel.redis.client;
 
+import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisParameters;
+import org.apache.seatunnel.connectors.seatunnel.redis.exception.RedisConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.redis.exception.RedisErrorCode;
 
 import org.apache.commons.collections4.CollectionUtils;
 
 import redis.clients.jedis.Jedis;
 import redis.clients.jedis.Pipeline;
 import redis.clients.jedis.Response;
+import redis.clients.jedis.exceptions.JedisException;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -111,7 +115,7 @@ public class RedisSingleClient extends RedisClient {
             Response<Map<String, String>> response = responses.get(i);
             Map<String, String> map = response.get();
             if (map != null) {
-                map.put("hash_key", keys.get(i));
+                map.put(redisParameters.getKeyFieldName(), keys.get(i));
             }
             resultList.add(map);
         }
@@ -139,78 +143,131 @@ public class RedisSingleClient extends RedisClient {
     }
 
     @Override
-    public void batchWriteString(List<String> keys, List<String> values, long expireSeconds) {
+    public void batchWriteString(
+            List<RowKind> rowKinds, List<String> keys, List<String> values, long expireSeconds) {
+        List<Response<?>> responses = new ArrayList<>();
         Pipeline pipelined = jedis.pipelined();
         int size = keys.size();
         for (int i = 0; i < size; i++) {
+            RowKind rowKind = rowKinds.get(i);
             String key = keys.get(i);
             String value = values.get(i);
-            pipelined.set(key, value);
-            if (expireSeconds > 0) {
-                pipelined.expire(key, expireSeconds);
+            if (rowKind == RowKind.DELETE || rowKind == RowKind.UPDATE_BEFORE) {
+                responses.add(pipelined.del(key));
+            } else {
+                responses.add(pipelined.set(key, value));
+                if (expireSeconds > 0) {
+                    responses.add(pipelined.expire(key, expireSeconds));
+                }
             }
         }
         pipelined.sync();
+        processResponses(responses);
     }
 
     @Override
-    public void batchWriteList(List<String> keys, List<String> values, long expireSeconds) {
+    public void batchWriteList(
+            List<RowKind> rowKinds, List<String> keys, List<String> values, long expireSeconds) {
+        List<Response<?>> responses = new ArrayList<>();
         Pipeline pipelined = jedis.pipelined();
         int size = keys.size();
         for (int i = 0; i < size; i++) {
+            RowKind rowKind = rowKinds.get(i);
             String key = keys.get(i);
             String value = values.get(i);
-            pipelined.lpush(key, value);
-            if (expireSeconds > 0) {
-                pipelined.expire(key, expireSeconds);
+            if (rowKind == RowKind.DELETE || rowKind == RowKind.UPDATE_BEFORE) {
+                responses.add(pipelined.lrem(key, 1, value));
+            } else {
+                responses.add(pipelined.lpush(key, value));
+                if (expireSeconds > 0) {
+                    responses.add(pipelined.expire(key, expireSeconds));
+                }
             }
         }
         pipelined.sync();
+        processResponses(responses);
     }
 
     @Override
-    public void batchWriteSet(List<String> keys, List<String> values, long expireSeconds) {
+    public void batchWriteSet(
+            List<RowKind> rowKinds, List<String> keys, List<String> values, long expireSeconds) {
+        List<Response<?>> responses = new ArrayList<>();
         Pipeline pipelined = jedis.pipelined();
         int size = keys.size();
         for (int i = 0; i < size; i++) {
+            RowKind rowKind = rowKinds.get(i);
             String key = keys.get(i);
             String value = values.get(i);
-            pipelined.sadd(key, value);
-            if (expireSeconds > 0) {
-                pipelined.expire(key, expireSeconds);
+            if (rowKind == RowKind.DELETE || rowKind == RowKind.UPDATE_BEFORE) {
+                responses.add(pipelined.srem(key, value));
+            } else {
+                responses.add(pipelined.sadd(key, value));
+                if (expireSeconds > 0) {
+                    responses.add(pipelined.expire(key, expireSeconds));
+                }
             }
         }
         pipelined.sync();
+        processResponses(responses);
     }
 
     @Override
-    public void batchWriteHash(List<String> keys, List<String> values, long expireSeconds) {
+    public void batchWriteHash(
+            List<RowKind> rowKinds, List<String> keys, List<String> values, long expireSeconds) {
+        List<Response<?>> responses = new ArrayList<>();
         Pipeline pipelined = jedis.pipelined();
         int size = keys.size();
         for (int i = 0; i < size; i++) {
+            RowKind rowKind = rowKinds.get(i);
             String key = keys.get(i);
             String value = values.get(i);
             Map<String, String> fieldsMap = JsonUtils.toMap(value);
-            pipelined.hset(key, fieldsMap);
-            if (expireSeconds > 0) {
-                pipelined.expire(key, expireSeconds);
+            if (rowKind == RowKind.DELETE || rowKind == RowKind.UPDATE_BEFORE) {
+                for (Map.Entry<String, String> entry : fieldsMap.entrySet()) {
+                    responses.add(pipelined.hdel(key, entry.getKey()));
+                }
+            } else {
+                responses.add(pipelined.hset(key, fieldsMap));
+                if (expireSeconds > 0) {
+                    responses.add(pipelined.expire(key, expireSeconds));
+                }
             }
         }
         pipelined.sync();
+        processResponses(responses);
     }
 
     @Override
-    public void batchWriteZset(List<String> keys, List<String> values, long expireSeconds) {
+    public void batchWriteZset(
+            List<RowKind> rowKinds, List<String> keys, List<String> values, long expireSeconds) {
+        List<Response<?>> responses = new ArrayList<>();
         Pipeline pipelined = jedis.pipelined();
         int size = keys.size();
         for (int i = 0; i < size; i++) {
+            RowKind rowKind = rowKinds.get(i);
             String key = keys.get(i);
             String value = values.get(i);
-            pipelined.zadd(key, 1, value);
-            if (expireSeconds > 0) {
-                pipelined.expire(key, expireSeconds);
+            if (rowKind == RowKind.DELETE || rowKind == RowKind.UPDATE_BEFORE) {
+                responses.add(pipelined.zrem(key, value));
+            } else {
+                responses.add(pipelined.zadd(key, 1, value));
+                if (expireSeconds > 0) {
+                    responses.add(pipelined.expire(key, expireSeconds));
+                }
             }
         }
         pipelined.sync();
+        processResponses(responses);
+    }
+
+    private void processResponses(List<Response<?>> responseList) {
+        try {
+            for (Response<?> response : responseList) {
+                // If the response is an exception object, it will be thrown
+                response.get();
+            }
+        } catch (JedisException e) {
+            throw new RedisConnectorException(RedisErrorCode.GET_RESPONSE_FAILED, e);
+        }
     }
 }

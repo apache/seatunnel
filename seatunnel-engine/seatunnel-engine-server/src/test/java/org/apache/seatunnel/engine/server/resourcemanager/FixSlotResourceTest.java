@@ -50,16 +50,13 @@ public class FixSlotResourceTest extends AbstractSeaTunnelServerTest<FixSlotReso
 
     @Test
     public void testEnoughResource() throws ExecutionException, InterruptedException {
+        ResourceManager resourceManager = server.getCoordinatorService().getResourceManager();
         // wait all slot ready
         await().atMost(20000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () -> {
                             Assertions.assertEquals(
-                                    totalSlots,
-                                    server.getCoordinatorService()
-                                            .getResourceManager()
-                                            .getUnassignedSlots(null)
-                                            .size());
+                                    totalSlots, resourceManager.getUnassignedSlots(null).size());
                         });
         long jobId = System.currentTimeMillis();
         List<ResourceProfile> resourceProfiles = new ArrayList<>();
@@ -67,16 +64,14 @@ public class FixSlotResourceTest extends AbstractSeaTunnelServerTest<FixSlotReso
         resourceProfiles.add(new ResourceProfile());
         resourceProfiles.add(new ResourceProfile());
         List<SlotProfile> slotProfiles =
-                server.getCoordinatorService()
-                        .getResourceManager()
-                        .applyResources(jobId, resourceProfiles, null)
-                        .get();
+                resourceManager.applyResources(jobId, resourceProfiles, null).get();
         Assertions.assertEquals(slotProfiles.size(), 3);
-        server.getCoordinatorService().getResourceManager().releaseResources(jobId, slotProfiles);
+        resourceManager.releaseResources(jobId, slotProfiles);
     }
 
     @Test
     public void testNotEnoughResource() throws ExecutionException, InterruptedException {
+        ResourceManager resourceManager = server.getCoordinatorService().getResourceManager();
         long jobId = System.currentTimeMillis();
         List<ResourceProfile> resourceProfiles = new ArrayList<>();
         resourceProfiles.add(new ResourceProfile());
@@ -84,10 +79,7 @@ public class FixSlotResourceTest extends AbstractSeaTunnelServerTest<FixSlotReso
         resourceProfiles.add(new ResourceProfile());
         resourceProfiles.add(new ResourceProfile());
         try {
-            server.getCoordinatorService()
-                    .getResourceManager()
-                    .applyResources(jobId, resourceProfiles, null)
-                    .get();
+            resourceManager.applyResources(jobId, resourceProfiles, null).get();
         } catch (ExecutionException e) {
             Assertions.assertTrue(e.getMessage().contains("NoEnoughResourceException"));
         }
@@ -96,19 +88,12 @@ public class FixSlotResourceTest extends AbstractSeaTunnelServerTest<FixSlotReso
                 .untilAsserted(
                         () -> {
                             Assertions.assertEquals(
-                                    totalSlots,
-                                    server.getCoordinatorService()
-                                            .getResourceManager()
-                                            .getUnassignedSlots(null)
-                                            .size());
+                                    totalSlots, resourceManager.getUnassignedSlots(null).size());
                         });
         resourceProfiles.remove(0);
         List<SlotProfile> slotProfiles =
-                server.getCoordinatorService()
-                        .getResourceManager()
-                        .applyResources(jobId, resourceProfiles, null)
-                        .get();
+                resourceManager.applyResources(jobId, resourceProfiles, null).get();
         Assertions.assertEquals(slotProfiles.size(), 3);
-        server.getCoordinatorService().getResourceManager().releaseResources(jobId, slotProfiles);
+        resourceManager.releaseResources(jobId, slotProfiles);
     }
 }

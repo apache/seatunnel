@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.iris;
 
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectFactory;
 
@@ -27,6 +28,11 @@ import javax.annotation.Nonnull;
 /** Factory for {@link IrisDialect}. */
 @AutoService(JdbcDialectFactory.class)
 public class IrisDialectFactory implements JdbcDialectFactory {
+
+    @Override
+    public String dialectFactoryName() {
+        return DatabaseIdentifier.IRIS;
+    }
 
     @Override
     public boolean acceptsURL(String url) {

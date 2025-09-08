@@ -19,7 +19,7 @@ package org.apache.seatunnel.core.starter.flink.execution;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
-import org.apache.seatunnel.api.env.EnvCommonOptions;
+import org.apache.seatunnel.api.options.EnvCommonOptions;
 import org.apache.seatunnel.common.Constants;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.JobMode;
@@ -101,6 +101,9 @@ public abstract class AbstractFlinkRuntimeEnvironment implements RuntimeEnvironm
         } else if (EnvironmentUtil.hasPathAndWaring(config, ConfigKeyName.CHECKPOINT_TIMEOUT)) {
             long timeout = config.getLong(ConfigKeyName.CHECKPOINT_TIMEOUT);
             checkpointConfig.setCheckpointTimeout(timeout);
+        } else if (config.hasPath(EnvCommonOptions.CHECKPOINT_MIN_PAUSE.key())) {
+            long minPause = config.getLong(EnvCommonOptions.CHECKPOINT_MIN_PAUSE.key());
+            checkpointConfig.setMinPauseBetweenCheckpoints(minPause);
         }
 
         if (EnvironmentUtil.hasPathAndWaring(config, ConfigKeyName.CHECKPOINT_MODE)) {

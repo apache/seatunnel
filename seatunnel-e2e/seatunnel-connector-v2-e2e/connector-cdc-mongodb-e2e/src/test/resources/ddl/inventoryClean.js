@@ -14,3 +14,5 @@
 // limitations under the License.
 
 db.getCollection('products').deleteMany({})
+
+db.getCollection('orders').deleteMany({})

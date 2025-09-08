@@ -17,20 +17,15 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jira.source;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
-import org.apache.seatunnel.api.common.PrepareFailException;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.common.config.CheckConfigUtil;
-import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.JobMode;
-import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitReader;
 import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
 import org.apache.seatunnel.connectors.seatunnel.http.source.HttpSource;
 import org.apache.seatunnel.connectors.seatunnel.http.source.HttpSourceReader;
-import org.apache.seatunnel.connectors.seatunnel.jira.source.config.JiraSourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.jira.source.config.JiraSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.jira.source.config.JiraSourceParameter;
 
 import lombok.extern.slf4j.Slf4j;
@@ -41,22 +36,13 @@ import static org.apache.seatunnel.connectors.seatunnel.http.util.AuthorizationU
 public class JiraSource extends HttpSource {
     private final JiraSourceParameter jiraSourceParameter = new JiraSourceParameter();
 
-    protected JiraSource(Config pluginConfig) {
+    protected JiraSource(ReadonlyConfig pluginConfig) {
         super(pluginConfig);
-        CheckResult result =
-                CheckConfigUtil.checkAllExists(
-                        pluginConfig,
-                        JiraSourceConfig.URL.key(),
-                        JiraSourceConfig.EMAIL.key(),
-                        JiraSourceConfig.API_TOKEN.key());
-        if (!result.isSuccess()) {
-            throw new PrepareFailException(getPluginName(), PluginType.SOURCE, result.getMsg());
-        }
         // get accessToken by basic auth
         String accessToken =
                 getTokenByBasicAuth(
-                        pluginConfig.getString(JiraSourceConfig.EMAIL.key()),
-                        pluginConfig.getString(JiraSourceConfig.API_TOKEN.key()));
+                        pluginConfig.get(JiraSourceOptions.EMAIL),
+                        pluginConfig.get(JiraSourceOptions.API_TOKEN));
         jiraSourceParameter.buildWithConfig(pluginConfig, accessToken);
     }
 

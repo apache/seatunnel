@@ -21,21 +21,27 @@ import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfigFactory;
 import org.apache.seatunnel.connectors.cdc.debezium.EmbeddedDatabaseHistory;
 
 import io.debezium.connector.oracle.OracleConnector;
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.List;
 import java.util.Properties;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkNotNull;
 
 /** A factory to initialize {@link OracleSourceConfig}. */
+@Slf4j
 public class OracleSourceConfigFactory extends JdbcSourceConfigFactory {
 
     private static final long serialVersionUID = 1L;
     private static final String DATABASE_SERVER_NAME = "oracle_logminer";
 
     private static final String DRIVER_CLASS_NAME = "oracle.jdbc.driver.OracleDriver";
+    public static final String SCHEMA_CHANGE_KEY = "include.schema.changes";
+    public static final String LOG_MINING_STRATEGY_KEY = "log.mining.strategy";
+    public static final String LOG_MINING_STRATEGY_DEFAULT = "online_catalog";
+    public static final String LOG_MINING_READONLY_KEY = "log.mining.read.only";
 
     private List<String> schemaList;
 
@@ -67,8 +73,8 @@ public class OracleSourceConfigFactory extends JdbcSourceConfigFactory {
 
         try {
             Class.forName(DRIVER_CLASS_NAME);
-        } catch (ClassNotFoundException e) {
-            throw new RuntimeException(e);
+        } catch (Exception e) {
+            log.warn("Failed to load JDBC driver {}", DRIVER_CLASS_NAME, e);
         }
 
         Properties props = new Properties();
@@ -92,12 +98,16 @@ public class OracleSourceConfigFactory extends JdbcSourceConfigFactory {
         props.setProperty("database.history.skip.unparseable.ddl", String.valueOf(true));
         props.setProperty("database.history.refer.ddl", String.valueOf(true));
 
+        // setting debezium capture oracle ddl
+        props.setProperty(SCHEMA_CHANGE_KEY, String.valueOf(schemaChangeEnabled));
+        props.setProperty(
+                LOG_MINING_STRATEGY_KEY,
+                schemaChangeEnabled ? "redo_log_catalog" : LOG_MINING_STRATEGY_DEFAULT);
+
         props.setProperty("connect.timeout.ms", String.valueOf(connectTimeoutMillis));
         // disable tombstones
         props.setProperty("tombstones.on.delete", String.valueOf(false));
-
-        // Optimize logminer latency
-        props.setProperty("log.mining.strategy", "online_catalog");
+        props.setProperty(LOG_MINING_READONLY_KEY, "true");
 
         if (originUrl != null) {
             props.setProperty("database.url", originUrl);
@@ -133,6 +143,15 @@ public class OracleSourceConfigFactory extends JdbcSourceConfigFactory {
 
         // override the user-defined debezium properties
         if (dbzProperties != null) {
+            String debeziumSchemaChanges =
+                    dbzProperties.getProperty(
+                            SCHEMA_CHANGE_KEY, String.valueOf(schemaChangeEnabled));
+            String debeziumLogMiningStrategy = dbzProperties.getProperty(LOG_MINING_STRATEGY_KEY);
+            if (Boolean.parseBoolean(debeziumSchemaChanges)
+                    && LOG_MINING_STRATEGY_DEFAULT.equals(debeziumLogMiningStrategy)) {
+                throw new IllegalArgumentException(
+                        "Debezium log mining strategy must be set to redo_log_catalog when schema changes are enabled");
+            }
             props.putAll(dbzProperties);
         }
 
@@ -144,6 +163,7 @@ public class OracleSourceConfigFactory extends JdbcSourceConfigFactory {
                 databaseList,
                 tableList,
                 splitSize,
+                splitColumn,
                 distributionFactorUpper,
                 distributionFactorLower,
                 sampleShardingThreshold,

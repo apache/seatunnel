@@ -66,7 +66,7 @@ source {
   Kafka {
     bootstrap.servers = "127.0.0.1:9092"
     topic = "ogg"
-    result_table_name = "kafka_name"
+    plugin_output = "kafka_name"
     start_mode = earliest
     schema = {
       fields {

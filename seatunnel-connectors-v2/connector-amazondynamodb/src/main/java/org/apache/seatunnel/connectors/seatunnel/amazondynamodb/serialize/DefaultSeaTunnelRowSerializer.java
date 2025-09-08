@@ -23,7 +23,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonError;
-import org.apache.seatunnel.connectors.seatunnel.amazondynamodb.config.AmazonDynamoDBSourceOptions;
+import org.apache.seatunnel.connectors.seatunnel.amazondynamodb.config.AmazonDynamoDBConfig;
 
 import software.amazon.awssdk.core.SdkBytes;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
@@ -40,14 +40,13 @@ import java.util.stream.Stream;
 public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer {
 
     private final SeaTunnelRowType seaTunnelRowType;
-    private final AmazonDynamoDBSourceOptions amazondynamodbSourceOptions;
+    private final AmazonDynamoDBConfig amazondynamodbConfig;
     private final List<AttributeValue.Type> measurementsType;
 
     public DefaultSeaTunnelRowSerializer(
-            SeaTunnelRowType seaTunnelRowType,
-            AmazonDynamoDBSourceOptions amazondynamodbSourceOptions) {
+            SeaTunnelRowType seaTunnelRowType, AmazonDynamoDBConfig amazondynamodbConfig) {
         this.seaTunnelRowType = seaTunnelRowType;
-        this.amazondynamodbSourceOptions = amazondynamodbSourceOptions;
+        this.amazondynamodbConfig = amazondynamodbConfig;
         this.measurementsType = convertTypes(seaTunnelRowType);
     }
 
@@ -65,7 +64,7 @@ public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer {
                             measurementsType.get(index)));
         }
         return PutItemRequest.builder()
-                .tableName(amazondynamodbSourceOptions.getTable())
+                .tableName(amazondynamodbConfig.getTable())
                 .item(itemValues)
                 .build();
     }

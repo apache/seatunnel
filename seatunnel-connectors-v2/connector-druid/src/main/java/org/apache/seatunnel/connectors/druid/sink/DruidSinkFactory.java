@@ -20,7 +20,7 @@ package org.apache.seatunnel.connectors.druid.sink;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
-import org.apache.seatunnel.api.sink.SinkCommonOptions;
+import org.apache.seatunnel.api.options.SinkConnectorCommonOptions;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
@@ -29,8 +29,8 @@ import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
 
 import com.google.auto.service.AutoService;
 
-import static org.apache.seatunnel.connectors.druid.config.DruidConfig.COORDINATOR_URL;
-import static org.apache.seatunnel.connectors.druid.config.DruidConfig.DATASOURCE;
+import static org.apache.seatunnel.connectors.druid.config.DruidSinkOptions.COORDINATOR_URL;
+import static org.apache.seatunnel.connectors.druid.config.DruidSinkOptions.DATASOURCE;
 
 @AutoService(Factory.class)
 public class DruidSinkFactory implements TableSinkFactory {
@@ -43,7 +43,7 @@ public class DruidSinkFactory implements TableSinkFactory {
     public OptionRule optionRule() {
         return OptionRule.builder()
                 .required(COORDINATOR_URL, DATASOURCE)
-                .optional(SinkCommonOptions.MULTI_TABLE_SINK_REPLICA)
+                .optional(SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA)
                 .build();
     }
 

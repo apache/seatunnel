@@ -59,6 +59,8 @@ public class TDengineIT extends TestSuiteBase implements TestResource {
     private Connection connection1;
     private Connection connection2;
     private int testDataCount;
+    private final int testDataCountMulti_Table1 = 5;
+    private final int testDataCountMulti_Table2 = 7;
 
     @BeforeAll
     @Override
@@ -109,7 +111,7 @@ public class TDengineIT extends TestSuiteBase implements TestResource {
         try (Statement stmt = connection1.createStatement()) {
             stmt.execute("CREATE DATABASE power KEEP 3650");
             stmt.execute(
-                    "CREATE STABLE power.meters (ts TIMESTAMP, current FLOAT, voltage INT, phase FLOAT, off BOOL) "
+                    "CREATE STABLE power.meters (ts TIMESTAMP, current FLOAT, voltage INT, phase FLOAT, off BOOL, nc NCHAR(10)) "
                             + "TAGS (location BINARY(64), groupId INT)");
             String sql = getSQL();
             rowCount = stmt.executeUpdate(sql);
@@ -117,7 +119,25 @@ public class TDengineIT extends TestSuiteBase implements TestResource {
         try (Statement stmt = connection2.createStatement()) {
             stmt.execute("CREATE DATABASE power2 KEEP 3650");
             stmt.execute(
-                    "CREATE STABLE power2.meters2 (ts TIMESTAMP, current FLOAT, voltage INT, phase FLOAT, off BOOL) "
+                    "CREATE STABLE power2.meters2 (ts TIMESTAMP, current FLOAT, voltage INT, phase FLOAT, off BOOL, nc NCHAR(10)) "
+                            + "TAGS (location BINARY(64), groupId INT)");
+        }
+        // create power2.meter3 for multi write test
+        try (Statement stmt = connection2.createStatement()) {
+            stmt.execute(
+                    "CREATE STABLE power2.meters3 (ts TIMESTAMP, current FLOAT, voltage INT, phase FLOAT, off BOOL, nc NCHAR(10)) "
+                            + "TAGS (location BINARY(64), groupId INT)");
+        }
+        // create power2.meter4 for multi write test
+        try (Statement stmt = connection2.createStatement()) {
+            stmt.execute(
+                    "CREATE STABLE power2.meters4 (ts TIMESTAMP, current FLOAT, voltage INT, phase FLOAT, off BOOL, nc NCHAR(10)) "
+                            + "TAGS (location BINARY(64), groupId INT)");
+        }
+        try (Statement stmt = connection2.createStatement()) {
+            stmt.execute("CREATE DATABASE power3 KEEP 3650");
+            stmt.execute(
+                    "CREATE STABLE power3.meters5 (ts TIMESTAMP, current FLOAT, voltage INT, phase FLOAT, off BOOL, nc NCHAR(10)) "
                             + "TAGS (location BINARY(64), groupId INT)");
         }
         return rowCount;
@@ -129,15 +149,44 @@ public class TDengineIT extends TestSuiteBase implements TestResource {
                 container.executeJob("/tdengine/tdengine_source_to_sink.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
 
-        long rowCountInserted = readSinkDataset();
+        long rowCountInserted = readSinkDataset("power2", "meters2");
         Assertions.assertEquals(rowCountInserted, testDataCount);
     }
 
+    @TestTemplate
+    public void testTDengineMultiWrite(TestContainer container) throws Exception {
+        Container.ExecResult execResult =
+                container.executeJob("/tdengine/tdengine_fake_to_sink_multitable.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+
+        long rowCountInserted = readSinkDataset("power2", "meters3");
+        long rowCountInserted2 = readSinkDataset("power2", "meters4");
+        Assertions.assertEquals(rowCountInserted, testDataCountMulti_Table1);
+        Assertions.assertEquals(rowCountInserted2, testDataCountMulti_Table2);
+    }
+
+    @TestTemplate
+    public void testTDEngineSourceToSinkFilterByFieldName(TestContainer container)
+            throws Exception {
+        Container.ExecResult execResult =
+                container.executeJob("/tdengine/tdengine_source_to_sink_filter_by_fieldNames.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+
+        long rowCountInserted = readSinkDataset("power3", "meters5");
+        Assertions.assertEquals(4, rowCountInserted);
+    }
+
     @SneakyThrows
-    private long readSinkDataset() {
+    private long readSinkDataset(String database, String stableName) {
+        // Validate table name
+        if (stableName == null || !stableName.matches("^[a-zA-Z0-9_]+$")) {
+            throw new IllegalArgumentException("Invalid table name provided: " + stableName);
+        }
+
         long rowCount;
+        String sql = String.format("SELECT COUNT(1) FROM %s.%s;", database, stableName);
         try (Statement stmt = connection2.createStatement();
-                ResultSet resultSet = stmt.executeQuery("select count(1) from power2.meters2;"); ) {
+                ResultSet resultSet = stmt.executeQuery(sql); ) {
             resultSet.next();
             rowCount = resultSet.getLong(1);
         }
@@ -210,6 +259,8 @@ public class TDengineIT extends TestSuiteBase implements TestResource {
                     .append(ps[4])
                     .append(",") // off
                     .append(ps[7])
+                    .append(",") // nc
+                    .append(ps[8])
                     .append(") "); // phase
         }
         return sb.toString();
@@ -217,13 +268,13 @@ public class TDengineIT extends TestSuiteBase implements TestResource {
 
     private static List<String> getRawData() {
         return Arrays.asList(
-                "d1001,2018-10-03 14:38:05.000,10.30000,219,0.31000,'California.SanFrancisco',2,true",
-                "d1001,2018-10-03 14:38:15.000,12.60000,218,0.33000,'California.SanFrancisco',2,false",
-                "d1001,2018-10-03 14:38:16.800,12.30000,221,0.31000,'California.SanFrancisco',2,true",
-                "d1002,2018-10-03 14:38:16.650,10.30000,218,0.25000,'California.SanFrancisco',3,true",
-                "d1003,2018-10-03 14:38:05.500,11.80000,221,0.28000,'California.LosAngeles',2,true",
-                "d1003,2018-10-03 14:38:16.600,13.40000,223,0.29000,'California.LosAngeles',2,true",
-                "d1004,2018-10-03 14:38:05.000,10.80000,223,0.29000,'California.LosAngeles',3,true",
-                "d1004,2018-10-03 14:38:06.500,11.50000,221,0.35000,'California.LosAngeles',3,false");
+                "d1001,2018-10-03 14:38:05.000,10.30000,219,0.31000,'California.SanFrancisco',2,true,'nc'",
+                "d1001,2018-10-03 14:38:15.000,12.60000,218,0.33000,'California.SanFrancisco',2,false,'nc'",
+                "d1001,2018-10-03 14:38:16.800,12.30000,221,0.31000,'California.SanFrancisco',2,true,'nc'",
+                "d1002,2018-10-03 14:38:16.650,10.30000,218,0.25000,'California.SanFrancisco',3,true,'nc'",
+                "d1003,2018-10-03 14:38:05.500,11.80000,221,0.28000,'California.LosAngeles',2,true,'nc'",
+                "d1003,2018-10-03 14:38:16.600,13.40000,223,0.29000,'California.LosAngeles',2,true,'nc'",
+                "d1004,2018-10-03 14:38:05.000,10.80000,223,0.29000,'California.LosAngeles',3,true,'nc'",
+                "d1004,2018-10-03 14:38:06.500,11.50000,221,0.35000,'California.LosAngeles',3,false,'nc'");
     }
 }

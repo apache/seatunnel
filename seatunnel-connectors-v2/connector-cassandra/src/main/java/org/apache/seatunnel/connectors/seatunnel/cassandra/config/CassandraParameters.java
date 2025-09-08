@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cassandra.config;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 
 import com.datastax.oss.driver.api.core.ConsistencyLevel;
 import com.datastax.oss.driver.api.core.DefaultConsistencyLevel;
@@ -44,54 +44,19 @@ public class CassandraParameters implements Serializable {
     private DefaultBatchType batchType;
     private Boolean asyncWrite;
 
-    public void buildWithConfig(Config config) {
-        this.host = config.getString(CassandraConfig.HOST.key());
-        this.keyspace = config.getString(CassandraConfig.KEYSPACE.key());
-
-        if (config.hasPath(CassandraConfig.USERNAME.key())) {
-            this.username = config.getString(CassandraConfig.USERNAME.key());
-        }
-        if (config.hasPath(CassandraConfig.PASSWORD.key())) {
-            this.password = config.getString(CassandraConfig.PASSWORD.key());
-        }
-        if (config.hasPath(CassandraConfig.DATACENTER.key())) {
-            this.datacenter = config.getString(CassandraConfig.DATACENTER.key());
-        } else {
-            this.datacenter = CassandraConfig.DATACENTER.defaultValue();
-        }
-        if (config.hasPath(CassandraConfig.TABLE.key())) {
-            this.table = config.getString(CassandraConfig.TABLE.key());
-        }
-        if (config.hasPath(CassandraConfig.CQL.key())) {
-            this.cql = config.getString(CassandraConfig.CQL.key());
-        }
-        if (config.hasPath(CassandraConfig.FIELDS.key())) {
-            this.fields = config.getStringList(CassandraConfig.FIELDS.key());
-        }
-        if (config.hasPath(CassandraConfig.CONSISTENCY_LEVEL.key())) {
-            this.consistencyLevel =
-                    DefaultConsistencyLevel.valueOf(
-                            config.getString(CassandraConfig.CONSISTENCY_LEVEL.key()));
-        } else {
-            this.consistencyLevel =
-                    DefaultConsistencyLevel.valueOf(
-                            CassandraConfig.CONSISTENCY_LEVEL.defaultValue());
-        }
-        if (config.hasPath(CassandraConfig.BATCH_SIZE.key())) {
-            this.batchSize = config.getInt(CassandraConfig.BATCH_SIZE.key());
-        } else {
-            this.batchSize = CassandraConfig.BATCH_SIZE.defaultValue();
-        }
-        if (config.hasPath(CassandraConfig.BATCH_TYPE.key())) {
-            this.batchType =
-                    DefaultBatchType.valueOf(config.getString(CassandraConfig.BATCH_TYPE.key()));
-        } else {
-            this.batchType = DefaultBatchType.valueOf(CassandraConfig.BATCH_TYPE.defaultValue());
-        }
-        if (config.hasPath(CassandraConfig.ASYNC_WRITE.key())) {
-            this.asyncWrite = config.getBoolean(CassandraConfig.ASYNC_WRITE.key());
-        } else {
-            this.asyncWrite = true;
-        }
+    public void buildWithConfig(ReadonlyConfig config) {
+        this.host = config.get(CassandraBaseOptions.HOST);
+        this.keyspace = config.get(CassandraBaseOptions.KEYSPACE);
+        this.username = config.get(CassandraBaseOptions.USERNAME);
+        this.password = config.get(CassandraBaseOptions.PASSWORD);
+        this.datacenter = config.get(CassandraBaseOptions.DATACENTER);
+        this.table = config.get(CassandraSinkOptions.TABLE);
+        this.cql = config.get(CassandraSourceOptions.CQL);
+        this.fields = config.get(CassandraSinkOptions.FIELDS);
+        this.consistencyLevel =
+                DefaultConsistencyLevel.valueOf(config.get(CassandraBaseOptions.CONSISTENCY_LEVEL));
+        this.batchSize = config.get(CassandraSinkOptions.BATCH_SIZE);
+        this.batchType = DefaultBatchType.valueOf(config.get(CassandraSinkOptions.BATCH_TYPE));
+        this.asyncWrite = config.get(CassandraSinkOptions.ASYNC_WRITE);
     }
 }

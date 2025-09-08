@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-hudi.md';
+
 # Hudi
 
 > Hudi sink connector
@@ -34,6 +36,7 @@ Table list configuration:
 | op_type                    | enum   | no       | insert        |
 | record_key_fields          | string | no       | -             |
 | partition_fields           | string | no       | -             |
+| precombine_field           | string | no       | -             |
 | batch_interval_ms          | Int    | no       | 1000          |
 | batch_size                 | Int    | no       | 1000          |
 | insert_shuffle_parallelism | Int    | no       | 2             |
@@ -70,6 +73,10 @@ Note: When this configuration corresponds to a single table, you can flatten the
 ### partition_fields [string]
 
 `partition_fields` The partition key fields of hudi table, its are used to generate partition.
+
+### precombine_field [string]
+
+`precombine_field` The precombine field of hudi table, its are used in preCombining before actual write. 
 
 ### index_type [string]
 
@@ -161,7 +168,7 @@ env {
 
 source {
   Mysql-CDC {
-    base-url = "jdbc:mysql://127.0.0.1:3306/seatunnel"
+    url = "jdbc:mysql://127.0.0.1:3306/seatunnel"
     username = "root"
     password = "******"
     
@@ -206,7 +213,5 @@ sink {
 
 ## Changelog
 
-### 2.2.0-beta 2022-09-26
-
-- Add Hudi Source Connector
+<ChangeLog />
 

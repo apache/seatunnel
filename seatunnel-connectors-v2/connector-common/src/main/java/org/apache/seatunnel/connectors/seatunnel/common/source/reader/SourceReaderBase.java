@@ -39,7 +39,7 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
-import static com.google.common.base.Preconditions.checkState;
+import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkState;
 
 /**
  * An abstract implementation of {@link SourceReader} which provides some synchronization between

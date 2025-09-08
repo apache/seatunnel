@@ -23,7 +23,7 @@ import org.apache.seatunnel.engine.client.job.ClientJobProxy;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
-import org.apache.seatunnel.engine.core.job.JobStatus;
+import org.apache.seatunnel.engine.common.job.JobStatus;
 import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
 import org.apache.seatunnel.engine.server.rest.RestConstant;
 
@@ -165,7 +165,7 @@ public class RestApiIT {
                                                             HOST
                                                                     + key
                                                                     + CONTEXT_PATH
-                                                                    + RestConstant.GET_LOGS)
+                                                                    + RestConstant.REST_URL_LOGS)
                                                     .then()
                                                     .statusCode(200)
                                                     .body(
@@ -180,7 +180,7 @@ public class RestApiIT {
                                                                             .getEngineConfig()
                                                                             .getHttpConfig()
                                                                             .getContextPath()
-                                                                    + RestConstant.GET_LOGS)
+                                                                    + RestConstant.REST_URL_LOGS)
                                                     .then()
                                                     .statusCode(200)
                                                     .body(
@@ -194,7 +194,8 @@ public class RestApiIT {
                                                                     HOST
                                                                             + key
                                                                             + CONTEXT_PATH
-                                                                            + RestConstant.GET_LOGS
+                                                                            + RestConstant
+                                                                                    .REST_URL_LOGS
                                                                             + "/"
                                                                             + clientJobProxy
                                                                                     .getJobId())
@@ -212,7 +213,8 @@ public class RestApiIT {
                                                                                     .getEngineConfig()
                                                                                     .getHttpConfig()
                                                                                     .getContextPath()
-                                                                            + RestConstant.GET_LOGS
+                                                                            + RestConstant
+                                                                                    .REST_URL_LOGS
                                                                             + "/"
                                                                             + clientJobProxy
                                                                                     .getJobId())
@@ -253,7 +255,8 @@ public class RestApiIT {
                                                             HOST
                                                                     + key
                                                                     + CONTEXT_PATH
-                                                                    + RestConstant.RUNNING_JOB_URL
+                                                                    + RestConstant
+                                                                            .REST_URL_RUNNING_JOB
                                                                     + "/"
                                                                     + clientJobProxy.getJobId())
                                                     .then()
@@ -268,7 +271,8 @@ public class RestApiIT {
                                                                             .getEngineConfig()
                                                                             .getHttpConfig()
                                                                             .getContextPath()
-                                                                    + RestConstant.RUNNING_JOB_URL
+                                                                    + RestConstant
+                                                                            .REST_URL_RUNNING_JOB
                                                                     + "/"
                                                                     + clientJobProxy.getJobId())
                                                     .then()
@@ -289,7 +293,8 @@ public class RestApiIT {
                                                             HOST
                                                                     + key
                                                                     + CONTEXT_PATH
-                                                                    + RestConstant.RUNNING_JOB_URL
+                                                                    + RestConstant
+                                                                            .REST_URL_RUNNING_JOB
                                                                     + "/"
                                                                     + batchJobProxy.getJobId())
                                                     .then()
@@ -304,7 +309,8 @@ public class RestApiIT {
                                                                             .getEngineConfig()
                                                                             .getHttpConfig()
                                                                             .getContextPath()
-                                                                    + RestConstant.RUNNING_JOB_URL
+                                                                    + RestConstant
+                                                                            .REST_URL_RUNNING_JOB
                                                                     + "/"
                                                                     + batchJobProxy.getJobId())
                                                     .then()
@@ -325,7 +331,8 @@ public class RestApiIT {
                                                             HOST
                                                                     + key
                                                                     + CONTEXT_PATH
-                                                                    + RestConstant.RUNNING_JOB_URL
+                                                                    + RestConstant
+                                                                            .REST_URL_RUNNING_JOB
                                                                     + "/"
                                                                     + 123)
                                                     .then()
@@ -336,7 +343,8 @@ public class RestApiIT {
                                                             HOST
                                                                     + key
                                                                     + CONTEXT_PATH
-                                                                    + RestConstant.RUNNING_JOB_URL
+                                                                    + RestConstant
+                                                                            .REST_URL_RUNNING_JOB
                                                                     + "/")
                                                     .then()
                                                     .statusCode(400);
@@ -348,7 +356,8 @@ public class RestApiIT {
                                                                             .getEngineConfig()
                                                                             .getHttpConfig()
                                                                             .getContextPath()
-                                                                    + RestConstant.RUNNING_JOB_URL
+                                                                    + RestConstant
+                                                                            .REST_URL_RUNNING_JOB
                                                                     + "/"
                                                                     + 123)
                                                     .then()
@@ -362,7 +371,8 @@ public class RestApiIT {
                                                                             .getEngineConfig()
                                                                             .getHttpConfig()
                                                                             .getContextPath()
-                                                                    + RestConstant.RUNNING_JOB_URL
+                                                                    + RestConstant
+                                                                            .REST_URL_RUNNING_JOB
                                                                     + "/")
                                                     .then()
                                                     .statusCode(400);
@@ -380,7 +390,8 @@ public class RestApiIT {
                                                             HOST
                                                                     + key
                                                                     + CONTEXT_PATH
-                                                                    + RestConstant.RUNNING_JOBS_URL)
+                                                                    + RestConstant
+                                                                            .REST_URL_RUNNING_JOBS)
                                                     .then()
                                                     .statusCode(200)
                                                     .body(
@@ -442,7 +453,8 @@ public class RestApiIT {
                                                                             .getEngineConfig()
                                                                             .getHttpConfig()
                                                                             .getContextPath()
-                                                                    + RestConstant.RUNNING_JOBS_URL)
+                                                                    + RestConstant
+                                                                            .REST_URL_RUNNING_JOBS)
                                                     .then()
                                                     .statusCode(200)
                                                     .body(
@@ -510,7 +522,7 @@ public class RestApiIT {
                                                         HOST
                                                                 + key
                                                                 + CONTEXT_PATH
-                                                                + RestConstant.JOB_INFO_URL
+                                                                + RestConstant.REST_URL_JOB_INFO
                                                                 + "/"
                                                                 + batchJobProxy.getJobId())
                                                 .then()
@@ -576,7 +588,7 @@ public class RestApiIT {
                                                                         .getEngineConfig()
                                                                         .getHttpConfig()
                                                                         .getContextPath()
-                                                                + RestConstant.JOB_INFO_URL
+                                                                + RestConstant.REST_URL_JOB_INFO
                                                                 + "/"
                                                                 + batchJobProxy.getJobId())
                                                 .then()
@@ -629,6 +641,7 @@ public class RestApiIT {
                                                         equalTo("5"))
                                                 .body("metrics.SinkWriteCount", equalTo("5"))
                                                 .body("metrics.SourceReceivedCount", equalTo("5"))
+                                                .body("metrics.IntermediateQueueSize", equalTo("0"))
                                                 .body(
                                                         "jobDag.envOptions.'job.mode'",
                                                         equalTo("BATCH"))
@@ -649,7 +662,7 @@ public class RestApiIT {
                                                         HOST
                                                                 + key
                                                                 + CONTEXT_PATH
-                                                                + RestConstant.OVERVIEW)
+                                                                + RestConstant.REST_URL_OVERVIEW)
                                                 .then()
                                                 .statusCode(200)
                                                 .body("projectVersion", notNullValue())
@@ -662,7 +675,7 @@ public class RestApiIT {
                                                                         .getEngineConfig()
                                                                         .getHttpConfig()
                                                                         .getContextPath()
-                                                                + RestConstant.OVERVIEW)
+                                                                + RestConstant.REST_URL_OVERVIEW)
                                                 .then()
                                                 .statusCode(200)
                                                 .body("projectVersion", notNullValue())
@@ -683,7 +696,7 @@ public class RestApiIT {
                                                         HOST
                                                                 + key
                                                                 + CONTEXT_PATH
-                                                                + RestConstant.OVERVIEW
+                                                                + RestConstant.REST_URL_OVERVIEW
                                                                 + "?node=node1")
                                                 .then()
                                                 .statusCode(200)
@@ -697,7 +710,7 @@ public class RestApiIT {
                                                                         .getEngineConfig()
                                                                         .getHttpConfig()
                                                                         .getContextPath()
-                                                                + RestConstant.OVERVIEW
+                                                                + RestConstant.REST_URL_OVERVIEW
                                                                 + "?node=node1")
                                                 .then()
                                                 .statusCode(200)
@@ -716,7 +729,7 @@ public class RestApiIT {
                         HOST
                                 + node1.getCluster().getLocalMember().getAddress().getPort()
                                 + CONTEXT_PATH
-                                + RestConstant.OVERVIEW
+                                + RestConstant.REST_URL_OVERVIEW
                                 + "?tag1=dev_1")
                 .then()
                 .statusCode(200)
@@ -728,7 +741,7 @@ public class RestApiIT {
                         HOST
                                 + node1.getCluster().getLocalMember().getAddress().getPort()
                                 + CONTEXT_PATH
-                                + RestConstant.UPDATE_TAGS_URL)
+                                + RestConstant.REST_URL_UPDATE_TAGS)
                 .then()
                 .statusCode(200)
                 .body("message", equalTo("update node tags done."));
@@ -737,7 +750,7 @@ public class RestApiIT {
                         HOST
                                 + node1.getCluster().getLocalMember().getAddress().getPort()
                                 + CONTEXT_PATH
-                                + RestConstant.OVERVIEW
+                                + RestConstant.REST_URL_OVERVIEW
                                 + "?tag1=dev_1")
                 .then()
                 .statusCode(200)
@@ -753,7 +766,7 @@ public class RestApiIT {
                         HOST
                                 + node1.getCluster().getLocalMember().getAddress().getPort()
                                 + CONTEXT_PATH
-                                + RestConstant.UPDATE_TAGS_URL)
+                                + RestConstant.REST_URL_UPDATE_TAGS)
                 .then()
                 .statusCode(400)
                 .body("message", equalTo("Request body is empty."));
@@ -767,7 +780,7 @@ public class RestApiIT {
                         HOST
                                 + node1.getCluster().getLocalMember().getAddress().getPort()
                                 + CONTEXT_PATH
-                                + RestConstant.OVERVIEW
+                                + RestConstant.REST_URL_OVERVIEW
                                 + "?node=node1")
                 .then()
                 .statusCode(200)
@@ -779,7 +792,7 @@ public class RestApiIT {
                         HOST
                                 + node1.getCluster().getLocalMember().getAddress().getPort()
                                 + CONTEXT_PATH
-                                + RestConstant.UPDATE_TAGS_URL)
+                                + RestConstant.REST_URL_UPDATE_TAGS)
                 .then()
                 .statusCode(200)
                 .body("message", equalTo("update node tags done."));
@@ -788,7 +801,7 @@ public class RestApiIT {
                         HOST
                                 + node1.getCluster().getLocalMember().getAddress().getPort()
                                 + CONTEXT_PATH
-                                + RestConstant.OVERVIEW
+                                + RestConstant.REST_URL_OVERVIEW
                                 + "?node=node1")
                 .then()
                 .statusCode(200)
@@ -808,7 +821,8 @@ public class RestApiIT {
                                                             HOST
                                                                     + key
                                                                     + CONTEXT_PATH
-                                                                    + RestConstant.RUNNING_THREADS)
+                                                                    + RestConstant
+                                                                            .REST_URL_RUNNING_THREADS)
                                                     .then()
                                                     .statusCode(200)
                                                     .body("[0].threadName", notNullValue())
@@ -820,7 +834,8 @@ public class RestApiIT {
                                                                             .getEngineConfig()
                                                                             .getHttpConfig()
                                                                             .getContextPath()
-                                                                    + RestConstant.RUNNING_THREADS)
+                                                                    + RestConstant
+                                                                            .REST_URL_RUNNING_THREADS)
                                                     .then()
                                                     .statusCode(200)
                                                     .body("[0].threadName", notNullValue())
@@ -840,7 +855,7 @@ public class RestApiIT {
                                                                     + key
                                                                     + CONTEXT_PATH
                                                                     + RestConstant
-                                                                            .SYSTEM_MONITORING_INFORMATION)
+                                                                            .REST_URL_SYSTEM_MONITORING_INFORMATION)
                                                     .then()
                                                     .assertThat()
                                                     .time(lessThan(5000L))
@@ -856,7 +871,7 @@ public class RestApiIT {
                                                                             .getHttpConfig()
                                                                             .getContextPath()
                                                                     + RestConstant
-                                                                            .SYSTEM_MONITORING_INFORMATION)
+                                                                            .REST_URL_SYSTEM_MONITORING_INFORMATION)
                                                     .then()
                                                     .assertThat()
                                                     .time(lessThan(5000L))
@@ -889,7 +904,7 @@ public class RestApiIT {
                                                         + "                    \"age\": \"int\"\n"
                                                         + "                }\n"
                                                         + "            },\n"
-                                                        + "            \"result_table_name\": \"fake\",\n"
+                                                        + "            \"plugin_output\": \"fake\",\n"
                                                         + "            \"parallelism\": 1,\n"
                                                         + "            \"hostname\": \"127.0.0.1\",\n"
                                                         + "            \"username\": \"seatunnel\",\n"
@@ -915,12 +930,11 @@ public class RestApiIT {
                                                         HOST
                                                                 + key
                                                                 + CONTEXT_PATH
-                                                                + RestConstant.ENCRYPT_CONFIG)
+                                                                + RestConstant
+                                                                        .REST_URL_ENCRYPT_CONFIG)
                                                 .then()
                                                 .statusCode(200)
-                                                .body(
-                                                        "source[0].result_table_name",
-                                                        equalTo("fake"))
+                                                .body("source[0].plugin_output", equalTo("fake"))
                                                 .body("source[0].username", equalTo("c2VhdHVubmVs"))
                                                 .body(
                                                         "source[0].password",
@@ -934,12 +948,11 @@ public class RestApiIT {
                                                                         .getEngineConfig()
                                                                         .getHttpConfig()
                                                                         .getContextPath()
-                                                                + RestConstant.ENCRYPT_CONFIG)
+                                                                + RestConstant
+                                                                        .REST_URL_ENCRYPT_CONFIG)
                                                 .then()
                                                 .statusCode(200)
-                                                .body(
-                                                        "source[0].result_table_name",
-                                                        equalTo("fake"))
+                                                .body("source[0].plugin_output", equalTo("fake"))
                                                 .body("source[0].username", equalTo("c2VhdHVubmVs"))
                                                 .body(
                                                         "source[0].password",
@@ -959,7 +972,7 @@ public class RestApiIT {
                                                         HOST
                                                                 + key
                                                                 + CONTEXT_PATH
-                                                                + RestConstant.THREAD_DUMP)
+                                                                + RestConstant.REST_URL_THREAD_DUMP)
                                                 .then()
                                                 .statusCode(200)
                                                 .body("[0].threadName", notNullValue())
@@ -973,7 +986,7 @@ public class RestApiIT {
                                                                         .getEngineConfig()
                                                                         .getHttpConfig()
                                                                         .getContextPath()
-                                                                + RestConstant.THREAD_DUMP)
+                                                                + RestConstant.REST_URL_THREAD_DUMP)
                                                 .then()
                                                 .statusCode(200)
                                                 .body("[0].threadName", notNullValue())
@@ -1005,6 +1018,152 @@ public class RestApiIT {
                                                 .body(
                                                         containsString(
                                                                 "<title>Seatunnel Engine UI</title>"));
+                                    });
+                        });
+    }
+
+    @Test
+    public void testSubmitJobWithSqlFormat() {
+        String sqlConfig =
+                "/* config\n"
+                        + "env {\n"
+                        + "  parallelism = 1\n"
+                        + "  job.mode = \"BATCH\"\n"
+                        + "}\n"
+                        + "*/\n"
+                        + "\n"
+                        + "CREATE TABLE test_source (\n"
+                        + "    id INT,\n"
+                        + "    name STRING,\n"
+                        + "    c_time TIMESTAMP\n"
+                        + ") WITH (\n"
+                        + "    'connector' = 'FakeSource',\n"
+                        + "    'schema' = '{ \n"
+                        + "      fields { \n"
+                        + "        id = \"int\", \n"
+                        + "        name = \"string\",\n"
+                        + "        c_time = \"timestamp\"\n"
+                        + "      } \n"
+                        + "    }',\n"
+                        + "    'rows' = '[ \n"
+                        + "      { fields = [1, \"test\", null], kind = INSERT }\n"
+                        + "    ]',\n"
+                        + "    'type' = 'source'\n"
+                        + ");\n"
+                        + "\n"
+                        + "CREATE TABLE test_sink (\n"
+                        + "    id INT,\n"
+                        + "    name STRING,\n"
+                        + "    c_time TIMESTAMP\n"
+                        + ") WITH (\n"
+                        + "    'connector' = 'Console',\n"
+                        + "    'type' = 'sink'\n"
+                        + ");\n"
+                        + "\n"
+                        + "INSERT INTO test_sink SELECT * FROM test_source;";
+
+        Arrays.asList(node2, node1)
+                .forEach(
+                        instance -> {
+                            ports.forEach(
+                                    (key, value) -> {
+                                        given().body(sqlConfig)
+                                                .queryParam("format", "sql")
+                                                .queryParam("jobName", "test-sql-job")
+                                                .post(HOST + key + CONTEXT_PATH + "/submit-job")
+                                                .then()
+                                                .statusCode(200)
+                                                .body("jobId", notNullValue())
+                                                .body("jobName", equalTo("test-sql-job"));
+                                    });
+                        });
+    }
+
+    @Test
+    public void testSubmitJobWithJsonFormat() {
+        String jsonConfig =
+                "{\n"
+                        + "    \"env\": {\n"
+                        + "        \"parallelism\": 1,\n"
+                        + "        \"job.mode\": \"BATCH\"\n"
+                        + "    },\n"
+                        + "    \"source\": [\n"
+                        + "        {\n"
+                        + "            \"plugin_name\": \"FakeSource\",\n"
+                        + "            \"plugin_output\": \"fake\",\n"
+                        + "            \"row.num\": 2,\n"
+                        + "            \"schema\": {\n"
+                        + "                \"fields\": {\n"
+                        + "                    \"name\": \"string\",\n"
+                        + "                    \"age\": \"int\"\n"
+                        + "                }\n"
+                        + "            }\n"
+                        + "        }\n"
+                        + "    ],\n"
+                        + "    \"sink\": [\n"
+                        + "        {\n"
+                        + "            \"plugin_name\": \"Console\",\n"
+                        + "            \"plugin_input\": [\"fake\"]\n"
+                        + "        }\n"
+                        + "    ]\n"
+                        + "}";
+
+        Arrays.asList(node2, node1)
+                .forEach(
+                        instance -> {
+                            ports.forEach(
+                                    (key, value) -> {
+                                        given().body(jsonConfig)
+                                                .queryParam("jobName", "test-json-job")
+                                                .post(HOST + key + CONTEXT_PATH + "/submit-job")
+                                                .then()
+                                                .statusCode(200)
+                                                .body("jobId", notNullValue())
+                                                .body("jobName", equalTo("test-json-job"));
+                                    });
+                        });
+    }
+
+    @Test
+    public void testSubmitJobWithHoconFormat() {
+        String hoconConfig =
+                "env {\n"
+                        + "  parallelism = 1\n"
+                        + "  job.mode = \"BATCH\"\n"
+                        + "}\n"
+                        + "\n"
+                        + "source {\n"
+                        + "  FakeSource {\n"
+                        + "    plugin_output = \"fake\"\n"
+                        + "    row.num = 2\n"
+                        + "    schema = {\n"
+                        + "      fields {\n"
+                        + "        name = \"string\"\n"
+                        + "        age = \"int\"\n"
+                        + "      }\n"
+                        + "    }\n"
+                        + "  }\n"
+                        + "}\n"
+                        + "\n"
+                        + "sink {\n"
+                        + "  Console {\n"
+                        + "    plugin_input = \"fake\"\n"
+                        + "  }\n"
+                        + "}";
+
+        Arrays.asList(node2, node1)
+                .forEach(
+                        instance -> {
+                            ports.forEach(
+                                    (key, value) -> {
+                                        given().body(hoconConfig)
+                                                .queryParam("format", "hocon")
+                                                .queryParam("jobName", "test-hocon-job")
+                                                .post(HOST + key + CONTEXT_PATH + "/submit-job")
+                                                .then()
+                                                .statusCode(200)
+                                                .body("jobId", notNullValue())
+                                                .body("jobName", equalTo("test-hocon-job"));
                                     });
                         });
     }

@@ -19,13 +19,16 @@ package org.apache.seatunnel.connectors.seatunnel.file.source.reader;
 
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.MetadataUtil;
 import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfigOptions;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
+
+import org.apache.commons.io.IOUtils;
 
 import java.io.File;
 import java.io.IOException;
@@ -43,11 +46,34 @@ public class BinaryReadStrategy extends AbstractReadStrategy {
                     });
 
     private File basePath;
+    private int binaryChunkSize = FileBaseSourceOptions.BINARY_CHUNK_SIZE.defaultValue();
+    private boolean completeFileMode =
+            FileBaseSourceOptions.BINARY_COMPLETE_FILE_MODE.defaultValue();
 
     @Override
     public void init(HadoopConf conf) {
         super.init(conf);
-        basePath = new File(pluginConfig.getString(BaseSourceConfigOptions.FILE_PATH.key()));
+        basePath = new File(pluginConfig.getString(FileBaseSourceOptions.FILE_PATH.key()));
+
+        // Load binary chunk size configuration
+        if (pluginConfig.hasPath(FileBaseSourceOptions.BINARY_CHUNK_SIZE.key())) {
+            binaryChunkSize = pluginConfig.getInt(FileBaseSourceOptions.BINARY_CHUNK_SIZE.key());
+            // Validate chunk size - should be positive and reasonable
+            if (binaryChunkSize <= 0) {
+                throw new IllegalArgumentException(
+                        "Binary chunk size must be positive, got: " + binaryChunkSize);
+            }
+            if (binaryChunkSize > 100 * 1024 * 1024) { // 100MB limit
+                throw new IllegalArgumentException(
+                        "Binary chunk size too large (max 100MB), got: " + binaryChunkSize);
+            }
+        }
+
+        // Load complete file mode configuration
+        if (pluginConfig.hasPath(FileBaseSourceOptions.BINARY_COMPLETE_FILE_MODE.key())) {
+            completeFileMode =
+                    pluginConfig.getBoolean(FileBaseSourceOptions.BINARY_COMPLETE_FILE_MODE.key());
+        }
     }
 
     @Override
@@ -66,20 +92,57 @@ public class BinaryReadStrategy extends AbstractReadStrategy {
                     relativePath = relativePath.substring(File.separator.length());
                 }
             }
-            // TODO config this size
-            int maxSize = 1024;
-            byte[] buffer = new byte[maxSize];
-            long partIndex = 0;
-            int readSize;
-            while ((readSize = inputStream.read(buffer)) != -1) {
-                if (readSize != maxSize) {
-                    buffer = Arrays.copyOf(buffer, readSize);
-                }
-                SeaTunnelRow row = new SeaTunnelRow(new Object[] {buffer, relativePath, partIndex});
-                buffer = new byte[1024];
-                output.collect(row);
-                partIndex++;
+
+            if (completeFileMode) {
+                // Read entire file as a single chunk
+                readCompleteFile(inputStream, relativePath, tableId, output);
+            } else {
+                // Read file in configurable chunks
+                readFileInChunks(inputStream, relativePath, tableId, output);
             }
+            // Send an empty chunk as end-of-file marker
+            byte[] endMarker = new byte[0];
+            SeaTunnelRow endRow = new SeaTunnelRow(new Object[] {endMarker, relativePath, -1L});
+            endRow.setTableId(tableId);
+            MetadataUtil.setBinaryRowComplete(endRow);
+            output.collect(endRow);
+        }
+    }
+
+    /** Read the entire file as a single chunk. */
+    private void readCompleteFile(
+            InputStream inputStream,
+            String relativePath,
+            String tableId,
+            Collector<SeaTunnelRow> output)
+            throws IOException {
+        byte[] fileContent = IOUtils.toByteArray(inputStream);
+        SeaTunnelRow row = new SeaTunnelRow(new Object[] {fileContent, relativePath, 0L});
+        row.setTableId(tableId);
+        MetadataUtil.setBinaryFormat(row);
+        output.collect(row);
+    }
+
+    /** Read the file in configurable chunks. */
+    private void readFileInChunks(
+            InputStream inputStream,
+            String relativePath,
+            String tableId,
+            Collector<SeaTunnelRow> output)
+            throws IOException {
+        byte[] buffer = new byte[binaryChunkSize];
+        long partIndex = 0;
+        int readSize;
+        while ((readSize = inputStream.read(buffer)) != -1) {
+            if (readSize != binaryChunkSize) {
+                buffer = Arrays.copyOf(buffer, readSize);
+            }
+            SeaTunnelRow row = new SeaTunnelRow(new Object[] {buffer, relativePath, partIndex});
+            buffer = new byte[binaryChunkSize];
+            row.setTableId(tableId);
+            MetadataUtil.setBinaryFormat(row);
+            output.collect(row);
+            partIndex++;
         }
     }
 

@@ -44,6 +44,10 @@
                     <groupId>org.apache.seatunnel</groupId>
                     <artifactId>seatunnel-hadoop3-3.1.4-uber</artifactId>
                 </exclusion>
+                <exclusion>
+                    <groupId>org.xerial.snappy</groupId>
+                    <artifactId>snappy-java</artifactId>
+                </exclusion>
             </exclusions>
         </dependency>
         <dependency>

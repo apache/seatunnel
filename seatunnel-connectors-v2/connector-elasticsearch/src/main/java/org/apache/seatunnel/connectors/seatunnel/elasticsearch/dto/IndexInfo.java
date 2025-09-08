@@ -18,7 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
-import org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.SinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.ElasticsearchSinkOptions;
 
 import lombok.Data;
 
@@ -33,10 +33,10 @@ public class IndexInfo {
 
     public IndexInfo(String index, ReadonlyConfig config) {
         this.index = index;
-        type = config.get(SinkConfig.INDEX_TYPE);
-        if (config.getOptional(SinkConfig.PRIMARY_KEYS).isPresent()) {
-            primaryKeys = config.get(SinkConfig.PRIMARY_KEYS).toArray(new String[0]);
+        type = config.get(ElasticsearchSinkOptions.INDEX_TYPE);
+        if (config.getOptional(ElasticsearchSinkOptions.PRIMARY_KEYS).isPresent()) {
+            primaryKeys = config.get(ElasticsearchSinkOptions.PRIMARY_KEYS).toArray(new String[0]);
         }
-        keyDelimiter = config.get(SinkConfig.KEY_DELIMITER);
+        keyDelimiter = config.get(ElasticsearchSinkOptions.KEY_DELIMITER);
     }
 }

@@ -17,12 +17,12 @@
 
 package org.apache.seatunnel.connectors.selectdb.serialize;
 
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
+
 import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.selectdb.sink.writer.LoadConstants;
-
-import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -30,10 +30,10 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.StringJoiner;
 
-import static com.google.common.base.Preconditions.checkState;
 import static org.apache.seatunnel.connectors.selectdb.sink.writer.LoadConstants.CSV;
 import static org.apache.seatunnel.connectors.selectdb.sink.writer.LoadConstants.JSON;
 import static org.apache.seatunnel.connectors.selectdb.sink.writer.LoadConstants.NULL_VALUE;
+import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkState;
 
 public class SeaTunnelRowSerializer extends SeaTunnelRowConverter implements SelectDBSerializer {
     String type;

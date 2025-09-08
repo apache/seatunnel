@@ -16,6 +16,8 @@
  */
 package org.apache.seatunnel.e2e.connector.redis;
 
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode;
+
 import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
@@ -25,15 +27,20 @@ import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
+import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
+import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.format.json.JsonSerializationSchema;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestTemplate;
+import org.junit.jupiter.api.condition.DisabledOnOs;
+import org.junit.jupiter.api.condition.OS;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
@@ -52,12 +59,20 @@ import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
+
+import static org.awaitility.Awaitility.await;
 
 @Slf4j
 public abstract class RedisTestCaseTemplateIT extends TestSuiteBase implements TestResource {
@@ -346,6 +361,159 @@ public abstract class RedisTestCaseTemplateIT extends TestSuiteBase implements T
     }
 
     @TestTemplate
+    public void testScanStringTypeWriteRedisWithKey(TestContainer container)
+            throws IOException, InterruptedException {
+        String keyPrefix = "string_test";
+        for (int i = 0; i < 1000; i++) {
+            jedis.set(keyPrefix + i, "val");
+        }
+        Container.ExecResult execResult =
+                container.executeJob("/scan-string-to-redis-with-key.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+        List<String> list = jedis.lrange("string_test_list", 0, -1);
+        Assertions.assertEquals(1000, list.size());
+        for (int i = 0; i < 1000; i++) {
+            Assertions.assertTrue(list.get(i).contains("_suffix"));
+        }
+        jedis.del("string_test_list");
+        for (int i = 0; i < 1000; i++) {
+            jedis.del(keyPrefix + i);
+        }
+    }
+
+    @TestTemplate
+    public void testScanListTypeWriteRedisWithKey(TestContainer container)
+            throws IOException, InterruptedException {
+        String keyPrefix = "list-test-read";
+        for (int i = 0; i < 100; i++) {
+            String list = keyPrefix + i;
+            for (int j = 0; j < 10; j++) {
+                jedis.lpush(list, "val" + j);
+            }
+        }
+        Container.ExecResult execResult =
+                container.executeJob("/scan-list-to-redis-list-with-key.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+        List<String> list = jedis.lrange("list-test-check", 0, -1);
+        Assertions.assertEquals(1000, list.size());
+        for (int i = 0; i < 1000; i++) {
+            Assertions.assertTrue(list.get(i).contains("_suffix"));
+        }
+        jedis.del("list-test-check");
+        for (int i = 0; i < 100; i++) {
+            String delKey = keyPrefix + i;
+            jedis.del(delKey);
+        }
+    }
+
+    @TestTemplate
+    public void testScanSetTypeWriteRedisWithKey(TestContainer container)
+            throws IOException, InterruptedException {
+        String setKeyPrefix = "key-test-set";
+        for (int i = 0; i < 100; i++) {
+            String setKey = setKeyPrefix + i;
+            for (int j = 0; j < 10; j++) {
+                jedis.sadd(setKey, j + "");
+            }
+        }
+        Container.ExecResult execResult =
+                container.executeJob("/scan-set-to-redis-list-set-with-key.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+        List<String> list = jedis.lrange("key-set-check", 0, -1);
+        Assertions.assertEquals(1000, list.size());
+
+        for (int i = 0; i < 1000; i++) {
+            Assertions.assertTrue(list.get(i).contains("_suffix"));
+        }
+
+        jedis.del("key-set-check");
+        for (int i = 0; i < 100; i++) {
+            String setKey = setKeyPrefix + i;
+            jedis.del(setKey);
+        }
+    }
+
+    @TestTemplate
+    public void testScanHashTypeWriteRedisWithDefaultKey(TestContainer container)
+            throws IOException, InterruptedException {
+        testScanHashTypeWithKey(container, "/scan-hash-to-redis-with-default-key.conf");
+    }
+
+    @TestTemplate
+    public void testScanHashTypeWriteRedisWithKey(TestContainer container)
+            throws IOException, InterruptedException {
+        testScanHashTypeWithKey(container, "/scan-hash-to-redis-with-key.conf");
+    }
+
+    private void testScanHashTypeWithKey(TestContainer container, String confFile)
+            throws IOException, InterruptedException {
+        String hashKeyPrefix = "key-test-hash";
+        for (int i = 0; i < 100; i++) {
+            String setKey = hashKeyPrefix + i;
+            Map<String, String> map = new HashMap<>();
+            map.put("name", "dybyte");
+            jedis.hset(setKey, map);
+        }
+        Container.ExecResult execResult = container.executeJob(confFile);
+        Assertions.assertEquals(0, execResult.getExitCode());
+
+        for (int i = 0; i < 100; i++) {
+            Map<String, String> map = jedis.hgetAll("key-test-check:" + hashKeyPrefix + i);
+            Assertions.assertEquals(2, map.size());
+        }
+
+        for (int i = 0; i < 100; i++) {
+            String hashKey = hashKeyPrefix + i;
+            jedis.del(hashKey);
+        }
+        for (int i = 0; i < 100; i++) {
+            jedis.del("key-test-check:" + hashKeyPrefix + i);
+        }
+    }
+
+    @TestTemplate
+    public void testScanZsetTypeWriteRedisWithKey(TestContainer container)
+            throws IOException, InterruptedException {
+        String zSetKeyPrefix = "key-test-zset";
+        for (int i = 0; i < 100; i++) {
+            String key = zSetKeyPrefix + i;
+            for (int j = 0; j < 10; j++) {
+                jedis.zadd(key, 1, j + "");
+            }
+        }
+        Container.ExecResult execResult =
+                container.executeJob("/scan-zset-to-redis-list-zset-with-key.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+        List<String> list = jedis.lrange("key-zset-check", 0, -1);
+        Assertions.assertEquals(1000, list.size());
+
+        for (int i = 0; i < 1000; i++) {
+            Assertions.assertTrue(list.get(i).contains("_suffix"));
+        }
+
+        jedis.del("key-zset-check");
+        for (int i = 0; i < 100; i++) {
+            String key = zSetKeyPrefix + i;
+            jedis.del(key);
+        }
+    }
+
+    @TestTemplate
+    public void testCustomKeyWriteRedisWithKey(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                container.executeJob("/scan-redis-to-redis-with-key.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+
+        for (int i = 0; i < 100; i++) {
+            Assertions.assertTrue(jedis.exists("redis-key-check:" + "key_test" + i));
+        }
+        for (int i = 0; i < 100; i++) {
+            jedis.del("redis-key-check:" + "key_test" + i);
+        }
+    }
+
+    @TestTemplate
     public void testMultipletableRedisSink(TestContainer container)
             throws IOException, InterruptedException {
         Container.ExecResult execResult =
@@ -440,6 +608,204 @@ public abstract class RedisTestCaseTemplateIT extends TestSuiteBase implements T
             Assertions.assertEquals("string", jedis.hget("custom-hash-check", String.valueOf(i)));
         }
         jedis.del("custom-hash-check");
+    }
+
+    @TestTemplate
+    public void testFakeToRedisDeleteHashTest(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                container.executeJob("/fake-to-redis-test-delete-hash.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+        Assertions.assertEquals(2, jedis.hlen("hash_check"));
+        jedis.del("hash_check");
+    }
+
+    @TestTemplate
+    public void testFakeToRedisDeleteKeyTest(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                container.executeJob("/fake-to-redis-test-delete-key.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+        int count = 0;
+        for (int i = 1; i <= 3; i++) {
+            String data = jedis.get("key_check:" + i);
+            if (data != null) {
+                count++;
+            }
+        }
+        Assertions.assertEquals(2, count);
+        for (int i = 1; i <= 3; i++) {
+            jedis.del("key_check:" + i);
+        }
+    }
+
+    @TestTemplate
+    public void testFakeToRedisDeleteListTest(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                container.executeJob("/fake-to-redis-test-delete-list.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+        Assertions.assertEquals(2, jedis.llen("list_check"));
+        jedis.del("list_check");
+    }
+
+    @TestTemplate
+    public void testFakeToRedisDeleteSetTest(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                container.executeJob("/fake-to-redis-test-delete-set.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+        Assertions.assertEquals(2, jedis.scard("set_check"));
+        jedis.del("set_check");
+    }
+
+    @TestTemplate
+    public void testFakeToToRedisDeleteZSetTest(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                container.executeJob("/fake-to-redis-test-delete-zset.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+        Assertions.assertEquals(2, jedis.zcard("zset_check"));
+        jedis.del("zset_check");
+    }
+
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK, EngineType.FLINK},
+            disabledReason = "Only support for seatunnel")
+    @DisabledOnOs(OS.WINDOWS)
+    public void testFakeToRedisInRealTimeTest(TestContainer container)
+            throws IOException, InterruptedException {
+        CompletableFuture.supplyAsync(
+                () -> {
+                    try {
+                        container.executeJob("/fake-to-redis-test-in-real-time.conf");
+                    } catch (Exception e) {
+                        log.error("Commit task exception :" + e.getMessage());
+                        throw new RuntimeException(e);
+                    }
+                    return null;
+                });
+        await().atMost(60000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> {
+                            Assertions.assertEquals(3, jedis.llen("list_check"));
+                        });
+        jedis.del("list_check");
+        // Get the task id
+        Container.ExecResult execResult = container.executeBaseCommand(new String[] {"-l"});
+        String regex = "(\\d+)\\s+";
+        Pattern pattern = Pattern.compile(regex);
+        List<String> runningJobId =
+                Arrays.stream(execResult.getStdout().toString().split("\n"))
+                        .filter(s -> s.contains("fake-to-redis-test-in-real-time"))
+                        .map(
+                                s -> {
+                                    Matcher matcher = pattern.matcher(s);
+                                    return matcher.find() ? matcher.group(1) : null;
+                                })
+                        .filter(jobId -> jobId != null)
+                        .collect(Collectors.toList());
+        Assertions.assertEquals(1, runningJobId.size());
+        // Verify that the status is Running
+        for (String jobId : runningJobId) {
+            Container.ExecResult execResult1 =
+                    container.executeBaseCommand(new String[] {"-j", jobId});
+            String stdout = execResult1.getStdout();
+            ObjectNode jsonNodes = JsonUtils.parseObject(stdout);
+            Assertions.assertEquals(jsonNodes.get("jobStatus").asText(), "RUNNING");
+        }
+        // Execute cancellation task
+        String[] batchCancelCommand =
+                Stream.concat(Arrays.stream(new String[] {"-can"}), runningJobId.stream())
+                        .toArray(String[]::new);
+        Assertions.assertEquals(0, container.executeBaseCommand(batchCancelCommand).getExitCode());
+
+        // Verify whether the cancellation is successful
+        for (String jobId : runningJobId) {
+            Container.ExecResult execResult1 =
+                    container.executeBaseCommand(new String[] {"-j", jobId});
+            String stdout = execResult1.getStdout();
+            ObjectNode jsonNodes = JsonUtils.parseObject(stdout);
+            Assertions.assertEquals(jsonNodes.get("jobStatus").asText(), "CANCELED");
+        }
+    }
+
+    @TestTemplate
+    public void testFakeToRedisNormalKeyIsNullTest(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                container.executeJob("/fake-to-redis-test-normal-key-is-null.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+        int count = 0;
+        String data = jedis.get("");
+        if (data != null) {
+            count++;
+            jedis.del("");
+        }
+        for (int i = 2; i <= 3; i++) {
+            data = jedis.get("NEW" + i);
+            if (data != null) {
+                count++;
+                jedis.del("NEW" + i);
+            }
+        }
+        Assertions.assertEquals(2, count);
+    }
+
+    @TestTemplate
+    public void testFakeToRedisCustomKeyIsNullTest(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                container.executeJob("/fake-to-redis-test-custom-key-is-null.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+        int count = 0;
+        String data = jedis.get("key_check:");
+        if (data != null) {
+            count++;
+            jedis.del("key_check:");
+        }
+        for (int i = 2; i <= 3; i++) {
+            data = jedis.get("key_check:NEW" + i);
+            if (data != null) {
+                count++;
+                jedis.del("key_check:NEW" + i);
+            }
+        }
+        Assertions.assertEquals(2, count);
+    }
+
+    @TestTemplate
+    public void testFakeToRedisOtherTypeValueIsNullTest(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                container.executeJob(
+                        "/fake-to-redis-test-custom-value-when-other-type-is-null.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+        Assertions.assertEquals(2, jedis.llen("list_check"));
+        jedis.del("list_check");
+    }
+
+    @TestTemplate
+    public void testFakeToRedisHashTypeKeyIsNullTest(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                container.executeJob("/fake-to-redis-test-custom-value-when-hash-key-is-null.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+        Assertions.assertEquals(2, jedis.hlen("hash_check"));
+        jedis.del("hash_check");
+    }
+
+    @TestTemplate
+    public void testFakeToRedisHashTypeValueIsNullTest(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                container.executeJob(
+                        "/fake-to-redis-test-custom-value-when-hash-value-is-null.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+        Assertions.assertEquals(2, jedis.hlen("hash_check"));
+        jedis.del("hash_check");
     }
 
     public abstract RedisContainerInfo getRedisContainerInfo();

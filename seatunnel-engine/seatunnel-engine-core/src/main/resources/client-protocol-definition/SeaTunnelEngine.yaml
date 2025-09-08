@@ -291,3 +291,24 @@ methods:
           since: 2.0
           doc: ''
     response: {}
+
+  - id: 15
+    name: getJobCheckpoint
+    since: 2.0
+    doc: ''
+    request:
+      retryable: true
+      partitionIdentifier: -1
+      params:
+        - name: jobId
+          type: long
+          nullable: false
+          since: 2.0
+          doc: ''
+    response:
+      params:
+        - name: response
+          type: Data
+          nullable: false
+          since: 2.0
+          doc: ''

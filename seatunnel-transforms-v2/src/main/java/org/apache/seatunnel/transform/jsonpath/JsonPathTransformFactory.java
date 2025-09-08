@@ -17,14 +17,12 @@
 
 package org.apache.seatunnel.transform.jsonpath;
 
-import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
-import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.connector.TableTransform;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableTransformFactory;
 import org.apache.seatunnel.api.table.factory.TableTransformFactoryContext;
-import org.apache.seatunnel.transform.common.CommonOptions;
+import org.apache.seatunnel.transform.common.TransformCommonOptions;
 
 import com.google.auto.service.AutoService;
 
@@ -38,16 +36,16 @@ public class JsonPathTransformFactory implements TableTransformFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(JsonPathTransformConfig.COLUMNS)
-                .optional(CommonOptions.ROW_ERROR_HANDLE_WAY_OPTION)
+                .optional(JsonPathTransformConfig.COLUMNS)
+                .optional(TransformCommonOptions.MULTI_TABLES)
+                .optional(TransformCommonOptions.TABLE_MATCH_REGEX)
+                .optional(TransformCommonOptions.ROW_ERROR_HANDLE_WAY_OPTION)
                 .build();
     }
 
     @Override
     public TableTransform createTransform(TableTransformFactoryContext context) {
-        CatalogTable catalogTable = context.getCatalogTables().get(0);
-        ReadonlyConfig options = context.getOptions();
-        JsonPathTransformConfig jsonPathTransformConfig = JsonPathTransformConfig.of(options);
-        return () -> new JsonPathTransform(jsonPathTransformConfig, catalogTable);
+        return () ->
+                new JsonPathMultiCatalogTransform(context.getCatalogTables(), context.getOptions());
     }
 }

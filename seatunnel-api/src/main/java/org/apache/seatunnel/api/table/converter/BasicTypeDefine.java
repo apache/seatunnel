@@ -31,6 +31,8 @@ public class BasicTypeDefine<T> implements Serializable {
     protected String columnType;
     // e.g. `varchar` for MySQL
     protected String dataType;
+    // It's jdbc sql type(java.sql.Types) not SeaTunnel SqlType
+    protected int sqlType;
     protected T nativeType;
     // e.g. `varchar` length is 10
     protected Long length;

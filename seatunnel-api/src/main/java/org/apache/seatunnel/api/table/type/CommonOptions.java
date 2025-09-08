@@ -49,10 +49,24 @@ public enum CommonOptions {
     ROW_KIND("RowKind", true),
     /**
      * The key of {@link SeaTunnelRow#getOptions()} to store the EVENT_TIME value of the row value.
+     * And the data should be milliseconds.
      */
     EVENT_TIME("EventTime", true),
-    /** The key of {@link SeaTunnelRow#getOptions()} to store the DELAY value of the row value. */
-    DELAY("Delay", true);
+    /**
+     * The key of {@link SeaTunnelRow#getOptions()} to store the DELAY value of the row value. And
+     * the data should be milliseconds.
+     */
+    DELAY("Delay", true),
+    /**
+     * The key of {@link SeaTunnelRow#getOptions()} to indicate whether the row represents a
+     * complete file.
+     */
+    IS_COMPLETE("is_complete", true),
+    /**
+     * The key of {@link SeaTunnelRow#getOptions()} to indicate whether the row contains binary
+     * format data.
+     */
+    IS_BINARY_FORMAT("is_binary_format", true);
 
     private final String name;
     private final boolean supportMetadataTrans;

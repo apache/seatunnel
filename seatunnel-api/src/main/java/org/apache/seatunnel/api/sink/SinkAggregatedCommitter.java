@@ -32,7 +32,10 @@ import java.util.List;
  */
 public interface SinkAggregatedCommitter<CommitInfoT, AggregatedCommitInfoT> extends Serializable {
 
-    /** init sink aggregated committer */
+    /**
+     * init sink aggregated committer, this method will be called not once. Each retry will call
+     * this.
+     */
     default void init() {};
 
     /** Re-commit message to third party data receiver, The method need to achieve idempotency. */

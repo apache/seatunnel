@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.cdc.base.source;
 
+import org.apache.seatunnel.shade.com.google.common.collect.Sets;
+
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.source.Boundedness;
@@ -25,8 +27,11 @@ import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
-import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.api.table.catalog.Column;
+import org.apache.seatunnel.api.table.catalog.MetadataColumn;
+import org.apache.seatunnel.api.table.catalog.MetadataSchema;
+import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.CommonOptions;
 import org.apache.seatunnel.connectors.cdc.base.config.SourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.config.StartupConfig;
 import org.apache.seatunnel.connectors.cdc.base.config.StopConfig;
@@ -59,16 +64,19 @@ import org.apache.seatunnel.connectors.seatunnel.common.source.reader.RecordsWit
 import org.apache.seatunnel.connectors.seatunnel.common.source.reader.SourceReaderOptions;
 import org.apache.seatunnel.format.compatible.debezium.json.CompatibleDebeziumJsonDeserializationSchema;
 
-import com.google.common.collect.Sets;
 import io.debezium.relational.TableId;
 import lombok.NoArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
+import java.sql.DriverManager;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -77,8 +85,21 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 @NoArgsConstructor
+@Slf4j
 public abstract class IncrementalSource<T, C extends SourceConfig>
         implements SeaTunnelSource<T, SourceSplitBase, PendingSplitsState> {
+
+    static {
+        // Load DriverManager first to avoid deadlock between DriverManager's
+        // static initialization block and specific driver class's static
+        // initialization block when two different driver classes are loading
+        // concurrently using Class.forName while DriverManager is uninitialized
+        // before.
+        //
+        // This could happen in JDK 8 but not above as driver loading has been
+        // moved out of DriverManager's static initialization block since JDK 9.
+        DriverManager.getDrivers();
+    }
 
     protected ReadonlyConfig readonlyConfig;
     protected SourceConfig.Factory<C> configFactory;
@@ -94,15 +115,9 @@ public abstract class IncrementalSource<T, C extends SourceConfig>
     protected StopMode stopMode;
     protected DebeziumDeserializationSchema<T> deserializationSchema;
 
-    protected SeaTunnelDataType<SeaTunnelRow> dataType;
-
-    protected IncrementalSource(
-            ReadonlyConfig options,
-            SeaTunnelDataType<SeaTunnelRow> dataType,
-            List<CatalogTable> catalogTables) {
-        this.dataType = dataType;
-        this.catalogTables = catalogTables;
+    protected IncrementalSource(ReadonlyConfig options, List<CatalogTable> catalogTables) {
         this.readonlyConfig = options;
+        this.catalogTables = updateCatalogTableMetadata(catalogTables);
         this.startupConfig = getStartupConfig(readonlyConfig);
         this.stopConfig = getStopConfig(readonlyConfig);
         this.stopMode = stopConfig.getStopMode();
@@ -121,6 +136,41 @@ public abstract class IncrementalSource<T, C extends SourceConfig>
                 config.get(SourceOptions.STARTUP_TIMESTAMP));
     }
 
+    private List<CatalogTable> updateCatalogTableMetadata(List<CatalogTable> catalogTables) {
+        return catalogTables.stream()
+                .map(
+                        table -> {
+                            if (DeserializeFormat.DEFAULT.equals(
+                                    readonlyConfig.get(JdbcSourceOptions.FORMAT))) {
+                                return CatalogTable.withMetadata(table, getMetadataColumns());
+                            } else {
+                                return table;
+                            }
+                        })
+                .collect(Collectors.toList());
+    }
+
+    private MetadataSchema getMetadataColumns() {
+        List<Column> metadata = new ArrayList<>();
+        metadata.add(
+                MetadataColumn.of(
+                        CommonOptions.EVENT_TIME.getName(),
+                        BasicType.LONG_TYPE,
+                        (Long) null,
+                        true,
+                        null,
+                        null));
+        metadata.add(
+                MetadataColumn.of(
+                        CommonOptions.DELAY.getName(),
+                        BasicType.LONG_TYPE,
+                        (Long) null,
+                        true,
+                        null,
+                        null));
+        return MetadataSchema.builder().columns(metadata).build();
+    }
+
     private StopConfig getStopConfig(ReadonlyConfig config) {
         return new StopConfig(
                 config.get(getStopModeOption()),
@@ -135,7 +185,10 @@ public abstract class IncrementalSource<T, C extends SourceConfig>
                 readonlyConfig.get(JdbcSourceOptions.FORMAT))) {
             return Collections.singletonList(
                     CatalogTableUtil.getCatalogTable(
-                            "default.default",
+                            "schema",
+                            "default",
+                            "default",
+                            "default",
                             CompatibleDebeziumJsonDeserializationSchema.DEBEZIUM_DATA_ROW_TYPE));
         }
         return catalogTables;
@@ -154,6 +207,8 @@ public abstract class IncrementalSource<T, C extends SourceConfig>
 
     public abstract OffsetFactory createOffsetFactory(ReadonlyConfig config);
 
+    public abstract Optional<String> driverName();
+
     @Override
     public Boundedness getBoundedness() {
         return stopMode == StopMode.NEVER ? Boundedness.UNBOUNDED : Boundedness.BOUNDED;
@@ -163,6 +218,14 @@ public abstract class IncrementalSource<T, C extends SourceConfig>
     @Override
     public SourceReader<T, SourceSplitBase> createReader(SourceReader.Context readerContext)
             throws Exception {
+        // Load the JDBC driver in to DriverManager
+        if (driverName().isPresent()) {
+            try {
+                Class.forName(driverName().get());
+            } catch (Exception e) {
+                log.warn("Failed to load JDBC driver: {}", driverName().get(), e);
+            }
+        }
         // create source config for the given subtask (e.g. unique server id)
         C sourceConfig = configFactory.create(readerContext.getIndexOfSubtask());
         BlockingQueue<RecordsWithSplitIds<SourceRecords>> elementsQueue =
@@ -195,6 +258,14 @@ public abstract class IncrementalSource<T, C extends SourceConfig>
     @Override
     public SourceSplitEnumerator<SourceSplitBase, PendingSplitsState> createEnumerator(
             SourceSplitEnumerator.Context<SourceSplitBase> enumeratorContext) throws Exception {
+        // Load the JDBC driver in to DriverManager
+        if (driverName().isPresent()) {
+            try {
+                Class.forName(driverName().get());
+            } catch (Exception e) {
+                log.warn("Failed to load JDBC driver: {}", driverName().get(), e);
+            }
+        }
         C sourceConfig = configFactory.create(0);
         final List<TableId> remainingTables =
                 dataSourceDialect.discoverDataCollections(sourceConfig);
@@ -236,6 +307,14 @@ public abstract class IncrementalSource<T, C extends SourceConfig>
             SourceSplitEnumerator.Context<SourceSplitBase> enumeratorContext,
             PendingSplitsState checkpointState)
             throws Exception {
+        // Load the JDBC driver in to DriverManager
+        if (driverName().isPresent()) {
+            try {
+                Class.forName(driverName().get());
+            } catch (Exception e) {
+                log.warn("Failed to load JDBC driver: {}", driverName().get(), e);
+            }
+        }
         C sourceConfig = configFactory.create(0);
         Set<TableId> capturedTables =
                 new HashSet<>(dataSourceDialect.discoverDataCollections(sourceConfig));

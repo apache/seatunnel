@@ -19,10 +19,9 @@ package org.apache.seatunnel.connectors.seatunnel.cdc.mongodb;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.source.SupportParallelism;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
-import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.cdc.base.config.SourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.dialect.DataSourceDialect;
 import org.apache.seatunnel.connectors.cdc.base.option.JdbcSourceOptions;
@@ -30,6 +29,8 @@ import org.apache.seatunnel.connectors.cdc.base.option.StartupMode;
 import org.apache.seatunnel.connectors.cdc.base.option.StopMode;
 import org.apache.seatunnel.connectors.cdc.base.source.IncrementalSource;
 import org.apache.seatunnel.connectors.cdc.base.source.offset.OffsetFactory;
+import org.apache.seatunnel.connectors.cdc.base.source.split.SourceRecords;
+import org.apache.seatunnel.connectors.cdc.base.source.split.state.SourceSplitStateBase;
 import org.apache.seatunnel.connectors.cdc.debezium.DebeziumDeserializationSchema;
 import org.apache.seatunnel.connectors.cdc.debezium.DeserializeFormat;
 import org.apache.seatunnel.connectors.cdc.debezium.row.DebeziumJsonDeserializeSchema;
@@ -37,8 +38,10 @@ import org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourc
 import org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConfigProvider;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.sender.MongoDBConnectorDeserializationSchema;
+import org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.source.MongoDBRecordEmitter;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.source.dialect.MongodbDialect;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.source.offset.ChangeStreamOffsetFactory;
+import org.apache.seatunnel.connectors.seatunnel.common.source.reader.RecordEmitter;
 
 import javax.annotation.Nonnull;
 
@@ -50,11 +53,8 @@ public class MongodbIncrementalSource<T> extends IncrementalSource<T, MongodbSou
 
     static final String IDENTIFIER = "MongoDB-CDC";
 
-    public MongodbIncrementalSource(
-            ReadonlyConfig options,
-            SeaTunnelDataType<SeaTunnelRow> dataType,
-            List<CatalogTable> catalogTables) {
-        super(options, dataType, catalogTables);
+    public MongodbIncrementalSource(ReadonlyConfig options, List<CatalogTable> catalogTables) {
+        super(options, catalogTables);
     }
 
     @Override
@@ -89,6 +89,8 @@ public class MongodbIncrementalSource<T> extends IncrementalSource<T, MongodbSou
                 .ifPresent(builder::connectionOptions);
         Optional.ofNullable(config.get(MongodbSourceOptions.BATCH_SIZE))
                 .ifPresent(builder::batchSize);
+        Optional.ofNullable(config.get(MongodbSourceOptions.EXACTLY_ONCE))
+                .ifPresent(builder::exactlyOnce);
         Optional.ofNullable(config.get(MongodbSourceOptions.POLL_MAX_BATCH_SIZE))
                 .ifPresent(builder::pollMaxBatchSize);
         Optional.ofNullable(config.get(MongodbSourceOptions.POLL_AWAIT_TIME_MILLIS))
@@ -115,9 +117,8 @@ public class MongodbIncrementalSource<T> extends IncrementalSource<T, MongodbSou
                             config.get(JdbcSourceOptions.DEBEZIUM_PROPERTIES));
         }
 
-        SeaTunnelDataType<SeaTunnelRow> physicalRowType = dataType;
         return (DebeziumDeserializationSchema<T>)
-                new MongoDBConnectorDeserializationSchema(physicalRowType, physicalRowType);
+                new MongoDBConnectorDeserializationSchema(catalogTables);
     }
 
     @Override
@@ -128,5 +129,16 @@ public class MongodbIncrementalSource<T> extends IncrementalSource<T, MongodbSou
     @Override
     public OffsetFactory createOffsetFactory(ReadonlyConfig config) {
         return new ChangeStreamOffsetFactory();
+    }
+
+    @Override
+    protected RecordEmitter<SourceRecords, T, SourceSplitStateBase> createRecordEmitter(
+            SourceConfig sourceConfig, SourceReader.Context context) {
+        return new MongoDBRecordEmitter<>(deserializationSchema, offsetFactory, context);
+    }
+
+    @Override
+    public Optional<String> driverName() {
+        return Optional.empty();
     }
 }

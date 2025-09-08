@@ -23,7 +23,7 @@ import org.testcontainers.containers.Container;
 
 import java.io.IOException;
 
-public class SinkPlaceholderIT extends SeaTunnelContainer {
+public class SinkPlaceholderIT extends SeaTunnelEngineContainer {
 
     @Test
     public void testSinkPlaceholder() throws IOException, InterruptedException {

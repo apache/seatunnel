@@ -106,8 +106,10 @@ public class LLMTransform extends SingleFieldOutputTransform {
                                 config.get(LLMTransformConfig.API_KEY),
                                 provider.usedLLMPath(config.get(LLMTransformConfig.API_PATH)));
                 break;
+            case DEEPSEEK:
             case OPENAI:
             case DOUBAO:
+            case ZHIPU:
                 model =
                         new OpenAIModel(
                                 inputCatalogTable.getSeaTunnelRowType(),
@@ -117,6 +119,7 @@ public class LLMTransform extends SingleFieldOutputTransform {
                                 config.get(LLMTransformConfig.MODEL),
                                 config.get(LLMTransformConfig.API_KEY),
                                 provider.usedLLMPath(config.get(LLMTransformConfig.API_PATH)));
+                break;
             case KIMIAI:
                 model =
                         new KimiAIModel(

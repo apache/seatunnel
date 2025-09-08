@@ -6,17 +6,23 @@ sidebar_position: 4
 
 > Common parameters of sink connectors
 
-|       Name        |  Type  | Required | Default |                                                                                                                                     Description                                                                                                                                      |
-|-------------------|--------|----------|---------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| source_table_name | String | No       | -       | When `source_table_name` is not specified, the current plug-in processes the data set `dataset` output by the previous plugin in the configuration file <br/> When `source_table_name` is specified, the current plug-in is processing the data set corresponding to this parameter. |
+:::caution warn
+
+The old configuration name `source_table_name` is deprecated, please migrate to the new name `plugin_input` as soon as possible.
+
+:::
+
+| Name         | Type   | Required | Default | Description                                                                                                                                                                                                                                                                |
+|--------------|--------|----------|---------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| plugin_input | String | No       | -       | When `plugin_input` is not specified, the current plug-in processes the data set `dataset` output by the previous plugin in the configuration file <br/> When `plugin_input` is specified, the current plug-in is processing the data set corresponding to this parameter. |
 
 # Important note
 
-When the job configuration `source_table_name` you must set the `result_table_name` parameter
+When the job configuration `plugin_input` you must set the `plugin_output` parameter
 
 ## Task Example
 
-### Simple:
+### Simple
 
 > This is the process of passing a data source through two transforms and returning two different pipiles to different sinks
 
@@ -24,34 +30,34 @@ When the job configuration `source_table_name` you must set the `result_table_na
 source {
     FakeSourceStream {
       parallelism = 2
-      result_table_name = "fake"
+      plugin_output = "fake"
       field_name = "name,age"
     }
 }
 
 transform {
     Filter {
-      source_table_name = "fake"
+      plugin_input = "fake"
       fields = [name]
-      result_table_name = "fake_name"
+      plugin_output = "fake_name"
     }
     Filter {
-      source_table_name = "fake"
+      plugin_input = "fake"
       fields = [age]
-      result_table_name = "fake_age"
+      plugin_output = "fake_age"
     }
 }
 
 sink {
     Console {
-      source_table_name = "fake_name"
+      plugin_input = "fake_name"
     }
     Console {
-      source_table_name = "fake_age"
+      plugin_input = "fake_age"
     }
 }
 ```
 
-> If the job only have one source and one(or zero) transform and one sink, You do not need to specify `source_table_name` and `result_table_name` for connector.
-> If the number of any operator in source, transform and sink is greater than 1, you must specify the `source_table_name` and `result_table_name` for each connector in the job.
+> If the job only have one source and one(or zero) transform and one sink, You do not need to specify `plugin_input` and `plugin_output` for connector.
+> If the number of any operator in source, transform and sink is greater than 1, you must specify the `plugin_input` and `plugin_output` for each connector in the job.
 

@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-prometheus.md';
+
 # Prometheus
 
 > Prometheus source connector
@@ -96,12 +98,12 @@ Source plugin common parameters, please refer to [Source Common Options](../sour
 
 ## Example
 
-### Instant:
+### Instant
 
 ```hocon
 source {
   Prometheus {
-    result_table_name = "http"
+    plugin_output = "http"
     url = "http://mockserver:1080"
     query = "up"
     query_type = "Instant"
@@ -123,7 +125,7 @@ source {
 ```hocon
 source {
   Prometheus {
-    result_table_name = "http"
+    plugin_output = "http"
     url = "http://mockserver:1080"
     query = "up"
     query_type = "Range"
@@ -145,8 +147,4 @@ source {
 
 ## Changelog
 
-### next version
-
-- Add Prometheus Source Connector
-- Reduce configuration items
-
+<ChangeLog />

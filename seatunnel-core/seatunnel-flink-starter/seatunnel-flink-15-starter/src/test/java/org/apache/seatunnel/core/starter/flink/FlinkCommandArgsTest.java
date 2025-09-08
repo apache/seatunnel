@@ -29,7 +29,7 @@ import org.junit.jupiter.api.Test;
 import java.io.FileNotFoundException;
 import java.net.URISyntaxException;
 
-import static org.apache.seatunnel.api.common.CommonOptions.PLUGIN_NAME;
+import static org.apache.seatunnel.api.options.ConnectorCommonOptions.PLUGIN_NAME;
 
 public class FlinkCommandArgsTest {
     @Test

@@ -17,10 +17,11 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source.parser;
 
-import org.apache.seatunnel.api.table.catalog.TablePath;
-import org.apache.seatunnel.api.table.event.AlterTableColumnEvent;
+import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 
-import com.google.common.collect.Lists;
+import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.schema.event.AlterTableColumnEvent;
+
 import io.debezium.antlr.AntlrDdlParserListener;
 import io.debezium.antlr.DataTypeResolver;
 import io.debezium.connector.mysql.antlr.MySqlAntlrDdlParser;

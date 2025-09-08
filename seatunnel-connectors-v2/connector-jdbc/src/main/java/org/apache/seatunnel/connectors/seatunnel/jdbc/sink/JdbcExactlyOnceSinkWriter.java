@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.sink;
 
+import org.apache.seatunnel.shade.com.google.common.base.Throwables;
+
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.catalog.TablePath;
@@ -39,8 +41,6 @@ import org.apache.commons.lang3.SerializationUtils;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import com.google.common.base.Throwables;
 
 import javax.transaction.xa.Xid;
 
@@ -77,6 +77,7 @@ public class JdbcExactlyOnceSinkWriter extends AbstractJdbcSinkWriter<Void> {
             JdbcDialect dialect,
             JdbcSinkConfig jdbcSinkConfig,
             TableSchema tableSchema,
+            TableSchema databaseTableSchema,
             List<JdbcSinkState> states) {
         checkArgument(
                 jdbcSinkConfig.getJdbcConnectionConfig().getMaxRetries() == 0,
@@ -95,7 +96,9 @@ public class JdbcExactlyOnceSinkWriter extends AbstractJdbcSinkWriter<Void> {
                 XaFacade.fromJdbcConnectionOptions(jdbcSinkConfig.getJdbcConnectionConfig());
         this.xaFacade = (XaFacade) this.connectionProvider;
         this.outputFormat =
-                new JdbcOutputFormatBuilder(dialect, xaFacade, jdbcSinkConfig, tableSchema).build();
+                new JdbcOutputFormatBuilder(
+                                dialect, xaFacade, jdbcSinkConfig, tableSchema, databaseTableSchema)
+                        .build();
         this.xaGroupOps = new XaGroupOpsImpl(xaFacade);
     }
 

@@ -23,6 +23,7 @@ import org.apache.seatunnel.connectors.cdc.base.source.split.IncrementalSplit;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SnapshotSplit;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SourceSplitBase;
 import org.apache.seatunnel.connectors.cdc.base.source.split.wartermark.WatermarkKind;
+import org.apache.seatunnel.connectors.seatunnel.cdc.oracle.config.OracleSourceConfigFactory;
 import org.apache.seatunnel.connectors.seatunnel.cdc.oracle.source.reader.fetch.OracleSourceFetchTaskContext;
 import org.apache.seatunnel.connectors.seatunnel.cdc.oracle.source.reader.fetch.logminer.OracleRedoLogFetchTask;
 
@@ -159,6 +160,7 @@ public class OracleSnapshotFetchTask implements FetchTask<SourceSplitBase> {
                 context.getSourceConfig()
                         .getDbzConfiguration()
                         .edit()
+                        .with(OracleSourceConfigFactory.SCHEMA_CHANGE_KEY, "false")
                         .with(
                                 "table.include.list",
                                 split.getTableId()

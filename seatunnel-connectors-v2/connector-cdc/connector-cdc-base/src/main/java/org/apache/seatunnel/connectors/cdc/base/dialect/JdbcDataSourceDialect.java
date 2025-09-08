@@ -49,6 +49,9 @@ public interface JdbcDataSourceDialect extends DataSourceDialect<JdbcSourceConfi
     @Override
     List<TableId> discoverDataCollections(JdbcSourceConfig sourceConfig);
 
+    default void checkAllTablesEnabledCapture(JdbcConnection jdbcConnection, List<TableId> tableIds)
+            throws SQLException {}
+
     /**
      * Creates and opens a new {@link JdbcConnection} backing connection pool.
      *

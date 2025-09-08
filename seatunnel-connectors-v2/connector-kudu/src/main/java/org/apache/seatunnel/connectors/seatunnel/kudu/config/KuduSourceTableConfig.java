@@ -17,17 +17,18 @@
 
 package org.apache.seatunnel.connectors.seatunnel.kudu.config;
 
+import org.apache.seatunnel.shade.com.google.common.collect.Lists;
+
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.catalog.TablePath;
-import org.apache.seatunnel.api.table.catalog.schema.TableSchemaOptions;
 import org.apache.seatunnel.api.table.factory.FactoryUtil;
 import org.apache.seatunnel.connectors.seatunnel.kudu.catalog.KuduCatalog;
 import org.apache.seatunnel.connectors.seatunnel.kudu.catalog.KuduCatalogFactory;
 
-import com.google.common.collect.Lists;
 import lombok.Getter;
 
 import java.io.Serializable;
@@ -44,9 +45,10 @@ public class KuduSourceTableConfig implements Serializable {
 
     private String filter;
 
-    private KuduSourceTableConfig(String tablePath, CatalogTable catalogTable) {
+    private KuduSourceTableConfig(String tablePath, CatalogTable catalogTable, String filter) {
         this.tablePath = TablePath.of(tablePath);
         this.catalogTable = catalogTable;
+        this.filter = filter;
     }
 
     public static List<KuduSourceTableConfig> of(ReadonlyConfig config) {
@@ -59,8 +61,8 @@ public class KuduSourceTableConfig implements Serializable {
 
         try (KuduCatalog kuduCatalog = (KuduCatalog) optionalCatalog.get()) {
             kuduCatalog.open();
-            if (config.getOptional(KuduSourceConfig.TABLE_LIST).isPresent()) {
-                return config.get(KuduSourceConfig.TABLE_LIST).stream()
+            if (config.getOptional(ConnectorCommonOptions.TABLE_LIST).isPresent()) {
+                return config.get(ConnectorCommonOptions.TABLE_LIST).stream()
                         .map(ReadonlyConfig::fromMap)
                         .map(readonlyConfig -> parseKuduSourceConfig(readonlyConfig, kuduCatalog))
                         .collect(Collectors.toList());
@@ -74,12 +76,14 @@ public class KuduSourceTableConfig implements Serializable {
     public static KuduSourceTableConfig parseKuduSourceConfig(
             ReadonlyConfig config, KuduCatalog kuduCatalog) {
         CatalogTable catalogTable;
-        String tableName = config.get(CommonConfig.TABLE_NAME);
-        if (config.getOptional(TableSchemaOptions.SCHEMA).isPresent()) {
+        String tableName = config.get(KuduBaseOptions.TABLE_NAME);
+        if (config.getOptional(ConnectorCommonOptions.SCHEMA).isPresent()) {
             catalogTable = CatalogTableUtil.buildWithConfig(config);
         } else {
-            catalogTable = kuduCatalog.getTable(TablePath.of(config.get(CommonConfig.TABLE_NAME)));
+            catalogTable =
+                    kuduCatalog.getTable(TablePath.of(config.get(KuduBaseOptions.TABLE_NAME)));
         }
-        return new KuduSourceTableConfig(tableName, catalogTable);
+        return new KuduSourceTableConfig(
+                tableName, catalogTable, config.get(KuduSourceOptions.FILTER));
     }
 }

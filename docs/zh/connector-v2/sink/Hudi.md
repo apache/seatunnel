@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-hudi.md';
+
 # Hudi
 
 > Hudi 接收器连接器
@@ -34,6 +36,7 @@
 | op_type                    | enum   | no       | insert        |
 | record_key_fields          | string | no       | -             |
 | partition_fields           | string | no       | -             |
+| precombine_field           | string | no       | -             |
 | batch_interval_ms          | Int    | no       | 1000          |
 | batch_size                 | Int    | no       | 1000          |
 | insert_shuffle_parallelism | Int    | no       | 2             |
@@ -70,6 +73,10 @@
 ### partition_fields [string]
 
 `partition_fields` Hudi 表的分区字段.
+
+### precombine_field [string]
+
+`precombine_field` Hudi 表的预合并字段,它用于在写入前进行预合并.
 
 ### index_type [string]
 
@@ -161,7 +168,7 @@ env {
 
 source {
   Mysql-CDC {
-    base-url = "jdbc:mysql://127.0.0.1:3306/seatunnel"
+    url = "jdbc:mysql://127.0.0.1:3306/seatunnel"
     username = "root"
     password = "******"
     
@@ -204,3 +211,6 @@ sink {
 }
 ```
 
+## 变更日志
+
+<ChangeLog />

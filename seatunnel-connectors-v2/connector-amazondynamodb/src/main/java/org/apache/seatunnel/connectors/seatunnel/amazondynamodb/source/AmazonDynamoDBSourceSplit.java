@@ -28,6 +28,7 @@ import lombok.Setter;
 @Setter
 public class AmazonDynamoDBSourceSplit implements SourceSplit {
 
+    private static final long serialVersionUID = -5148142613656330674L;
     private Integer splitId;
     private Integer totalSegments;
     private Integer itemCount;

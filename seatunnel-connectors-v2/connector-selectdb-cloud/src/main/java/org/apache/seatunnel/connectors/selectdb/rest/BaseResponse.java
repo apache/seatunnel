@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.connectors.selectdb.rest;
 
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class BaseResponse<T> {

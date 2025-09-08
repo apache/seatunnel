@@ -33,6 +33,7 @@
         <module>seatunnel-format-compatible-connect-json</module>
         <module>seatunnel-format-avro</module>
         <module>seatunnel-format-protobuf</module>
+        <module>seatunnel-format-csv</module>
     </modules>
 
 </project>

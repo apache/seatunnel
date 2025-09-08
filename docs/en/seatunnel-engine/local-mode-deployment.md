@@ -4,16 +4,13 @@ sidebar_position: 4
 
 # Run Jobs In Local Mode
 
-Only for testing.
-
 In local mode, each task will start a separate process, and the process will exit when the task is completed. There are the following limitations in this mode:
 
 1. Pausing and resuming tasks are not supported.
 2. Viewing the task list is not supported.
 3. Jobs cannot be cancelled via commands, only by killing the process.
-4. REST API is not supported.
 
-The [Separated Cluster Mode](separated-cluster-deployment.md) of SeaTunnel Engine is recommended for use in production environments.
+However, each task is controlled by a separate process, and there will be no mutual impact between tasks. It is suitable for scenarios with strong requirements for task stability.
 
 ## Deploying SeaTunnel Engine In Local Mode
 
@@ -26,6 +23,16 @@ In this mode, you only need to copy the downloaded and created installation pack
 ```shell
 $SEATUNNEL_HOME/bin/seatunnel.sh --config $SEATUNNEL_HOME/config/v2.batch.config.template -m local
 ```
+
+### Configure The JVM Options For Local Mode
+
+Local Mode supports two methods for setting JVM options:
+
+1. Add the JVM options to `$SEATUNNEL_HOME/config/jvm_client_options`.
+
+   Modify the JVM parameters in the `$SEATUNNEL_HOME/config/jvm_client_options` file. Please note that the JVM parameters in this file will be applied to all jobs submitted using `seatunnel.sh`, including Local Mode and Cluster Mode.
+
+2. Add JVM options when starting the Local Mode. For example, `$SEATUNNEL_HOME/bin/seatunnel.sh --config $SEATUNNEL_HOME/config/v2.batch.config.template -m local -DJvmOption="-Xms2G -Xmx2G"`
 
 ## Job Operations
 

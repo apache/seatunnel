@@ -1,0 +1,44 @@
+{{/*
+ Licensed to the Apache Software Foundation (ASF) under one or more
+ contributor license agreements.  See the NOTICE file distributed with
+ this work for additional information regarding copyright ownership.
+ The ASF licenses this file to You under the Apache License, Version 2.0
+ (the "License"); you may not use this file except in compliance with
+ the License.  You may obtain a copy of the License at
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+*/}}
+
+** Please be patient while the chart seatunnel {{ .Chart.AppVersion }} is being deployed **
+
+Access seatunnel UI URL by:
+
+{{- if .Values.ingress.enabled }}
+
+  seatunnel restapi URL for running jobs: http{{ if .Values.ingress.tls.enabled }}s{{ end }}://{{ .Values.ingress.host }}/running-jobs
+  seatunnel restapi URL for system monitoring information: http{{ if .Values.ingress.tls.enabled }}s{{ end }}://{{ .Values.ingress.host }}/system-monitoring-information
+
+  For more restapi please refer to https://seatunnel.apache.org/docs/{{ .Chart.AppVersion }}/seatunnel-engine/rest-api-v2
+
+{{- else }}
+
+  kubectl port-forward -n {{ .Release.Namespace }} svc/{{ template "seatunnel.fullname" . }}-master 8080:8080
+
+  seatunnel restapi URL for running jobs: http://127.0.0.1:8080/running-jobs
+  seatunnel restapi URL for system monitoring information: http://127.0.0.1:8080/system-monitoring-information
+  
+  For more restapi please refer to https://seatunnel.apache.org/docs/{{ .Chart.AppVersion }}/seatunnel-engine/rest-api-v2
+{{- end }}
+
+Or you can just go into master pod, and use local curl command.
+
+MASTER_POD=$(kubectl get po -l  'app.kubernetes.io/name=seatunnel-master' | sed '1d' | awk '{print $1}' | head -n1)
+kubectl -n {{ .Release.Namespace }} exec -it $MASTER_POD -- /bin/bash
+curl http://127.0.0.1:8080/running-jobs
+curl http://127.0.0.1:8080/system-monitoring-information

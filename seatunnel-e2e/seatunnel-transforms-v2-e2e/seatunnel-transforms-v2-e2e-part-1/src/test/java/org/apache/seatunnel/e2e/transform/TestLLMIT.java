@@ -89,6 +89,14 @@ public class TestLLMIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
+    public void testLLMWithOpenAIMultiTable(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                container.executeJob("/llm_openai_transform_multi_table.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+    }
+
+    @TestTemplate
     public void testLLMWithMicrosoft(TestContainer container)
             throws IOException, InterruptedException {
         Container.ExecResult execResult = container.executeJob("/llm_microsoft_transform.conf");

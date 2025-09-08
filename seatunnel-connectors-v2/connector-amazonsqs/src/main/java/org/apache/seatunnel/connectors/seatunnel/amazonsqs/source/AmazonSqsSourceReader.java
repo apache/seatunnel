@@ -21,7 +21,7 @@ import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.connectors.seatunnel.amazonsqs.config.AmazonSqsSourceOptions;
+import org.apache.seatunnel.connectors.seatunnel.amazonsqs.config.AmazonSqsSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.amazonsqs.deserialize.AmazonSqsDeserializer;
 import org.apache.seatunnel.connectors.seatunnel.amazonsqs.deserialize.SeaTunnelRowDeserializer;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitReader;
@@ -47,40 +47,40 @@ public class AmazonSqsSourceReader extends AbstractSingleSplitReader<SeaTunnelRo
 
     protected SqsClient sqsClient;
     protected SingleSplitReaderContext context;
-    protected AmazonSqsSourceOptions amazonSqsSourceOptions;
+    protected AmazonSqsSourceConfig amazonSqsSourceConfig;
     private final SeaTunnelRowDeserializer seaTunnelRowDeserializer;
 
     public AmazonSqsSourceReader(
             SingleSplitReaderContext context,
-            AmazonSqsSourceOptions amazonSqsSourceOptions,
+            AmazonSqsSourceConfig amazonSqsSourceConfig,
             DeserializationSchema<SeaTunnelRow> deserializationSchema,
             SeaTunnelRowType seaTunnelRowType) {
         this.context = context;
-        this.amazonSqsSourceOptions = amazonSqsSourceOptions;
+        this.amazonSqsSourceConfig = amazonSqsSourceConfig;
         this.seaTunnelRowDeserializer = new AmazonSqsDeserializer(deserializationSchema);
     }
 
     @Override
     public void open() throws Exception {
-        if (amazonSqsSourceOptions.getAccessKeyId() != null
-                & amazonSqsSourceOptions.getSecretAccessKey() != null) {
+        if (amazonSqsSourceConfig.getAccessKeyId() != null
+                & amazonSqsSourceConfig.getSecretAccessKey() != null) {
             sqsClient =
                     SqsClient.builder()
-                            .endpointOverride(URI.create(amazonSqsSourceOptions.getUrl()))
+                            .endpointOverride(URI.create(amazonSqsSourceConfig.getUrl()))
                             // The region is meaningless for local Sqs but required for client
                             // builder validation
-                            .region(Region.of(amazonSqsSourceOptions.getRegion()))
+                            .region(Region.of(amazonSqsSourceConfig.getRegion()))
                             .credentialsProvider(
                                     StaticCredentialsProvider.create(
                                             AwsBasicCredentials.create(
-                                                    amazonSqsSourceOptions.getAccessKeyId(),
-                                                    amazonSqsSourceOptions.getSecretAccessKey())))
+                                                    amazonSqsSourceConfig.getAccessKeyId(),
+                                                    amazonSqsSourceConfig.getSecretAccessKey())))
                             .build();
         } else {
             sqsClient =
                     SqsClient.builder()
-                            .endpointOverride(URI.create(amazonSqsSourceOptions.getUrl()))
-                            .region(Region.of(amazonSqsSourceOptions.getRegion()))
+                            .endpointOverride(URI.create(amazonSqsSourceConfig.getUrl()))
+                            .region(Region.of(amazonSqsSourceConfig.getRegion()))
                             .credentialsProvider(DefaultCredentialsProvider.create())
                             .build();
         }
@@ -96,7 +96,7 @@ public class AmazonSqsSourceReader extends AbstractSingleSplitReader<SeaTunnelRo
     public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
         ReceiveMessageRequest receiveMessageRequest =
                 ReceiveMessageRequest.builder()
-                        .queueUrl(amazonSqsSourceOptions.getUrl())
+                        .queueUrl(amazonSqsSourceConfig.getUrl())
                         .maxNumberOfMessages(10) // Adjust the batch size as needed
                         .waitTimeSeconds(10) // Adjust the wait time as needed
                         .build();
@@ -110,10 +110,10 @@ public class AmazonSqsSourceReader extends AbstractSingleSplitReader<SeaTunnelRo
             output.collect(seaTunnelRow);
 
             // Delete the processed message
-            if (amazonSqsSourceOptions.isDeleteMessage()) {
+            if (amazonSqsSourceConfig.isDeleteMessage()) {
                 DeleteMessageRequest deleteMessageRequest =
                         DeleteMessageRequest.builder()
-                                .queueUrl(amazonSqsSourceOptions.getUrl())
+                                .queueUrl(amazonSqsSourceConfig.getUrl())
                                 .receiptHandle(message.receiptHandle())
                                 .build();
                 sqsClient.deleteMessage(deleteMessageRequest);

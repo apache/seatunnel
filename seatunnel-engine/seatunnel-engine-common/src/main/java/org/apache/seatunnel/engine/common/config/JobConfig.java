@@ -18,7 +18,7 @@
 package org.apache.seatunnel.engine.common.config;
 
 import org.apache.seatunnel.api.common.JobContext;
-import org.apache.seatunnel.api.env.EnvCommonOptions;
+import org.apache.seatunnel.api.options.EnvCommonOptions;
 import org.apache.seatunnel.engine.common.serializeable.ConfigDataSerializerHook;
 
 import com.hazelcast.nio.ObjectDataInput;

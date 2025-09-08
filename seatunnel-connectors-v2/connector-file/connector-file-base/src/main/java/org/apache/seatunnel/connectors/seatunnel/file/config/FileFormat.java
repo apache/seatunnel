@@ -19,14 +19,19 @@ package org.apache.seatunnel.connectors.seatunnel.file.config;
 
 import org.apache.seatunnel.connectors.seatunnel.file.sink.config.FileSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.writer.BinaryWriteStrategy;
+import org.apache.seatunnel.connectors.seatunnel.file.sink.writer.CanalJsonWriteStrategy;
+import org.apache.seatunnel.connectors.seatunnel.file.sink.writer.CsvWriteStrategy;
+import org.apache.seatunnel.connectors.seatunnel.file.sink.writer.DebeziumJsonWriteStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.writer.ExcelWriteStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.writer.JsonWriteStrategy;
+import org.apache.seatunnel.connectors.seatunnel.file.sink.writer.MaxWellJsonWriteStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.writer.OrcWriteStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.writer.ParquetWriteStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.writer.TextWriteStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.writer.WriteStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.writer.XmlWriteStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.source.reader.BinaryReadStrategy;
+import org.apache.seatunnel.connectors.seatunnel.file.source.reader.CsvReadStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.source.reader.ExcelReadStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.source.reader.JsonReadStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.source.reader.OrcReadStrategy;
@@ -42,13 +47,12 @@ public enum FileFormat implements Serializable {
     CSV("csv") {
         @Override
         public WriteStrategy getWriteStrategy(FileSinkConfig fileSinkConfig) {
-            fileSinkConfig.setFieldDelimiter(",");
-            return new TextWriteStrategy(fileSinkConfig);
+            return new CsvWriteStrategy(fileSinkConfig);
         }
 
         @Override
         public ReadStrategy getReadStrategy() {
-            return new TextReadStrategy();
+            return new CsvReadStrategy();
         }
     },
     TEXT("txt") {
@@ -126,6 +130,42 @@ public enum FileFormat implements Serializable {
         @Override
         public ReadStrategy getReadStrategy() {
             return new BinaryReadStrategy();
+        }
+    },
+    CANAL_JSON("canal_json") {
+        @Override
+        public WriteStrategy getWriteStrategy(FileSinkConfig fileSinkConfig) {
+            return new CanalJsonWriteStrategy(fileSinkConfig);
+        }
+
+        @Override
+        public ReadStrategy getReadStrategy() {
+            throw new UnsupportedOperationException(
+                    "File format 'canal_json' does not support reading.");
+        }
+    },
+    DEBEZIUM_JSON("debezium_json") {
+        @Override
+        public WriteStrategy getWriteStrategy(FileSinkConfig fileSinkConfig) {
+            return new DebeziumJsonWriteStrategy(fileSinkConfig);
+        }
+
+        @Override
+        public ReadStrategy getReadStrategy() {
+            throw new UnsupportedOperationException(
+                    "File format 'debezium_json' does not support reading.");
+        }
+    },
+    MAXWELL_JSON("maxwell_json") {
+        @Override
+        public WriteStrategy getWriteStrategy(FileSinkConfig fileSinkConfig) {
+            return new MaxWellJsonWriteStrategy(fileSinkConfig);
+        }
+
+        @Override
+        public ReadStrategy getReadStrategy() {
+            throw new UnsupportedOperationException(
+                    "File format 'maxwell_json' does not support reading.");
         }
     };
 

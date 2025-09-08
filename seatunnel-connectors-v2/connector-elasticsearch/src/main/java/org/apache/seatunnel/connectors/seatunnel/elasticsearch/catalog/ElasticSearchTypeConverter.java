@@ -43,6 +43,7 @@ import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.client.EsT
 import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.client.EsType.BYTE;
 import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.client.EsType.COMPLETION;
 import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.client.EsType.DATE;
+import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.client.EsType.DATETIME;
 import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.client.EsType.DATE_NANOS;
 import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.client.EsType.DATE_RANGE;
 import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.client.EsType.DENSE_VECTOR;
@@ -64,7 +65,6 @@ import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.client.EsT
 import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.client.EsType.LONG;
 import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.client.EsType.LONG_RANGE;
 import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.client.EsType.MATCH_ONLY_TEXT;
-import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.client.EsType.NESTED;
 import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.client.EsType.OBJECT;
 import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.client.EsType.PERCOLATOR;
 import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.client.EsType.POINT;
@@ -126,6 +126,7 @@ public class ElasticSearchTypeConverter implements BasicTypeConverter<BasicTypeD
                 builder.dataType(BasicType.BOOLEAN_TYPE);
                 break;
             case DATE:
+            case DATETIME:
                 builder.dataType(LocalTimeType.LOCAL_DATE_TIME_TYPE);
                 builder.scale(3);
                 break;
@@ -149,6 +150,12 @@ public class ElasticSearchTypeConverter implements BasicTypeConverter<BasicTypeD
                                     ArrayType.DOUBLE_ARRAY_TYPE, ArrayType.LONG_ARRAY_TYPE
                                 });
                 builder.dataType(rowType);
+                break;
+            case EsType.NESTED:
+                builder.dataType(
+                        new ArrayType<>(
+                                Map[].class,
+                                new MapType<>(BasicType.STRING_TYPE, BasicType.STRING_TYPE)));
                 break;
             case INTEGER:
             case TOKEN_COUNT:
@@ -207,7 +214,6 @@ public class ElasticSearchTypeConverter implements BasicTypeConverter<BasicTypeD
             case COMPLETION:
             case STRING:
             case GEO_SHAPE:
-            case NESTED:
             case PERCOLATOR:
             case POINT:
             case RANK_FEATURES:

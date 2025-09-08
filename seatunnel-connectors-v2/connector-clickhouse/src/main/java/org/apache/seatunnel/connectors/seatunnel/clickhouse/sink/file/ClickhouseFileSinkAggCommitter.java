@@ -28,6 +28,7 @@ import org.apache.seatunnel.connectors.seatunnel.clickhouse.util.ClickhouseProxy
 import com.clickhouse.client.ClickHouseException;
 import com.clickhouse.client.ClickHouseRequest;
 import com.clickhouse.client.ClickHouseResponse;
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -35,21 +36,29 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+@Slf4j
 public class ClickhouseFileSinkAggCommitter
         implements SinkAggregatedCommitter<CKFileCommitInfo, CKFileAggCommitInfo> {
 
     private transient ClickhouseProxy proxy;
-    private final ClickhouseTable clickhouseTable;
+    private ClickhouseTable clickhouseTable;
 
     private final FileReaderOption fileReaderOption;
 
     public ClickhouseFileSinkAggCommitter(FileReaderOption readerOption) {
         fileReaderOption = readerOption;
-        proxy = new ClickhouseProxy(readerOption.getShardMetadata().getDefaultShard().getNode());
+    }
+
+    @Override
+    public void init() {
+        proxy =
+                new ClickhouseProxy(
+                        fileReaderOption.getShardMetadata().getDefaultShard().getNode());
         clickhouseTable =
                 proxy.getClickhouseTable(
-                        readerOption.getShardMetadata().getDatabase(),
-                        readerOption.getShardMetadata().getTable());
+                        proxy.getClickhouseConnection(),
+                        fileReaderOption.getShardMetadata().getDatabase(),
+                        fileReaderOption.getShardMetadata().getTable());
     }
 
     @Override
@@ -117,14 +126,15 @@ public class ClickhouseFileSinkAggCommitter
             throws ClickHouseException {
         ClickHouseRequest<?> request = getProxy().getClickhouseConnection(shard);
         for (String clickhouseLocalFile : clickhouseLocalFiles) {
-            ClickHouseResponse response =
-                    request.query(
-                                    String.format(
-                                            "ALTER TABLE %s ATTACH PART '%s'",
-                                            clickhouseTable.getLocalTableName(),
-                                            clickhouseLocalFile.substring(
-                                                    clickhouseLocalFile.lastIndexOf("/") + 1)))
-                            .executeAndWait();
+            String attachSql =
+                    String.format(
+                            "ALTER TABLE %s ATTACH PART '%s'",
+                            clickhouseTable.getLocalTableName(),
+                            clickhouseLocalFile.substring(
+                                    clickhouseLocalFile.lastIndexOf("/") + 1));
+
+            log.info("Attach file to clickhouse table: {}", attachSql);
+            ClickHouseResponse response = request.query(attachSql).executeAndWait();
             response.close();
         }
     }

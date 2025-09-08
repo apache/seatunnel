@@ -1,12 +1,13 @@
 {
   "env" : {
     "shade.identifier" : "base64",
-    "parallelism" : 1
+    "parallelism" : 1,
+    "shade.options": ["username", "password", "f1", "config1.f1",  "config2.list", "f2"]
   },
   "source" : [
     {
       "plugin_name" : "MySQL-CDC",
-      "base-url" : "jdbc:mysql://localhost:56725",
+      "url" : "jdbc:mysql://localhost:56725",
       "username" : "c2VhdHVubmVs",
       "password" : "c2VhdHVubmVsX3Bhc3N3b3Jk",
       "hostname" : "127.0.0.1",
@@ -22,7 +23,13 @@
           "sex" : "boolean"
         }
       },
-      "result_table_name" : "fake"
+      "plugin_output" : "fake",
+      "f1": "c2VhdHVubmVs",
+      "config1.f1": "c2VhdHVubmVs",
+      "config2.list": ["c2VhdHVubmVsX3Bhc3N3b3Jk", "c2VhdHVubmVsX3Bhc3N3b3Jk", "c2VhdHVubmVsX3Bhc3N3b3Jk"],
+      "config3": {
+        "f2": "c2VhdHVubmVs"
+      }
     }
   ],
   "transform" : [],

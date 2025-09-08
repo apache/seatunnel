@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-http-jira.md';
+
 # Jira
 
 > Jira source connector
@@ -298,8 +300,4 @@ Jira {
 
 ## Changelog
 
-### next version
-
-- Add Jira Source Connector
-- [Feature][Connector-V2][HTTP] Use json-path parsing ([3510](https://github.com/apache/seatunnel/pull/3510))
-
+<ChangeLog />

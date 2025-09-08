@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.e2e.connector.kudu;
 
+import org.apache.seatunnel.shade.com.google.common.collect.ImmutableList;
+
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.EngineType;
@@ -53,7 +55,6 @@ import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.shaded.org.awaitility.Awaitility;
 import org.testcontainers.utility.DockerLoggerFactory;
 
-import com.google.common.collect.ImmutableList;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
@@ -335,6 +336,20 @@ public class KuduIT extends TestSuiteBase implements TestResource {
                             Assertions.assertIterableEquals(
                                     readData(KUDU_SINK_TABLE), readData(KUDU_SOURCE_TABLE));
                         });
+        kuduClient.deleteTable(KUDU_SOURCE_TABLE);
+        kuduClient.deleteTable(KUDU_SINK_TABLE);
+    }
+
+    @TestTemplate
+    public void testKuduFilter(TestContainer container) throws IOException, InterruptedException {
+        initializeKuduTable();
+        batchInsertData();
+        Container.ExecResult execResult = container.executeJob("/kudu_to_assert.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+        Container.ExecResult execResultRange = container.executeJob("/kudu_to_assert_range.conf");
+        Assertions.assertEquals(0, execResultRange.getExitCode());
+        Container.ExecResult execResultEqual = container.executeJob("/kudu_to_assert_equal.conf");
+        Assertions.assertEquals(0, execResultEqual.getExitCode());
         kuduClient.deleteTable(KUDU_SOURCE_TABLE);
         kuduClient.deleteTable(KUDU_SINK_TABLE);
     }

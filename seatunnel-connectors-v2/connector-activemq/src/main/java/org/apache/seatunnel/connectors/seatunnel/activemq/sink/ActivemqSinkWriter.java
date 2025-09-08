@@ -25,8 +25,6 @@ import org.apache.seatunnel.connectors.seatunnel.activemq.client.ActivemqClient;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 import org.apache.seatunnel.format.json.JsonSerializationSchema;
 
-import java.util.Optional;
-
 public class ActivemqSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
     private ActivemqClient activeMQClient;
 
@@ -40,11 +38,6 @@ public class ActivemqSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
     @Override
     public void write(SeaTunnelRow element) {
         activeMQClient.write(serializationSchema.serialize(element));
-    }
-
-    @Override
-    public Optional prepareCommit() {
-        return Optional.empty();
     }
 
     @Override

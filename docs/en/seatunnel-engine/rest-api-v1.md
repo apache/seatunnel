@@ -1,12 +1,8 @@
----
-sidebar_position: 11
----
-
 # RESTful API V1
 
 :::caution warn
 
-It is recommended to use the v2 version of the Rest API. The v1 version is deprecated and will be removed in the future.
+It is recommended to use the v2 version of the Rest API. The v1 version is deprecated and will be removed in the future. We already disabled the v1 version by default. If you want to use the v1 version, you need to enable it in the `hazelcast.yaml` file.
 
 :::
 
@@ -16,7 +12,8 @@ completed jobs. The monitoring API is a RESTful API that accepts HTTP requests a
 ## Overview
 
 The monitoring API is backed by a web server that runs as part of the node, each node member can provide RESTful api capability.
-By default, this server listens at port 5801, which can be configured in hazelcast.yaml like :
+By default, the server disables the RESTful API V1, and it can be enabled by setting the `rest-api.enabled` configuration in the `hazelcast.yaml` file.
+This server listens at port 5801, which can be configured in hazelcast.yaml like :
 
 ```yaml
 network:
@@ -55,7 +52,7 @@ network:
 
 ```json
 {
-    "projectVersion":"2.3.5-SNAPSHOT",
+    "projectVersion":"2.3.10-SNAPSHOT",
     "gitCommitAbbrev":"DeadD0d0",
     "totalSlot":"0",
     "unassignedSlot":"0",
@@ -301,9 +298,9 @@ When we can't get the job info, the response will be:
 
 #### Parameters
 
-> | name  |   type   | data type |                           description                            |
-> |-------|----------|-----------|------------------------------------------------------------------|
-> | state | optional | string    | finished job status. `FINISHED`,`CANCELED`,`FAILED`,`UNKNOWABLE` |
+> | name  |   type   | data type | description                                                                       |
+> |-------|----------|-----------|-----------------------------------------------------------------------------------|
+> | state | optional | string    | finished job status. `FINISHED`,`CANCELED`,`FAILED`,`SAVEPOINT_DONE`,`UNKNOWABLE` |
 
 #### Responses
 
@@ -431,7 +428,7 @@ When we can't get the job info, the response will be:
     "source": [
         {
             "plugin_name": "FakeSource",
-            "result_table_name": "fake",
+            "plugin_output": "fake",
             "row.num": 100,
             "schema": {
                 "fields": {
@@ -447,7 +444,7 @@ When we can't get the job info, the response will be:
     "sink": [
         {
             "plugin_name": "Console",
-            "source_table_name": ["fake"]
+            "plugin_input": ["fake"]
         }
     ]
 }
@@ -494,7 +491,7 @@ When we can't get the job info, the response will be:
     "source": [
       {
         "plugin_name": "FakeSource",
-        "result_table_name": "fake",
+        "plugin_output": "fake",
         "row.num": 1000,
         "schema": {
           "fields": {
@@ -510,7 +507,7 @@ When we can't get the job info, the response will be:
     "sink": [
       {
         "plugin_name": "Console",
-        "source_table_name": ["fake"]
+        "plugin_input": ["fake"]
       }
     ]
   },
@@ -525,7 +522,7 @@ When we can't get the job info, the response will be:
     "source": [
       {
         "plugin_name": "FakeSource",
-        "result_table_name": "fake",
+        "plugin_output": "fake",
         "row.num": 1000,
         "schema": {
           "fields": {
@@ -541,7 +538,7 @@ When we can't get the job info, the response will be:
     "sink": [
       {
         "plugin_name": "Console",
-        "source_table_name": ["fake"]
+        "plugin_input": ["fake"]
       }
     ]
   }
@@ -650,7 +647,7 @@ For more information about customize encryption, please refer to the documentati
                     "age": "int"
                 }
             },
-            "result_table_name": "fake",
+            "plugin_output": "fake",
             "parallelism": 1,
             "hostname": "127.0.0.1",
             "username": "seatunnel",
@@ -690,7 +687,7 @@ For more information about customize encryption, please refer to the documentati
                     "age": "int"
                 }
             },
-            "result_table_name": "fake",
+            "plugin_output": "fake",
             "parallelism": 1,
             "hostname": "127.0.0.1",
             "username": "c2VhdHVubmVs",

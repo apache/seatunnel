@@ -38,6 +38,7 @@ import java.nio.ByteBuffer;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 public class AvroToRowConverter implements Serializable {
 
@@ -82,6 +83,9 @@ public class AvroToRowConverter implements Serializable {
     }
 
     private Object convertField(SeaTunnelDataType<?> dataType, Object val) {
+        if (Objects.isNull(val)) {
+            return null;
+        }
         switch (dataType.getSqlType()) {
             case STRING:
                 return val.toString();

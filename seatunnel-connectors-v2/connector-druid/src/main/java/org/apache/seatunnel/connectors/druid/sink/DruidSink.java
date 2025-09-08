@@ -29,9 +29,9 @@ import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSimpleSink;
 import java.io.IOException;
 import java.util.Optional;
 
-import static org.apache.seatunnel.connectors.druid.config.DruidConfig.BATCH_SIZE;
-import static org.apache.seatunnel.connectors.druid.config.DruidConfig.COORDINATOR_URL;
-import static org.apache.seatunnel.connectors.druid.config.DruidConfig.DATASOURCE;
+import static org.apache.seatunnel.connectors.druid.config.DruidSinkOptions.BATCH_SIZE;
+import static org.apache.seatunnel.connectors.druid.config.DruidSinkOptions.COORDINATOR_URL;
+import static org.apache.seatunnel.connectors.druid.config.DruidSinkOptions.DATASOURCE;
 
 public class DruidSink extends AbstractSimpleSink<SeaTunnelRow, Void>
         implements SupportMultiTableSink {

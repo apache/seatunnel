@@ -24,7 +24,7 @@ import org.apache.seatunnel.api.table.connector.TableSource;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.connectors.seatunnel.http.source.HttpSourceFactory;
-import org.apache.seatunnel.connectors.seatunnel.onesignal.source.config.OneSignalSourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.onesignal.source.config.OneSignalSourceOptions;
 
 import com.google.auto.service.AutoService;
 
@@ -40,13 +40,11 @@ public class OneSignalSourceFactory extends HttpSourceFactory {
     @Override
     public <T, SplitT extends SourceSplit, StateT extends Serializable>
             TableSource<T, SplitT, StateT> createSource(TableSourceFactoryContext context) {
-        return () ->
-                (SeaTunnelSource<T, SplitT, StateT>)
-                        new OneSignalSource(context.getOptions().toConfig());
+        return () -> (SeaTunnelSource<T, SplitT, StateT>) new OneSignalSource(context.getOptions());
     }
 
     @Override
     public OptionRule optionRule() {
-        return getHttpBuilder().required(OneSignalSourceConfig.PASSWORD).build();
+        return getHttpBuilder().required(OneSignalSourceOptions.PASSWORD).build();
     }
 }

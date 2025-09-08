@@ -41,9 +41,9 @@ import org.apache.seatunnel.connectors.seatunnel.file.sink.writer.WriteStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.writer.WriteStrategyFactory;
 import org.apache.seatunnel.connectors.seatunnel.hive.commit.HiveSinkAggregatedCommitter;
 import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConstants;
+import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveOptions;
 import org.apache.seatunnel.connectors.seatunnel.hive.exception.HiveConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.hive.sink.writter.HiveSinkWriter;
-import org.apache.seatunnel.connectors.seatunnel.hive.source.config.HiveSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.hive.storage.StorageFactory;
 import org.apache.seatunnel.connectors.seatunnel.hive.utils.HiveTableUtils;
 
@@ -55,14 +55,14 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-import static org.apache.seatunnel.connectors.seatunnel.file.config.BaseSinkConfig.FIELD_DELIMITER;
-import static org.apache.seatunnel.connectors.seatunnel.file.config.BaseSinkConfig.FILE_FORMAT_TYPE;
-import static org.apache.seatunnel.connectors.seatunnel.file.config.BaseSinkConfig.FILE_NAME_EXPRESSION;
-import static org.apache.seatunnel.connectors.seatunnel.file.config.BaseSinkConfig.FILE_PATH;
-import static org.apache.seatunnel.connectors.seatunnel.file.config.BaseSinkConfig.IS_PARTITION_FIELD_WRITE_IN_FILE;
-import static org.apache.seatunnel.connectors.seatunnel.file.config.BaseSinkConfig.PARTITION_BY;
-import static org.apache.seatunnel.connectors.seatunnel.file.config.BaseSinkConfig.ROW_DELIMITER;
-import static org.apache.seatunnel.connectors.seatunnel.file.config.BaseSinkConfig.SINK_COLUMNS;
+import static org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSinkOptions.FIELD_DELIMITER;
+import static org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSinkOptions.FILE_FORMAT_TYPE;
+import static org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSinkOptions.FILE_NAME_EXPRESSION;
+import static org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSinkOptions.FILE_PATH;
+import static org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSinkOptions.IS_PARTITION_FIELD_WRITE_IN_FILE;
+import static org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSinkOptions.PARTITION_BY;
+import static org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSinkOptions.ROW_DELIMITER;
+import static org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSinkOptions.SINK_COLUMNS;
 
 public class HiveSink
         implements SeaTunnelSink<
@@ -216,16 +216,15 @@ public class HiveSink
                 StorageFactory.getStorageType(hdfsLocation)
                         .buildHadoopConfWithReadOnlyConfig(readonlyConfig);
         readonlyConfig
-                .getOptional(HiveSourceOptions.HDFS_SITE_PATH)
+                .getOptional(HiveOptions.HDFS_SITE_PATH)
                 .ifPresent(hadoopConf::setHdfsSitePath);
+        readonlyConfig.getOptional(HiveOptions.REMOTE_USER).ifPresent(hadoopConf::setRemoteUser);
+        readonlyConfig.getOptional(HiveOptions.KRB5_PATH).ifPresent(hadoopConf::setKrb5Path);
         readonlyConfig
-                .getOptional(HiveSourceOptions.REMOTE_USER)
-                .ifPresent(hadoopConf::setRemoteUser);
-        readonlyConfig
-                .getOptional(HiveSourceOptions.KERBEROS_PRINCIPAL)
+                .getOptional(HiveOptions.KERBEROS_PRINCIPAL)
                 .ifPresent(hadoopConf::setKerberosPrincipal);
         readonlyConfig
-                .getOptional(HiveSourceOptions.KERBEROS_KEYTAB_PATH)
+                .getOptional(HiveOptions.KERBEROS_KEYTAB_PATH)
                 .ifPresent(hadoopConf::setKerberosKeytabPath);
         return hadoopConf;
     }

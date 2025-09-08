@@ -17,6 +17,9 @@
 
 package org.apache.seatunnel.engine.server;
 
+import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
+import org.apache.seatunnel.shade.com.google.common.util.concurrent.ThreadFactoryBuilder;
+
 import org.apache.seatunnel.api.common.metrics.JobMetrics;
 import org.apache.seatunnel.api.common.metrics.RawJobMetrics;
 import org.apache.seatunnel.api.event.EventHandler;
@@ -34,11 +37,12 @@ import org.apache.seatunnel.engine.common.exception.JobException;
 import org.apache.seatunnel.engine.common.exception.JobNotFoundException;
 import org.apache.seatunnel.engine.common.exception.SavePointFailedException;
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
+import org.apache.seatunnel.engine.common.job.JobResult;
+import org.apache.seatunnel.engine.common.job.JobStatus;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
+import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.core.job.JobDAGInfo;
 import org.apache.seatunnel.engine.core.job.JobInfo;
-import org.apache.seatunnel.engine.core.job.JobResult;
-import org.apache.seatunnel.engine.core.job.JobStatus;
 import org.apache.seatunnel.engine.core.job.PipelineStatus;
 import org.apache.seatunnel.engine.server.dag.physical.PhysicalVertex;
 import org.apache.seatunnel.engine.server.dag.physical.PipelineLocation;
@@ -65,7 +69,6 @@ import org.apache.seatunnel.engine.server.telemetry.metrics.entity.ThreadPoolSta
 import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
 import org.apache.seatunnel.engine.server.utils.PeekBlockingQueue;
 
-import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.hazelcast.cluster.Address;
 import com.hazelcast.config.Config;
 import com.hazelcast.core.HazelcastInstanceNotActiveException;
@@ -87,7 +90,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -155,7 +157,7 @@ public class CoordinatorService {
      * key: job id; <br>
      * value: job master;
      */
-    private final Map<Long, Tuple2<PendingSourceState, JobMaster>> pendingJobMasterMap =
+    protected final Map<Long, Tuple2<PendingSourceState, JobMaster>> pendingJobMasterMap =
             new ConcurrentHashMap<>();
 
     /**
@@ -198,11 +200,12 @@ public class CoordinatorService {
             @NonNull SeaTunnelServer seaTunnelServer,
             EngineConfig engineConfig) {
         this.nodeEngine = nodeEngine;
+        this.engineConfig = engineConfig;
         this.logger = nodeEngine.getLogger(getClass());
         this.executorService =
                 new ThreadPoolExecutor(
-                        0,
-                        Integer.MAX_VALUE,
+                        engineConfig.getCoordinatorServiceConfig().getCoreThreadNum(),
+                        engineConfig.getCoordinatorServiceConfig().getMaxThreadNum(),
                         60L,
                         TimeUnit.SECONDS,
                         new SynchronousQueue<>(),
@@ -210,8 +213,8 @@ public class CoordinatorService {
                                 .setNameFormat("seatunnel-coordinator-service-%d")
                                 .build(),
                         new ThreadPoolStatus.RejectionCountingHandler());
+
         this.seaTunnelServer = seaTunnelServer;
-        this.engineConfig = engineConfig;
         masterActiveListener = Executors.newSingleThreadScheduledExecutor();
         masterActiveListener.scheduleAtFixedRate(
                 this::checkNewActiveMaster, 0, 100, TimeUnit.MILLISECONDS);
@@ -229,10 +232,16 @@ public class CoordinatorService {
                     while (true) {
                         try {
                             pendingJobSchedule();
-                        } catch (InterruptedException e) {
-                            throw new RuntimeException(e);
-                        } finally {
-                            pendingJob.release();
+                        } catch (InterruptedException interrupted) {
+                            throw new RuntimeException(interrupted);
+                        } catch (Throwable e) {
+                            logger.severe("Error in pending job schedule thread", e);
+                            try {
+                                Thread.sleep(3000L);
+                            } catch (InterruptedException ex) {
+                                logger.severe("Pending job schedule thread interrupted", ex);
+                                Thread.currentThread().interrupt();
+                            }
                         }
                     }
                 };
@@ -247,11 +256,18 @@ public class CoordinatorService {
             Thread.sleep(3000);
             return;
         }
+
+        Long jobId = jobMaster.getJobId();
+
+        if (!pendingJobMasterMap.containsKey(jobId)) {
+            logger.fine(String.format("Job ID : %s already cancelled", jobId));
+            queueRemove(jobMaster);
+            return;
+        }
+
         logger.fine(
                 String.format(
                         "Start pending job schedule, pendingJob Size : %s", pendingJob.size()));
-
-        Long jobId = jobMaster.getJobId();
 
         logger.fine(
                 String.format(
@@ -273,6 +289,7 @@ public class CoordinatorService {
             } else {
                 queueRemove(jobMaster);
                 completeFailJob(jobMaster);
+                pendingJobMasterMap.remove(jobId);
                 return;
             }
         }
@@ -499,14 +516,13 @@ public class CoordinatorService {
                         jobId,
                         jobInfo.getJobImmutableInformation(),
                         nodeEngine,
-                        executorService,
+                        MDCTracer.tracing(jobId, executorService),
                         getResourceManager(),
                         getJobHistoryService(),
                         runningJobStateIMap,
                         runningJobStateTimestampsIMap,
                         ownedSlotProfilesIMap,
                         runningJobInfoIMap,
-                        metricsImap,
                         engineConfig,
                         seaTunnelServer);
 
@@ -626,14 +642,14 @@ public class CoordinatorService {
                         runningJobStateTimestampsIMap,
                         ownedSlotProfilesIMap,
                         runningJobInfoIMap,
-                        metricsImap,
                         engineConfig,
                         seaTunnelServer);
         mdcExecutorService.submit(
                 () -> {
                     try {
                         if (!isStartWithSavePoint
-                                && getJobHistoryService().getJobMetrics(jobId) != null) {
+                                && getJobHistoryService().getJobMetrics(jobId)
+                                        != JobMetrics.empty()) {
                             throw new JobException(
                                     String.format(
                                             "The job id %s has already been submitted and is not starting with a savepoint.",
@@ -689,6 +705,14 @@ public class CoordinatorService {
                                                             + jobId
                                                             + "' save point failed");
                                         }
+                                        try {
+                                            waitForJobComplete(jobId).get();
+                                        } catch (Throwable e) {
+                                            logger.warning(
+                                                    String.format(
+                                                            "The job with id '%s' waiting state complete failed",
+                                                            jobId));
+                                        }
                                         return null;
                                     },
                                     executorService));
@@ -734,6 +758,11 @@ public class CoordinatorService {
             future.complete(null);
             return new PassiveCompletableFuture<>(future);
         } else {
+            // Cancel pending tasks
+            if (pendingJobMasterMap.containsKey(jobId)) {
+                pendingJobMasterMap.remove(jobId);
+                logger.fine(String.format("Cancel pending tasks : %s", jobId));
+            }
             return new PassiveCompletableFuture<>(
                     CompletableFuture.supplyAsync(
                             () -> {
@@ -771,7 +800,7 @@ public class CoordinatorService {
         }
         JobMetrics jobMetrics = JobMetricsUtil.toJobMetrics(runningJobMaster.getCurrJobMetrics());
         JobMetrics jobMetricsImap = jobHistoryService.getJobMetrics(jobId);
-        return jobMetricsImap != null ? jobMetricsImap.merge(jobMetrics) : jobMetrics;
+        return jobMetricsImap != JobMetrics.empty() ? jobMetricsImap.merge(jobMetrics) : jobMetrics;
     }
 
     public Map<Long, JobMetrics> getRunningJobMetrics() {
@@ -823,7 +852,7 @@ public class CoordinatorService {
         longJobMetricsMap.forEach(
                 (jobId, jobMetrics) -> {
                     JobMetrics jobMetricsImap = jobHistoryService.getJobMetrics(jobId);
-                    if (jobMetricsImap != null) {
+                    if (jobMetricsImap != JobMetrics.empty()) {
                         longJobMetricsMap.put(jobId, jobMetricsImap.merge(jobMetrics));
                     }
                 });
@@ -944,6 +973,8 @@ public class CoordinatorService {
                         "Job info detail",
                         "createdJobCount",
                         jobCounter.getCreatedJobCount(),
+                        "pendingJobCount",
+                        jobCounter.getPendingJobCount(),
                         "scheduledJobCount",
                         jobCounter.getScheduledJobCount(),
                         "runningJobCount",
@@ -964,6 +995,7 @@ public class CoordinatorService {
         AtomicLong createdJobCount = new AtomicLong();
         AtomicLong scheduledJobCount = new AtomicLong();
         AtomicLong runningJobCount = new AtomicLong();
+        AtomicLong pendingJobCount = new AtomicLong();
         AtomicLong failingJobCount = new AtomicLong();
         AtomicLong failedJobCount = new AtomicLong();
         AtomicLong cancellingJobCount = new AtomicLong();
@@ -979,6 +1011,9 @@ public class CoordinatorService {
                                 switch (jobStatus) {
                                     case CREATED:
                                         createdJobCount.addAndGet(1);
+                                        break;
+                                    case PENDING:
+                                        pendingJobCount.addAndGet(1);
                                         break;
                                     case SCHEDULED:
                                         scheduledJobCount.addAndGet(1);
@@ -1008,6 +1043,7 @@ public class CoordinatorService {
 
         return new JobCounter(
                 createdJobCount.longValue(),
+                pendingJobCount.longValue(),
                 scheduledJobCount.longValue(),
                 runningJobCount.longValue(),
                 failingJobCount.longValue(),
@@ -1042,5 +1078,10 @@ public class CoordinatorService {
                     "The user is not configured to enable connector package service, can not get connector package service service from master node.");
         }
         return connectorPackageService;
+    }
+
+    @VisibleForTesting
+    protected IMap<Long, HashMap<TaskLocation, SeaTunnelMetricsContext>> getMetricsImap() {
+        return metricsImap;
     }
 }

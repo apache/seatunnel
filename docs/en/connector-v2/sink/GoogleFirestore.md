@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-google-firestore.md';
+
 # GoogleFirestore
 
 > Google Firestore sink connector
@@ -46,7 +48,4 @@ GoogleFirestore {
 
 ## Changelog
 
-### next version
-
-- Add Google Firestore Sink Connector
-
+<ChangeLog />

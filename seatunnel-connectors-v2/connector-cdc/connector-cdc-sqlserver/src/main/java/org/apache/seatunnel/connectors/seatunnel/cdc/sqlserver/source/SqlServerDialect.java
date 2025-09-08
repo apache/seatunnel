@@ -38,6 +38,8 @@ import org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.utils.SqlServerSc
 import org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.utils.TableDiscoveryUtils;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 
+import io.debezium.connector.sqlserver.SqlServerChangeTable;
+import io.debezium.connector.sqlserver.SqlServerConnection;
 import io.debezium.jdbc.JdbcConnection;
 import io.debezium.relational.TableId;
 import io.debezium.relational.history.TableChanges;
@@ -46,6 +48,8 @@ import java.sql.SQLException;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /** The {@link JdbcDataSourceDialect} implementation for MySQL datasource. */
 public class SqlServerDialect implements JdbcDataSourceDialect {
@@ -88,10 +92,34 @@ public class SqlServerDialect implements JdbcDataSourceDialect {
     public List<TableId> discoverDataCollections(JdbcSourceConfig sourceConfig) {
         SqlServerSourceConfig sqlServerSourceConfig = (SqlServerSourceConfig) sourceConfig;
         try (JdbcConnection jdbcConnection = openJdbcConnection(sourceConfig)) {
-            return TableDiscoveryUtils.listTables(
-                    jdbcConnection, sqlServerSourceConfig.getTableFilters());
+            List<TableId> tables =
+                    TableDiscoveryUtils.listTables(
+                            jdbcConnection, sqlServerSourceConfig.getTableFilters());
+            this.checkAllTablesEnabledCapture(jdbcConnection, tables);
+            return tables;
         } catch (SQLException e) {
             throw new SeaTunnelException("Error to discover tables: " + e.getMessage(), e);
+        }
+    }
+
+    @Override
+    public void checkAllTablesEnabledCapture(JdbcConnection jdbcConnection, List<TableId> tableIds)
+            throws SQLException {
+        Map<String, List<TableId>> databases =
+                tableIds.stream()
+                        .collect(Collectors.groupingBy(TableId::catalog, Collectors.toList()));
+        for (String database : databases.keySet()) {
+            Set<TableId> tables =
+                    ((SqlServerConnection) jdbcConnection)
+                            .getChangeTables(database).stream()
+                                    .map(SqlServerChangeTable::getSourceTableId)
+                                    .collect(Collectors.toSet());
+            for (TableId tableId : databases.get(database)) {
+                if (!tables.contains(tableId)) {
+                    throw new SeaTunnelException(
+                            "Table " + tableId + " is not enabled for capture");
+                }
+            }
         }
     }
 
@@ -115,6 +143,12 @@ public class SqlServerDialect implements JdbcDataSourceDialect {
         if (sourceSplitBase.isSnapshotSplit()) {
             return new SqlServerSnapshotFetchTask(sourceSplitBase.asSnapshotSplit());
         } else {
+            try (JdbcConnection jdbcConnection = openJdbcConnection(sourceConfig)) {
+                List<TableId> tables = sourceSplitBase.asIncrementalSplit().getTableIds();
+                this.checkAllTablesEnabledCapture(jdbcConnection, tables);
+            } catch (SQLException e) {
+                throw new SeaTunnelException("Error to check tables: " + e.getMessage(), e);
+            }
             return new SqlServerTransactionLogFetchTask(sourceSplitBase.asIncrementalSplit());
         }
     }

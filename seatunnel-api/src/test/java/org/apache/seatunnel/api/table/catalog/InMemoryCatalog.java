@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.api.table.catalog;
 
+import org.apache.seatunnel.shade.com.google.common.collect.Lists;
+
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.exception.CatalogException;
 import org.apache.seatunnel.api.table.catalog.exception.DatabaseAlreadyExistException;
@@ -29,7 +31,7 @@ import org.apache.seatunnel.common.exception.CommonError;
 
 import org.apache.commons.lang3.tuple.Pair;
 
-import com.google.common.collect.Lists;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;
@@ -47,6 +49,7 @@ public class InMemoryCatalog implements Catalog {
     private final Map<String, List<CatalogTable>> catalogTables;
     private static final String DEFAULT_DATABASE = "default";
     private static final String UNSUPPORTED_DATABASE = "unsupported";
+    @Getter private boolean isRunTruncateTable = false;
 
     InMemoryCatalog(String catalogName, ReadonlyConfig options) {
         this.name = catalogName;
@@ -159,6 +162,12 @@ public class InMemoryCatalog implements Catalog {
     @Override
     public String getDefaultDatabase() throws CatalogException {
         return DEFAULT_DATABASE;
+    }
+
+    @Override
+    public void truncateTable(TablePath tablePath, boolean ignoreIfNotExists)
+            throws TableNotExistException, CatalogException {
+        isRunTruncateTable = true;
     }
 
     @Override

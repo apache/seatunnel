@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.typesense.source;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceReader;
@@ -26,8 +27,8 @@ import org.apache.seatunnel.api.source.SupportColumnProjection;
 import org.apache.seatunnel.api.source.SupportParallelism;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
-import org.apache.seatunnel.api.table.catalog.schema.TableSchemaOptions;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.connectors.seatunnel.typesense.config.TypesenseBaseOptions;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -46,14 +47,14 @@ public class TypesenseSource
 
     public TypesenseSource(ReadonlyConfig config) {
         this.config = config;
-        if (config.getOptional(TableSchemaOptions.SCHEMA).isPresent()) {
+        if (config.getOptional(ConnectorCommonOptions.SCHEMA).isPresent()) {
             catalogTable = CatalogTableUtil.buildWithConfig(config);
         }
     }
 
     @Override
     public String getPluginName() {
-        return "Typesense";
+        return TypesenseBaseOptions.CONNECTOR_IDENTITY;
     }
 
     @Override

@@ -22,7 +22,7 @@ import org.apache.seatunnel.api.event.EventListener;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.source.event.MessageDelayedEvent;
-import org.apache.seatunnel.api.table.event.SchemaChangeEvent;
+import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.connectors.cdc.base.source.event.CompletedSnapshotPhaseEvent;
 import org.apache.seatunnel.connectors.cdc.base.source.offset.Offset;
 import org.apache.seatunnel.connectors.cdc.base.source.offset.OffsetFactory;
@@ -50,6 +50,7 @@ import static org.apache.seatunnel.connectors.cdc.base.source.split.wartermark.W
 import static org.apache.seatunnel.connectors.cdc.base.utils.SourceRecordUtils.getFetchTimestamp;
 import static org.apache.seatunnel.connectors.cdc.base.utils.SourceRecordUtils.getMessageTimestamp;
 import static org.apache.seatunnel.connectors.cdc.base.utils.SourceRecordUtils.isDataChangeRecord;
+import static org.apache.seatunnel.connectors.cdc.base.utils.SourceRecordUtils.isHeartbeatRecord;
 import static org.apache.seatunnel.connectors.cdc.base.utils.SourceRecordUtils.isSchemaChangeEvent;
 
 /**
@@ -141,8 +142,10 @@ public class IncrementalSourceRecordEmitter<T>
                 emitElement(element, output);
             }
         } else if (isSchemaChangeEvent(element) && splitState.isIncrementalSplitState()) {
+            Offset position = getOffsetPosition(element);
+            splitState.asIncrementalSplitState().setStartupOffset(position);
             emitElement(element, output);
-        } else if (isDataChangeRecord(element)) {
+        } else if (isDataChangeRecord(element) || isHeartbeatRecord(element)) {
             if (splitState.isIncrementalSplitState()) {
                 Offset position = getOffsetPosition(element);
                 splitState.asIncrementalSplitState().setStartupOffset(position);

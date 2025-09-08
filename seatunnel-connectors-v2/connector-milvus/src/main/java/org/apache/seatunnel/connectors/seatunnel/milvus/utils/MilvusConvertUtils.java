@@ -21,22 +21,24 @@ import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.ConstraintKey;
+import org.apache.seatunnel.api.table.catalog.MetadataColumn;
+import org.apache.seatunnel.api.table.catalog.MetadataSchema;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.catalog.VectorIndex;
+import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.CommonOptions;
 import org.apache.seatunnel.connectors.seatunnel.milvus.catalog.MilvusOptions;
-import org.apache.seatunnel.connectors.seatunnel.milvus.config.MilvusSourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.milvus.config.MilvusSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.milvus.exception.MilvusConnectionErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.milvus.exception.MilvusConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.milvus.utils.source.MilvusSourceConverter;
 
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.hadoop.util.Lists;
 
 import com.google.protobuf.ProtocolStringList;
 import io.milvus.client.MilvusServiceClient;
@@ -58,6 +60,7 @@ import io.milvus.param.partition.ShowPartitionsParam;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -77,14 +80,14 @@ public class MilvusConvertUtils {
         MilvusServiceClient client =
                 new MilvusServiceClient(
                         ConnectParam.newBuilder()
-                                .withUri(config.get(MilvusSourceConfig.URL))
-                                .withToken(config.get(MilvusSourceConfig.TOKEN))
+                                .withUri(config.get(MilvusSourceOptions.URL))
+                                .withToken(config.get(MilvusSourceOptions.TOKEN))
                                 .build());
 
-        String database = config.get(MilvusSourceConfig.DATABASE);
+        String database = config.get(MilvusSourceOptions.DATABASE);
         List<String> collectionList = new ArrayList<>();
-        if (StringUtils.isNotEmpty(config.get(MilvusSourceConfig.COLLECTION))) {
-            collectionList.add(config.get(MilvusSourceConfig.COLLECTION));
+        if (StringUtils.isNotEmpty(config.get(MilvusSourceOptions.COLLECTION))) {
+            collectionList.add(config.get(MilvusSourceOptions.COLLECTION));
         } else {
             R<ShowCollectionsResponse> response =
                     client.showCollections(
@@ -196,14 +199,29 @@ public class MilvusConvertUtils {
         options.put(
                 MilvusOptions.ENABLE_DYNAMIC_FIELD, String.valueOf(schema.getEnableDynamicField()));
         options.put(MilvusOptions.SHARDS_NUM, String.valueOf(collectionResponse.getShardsNum()));
+        MetadataSchema.Builder metadataBuilder = MetadataSchema.builder();
         if (existPartitionKeyField) {
             options.put(MilvusOptions.PARTITION_KEY_FIELD, partitionKeyField);
+            metadataBuilder.column(
+                    MetadataColumn.of(
+                            CommonOptions.PARTITION.getName(),
+                            BasicType.STRING_TYPE,
+                            null,
+                            true,
+                            null,
+                            null));
         } else {
             fillPartitionNames(options, client, database, collection);
         }
 
         return CatalogTable.of(
-                tableId, tableSchema, options, new ArrayList<>(), schema.getDescription());
+                tableId,
+                tableSchema,
+                options,
+                new ArrayList<>(),
+                schema.getDescription(),
+                tableId.getCatalogName(),
+                metadataBuilder.build());
     }
 
     private static void fillPartitionNames(
@@ -270,7 +288,7 @@ public class MilvusConvertUtils {
         for (FieldSchema field : fields) {
             if (field.getIsPrimaryKey()) {
                 return PrimaryKey.of(
-                        field.getName(), Lists.newArrayList(field.getName()), field.getAutoID());
+                        field.getName(), Arrays.asList(field.getName()), field.getAutoID());
             }
         }
 

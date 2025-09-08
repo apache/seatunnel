@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-milvus.md';
+
 # Milvus
 
 > Milvus source connector
@@ -58,4 +60,6 @@ source {
 ```
 
 ## Changelog
+
+<ChangeLog />
 

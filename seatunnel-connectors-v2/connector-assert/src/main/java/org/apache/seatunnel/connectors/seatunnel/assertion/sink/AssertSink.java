@@ -17,14 +17,15 @@
 
 package org.apache.seatunnel.connectors.seatunnel.assertion.sink;
 
+import org.apache.seatunnel.shade.com.google.common.base.Throwables;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigException;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SupportMultiTableSink;
-import org.apache.seatunnel.api.table.catalog.CatalogOptions;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -33,8 +34,6 @@ import org.apache.seatunnel.connectors.seatunnel.assertion.rule.AssertFieldRule;
 import org.apache.seatunnel.connectors.seatunnel.assertion.rule.AssertRuleParser;
 import org.apache.seatunnel.connectors.seatunnel.assertion.rule.AssertTableRule;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSimpleSink;
-
-import com.google.common.base.Throwables;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -45,9 +44,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import static org.apache.seatunnel.connectors.seatunnel.assertion.sink.AssertConfig.CATALOG_TABLE_RULES;
 import static org.apache.seatunnel.connectors.seatunnel.assertion.sink.AssertConfig.FIELD_RULES;
 import static org.apache.seatunnel.connectors.seatunnel.assertion.sink.AssertConfig.ROW_RULES;
-import static org.apache.seatunnel.connectors.seatunnel.assertion.sink.AssertConfig.RULES;
-import static org.apache.seatunnel.connectors.seatunnel.assertion.sink.AssertConfig.TABLE_CONFIGS;
 import static org.apache.seatunnel.connectors.seatunnel.assertion.sink.AssertConfig.TABLE_PATH;
+import static org.apache.seatunnel.connectors.seatunnel.assertion.sink.AssertSinkOptions.RULES;
 
 public class AssertSink extends AbstractSimpleSink<SeaTunnelRow, Void>
         implements SupportMultiTableSink {
@@ -67,22 +65,24 @@ public class AssertSink extends AbstractSimpleSink<SeaTunnelRow, Void>
         assertFieldRules = new ConcurrentHashMap<>();
         assertRowRules = new ConcurrentHashMap<>();
         assertCatalogTableRule = new ConcurrentHashMap<>();
+        catalogTableName = catalogTable.getTablePath().getFullName();
         Config ruleConfig = ConfigFactory.parseMap(pluginConfig.get(RULES));
-        if (ruleConfig.hasPath(TABLE_CONFIGS.key())) {
-            List<? extends Config> tableConfigs = ruleConfig.getConfigList(TABLE_CONFIGS.key());
+        if (ruleConfig.hasPath(ConnectorCommonOptions.TABLE_CONFIGS.key())) {
+            List<? extends Config> tableConfigs =
+                    ruleConfig.getConfigList(ConnectorCommonOptions.TABLE_CONFIGS.key());
             for (Config tableConfig : tableConfigs) {
-                String tableName = tableConfig.getString(TABLE_PATH.key());
+                String tableName = tableConfig.getString(TABLE_PATH);
                 initTableRule(catalogTable, tableConfig, tableName);
             }
         } else {
             String tableName = catalogTable.getTablePath().getFullName();
             initTableRule(catalogTable, ruleConfig, tableName);
         }
-        catalogTableName = catalogTable.getTablePath().getFullName();
 
-        if (ruleConfig.hasPath(CatalogOptions.TABLE_NAMES.key())) {
+        if (ruleConfig.hasPath(ConnectorCommonOptions.TABLE_NAMES.key())) {
             assertTableRule =
-                    new AssertTableRule(ruleConfig.getStringList(CatalogOptions.TABLE_NAMES.key()));
+                    new AssertTableRule(
+                            ruleConfig.getStringList(ConnectorCommonOptions.TABLE_NAMES.key()));
         } else {
             assertTableRule = new AssertTableRule(new ArrayList<>());
         }
@@ -114,7 +114,9 @@ public class AssertSink extends AbstractSimpleSink<SeaTunnelRow, Void>
             AssertCatalogTableRule catalogTableRule =
                     new AssertRuleParser()
                             .parseCatalogTableRule(tableConfig.getConfig(CATALOG_TABLE_RULES));
-            catalogTableRule.checkRule(catalogTable);
+            if (tableName.equals(catalogTableName)) {
+                catalogTableRule.checkRule(catalogTable);
+            }
             assertCatalogTableRule.put(tableName, catalogTableRule);
         }
     }

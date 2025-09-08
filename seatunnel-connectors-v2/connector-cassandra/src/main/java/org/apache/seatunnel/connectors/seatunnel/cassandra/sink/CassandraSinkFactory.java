@@ -18,11 +18,25 @@
 package org.apache.seatunnel.connectors.seatunnel.cassandra.sink;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
-import org.apache.seatunnel.connectors.seatunnel.cassandra.config.CassandraConfig;
+import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
+import org.apache.seatunnel.connectors.seatunnel.cassandra.config.CassandraParameters;
 
 import com.google.auto.service.AutoService;
+
+import static org.apache.seatunnel.connectors.seatunnel.cassandra.config.CassandraSinkOptions.ASYNC_WRITE;
+import static org.apache.seatunnel.connectors.seatunnel.cassandra.config.CassandraSinkOptions.BATCH_SIZE;
+import static org.apache.seatunnel.connectors.seatunnel.cassandra.config.CassandraSinkOptions.BATCH_TYPE;
+import static org.apache.seatunnel.connectors.seatunnel.cassandra.config.CassandraSinkOptions.CONSISTENCY_LEVEL;
+import static org.apache.seatunnel.connectors.seatunnel.cassandra.config.CassandraSinkOptions.DATACENTER;
+import static org.apache.seatunnel.connectors.seatunnel.cassandra.config.CassandraSinkOptions.FIELDS;
+import static org.apache.seatunnel.connectors.seatunnel.cassandra.config.CassandraSinkOptions.HOST;
+import static org.apache.seatunnel.connectors.seatunnel.cassandra.config.CassandraSinkOptions.KEYSPACE;
+import static org.apache.seatunnel.connectors.seatunnel.cassandra.config.CassandraSinkOptions.PASSWORD;
+import static org.apache.seatunnel.connectors.seatunnel.cassandra.config.CassandraSinkOptions.TABLE;
+import static org.apache.seatunnel.connectors.seatunnel.cassandra.config.CassandraSinkOptions.USERNAME;
 
 @AutoService(Factory.class)
 public class CassandraSinkFactory implements TableSinkFactory {
@@ -34,15 +48,19 @@ public class CassandraSinkFactory implements TableSinkFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(CassandraConfig.HOST, CassandraConfig.KEYSPACE, CassandraConfig.TABLE)
-                .bundled(CassandraConfig.USERNAME, CassandraConfig.PASSWORD)
+                .required(HOST, KEYSPACE, TABLE)
+                .bundled(USERNAME, PASSWORD)
                 .optional(
-                        CassandraConfig.DATACENTER,
-                        CassandraConfig.CONSISTENCY_LEVEL,
-                        CassandraConfig.FIELDS,
-                        CassandraConfig.BATCH_SIZE,
-                        CassandraConfig.BATCH_TYPE,
-                        CassandraConfig.ASYNC_WRITE)
+                        DATACENTER, CONSISTENCY_LEVEL, FIELDS, BATCH_SIZE, BATCH_TYPE, ASYNC_WRITE)
                 .build();
+    }
+
+    @Override
+    public TableSink createSink(TableSinkFactoryContext context) {
+        CassandraParameters cassandraParameters = new CassandraParameters();
+        cassandraParameters.buildWithConfig(context.getOptions());
+        return () ->
+                new CassandraSink(
+                        cassandraParameters, context.getCatalogTable(), context.getOptions());
     }
 }

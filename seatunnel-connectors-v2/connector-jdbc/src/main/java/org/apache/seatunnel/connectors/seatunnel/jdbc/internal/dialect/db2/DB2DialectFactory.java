@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.db2;
 
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectFactory;
 
@@ -25,6 +26,11 @@ import com.google.auto.service.AutoService;
 /** Factory for {@link DB2Dialect}. */
 @AutoService(JdbcDialectFactory.class)
 public class DB2DialectFactory implements JdbcDialectFactory {
+
+    @Override
+    public String dialectFactoryName() {
+        return DatabaseIdentifier.DB_2;
+    }
 
     @Override
     public boolean acceptsURL(String url) {

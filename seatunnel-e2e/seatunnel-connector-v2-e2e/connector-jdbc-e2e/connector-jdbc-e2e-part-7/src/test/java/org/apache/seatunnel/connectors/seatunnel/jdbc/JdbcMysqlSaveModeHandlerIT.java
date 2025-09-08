@@ -18,6 +18,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc;
 
+import org.apache.seatunnel.shade.com.google.common.collect.Lists;
+
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.TablePath;
@@ -39,7 +41,6 @@ import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.DockerLoggerFactory;
 
 import com.github.dockerjava.api.model.Image;
-import com.google.common.collect.Lists;
 import lombok.extern.slf4j.Slf4j;
 
 import java.math.BigDecimal;
@@ -322,7 +323,8 @@ public class JdbcMysqlSaveModeHandlerIT extends AbstractJdbcIT {
                         jdbcCase.getUserName(),
                         jdbcCase.getPassword(),
                         JdbcUrlUtil.getUrlInfo(
-                                jdbcCase.getJdbcUrl().replace(HOST, dbServer.getHost())));
+                                jdbcCase.getJdbcUrl().replace(HOST, dbServer.getHost())),
+                        null);
         catalog.open();
     }
 

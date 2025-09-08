@@ -26,6 +26,9 @@ import org.apache.seatunnel.transform.exception.ErrorDataTransformException;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 
+import java.util.Collections;
+import java.util.List;
+
 @Slf4j
 public abstract class AbstractSeaTunnelTransform<T, R> implements SeaTunnelTransform<T> {
 
@@ -35,7 +38,7 @@ public abstract class AbstractSeaTunnelTransform<T, R> implements SeaTunnelTrans
     protected volatile CatalogTable outputCatalogTable;
 
     public AbstractSeaTunnelTransform(@NonNull CatalogTable inputCatalogTable) {
-        this(inputCatalogTable, CommonOptions.ROW_ERROR_HANDLE_WAY_OPTION.defaultValue());
+        this(inputCatalogTable, TransformCommonOptions.ROW_ERROR_HANDLE_WAY_OPTION.defaultValue());
     }
 
     public AbstractSeaTunnelTransform(
@@ -56,6 +59,11 @@ public abstract class AbstractSeaTunnelTransform<T, R> implements SeaTunnelTrans
         return outputCatalogTable;
     }
 
+    @Override
+    public List<CatalogTable> getProducedCatalogTables() {
+        return Collections.singletonList(getProducedCatalogTable());
+    }
+
     private CatalogTable transformCatalogTable() {
         TableIdentifier tableIdentifier = transformTableIdentifier();
         TableSchema tableSchema = transformTableSchema();
@@ -64,7 +72,9 @@ public abstract class AbstractSeaTunnelTransform<T, R> implements SeaTunnelTrans
                 tableSchema,
                 inputCatalogTable.getOptions(),
                 inputCatalogTable.getPartitionKeys(),
-                inputCatalogTable.getComment());
+                inputCatalogTable.getComment(),
+                inputCatalogTable.getTableId().getCatalogName(),
+                inputCatalogTable.getMetadataSchema());
     }
 
     public R transform(SeaTunnelRow row) {

@@ -20,7 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.oracle;
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
 import org.apache.seatunnel.connectors.seatunnel.common.source.TypeDefineUtils;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcCommonOptions;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectTypeMapper;
 
 import lombok.extern.slf4j.Slf4j;
@@ -33,18 +33,27 @@ import java.util.Arrays;
 public class OracleTypeMapper implements JdbcDialectTypeMapper {
 
     private final boolean decimalTypeNarrowing;
+    private final boolean handleBlobAsString;
 
     public OracleTypeMapper() {
-        this(JdbcOptions.DECIMAL_TYPE_NARROWING.defaultValue());
+        this(
+                JdbcCommonOptions.DECIMAL_TYPE_NARROWING.defaultValue(),
+                JdbcCommonOptions.HANDLE_BLOB_AS_STRING.defaultValue());
     }
 
     public OracleTypeMapper(boolean decimalTypeNarrowing) {
+        this(decimalTypeNarrowing, JdbcCommonOptions.HANDLE_BLOB_AS_STRING.defaultValue());
+    }
+
+    public OracleTypeMapper(boolean decimalTypeNarrowing, boolean handleBlobAsString) {
         this.decimalTypeNarrowing = decimalTypeNarrowing;
+        this.handleBlobAsString = handleBlobAsString;
     }
 
     @Override
     public Column mappingColumn(BasicTypeDefine typeDefine) {
-        return new OracleTypeConverter(decimalTypeNarrowing).convert(typeDefine);
+        return new OracleTypeConverter(decimalTypeNarrowing, handleBlobAsString)
+                .convert(typeDefine);
     }
 
     @Override

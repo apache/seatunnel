@@ -22,7 +22,9 @@ import org.apache.seatunnel.connectors.cdc.base.source.offset.Offset;
 
 import io.debezium.relational.TableId;
 import lombok.Getter;
+import lombok.ToString;
 
+@ToString
 @Getter
 public class SnapshotSplit extends SourceSplitBase {
     private static final long serialVersionUID = 1L;

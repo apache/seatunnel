@@ -17,7 +17,7 @@ env {
 source {
    FakeSource {
       parallelism = 1
-      result_table_name = "fake"
+      plugin_output = "fake"
       row.num = 16
       schema = {
         fields {
@@ -151,13 +151,13 @@ source {
         }
         bootstrap.servers = "kafkaCluster:9092"
         start_mode = "earliest"
-        result_table_name = "kafka_table"
+        plugin_output = "kafka_table"
     }
 }
 
 sink {
   Console {
-    source_table_name = "kafka_table"
+    plugin_input = "kafka_table"
   }
 }
 ```

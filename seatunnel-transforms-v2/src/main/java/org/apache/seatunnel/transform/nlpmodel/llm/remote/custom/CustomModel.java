@@ -22,6 +22,7 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ArrayNode;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.TextNode;
+import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.table.type.SqlType;
@@ -36,10 +37,10 @@ import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.util.EntityUtils;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.jayway.jsonpath.JsonPath;
 
 import java.io.IOException;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -94,8 +95,15 @@ public class CustomModel extends AbstractModel {
         if (response.getStatusLine().getStatusCode() != 200) {
             throw new IOException("Failed to get vector from custom, response: " + responseStr);
         }
-        return OBJECT_MAPPER.convertValue(
-                parseResponse(responseStr), new TypeReference<List<String>>() {});
+        try {
+            return OBJECT_MAPPER.convertValue(
+                    parseResponse(responseStr), new TypeReference<List<String>>() {});
+        } catch (Exception e) {
+            String result =
+                    OBJECT_MAPPER.convertValue(
+                            parseResponse(responseStr), new TypeReference<String>() {});
+            return Collections.singletonList(result);
+        }
     }
 
     @VisibleForTesting

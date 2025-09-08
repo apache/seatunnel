@@ -42,7 +42,7 @@ import org.apache.seatunnel.format.json.exception.SeaTunnelJsonFormatException;
 import java.io.IOException;
 import java.util.Optional;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkNotNull;
 
 public class JsonDeserializationSchema implements DeserializationSchema<SeaTunnelRow> {
     private static final long serialVersionUID = 1L;

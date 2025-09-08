@@ -96,7 +96,7 @@
                 <db2.version>db2jcc4</db2.version>
                 <sqlite.version>3.39.3.0</sqlite.version>
                 <tablestore.version>5.13.9</tablestore.version>
-                <saphana.version>2.14.7</saphana.version>
+                <saphana.version>2.23.10</saphana.version>
                 <teradata.version>17.20.00.12</teradata.version>
                 <redshift.version>2.1.0.9</redshift.version>
                 <snowflake.version>3.13.29</snowflake.version>
@@ -111,6 +111,8 @@
                 <aliyun.sdk.oss.version>3.4.1</aliyun.sdk.oss.version>
                 <jdom.version>1.1</jdom.version>
                 <tidb.version>3.3.5</tidb.version>
+                <presto.version>0.279</presto.version>
+                <trino.version>460</trino.version>
             </properties>
             <dependencies>
                 <!-- starters -->
@@ -152,6 +154,12 @@
                     <scope>provided</scope>
                 </dependency>
                 <!-- connectors -->
+                <dependency>
+                    <groupId>org.apache.seatunnel</groupId>
+                    <artifactId>connector-sensorsdata</artifactId>
+                    <version>${project.version}</version>
+                    <scope>provided</scope>
+                </dependency>
                 <dependency>
                     <groupId>org.apache.seatunnel</groupId>
                     <artifactId>connector-fake</artifactId>
@@ -257,6 +265,12 @@
                 <dependency>
                     <groupId>org.apache.seatunnel</groupId>
                     <artifactId>connector-clickhouse</artifactId>
+                    <version>${project.version}</version>
+                    <scope>provided</scope>
+                </dependency>
+                <dependency>
+                    <groupId>org.apache.seatunnel</groupId>
+                    <artifactId>connector-databend</artifactId>
                     <version>${project.version}</version>
                     <scope>provided</scope>
                 </dependency>
@@ -442,12 +456,6 @@
                 </dependency>
                 <dependency>
                     <groupId>org.apache.seatunnel</groupId>
-                    <artifactId>connector-doris</artifactId>
-                    <version>${project.version}</version>
-                    <scope>provided</scope>
-                </dependency>
-                <dependency>
-                    <groupId>org.apache.seatunnel</groupId>
                     <artifactId>connector-slack</artifactId>
                     <version>${project.version}</version>
                     <scope>provided</scope>
@@ -491,6 +499,12 @@
                 <dependency>
                     <groupId>org.apache.seatunnel</groupId>
                     <artifactId>connector-maxcompute</artifactId>
+                    <version>${project.version}</version>
+                    <scope>provided</scope>
+                </dependency>
+                <dependency>
+                    <groupId>org.apache.seatunnel</groupId>
+                    <artifactId>connector-cdc-base</artifactId>
                     <version>${project.version}</version>
                     <scope>provided</scope>
                 </dependency>
@@ -617,6 +631,13 @@
                     <scope>provided</scope>
                 </dependency>
 
+                <dependency>
+                    <groupId>org.apache.seatunnel</groupId>
+                    <artifactId>connector-graphql</artifactId>
+                    <version>${project.version}</version>
+                    <scope>provided</scope>
+                </dependency>
+
                 <!-- jdbc driver -->
                 <dependency>
                     <groupId>com.aliyun.phoenix</groupId>
@@ -721,6 +742,18 @@
                     <groupId>org.tikv</groupId>
                     <artifactId>tikv-client-java</artifactId>
                     <version>${tidb.version}</version>
+                    <scope>provided</scope>
+                </dependency>
+                <dependency>
+                    <groupId>com.facebook.presto</groupId>
+                    <artifactId>presto-jdbc</artifactId>
+                    <version>${presto.version}</version>
+                    <scope>provided</scope>
+                </dependency>
+                <dependency>
+                    <groupId>io.trino</groupId>
+                    <artifactId>trino-jdbc</artifactId>
+                    <version>${trino.version}</version>
                     <scope>provided</scope>
                 </dependency>
                 <!-- jdbc driver end -->
@@ -956,7 +989,21 @@
 
                 <dependency>
                     <groupId>org.apache.seatunnel</groupId>
+                    <artifactId>connector-cdc-base</artifactId>
+                    <version>${project.version}</version>
+                    <scope>provided</scope>
+                </dependency>
+
+                <dependency>
+                    <groupId>org.apache.seatunnel</groupId>
                     <artifactId>connector-sls</artifactId>
+                    <version>${project.version}</version>
+                    <scope>provided</scope>
+                </dependency>
+
+                <dependency>
+                    <groupId>org.apache.seatunnel</groupId>
+                    <artifactId>connector-aerospike</artifactId>
                     <version>${project.version}</version>
                     <scope>provided</scope>
                 </dependency>
@@ -1020,6 +1067,95 @@
                     <plugin>
                         <groupId>org.codehaus.mojo</groupId>
                         <artifactId>exec-maven-plugin</artifactId>
+                        <version>${exec-maven-plugin.version}</version>
+                        <executions>
+                            <execution>
+                                <id>docker-build</id>
+                                <goals>
+                                    <goal>exec</goal>
+                                </goals>
+                                <phase>package</phase>
+                                <configuration>
+                                    <skip>${docker.build.skip}</skip>
+                                    <environmentVariables>
+                                        <DOCKER_BUILDKIT>1</DOCKER_BUILDKIT>
+                                    </environmentVariables>
+                                    <executable>docker</executable>
+                                    <workingDirectory>${project.basedir}</workingDirectory>
+                                    <arguments>
+                                        <argument>buildx</argument>
+                                        <argument>build</argument>
+                                        <argument>--load</argument>
+                                        <argument>--no-cache</argument>
+                                        <argument>-t</argument>
+                                        <argument>${docker.hub}/${docker.repo}:${docker.tag}</argument>
+                                        <argument>-t</argument>
+                                        <argument>${docker.hub}/${docker.repo}:latest</argument>
+                                        <argument>${project.basedir}</argument>
+                                        <argument>--build-arg</argument>
+                                        <argument>VERSION=${project.version}</argument>
+                                        <argument>--file=src/main/docker/Dockerfile</argument>
+                                    </arguments>
+                                </configuration>
+                            </execution>
+                            <execution>
+                                <id>docker-verify</id>
+                                <goals>
+                                    <goal>exec</goal>
+                                </goals>
+                                <phase>verify</phase>
+                                <configuration>
+                                    <skip>${docker.verify.skip}</skip>
+                                    <environmentVariables>
+                                        <DOCKER_BUILDKIT>1</DOCKER_BUILDKIT>
+                                    </environmentVariables>
+                                    <executable>docker</executable>
+                                    <workingDirectory>${project.basedir}</workingDirectory>
+                                    <arguments>
+                                        <argument>run</argument>
+                                        <argument>--rm</argument>
+                                        <argument>${docker.hub}/${docker.repo}:${docker.tag}</argument>
+                                        <argument>bash</argument>
+                                        <argument>./bin/seatunnel.sh</argument>
+                                        <argument>-e</argument>
+                                        <argument>local</argument>
+                                        <argument>-c</argument>
+                                        <argument>config/v2.batch.config.template</argument>
+                                    </arguments>
+                                </configuration>
+                            </execution>
+                            <execution>
+                                <id>docker-push</id>
+                                <goals>
+                                    <goal>exec</goal>
+                                </goals>
+                                <phase>install</phase>
+                                <configuration>
+                                    <skip>${docker.push.skip}</skip>
+                                    <environmentVariables>
+                                        <DOCKER_BUILDKIT>1</DOCKER_BUILDKIT>
+                                    </environmentVariables>
+                                    <executable>docker</executable>
+                                    <workingDirectory>${project.basedir}</workingDirectory>
+                                    <arguments>
+                                        <argument>buildx</argument>
+                                        <argument>build</argument>
+                                        <argument>--platform</argument>
+                                        <argument>linux/amd64,linux/arm64</argument>
+                                        <argument>--no-cache</argument>
+                                        <argument>--push</argument>
+                                        <argument>-t</argument>
+                                        <argument>${docker.hub}/${docker.repo}:${docker.tag}</argument>
+                                        <argument>-t</argument>
+                                        <argument>${docker.hub}/${docker.repo}:latest</argument>
+                                        <argument>${project.basedir}</argument>
+                                        <argument>--build-arg</argument>
+                                        <argument>VERSION=${project.version}</argument>
+                                        <argument>--file=src/main/docker/Dockerfile</argument>
+                                    </arguments>
+                                </configuration>
+                            </execution>
+                        </executions>
                     </plugin>
                 </plugins>
             </build>

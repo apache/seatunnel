@@ -6,7 +6,7 @@
   "source": [
     {
       "plugin_name": "FakeSource",
-      "result_table_name": "fake_to_inmemory_wtih_flink",
+      "plugin_output": "fake_to_inmemory_wtih_flink",
       "row.num": 10,
       "schema": {
         "fields": {
@@ -22,7 +22,7 @@
   "sink": [
     {
       "plugin_name": "InMemory",
-      "source_table_name": "fake_to_inmemory_wtih_flink"
+      "plugin_input": "fake_to_inmemory_wtih_flink"
     }
   ]
 }

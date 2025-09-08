@@ -1,10 +1,12 @@
+import ChangeLog from '../changelog/connector-iceberg.md';
+
 # Apache Iceberg
 
 > Apache Iceberg source connector
 
 ## Support Iceberg Version
 
-- 1.4.2
+- 1.6.1
 
 ## Support Those Engines
 
@@ -71,12 +73,13 @@ libfb303-xxx.jar
 
 ## Source Options
 
-|           Name           |  Type   | Required |       Default        |                                                                                                                                                                                                                                                                                                      Description                                                                                                                                                                                                                                                                                                       |
+| Name                     | Type    | Required | Default              | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 |--------------------------|---------|----------|----------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | catalog_name             | string  | yes      | -                    | User-specified catalog name.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 | namespace                | string  | yes      | -                    | The iceberg database name in the backend catalog.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
-| table                    | string  | yes      | -                    | The iceberg table name in the backend catalog.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
-| iceberg.catalog.config   | map     | yes      | -                    | Specify the properties for initializing the Iceberg catalog, which can be referenced in this file:"https://github.com/apache/iceberg/blob/main/core/src/main/java/org/apache/iceberg/CatalogProperties.java"                                                                                                                                                                                                                                                                                                                                                                                                           |
+| table                    | string  | no       | -                    | The iceberg table name in the backend catalog.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| table_list               | string  | no       | -                    | The iceberg table list in the backend catalog.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| iceberg.catalog.config   | map     | yes      | -                    | Specify the properties for initializing the Iceberg catalog, which can be referenced in this file:https://github.com/apache/iceberg/blob/main/core/src/main/java/org/apache/iceberg/CatalogProperties.java                                                                                                                                                                                                                                                                                                                                                                                                             |
 | hadoop.config            | map     | no       | -                    | Properties passed through to the Hadoop configuration                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | iceberg.hadoop-conf-path | string  | no       | -                    | The specified loading paths for the 'core-site.xml', 'hdfs-site.xml', 'hive-site.xml' files.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 | schema                   | config  | no       | -                    | Use projection to select data columns and columns order.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
@@ -87,11 +90,14 @@ libfb303-xxx.jar
 | use_snapshot_id          | long    | no       | -                    | Instructs this scan to look for use the given snapshot ID.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | use_snapshot_timestamp   | long    | no       | -                    | Instructs this scan to look for use the most recent snapshot as of the given time in milliseconds. timestamp – the timestamp in millis since the Unix epoch                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | stream_scan_strategy     | enum    | no       | FROM_LATEST_SNAPSHOT | Starting strategy for stream mode execution, Default to use `FROM_LATEST_SNAPSHOT` if don’t specify any value,The optional values are:<br/>TABLE_SCAN_THEN_INCREMENTAL: Do a regular table scan then switch to the incremental mode.<br/>FROM_LATEST_SNAPSHOT: Start incremental mode from the latest snapshot inclusive.<br/>FROM_EARLIEST_SNAPSHOT: Start incremental mode from the earliest snapshot inclusive.<br/>FROM_SNAPSHOT_ID: Start incremental mode from a snapshot with a specific id inclusive.<br/>FROM_SNAPSHOT_TIMESTAMP: Start incremental mode from a snapshot with a specific timestamp inclusive. |
+| increment.scan-interval  | long    | no       | 2000                 | The interval of increment scan(mills)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | common-options           |         | no       | -                    | Source plugin common parameters, please refer to [Source Common Options](../source-common-options.md) for details.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| query                    | String  | no       | -                    | The select DML to select the iceberg data. It mustn't contain the table name, and doesn't support alias. For example: `select * from table where f1 > 100`, `select fn from table where f1 > 100`. The current support for the LIKE syntax is limited: the LIKE clause shouldn't start with `%`. The supported one is: `select f1 from t where f2 like 'tom%'  `                                                                                                                                                                                                                                                       |
+
 
 ## Task Example
 
-### Simple:
+### Simple
 
 ```hocon
 env {
@@ -101,25 +107,6 @@ env {
 
 source {
   Iceberg {
-    schema {
-      fields {
-        f2 = "boolean"
-        f1 = "bigint"
-        f3 = "int"
-        f4 = "bigint"
-        f5 = "float"
-        f6 = "double"
-        f7 = "date"
-        f9 = "timestamp"
-        f10 = "timestamp"
-        f11 = "string"
-        f12 = "bytes"
-        f13 = "bytes"
-        f14 = "decimal(19,9)"
-        f15 = "array<int>"
-        f16 = "map<string, int>"
-      }
-    }
     catalog_name = "seatunnel"
     iceberg.catalog.config={
       type = "hadoop"
@@ -127,7 +114,8 @@ source {
     }
     namespace = "database1"
     table = "source"
-    result_table_name = "iceberg"
+    query = "select fn from table where f1 > 100"
+    plugin_output = "iceberg"
   }
 }
 
@@ -136,12 +124,38 @@ transform {
 
 sink {
   Console {
-    source_table_name = "iceberg"
+    plugin_input = "iceberg"
   }
 }
 ```
 
-### Hadoop S3 Catalog:
+### Multi-Table Read
+
+```hocon
+source {
+  Iceberg {
+    catalog_name = "seatunnel"
+    iceberg.catalog.config = {
+      type = "hadoop"
+      warehouse = "file:///tmp/seatunnel/iceberg/hadoop/"
+    }
+    namespace = "database1"
+    table_list = [
+      {
+        table = "table_1
+      },
+      {
+        table = "table_2
+        query = "select fn from table where f1 > 100"
+      }
+    ]
+    
+    plugin_output = "iceberg"
+  }
+}
+```
+
+### Hadoop S3 Catalog
 
 ```hocon
 source {
@@ -160,12 +174,12 @@ source {
     }
     namespace = "your_iceberg_database"
     table = "your_iceberg_table"
-    result_table_name = "iceberg_test"
+    plugin_output = "iceberg_test"
   }
 }
 ```
 
-### Hive Catalog:
+### Hive Catalog
 
 ```hocon
 source {
@@ -184,7 +198,7 @@ source {
 }
 ```
 
-### Column Projection:
+### Column Projection
 
 ```hocon
 source {
@@ -211,12 +225,4 @@ source {
 
 ## Changelog
 
-### 2.2.0-beta 2022-09-26
-
-- Add Iceberg Source Connector
-
-### next version
-
-- [Feature] Support Hadoop3.x ([3046](https://github.com/apache/seatunnel/pull/3046))
-- [improve][api] Refactoring schema parse ([4157](https://github.com/apache/seatunnel/pull/4157))
-
+<ChangeLog />

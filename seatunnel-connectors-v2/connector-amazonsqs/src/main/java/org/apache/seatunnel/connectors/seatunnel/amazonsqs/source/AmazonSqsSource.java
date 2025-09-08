@@ -17,79 +17,41 @@
 
 package org.apache.seatunnel.connectors.seatunnel.amazonsqs.source;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
-import org.apache.seatunnel.api.common.PrepareFailException;
-import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
-import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.source.Boundedness;
-import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SupportColumnProjection;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
-import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
-import org.apache.seatunnel.api.table.catalog.schema.TableSchemaOptions;
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.config.CheckConfigUtil;
-import org.apache.seatunnel.common.config.CheckResult;
-import org.apache.seatunnel.common.constants.PluginType;
-import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
-import org.apache.seatunnel.connectors.seatunnel.amazonsqs.config.AmazonSqsSourceOptions;
-import org.apache.seatunnel.connectors.seatunnel.amazonsqs.config.MessageFormat;
-import org.apache.seatunnel.connectors.seatunnel.amazonsqs.exception.AmazonSqsConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.amazonsqs.config.AmazonSqsSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitReader;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitSource;
 import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
-import org.apache.seatunnel.format.json.JsonDeserializationSchema;
-import org.apache.seatunnel.format.json.canal.CanalJsonDeserializationSchema;
-import org.apache.seatunnel.format.json.debezium.DebeziumJsonDeserializationSchema;
-import org.apache.seatunnel.format.json.exception.SeaTunnelJsonFormatException;
-import org.apache.seatunnel.format.text.TextDeserializationSchema;
-import org.apache.seatunnel.format.text.constant.TextFormatConstant;
 
-import com.google.auto.service.AutoService;
 import lombok.extern.slf4j.Slf4j;
 
-import static org.apache.seatunnel.connectors.seatunnel.amazonsqs.config.AmazonSqsConfig.DEBEZIUM_RECORD_INCLUDE_SCHEMA;
-import static org.apache.seatunnel.connectors.seatunnel.amazonsqs.config.AmazonSqsConfig.DEFAULT_FIELD_DELIMITER;
-import static org.apache.seatunnel.connectors.seatunnel.amazonsqs.config.AmazonSqsConfig.FIELD_DELIMITER;
-import static org.apache.seatunnel.connectors.seatunnel.amazonsqs.config.AmazonSqsConfig.FORMAT;
-import static org.apache.seatunnel.connectors.seatunnel.amazonsqs.config.AmazonSqsConfig.REGION;
-import static org.apache.seatunnel.connectors.seatunnel.amazonsqs.config.AmazonSqsConfig.URL;
+import java.util.Collections;
+import java.util.List;
 
 @Slf4j
-@AutoService(SeaTunnelSource.class)
 public class AmazonSqsSource extends AbstractSingleSplitSource<SeaTunnelRow>
         implements SupportColumnProjection {
 
-    private AmazonSqsSourceOptions amazonSqsSourceOptions;
+    private AmazonSqsSourceConfig amazonSqsSourceConfig;
     private DeserializationSchema<SeaTunnelRow> deserializationSchema;
-    private SeaTunnelRowType typeInfo;
     private CatalogTable catalogTable;
+
+    public AmazonSqsSource(
+            AmazonSqsSourceConfig amazonSqsSourceConfig,
+            CatalogTable catalogTable,
+            DeserializationSchema<SeaTunnelRow> deserializationSchema) {
+        this.amazonSqsSourceConfig = amazonSqsSourceConfig;
+        this.catalogTable = catalogTable;
+        this.deserializationSchema = deserializationSchema;
+    }
 
     @Override
     public String getPluginName() {
         return "AmazonSqs";
-    }
-
-    @Override
-    public void prepare(Config pluginConfig) throws PrepareFailException {
-        CheckResult result =
-                CheckConfigUtil.checkAllExists(
-                        pluginConfig, URL.key(), REGION.key(), TableSchemaOptions.SCHEMA.key());
-        if (!result.isSuccess()) {
-            throw new AmazonSqsConnectorException(
-                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                    String.format(
-                            "PluginName: %s, PluginType: %s, Message: %s",
-                            getPluginName(), PluginType.SOURCE, result.getMsg()));
-        }
-        this.amazonSqsSourceOptions = new AmazonSqsSourceOptions(pluginConfig);
-        this.catalogTable = CatalogTableUtil.buildWithConfig(pluginConfig);
-        this.typeInfo = catalogTable.getSeaTunnelRowType();
-        setDeserialization(pluginConfig);
     }
 
     @Override
@@ -98,63 +60,17 @@ public class AmazonSqsSource extends AbstractSingleSplitSource<SeaTunnelRow>
     }
 
     @Override
-    public SeaTunnelDataType<SeaTunnelRow> getProducedType() {
-        return this.typeInfo;
+    public List<CatalogTable> getProducedCatalogTables() {
+        return Collections.singletonList(catalogTable);
     }
 
     @Override
     public AbstractSingleSplitReader<SeaTunnelRow> createReader(
             SingleSplitReaderContext readerContext) throws Exception {
         return new AmazonSqsSourceReader(
-                readerContext, amazonSqsSourceOptions, deserializationSchema, typeInfo);
-    }
-
-    private void setDeserialization(Config config) {
-        if (config.hasPath(TableSchemaOptions.SCHEMA.key())) {
-            MessageFormat format = ReadonlyConfig.fromConfig(config).get(FORMAT);
-            switch (format) {
-                case JSON:
-                    deserializationSchema =
-                            new JsonDeserializationSchema(catalogTable, false, false);
-                    break;
-                case TEXT:
-                    String delimiter = DEFAULT_FIELD_DELIMITER;
-                    if (config.hasPath(FIELD_DELIMITER.key())) {
-                        delimiter = config.getString(FIELD_DELIMITER.key());
-                    }
-                    deserializationSchema =
-                            TextDeserializationSchema.builder()
-                                    .seaTunnelRowType(typeInfo)
-                                    .delimiter(delimiter)
-                                    .build();
-                    break;
-                case CANAL_JSON:
-                    deserializationSchema =
-                            CanalJsonDeserializationSchema.builder(catalogTable)
-                                    .setIgnoreParseErrors(true)
-                                    .build();
-                    break;
-                case DEBEZIUM_JSON:
-                    boolean includeSchema = DEBEZIUM_RECORD_INCLUDE_SCHEMA.defaultValue();
-                    if (config.hasPath(DEBEZIUM_RECORD_INCLUDE_SCHEMA.key())) {
-                        includeSchema = config.getBoolean(DEBEZIUM_RECORD_INCLUDE_SCHEMA.key());
-                    }
-                    deserializationSchema =
-                            new DebeziumJsonDeserializationSchema(
-                                    catalogTable, true, includeSchema);
-                    break;
-                default:
-                    throw new SeaTunnelJsonFormatException(
-                            CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
-                            "Unsupported format: " + format);
-            }
-        } else {
-            typeInfo = CatalogTableUtil.buildSimpleTextSchema();
-            this.deserializationSchema =
-                    TextDeserializationSchema.builder()
-                            .seaTunnelRowType(typeInfo)
-                            .delimiter(TextFormatConstant.PLACEHOLDER)
-                            .build();
-        }
+                readerContext,
+                amazonSqsSourceConfig,
+                deserializationSchema,
+                catalogTable.getSeaTunnelRowType());
     }
 }

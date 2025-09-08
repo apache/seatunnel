@@ -19,7 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.socket.sink;
 
 import org.apache.seatunnel.api.serialization.SerializationSchema;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.connectors.seatunnel.socket.config.SinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.socket.config.SocketConfig;
 import org.apache.seatunnel.connectors.seatunnel.socket.exception.SocketConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.socket.exception.SocketConnectorException;
 
@@ -42,7 +42,7 @@ public class SocketClient {
     private volatile boolean isRunning = Boolean.TRUE;
     private static final int CONNECTION_RETRY_DELAY = 500;
 
-    public SocketClient(SinkConfig config, SerializationSchema serializationSchema) {
+    public SocketClient(SocketConfig config, SerializationSchema serializationSchema) {
         this.hostName = config.getHost();
         this.port = config.getPort();
         this.serializationSchema = serializationSchema;

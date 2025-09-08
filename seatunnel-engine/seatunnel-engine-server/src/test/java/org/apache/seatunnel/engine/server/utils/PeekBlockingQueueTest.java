@@ -17,11 +17,12 @@
 
 package org.apache.seatunnel.engine.server.utils;
 
+import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
+
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 

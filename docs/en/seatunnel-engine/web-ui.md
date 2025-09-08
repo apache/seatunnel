@@ -1,4 +1,4 @@
-# Apache SeaTunnel Web UI Documentation
+# Web UI
 
 ## Access
 

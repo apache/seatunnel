@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-pulsar.md';
+
 # Pulsar
 
 > Pulsar sink connector
@@ -130,7 +132,7 @@ Source plugin common parameters, please refer to [Source Common Options](../sink
 
 ## Task Example
 
-### Simple:
+### Simple
 
 > This example defines a SeaTunnel synchronization task that automatically generates data through FakeSource and sends it to Pulsar Sink. FakeSource generates a total of 16 rows of data (row.num=16), with each row having two fields, name (string type) and age (int type). The final target topic is test_topic will also be 16 rows of data in the topic. And if you have not yet installed and deployed SeaTunnel, you need to follow the instructions in [Install SeaTunnel](../../start-v2/locally/deployment.md) to install and deploy SeaTunnel. And then follow the instructions in [Quick Start With SeaTunnel Engine](../../start-v2/locally/quick-start-seatunnel-engine.md) to run this job.
 
@@ -145,7 +147,7 @@ env {
 source {
   FakeSource {
     parallelism = 1
-    result_table_name = "fake"
+    plugin_output = "fake"
     row.num = 16
     schema = {
       fields {
@@ -161,7 +163,7 @@ sink {
   	topic = "example"
     client.service-url = "localhost:pulsar://localhost:6650"
     admin.service-url = "http://my-broker.example.com:8080"
-    result_table_name = "test"
+    plugin_output = "test"
     pulsar.config = {
         sendTimeoutMs = 30000
     }
@@ -171,7 +173,4 @@ sink {
 
 ## Changelog
 
-### next version
-
-- Add Pulsar Sink Connector
-
+<ChangeLog />

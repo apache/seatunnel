@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-kudu.md';
+
 # Kudu
 
 > Kudu source connector
@@ -42,7 +44,7 @@ The tested kudu version is 1.11.1.
 
 ## Source Options
 
-|                   Name                    |  Type  | Required |                    Default                     |                                                                                           Description                                                                                            |
+|                   Name                    | Type   | Required | Default                                        | Description                                                                                                                                                                                      |
 |-------------------------------------------|--------|----------|------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | kudu_masters                              | String | Yes      | -                                              | Kudu master address. Separated by ',',such as '192.168.88.110:7051'.                                                                                                                             |
 | table_name                                | String | Yes      | -                                              | The name of kudu table.                                                                                                                                                                          |
@@ -55,14 +57,14 @@ The tested kudu version is 1.11.1.
 | kerberos_krb5conf                         | String | No       | -                                              | Kerberos krb5 conf. Note that all zeta nodes require have this file.                                                                                                                             |
 | scan_token_query_timeout                  | Long   | No       | 30000                                          | The timeout for connecting scan token. If not set, it will be the same as operationTimeout.                                                                                                      |
 | scan_token_batch_size_bytes               | Int    | No       | 1024 * 1024                                    | Kudu scan bytes. The maximum number of bytes read at a time, the default is 1MB.                                                                                                                 |
-| filter                                    | Int    | No       | 1024 * 1024                                    | Kudu scan filter expressions,Not supported yet.                                                                                                                                                  |
+| filter                                    | String | No       | -                                              | Kudu scan filter expressions,example id > 100 AND id < 200.                                                                                                                                      |
 | schema                                    | Map    | No       | 1024 * 1024                                    | SeaTunnel Schema.                                                                                                                                                                                |
 | table_list                                | Array  | No       | -                                              | The list of tables to be read. you can use this configuration instead of `table_path` example: ```table_list = [{ table_name = "kudu_source_table_1"},{ table_name = "kudu_source_table_2"}] ``` |
 | common-options                            |        | No       | -                                              | Source plugin common parameters, please refer to [Source Common Options](../source-common-options.md) for details.                                                                               |
 
 ## Task Example
 
-### Simple:
+### Simple
 
 > The following example is for a Kudu table named "kudu_source_table", The goal is to print the data from this table on the console and write kudu table "kudu_sink_table"
 
@@ -78,7 +80,7 @@ source {
   kudu {
     kudu_masters = "kudu-master:7051"
     table_name = "kudu_source_table"
-    result_table_name = "kudu"
+    plugin_output = "kudu"
     enable_kerberos = true
     kerberos_principal = "xx@xx.COM"
     kerberos_keytab = "xx.keytab"
@@ -90,11 +92,11 @@ transform {
 
 sink {
   console {
-    source_table_name = "kudu"
+    plugin_input = "kudu"
   }
 
   kudu {
-    source_table_name = "kudu"
+    plugin_input = "kudu"
     kudu_masters = "kudu-master:7051"
     table_name = "kudu_sink_table"
     enable_kerberos = true
@@ -125,7 +127,7 @@ source {
     table_name = "kudu_source_table_2"
    }
    ]
-   result_table_name = "kudu"
+   plugin_output = "kudu"
 }
 }
 
@@ -143,11 +145,5 @@ sink {
 
 ## Changelog
 
-### 2.2.0-beta 2022-09-26
-
-- Add Kudu Source Connector
-
-### Next Version
-
-- Change plugin name from `KuduSource` to `Kudu` [3432](https://github.com/apache/seatunnel/pull/3432)
+<ChangeLog />
 

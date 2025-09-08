@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cdc.postgres;
 
+import org.apache.seatunnel.shade.com.google.common.collect.Lists;
+
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
@@ -37,7 +39,6 @@ import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerImageName;
 
-import com.google.common.collect.Lists;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
@@ -428,7 +429,7 @@ public class OpengaussCDCIT extends TestSuiteBase implements TestResource {
             value = {},
             type = {EngineType.SPARK, EngineType.FLINK},
             disabledReason = "Currently SPARK and FLINK do not support restore")
-    public void testAddFiledWithRestore(TestContainer container)
+    public void testAddFieldWithRestore(TestContainer container)
             throws IOException, InterruptedException {
         Long jobId = JobIdGenerator.newJobId();
         try {
@@ -462,7 +463,7 @@ public class OpengaussCDCIT extends TestSuiteBase implements TestResource {
 
             Assertions.assertEquals(0, container.savepointJob(String.valueOf(jobId)).getExitCode());
 
-            // add filed add insert source table data
+            // add field add insert source table data
             addFieldsForTable(OPENGAUSS_SCHEMA, SOURCE_TABLE_3);
             addFieldsForTable(OPENGAUSS_SCHEMA, SINK_TABLE_3);
             insertSourceTableForAddFields(OPENGAUSS_SCHEMA, SOURCE_TABLE_3);

@@ -31,6 +31,7 @@ import lombok.NonNull;
 import java.util.Arrays;
 
 public class SplitTransform extends MultipleFieldOutputTransform {
+    public static String PLUGIN_NAME = "Split";
     private final SplitTransformConfig splitTransformConfig;
     private final int splitFieldIndex;
 

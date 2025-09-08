@@ -115,10 +115,10 @@ public class DefaultSeaTunnelRowDeserializer implements SeaTunnelRowDeserializer
         try {
             for (int i = 0; i < rowTypeInfo.getTotalFields(); i++) {
                 fieldName = rowTypeInfo.getFieldName(i);
-                value = doc.get(fieldName); // 字段值
+                value = doc.get(fieldName);
                 if (value != null) {
-                    seaTunnelDataType =
-                            rowTypeInfo.getFieldType(i); // seaTunnelDataType 为SeaTunnel类型
+                    // seaTunnelDataType is the SeaTunnel type
+                    seaTunnelDataType = rowTypeInfo.getFieldType(i);
                     seaTunnelFields[i] = convertValue(seaTunnelDataType, value);
                 }
             }

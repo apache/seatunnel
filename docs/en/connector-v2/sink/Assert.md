@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-assert.md';
+
 # Assert
 
 > Assert sink connector
@@ -267,13 +269,13 @@ source {
         ]
       }
     ]
-    result_table_name = "fake"
+    plugin_output = "fake"
   }
 }
 
 sink{
   Assert {
-    source_table_name = "fake"
+    plugin_input = "fake"
     rules =
       {
         row_rules = [
@@ -607,3 +609,6 @@ sink {
 
 ```
 
+## Changelog
+
+<ChangeLog />

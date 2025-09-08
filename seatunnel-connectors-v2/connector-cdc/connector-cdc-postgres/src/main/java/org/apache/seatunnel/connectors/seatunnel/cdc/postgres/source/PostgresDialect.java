@@ -43,6 +43,7 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseI
 
 import io.debezium.connector.postgresql.PostgresConnectorConfig;
 import io.debezium.connector.postgresql.connection.PostgresConnection;
+import io.debezium.connector.postgresql.connection.ServerInfo;
 import io.debezium.jdbc.JdbcConnection;
 import io.debezium.relational.RelationalDatabaseConnectorConfig;
 import io.debezium.relational.TableId;
@@ -103,10 +104,29 @@ public class PostgresDialect implements JdbcDataSourceDialect {
     public List<TableId> discoverDataCollections(JdbcSourceConfig sourceConfig) {
         PostgresSourceConfig postgresSourceConfig = (PostgresSourceConfig) sourceConfig;
         try (JdbcConnection jdbcConnection = openJdbcConnection(sourceConfig)) {
-            return TableDiscoveryUtils.listTables(
-                    jdbcConnection, postgresSourceConfig.getTableFilters());
+            List<TableId> tables =
+                    TableDiscoveryUtils.listTables(
+                            jdbcConnection, postgresSourceConfig.getTableFilters());
+            this.checkAllTablesEnabledCapture(jdbcConnection, tables);
+            return tables;
         } catch (SQLException e) {
             throw new SeaTunnelException("Error to discover tables: " + e.getMessage(), e);
+        }
+    }
+
+    @Override
+    public void checkAllTablesEnabledCapture(JdbcConnection jdbcConnection, List<TableId> tableIds)
+            throws SQLException {
+        PostgresConnection postgresConnection = (PostgresConnection) jdbcConnection;
+        for (TableId tableId : tableIds) {
+            ServerInfo.ReplicaIdentity replicaIdentity =
+                    postgresConnection.readReplicaIdentityInfo(tableId);
+            if (!ServerInfo.ReplicaIdentity.FULL.equals(replicaIdentity)) {
+                throw new SeaTunnelException(
+                        String.format(
+                                "Table %s does not have a full replica identity, please execute: ALTER TABLE %s REPLICA IDENTITY FULL;",
+                                tableId, tableId));
+            }
         }
     }
 
@@ -155,6 +175,12 @@ public class PostgresDialect implements JdbcDataSourceDialect {
         if (sourceSplitBase.isSnapshotSplit()) {
             return new PostgresSnapshotFetchTask(sourceSplitBase.asSnapshotSplit());
         } else {
+            try (JdbcConnection jdbcConnection = openJdbcConnection(sourceConfig)) {
+                List<TableId> tables = sourceSplitBase.asIncrementalSplit().getTableIds();
+                this.checkAllTablesEnabledCapture(jdbcConnection, tables);
+            } catch (SQLException e) {
+                throw new SeaTunnelException("Error to check tables: " + e.getMessage(), e);
+            }
             postgresWalFetchTask = new PostgresWalFetchTask(sourceSplitBase.asIncrementalSplit());
             return postgresWalFetchTask;
         }

@@ -28,12 +28,14 @@ import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SupportMultiTableSink;
 import org.apache.seatunnel.api.sink.SupportSaveMode;
+import org.apache.seatunnel.api.sink.SupportSchemaEvolutionSink;
 import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.factory.CatalogFactory;
+import org.apache.seatunnel.api.table.schema.SchemaChangeType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.constants.PluginType;
-import org.apache.seatunnel.connectors.seatunnel.iceberg.config.SinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.exception.IcebergConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.sink.commit.IcebergAggregatedCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.sink.commit.IcebergAggregatedCommitter;
@@ -41,6 +43,7 @@ import org.apache.seatunnel.connectors.seatunnel.iceberg.sink.commit.IcebergComm
 import org.apache.seatunnel.connectors.seatunnel.iceberg.sink.state.IcebergSinkState;
 
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -54,15 +57,16 @@ public class IcebergSink
                         IcebergCommitInfo,
                         IcebergAggregatedCommitInfo>,
                 SupportSaveMode,
-                SupportMultiTableSink {
-    private static final String PLUGIN_NAME = "Iceberg";
-    private final SinkConfig config;
+                SupportMultiTableSink,
+                SupportSchemaEvolutionSink {
+    private static String PLUGIN_NAME = "Iceberg";
+    private final IcebergSinkConfig config;
     private final ReadonlyConfig readonlyConfig;
     private final CatalogTable catalogTable;
 
     public IcebergSink(ReadonlyConfig pluginConfig, CatalogTable catalogTable) {
         this.readonlyConfig = pluginConfig;
-        this.config = new SinkConfig(pluginConfig);
+        this.config = new IcebergSinkConfig(pluginConfig);
         this.catalogTable = catalogTable;
         // Reset primary keys if need
         if (config.getPrimaryKeys().isEmpty()
@@ -131,11 +135,20 @@ public class IcebergSink
                         config.getDataSaveMode(),
                         catalog,
                         catalogTable,
-                        null));
+                        config.getDataSaveModeSQL()));
     }
 
     @Override
     public Optional<CatalogTable> getWriteCatalogTable() {
         return Optional.ofNullable(catalogTable);
+    }
+
+    @Override
+    public List<SchemaChangeType> supports() {
+        return Arrays.asList(
+                SchemaChangeType.ADD_COLUMN,
+                SchemaChangeType.DROP_COLUMN,
+                SchemaChangeType.RENAME_COLUMN,
+                SchemaChangeType.UPDATE_COLUMN);
     }
 }

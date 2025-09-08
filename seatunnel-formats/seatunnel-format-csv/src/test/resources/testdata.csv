@@ -1,0 +1,7 @@
+city,order_no,amount
+New York,ORDER001,1000
+"San Francisco,CA","ORDER,002",2000
+Los Angeles,ORDER003,3000
+"Miami, FL",,5000
+Seattle,"ORDER,006,USA",6000
+Boston,ORDER007,7000

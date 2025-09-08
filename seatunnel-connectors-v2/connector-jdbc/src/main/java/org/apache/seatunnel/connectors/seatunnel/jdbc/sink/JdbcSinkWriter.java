@@ -17,9 +17,9 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.sink;
 
-import org.apache.seatunnel.api.event.EventType;
+import org.apache.seatunnel.shade.com.zaxxer.hikari.HikariDataSource;
+
 import org.apache.seatunnel.api.sink.MultiTableResourceManager;
-import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -30,11 +30,9 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorExc
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.JdbcOutputFormatBuilder;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.SimpleJdbcConnectionPoolProviderProxy;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.oracle.OracleDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.state.JdbcSinkState;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.state.XidInfo;
 
-import com.zaxxer.hikari.HikariDataSource;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
@@ -42,8 +40,6 @@ import java.sql.SQLException;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
-
-import static org.apache.seatunnel.api.event.EventType.SCHEMA_CHANGE_CHANGE_COLUMN;
 
 @Slf4j
 public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager> {
@@ -54,17 +50,23 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
             JdbcDialect dialect,
             JdbcSinkConfig jdbcSinkConfig,
             TableSchema tableSchema,
+            TableSchema databaseTableSchema,
             Integer primaryKeyIndex) {
         this.sinkTablePath = sinkTablePath;
         this.dialect = dialect;
         this.tableSchema = tableSchema;
+        this.databaseTableSchema = databaseTableSchema;
         this.jdbcSinkConfig = jdbcSinkConfig;
         this.primaryKeyIndex = primaryKeyIndex;
         this.connectionProvider =
                 dialect.getJdbcConnectionProvider(jdbcSinkConfig.getJdbcConnectionConfig());
         this.outputFormat =
                 new JdbcOutputFormatBuilder(
-                                dialect, connectionProvider, jdbcSinkConfig, tableSchema)
+                                dialect,
+                                connectionProvider,
+                                jdbcSinkConfig,
+                                tableSchema,
+                                databaseTableSchema)
                         .build();
     }
 
@@ -74,12 +76,16 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
         HikariDataSource ds = new HikariDataSource();
         try {
             Class.forName(jdbcSinkConfig.getJdbcConnectionConfig().getDriverName());
-        } catch (ClassNotFoundException e) {
-            throw new RuntimeException(e);
+        } catch (Exception e) {
+            log.warn(
+                    "Failed to load JDBC driver {}",
+                    jdbcSinkConfig.getJdbcConnectionConfig().getDriverName(),
+                    e);
         }
         ds.setIdleTimeout(30 * 1000);
         ds.setMaximumPoolSize(queueSize);
         ds.setJdbcUrl(jdbcSinkConfig.getJdbcConnectionConfig().getUrl());
+        ds.setDriverClassName(jdbcSinkConfig.getJdbcConnectionConfig().getDriverName());
         if (jdbcSinkConfig.getJdbcConnectionConfig().getUsername().isPresent()) {
             ds.setUsername(jdbcSinkConfig.getJdbcConnectionConfig().getUsername().get());
         }
@@ -87,6 +93,7 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
             ds.setPassword(jdbcSinkConfig.getJdbcConnectionConfig().getPassword().get());
         }
         ds.setAutoCommit(jdbcSinkConfig.getJdbcConnectionConfig().isAutoCommit());
+        jdbcSinkConfig.getJdbcConnectionConfig().getProperties().forEach(ds::addDataSourceProperty);
         return new JdbcMultiTableResourceManager(new ConnectionPoolManager(ds));
     }
 
@@ -102,7 +109,11 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
                         queueIndex);
         this.outputFormat =
                 new JdbcOutputFormatBuilder(
-                                dialect, connectionProvider, jdbcSinkConfig, tableSchema)
+                                dialect,
+                                connectionProvider,
+                                jdbcSinkConfig,
+                                tableSchema,
+                                databaseTableSchema)
                         .build();
     }
 
@@ -166,23 +177,5 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
         } finally {
             outputFormat.close();
         }
-    }
-
-    @Override
-    protected void replaceColumnByIndex(
-            EventType eventType, List<Column> columns, String oldColumnName, Column newColumn) {
-        // The operation of renaming a column in Oracle is only supported to modify the column name,
-        // so we just modify the column name directly.
-        if (eventType.equals(SCHEMA_CHANGE_CHANGE_COLUMN) && dialect instanceof OracleDialect) {
-            for (int i = 0; i < columns.size(); i++) {
-                Column column = columns.get(i);
-                if (column.getName().equalsIgnoreCase(oldColumnName)) {
-                    column = column.rename(newColumn.getName());
-                    columns.set(i, column);
-                }
-            }
-            return;
-        }
-        super.replaceColumnByIndex(eventType, columns, oldColumnName, newColumn);
     }
 }

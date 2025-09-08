@@ -18,6 +18,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc;
 
+import org.apache.seatunnel.shade.com.google.common.collect.Lists;
+
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 
@@ -26,8 +28,6 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.utility.DockerLoggerFactory;
-
-import com.google.common.collect.Lists;
 
 import java.math.BigDecimal;
 import java.sql.Date;
@@ -111,7 +111,7 @@ public class JdbcGBase8aIT extends AbstractJdbcIT {
 
     @Override
     String driverUrl() {
-        return "https://cdn.gbase.cn/products/30/p5CiVwXBKQYIUGN8ecHvk/gbase-connector-java-9.5.0.7-build1-bin.jar";
+        return "https://linux.hadoop.wiki/lib/gbase-connector-java-9.5.0.7-build1-bin.jar";
     }
 
     @Override

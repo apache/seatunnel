@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.plugin.discovery;
 
+import org.apache.seatunnel.api.common.PluginIdentifier;
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 
@@ -42,6 +43,13 @@ public interface PluginDiscovery<T> {
      * @return plugin jars.
      */
     List<URL> getPluginJarPaths(List<PluginIdentifier> pluginIdentifiers);
+
+    /**
+     * Get all plugin dependency jar paths.
+     *
+     * @return plugin dependency jars.
+     */
+    List<URL> getPluginJarAndDependencyPaths(List<PluginIdentifier> pluginIdentifiers);
 
     /**
      * Get plugin instance by plugin identifier.

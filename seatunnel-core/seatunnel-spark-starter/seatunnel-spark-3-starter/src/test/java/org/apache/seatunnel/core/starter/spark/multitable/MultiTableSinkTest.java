@@ -23,12 +23,11 @@ import org.apache.seatunnel.core.starter.exception.CommandException;
 import org.apache.seatunnel.core.starter.spark.args.SparkCommandArgs;
 import org.apache.seatunnel.e2e.sink.inmemory.InMemoryAggregatedCommitter;
 import org.apache.seatunnel.e2e.sink.inmemory.InMemorySinkWriter;
+import org.apache.seatunnel.e2e.source.inmemory.InMemorySourceSplitEnumerator;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.condition.DisabledOnJre;
-import org.junit.jupiter.api.condition.JRE;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -45,14 +44,9 @@ import java.util.List;
 public class MultiTableSinkTest {
 
     @Test
-    @DisabledOnJre(
-            value = JRE.JAVA_11,
-            disabledReason =
-                    "We should update apache common lang3 version to 3.8 to avoid NPE, "
-                            + "see https://github.com/apache/commons-lang/commit/50ce8c44e1601acffa39f5568f0fc140aade0564")
     public void testMultiTableSink()
             throws FileNotFoundException, URISyntaxException, CommandException {
-        String configurePath = "/config/fake_to_inmemory_multi_table.conf";
+        String configurePath = "/config/inmemory_to_inmemory_multi_table.conf";
         String configFile = getTestConfigFile(configurePath);
         SparkCommandArgs sparkCommandArgs = new SparkCommandArgs();
         sparkCommandArgs.setConfigFile(configFile);
@@ -83,6 +77,10 @@ public class MultiTableSinkTest {
         //        Assertions.assertIterableEquals(
         //            Collections.singletonList("InMemoryMultiTableResourceManager::close"),
         //            committerResourceManagersEvents);
+
+        Assertions.assertIterableEquals(
+                Arrays.asList("registerReader_0", "run"),
+                InMemorySourceSplitEnumerator.getMethodInvoked());
     }
 
     public static String getTestConfigFile(String configFile)

@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.iceberg.source.reader;
 
+import org.apache.seatunnel.shade.com.google.common.collect.Sets;
+
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.data.IcebergRecordProjection;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.exception.IcebergConnectorException;
@@ -44,7 +46,6 @@ import org.apache.iceberg.parquet.Parquet;
 import org.apache.iceberg.types.TypeUtil;
 import org.apache.iceberg.util.PartitionUtil;
 
-import com.google.common.collect.Sets;
 import lombok.Builder;
 import lombok.NonNull;
 

@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.hive.storage;
 
+import org.apache.seatunnel.shade.com.google.common.collect.ImmutableList;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigValueFactory;
 
@@ -32,7 +33,6 @@ import org.apache.seatunnel.connectors.seatunnel.hive.exception.HiveConnectorExc
 import org.apache.commons.lang3.StringUtils;
 import org.apache.hadoop.conf.Configuration;
 
-import com.google.common.collect.ImmutableList;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.File;

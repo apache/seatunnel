@@ -22,12 +22,12 @@ import org.apache.seatunnel.shade.com.typesafe.config.ConfigValueFactory;
 
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
-import org.apache.seatunnel.api.table.catalog.schema.TableSchemaOptions;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
@@ -46,6 +46,7 @@ import org.apache.seatunnel.connectors.seatunnel.hive.utils.HiveTableUtils;
 import org.apache.seatunnel.connectors.seatunnel.hive.utils.HiveTypeConvertor;
 
 import org.apache.commons.collections4.CollectionUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.hadoop.hive.metastore.api.FieldSchema;
 import org.apache.hadoop.hive.metastore.api.Table;
 
@@ -60,9 +61,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import static org.apache.seatunnel.connectors.seatunnel.file.config.BaseSinkConfig.FIELD_DELIMITER;
-import static org.apache.seatunnel.connectors.seatunnel.file.config.BaseSinkConfig.FILE_FORMAT_TYPE;
-import static org.apache.seatunnel.connectors.seatunnel.file.config.BaseSinkConfig.ROW_DELIMITER;
+import static org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSinkOptions.FIELD_DELIMITER;
+import static org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSinkOptions.FILE_FORMAT_TYPE;
+import static org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSinkOptions.ROW_DELIMITER;
+import static org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions.NULL_FORMAT;
 
 @Getter
 public class HiveSourceConfig implements Serializable {
@@ -122,6 +124,19 @@ public class HiveSourceConfig implements Serializable {
             case TEXT:
                 // if the file format is text, we set the delim.
                 Map<String, String> parameters = table.getSd().getSerdeInfo().getParameters();
+                if (!readonlyConfig.getOptional(NULL_FORMAT).isPresent()) {
+                    String nullFormatKey = "serialization.null.format";
+                    String nullFormat = table.getParameters().get(nullFormatKey);
+                    if (StringUtils.isEmpty(nullFormat)) {
+                        nullFormat = parameters.get(nullFormatKey);
+                    }
+                    if (StringUtils.isEmpty(nullFormat)) {
+                        nullFormat = "\\N";
+                    }
+                    config =
+                            config.withValue(
+                                    NULL_FORMAT.key(), ConfigValueFactory.fromAnyRef(nullFormat));
+                }
                 config =
                         config.withValue(
                                         FIELD_DELIMITER.key(),
@@ -167,6 +182,9 @@ public class HiveSourceConfig implements Serializable {
         readonlyConfig
                 .getOptional(HdfsSourceConfigOptions.HDFS_SITE_PATH)
                 .ifPresent(hadoopConf::setHdfsSitePath);
+        readonlyConfig
+                .getOptional(HdfsSourceConfigOptions.KRB5_PATH)
+                .ifPresent(hadoopConf::setKrb5Path);
         readonlyConfig
                 .getOptional(HdfsSourceConfigOptions.KERBEROS_PRINCIPAL)
                 .ifPresent(hadoopConf::setKerberosPrincipal);
@@ -295,6 +313,6 @@ public class HiveSourceConfig implements Serializable {
                 TableSchema.builder().build(),
                 new HashMap<>(),
                 new ArrayList<>(),
-                readonlyConfig.get(TableSchemaOptions.TableIdentifierOptions.COMMENT));
+                readonlyConfig.get(ConnectorCommonOptions.TABLE_COMMENT));
     }
 }

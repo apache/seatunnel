@@ -90,7 +90,8 @@ public class FastLogDeserializationContent
                                         .append("\":\"")
                                         .append(content.getValue())
                                         .append("\","));
-        jsonStringBuilder.deleteCharAt(jsonStringBuilder.length() - 1); // 删除最后一个逗号
+        // Remove the last comma
+        jsonStringBuilder.deleteCharAt(jsonStringBuilder.length() - 1);
         jsonStringBuilder.append("}");
         // content field
         transformedRow.add(jsonStringBuilder.toString());

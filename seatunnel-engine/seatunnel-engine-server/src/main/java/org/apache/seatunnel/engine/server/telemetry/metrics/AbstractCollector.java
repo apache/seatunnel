@@ -17,10 +17,11 @@
 
 package org.apache.seatunnel.engine.server.telemetry.metrics;
 
+import org.apache.seatunnel.shade.com.google.common.collect.Lists;
+
 import org.apache.seatunnel.engine.server.CoordinatorService;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 
-import com.google.common.collect.Lists;
 import com.hazelcast.cluster.impl.MemberImpl;
 import com.hazelcast.instance.impl.Node;
 import com.hazelcast.internal.cluster.ClusterService;

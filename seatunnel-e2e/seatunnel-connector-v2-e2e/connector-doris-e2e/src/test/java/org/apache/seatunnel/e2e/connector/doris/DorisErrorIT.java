@@ -90,7 +90,7 @@ public class DorisErrorIT extends AbstractDorisIT {
         log.info("doris error log: \n" + future.get().getStderr());
         super.container.start();
         // wait for the container to restart
-        given().ignoreExceptions()
+        given().pollInterval(20, TimeUnit.SECONDS)
                 .await()
                 .atMost(360, TimeUnit.SECONDS)
                 .untilAsserted(this::initializeJdbcConnection);

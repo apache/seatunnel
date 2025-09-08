@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.redis.client;
 
+import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisDataType;
 import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisParameters;
 
@@ -78,7 +79,7 @@ public class RedisClusterClient extends RedisClient {
         List<Map<String, String>> result = new ArrayList<>(keys.size());
         for (String key : keys) {
             Map<String, String> map = jedis.hgetAll(key);
-            map.put("hash_key", key);
+            map.put(redisParameters.getKeyFieldName(), key);
             result.add(map);
         }
         return result;
@@ -97,42 +98,67 @@ public class RedisClusterClient extends RedisClient {
     }
 
     @Override
-    public void batchWriteString(List<String> keys, List<String> values, long expireSeconds) {
+    public void batchWriteString(
+            List<RowKind> rowKinds, List<String> keys, List<String> values, long expireSeconds) {
         int size = keys.size();
         for (int i = 0; i < size; i++) {
-            RedisDataType.STRING.set(this, keys.get(i), values.get(i), expireSeconds);
+            if (rowKinds.get(i) == RowKind.DELETE || rowKinds.get(i) == RowKind.UPDATE_BEFORE) {
+                RedisDataType.STRING.del(this, keys.get(i), values.get(i));
+            } else {
+                RedisDataType.STRING.set(this, keys.get(i), values.get(i), expireSeconds);
+            }
         }
     }
 
     @Override
-    public void batchWriteList(List<String> keys, List<String> values, long expireSeconds) {
+    public void batchWriteList(
+            List<RowKind> rowKinds, List<String> keys, List<String> values, long expireSeconds) {
         int size = keys.size();
         for (int i = 0; i < size; i++) {
-            RedisDataType.LIST.set(this, keys.get(i), values.get(i), expireSeconds);
+            if (rowKinds.get(i) == RowKind.DELETE || rowKinds.get(i) == RowKind.UPDATE_BEFORE) {
+                RedisDataType.LIST.del(this, keys.get(i), values.get(i));
+            } else {
+                RedisDataType.LIST.set(this, keys.get(i), values.get(i), expireSeconds);
+            }
         }
     }
 
     @Override
-    public void batchWriteSet(List<String> keys, List<String> values, long expireSeconds) {
+    public void batchWriteSet(
+            List<RowKind> rowKinds, List<String> keys, List<String> values, long expireSeconds) {
         int size = keys.size();
         for (int i = 0; i < size; i++) {
-            RedisDataType.SET.set(this, keys.get(i), values.get(i), expireSeconds);
+            if (rowKinds.get(i) == RowKind.DELETE || rowKinds.get(i) == RowKind.UPDATE_BEFORE) {
+                RedisDataType.SET.del(this, keys.get(i), values.get(i));
+            } else {
+                RedisDataType.SET.set(this, keys.get(i), values.get(i), expireSeconds);
+            }
         }
     }
 
     @Override
-    public void batchWriteHash(List<String> keys, List<String> values, long expireSeconds) {
+    public void batchWriteHash(
+            List<RowKind> rowKinds, List<String> keys, List<String> values, long expireSeconds) {
         int size = keys.size();
         for (int i = 0; i < size; i++) {
-            RedisDataType.HASH.set(this, keys.get(i), values.get(i), expireSeconds);
+            if (rowKinds.get(i) == RowKind.DELETE || rowKinds.get(i) == RowKind.UPDATE_BEFORE) {
+                RedisDataType.HASH.del(this, keys.get(i), values.get(i));
+            } else {
+                RedisDataType.HASH.set(this, keys.get(i), values.get(i), expireSeconds);
+            }
         }
     }
 
     @Override
-    public void batchWriteZset(List<String> keys, List<String> values, long expireSeconds) {
+    public void batchWriteZset(
+            List<RowKind> rowKinds, List<String> keys, List<String> values, long expireSeconds) {
         int size = keys.size();
         for (int i = 0; i < size; i++) {
-            RedisDataType.ZSET.set(this, keys.get(i), values.get(i), expireSeconds);
+            if (rowKinds.get(i) == RowKind.DELETE || rowKinds.get(i) == RowKind.UPDATE_BEFORE) {
+                RedisDataType.ZSET.del(this, keys.get(i), values.get(i));
+            } else {
+                RedisDataType.ZSET.set(this, keys.get(i), values.get(i), expireSeconds);
+            }
         }
     }
 }

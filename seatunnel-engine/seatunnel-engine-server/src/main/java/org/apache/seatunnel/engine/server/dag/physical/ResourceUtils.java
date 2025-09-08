@@ -18,6 +18,7 @@
 package org.apache.seatunnel.engine.server.dag.physical;
 
 import org.apache.seatunnel.common.utils.ExceptionUtils;
+import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.master.JobMaster;
 import org.apache.seatunnel.engine.server.resourcemanager.NoEnoughResourceException;
@@ -31,14 +32,13 @@ import lombok.NonNull;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 
 public class ResourceUtils {
 
     private static final ILogger LOGGER = Logger.getLogger(ResourceUtils.class);
 
-    public static void applyResourceForPipeline(
+    public static Map<TaskGroupLocation, SlotProfile> applyResourceForPipeline(
             @NonNull JobMaster jobMaster, @NonNull SubPlan subPlan) {
 
         Map<TaskGroupLocation, CompletableFuture<SlotProfile>> futures = new HashMap<>();
@@ -65,6 +65,7 @@ public class ResourceUtils {
         if (futures.size() != slotProfiles.size()) {
             throw new NoEnoughResourceException();
         }
+        return slotProfiles;
     }
 
     private static void allocateResources(

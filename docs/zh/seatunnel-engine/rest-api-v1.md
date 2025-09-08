@@ -1,12 +1,8 @@
----
-sidebar_position: 11
----
-
-# RESTful API
+# RESTful API V1
 
 :::caution warn
 
-推荐使用v2版本的Rest API。 v1 版本已弃用，并将在将来删除。
+推荐使用v2版本的Rest API。 v1 版本已弃用，并将在将来删除。 我们已经默认关闭了v1版本的API，如果您需要使用v1版本，请在`hazelcast.yaml`文件中启用它。
 
 :::
 
@@ -15,7 +11,8 @@ SeaTunnel有一个用于监控的API，可用于查询运行作业的状态和�
 ## 概述
 
 监控API是由运行的web服务提供的，它是节点运行的一部分，每个节点成员都可以提供rest API功能。
-默认情况下，该服务监听端口为5801，该端口可以在hazelcast.yaml中配置，如下所示：
+默认情况下，服务器禁用了RESTful API V1，可以通过在`hazelcast.yaml`文件中设置`rest-api.enabled`配置来启用它。
+该服务监听端口为5801，该端口可以在hazelcast.yaml中配置，如下所示：
 
 ```yaml
 network:
@@ -54,7 +51,7 @@ network:
 
 ```json
 {
-    "projectVersion":"2.3.5-SNAPSHOT",
+    "projectVersion":"2.3.10-SNAPSHOT",
     "gitCommitAbbrev":"DeadD0d0",
     "totalSlot":"0",
     "unassignedSlot":"0",
@@ -299,9 +296,9 @@ network:
 
 #### 参数
 
-> | 参数名称  |   是否必传   |  参数类型  |                               参数描述                               |
-> |-------|----------|--------|------------------------------------------------------------------|
-> | state | optional | string | finished job status. `FINISHED`,`CANCELED`,`FAILED`,`UNKNOWABLE` |
+> | 参数名称  |   是否必传   |  参数类型  | 参数描述                                                                              |
+> |-------|----------|--------|-----------------------------------------------------------------------------------|
+> | state | optional | string | finished job status. `FINISHED`,`CANCELED`,`FAILED`,`SAVEPOINT_DONE`,`UNKNOWABLE` |
 
 #### 响应
 
@@ -429,7 +426,7 @@ network:
     "source": [
         {
             "plugin_name": "FakeSource",
-            "result_table_name": "fake",
+            "plugin_output": "fake",
             "row.num": 100,
             "schema": {
                 "fields": {
@@ -445,7 +442,7 @@ network:
     "sink": [
         {
             "plugin_name": "Console",
-            "source_table_name": ["fake"]
+            "plugin_input": ["fake"]
         }
     ]
 }
@@ -495,7 +492,7 @@ network:
     "source": [
       {
         "plugin_name": "FakeSource",
-        "result_table_name": "fake",
+        "plugin_output": "fake",
         "row.num": 1000,
         "schema": {
           "fields": {
@@ -511,7 +508,7 @@ network:
     "sink": [
       {
         "plugin_name": "Console",
-        "source_table_name": ["fake"]
+        "plugin_input": ["fake"]
       }
     ]
   },
@@ -526,7 +523,7 @@ network:
     "source": [
       {
         "plugin_name": "FakeSource",
-        "result_table_name": "fake",
+        "plugin_output": "fake",
         "row.num": 1000,
         "schema": {
           "fields": {
@@ -542,7 +539,7 @@ network:
     "sink": [
       {
         "plugin_name": "Console",
-        "source_table_name": ["fake"]
+        "plugin_input": ["fake"]
       }
     ]
   }
@@ -654,7 +651,7 @@ network:
                     "age": "int"
                 }
             },
-            "result_table_name": "fake",
+            "plugin_output": "fake",
             "parallelism": 1,
             "hostname": "127.0.0.1",
             "username": "seatunnel",
@@ -694,7 +691,7 @@ network:
                     "age": "int"
                 }
             },
-            "result_table_name": "fake",
+            "plugin_output": "fake",
             "parallelism": 1,
             "hostname": "127.0.0.1",
             "username": "c2VhdHVubmVs",

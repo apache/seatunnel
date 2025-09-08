@@ -124,16 +124,14 @@ public class KuduSourceSplitEnumerator
     @Override
     public void addSplitsBack(List<KuduSourceSplit> splits, int subtaskId) {
         if (!splits.isEmpty()) {
-            synchronized (stateLock) {
-                addPendingSplit(splits, subtaskId);
-                if (enumeratorContext.registeredReaders().contains(subtaskId)) {
-                    assignSplit(Collections.singletonList(subtaskId));
-                } else {
-                    log.warn(
-                            "Reader {} is not registered. Pending splits {} are not assigned.",
-                            subtaskId,
-                            splits);
-                }
+            addPendingSplit(splits, subtaskId);
+            if (enumeratorContext.registeredReaders().contains(subtaskId)) {
+                assignSplit(Collections.singletonList(subtaskId));
+            } else {
+                log.warn(
+                        "Reader {} is not registered. Pending splits {} are not assigned.",
+                        subtaskId,
+                        splits);
             }
         }
         log.info("Add back splits {} to JdbcSourceSplitEnumerator.", splits.size());
@@ -192,10 +190,8 @@ public class KuduSourceSplitEnumerator
     @Override
     public void registerReader(int subtaskId) {
         log.debug("Register reader {} to KuduSourceSplitEnumerator.", subtaskId);
-        synchronized (stateLock) {
-            if (!pendingSplits.isEmpty()) {
-                assignSplit(Collections.singletonList(subtaskId));
-            }
+        if (!pendingSplits.isEmpty()) {
+            assignSplit(Collections.singletonList(subtaskId));
         }
     }
 

@@ -107,7 +107,7 @@ source {
     Jdbc {
         driver = org.postgresql.Driver
         url = "jdbc:postgresql://host:port/database"
-        username = postgres
+        user = "postgres"
         password = "123456"
         query = "select * from test"
         table_path = "database.test"

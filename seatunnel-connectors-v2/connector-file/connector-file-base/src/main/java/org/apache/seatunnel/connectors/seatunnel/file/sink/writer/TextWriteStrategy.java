@@ -43,7 +43,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-public class TextWriteStrategy extends AbstractWriteStrategy {
+public class TextWriteStrategy extends AbstractWriteStrategy<FSDataOutputStream> {
     private final LinkedHashMap<String, FSDataOutputStream> beingWrittenOutputStream;
     private final Map<String, Boolean> isFirstWrite;
     private final String fieldDelimiter;
@@ -132,7 +132,8 @@ public class TextWriteStrategy extends AbstractWriteStrategy {
         isFirstWrite.clear();
     }
 
-    private FSDataOutputStream getOrCreateOutputStream(@NonNull String filePath) {
+    @Override
+    public FSDataOutputStream getOrCreateOutputStream(@NonNull String filePath) {
         FSDataOutputStream fsDataOutputStream = beingWrittenOutputStream.get(filePath);
         if (fsDataOutputStream == null) {
             try {
@@ -169,10 +170,7 @@ public class TextWriteStrategy extends AbstractWriteStrategy {
     private void enableWriteHeader(FSDataOutputStream fsDataOutputStream) throws IOException {
         if (enableHeaderWriter) {
             fsDataOutputStream.write(
-                    String.join(
-                                    FileFormat.CSV.equals(fileFormat) ? "," : fieldDelimiter,
-                                    seaTunnelRowType.getFieldNames())
-                            .getBytes());
+                    String.join(fieldDelimiter, seaTunnelRowType.getFieldNames()).getBytes());
             fsDataOutputStream.write(rowDelimiter.getBytes());
         }
     }

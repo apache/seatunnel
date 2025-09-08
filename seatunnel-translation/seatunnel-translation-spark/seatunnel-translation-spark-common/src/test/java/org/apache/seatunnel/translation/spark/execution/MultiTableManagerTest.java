@@ -30,6 +30,7 @@ import org.apache.seatunnel.translation.spark.serialization.InternalRowConverter
 import org.apache.seatunnel.translation.spark.utils.InstantConverterUtils;
 
 import org.apache.spark.sql.catalyst.InternalRow;
+import org.apache.spark.sql.catalyst.expressions.GenericRow;
 import org.apache.spark.sql.catalyst.expressions.MutableAny;
 import org.apache.spark.sql.catalyst.expressions.MutableBoolean;
 import org.apache.spark.sql.catalyst.expressions.MutableByte;
@@ -219,6 +220,21 @@ public class MultiTableManagerTest {
                     specificInternalRow3.genericGet(v),
                     ((SpecificInternalRow) internalRow3).genericGet(v));
         }
+    }
+
+    @Test
+    public void testMultiConvertSeaTunnelRow() throws IOException {
+        initSchema();
+        initData();
+        MultiTableManager multiTableManager =
+                new MultiTableManager(
+                        new CatalogTable[] {catalogTable1, catalogTable2, catalogTable3});
+
+        GenericRow genericRow1 = multiTableManager.convert(seaTunnelRow1);
+        Assertions.assertEquals(seaTunnelRow1, multiTableManager.reconvert(genericRow1));
+
+        GenericRow genericRow3 = multiTableManager.convert(seaTunnelRow3);
+        Assertions.assertEquals(seaTunnelRow3, multiTableManager.reconvert(genericRow3));
     }
 
     @Test

@@ -17,13 +17,14 @@
 
 package org.apache.seatunnel.engine.core.classloader;
 
+import org.apache.seatunnel.shade.com.google.common.collect.Lists;
+
 import org.apache.seatunnel.engine.common.exception.ClassLoaderException;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
-import com.google.common.collect.Lists;
 import com.hazelcast.cluster.Address;
 import com.hazelcast.instance.impl.Node;
 import com.hazelcast.spi.impl.NodeEngineImpl;

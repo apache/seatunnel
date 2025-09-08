@@ -21,8 +21,6 @@ import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.source.SupportParallelism;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
-import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.config.SourceConfig;
@@ -38,22 +36,20 @@ import org.apache.seatunnel.connectors.cdc.debezium.row.DebeziumJsonDeserializeS
 import org.apache.seatunnel.connectors.cdc.debezium.row.SeaTunnelRowDebeziumDeserializeSchema;
 import org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.config.SqlServerSourceConfigFactory;
 import org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.offset.LsnOffsetFactory;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.JdbcCatalogOptions;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.sqlserver.SqlServerURLParser;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcCommonOptions;
 
 import java.time.ZoneId;
 import java.util.List;
+import java.util.Optional;
 
 public class SqlServerIncrementalSource<T> extends IncrementalSource<T, JdbcSourceConfig>
         implements SupportParallelism {
 
     static final String IDENTIFIER = "SqlServer-CDC";
 
-    public SqlServerIncrementalSource(
-            ReadonlyConfig options,
-            SeaTunnelDataType<SeaTunnelRow> dataType,
-            List<CatalogTable> catalogTables) {
-        super(options, dataType, catalogTables);
+    public SqlServerIncrementalSource(ReadonlyConfig options, List<CatalogTable> catalogTables) {
+        super(options, catalogTables);
     }
 
     @Override
@@ -77,8 +73,7 @@ public class SqlServerIncrementalSource<T> extends IncrementalSource<T, JdbcSour
         configFactory.fromReadonlyConfig(readonlyConfig);
         configFactory.startupOptions(startupConfig);
         configFactory.stopOptions(stopConfig);
-        JdbcUrlUtil.UrlInfo urlInfo =
-                SqlServerURLParser.parse(config.get(JdbcCatalogOptions.BASE_URL));
+        JdbcUrlUtil.UrlInfo urlInfo = SqlServerURLParser.parse(config.get(JdbcCommonOptions.URL));
         configFactory.originUrl(urlInfo.getOrigin());
         configFactory.hostname(urlInfo.getHost());
         configFactory.port(urlInfo.getPort());
@@ -96,12 +91,10 @@ public class SqlServerIncrementalSource<T> extends IncrementalSource<T, JdbcSour
                             config.get(JdbcSourceOptions.DEBEZIUM_PROPERTIES));
         }
 
-        SeaTunnelDataType<SeaTunnelRow> physicalRowType = dataType;
         String zoneId = config.get(JdbcSourceOptions.SERVER_TIME_ZONE);
         return (DebeziumDeserializationSchema<T>)
                 SeaTunnelRowDebeziumDeserializeSchema.builder()
-                        .setPhysicalRowType(physicalRowType)
-                        .setResultTypeInfo(physicalRowType)
+                        .setTables(catalogTables)
                         .setServerTimeZone(ZoneId.of(zoneId))
                         .build();
     }
@@ -115,5 +108,10 @@ public class SqlServerIncrementalSource<T> extends IncrementalSource<T, JdbcSour
     public OffsetFactory createOffsetFactory(ReadonlyConfig config) {
         return new LsnOffsetFactory(
                 (SqlServerSourceConfigFactory) configFactory, (SqlServerDialect) dataSourceDialect);
+    }
+
+    @Override
+    public Optional<String> driverName() {
+        return Optional.of("com.microsoft.sqlserver.jdbc.SQLServerDriver");
     }
 }

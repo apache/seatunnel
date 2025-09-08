@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-clickhouse.md';
+
 # ClickhouseFile
 
 > Clickhouse file sink connector
@@ -38,6 +40,7 @@ Write data to Clickhouse can also be done using JDBC
 | compatible_mode        | boolean | no       | false                                  |
 | file_fields_delimiter  | string  | no       | "\t"                                   |
 | file_temp_path         | string  | no       | "/tmp/seatunnel/clickhouse-local/file" |
+| key_path               | string  | no       | "/tmp/id_rsa"                          |
 | common-options         |         | no       | -                                      |
 
 ### host [string]
@@ -111,6 +114,10 @@ Avoid this with this configuration. Value string has to be an exactly one charac
 
 The directory where ClickhouseFile stores temporary files locally.
 
+### key_path [string]
+
+The path of the private key file used for scp or rsync to connect to the ClickHouse server.
+
 ### common options
 
 Sink plugin common parameters, please refer to [Sink Common Options](../sink-common-options.md) for details
@@ -136,12 +143,6 @@ ClickhouseFile {
 
 ## Changelog
 
-### 2.2.0-beta 2022-09-26
+<ChangeLog />
 
-- Support write data to ClickHouse File and move to ClickHouse data dir
-
-### Next version
-
-- [BugFix] Fix generated data part name conflict and improve file commit logic [3416](https://github.com/apache/seatunnel/pull/3416)
-- [Feature] Support compatible_mode compatible with lower version Clickhouse  [3416](https://github.com/apache/seatunnel/pull/3416)
 

@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc;
 
+import org.apache.seatunnel.shade.com.google.common.collect.Lists;
+
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
@@ -45,7 +47,6 @@ import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.DockerLoggerFactory;
 
-import com.google.common.collect.Lists;
 import lombok.extern.slf4j.Slf4j;
 
 import java.sql.Connection;
@@ -269,10 +270,10 @@ public class JdbcMySqlCreateTableIT extends TestSuiteBase implements TestResourc
         TablePath tablePathPG = TablePath.of("pg", "public", "mysql_auto_create_pg");
 
         SqlServerCatalog sqlServerCatalog =
-                new SqlServerCatalog("sqlserver", "sa", PASSWORD, sqlParse, "dbo");
-        MySqlCatalog mySqlCatalog = new MySqlCatalog("mysql", "root", PASSWORD, MysqlUrlInfo);
+                new SqlServerCatalog("sqlserver", "sa", PASSWORD, sqlParse, "dbo", null);
+        MySqlCatalog mySqlCatalog = new MySqlCatalog("mysql", "root", PASSWORD, MysqlUrlInfo, null);
         PostgresCatalog postgresCatalog =
-                new PostgresCatalog("postgres", "testUser", PASSWORD, pg, "public");
+                new PostgresCatalog("postgres", "testUser", PASSWORD, pg, "public", null);
 
         mySqlCatalog.open();
         sqlServerCatalog.open();

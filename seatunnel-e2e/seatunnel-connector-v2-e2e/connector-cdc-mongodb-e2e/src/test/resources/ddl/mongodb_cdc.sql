@@ -30,3 +30,10 @@ CREATE TABLE products (
   weight VARCHAR(255)
 );
 
+CREATE TABLE orders (
+  _id VARCHAR(512) NOT NULL PRIMARY KEY,
+  order_number INT NOT NULL,
+  order_date VARCHAR(20) NOT NULL,
+  quantity INT NOT NULL,
+  product_id VARCHAR(512) NOT NULL
+);

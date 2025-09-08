@@ -129,10 +129,4 @@ public class GenerateTestData {
 
         return integer.add(decimal).setScale(decimalDigits, RoundingMode.HALF_UP);
     }
-
-    public static void main(String[] args) {
-        for (int i = 0; i < 1000; i++) {
-            System.out.println(genFloat(0, 1000));
-        }
-    }
 }

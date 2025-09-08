@@ -32,6 +32,7 @@ public class MultiTableWriterRunnable implements Runnable {
     private final Map<String, SinkWriter<SeaTunnelRow, ?, ?>> tableIdWriterMap;
     private final BlockingQueue<SeaTunnelRow> queue;
     private volatile Throwable throwable;
+    private volatile String currentTableId;
 
     public MultiTableWriterRunnable(
             Map<String, SinkWriter<SeaTunnelRow, ?, ?>> tableIdWriterMap,
@@ -43,8 +44,9 @@ public class MultiTableWriterRunnable implements Runnable {
     @Override
     public void run() {
         while (true) {
+            SeaTunnelRow row = null;
             try {
-                SeaTunnelRow row = queue.poll(100, TimeUnit.MILLISECONDS);
+                row = queue.poll(100, TimeUnit.MILLISECONDS);
                 if (row == null) {
                     continue;
                 }
@@ -52,11 +54,14 @@ public class MultiTableWriterRunnable implements Runnable {
                 if (writer == null) {
                     if (tableIdWriterMap.size() == 1) {
                         writer = tableIdWriterMap.values().stream().findFirst().get();
+                        currentTableId = tableIdWriterMap.keySet().stream().findFirst().get();
                     } else {
                         throw new RuntimeException(
                                 "MultiTableWriterRunnable can't find writer for tableId: "
                                         + row.getTableId());
                     }
+                } else {
+                    currentTableId = row.getTableId();
                 }
                 synchronized (this) {
                     writer.write(row);
@@ -67,7 +72,8 @@ public class MultiTableWriterRunnable implements Runnable {
                 throwable = e;
                 break;
             } catch (Throwable e) {
-                log.error("MultiTableWriterRunnable error", e);
+                log.error(
+                        String.format("MultiTableWriterRunnable error when write row %s", row), e);
                 throwable = e;
                 break;
             }
@@ -76,5 +82,9 @@ public class MultiTableWriterRunnable implements Runnable {
 
     public Throwable getThrowable() {
         return throwable;
+    }
+
+    public String getCurrentTableId() {
+        return currentTableId;
     }
 }

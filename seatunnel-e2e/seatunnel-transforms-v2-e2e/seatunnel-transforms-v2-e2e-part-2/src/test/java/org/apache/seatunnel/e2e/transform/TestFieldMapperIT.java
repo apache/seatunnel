@@ -36,4 +36,12 @@ public class TestFieldMapperIT extends TestSuiteBase {
                 container.executeJob("/field_mapper_transform_without_result_table.conf");
         Assertions.assertEquals(0, execResult1.getExitCode());
     }
+
+    @TestTemplate
+    public void testFieldMapperMultiTable(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                container.executeJob("/field_mapper_transform_multi_table.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+    }
 }

@@ -17,8 +17,10 @@
 
 package org.apache.seatunnel.connectors.seatunnel.iceberg;
 
+import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
+
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
-import org.apache.seatunnel.connectors.seatunnel.iceberg.config.CommonConfig;
+import org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergCommonConfig;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.iceberg.CachingCatalog;
@@ -27,7 +29,6 @@ import org.apache.iceberg.catalog.Catalog;
 import org.apache.iceberg.catalog.Namespace;
 import org.apache.iceberg.catalog.TableIdentifier;
 
-import com.google.common.annotations.VisibleForTesting;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 
@@ -81,11 +82,11 @@ public class IcebergTableLoader implements Closeable, Serializable {
     }
 
     @VisibleForTesting
-    public static IcebergTableLoader create(CommonConfig config) {
+    public static IcebergTableLoader create(IcebergCommonConfig config) {
         return create(config, null);
     }
 
-    public static IcebergTableLoader create(CommonConfig config, CatalogTable catalogTable) {
+    public static IcebergTableLoader create(IcebergCommonConfig config, CatalogTable catalogTable) {
         IcebergCatalogLoader catalogFactory = new IcebergCatalogLoader(config);
         String table;
         if (Objects.nonNull(catalogTable)

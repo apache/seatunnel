@@ -21,7 +21,9 @@
         <artifactId>seatunnel-hazelcast</artifactId>
         <version>${revision}</version>
     </parent>
+
     <artifactId>seatunnel-hazelcast-shade</artifactId>
+    <name>SeaTunnel : Shade : Hazelcast : Shade</name>
     <dependencies>
         <dependency>
             <groupId>org.apache.seatunnel</groupId>

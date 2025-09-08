@@ -43,8 +43,8 @@ we want to keep the field named `name`, `card`, we can add a `Filter` Transform 
 ```
 transform {
   Filter {
-    source_table_name = "fake"
-    result_table_name = "fake1"
+    plugin_input = "fake"
+    plugin_output = "fake1"
     include_fields = [name, card]
   }
 }
@@ -55,8 +55,8 @@ Or we can delete the field named `age` by adding a `Filter` Transform with `excl
 ```
 transform {
   Filter {
-    source_table_name = "fake"
-    result_table_name = "fake1"
+    plugin_input = "fake"
+    plugin_output = "fake1"
     exclude_fields = [age]
   }
 }

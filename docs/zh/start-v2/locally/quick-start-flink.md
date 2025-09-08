@@ -27,7 +27,7 @@ env {
 
 source {
   FakeSource {
-    result_table_name = "fake"
+    plugin_output = "fake"
     row.num = 16
     schema = {
       fields {
@@ -40,8 +40,8 @@ source {
 
 transform {
   FieldMapper {
-    source_table_name = "fake"
-    result_table_name = "fake1"
+    plugin_input = "fake"
+    plugin_output = "fake1"
     field_mapper = {
       age = age
       name = new_name
@@ -51,7 +51,7 @@ transform {
 
 sink {
   Console {
-    source_table_name = "fake1"
+    plugin_input = "fake1"
   }
 }
 

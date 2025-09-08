@@ -17,7 +17,9 @@
 
 package org.apache.seatunnel.translation.spark.source;
 
-import org.apache.seatunnel.api.common.CommonOptions;
+import org.apache.seatunnel.shade.com.google.common.collect.Sets;
+
+import org.apache.seatunnel.api.options.EnvCommonOptions;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
@@ -37,8 +39,6 @@ import org.apache.spark.sql.connector.read.Scan;
 import org.apache.spark.sql.connector.read.ScanBuilder;
 import org.apache.spark.sql.types.StructType;
 import org.apache.spark.sql.util.CaseInsensitiveStringMap;
-
-import com.google.common.collect.Sets;
 
 import java.util.List;
 import java.util.Map;
@@ -82,7 +82,7 @@ public class SeaTunnelSourceTable implements Table, SupportsRead {
     @Override
     public ScanBuilder newScanBuilder(CaseInsensitiveStringMap caseInsensitiveStringMap) {
         int parallelism =
-                Integer.parseInt(properties.getOrDefault(CommonOptions.PARALLELISM.key(), "1"));
+                Integer.parseInt(properties.getOrDefault(EnvCommonOptions.PARALLELISM.key(), "1"));
         String applicationId = SparkSession.getActiveSession().get().sparkContext().applicationId();
         return new SeaTunnelScanBuilder(
                 source, parallelism, applicationId, caseInsensitiveStringMap, multiTableManager);

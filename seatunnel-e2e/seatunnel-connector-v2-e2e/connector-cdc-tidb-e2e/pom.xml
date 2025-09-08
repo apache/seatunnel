@@ -23,7 +23,7 @@
     </parent>
 
     <artifactId>connector-cdc-tidb-e2e</artifactId>
-    <name>SeaTunnel : E2E : Connector V2 : TiDB</name>
+    <name>SeaTunnel : E2E : Connector V2 : CDC TiDB</name>
 
     <properties>
         <maven.compiler.source>8</maven.compiler.source>
@@ -31,6 +31,12 @@
     </properties>
     <dependencies>
         <!-- SeaTunnel connectors -->
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>connector-cdc-base</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
             <artifactId>connector-console</artifactId>

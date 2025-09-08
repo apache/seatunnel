@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.redis.client;
 
+import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisDataType;
 import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisParameters;
 
@@ -92,17 +93,29 @@ public abstract class RedisClient extends Jedis {
     public abstract List<List<String>> batchGetZset(List<String> keys);
 
     public abstract void batchWriteString(
-            List<String> keys, List<String> values, long expireSeconds);
+            List<RowKind> rowKinds, List<String> keys, List<String> values, long expireSeconds);
 
     public abstract void batchWriteList(
-            List<String> keyBuffer, List<String> valueBuffer, long expireSeconds);
+            List<RowKind> rowKinds,
+            List<String> keyBuffer,
+            List<String> valueBuffer,
+            long expireSeconds);
 
     public abstract void batchWriteSet(
-            List<String> keyBuffer, List<String> valueBuffer, long expireSeconds);
+            List<RowKind> rowKinds,
+            List<String> keyBuffer,
+            List<String> valueBuffer,
+            long expireSeconds);
 
     public abstract void batchWriteHash(
-            List<String> keyBuffer, List<String> valueBuffer, long expireSeconds);
+            List<RowKind> rowKinds,
+            List<String> keyBuffer,
+            List<String> valueBuffer,
+            long expireSeconds);
 
     public abstract void batchWriteZset(
-            List<String> keyBuffer, List<String> valueBuffer, long expireSeconds);
+            List<RowKind> rowKinds,
+            List<String> keyBuffer,
+            List<String> valueBuffer,
+            long expireSeconds);
 }

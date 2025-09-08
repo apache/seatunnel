@@ -68,6 +68,7 @@ public interface JdbcDialectTypeMapper extends Serializable {
                         .name(columnName)
                         .columnType(nativeType)
                         .dataType(nativeType)
+                        .sqlType(metadata.getColumnType(colIndex))
                         .nullable(isNullable == ResultSetMetaData.columnNullable)
                         .length((long) precision)
                         .precision((long) precision)
@@ -93,19 +94,23 @@ public interface JdbcDialectTypeMapper extends Serializable {
             while (rs.next()) {
                 String columnName = rs.getString("COLUMN_NAME");
                 String nativeType = rs.getString("TYPE_NAME");
+                int sqlType = rs.getInt("DATA_TYPE");
                 int columnSize = rs.getInt("COLUMN_SIZE");
                 int decimalDigits = rs.getInt("DECIMAL_DIGITS");
                 int nullable = rs.getInt("NULLABLE");
+                String comment = rs.getString("REMARKS");
 
                 BasicTypeDefine typeDefine =
                         BasicTypeDefine.builder()
                                 .name(columnName)
                                 .columnType(nativeType)
                                 .dataType(nativeType)
+                                .sqlType(sqlType)
                                 .length((long) columnSize)
                                 .precision((long) columnSize)
                                 .scale(decimalDigits)
                                 .nullable(nullable == DatabaseMetaData.columnNullable)
+                                .comment(comment)
                                 .build();
                 columns.add(mappingColumn(typeDefine));
             }

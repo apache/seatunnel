@@ -32,21 +32,18 @@ import org.apache.parquet.example.data.Group;
 import org.apache.parquet.hadoop.ParquetReader;
 import org.apache.parquet.hadoop.example.GroupReadSupport;
 
-import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.MinIOContainer;
 
 import io.minio.BucketExistsArgs;
-import io.minio.DownloadObjectArgs;
-import io.minio.ListObjectsArgs;
 import io.minio.MakeBucketArgs;
 import io.minio.MinioClient;
-import io.minio.Result;
-import io.minio.messages.Item;
 import lombok.extern.slf4j.Slf4j;
+import okhttp3.OkHttpClient;
 
 import java.io.IOException;
 import java.util.concurrent.TimeUnit;
@@ -72,7 +69,7 @@ public class HudiSparkS3MultiTableIT extends TestSuiteBase implements TestResour
     private static final String TABLE_NAME_2 = "st_test_2";
     private static final String DOWNLOAD_PATH = "/tmp/seatunnel/";
 
-    @BeforeEach
+    @BeforeAll
     @Override
     public void startUp() throws Exception {
         container =
@@ -86,11 +83,15 @@ public class HudiSparkS3MultiTableIT extends TestSuiteBase implements TestResour
 
         String s3URL = container.getS3URL();
 
+        OkHttpClient.Builder builder = new OkHttpClient.Builder();
+        builder.connectTimeout(10, TimeUnit.SECONDS);
+        builder.readTimeout(10, TimeUnit.SECONDS);
         // configuringClient
         minioClient =
                 MinioClient.builder()
                         .endpoint(s3URL)
                         .credentials(container.getUserName(), container.getPassword())
+                        .httpClient(builder.build())
                         .build();
 
         // create bucket
@@ -100,7 +101,7 @@ public class HudiSparkS3MultiTableIT extends TestSuiteBase implements TestResour
         Assertions.assertTrue(minioClient.bucketExists(existsArgs));
     }
 
-    @AfterEach
+    @AfterAll
     @Override
     public void tearDown() throws Exception {
         if (container != null) {
@@ -121,82 +122,68 @@ public class HudiSparkS3MultiTableIT extends TestSuiteBase implements TestResour
         Configuration configuration = new Configuration();
         configuration.set("fs.defaultFS", LocalFileSystem.DEFAULT_FS);
         given().ignoreExceptions()
+                .pollDelay(5, TimeUnit.SECONDS)
+                .pollInterval(2, TimeUnit.SECONDS)
                 .await()
-                .atMost(60000, TimeUnit.MILLISECONDS)
+                .atMost(300, TimeUnit.SECONDS)
                 .untilAsserted(
                         () -> {
                             // copy hudi to local
-                            Path inputPath1 =
-                                    downloadNewestCommitFile(DATABASE_1 + "/" + TABLE_NAME_1 + "/");
-                            Path inputPath2 =
-                                    downloadNewestCommitFile(DATABASE_2 + "/" + TABLE_NAME_2 + "/");
-                            ParquetReader<Group> reader1 =
-                                    ParquetReader.builder(new GroupReadSupport(), inputPath1)
-                                            .withConf(configuration)
-                                            .build();
-                            ParquetReader<Group> reader2 =
-                                    ParquetReader.builder(new GroupReadSupport(), inputPath2)
-                                            .withConf(configuration)
-                                            .build();
+                            // copy hudi to local
+                            Path inputPath1 = null;
+                            Path inputPath2 = null;
+                            try {
+                                inputPath1 =
+                                        new Path(
+                                                MinIoUtils.downloadNewestCommitFile(
+                                                        minioClient,
+                                                        BUCKET,
+                                                        String.format(
+                                                                "%s/%s/", DATABASE_1, TABLE_NAME_1),
+                                                        DOWNLOAD_PATH));
+                                log.info(
+                                        "download from s3 success, the parquet file is at: {}",
+                                        inputPath1);
+                                inputPath2 =
+                                        new Path(
+                                                MinIoUtils.downloadNewestCommitFile(
+                                                        minioClient,
+                                                        BUCKET,
+                                                        String.format(
+                                                                "%s/%s/", DATABASE_2, TABLE_NAME_2),
+                                                        DOWNLOAD_PATH));
+                                log.info(
+                                        "download from s3 success, the parquet file is at: {}",
+                                        inputPath2);
+                                ParquetReader<Group> reader1 =
+                                        ParquetReader.builder(new GroupReadSupport(), inputPath1)
+                                                .withConf(configuration)
+                                                .build();
+                                ParquetReader<Group> reader2 =
+                                        ParquetReader.builder(new GroupReadSupport(), inputPath2)
+                                                .withConf(configuration)
+                                                .build();
 
-                            long rowCount1 = 0;
-                            long rowCount2 = 0;
-                            // Read data and count rows
-                            while (reader1.read() != null) {
-                                rowCount1++;
+                                long rowCount1 = 0;
+                                long rowCount2 = 0;
+                                // Read data and count rows
+                                while (reader1.read() != null) {
+                                    rowCount1++;
+                                }
+                                // Read data and count rows
+                                while (reader2.read() != null) {
+                                    rowCount2++;
+                                }
+                                Assertions.assertEquals(100, rowCount1);
+                                Assertions.assertEquals(240, rowCount2);
+                            } finally {
+                                if (inputPath1 != null) {
+                                    FileUtils.deleteFile(inputPath1.toUri().getPath());
+                                }
+                                if (inputPath2 != null) {
+                                    FileUtils.deleteFile(inputPath2.toUri().getPath());
+                                }
                             }
-                            // Read data and count rows
-                            while (reader2.read() != null) {
-                                rowCount2++;
-                            }
-                            FileUtils.deleteFile(inputPath1.toUri().getPath());
-                            FileUtils.deleteFile(inputPath2.toUri().getPath());
-                            Assertions.assertEquals(100, rowCount1);
-                            Assertions.assertEquals(240, rowCount2);
                         });
-    }
-
-    public Path downloadNewestCommitFile(String pathPrefix) throws IOException {
-        Iterable<Result<Item>> listObjects =
-                minioClient.listObjects(
-                        ListObjectsArgs.builder().bucket(BUCKET).prefix(pathPrefix).build());
-        String newestCommitFileabsolutePath = "";
-        String newestCommitFileName = "";
-        long newestCommitTime = 0L;
-        for (Result<Item> listObject : listObjects) {
-            Item item;
-            try {
-                item = listObject.get();
-            } catch (Exception e) {
-                throw new IOException("List minio file error.", e);
-            }
-            if (item.isDir() || !item.objectName().endsWith(".parquet")) {
-                continue;
-            }
-            long fileCommitTime =
-                    Long.parseLong(
-                            item.objectName()
-                                    .substring(
-                                            item.objectName().lastIndexOf("_") + 1,
-                                            item.objectName().lastIndexOf(".parquet")));
-            if (fileCommitTime > newestCommitTime) {
-                newestCommitFileabsolutePath = item.objectName();
-                newestCommitFileName =
-                        newestCommitFileabsolutePath.substring(
-                                item.objectName().lastIndexOf("/") + 1);
-                newestCommitTime = fileCommitTime;
-            }
-        }
-        try {
-            minioClient.downloadObject(
-                    DownloadObjectArgs.builder()
-                            .bucket(BUCKET)
-                            .object(newestCommitFileabsolutePath)
-                            .filename(DOWNLOAD_PATH + newestCommitFileName)
-                            .build());
-        } catch (Exception e) {
-            log.error("Download file from minio error.");
-        }
-        return new Path(DOWNLOAD_PATH + newestCommitFileName);
     }
 }

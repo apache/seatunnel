@@ -245,4 +245,9 @@ public class ConnectorPackageServiceContainer extends AbstractTestContainer {
         ContainerUtil.copyFileIntoContainers(
                 ContainerUtil.getResourcesFile(path).toPath(), targetPath, server1);
     }
+
+    @Override
+    public void copyAbsolutePathToContainer(String path, String targetPath) {
+        ContainerUtil.copyFileIntoContainers(Paths.get(path), targetPath, server1);
+    }
 }

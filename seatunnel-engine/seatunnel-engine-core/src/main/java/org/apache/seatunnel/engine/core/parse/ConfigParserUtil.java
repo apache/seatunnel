@@ -39,9 +39,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import static org.apache.seatunnel.api.common.CommonOptions.PLUGIN_NAME;
-import static org.apache.seatunnel.api.common.CommonOptions.RESULT_TABLE_NAME;
-import static org.apache.seatunnel.api.common.CommonOptions.SOURCE_TABLE_NAME;
+import static org.apache.seatunnel.api.options.ConnectorCommonOptions.PLUGIN_INPUT;
+import static org.apache.seatunnel.api.options.ConnectorCommonOptions.PLUGIN_NAME;
+import static org.apache.seatunnel.api.options.ConnectorCommonOptions.PLUGIN_OUTPUT;
 import static org.apache.seatunnel.api.table.factory.FactoryUtil.DEFAULT_ID;
 
 @Slf4j
@@ -113,16 +113,16 @@ public final class ConfigParserUtil {
         log.info(
                 String.format(
                         "Currently, incorrect configuration of %s and %s options don't affect job running. In the future we will ban incorrect configurations.",
-                        SOURCE_TABLE_NAME.key(), RESULT_TABLE_NAME.key()));
+                        PLUGIN_INPUT.key(), PLUGIN_OUTPUT.key()));
         if (DEFAULT_ID.equals(tableId)) {
             log.warn(
                     String.format(
                             "This configuration is not recommended."
                                     + "A source/transform(%s) is not configured with '%s' option, but subsequent transform/sink(%s) is configured with '%s' option value of '%s'.",
                             getFactoryId(leftConfig),
-                            RESULT_TABLE_NAME.key(),
+                            PLUGIN_OUTPUT.key(),
                             getFactoryId(rightConfig),
-                            SOURCE_TABLE_NAME.key(),
+                            PLUGIN_INPUT.key(),
                             inputTableId));
             return;
         }
@@ -132,16 +132,16 @@ public final class ConfigParserUtil {
                             "This configuration is not recommended."
                                     + " A source/transform(%s) is configured with '%s' option value of '%s', but subsequent transform/sink(%s) is not configured with '%s' option.",
                             getFactoryId(leftConfig),
-                            RESULT_TABLE_NAME.key(),
+                            PLUGIN_OUTPUT.key(),
                             tableId,
                             getFactoryId(rightConfig),
-                            SOURCE_TABLE_NAME.key()));
+                            PLUGIN_INPUT.key()));
             return;
         }
         log.error(
                 String.format(
                         "The '%s' option configured in [%s] is incorrect, and the source/transform[%s] is not found.",
-                        SOURCE_TABLE_NAME.key(), getFactoryId(rightConfig), inputTableId));
+                        PLUGIN_INPUT.key(), getFactoryId(rightConfig), inputTableId));
     }
 
     private static void checkComplexGraph(
@@ -151,14 +151,12 @@ public final class ConfigParserUtil {
         log.debug("Start checking the correctness of the complex DAG: ");
         log.debug(
                 String.format(
-                        "Phase 1: Check whether '%s' option is configured.",
-                        RESULT_TABLE_NAME.key()));
+                        "Phase 1: Check whether '%s' option is configured.", PLUGIN_OUTPUT.key()));
         checkExistTableId(sources);
         checkExistTableId(transforms);
         log.debug(
                 String.format(
-                        "Phase 2: Check whether '%s' option is configured.",
-                        SOURCE_TABLE_NAME.key()));
+                        "Phase 2: Check whether '%s' option is configured.", PLUGIN_INPUT.key()));
         checkExistInputTableId(transforms);
         checkExistInputTableId(sinks);
 
@@ -178,13 +176,13 @@ public final class ConfigParserUtil {
             Map<String, Tuple2<Config, VertexStatus>> vertexStatusMap) {
         for (Config config : configs) {
             vertexStatusMap.compute(
-                    config.getString(RESULT_TABLE_NAME.key()),
+                    ReadonlyConfig.fromConfig(config).get(PLUGIN_OUTPUT),
                     (id, old) -> {
                         if (old != null) {
                             throw new JobDefineCheckException(
                                     String.format(
                                             "The value of the '%s' option of the (%s and %s) plugins is both '%s', and they must be different.",
-                                            RESULT_TABLE_NAME.key(),
+                                            PLUGIN_OUTPUT.key(),
                                             config.getString(PLUGIN_NAME.key()),
                                             old._1().getString(PLUGIN_NAME.key()),
                                             id));
@@ -208,7 +206,7 @@ public final class ConfigParserUtil {
                                             throw new JobDefineCheckException(
                                                     String.format(
                                                             "The '%s' option configured in [%s] is incorrect, and the source/transform[%s] is not found.",
-                                                            SOURCE_TABLE_NAME.key(),
+                                                            PLUGIN_INPUT.key(),
                                                             config.getString(PLUGIN_NAME.key()),
                                                             id));
                                         }
@@ -224,7 +222,7 @@ public final class ConfigParserUtil {
                         throw new JobDefineCheckException(
                                 String.format(
                                         "The '%s' option configured is incorrect, this table(%s) belonging to source/transform(%s) is not used.",
-                                        SOURCE_TABLE_NAME.key(),
+                                        PLUGIN_INPUT.key(),
                                         id,
                                         vertex._1().getString(PLUGIN_NAME.key())));
                     }
@@ -233,34 +231,34 @@ public final class ConfigParserUtil {
 
     private static void checkExistTableId(List<? extends Config> configs) {
         for (Config config : configs) {
-            if (!config.hasPath(RESULT_TABLE_NAME.key())) {
+            if (!ReadonlyConfig.fromConfig(config).getOptional(PLUGIN_OUTPUT).isPresent()) {
                 throw new JobDefineCheckException(
                         String.format(
                                 "The source/transform(%s) is not configured with '%s' option",
-                                config.getString(PLUGIN_NAME.key()), RESULT_TABLE_NAME.key()),
-                        new OptionValidationException(RESULT_TABLE_NAME));
+                                config.getString(PLUGIN_NAME.key()), PLUGIN_OUTPUT.key()),
+                        new OptionValidationException(PLUGIN_OUTPUT));
             }
         }
     }
 
     private static void checkExistInputTableId(List<? extends Config> configs) {
         for (Config config : configs) {
-            if (!config.hasPath(SOURCE_TABLE_NAME.key())) {
+            if (!ReadonlyConfig.fromConfig(config).getOptional(PLUGIN_INPUT).isPresent()) {
                 throw new JobDefineCheckException(
                         String.format(
                                 "The transform/sink(%s) is not configured with '%s' option",
-                                config.getString(PLUGIN_NAME.key()), SOURCE_TABLE_NAME.key()),
-                        new OptionValidationException(SOURCE_TABLE_NAME));
+                                config.getString(PLUGIN_NAME.key()), PLUGIN_INPUT.key()),
+                        new OptionValidationException(PLUGIN_INPUT));
             }
         }
     }
 
     private static String getTableId(ReadonlyConfig config) {
-        return config.getOptional(RESULT_TABLE_NAME).orElse(DEFAULT_ID);
+        return config.getOptional(PLUGIN_OUTPUT).orElse(DEFAULT_ID);
     }
 
     static List<String> getInputIds(ReadonlyConfig config) {
-        return config.getOptional(SOURCE_TABLE_NAME).orElse(Collections.singletonList(DEFAULT_ID));
+        return config.getOptional(PLUGIN_INPUT).orElse(Collections.singletonList(DEFAULT_ID));
     }
 
     public static String getFactoryId(ReadonlyConfig readonlyConfig) {

@@ -33,7 +33,7 @@ import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.factory.CatalogFactory;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.milvus.catalog.MilvusCatalogFactory;
-import org.apache.seatunnel.connectors.seatunnel.milvus.config.MilvusSinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.milvus.config.MilvusSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.milvus.state.MilvusAggregatedCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.milvus.state.MilvusCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.milvus.state.MilvusSinkState;
@@ -90,7 +90,7 @@ public class MilvusSink
 
     @Override
     public String getPluginName() {
-        return MilvusSinkConfig.CONNECTOR_IDENTITY;
+        return MilvusSinkOptions.CONNECTOR_IDENTITY;
     }
 
     @Override
@@ -102,8 +102,8 @@ public class MilvusSink
         CatalogFactory catalogFactory = new MilvusCatalogFactory();
         Catalog catalog = catalogFactory.createCatalog(catalogTable.getCatalogName(), config);
 
-        SchemaSaveMode schemaSaveMode = config.get(MilvusSinkConfig.SCHEMA_SAVE_MODE);
-        DataSaveMode dataSaveMode = config.get(MilvusSinkConfig.DATA_SAVE_MODE);
+        SchemaSaveMode schemaSaveMode = config.get(MilvusSinkOptions.SCHEMA_SAVE_MODE);
+        DataSaveMode dataSaveMode = config.get(MilvusSinkOptions.DATA_SAVE_MODE);
 
         return Optional.of(
                 new DefaultSaveModeHandler(

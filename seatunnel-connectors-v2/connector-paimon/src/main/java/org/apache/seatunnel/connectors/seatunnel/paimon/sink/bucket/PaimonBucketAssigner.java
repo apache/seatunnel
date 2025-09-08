@@ -17,77 +17,53 @@
 
 package org.apache.seatunnel.connectors.seatunnel.paimon.sink.bucket;
 
-import org.apache.paimon.crosspartition.IndexBootstrap;
-import org.apache.paimon.data.GenericRow;
 import org.apache.paimon.data.InternalRow;
-import org.apache.paimon.index.SimpleHashBucketAssigner;
-import org.apache.paimon.reader.RecordReader;
-import org.apache.paimon.reader.RecordReaderIterator;
-import org.apache.paimon.schema.TableSchema;
+import org.apache.paimon.index.HashBucketAssigner;
 import org.apache.paimon.table.FileStoreTable;
 import org.apache.paimon.table.Table;
-import org.apache.paimon.table.sink.RowPartitionKeyExtractor;
-import org.apache.paimon.types.DataField;
-import org.apache.paimon.types.DataType;
-
-import java.io.IOException;
-import java.util.List;
-import java.util.Map;
-import java.util.function.Function;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
+import org.apache.paimon.table.sink.FixedBucketRowKeyExtractor;
 
 public class PaimonBucketAssigner {
 
-    private final RowPartitionKeyExtractor extractor;
+    private boolean isRunning;
 
-    private final SimpleHashBucketAssigner simpleHashBucketAssigner;
+    private final FixedBucketRowKeyExtractor extractor;
 
-    private final TableSchema schema;
+    private final HashBucketAssigner hashBucketAssigner;
 
     public PaimonBucketAssigner(Table table, int numAssigners, int assignId) {
         FileStoreTable fileStoreTable = (FileStoreTable) table;
-        this.schema = fileStoreTable.schema();
-        this.extractor = new RowPartitionKeyExtractor(fileStoreTable.schema());
-        long dynamicBucketTargetRowNum =
-                ((FileStoreTable) table).coreOptions().dynamicBucketTargetRowNum();
-        this.simpleHashBucketAssigner =
-                new SimpleHashBucketAssigner(numAssigners, assignId, dynamicBucketTargetRowNum);
-        loadBucketIndex(fileStoreTable, numAssigners, assignId);
-    }
-
-    private void loadBucketIndex(FileStoreTable fileStoreTable, int numAssigners, int assignId) {
-        IndexBootstrap indexBootstrap = new IndexBootstrap(fileStoreTable);
-        List<String> fieldNames = schema.fieldNames();
-        Map<String, Integer> fieldIndexMap =
-                IntStream.range(0, fieldNames.size())
-                        .boxed()
-                        .collect(Collectors.toMap(fieldNames::get, Function.identity()));
-        List<DataField> primaryKeys = schema.primaryKeysFields();
-        try (RecordReader<InternalRow> recordReader =
-                indexBootstrap.bootstrap(numAssigners, assignId)) {
-            RecordReaderIterator<InternalRow> readerIterator =
-                    new RecordReaderIterator<>(recordReader);
-            while (readerIterator.hasNext()) {
-                InternalRow row = readerIterator.next();
-                GenericRow binaryRow = new GenericRow(fieldNames.size());
-                for (int i = 0; i < primaryKeys.size(); i++) {
-                    String name = primaryKeys.get(i).name();
-                    DataType type = primaryKeys.get(i).type();
-                    binaryRow.setField(
-                            fieldIndexMap.get(name),
-                            InternalRow.createFieldGetter(type, i).getFieldOrNull(row));
-                }
-                assign(binaryRow);
-            }
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
+        this.extractor = new FixedBucketRowKeyExtractor(fileStoreTable.schema());
+        long dynamicBucketTargetRowNum = fileStoreTable.coreOptions().dynamicBucketTargetRowNum();
+        Integer maxBucketsNum = fileStoreTable.coreOptions().dynamicBucketMaxBuckets();
+        this.hashBucketAssigner =
+                new HashBucketAssigner(
+                        fileStoreTable.snapshotManager(),
+                        "hash-bucket",
+                        fileStoreTable.store().newIndexFileHandler(),
+                        numAssigners,
+                        numAssigners,
+                        assignId,
+                        dynamicBucketTargetRowNum,
+                        maxBucketsNum);
+        this.isRunning = true;
     }
 
     public int assign(InternalRow rowData) {
-        int hash = extractor.trimmedPrimaryKey(rowData).hashCode();
-        return Math.abs(
-                this.simpleHashBucketAssigner.assign(this.extractor.partition(rowData), hash));
+        extractor.setRecord(rowData);
+        return hashBucketAssigner.assign(
+                extractor.partition(), extractor.trimmedPrimaryKey().hashCode());
+    }
+
+    public void prepareCommit(long commitIdentifier) {
+        hashBucketAssigner.prepareCommit(commitIdentifier);
+    }
+
+    public void finish() {
+        this.isRunning = false;
+    }
+
+    public boolean isRunning() {
+        return isRunning;
     }
 }

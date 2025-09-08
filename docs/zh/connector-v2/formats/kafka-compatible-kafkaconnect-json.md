@@ -16,7 +16,7 @@ source {
   Kafka {
     bootstrap.servers = "localhost:9092"
     topic = "jdbc_source_record"
-    result_table_name = "kafka_table"
+    plugin_output = "kafka_table"
     start_mode = earliest
     schema = {
       fields {

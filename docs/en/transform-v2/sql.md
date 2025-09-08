@@ -12,11 +12,11 @@ SQL transform use memory SQL engine, we can via SQL functions and ability of SQL
 
 |       name        |  type  | required | default value |
 |-------------------|--------|----------|---------------|
-| source_table_name | string | yes      | -             |
-| result_table_name | string | yes      | -             |
+| plugin_input | string | yes      | -             |
+| plugin_output | string | yes      | -             |
 | query             | string | yes      | -             |
 
-### source_table_name [string]
+### plugin_input [string]
 
 The source table name, the query SQL table name must match this field.
 
@@ -43,9 +43,9 @@ We use SQL query to transform the source data like this:
 ```
 transform {
   Sql {
-    source_table_name = "fake"
-    result_table_name = "fake1"
-    query = "select id, concat(name, '_') as name, age+1 as age from fake where id>0"
+    plugin_input = "fake"
+    plugin_output = "fake1"
+    query = "select id, concat(name, '_') as name, age+1 as age from dual where id>0"
   }
 }
 ```
@@ -66,7 +66,7 @@ if your upstream data schema is like this:
 ```hacon
 source {
   FakeSource {
-    result_table_name = "fake"
+    plugin_output = "fake"
     row.num = 100
     string.template = ["innerQuery"]
     schema = {
@@ -123,7 +123,7 @@ env {
 
 source {
   FakeSource {
-    result_table_name = "fake"
+    plugin_output = "fake"
     row.num = 100
     schema = {
       fields {
@@ -137,15 +137,15 @@ source {
 
 transform {
   Sql {
-    source_table_name = "fake"
-    result_table_name = "fake1"
-    query = "select id, concat(name, '_') as name, age+1 as age from fake where id>0"
+    plugin_input = "fake"
+    plugin_output = "fake1"
+    query = "select id, concat(name, '_') as name, age+1 as age from dual where id>0"
   }
 }
 
 sink {
   Console {
-    source_table_name = "fake1"
+    plugin_input = "fake1"
   }
 }
 ```

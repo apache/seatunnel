@@ -17,6 +17,9 @@
 
 package org.apache.seatunnel.connectors.seatunnel.paimon.source.converter;
 
+import org.apache.seatunnel.common.utils.DateUtils;
+import org.apache.seatunnel.common.utils.TimeUtils;
+
 import org.apache.commons.lang3.StringUtils;
 import org.apache.paimon.data.BinaryString;
 import org.apache.paimon.data.Decimal;
@@ -41,13 +44,17 @@ import net.sf.jsqlparser.expression.TimeValue;
 import net.sf.jsqlparser.expression.TimestampValue;
 import net.sf.jsqlparser.expression.operators.conditional.AndExpression;
 import net.sf.jsqlparser.expression.operators.conditional.OrExpression;
+import net.sf.jsqlparser.expression.operators.relational.Between;
 import net.sf.jsqlparser.expression.operators.relational.EqualsTo;
 import net.sf.jsqlparser.expression.operators.relational.GreaterThan;
 import net.sf.jsqlparser.expression.operators.relational.GreaterThanEquals;
+import net.sf.jsqlparser.expression.operators.relational.InExpression;
 import net.sf.jsqlparser.expression.operators.relational.IsNullExpression;
+import net.sf.jsqlparser.expression.operators.relational.LikeExpression;
 import net.sf.jsqlparser.expression.operators.relational.MinorThan;
 import net.sf.jsqlparser.expression.operators.relational.MinorThanEquals;
 import net.sf.jsqlparser.expression.operators.relational.NotEqualsTo;
+import net.sf.jsqlparser.expression.operators.relational.ParenthesedExpressionList;
 import net.sf.jsqlparser.parser.CCJSqlParserUtil;
 import net.sf.jsqlparser.schema.Column;
 import net.sf.jsqlparser.statement.Statement;
@@ -62,6 +69,8 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.IntStream;
 
 public class SqlToPaimonPredicateConverter {
@@ -224,12 +233,102 @@ public class SqlToPaimonPredicateConverter {
             Predicate rightPredicate =
                     parseExpressionToPredicate(builder, rowType, orExpression.getRightExpression());
             return PredicateBuilder.or(leftPredicate, rightPredicate);
+        } else if (expression instanceof Between) {
+            Between between = (Between) expression;
+            Column column = (Column) between.getLeftExpression();
+            int columnIndex = getColumnIndex(builder, column);
+            Object jsqlStartVal = getJSQLParserDataTypeValue(between.getBetweenExpressionStart());
+            Object paimonStartVal =
+                    convertValueByPaimonDataType(rowType, column.getColumnName(), jsqlStartVal);
+            Object jsqlEndVal = getJSQLParserDataTypeValue(between.getBetweenExpressionEnd());
+            Object paimonEndVal =
+                    convertValueByPaimonDataType(rowType, column.getColumnName(), jsqlEndVal);
+            return builder.between(columnIndex, paimonStartVal, paimonEndVal);
+        } else if (expression instanceof LikeExpression) {
+            LikeExpression like = (LikeExpression) expression;
+            Column column = (Column) like.getLeftExpression();
+            int columnIndex = getColumnIndex(builder, column);
+            Object rightPredicate = getJSQLParserDataTypeValue(like.getRightExpression());
+            Object rightVal =
+                    convertValueByPaimonDataType(rowType, column.getColumnName(), rightPredicate);
+
+            Pattern BEGIN_PATTERN = Pattern.compile("([^%]+)%$");
+            Matcher beginMatcher = BEGIN_PATTERN.matcher(rightVal.toString());
+            if (beginMatcher.matches()) {
+                return builder.startsWith(
+                        columnIndex, BinaryString.fromString(beginMatcher.group(1)));
+            }
+
+            Pattern END_PATTERN = Pattern.compile("^%([^%]+)");
+            Matcher endMatcher = END_PATTERN.matcher(rightVal.toString());
+            if (endMatcher.matches()) {
+                return builder.endsWith(columnIndex, BinaryString.fromString(endMatcher.group(1)));
+            }
+
+            Pattern CONTAINS_PATTERN = Pattern.compile("^%([^%]+)%$");
+            Matcher containsMatcher = CONTAINS_PATTERN.matcher(rightVal.toString());
+            if (containsMatcher.matches()) {
+                return builder.contains(
+                        columnIndex, BinaryString.fromString(containsMatcher.group(1)));
+            }
+            throw new IllegalArgumentException(
+                    String.format(
+                            "Invalid LIKE pattern: '%s'. Supported patterns are: 'prefix%%', '%%suffix', and '%%substring%%'. "
+                                    + "Please ensure your pattern matches one of these formats.",
+                            rightVal.toString()));
+
         } else if (expression instanceof Parenthesis) {
             Parenthesis parenthesis = (Parenthesis) expression;
             return parseExpressionToPredicate(builder, rowType, parenthesis.getExpression());
+        } else if (expression instanceof InExpression) {
+            return handleInExpression(builder, rowType, (InExpression) expression);
         }
         throw new IllegalArgumentException(
                 "Unsupported expression type: " + expression.getClass().getSimpleName());
+    }
+
+    private static Predicate handleInExpression(
+            PredicateBuilder builder, RowType rowType, InExpression expr) {
+        Expression left = expr.getLeftExpression();
+        Column column = safeGetColumn(left);
+        int index = getColumnIndex(builder, column);
+
+        Expression right = expr.getRightExpression();
+        if (!(right instanceof ParenthesedExpressionList)) {
+            throw new IllegalArgumentException(
+                    "Unsupported right expression in IN: expected a parenthesized expression list");
+        }
+
+        ParenthesedExpressionList list = (ParenthesedExpressionList) right;
+        List<Expression> expressions = list.getExpressions();
+        if (expressions.isEmpty()) {
+            throw new IllegalArgumentException("Empty value list in IN clause is not allowed");
+        }
+
+        List<Object> values = new ArrayList<>(expressions.size());
+        for (Expression expression : expressions) {
+            Object rawVal = getJSQLParserDataTypeValue(expression);
+            if (rawVal == null) {
+                throw new IllegalArgumentException("Null value found in IN clause values");
+            }
+            Object convertedVal =
+                    convertValueByPaimonDataType(rowType, column.getColumnName(), rawVal);
+            if (convertedVal == null) {
+                throw new IllegalArgumentException(
+                        "Failed to convert value in IN clause: " + rawVal);
+            }
+            values.add(convertedVal);
+        }
+
+        return expr.isNot() ? builder.notIn(index, values) : builder.in(index, values);
+    }
+
+    private static Column safeGetColumn(Expression expr) {
+        if (!(expr instanceof Column)) {
+            throw new IllegalArgumentException(
+                    "Expected Column expression, but got: " + expr.getClass().getSimpleName());
+        }
+        return (Column) expr;
     }
 
     private static Object convertValueByPaimonDataType(
@@ -266,8 +365,9 @@ public class SqlToPaimonPredicateConverter {
                 case DOUBLE:
                     return Double.parseDouble(strValue);
                 case DATE:
-                    return DateTimeUtils.toInternal(
-                            org.apache.seatunnel.common.utils.DateUtils.parse(strValue));
+                    return DateTimeUtils.toInternal(DateUtils.parse(strValue));
+                case TIME_WITHOUT_TIME_ZONE:
+                    return DateTimeUtils.toInternal(TimeUtils.parse(strValue));
                 case TIMESTAMP_WITHOUT_TIME_ZONE:
                 case TIMESTAMP_WITH_LOCAL_TIME_ZONE:
                     return Timestamp.fromLocalDateTime(

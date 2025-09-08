@@ -40,6 +40,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.URI;
 import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Vector;
 
@@ -147,10 +148,34 @@ public class SFTPFileSystem extends FileSystem {
             getFileStatus(channel, file);
             return true;
         } catch (FileNotFoundException fnfe) {
+            LOG.debug("File does not exist: " + file, fnfe);
             return false;
         } catch (IOException ioe) {
             throw new IOException(E_FILE_STATUS, ioe);
         }
+    }
+
+    public String quote(String path) {
+        byte[] _path = path.getBytes(StandardCharsets.UTF_8);
+        int count = 0;
+        for (int i = 0; i < _path.length; i++) {
+            byte b = _path[i];
+            if (b == '\\' || b == '?' || b == '*') {
+                count++;
+            }
+        }
+        if (count == 0) {
+            return path;
+        }
+        byte[] _path2 = new byte[_path.length + count];
+        for (int i = 0, j = 0; i < _path.length; i++) {
+            byte b = _path[i];
+            if (b == '\\' || b == '?' || b == '*') {
+                _path2[j++] = '\\';
+            }
+            _path2[j++] = b;
+        }
+        return new String(_path2, 0, _path2.length, StandardCharsets.UTF_8);
     }
 
     /**
@@ -284,6 +309,7 @@ public class SFTPFileSystem extends FileSystem {
                 try {
                     final String previousCwd = client.pwd();
                     client.cd(parentDir);
+                    LOG.debug("Creating directory " + pathName);
                     client.mkdir(pathName);
                     client.cd(previousCwd);
                 } catch (SftpException e) {
@@ -293,6 +319,11 @@ public class SFTPFileSystem extends FileSystem {
             }
         } else if (isFile(client, absolute)) {
             throw new IOException(String.format(E_DIR_CREATE_FROMFILE, absolute));
+        } else {
+            LOG.debug("Skipping creation of existing directory " + file);
+        }
+        if (!created) {
+            LOG.debug("Failed to create " + file);
         }
         return created;
     }
@@ -459,7 +490,7 @@ public class SFTPFileSystem extends FileSystem {
             // the path could be a symbolic link, so get the real path
             absolute = new Path("/", channel.realpath(absolute.toUri().getPath()));
 
-            is = channel.get(absolute.toUri().getPath());
+            is = channel.get(quote(absolute.toUri().getPath()));
         } catch (SftpException e) {
             throw new IOException(e);
         }

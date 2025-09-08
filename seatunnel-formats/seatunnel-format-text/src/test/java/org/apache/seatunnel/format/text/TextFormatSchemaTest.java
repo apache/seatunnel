@@ -61,6 +61,7 @@ public class TextFormatSchemaTest {
                     + '\003'
                     + "1231"
                     + "\001"
+                    + " \001"
                     + "tyrantlucifer\001"
                     + "true\001"
                     + "1\001"
@@ -88,6 +89,7 @@ public class TextFormatSchemaTest {
                         new String[] {
                             "array_field",
                             "map_field",
+                            "null_string_field",
                             "string_field",
                             "boolean_field",
                             "tinyint_field",
@@ -107,6 +109,7 @@ public class TextFormatSchemaTest {
                         new SeaTunnelDataType<?>[] {
                             ArrayType.INT_ARRAY_TYPE,
                             new MapType<>(BasicType.STRING_TYPE, BasicType.INT_TYPE),
+                            BasicType.STRING_TYPE,
                             BasicType.STRING_TYPE,
                             BasicType.BOOLEAN_TYPE,
                             BasicType.BYTE_TYPE,
@@ -149,8 +152,9 @@ public class TextFormatSchemaTest {
         Assertions.assertEquals(((Map<?, ?>) (seaTunnelRow.getField(1))).get("tyrantlucifer"), 18);
         Assertions.assertEquals(((Map<?, ?>) (seaTunnelRow.getField(1))).get("Kris"), 21);
         Assertions.assertArrayEquals(
-                (byte[]) seaTunnelRow.getField(12), "tyrantlucifer".getBytes());
-        Assertions.assertEquals(seaTunnelRow.getField(2), "tyrantlucifer");
+                (byte[]) seaTunnelRow.getField(13), "tyrantlucifer".getBytes());
+        Assertions.assertEquals(seaTunnelRow.getField(2), " ");
+        Assertions.assertEquals(seaTunnelRow.getField(3), "tyrantlucifer");
         Assertions.assertEquals(data, content);
     }
 
@@ -227,5 +231,23 @@ public class TextFormatSchemaTest {
         assertEquals(
                 "\\N\u0001\\N\u0001\\N\u0001\\N\u0001\\N\u0001\\N\u0001\\N\u0001\\N",
                 new String(textSerializationSchema.serialize(expected)));
+    }
+
+    @Test
+    public void testSerializationWithRequireEscapeCharacters() throws Exception {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"id", "name"},
+                        new SeaTunnelDataType[] {INT_TYPE, STRING_TYPE});
+        TextDeserializationSchema deserializationSchema =
+                TextDeserializationSchema.builder()
+                        .seaTunnelRowType(rowType)
+                        .delimiter("|")
+                        .build();
+
+        String content = "1|tyrantlucifer";
+        SeaTunnelRow seaTunnelRow = deserializationSchema.deserialize(content.getBytes());
+        Assertions.assertEquals(1, seaTunnelRow.getField(0));
+        Assertions.assertEquals("tyrantlucifer", seaTunnelRow.getField(1));
     }
 }

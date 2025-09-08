@@ -37,7 +37,7 @@ public class TaskLogManagerService {
         try {
             path = LogUtil.getLogPath();
         } catch (Exception e) {
-            log.warn(
+            log.debug(
                     "The corresponding log file path is not properly configured, please check the log configuration file.",
                     e);
         }

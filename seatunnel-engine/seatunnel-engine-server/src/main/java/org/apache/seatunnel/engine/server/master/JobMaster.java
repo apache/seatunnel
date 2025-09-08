@@ -17,29 +17,34 @@
 
 package org.apache.seatunnel.engine.server.master;
 
+import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
+
 import org.apache.seatunnel.api.common.metrics.JobMetrics;
 import org.apache.seatunnel.api.common.metrics.RawJobMetrics;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
-import org.apache.seatunnel.api.env.EnvCommonOptions;
+import org.apache.seatunnel.api.options.EnvCommonOptions;
 import org.apache.seatunnel.api.sink.SaveModeExecuteLocation;
 import org.apache.seatunnel.api.sink.SaveModeExecuteWrapper;
 import org.apache.seatunnel.api.sink.SaveModeHandler;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SupportSaveMode;
 import org.apache.seatunnel.api.sink.multitablesink.MultiTableSink;
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.common.utils.RetryUtils;
 import org.apache.seatunnel.common.utils.SeaTunnelException;
-import org.apache.seatunnel.engine.checkpoint.storage.exception.CheckpointStorageException;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.EngineConfig;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.config.server.CheckpointConfig;
 import org.apache.seatunnel.engine.common.config.server.CheckpointStorageConfig;
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
+import org.apache.seatunnel.engine.common.job.JobResult;
+import org.apache.seatunnel.engine.common.job.JobStatus;
 import org.apache.seatunnel.engine.common.utils.ExceptionUtil;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
+import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.core.dag.actions.SinkAction;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalVertex;
@@ -48,9 +53,8 @@ import org.apache.seatunnel.engine.core.job.ExecutionAddress;
 import org.apache.seatunnel.engine.core.job.JobDAGInfo;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.core.job.JobInfo;
-import org.apache.seatunnel.engine.core.job.JobResult;
-import org.apache.seatunnel.engine.core.job.JobStatus;
 import org.apache.seatunnel.engine.core.job.PipelineStatus;
+import org.apache.seatunnel.engine.server.CoordinatorService;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointManager;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointPlan;
@@ -63,10 +67,12 @@ import org.apache.seatunnel.engine.server.dag.physical.ResourceUtils;
 import org.apache.seatunnel.engine.server.dag.physical.SubPlan;
 import org.apache.seatunnel.engine.server.execution.TaskExecutionState;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
-import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.metrics.JobMetricsUtil;
-import org.apache.seatunnel.engine.server.metrics.SeaTunnelMetricsContext;
+import org.apache.seatunnel.engine.server.resourcemanager.AbstractResourceManager;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManager;
+import org.apache.seatunnel.engine.server.resourcemanager.allocation.strategy.SlotAllocationStrategy;
+import org.apache.seatunnel.engine.server.resourcemanager.allocation.strategy.SlotRatioStrategy;
+import org.apache.seatunnel.engine.server.resourcemanager.allocation.strategy.SystemLoadStrategy;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
 import org.apache.seatunnel.engine.server.task.operation.CleanTaskGroupContextOperation;
 import org.apache.seatunnel.engine.server.task.operation.GetTaskGroupMetricsOperation;
@@ -74,11 +80,9 @@ import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
 
 import com.hazelcast.cluster.Address;
 import com.hazelcast.core.HazelcastInstanceNotActiveException;
-import com.hazelcast.core.OperationTimeoutException;
 import com.hazelcast.flakeidgen.FlakeIdGenerator;
 import com.hazelcast.internal.serialization.Data;
 import com.hazelcast.jet.datamodel.Tuple2;
-import com.hazelcast.jet.impl.execution.init.CustomClassLoadedObject;
 import com.hazelcast.logging.ILogger;
 import com.hazelcast.logging.Logger;
 import com.hazelcast.map.IMap;
@@ -86,6 +90,7 @@ import com.hazelcast.spi.impl.NodeEngine;
 import lombok.Getter;
 import lombok.NonNull;
 
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -96,12 +101,10 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 import static com.hazelcast.jet.impl.util.ExceptionUtil.withTryCatch;
@@ -162,8 +165,6 @@ public class JobMaster {
 
     @Getter private final Set<ExecutionAddress> historyExecutionAddress = new HashSet<>();
 
-    private final IMap<Long, HashMap<TaskLocation, SeaTunnelMetricsContext>> metricsImap;
-
     /** If the job or pipeline cancel by user, needRestore will be false */
     @Getter private volatile boolean needRestore = true;
 
@@ -188,7 +189,6 @@ public class JobMaster {
             @NonNull IMap runningJobStateTimestampsIMap,
             @NonNull IMap ownedSlotProfilesIMap,
             @NonNull IMap<Long, JobInfo> runningJobInfoIMap,
-            @NonNull IMap<Long, HashMap<TaskLocation, SeaTunnelMetricsContext>> metricsImap,
             EngineConfig engineConfig,
             SeaTunnelServer seaTunnelServer) {
         this.jobId = jobId;
@@ -206,7 +206,6 @@ public class JobMaster {
         this.runningJobStateTimestampsIMap = runningJobStateTimestampsIMap;
         this.runningJobInfoIMap = runningJobInfoIMap;
         this.engineConfig = engineConfig;
-        this.metricsImap = metricsImap;
         this.seaTunnelServer = seaTunnelServer;
         this.releasedSlotWhenTaskGroupFinished = new ConcurrentHashMap<>();
     }
@@ -230,19 +229,27 @@ public class JobMaster {
                         jobImmutableInformation.getJobId(),
                         jobImmutableInformation.getPluginJarsUrls()));
         ClassLoader appClassLoader = Thread.currentThread().getContextClassLoader();
-        ClassLoader classLoader =
-                seaTunnelServer
-                        .getClassLoaderService()
-                        .getClassLoader(
-                                jobImmutableInformation.getJobId(),
-                                jobImmutableInformation.getPluginJarsUrls());
+
+        List<Set<URL>> logicalVertexJarsList = jobImmutableInformation.getLogicalVertexJarsList();
+        List<ClassLoader> logicalVertexClassLoaders = new ArrayList<>();
+        for (Set<URL> urls : logicalVertexJarsList) {
+            logicalVertexClassLoaders.add(
+                    seaTunnelServer
+                            .getClassLoaderService()
+                            .getClassLoader(jobImmutableInformation.getJobId(), urls));
+        }
         logicalDag =
-                CustomClassLoadedObject.deserializeWithCustomClassLoader(
+                DAGUtils.restoreLogicalDag(
+                        jobImmutableInformation,
                         nodeEngine.getSerializationService(),
-                        classLoader,
-                        jobImmutableInformation.getLogicalDag());
+                        logicalVertexClassLoaders);
+
+        Map<Long, ClassLoader> logicalVertexIdClassLoaderMap = new HashMap<>();
+        int i = 0;
+        for (Long id : logicalDag.getLogicalVertexMap().keySet()) {
+            logicalVertexIdClassLoaderMap.put(id, logicalVertexClassLoaders.get(i++));
+        }
         try {
-            Thread.currentThread().setContextClassLoader(classLoader);
             if (!restart
                     && !logicalDag.isStartWithSavePoint()
                     && ReadonlyConfig.fromMap(logicalDag.getJobConfig().getEnvOptions())
@@ -251,8 +258,17 @@ public class JobMaster {
                 logicalDag.getLogicalVertexMap().values().stream()
                         .map(LogicalVertex::getAction)
                         .filter(action -> action instanceof SinkAction)
-                        .map(sink -> ((SinkAction<?, ?, ?, ?>) sink).getSink())
-                        .forEach(JobMaster::handleSaveMode);
+                        .forEach(
+                                sink -> {
+                                    Thread.currentThread()
+                                            .setContextClassLoader(
+                                                    logicalVertexIdClassLoaderMap.get(
+                                                            sink.getId()));
+                                    JobMaster.handleSaveMode(
+                                            ((SinkAction<?, ?, ?, ?>) sink).getSink(),
+                                            logicalDag.isStartWithSavePoint());
+                                });
+                Thread.currentThread().setContextClassLoader(appClassLoader);
             }
 
             final Tuple2<PhysicalPlan, Map<Integer, CheckpointPlan>> planTuple =
@@ -262,6 +278,7 @@ public class JobMaster {
                             jobImmutableInformation,
                             initializationTimestamp,
                             executorService,
+                            seaTunnelServer.getClassLoaderService(),
                             flakeIdGenerator,
                             runningJobStateIMap,
                             runningJobStateTimestampsIMap,
@@ -273,11 +290,11 @@ public class JobMaster {
         } finally {
             // revert to app class loader, it may be changed by PlanUtils.fromLogicalDAG
             Thread.currentThread().setContextClassLoader(appClassLoader);
-            seaTunnelServer
-                    .getClassLoaderService()
-                    .releaseClassLoader(
-                            jobImmutableInformation.getJobId(),
-                            jobImmutableInformation.getPluginJarsUrls());
+            for (Set<URL> urls : logicalVertexJarsList) {
+                seaTunnelServer
+                        .getClassLoaderService()
+                        .releaseClassLoader(jobImmutableInformation.getJobId(), urls);
+            }
         }
         Exception initException = null;
         try {
@@ -294,7 +311,7 @@ public class JobMaster {
         }
     }
 
-    public void initCheckPointManager(boolean restart) throws CheckpointStorageException {
+    public void initCheckPointManager(boolean restart) {
         this.checkpointManager =
                 new CheckpointManager(
                         jobImmutableInformation.getJobId(),
@@ -303,6 +320,7 @@ public class JobMaster {
                         this,
                         checkpointPlanMap,
                         jobCheckpointConfig,
+                        seaTunnelServer.getCheckpointService().getCheckpointStorage(),
                         executorService,
                         runningJobStateIMap);
     }
@@ -315,6 +333,7 @@ public class JobMaster {
         CheckpointConfig jobCheckpointConfig = new CheckpointConfig();
         jobCheckpointConfig.setCheckpointTimeout(defaultCheckpointConfig.getCheckpointTimeout());
         jobCheckpointConfig.setCheckpointInterval(defaultCheckpointConfig.getCheckpointInterval());
+        jobCheckpointConfig.setCheckpointMinPause(defaultCheckpointConfig.getCheckpointMinPause());
 
         CheckpointStorageConfig jobCheckpointStorageConfig = new CheckpointStorageConfig();
         jobCheckpointStorageConfig.setStorage(defaultCheckpointConfig.getStorage().getStorage());
@@ -324,10 +343,11 @@ public class JobMaster {
                 defaultCheckpointConfig.getStorage().getMaxRetainedCheckpoints());
         jobCheckpointConfig.setStorage(jobCheckpointStorageConfig);
 
-        if (jobEnv.containsKey(EnvCommonOptions.CHECKPOINT_INTERVAL.key())) {
+        Optional<Object> checkpointIntervalOptional =
+                Optional.ofNullable(jobEnv.get(EnvCommonOptions.CHECKPOINT_INTERVAL.key()));
+        if (checkpointIntervalOptional.isPresent()) {
             jobCheckpointConfig.setCheckpointInterval(
-                    Long.parseLong(
-                            jobEnv.get(EnvCommonOptions.CHECKPOINT_INTERVAL.key()).toString()));
+                    Long.parseLong(checkpointIntervalOptional.get().toString()));
         } else if (jobConfig.getJobContext().getJobMode() == BATCH) {
             LOGGER.info(
                     "in batch mode, the 'checkpoint.interval' configuration of env is missing, so checkpoint will be disabled");
@@ -337,6 +357,11 @@ public class JobMaster {
             jobCheckpointConfig.setCheckpointTimeout(
                     Long.parseLong(
                             jobEnv.get(EnvCommonOptions.CHECKPOINT_TIMEOUT.key()).toString()));
+        }
+        if (jobEnv.containsKey(EnvCommonOptions.CHECKPOINT_MIN_PAUSE.key())) {
+            jobCheckpointConfig.setCheckpointMinPause(
+                    Long.parseLong(
+                            jobEnv.get(EnvCommonOptions.CHECKPOINT_MIN_PAUSE.key()).toString()));
         }
         return jobCheckpointConfig;
     }
@@ -371,6 +396,24 @@ public class JobMaster {
      * @return true if apply resources successfully, otherwise false
      */
     public boolean preApplyResources(SubPlan subPlan) {
+
+        // When starting to apply for task resources, reset the worker's slot allocation information
+        // Mainly used in two scenarios:
+        // 1. When based on the SYSTEM_LOAD strategy, the system load cannot change dynamically, and
+        // the resources used by each slot need to be calculated and inferred
+        // 2. When based on the SLOT_RATIO strategy, registerWorker is not updated in real time, and
+        // is used to record the slot application status
+        //        ((AbstractResourceManager) resourceManager)
+        //                .setWorkerAssignedSlots(new ConcurrentHashMap<>());
+        SlotAllocationStrategy slotAllocationStrategy =
+                ((AbstractResourceManager) resourceManager).getSlotAllocationStrategy();
+        if (slotAllocationStrategy instanceof SlotRatioStrategy) {
+            ((SlotRatioStrategy) slotAllocationStrategy)
+                    .setWorkerAssignedSlots(new ConcurrentHashMap<>());
+        } else if (slotAllocationStrategy instanceof SystemLoadStrategy) {
+            ((SystemLoadStrategy) slotAllocationStrategy)
+                    .setWorkerAssignedSlots(new ConcurrentHashMap<>());
+        }
 
         Map<TaskGroupLocation, CompletableFuture<SlotProfile>> preApplyResourceFutures =
                 new HashMap<>();
@@ -469,6 +512,7 @@ public class JobMaster {
     private void preApplyResourcesForSubPlan(
             SubPlan subPlan,
             Map<TaskGroupLocation, CompletableFuture<SlotProfile>> preApplyResourceFutures) {
+
         Map<TaskGroupLocation, CompletableFuture<SlotProfile>> coordinatorFutures = new HashMap<>();
         subPlan.getCoordinatorVertexList()
                 .forEach(
@@ -489,6 +533,7 @@ public class JobMaster {
 
         preApplyResourceFutures.putAll(coordinatorFutures);
         preApplyResourceFutures.putAll(taskFutures);
+        LOGGER.fine("preApplyResourceFutures size: " + preApplyResourceFutures.size());
     }
 
     public void run() {
@@ -514,22 +559,26 @@ public class JobMaster {
         }
     }
 
-    public static void handleSaveMode(SeaTunnelSink sink) {
+    public static void handleSaveMode(SeaTunnelSink sink, boolean isStartWithSavePoint) {
         if (sink instanceof SupportSaveMode) {
             Optional<SaveModeHandler> saveModeHandler =
                     ((SupportSaveMode) sink).getSaveModeHandler();
             if (saveModeHandler.isPresent()) {
                 try (SaveModeHandler handler = saveModeHandler.get()) {
                     handler.open();
-                    new SaveModeExecuteWrapper(handler).execute();
+                    if (!isStartWithSavePoint) {
+                        new SaveModeExecuteWrapper(handler).execute();
+                    } else {
+                        handler.handleSchemaSaveModeWithRestore();
+                    }
                 } catch (Exception e) {
                     throw new SeaTunnelRuntimeException(HANDLE_SAVE_MODE_FAILED, e);
                 }
             }
         } else if (sink instanceof MultiTableSink) {
-            Map<String, SeaTunnelSink> sinks = ((MultiTableSink) sink).getSinks();
+            Map<TablePath, SeaTunnelSink> sinks = ((MultiTableSink) sink).getSinks();
             for (SeaTunnelSink seaTunnelSink : sinks.values()) {
-                handleSaveMode(seaTunnelSink);
+                handleSaveMode(seaTunnelSink, isStartWithSavePoint);
             }
         }
     }
@@ -575,6 +624,12 @@ public class JobMaster {
                                                 runningJobStateTimestampsIMap.remove(
                                                         task.getTaskGroupLocation());
                                             });
+
+                            String checkpointStateImapKey =
+                                    checkpointManager
+                                            .getCheckpointCoordinator(pipeline.getPipelineId())
+                                            .getCheckpointStateImapKey();
+                            runningJobStateIMap.remove(checkpointStateImapKey);
                         });
 
         runningJobStateIMap.remove(jobId);
@@ -730,6 +785,10 @@ public class JobMaster {
         return jobImmutableInformation;
     }
 
+    public Long getStateTimestamp(@NonNull JobStatus jobStatus) {
+        return physicalPlan.getStateTimestamp(jobStatus);
+    }
+
     public JobStatus getJobStatus() {
         return physicalPlan.getJobStatus();
     }
@@ -833,46 +892,10 @@ public class JobMaster {
                         && !checkpointManager.isPipelineSavePointEnd(pipelineLocation))
                 || pipelineStatus.equals(PipelineStatus.CANCELED)) {
 
-            boolean lockedIMap = false;
             try {
-                lockedIMap =
-                        metricsImap.tryLock(
-                                Constant.IMAP_RUNNING_JOB_METRICS_KEY, 5, TimeUnit.SECONDS);
-                if (!lockedIMap) {
-                    LOGGER.severe("lock imap failed in update metrics");
-                    return;
-                }
-
-                HashMap<TaskLocation, SeaTunnelMetricsContext> centralMap =
-                        metricsImap.get(Constant.IMAP_RUNNING_JOB_METRICS_KEY);
-                if (centralMap != null) {
-                    List<TaskLocation> collect =
-                            centralMap.keySet().stream()
-                                    .filter(
-                                            taskLocation -> {
-                                                return taskLocation
-                                                        .getTaskGroupLocation()
-                                                        .getPipelineLocation()
-                                                        .equals(pipelineLocation);
-                                            })
-                                    .collect(Collectors.toList());
-                    collect.forEach(centralMap::remove);
-                    metricsImap.put(Constant.IMAP_RUNNING_JOB_METRICS_KEY, centralMap);
-                }
+                seaTunnelServer.removeMetrics(pipelineLocation);
             } catch (Exception e) {
-                LOGGER.warning("failed to remove metrics context", e);
-            } finally {
-                if (lockedIMap) {
-                    boolean unLockedIMap = false;
-                    while (!unLockedIMap) {
-                        try {
-                            metricsImap.unlock(Constant.IMAP_RUNNING_JOB_METRICS_KEY);
-                            unLockedIMap = true;
-                        } catch (OperationTimeoutException e) {
-                            LOGGER.warning("unlock imap failed in update metrics", e);
-                        }
-                    }
-                }
+                LOGGER.severe("failed to remove metrics", e);
             }
         }
     }
@@ -1026,5 +1049,14 @@ public class JobMaster {
 
     public EngineConfig getEngineConfig() {
         return this.engineConfig;
+    }
+
+    public CoordinatorService getCoordinatorService() {
+        return this.seaTunnelServer.getCoordinatorService();
+    }
+
+    @VisibleForTesting
+    public IMap<Object, Object> getRunningJobStateIMap() {
+        return runningJobStateIMap;
     }
 }

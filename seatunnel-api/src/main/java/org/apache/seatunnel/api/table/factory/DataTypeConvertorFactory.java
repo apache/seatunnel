@@ -23,7 +23,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.ServiceLoader;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkNotNull;
 
 public class DataTypeConvertorFactory {
 

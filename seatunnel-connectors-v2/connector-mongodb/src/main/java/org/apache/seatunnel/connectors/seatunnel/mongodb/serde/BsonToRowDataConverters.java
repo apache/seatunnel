@@ -178,6 +178,15 @@ public class BsonToRowDataConverters implements Serializable {
                         return convertToLocalDateTime(bsonValue).toLocalDate();
                     }
                 };
+            case TIME:
+                return new SerializableFunction<BsonValue, Object>() {
+                    private static final long serialVersionUID = 1L;
+
+                    @Override
+                    public Object apply(BsonValue bsonValue) {
+                        return convertToLocalDateTime(bsonValue).toLocalTime();
+                    }
+                };
             case TIMESTAMP:
                 return new SerializableFunction<BsonValue, Object>() {
                     private static final long serialVersionUID = 1L;
@@ -217,7 +226,7 @@ public class BsonToRowDataConverters implements Serializable {
     private static LocalDateTime convertToLocalDateTime(BsonValue bsonValue) {
         Instant instant;
         if (bsonValue.isTimestamp()) {
-            instant = Instant.ofEpochSecond(bsonValue.asTimestamp().getTime());
+            instant = Instant.ofEpochMilli(bsonValue.asTimestamp().getValue());
         } else if (bsonValue.isDateTime()) {
             instant = Instant.ofEpochMilli(bsonValue.asDateTime().getValue());
         } else {
@@ -366,7 +375,18 @@ public class BsonToRowDataConverters implements Serializable {
 
     private static int convertToInt(BsonValue bsonValue) {
         if (bsonValue.isInt32()) {
-            return bsonValue.asNumber().intValue();
+            return bsonValue.asInt32().getValue();
+        } else if (bsonValue.isNumber()) {
+            long longValue = bsonValue.asNumber().longValue();
+            if (longValue > Integer.MAX_VALUE || longValue < Integer.MIN_VALUE) {
+                throw new MongodbConnectorException(
+                        UNSUPPORTED_DATA_TYPE,
+                        "Unable to convert to integer from unexpected value '"
+                                + bsonValue
+                                + "' of type "
+                                + bsonValue.getBsonType());
+            }
+            return (int) longValue;
         }
         throw new MongodbConnectorException(
                 UNSUPPORTED_DATA_TYPE,
@@ -402,6 +422,17 @@ public class BsonToRowDataConverters implements Serializable {
 
     private static long convertToLong(BsonValue bsonValue) {
         if (bsonValue.isInt64() || bsonValue.isInt32()) {
+            return bsonValue.asNumber().longValue();
+        } else if (bsonValue.isDouble()) {
+            double value = bsonValue.asNumber().doubleValue();
+            if (value > Long.MAX_VALUE || value < Long.MIN_VALUE) {
+                throw new MongodbConnectorException(
+                        UNSUPPORTED_DATA_TYPE,
+                        "Unable to convert to long from unexpected value '"
+                                + bsonValue
+                                + "' of type "
+                                + bsonValue.getBsonType());
+            }
             return bsonValue.asNumber().longValue();
         }
         throw new MongodbConnectorException(

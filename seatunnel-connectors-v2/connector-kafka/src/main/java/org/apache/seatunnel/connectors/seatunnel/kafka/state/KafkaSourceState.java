@@ -24,6 +24,7 @@ import java.util.Set;
 
 public class KafkaSourceState implements Serializable {
 
+    private static final long serialVersionUID = 2554717972821706108L;
     private Set<KafkaSourceSplit> assignedSplit;
 
     public KafkaSourceState(Set<KafkaSourceSplit> assignedSplit) {

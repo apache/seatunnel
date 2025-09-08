@@ -24,8 +24,6 @@ import org.apache.seatunnel.transform.exception.TransformException;
 
 import org.apache.commons.collections4.CollectionUtils;
 
-import com.google.common.collect.Lists;
-
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.nio.charset.StandardCharsets;
@@ -35,27 +33,39 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 public class SystemFunction {
-    public static Object coalesce(List<Object> args) {
-        Object v = null;
-        for (Object v2 : args) {
-            if (v2 != null) {
-                v = v2;
-                break;
-            }
-        }
-        return v;
+    /**
+     * Enhanced version of coalesce function that takes a target type parameter. This ensures that
+     * the result is always converted to the expected type regardless of which argument is non-null.
+     *
+     * @param args Function arguments
+     * @param targetType The target type that the result should be converted to
+     * @return The first non-null value converted to the target type
+     */
+    public static Object coalesce(List<Object> args, SeaTunnelDataType<?> targetType) {
+        Object result = coalesce(args);
+        return castAs(result, targetType);
     }
 
-    public static Object ifnull(List<Object> args) {
+    private static Object coalesce(List<Object> args) {
+        for (Object arg : args) {
+            if (arg != null) {
+                return arg;
+            }
+        }
+        return null;
+    }
+
+    public static Object ifnull(List<Object> args, SeaTunnelDataType<?> targetType) {
         if (args.size() != 2) {
             throw new TransformException(
                     CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
                     String.format("Unsupported function IFNULL() arguments: %s", args));
         }
-        return coalesce(args);
+        return coalesce(args, targetType);
     }
 
     public static Object nullif(List<Object> args) {
@@ -70,11 +80,13 @@ public class SystemFunction {
         return v1;
     }
 
-    public static Object array(List<Object> args) {
+    public static String[] array(List<Object> args) {
         if (CollectionUtils.isNotEmpty(args)) {
-            return args.toArray();
+            return args.stream()
+                    .map(obj -> obj == null ? null : obj.toString())
+                    .toArray(String[]::new);
         }
-        return Lists.newArrayList();
+        return new String[0];
     }
 
     public static Object castAs(Object arg, SeaTunnelDataType<?> type) {
@@ -102,12 +114,32 @@ public class SystemFunction {
             case "VARCHAR":
             case "STRING":
                 return v1.toString();
+            case "TINYINT":
+                return Byte.parseByte(v1.toString());
+            case "SMALLINT":
+                return Short.parseShort(v1.toString());
             case "INT":
             case "INTEGER":
-                return Integer.parseInt(v1.toString());
+                if (v1 instanceof String) {
+                    return Integer.parseInt(v1.toString());
+                } else if (v1 instanceof Number) {
+                    return ((Number) v1).intValue();
+                } else {
+                    throw new TransformException(
+                            CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
+                            String.format("Unsupported CAST %s to INTEGER", v1));
+                }
             case "BIGINT":
             case "LONG":
-                return Long.parseLong(v1.toString());
+                if (v1 instanceof String) {
+                    return Long.parseLong(v1.toString());
+                } else if (v1 instanceof Number) {
+                    return ((Number) v1).longValue();
+                } else {
+                    throw new TransformException(
+                            CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
+                            String.format("Unsupported CAST %s to LONG", v1));
+                }
             case "BYTE":
                 return Byte.parseByte(v1.toString());
             case "BYTES":
@@ -121,12 +153,6 @@ public class SystemFunction {
             case "DATETIME":
                 if (v1 instanceof LocalDateTime) {
                     return v1;
-                }
-                if (v1 instanceof LocalDate) {
-                    return LocalDateTime.of((LocalDate) v1, LocalTime.of(0, 0, 0));
-                }
-                if (v1 instanceof LocalTime) {
-                    return LocalDateTime.of(LocalDate.now(), (LocalTime) v1);
                 }
                 if (v1 instanceof Long) {
                     Instant instant = Instant.ofEpochMilli(((Long) v1).longValue());
@@ -157,9 +183,6 @@ public class SystemFunction {
                 if (v1 instanceof LocalDateTime) {
                     return ((LocalDateTime) v1).toLocalTime();
                 }
-                if (v1 instanceof LocalDate) {
-                    return LocalTime.of(0, 0, 0);
-                }
                 if (v1 instanceof LocalTime) {
                     return v1;
                 }
@@ -177,6 +200,26 @@ public class SystemFunction {
                 BigDecimal bigDecimal = new BigDecimal(v1.toString());
                 Integer scale = (Integer) args.get(3);
                 return bigDecimal.setScale(scale, RoundingMode.CEILING);
+            case "BOOLEAN":
+                if (v1 instanceof Number) {
+                    if (Arrays.asList(1, 0).contains(((Number) v1).intValue())) {
+                        return ((Number) v1).intValue() == 1;
+                    } else {
+                        throw new TransformException(
+                                CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
+                                String.format("Unsupported CAST AS Boolean: %s", v1));
+                    }
+                } else if (v1 instanceof String) {
+                    if (Arrays.asList("TRUE", "FALSE").contains(v1.toString().toUpperCase())) {
+                        return Boolean.parseBoolean(v1.toString());
+                    } else {
+                        throw new TransformException(
+                                CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
+                                String.format("Unsupported CAST AS Boolean: %s", v1));
+                    }
+                } else if (v1 instanceof Boolean) {
+                    return v1;
+                }
         }
         throw new TransformException(
                 CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,

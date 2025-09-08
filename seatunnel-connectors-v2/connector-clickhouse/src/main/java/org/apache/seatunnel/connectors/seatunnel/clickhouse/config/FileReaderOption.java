@@ -41,6 +41,7 @@ public class FileReaderOption implements Serializable {
     private boolean compatibleMode;
     private String fileTempPath;
     private String fileFieldsDelimiter;
+    private String keyPath;
 
     public FileReaderOption(
             ShardMetadata shardMetadata,
@@ -53,7 +54,8 @@ public class FileReaderOption implements Serializable {
             Map<String, String> nodePassword,
             boolean compatibleMode,
             String fileTempPath,
-            String fileFieldsDelimiter) {
+            String fileFieldsDelimiter,
+            String keyPath) {
         this.shardMetadata = shardMetadata;
         this.tableSchema = tableSchema;
         this.fields = fields;
@@ -65,5 +67,6 @@ public class FileReaderOption implements Serializable {
         this.compatibleMode = compatibleMode;
         this.fileFieldsDelimiter = fileFieldsDelimiter;
         this.fileTempPath = fileTempPath;
+        this.keyPath = keyPath;
     }
 }

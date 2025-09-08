@@ -36,7 +36,7 @@ public class PaimonRecordWithFullType {
     public int[] c_array;
     public BinaryString c_string;
     public boolean c_boolean;
-    public short c_tinyint;
+    public byte c_tinyint;
     public short c_smallint;
     public int c_int;
     public long c_bigint;
@@ -46,4 +46,5 @@ public class PaimonRecordWithFullType {
     public BinaryString c_bytes;
     public int c_date;
     public Timestamp c_timestamp;
+    public int c_time;
 }

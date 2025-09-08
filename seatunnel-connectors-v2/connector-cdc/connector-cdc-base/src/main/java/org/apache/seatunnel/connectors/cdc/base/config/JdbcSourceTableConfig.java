@@ -26,4 +26,5 @@ import java.util.List;
 public class JdbcSourceTableConfig implements Serializable {
     private String table;
     private List<String> primaryKeys;
+    private String snapshotSplitColumn;
 }

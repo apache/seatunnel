@@ -39,6 +39,11 @@ public enum RedisDataType {
         public List<String> get(Jedis jedis, String key) {
             return Collections.singletonList(jedis.get(key));
         }
+
+        @Override
+        public void del(Jedis jedis, String key, String value) {
+            jedis.del(key);
+        }
     },
     STRING {
         @Override
@@ -50,6 +55,11 @@ public enum RedisDataType {
         @Override
         public List<String> get(Jedis jedis, String key) {
             return Collections.singletonList(jedis.get(key));
+        }
+
+        @Override
+        public void del(Jedis jedis, String key, String value) {
+            jedis.del(key);
         }
     },
     HASH {
@@ -65,6 +75,12 @@ public enum RedisDataType {
             Map<String, String> kvMap = jedis.hgetAll(key);
             return Collections.singletonList(JsonUtils.toJsonString(kvMap));
         }
+
+        @Override
+        public void del(Jedis jedis, String key, String value) {
+            Map<String, String> fieldsMap = JsonUtils.toMap(value);
+            fieldsMap.forEach((k, v) -> jedis.hdel(key, k));
+        }
     },
     LIST {
         @Override
@@ -76,6 +92,11 @@ public enum RedisDataType {
         @Override
         public List<String> get(Jedis jedis, String key) {
             return jedis.lrange(key, 0, -1);
+        }
+
+        @Override
+        public void del(Jedis jedis, String key, String value) {
+            jedis.lrem(key, 1, value);
         }
     },
     SET {
@@ -90,6 +111,11 @@ public enum RedisDataType {
             Set<String> members = jedis.smembers(key);
             return new ArrayList<>(members);
         }
+
+        @Override
+        public void del(Jedis jedis, String key, String value) {
+            jedis.srem(key, value);
+        }
     },
     ZSET {
         @Override
@@ -101,6 +127,11 @@ public enum RedisDataType {
         @Override
         public List<String> get(Jedis jedis, String key) {
             return jedis.zrange(key, 0, -1);
+        }
+
+        @Override
+        public void del(Jedis jedis, String key, String value) {
+            jedis.zrem(key, value);
         }
     };
 
@@ -115,6 +146,10 @@ public enum RedisDataType {
     }
 
     public void set(Jedis jedis, String key, String value, long expire) {
+        // do nothing
+    }
+
+    public void del(Jedis jedis, String key, String value) {
         // do nothing
     }
 }

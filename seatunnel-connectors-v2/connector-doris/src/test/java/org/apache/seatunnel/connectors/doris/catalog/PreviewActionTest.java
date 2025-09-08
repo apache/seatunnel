@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.doris.catalog;
 
+import org.apache.seatunnel.shade.com.google.common.collect.Lists;
+
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
@@ -31,8 +33,6 @@ import org.apache.seatunnel.api.table.type.BasicType;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
-
-import com.google.common.collect.Lists;
 
 import java.util.Collections;
 import java.util.HashMap;
@@ -108,6 +108,7 @@ public class PreviewActionTest {
                         + "`test` STRING NULL \n"
                         + ") ENGINE=OLAP\n"
                         + " UNIQUE KEY (`id`)\n"
+                        + "COMMENT 'comment'\n"
                         + "DISTRIBUTED BY HASH (`id`)\n"
                         + " PROPERTIES (\n"
                         + "\"replication_allocation\" = \"tag.location.default: 1\",\n"

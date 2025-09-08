@@ -18,6 +18,9 @@
 package org.apache.seatunnel.connectors.seatunnel.kafka.source;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.options.ConnectorCommonOptions;
+import org.apache.seatunnel.api.options.table.TableIdentifierOptions;
+import org.apache.seatunnel.api.options.table.TableSchemaOptions;
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
@@ -25,22 +28,25 @@ import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.catalog.schema.ReadonlyConfigParser;
-import org.apache.seatunnel.api.table.catalog.schema.TableSchemaOptions;
 import org.apache.seatunnel.api.table.type.BasicType;
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.api.table.type.MapType;
+import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
-import org.apache.seatunnel.connectors.seatunnel.kafka.config.Config;
+import org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.kafka.config.MessageFormat;
 import org.apache.seatunnel.connectors.seatunnel.kafka.config.MessageFormatErrorHandleWay;
 import org.apache.seatunnel.connectors.seatunnel.kafka.config.StartMode;
+import org.apache.seatunnel.connectors.seatunnel.kafka.config.TableIdentifierConfig;
 import org.apache.seatunnel.format.avro.AvroDeserializationSchema;
 import org.apache.seatunnel.format.compatible.kafka.connect.json.CompatibleKafkaConnectDeserializationSchema;
 import org.apache.seatunnel.format.compatible.kafka.connect.json.KafkaConnectJsonFormatOptions;
+import org.apache.seatunnel.format.compatible.kafka.connect.json.NativeKafkaConnectDeserializationSchema;
 import org.apache.seatunnel.format.json.JsonDeserializationSchema;
 import org.apache.seatunnel.format.json.canal.CanalJsonDeserializationSchema;
 import org.apache.seatunnel.format.json.debezium.DebeziumJsonDeserializationSchema;
+import org.apache.seatunnel.format.json.debezium.DebeziumJsonDeserializationSchemaDispatcher;
 import org.apache.seatunnel.format.json.exception.SeaTunnelJsonFormatException;
 import org.apache.seatunnel.format.json.maxwell.MaxWellJsonDeserializationSchema;
 import org.apache.seatunnel.format.json.ogg.OggJsonDeserializationSchema;
@@ -49,6 +55,7 @@ import org.apache.seatunnel.format.text.TextDeserializationSchema;
 import org.apache.seatunnel.format.text.constant.TextFormatConstant;
 
 import org.apache.commons.collections4.MapUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.kafka.common.TopicPartition;
 
 import lombok.Getter;
@@ -58,27 +65,39 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.stream.Collectors;
 
-import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.BOOTSTRAP_SERVERS;
-import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.COMMIT_ON_CHECKPOINT;
-import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.CONSUMER_GROUP;
-import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.DEBEZIUM_RECORD_INCLUDE_SCHEMA;
-import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.FIELD_DELIMITER;
-import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.FORMAT;
-import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.KAFKA_CONFIG;
-import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.KEY_PARTITION_DISCOVERY_INTERVAL_MILLIS;
-import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.KEY_POLL_TIMEOUT;
-import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.MESSAGE_FORMAT_ERROR_HANDLE_WAY_OPTION;
-import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.PATTERN;
-import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.PROTOBUF_MESSAGE_NAME;
-import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.PROTOBUF_SCHEMA;
-import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.START_MODE;
-import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.START_MODE_OFFSETS;
-import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.START_MODE_TIMESTAMP;
-import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.TOPIC;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaBaseConstants.HEADERS;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaBaseConstants.KEY;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaBaseConstants.OFFSET;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaBaseConstants.PARTITION;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaBaseConstants.TIMESTAMP;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaBaseConstants.TIMESTAMP_TYPE;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaBaseConstants.VALUE;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaSourceOptions.BOOTSTRAP_SERVERS;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaSourceOptions.COMMIT_ON_CHECKPOINT;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaSourceOptions.CONSUMER_GROUP;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaSourceOptions.DEBEZIUM_RECORD_INCLUDE_SCHEMA;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaSourceOptions.DEBEZIUM_RECORD_TABLE_FILTER;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaSourceOptions.FIELD_DELIMITER;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaSourceOptions.FORMAT;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaSourceOptions.IGNORE_NO_LEADER_PARTITION;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaSourceOptions.KAFKA_CONFIG;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaSourceOptions.KEY_PARTITION_DISCOVERY_INTERVAL_MILLIS;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaSourceOptions.KEY_POLL_TIMEOUT;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaSourceOptions.MESSAGE_FORMAT_ERROR_HANDLE_WAY_OPTION;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaSourceOptions.PATTERN;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaSourceOptions.PROTOBUF_MESSAGE_NAME;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaSourceOptions.PROTOBUF_SCHEMA;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaSourceOptions.READER_CACHE_QUEUE_SIZE;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaSourceOptions.START_MODE;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaSourceOptions.START_MODE_END_TIMESTAMP;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaSourceOptions.START_MODE_OFFSETS;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaSourceOptions.START_MODE_TIMESTAMP;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaSourceOptions.TOPIC;
 
 public class KafkaSourceConfig implements Serializable {
 
@@ -92,6 +111,8 @@ public class KafkaSourceConfig implements Serializable {
     @Getter private final MessageFormatErrorHandleWay messageFormatErrorHandleWay;
     @Getter private final String consumerGroup;
     @Getter private final long pollTimeout;
+    @Getter private final int readerCacheQueueSize;
+    @Getter private final boolean ignoreNoLeaderPartition;
 
     public KafkaSourceConfig(ReadonlyConfig readonlyConfig) {
         this.bootstrap = readonlyConfig.get(BOOTSTRAP_SERVERS);
@@ -103,6 +124,13 @@ public class KafkaSourceConfig implements Serializable {
                 readonlyConfig.get(MESSAGE_FORMAT_ERROR_HANDLE_WAY_OPTION);
         this.pollTimeout = readonlyConfig.get(KEY_POLL_TIMEOUT);
         this.consumerGroup = readonlyConfig.get(CONSUMER_GROUP);
+        this.readerCacheQueueSize = readonlyConfig.get(READER_CACHE_QUEUE_SIZE);
+        this.ignoreNoLeaderPartition = readonlyConfig.get(IGNORE_NO_LEADER_PARTITION);
+        if (this.ignoreNoLeaderPartition && this.discoveryIntervalMillis <= 0) {
+            throw new IllegalArgumentException(
+                    "partition-discovery.interval-millis must be configured when ignore_no_leader_partition is set to true. "
+                            + "Please provide a positive value for partition-discovery.interval-millis.");
+        }
     }
 
     private Properties createKafkaProperties(ReadonlyConfig readonlyConfig) {
@@ -114,11 +142,17 @@ public class KafkaSourceConfig implements Serializable {
     private Map<TablePath, ConsumerMetadata> createMapConsumerMetadata(
             ReadonlyConfig readonlyConfig) {
         List<ConsumerMetadata> consumerMetadataList;
-        if (readonlyConfig.getOptional(Config.TABLE_LIST).isPresent()) {
+        if (readonlyConfig.getOptional(KafkaSourceOptions.TABLE_CONFIGS).isPresent()) {
             consumerMetadataList =
-                    readonlyConfig.get(Config.TABLE_LIST).stream()
+                    readonlyConfig.get(KafkaSourceOptions.TABLE_CONFIGS).stream()
                             .map(ReadonlyConfig::fromMap)
-                            .map(config -> createConsumerMetadata(config))
+                            .map(this::createConsumerMetadata)
+                            .collect(Collectors.toList());
+        } else if (readonlyConfig.getOptional(KafkaSourceOptions.TABLE_LIST).isPresent()) {
+            consumerMetadataList =
+                    readonlyConfig.get(KafkaSourceOptions.TABLE_LIST).stream()
+                            .map(ReadonlyConfig::fromMap)
+                            .map(this::createConsumerMetadata)
                             .collect(Collectors.toList());
         } else {
             consumerMetadataList =
@@ -128,7 +162,9 @@ public class KafkaSourceConfig implements Serializable {
         return consumerMetadataList.stream()
                 .collect(
                         Collectors.toMap(
-                                consumerMetadata -> TablePath.of(consumerMetadata.getTopic()),
+                                consumerMetadata ->
+                                        getTablePathFromSchema(
+                                                readonlyConfig, consumerMetadata.getTopic()),
                                 consumerMetadata -> consumerMetadata));
     }
 
@@ -161,6 +197,18 @@ public class KafkaSourceConfig implements Serializable {
                                     }
                                     consumerMetadata.setStartOffsetsTimestamp(
                                             startOffsetsTimestamp);
+                                    if (Objects.nonNull(
+                                            readonlyConfig.get(START_MODE_END_TIMESTAMP))) {
+                                        long endOffsetsTimestamp =
+                                                readonlyConfig.get(START_MODE_END_TIMESTAMP);
+                                        if (endOffsetsTimestamp < 0
+                                                || endOffsetsTimestamp > currentTimestamp) {
+                                            throw new IllegalArgumentException(
+                                                    "start_mode.endTimestamp The value is smaller than 0 or smaller than the current time");
+                                        }
+                                        consumerMetadata.setEndOffsetsTimestamp(
+                                                endOffsetsTimestamp);
+                                    }
                                     break;
                                 case SPECIFIC_OFFSETS:
                                     // Key is topic-partition, value is offset
@@ -198,28 +246,25 @@ public class KafkaSourceConfig implements Serializable {
 
     private CatalogTable createCatalogTable(ReadonlyConfig readonlyConfig) {
         Optional<Map<String, Object>> schemaOptions =
-                readonlyConfig.getOptional(TableSchemaOptions.SCHEMA);
-        TablePath tablePath = TablePath.of(readonlyConfig.get(TOPIC));
+                readonlyConfig.getOptional(KafkaSourceOptions.SCHEMA);
+
         TableSchema tableSchema;
-        if (schemaOptions.isPresent()) {
+        MessageFormat format = readonlyConfig.get(FORMAT);
+
+        if (format == MessageFormat.NATIVE) {
+            tableSchema = nativeTableSchema();
+        } else if (schemaOptions.isPresent()) {
             tableSchema = new ReadonlyConfigParser().parse(readonlyConfig);
         } else {
             tableSchema =
                     TableSchema.builder()
                             .column(
                                     PhysicalColumn.of(
-                                            "content",
-                                            new SeaTunnelRowType(
-                                                    new String[] {"content"},
-                                                    new SeaTunnelDataType<?>[] {
-                                                        BasicType.STRING_TYPE
-                                                    }),
-                                            0,
-                                            false,
-                                            null,
-                                            null))
+                                            "content", BasicType.STRING_TYPE, 0, false, null, null))
                             .build();
         }
+        TablePath tablePath = getTablePathFromSchema(readonlyConfig, readonlyConfig.get(TOPIC));
+
         return CatalogTable.of(
                 TableIdentifier.of("", tablePath),
                 tableSchema,
@@ -236,13 +281,29 @@ public class KafkaSourceConfig implements Serializable {
                 null);
     }
 
+    private TablePath getTablePathFromSchema(ReadonlyConfig readonlyConfig, String topicName) {
+        ReadonlyConfig schema =
+                readonlyConfig
+                        .getOptional(TableSchemaOptions.SCHEMA)
+                        .map(ReadonlyConfig::fromMap)
+                        .orElse(ReadonlyConfig.fromMap(Collections.emptyMap()));
+
+        return schema.getOptional(TableIdentifierOptions.TABLE)
+                .map(TablePath::of)
+                .orElseGet(() -> TablePath.of(null, topicName));
+    }
+
     private DeserializationSchema<SeaTunnelRow> createDeserializationSchema(
             CatalogTable catalogTable, ReadonlyConfig readonlyConfig) {
         SeaTunnelRowType seaTunnelRowType = catalogTable.getSeaTunnelRowType();
-
         MessageFormat format = readonlyConfig.get(FORMAT);
 
-        if (!readonlyConfig.getOptional(TableSchemaOptions.SCHEMA).isPresent()) {
+        if (format == MessageFormat.NATIVE) {
+            return new NativeKafkaConnectDeserializationSchema(
+                    catalogTable, false, false, false, false);
+        }
+
+        if (!readonlyConfig.getOptional(ConnectorCommonOptions.SCHEMA).isPresent()) {
             return TextDeserializationSchema.builder()
                     .seaTunnelRowType(seaTunnelRowType)
                     .delimiter(TextFormatConstant.PLACEHOLDER)
@@ -283,7 +344,30 @@ public class KafkaSourceConfig implements Serializable {
                         catalogTable, keySchemaEnable, valueSchemaEnable, false, false);
             case DEBEZIUM_JSON:
                 boolean includeSchema = readonlyConfig.get(DEBEZIUM_RECORD_INCLUDE_SCHEMA);
-                return new DebeziumJsonDeserializationSchema(catalogTable, true, includeSchema);
+                TableIdentifierConfig tableFilter =
+                        readonlyConfig.get(DEBEZIUM_RECORD_TABLE_FILTER);
+                if (tableFilter != null) {
+                    TablePath tablePath =
+                            TablePath.of(
+                                    StringUtils.isNotEmpty(tableFilter.getDatabaseName())
+                                            ? tableFilter.getDatabaseName()
+                                            : null,
+                                    StringUtils.isNotEmpty(tableFilter.getSchemaName())
+                                            ? tableFilter.getSchemaName()
+                                            : null,
+                                    StringUtils.isNotEmpty(tableFilter.getTableName())
+                                            ? tableFilter.getTableName()
+                                            : null);
+                    Map<TablePath, DebeziumJsonDeserializationSchema> tableDeserializationMap =
+                            Collections.singletonMap(
+                                    tablePath,
+                                    new DebeziumJsonDeserializationSchema(
+                                            catalogTable, true, includeSchema));
+                    return new DebeziumJsonDeserializationSchemaDispatcher(
+                            tableDeserializationMap, true, includeSchema);
+                } else {
+                    return new DebeziumJsonDeserializationSchema(catalogTable, true, includeSchema);
+                }
             case AVRO:
                 return new AvroDeserializationSchema(catalogTable);
             case PROTOBUF:
@@ -293,5 +377,30 @@ public class KafkaSourceConfig implements Serializable {
                         CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
                         "Unsupported format: " + format);
         }
+    }
+
+    private TableSchema nativeTableSchema() {
+        return TableSchema.builder()
+                .column(
+                        PhysicalColumn.of(
+                                HEADERS,
+                                new MapType<>(BasicType.STRING_TYPE, BasicType.STRING_TYPE),
+                                0,
+                                false,
+                                null,
+                                null))
+                .column(
+                        PhysicalColumn.of(
+                                KEY, PrimitiveByteArrayType.INSTANCE, 0, false, null, null))
+                .column(PhysicalColumn.of(OFFSET, BasicType.LONG_TYPE, 0, false, null, null))
+                .column(PhysicalColumn.of(PARTITION, BasicType.INT_TYPE, 0, false, null, null))
+                .column(PhysicalColumn.of(TIMESTAMP, BasicType.LONG_TYPE, 0, false, null, null))
+                .column(
+                        PhysicalColumn.of(
+                                TIMESTAMP_TYPE, BasicType.STRING_TYPE, 0, false, null, null))
+                .column(
+                        PhysicalColumn.of(
+                                VALUE, PrimitiveByteArrayType.INSTANCE, 0, false, null, null))
+                .build();
     }
 }

@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.translation.spark.sink;
 
+import org.apache.seatunnel.shade.com.google.common.collect.Sets;
+
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -32,8 +34,6 @@ import org.apache.spark.sql.connector.catalog.TableCapability;
 import org.apache.spark.sql.connector.write.LogicalWriteInfo;
 import org.apache.spark.sql.connector.write.WriteBuilder;
 import org.apache.spark.sql.types.StructType;
-
-import com.google.common.collect.Sets;
 
 import java.util.Map;
 import java.util.Optional;

@@ -39,8 +39,10 @@ import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Base64;
 import java.util.List;
+import java.util.Map;
 
 import static org.apache.seatunnel.core.starter.utils.ConfigBuilder.CONFIG_RENDER_OPTIONS;
 
@@ -50,6 +52,9 @@ public class ConfigShadeTest {
     private static final String USERNAME = "seatunnel";
 
     private static final String PASSWORD = "seatunnel_password";
+
+    private static final String ACCESS_KEY = "access_key";
+    private static final String SECRET_KEY = "secret_key";
 
     @Test
     public void testParseConfig() throws URISyntaxException {
@@ -71,6 +76,10 @@ public class ConfigShadeTest {
                 config.getConfigList("source").get(0).getString("username"), USERNAME);
         Assertions.assertEquals(
                 config.getConfigList("source").get(0).getString("password"), PASSWORD);
+        Assertions.assertEquals(
+                config.getConfigList("source").get(0).getString("access_key"), ACCESS_KEY);
+        Assertions.assertEquals(
+                config.getConfigList("source").get(0).getString("secret_key"), SECRET_KEY);
     }
 
     @Test
@@ -80,7 +89,9 @@ public class ConfigShadeTest {
         Config config = ConfigBuilder.of(Paths.get(resource.toURI()), Lists.newArrayList());
         config =
                 ConfigFactory.parseMap(
-                                ConfigBuilder.configDesensitization(config.root().unwrapped()))
+                                ConfigBuilder.configDesensitization(
+                                        config.root().unwrapped(),
+                                        ConfigShadeUtils.getSensitiveOptions(config)))
                         .resolve(ConfigResolveOptions.defaults().setAllowUnresolved(true))
                         .resolveWith(
                                 ConfigFactory.systemProperties(),
@@ -89,6 +100,16 @@ public class ConfigShadeTest {
                 config.getConfigList("source").get(0).getString("username"), "******");
         Assertions.assertEquals(
                 config.getConfigList("source").get(0).getString("password"), "******");
+        Assertions.assertEquals(
+                config.getConfigList("source").get(0).getString("access_key"), "******");
+        Assertions.assertEquals(
+                config.getConfigList("source").get(0).getString("secret_key"), "******");
+        Assertions.assertEquals(config.getConfigList("source").get(0).getString("f1"), "******");
+        Assertions.assertEquals(
+                config.getConfigList("source").get(0).getString("config1.f1"), "******");
+        Assertions.assertEquals(
+                config.getConfigList("source").get(0).getStringList("config2.list"),
+                Arrays.asList("******", "******", "******"));
         String conf = ConfigBuilder.mapToString(config.root().unwrapped());
         Assertions.assertTrue(conf.contains("\"password\" : \"******\""));
     }
@@ -100,7 +121,9 @@ public class ConfigShadeTest {
         Config config = ConfigBuilder.of(Paths.get(resource.toURI()), Lists.newArrayList());
         config =
                 ConfigFactory.parseMap(
-                                ConfigBuilder.configDesensitization(config.root().unwrapped()))
+                                ConfigBuilder.configDesensitization(
+                                        config.root().unwrapped(),
+                                        ConfigShadeUtils.getSensitiveOptions(config)))
                         .resolve(ConfigResolveOptions.defaults().setAllowUnresolved(true))
                         .resolveWith(
                                 ConfigFactory.systemProperties(),
@@ -109,6 +132,13 @@ public class ConfigShadeTest {
                 config.getConfigList("source").get(0).getString("username"), "******");
         Assertions.assertEquals(
                 config.getConfigList("source").get(0).getString("password"), "******");
+        Assertions.assertEquals(config.getConfigList("source").get(0).getString("f1"), "******");
+        Assertions.assertEquals(
+                config.getConfigList("source").get(0).getString("config1.f1"), "******");
+        Assertions.assertEquals(
+                config.getConfigList("source").get(0).getStringList("config2.list"),
+                Arrays.asList("******", "******", "******"));
+        String conf = ConfigBuilder.mapToString(config.root().unwrapped());
         String json = ConfigBuilder.mapToString(config.root().unwrapped());
         Assertions.assertTrue(json.contains("\"password\" : \"******\""));
     }
@@ -120,7 +150,9 @@ public class ConfigShadeTest {
         Config config = ConfigBuilder.of(Paths.get(resource.toURI()), Lists.newArrayList());
         config =
                 ConfigFactory.parseMap(
-                                ConfigBuilder.configDesensitization(config.root().unwrapped()))
+                                ConfigBuilder.configDesensitization(
+                                        config.root().unwrapped(),
+                                        ConfigShadeUtils.getSensitiveOptions(config)))
                         .resolve(ConfigResolveOptions.defaults().setAllowUnresolved(true))
                         .resolveWith(
                                 ConfigFactory.systemProperties(),
@@ -166,7 +198,7 @@ public class ConfigShadeTest {
             Assertions.assertEquals(list1.get(1), "de~");
             Assertions.assertEquals(list1.get(2), "f h");
             Assertions.assertEquals(sourceConfig.getInt("row.num"), rowNum);
-            Assertions.assertEquals(sourceConfig.getString("result_table_name"), resName);
+            Assertions.assertEquals(sourceConfig.getString("plugin_output"), resName);
         }
         List<? extends ConfigObject> transformConfigs = config.getObjectList("transform");
         for (ConfigObject configObject : transformConfigs) {
@@ -190,14 +222,14 @@ public class ConfigShadeTest {
     public void testVariableReplacementWithDefaultValue() throws URISyntaxException {
         String jobName = "seatunnel variable test job";
         Assertions.assertEquals(System.getenv("jobName"), jobName);
-        String sourceTableName = "sql";
+        String pluginInputIdentifier = "sql";
         String containSpaceString = "f h";
         List<String> variables = new ArrayList<>();
         variables.add("strTemplate=[abc,de~," + containSpaceString + "]");
         // Set the environment variable value nameVal to `f h` to verify whether setting the space
         // through the environment variable is effective
         System.setProperty("nameValForEnv", containSpaceString);
-        variables.add("sourceTableName=" + sourceTableName);
+        variables.add("pluginInputIdentifier=" + pluginInputIdentifier);
         URL resource =
                 ConfigShadeTest.class.getResource("/config_variables_with_default_value.conf");
         Assertions.assertNotNull(resource);
@@ -216,7 +248,7 @@ public class ConfigShadeTest {
             Assertions.assertEquals(
                     sourceConfig.getConfig("schema").getConfig("fields").getString("age"),
                     "${ageType}");
-            Assertions.assertEquals(sourceConfig.getString("result_table_name"), "fake_test_table");
+            Assertions.assertEquals(sourceConfig.getString("plugin_output"), "fake_test_table");
         }
         List<? extends ConfigObject> transformConfigs = config.getObjectList("transform");
         for (ConfigObject configObject : transformConfigs) {
@@ -228,7 +260,7 @@ public class ConfigShadeTest {
         List<? extends ConfigObject> sinkConfigs = config.getObjectList("sink");
         for (ConfigObject sinkObject : sinkConfigs) {
             Config sinkConfig = sinkObject.toConfig();
-            Assertions.assertEquals(sinkConfig.getString("source_table_name"), sourceTableName);
+            Assertions.assertEquals(sinkConfig.getString("plugin_input"), pluginInputIdentifier);
         }
     }
 
@@ -252,6 +284,55 @@ public class ConfigShadeTest {
     }
 
     @Test
+    public void testTableListPlaceholderReplacement() throws URISyntaxException {
+        String incOffsetDays = "7";
+        String testValue = "replaced_value";
+
+        List<String> variables = new ArrayList<>();
+        variables.add("inc_offset_days=" + incOffsetDays);
+        variables.add("test_placeholder=" + testValue);
+
+        URL resource = ConfigShadeTest.class.getResource("/config_table_list_variables.conf");
+        Assertions.assertNotNull(resource);
+        Config config = ConfigBuilder.of(Paths.get(resource.toURI()), variables);
+
+        List<? extends ConfigObject> sourceConfigs = config.getObjectList("source");
+        for (ConfigObject configObject : sourceConfigs) {
+            Config sourceConfig = configObject.toConfig();
+
+            // Test 1: Verify table_list placeholder replacement (List<Map>)
+            if (sourceConfig.hasPath("table_list")) {
+                List<? extends ConfigObject> tableList = sourceConfig.getObjectList("table_list");
+                for (ConfigObject tableObject : tableList) {
+                    Config tableConfig = tableObject.toConfig();
+                    String query = tableConfig.getString("query");
+                    // Verify that placeholders are replaced correctly
+                    Assertions.assertTrue(
+                            query.contains("sysdate-" + incOffsetDays),
+                            "Query should contain replaced placeholder value: " + query);
+                    Assertions.assertFalse(
+                            query.contains("${inc_offset_days}"),
+                            "Query should not contain unreplaced placeholder: " + query);
+                }
+            }
+
+            // Test 2: Verify nested List placeholder replacement (List<List<String>>)
+            if (sourceConfig.hasPath("nested_list")) {
+                List<List<String>> nestedList =
+                        (List<List<String>>) sourceConfig.getAnyRef("nested_list");
+
+                // Verify nested list placeholders
+                Assertions.assertTrue(
+                        nestedList.get(0).contains(testValue),
+                        "Nested list should contain replaced placeholder");
+                Assertions.assertFalse(
+                        nestedList.get(0).contains("${test_placeholder}"),
+                        "Nested list should not contain unreplaced placeholder");
+            }
+        }
+    }
+
+    @Test
     public void testDecryptAndEncrypt() {
         String encryptUsername = ConfigShadeUtils.encryptOption("base64", USERNAME);
         String decryptUsername = ConfigShadeUtils.decryptOption("base64", encryptUsername);
@@ -261,6 +342,55 @@ public class ConfigShadeTest {
         Assertions.assertEquals("c2VhdHVubmVsX3Bhc3N3b3Jk", encryptPassword);
         Assertions.assertEquals(decryptUsername, USERNAME);
         Assertions.assertEquals(decryptPassword, PASSWORD);
+    }
+
+    @Test
+    public void testDecryptWithProps() throws URISyntaxException {
+        URL resource = ConfigShadeTest.class.getResource("/config.shade_with_props.json");
+        Assertions.assertNotNull(resource);
+        Config decryptedProps = ConfigBuilder.of(Paths.get(resource.toURI()), Lists.newArrayList());
+
+        String suffix = "666";
+        String rawUsername = "un";
+        String rawPassword = "pd";
+        Assertions.assertEquals(
+                rawUsername, decryptedProps.getConfigList("source").get(0).getString("username"));
+        Assertions.assertEquals(
+                rawPassword, decryptedProps.getConfigList("source").get(0).getString("password"));
+
+        Config encryptedConfig = ConfigShadeUtils.encryptConfig(decryptedProps);
+        Assertions.assertEquals(
+                rawUsername + suffix,
+                encryptedConfig.getConfigList("source").get(0).getString("username"));
+        Assertions.assertEquals(
+                rawPassword + suffix,
+                encryptedConfig.getConfigList("source").get(0).getString("password"));
+    }
+
+    public static class ConfigShadeWithProps implements ConfigShade {
+
+        private String suffix;
+        private String identifier = "withProps";
+
+        @Override
+        public void open(Map<String, Object> props) {
+            this.suffix = String.valueOf(props.get("suffix"));
+        }
+
+        @Override
+        public String getIdentifier() {
+            return identifier;
+        }
+
+        @Override
+        public String encrypt(String content) {
+            return content + suffix;
+        }
+
+        @Override
+        public String decrypt(String content) {
+            return content.substring(0, content.length() - suffix.length());
+        }
     }
 
     public static class Base64ConfigShade implements ConfigShade {

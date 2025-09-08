@@ -17,12 +17,14 @@
 
 package org.apache.seatunnel.connectors.seatunnel.starrocks.client;
 
-import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
+import org.apache.seatunnel.api.table.catalog.Column;
+import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.config.SinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.exception.StarRocksConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.exception.StarRocksConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.serialize.StarRocksDelimiterParser;
+import org.apache.seatunnel.connectors.seatunnel.starrocks.serialize.StarRocksSinkOP;
 
 import org.apache.commons.codec.binary.Base64;
 
@@ -50,25 +52,26 @@ public class StarRocksStreamLoadVisitor {
     private static final String RESULT_FAILED = "Fail";
     private static final String RESULT_SUCCESS = "Success";
     private static final String RESULT_LABEL_EXISTED = "Label Already Exists";
-    private static final String LAEBL_STATE_VISIBLE = "VISIBLE";
-    private static final String LAEBL_STATE_COMMITTED = "COMMITTED";
+    private static final String LABEL_STATE_VISIBLE = "VISIBLE";
+    private static final String LABEL_STATE_COMMITTED = "COMMITTED";
     private static final String RESULT_LABEL_PREPARE = "PREPARE";
     private static final String RESULT_LABEL_ABORTED = "ABORTED";
     private static final String RESULT_LABEL_UNKNOWN = "UNKNOWN";
 
-    private List<String> fieldNames;
+    private final TableSchema tableSchema;
 
-    public StarRocksStreamLoadVisitor(SinkConfig sinkConfig, List<String> fieldNames) {
+    public StarRocksStreamLoadVisitor(SinkConfig sinkConfig, TableSchema tableSchema) {
         this.sinkConfig = sinkConfig;
-        this.fieldNames = fieldNames;
+        this.tableSchema = tableSchema;
         this.httpHelper = new HttpHelper(sinkConfig);
+        checkBatchMaxBytes(sinkConfig.getBatchMaxBytes(), sinkConfig.getBatchMaxSize());
     }
 
     public Boolean doStreamLoad(StarRocksFlushTuple flushData) throws IOException {
         String host = getAvailableHost();
         if (null == host) {
             throw new StarRocksConnectorException(
-                    CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
+                    StarRocksConnectorErrorCode.HOST_IS_NULL,
                     "None of the host in `load_url` could be connected.");
         }
         String loadUrl =
@@ -90,7 +93,7 @@ public class StarRocksStreamLoadVisitor {
         Map<String, Object> loadResult =
                 httpHelper.doHttpPut(
                         loadUrl,
-                        joinRows(flushData.getRows(), flushData.getBytes().intValue()),
+                        joinRows(flushData.getRows(), flushData.getBytes()),
                         getStreamLoadHttpHeader(flushData.getLabel()));
         final String keyStatus = "Status";
         if (null == loadResult || !loadResult.containsKey(keyStatus)) {
@@ -148,13 +151,15 @@ public class StarRocksStreamLoadVisitor {
         return null;
     }
 
-    private byte[] joinRows(List<byte[]> rows, int totalBytes) {
+    private byte[] joinRows(List<byte[]> rows, Long totalBytes) {
+        checkBatchMaxBytes(totalBytes, rows.size());
         if (SinkConfig.StreamLoadFormat.CSV.equals(sinkConfig.getLoadFormat())) {
             Map<String, Object> props = sinkConfig.getStreamLoadProps();
             byte[] lineDelimiter =
                     StarRocksDelimiterParser.parse((String) props.get("row_delimiter"), "\n")
                             .getBytes(StandardCharsets.UTF_8);
-            ByteBuffer bos = ByteBuffer.allocate(totalBytes + rows.size() * lineDelimiter.length);
+            ByteBuffer bos =
+                    ByteBuffer.allocate(totalBytes.intValue() + rows.size() * lineDelimiter.length);
             for (byte[] row : rows) {
                 bos.put(row);
                 bos.put(lineDelimiter);
@@ -164,7 +169,8 @@ public class StarRocksStreamLoadVisitor {
 
         if (SinkConfig.StreamLoadFormat.JSON.equals(sinkConfig.getLoadFormat())) {
             ByteBuffer bos =
-                    ByteBuffer.allocate(totalBytes + (rows.isEmpty() ? 2 : rows.size() + 1));
+                    ByteBuffer.allocate(
+                            totalBytes.intValue() + (rows.isEmpty() ? 2 : rows.size() + 1));
             bos.put("[".getBytes(StandardCharsets.UTF_8));
             byte[] jsonDelimiter = ",".getBytes(StandardCharsets.UTF_8);
             boolean isFirstElement = true;
@@ -223,8 +229,8 @@ public class StarRocksStreamLoadVisitor {
                 }
                 LOG.info(String.format("Checking label[%s] state[%s]\n", label, labelState));
                 switch (labelState) {
-                    case LAEBL_STATE_VISIBLE:
-                    case LAEBL_STATE_COMMITTED:
+                    case LABEL_STATE_VISIBLE:
+                    case LABEL_STATE_COMMITTED:
                         return;
                     case RESULT_LABEL_PREPARE:
                         continue;
@@ -260,16 +266,19 @@ public class StarRocksStreamLoadVisitor {
 
     private Map<String, String> getStreamLoadHttpHeader(String label) {
         Map<String, String> headerMap = new HashMap<>();
-        if (null != fieldNames
-                && !fieldNames.isEmpty()
+        List<Column> columns = tableSchema.getColumns();
+        List<String> fieldNames =
+                columns.stream().map(Column::getName).collect(Collectors.toList());
+        if (sinkConfig.isEnableUpsertDelete()) {
+            fieldNames.add(StarRocksSinkOP.COLUMN_KEY);
+        }
+        if (!fieldNames.isEmpty()
                 && SinkConfig.StreamLoadFormat.CSV.equals(sinkConfig.getLoadFormat())) {
             headerMap.put(
                     "columns",
-                    String.join(
-                            ",",
-                            fieldNames.stream()
-                                    .map(f -> String.format("`%s`", f))
-                                    .collect(Collectors.toList())));
+                    fieldNames.stream()
+                            .map(f -> String.format("`%s`", f))
+                            .collect(Collectors.joining(",")));
         }
         if (null != sinkConfig.getStreamLoadProps()) {
             for (Map.Entry<String, Object> entry : sinkConfig.getStreamLoadProps().entrySet()) {
@@ -294,5 +303,31 @@ public class StarRocksStreamLoadVisitor {
                 getBasicAuthHeader(sinkConfig.getUsername(), sinkConfig.getPassword()));
         headerMap.put("Connection", "close");
         return headerMap;
+    }
+
+    void checkBatchMaxBytes(long batchMaxBytes, long batchMaxRows) {
+        long batchMaxBytesLimit;
+        if (SinkConfig.StreamLoadFormat.CSV.equals(sinkConfig.getLoadFormat())) {
+            Map<String, Object> props = sinkConfig.getStreamLoadProps();
+            byte[] lineDelimiter =
+                    StarRocksDelimiterParser.parse((String) props.get("row_delimiter"), "\n")
+                            .getBytes(StandardCharsets.UTF_8);
+            batchMaxBytesLimit = Integer.MAX_VALUE - batchMaxRows * lineDelimiter.length;
+        } else if (SinkConfig.StreamLoadFormat.JSON.equals(sinkConfig.getLoadFormat())) {
+            batchMaxBytesLimit = Integer.MAX_VALUE - (batchMaxRows == 0 ? 2 : batchMaxRows + 1);
+        } else {
+            throw new StarRocksConnectorException(
+                    StarRocksConnectorErrorCode.FLUSH_DATA_FAILED,
+                    "Failed to join rows data, unsupported `format` from stream load properties:");
+        }
+
+        if (batchMaxBytes > batchMaxBytesLimit) {
+            throw new StarRocksConnectorException(
+                    StarRocksConnectorErrorCode.FLUSH_DATA_FAILED,
+                    String.format(
+                            "The batch_max_bytes[%d] of the data exceeds the maximum limit[%d], "
+                                    + "please reset the batch_max_bytes.",
+                            batchMaxBytes, batchMaxBytesLimit));
+        }
     }
 }

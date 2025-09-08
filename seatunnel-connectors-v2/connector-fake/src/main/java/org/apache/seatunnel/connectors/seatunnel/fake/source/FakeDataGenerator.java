@@ -22,6 +22,7 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ArrayNode;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode;
+import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
 
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
@@ -41,22 +42,20 @@ import org.apache.seatunnel.connectors.seatunnel.fake.exception.FakeConnectorExc
 import org.apache.seatunnel.connectors.seatunnel.fake.utils.FakeDataRandomUtils;
 import org.apache.seatunnel.format.json.JsonDeserializationSchema;
 
-import com.google.common.annotations.VisibleForTesting;
-
 import java.io.IOException;
 import java.lang.reflect.Array;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.function.Consumer;
 import java.util.function.Function;
-
-import static org.apache.seatunnel.api.table.type.SqlType.TIME;
 
 public class FakeDataGenerator {
     private static final String CURRENT_DATE = "CURRENT_DATE";
@@ -71,7 +70,7 @@ public class FakeDataGenerator {
     private final FakeDataRandomUtils fakeDataRandomUtils;
     private String tableId;
 
-    public FakeDataGenerator(FakeConfig fakeConfig) {
+    public FakeDataGenerator(FakeConfig fakeConfig, String jobId) {
         this.catalogTable = fakeConfig.getCatalogTable();
         this.tableId = catalogTable.getTableId().toTablePath().toString();
         this.fakeConfig = fakeConfig;
@@ -79,7 +78,7 @@ public class FakeDataGenerator {
                 fakeConfig.getFakeRows() == null
                         ? null
                         : new JsonDeserializationSchema(catalogTable, false, false);
-        this.fakeDataRandomUtils = new FakeDataRandomUtils(fakeConfig);
+        this.fakeDataRandomUtils = new FakeDataRandomUtils(fakeConfig, jobId);
     }
 
     private SeaTunnelRow convertRow(FakeConfig.RowData rowData) {
@@ -184,6 +183,10 @@ public class FakeDataGenerator {
             case TIMESTAMP:
                 return fieldValue.equalsIgnoreCase(CURRENT_TIMESTAMP)
                         ? LocalDateTime.now().toString()
+                        : null;
+            case TIMESTAMP_TZ:
+                return fieldValue.equalsIgnoreCase(CURRENT_TIMESTAMP)
+                        ? OffsetDateTime.now().toString()
                         : null;
             default:
                 return null;
@@ -293,6 +296,26 @@ public class FakeDataGenerator {
                                             : dateTimeFormatter);
                         },
                         fakeDataRandomUtils::randomLocalDateTime);
+            case TIMESTAMP_TZ:
+                return value(
+                        column,
+                        defaultValue -> {
+                            if (defaultValue.equalsIgnoreCase(CURRENT_TIMESTAMP)) {
+                                return OffsetDateTime.now();
+                            }
+                            DateTimeFormatter dateTimeFormatter =
+                                    DateTimeUtils.matchDateTimeFormatter(defaultValue);
+                            return OffsetDateTime.parse(
+                                    defaultValue,
+                                    dateTimeFormatter == null
+                                            ? DateTimeFormatter.ISO_OFFSET_DATE_TIME
+                                            : dateTimeFormatter);
+                        },
+                        c ->
+                                fakeDataRandomUtils
+                                        .randomLocalDateTime(c)
+                                        .atZone(ZoneId.systemDefault())
+                                        .toOffsetDateTime());
             case ROW:
                 SeaTunnelDataType<?>[] fieldTypes = ((SeaTunnelRowType) fieldType).getFieldTypes();
                 Object[] objects = new Object[fieldTypes.length];

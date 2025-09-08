@@ -29,6 +29,7 @@ import java.io.Serializable;
 @ToString
 @EqualsAndHashCode
 public class SelectDBCommitInfo implements Serializable {
+    private static final long serialVersionUID = -1789125342533036879L;
     private final String hostPort;
     private final String clusterName;
     private final String copySQL;

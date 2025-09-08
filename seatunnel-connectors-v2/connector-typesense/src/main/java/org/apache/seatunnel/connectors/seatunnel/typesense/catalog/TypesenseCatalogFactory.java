@@ -22,6 +22,7 @@ import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.factory.CatalogFactory;
 import org.apache.seatunnel.api.table.factory.Factory;
+import org.apache.seatunnel.connectors.seatunnel.typesense.config.TypesenseBaseOptions;
 
 import com.google.auto.service.AutoService;
 
@@ -35,11 +36,15 @@ public class TypesenseCatalogFactory implements CatalogFactory {
 
     @Override
     public String factoryIdentifier() {
-        return "Typesense";
+        return TypesenseBaseOptions.CONNECTOR_IDENTITY;
     }
 
     @Override
     public OptionRule optionRule() {
-        return OptionRule.builder().build();
+        return OptionRule.builder()
+                .required(TypesenseBaseOptions.HOSTS)
+                .required(TypesenseBaseOptions.PROTOCOL)
+                .required(TypesenseBaseOptions.APIKEY)
+                .build();
     }
 }

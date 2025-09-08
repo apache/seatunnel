@@ -28,7 +28,7 @@ more.
 ### model_provider
 
 The model provider to use. The available options are:
-OPENAI, DOUBAO, KIMIAI, MICROSOFT, CUSTOM
+OPENAI, DOUBAO, DEEPSEEK, KIMIAI, MICROSOFT, ZHIPU, CUSTOM
 
 > tips: If you use Microsoft, please make sure api_path cannot be empty
 
@@ -280,13 +280,13 @@ source {
       {fields = [4, "Eric"], kind = INSERT}
       {fields = [5, "Guangdong Liu"], kind = INSERT}
     ]
-    result_table_name = "fake"
+    plugin_output = "fake"
   }
 }
 
 transform {
   LLM {
-    source_table_name = "fake"
+    plugin_input = "fake"
     model_provider = CUSTOM
     model = gpt-4o-mini
     api_key = sk-xxx
@@ -311,13 +311,13 @@ transform {
                 }]
             }
         }
-    result_table_name = "llm_output"
+    plugin_output = "llm_output"
   }
 }
 
 sink {
   Assert {
-    source_table_name = "llm_output"
+    plugin_input = "llm_output"
     rules =
       {
         field_rules = [

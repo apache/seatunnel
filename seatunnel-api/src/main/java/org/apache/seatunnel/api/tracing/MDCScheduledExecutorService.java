@@ -39,25 +39,27 @@ public class MDCScheduledExecutorService extends MDCExecutorService
 
     @Override
     public ScheduledFuture<?> schedule(Runnable command, long delay, TimeUnit unit) {
-        return delegate.schedule(new MDCRunnable(context, command), delay, unit);
+        return delegate.schedule(
+                new MDCRunnable(() -> MDCContext.of(context), command), delay, unit);
     }
 
     @Override
     public <V> ScheduledFuture<V> schedule(Callable<V> callable, long delay, TimeUnit unit) {
-        return delegate.schedule(new MDCCallable<>(context, callable), delay, unit);
+        return delegate.schedule(
+                new MDCCallable<>(() -> MDCContext.of(context), callable), delay, unit);
     }
 
     @Override
     public ScheduledFuture<?> scheduleAtFixedRate(
             Runnable command, long initialDelay, long period, TimeUnit unit) {
         return delegate.scheduleAtFixedRate(
-                new MDCRunnable(context, command), initialDelay, period, unit);
+                new MDCRunnable(() -> MDCContext.of(context), command), initialDelay, period, unit);
     }
 
     @Override
     public ScheduledFuture<?> scheduleWithFixedDelay(
             Runnable command, long initialDelay, long delay, TimeUnit unit) {
         return delegate.scheduleWithFixedDelay(
-                new MDCRunnable(context, command), initialDelay, delay, unit);
+                new MDCRunnable(() -> MDCContext.of(context), command), initialDelay, delay, unit);
     }
 }
