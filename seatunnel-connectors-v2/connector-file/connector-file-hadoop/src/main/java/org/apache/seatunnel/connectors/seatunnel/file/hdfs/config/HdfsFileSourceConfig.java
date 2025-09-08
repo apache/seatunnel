@@ -15,17 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.file.hdfs.source;
+package org.apache.seatunnel.connectors.seatunnel.file.hdfs.config;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.connectors.seatunnel.file.config.BaseFileSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
-import org.apache.seatunnel.connectors.seatunnel.file.hdfs.config.MultipleTableHdfsFileSourceConfig;
-import org.apache.seatunnel.connectors.seatunnel.file.source.BaseMultipleTableFileSource;
+import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 
-public class HdfsFileSource extends BaseMultipleTableFileSource {
+public class HdfsFileSourceConfig extends BaseFileSourceConfig {
 
-    public HdfsFileSource(ReadonlyConfig readonlyConfig) {
-        super(new MultipleTableHdfsFileSourceConfig(readonlyConfig));
+    public HdfsFileSourceConfig(ReadonlyConfig readonlyConfig) {
+        super(readonlyConfig);
+    }
+
+    @Override
+    public HadoopConf getHadoopConfig() {
+        return HdfsFileHadoopConfig.buildWithConfig(getBaseFileSourceConfig());
     }
 
     @Override

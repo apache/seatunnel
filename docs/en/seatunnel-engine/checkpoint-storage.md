@@ -278,4 +278,3 @@ seatunnel:
           disable.cache: false
           fs.defaultFS: file:///
 ```
-
