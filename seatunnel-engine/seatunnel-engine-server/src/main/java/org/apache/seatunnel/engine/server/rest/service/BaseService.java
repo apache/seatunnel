@@ -206,11 +206,13 @@ public abstract class BaseService {
     private String getJobStartTime(long jobId) {
         IMap<Object, Long[]> stateTimestamps =
                 nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_STATE_TIMESTAMPS);
-        Long[] jobnStateTimestamps = stateTimestamps.get(jobId);
-        if (jobnStateTimestamps != null) {
-            Long startTimestamp = jobnStateTimestamps[JobStatus.SCHEDULED.ordinal()];
-            return DateTimeUtils.toString(
-                    startTimestamp, DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS);
+        Long[] jobStateTimestamps = stateTimestamps.get(jobId);
+        if (jobStateTimestamps != null) {
+            Long startTimestamp = jobStateTimestamps[JobStatus.SCHEDULED.ordinal()];
+            if (startTimestamp != null) {
+                return DateTimeUtils.toString(
+                        startTimestamp, DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS);
+            }
         }
         return null;
     }
