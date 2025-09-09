@@ -339,6 +339,15 @@ public class SnowflakeTypeConverter implements TypeConverter<BasicTypeDefine> {
                 builder.columnType(SNOWFLAKE_TIMESTAMP);
                 builder.dataType(SNOWFLAKE_TIMESTAMP);
                 break;
+            case TIMESTAMP_TZ:
+                int sfTzScale = column.getScale() == null ? 9 : column.getScale();
+                if (sfTzScale > 9) {
+                    sfTzScale = 9;
+                }
+                builder.columnType(SNOWFLAKE_TIMESTAMP_TZ);
+                builder.dataType(SNOWFLAKE_TIMESTAMP_TZ);
+                builder.scale(sfTzScale);
+                break;
             default:
                 throw CommonError.convertToSeaTunnelTypeError(
                         DatabaseIdentifier.SNOWFLAKE,
