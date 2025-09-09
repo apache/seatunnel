@@ -446,9 +446,10 @@ public class CoordinatorService {
     private void restoreAllRunningJobFromMasterNodeSwitch() {
         List<Map.Entry<Long, JobInfo>> needRestoreFromMasterNodeSwitchJobs =
                 runningJobInfoIMap.entrySet().stream()
-                        .filter(entry -> !runningJobMasterMap.keySet().contains(entry.getKey()))
+                        .filter(entry -> !runningJobMasterMap.containsKey(entry.getKey()))
                         .collect(Collectors.toList());
         if (needRestoreFromMasterNodeSwitchJobs.isEmpty()) {
+            logger.info("========> No need to restore job from master node switch");
             return;
         }
         // waiting have worker registered
@@ -730,7 +731,24 @@ public class CoordinatorService {
             // Because operations on Imap cannot be performed within Operation.
             CompletableFuture<JobHistoryService.JobState> jobStateFuture =
                     CompletableFuture.supplyAsync(
-                            () -> jobHistoryService.getJobDetailState(jobId), executorService);
+                            () -> {
+                                // When a job has just been completed, its status information may
+                                // not be immediately available in the jobHistoryService. This retry
+                                // mechanism ensures that the job status information can be
+                                // correctly retrieved when it becomes available.
+                                JobHistoryService.JobState jobDetailState =
+                                        jobHistoryService.getJobDetailState(jobId);
+                                if (jobDetailState == null) {
+                                    try {
+                                        TimeUnit.MILLISECONDS.sleep(500);
+                                    } catch (InterruptedException e) {
+                                        logger.warning("wait for job complete interrupted", e);
+                                    }
+                                    return jobHistoryService.getJobDetailState(jobId);
+                                }
+                                return jobDetailState;
+                            },
+                            executorService);
             JobHistoryService.JobState jobState = null;
             try {
                 jobState = jobStateFuture.get();

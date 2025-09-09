@@ -212,7 +212,6 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
                             TimeUnit.SECONDS);
                 }
                 // wait for job complete
-                TimeUnit.MILLISECONDS.sleep(200);
                 JobResult jobResult = clientJobProxy.waitForJobCompleteV2();
                 jobStatus = jobResult.getStatus();
                 if (StringUtils.isNotEmpty(jobResult.getError())
