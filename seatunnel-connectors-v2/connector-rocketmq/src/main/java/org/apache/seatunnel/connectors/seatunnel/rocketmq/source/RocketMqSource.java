@@ -146,12 +146,16 @@ public class RocketMqSource
                 Map<MessageQueue, Long> specificStartOffsets = new HashMap<>();
                 offsetConfigMap.forEach(
                         (k, v) -> {
-                            int splitIndex = k.lastIndexOf("-");
-                            String topic = k.substring(0, splitIndex);
-                            String partition = k.substring(splitIndex + 1);
-                            MessageQueue messageQueue =
-                                    new MessageQueue(topic, null, Integer.parseInt(partition));
-                            specificStartOffsets.put(messageQueue, v);
+                            final String[] split = k.split("\\|");
+                            if (split.length == 3) {
+                                String topic = split[0];
+                                String brokerName = split[1];
+                                String partition = split[2];
+                                MessageQueue messageQueue =
+                                        new MessageQueue(
+                                                topic, brokerName, Integer.parseInt(partition));
+                                specificStartOffsets.put(messageQueue, v);
+                            }
                         });
                 this.metadata.setSpecificStartOffsets(specificStartOffsets);
                 break;

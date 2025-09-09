@@ -17,25 +17,25 @@
 
 package org.apache.seatunnel.connectors.seatunnel.rocketmq.source;
 
+import org.apache.seatunnel.shade.com.google.common.collect.Maps;
+import org.apache.seatunnel.shade.com.google.common.collect.Sets;
+
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.common.config.Common;
+import org.apache.seatunnel.connectors.seatunnel.rocketmq.common.RocketMqAdminUtil;
 import org.apache.seatunnel.connectors.seatunnel.rocketmq.common.RocketMqBaseConfiguration;
-import org.apache.seatunnel.connectors.seatunnel.rocketmq.common.StartMode;
 import org.apache.seatunnel.connectors.seatunnel.rocketmq.exception.RocketMqConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.rocketmq.exception.RocketMqConnectorException;
 
-import org.apache.commons.lang3.StringUtils;
-import org.apache.rocketmq.acl.common.AclClientRPCHook;
-import org.apache.rocketmq.acl.common.SessionCredentials;
-import org.apache.rocketmq.client.consumer.DefaultMQPullConsumer;
-import org.apache.rocketmq.client.exception.MQClientException;
+import org.apache.rocketmq.common.admin.TopicOffset;
+import org.apache.rocketmq.common.consumer.ConsumeFromWhere;
 import org.apache.rocketmq.common.message.MessageQueue;
 
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
-import java.lang.management.ManagementFactory;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -46,7 +46,6 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 @Slf4j
 public class RocketMqSourceSplitEnumerator
@@ -62,7 +61,6 @@ public class RocketMqSourceSplitEnumerator
     private long discoveryIntervalMillis;
     Map<MessageQueue, Long> specificStartupOffsets;
     private volatile boolean initialized;
-    private DefaultMQPullConsumer consumer;
     private final Object lock = new Object();
     /** The topic used for this RocketMQSource. */
     private final List<String> topics;
@@ -88,7 +86,6 @@ public class RocketMqSourceSplitEnumerator
         // Set `rocketmq.client.logUseSlf4j` to `true` to avoid create many
         // `AsyncAppender-Dispatcher-Thread`
         System.setProperty("rocketmq.client.logUseSlf4j", "true");
-        initialRocketMQConsumer(config);
     }
 
     public RocketMqSourceSplitEnumerator(
@@ -147,10 +144,6 @@ public class RocketMqSourceSplitEnumerator
 
     @Override
     public void close() throws IOException {
-        if (consumer != null) {
-            consumer.shutdown();
-        }
-
         if (scheduledFuture != null) {
             scheduledFuture.cancel(false);
             if (executor != null) {
@@ -206,14 +199,11 @@ public class RocketMqSourceSplitEnumerator
                         .map(RocketMQPartitionSplit::getMessageQueue)
                         .collect(Collectors.toSet());
         final Map<MessageQueue, Long> latestOffsets = new HashMap<>();
-        try {
-            Map<MessageQueue, Long> listOffsets =
-                    listOffsets(messageQueues, StartMode.CONSUME_FROM_LAST_OFFSET);
-            latestOffsets.putAll(listOffsets);
-        } catch (MQClientException e) {
-            throw new RocketMqConnectorException(
-                    RocketMqConnectorErrorCode.GET_CONSUMER_GROUP_OFFSETS_ERROR, e);
-        }
+
+        Map<MessageQueue, Long> listOffsets =
+                listOffsets(messageQueues, ConsumeFromWhere.CONSUME_FROM_LAST_OFFSET);
+        latestOffsets.putAll(listOffsets);
+
         splits.forEach(
                 split -> {
                     split.setStartOffset(split.getEndOffset() + 1);
@@ -226,47 +216,23 @@ public class RocketMqSourceSplitEnumerator
                 .collect(Collectors.toMap(RocketMQPartitionSplit::getMessageQueue, split -> split));
     }
 
-    private void initialRocketMQConsumer(RocketMqBaseConfiguration config) {
-        try {
-            if (StringUtils.isNotBlank(config.getAccessKey())
-                    && StringUtils.isNotBlank(config.getAccessKey())) {
-                AclClientRPCHook aclClientRPCHook =
-                        new AclClientRPCHook(
-                                new SessionCredentials(
-                                        config.getAccessKey(), config.getSecretKey()));
-                consumer = new DefaultMQPullConsumer(config.getGroupId(), aclClientRPCHook);
-            } else {
-                consumer = new DefaultMQPullConsumer(config.getGroupId());
-            }
-            consumer.setNamesrvAddr(config.getNamesrvAddr());
-            consumer.setInstanceName(
-                    String.join(
-                            "||",
-                            ManagementFactory.getRuntimeMXBean().getName(),
-                            String.join("||", topics),
-                            config.getGroupId(),
-                            "" + System.nanoTime()));
-            consumer.start();
-        } catch (MQClientException e) {
-            log.error("Failed to initial RocketMQ consumer.", e);
-            consumer.shutdown();
-        }
-    }
-
     private Set<RocketMQPartitionSplit> getTopicInfo() {
-        log.info("Discovered topics: {}", topics);
-        return topics.stream()
-                .flatMap(
-                        topic -> {
-                            try {
-                                return consumer.fetchSubscribeMessageQueues(topic).stream();
-                            } catch (MQClientException e) {
-                                log.error("Failed to subscribe topic:{}", topic, e);
-                                return Stream.empty();
-                            }
-                        })
-                .map(RocketMQPartitionSplit::new)
-                .collect(Collectors.toSet());
+        log.info("Configured topics: {}", metadata.getTopics());
+        List<Map<MessageQueue, TopicOffset>> offsetTopics =
+                RocketMqAdminUtil.offsetTopics(metadata.getBaseConfig(), metadata.getTopics());
+        Set<RocketMQPartitionSplit> sourceSplits = Sets.newConcurrentHashSet();
+        offsetTopics.forEach(
+                messageQueueOffsets -> {
+                    messageQueueOffsets.forEach(
+                            (messageQueue, topicOffset) -> {
+                                sourceSplits.add(
+                                        new RocketMQPartitionSplit(
+                                                messageQueue,
+                                                topicOffset.getMinOffset(),
+                                                topicOffset.getMaxOffset()));
+                            });
+                });
+        return sourceSplits;
     }
 
     public void fetchPendingPartitionSplit() {
@@ -281,66 +247,105 @@ public class RocketMqSourceSplitEnumerator
                         });
     }
 
-    private Map<MessageQueue, Long> listOffsets(
-            Set<MessageQueue> messageQueues, StartMode startMode) throws MQClientException {
-        Map<MessageQueue, Long> topicPartitionOffsets = new HashMap<>();
-        for (MessageQueue mq : messageQueues) {
-            switch (startMode) {
-                case CONSUME_FROM_LAST_OFFSET:
-                    topicPartitionOffsets.put(mq, consumer.maxOffset(mq));
-                    break;
-                case CONSUME_FROM_FIRST_OFFSET:
-                    topicPartitionOffsets.put(mq, consumer.minOffset(mq));
-                    break;
-                case CONSUME_FROM_GROUP_OFFSETS:
-                    long offset = consumer.fetchConsumeOffset(mq, false);
-                    // If broker throw exception,return -2.should be distinguished from the
-                    // initialization scenario
-                    if (offset <= -2) {
-                        throw new RuntimeException(
-                                "An error occurred while fetching offset,please check up server's log");
-                    }
-                    // the min offset return if consumer group first join,return a negative number
-                    // if catch exception when fetch from broker.
-                    // If you want consumer from earliest,please use OffsetResetStrategy.EARLIEST
-                    if (offset <= 0) {
-                        log.info(
-                                "current consumer thread:{} has no committed offset,use Strategy:earliest instead",
-                                mq);
-                        offset = consumer.minOffset(mq);
-                    }
-                    topicPartitionOffsets.put(mq, offset);
-                    break;
-                case CONSUME_FROM_TIMESTAMP:
-                    topicPartitionOffsets.put(
-                            mq, consumer.searchOffset(mq, consumerOffsetTimestamp));
-                    break;
-                case CONSUME_FROM_SPECIFIC_OFFSETS:
-                    if (specificStartupOffsets == null) {
-                        throw new RuntimeException(
-                                "StartMode is specific_offsets.But none offsets has been specified");
-                    }
-                    Long specificOffset = specificStartupOffsets.get(mq);
-                    topicPartitionOffsets.put(
-                            mq,
-                            specificOffset == null
-                                    ? consumer.fetchConsumeOffset(mq, false)
-                                    : specificOffset);
-                    break;
-                default:
-                    throw new IllegalArgumentException(
-                            "current startMode is not supported" + metadata.getStartMode());
+    private void setMessageQueueBroker(
+            Collection<MessageQueue> topicPartitions,
+            Map<MessageQueue, Long> topicPartitionOffsets) {
+        Map<String, String> flatTopicPartitions =
+                topicPartitions.stream()
+                        .collect(
+                                Collectors.toMap(
+                                        messageQueue ->
+                                                messageQueue.getTopic()
+                                                        + "-"
+                                                        + messageQueue.getBrokerName()
+                                                        + "-"
+                                                        + messageQueue.getQueueId(),
+                                        MessageQueue::getBrokerName));
+        for (MessageQueue messageQueue : topicPartitionOffsets.keySet()) {
+            String key =
+                    messageQueue.getTopic()
+                            + "-"
+                            + messageQueue.getBrokerName()
+                            + "-"
+                            + messageQueue.getQueueId();
+            if (flatTopicPartitions.containsKey(key)) {
+                messageQueue.setBrokerName(flatTopicPartitions.get(key));
             }
         }
-        return topicPartitionOffsets;
     }
 
-    private void setPartitionStartOffset() throws MQClientException {
-        Set<MessageQueue> pendingMessageQueues = pendingSplit.keySet();
-        Map<MessageQueue, Long> topicPartitionOffsets =
-                listOffsets(pendingMessageQueues, metadata.getStartMode());
+    private Map<MessageQueue, Long> listOffsets(
+            Collection<MessageQueue> messageQueues, ConsumeFromWhere consumeFromWhere) {
+        Map<MessageQueue, Long> results = Maps.newConcurrentMap();
+        Map<MessageQueue, TopicOffset> messageQueueOffsets =
+                RocketMqAdminUtil.flatOffsetTopics(metadata.getBaseConfig(), metadata.getTopics());
+        switch (consumeFromWhere) {
+            case CONSUME_FROM_FIRST_OFFSET:
+                messageQueues.forEach(
+                        messageQueue -> {
+                            TopicOffset topicOffset = messageQueueOffsets.get(messageQueue);
+                            results.put(messageQueue, topicOffset.getMinOffset());
+                        });
+                break;
+            case CONSUME_FROM_LAST_OFFSET:
+                messageQueues.forEach(
+                        messageQueue -> {
+                            TopicOffset topicOffset = messageQueueOffsets.get(messageQueue);
+                            results.put(messageQueue, topicOffset.getMaxOffset());
+                        });
+                break;
+            case CONSUME_FROM_TIMESTAMP:
+                results.putAll(
+                        RocketMqAdminUtil.searchOffsetsByTimestamp(
+                                metadata.getBaseConfig(),
+                                messageQueues,
+                                metadata.getStartOffsetsTimestamp()));
+                break;
+            default:
+                // No-op
+                break;
+        }
+        return results;
+    }
+
+    private void setPartitionStartOffset() {
+        Set<MessageQueue> topicPartitions = pendingSplit.keySet();
+        Map<MessageQueue, Long> topicPartitionOffsets = null;
+
+        switch (metadata.getStartMode()) {
+            case CONSUME_FROM_FIRST_OFFSET:
+                topicPartitionOffsets =
+                        listOffsets(topicPartitions, ConsumeFromWhere.CONSUME_FROM_FIRST_OFFSET);
+                break;
+            case CONSUME_FROM_LAST_OFFSET:
+                topicPartitionOffsets =
+                        listOffsets(topicPartitions, ConsumeFromWhere.CONSUME_FROM_LAST_OFFSET);
+                break;
+            case CONSUME_FROM_TIMESTAMP:
+                topicPartitionOffsets =
+                        listOffsets(topicPartitions, ConsumeFromWhere.CONSUME_FROM_TIMESTAMP);
+                break;
+            case CONSUME_FROM_GROUP_OFFSETS:
+                topicPartitionOffsets = listConsumerGroupOffsets(topicPartitions);
+                if (topicPartitionOffsets.isEmpty()) {
+                    topicPartitionOffsets =
+                            listOffsets(
+                                    topicPartitions, ConsumeFromWhere.CONSUME_FROM_FIRST_OFFSET);
+                }
+                break;
+            case CONSUME_FROM_SPECIFIC_OFFSETS:
+                topicPartitionOffsets = metadata.getSpecificStartOffsets();
+                // Fill in broker name
+                setMessageQueueBroker(topicPartitions, topicPartitionOffsets);
+                break;
+            default:
+                throw new RocketMqConnectorException(
+                        RocketMqConnectorErrorCode.UNSUPPORTED_START_MODE_ERROR,
+                        metadata.getStartMode().name());
+        }
+
         Map<MessageQueue, Long> latestOffsets =
-                listOffsets(pendingMessageQueues, StartMode.CONSUME_FROM_LAST_OFFSET);
+                listOffsets(topicPartitions, ConsumeFromWhere.CONSUME_FROM_LAST_OFFSET);
         topicPartitionOffsets.forEach(
                 (key, value) -> {
                     if (pendingSplit.containsKey(key)) {
@@ -354,6 +359,13 @@ public class RocketMqSourceSplitEnumerator
                         rocketMQPartitionSplit.setStartOffset(value);
                     }
                 });
+    }
+
+    /** list consumer group offsets */
+    public Map<MessageQueue, Long> listConsumerGroupOffsets(
+            Collection<MessageQueue> messageQueues) {
+        return RocketMqAdminUtil.currentOffsets(
+                metadata.getBaseConfig(), metadata.getTopics(), new HashSet<>(messageQueues));
     }
 
     private synchronized void assignSplit() {

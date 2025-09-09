@@ -25,6 +25,7 @@ import org.apache.seatunnel.connectors.seatunnel.common.source.reader.RecordsWit
 import org.apache.seatunnel.connectors.seatunnel.common.source.reader.splitreader.SplitReader;
 import org.apache.seatunnel.connectors.seatunnel.common.source.reader.splitreader.SplitsAddition;
 import org.apache.seatunnel.connectors.seatunnel.common.source.reader.splitreader.SplitsChange;
+import org.apache.seatunnel.connectors.seatunnel.rocketmq.common.RocketMqAdminUtil;
 import org.apache.seatunnel.connectors.seatunnel.rocketmq.common.RocketMqBaseConfiguration;
 import org.apache.seatunnel.connectors.seatunnel.rocketmq.exception.RocketMqConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.rocketmq.exception.RocketMqConnectorException;
@@ -73,6 +74,8 @@ public class RocketMQPartitionSplitReader
 
     private final Set<MessageQueue> finishedPartition;
 
+    private final Set<MessageQueue> assignment;
+
     private volatile boolean wakeup = false;
 
     public RocketMQPartitionSplitReader(
@@ -82,12 +85,10 @@ public class RocketMQPartitionSplitReader
         this.topics = metadata.getTopics();
         this.stoppingOffsets = new HashMap<>();
         this.finishedPartition = new HashSet<>();
+        this.assignment = new HashSet<>();
         this.consumer =
-                initDefaultLitePullConsumer(
-                        config,
-                        metadata,
-                        !metadata.isEnabledCommitCheckpoint(),
-                        readerContext.getIndexOfSubtask());
+                RocketMqAdminUtil.initDefaultLitePullConsumer(
+                        config, !metadata.isEnabledCommitCheckpoint());
         try {
             this.consumer.start();
         } catch (MQClientException e) {
@@ -194,13 +195,12 @@ public class RocketMQPartitionSplitReader
 
         // Assign new partitions.
         try {
-            newPartitionAssignments.addAll(consumer.assignment());
-        } catch (MQClientException e) {
+            newPartitionAssignments.addAll(assignment);
+        } catch (Exception e) {
             LOG.error("Fetch RocketMQ assignment failed.");
         }
-
         consumer.assign(newPartitionAssignments);
-
+        assignment.addAll(newPartitionAssignments);
         // Parse the starting and stopping offsets.
         splitsChange
                 .splits()
@@ -267,15 +267,18 @@ public class RocketMQPartitionSplitReader
     private void unassignPartitions(Set<MessageQueue> partitionsToUnassign) {
         Collection<MessageQueue> newAssignment;
         try {
-            newAssignment = new HashSet<>(consumer.assignment());
-        } catch (MQClientException e) {
+            newAssignment = new HashSet<>(assignment);
+        } catch (Exception e) {
             throw new RocketMqConnectorException(
                     RocketMqConnectorErrorCode.GET_ASSIGNMENT_QUEUE_ERROR, e);
         }
         finishedPartition.addAll(partitionsToUnassign);
         newAssignment.removeAll(finishedPartition);
+        this.assignment.removeAll(finishedPartition);
         if (newAssignment.isEmpty()) {
             topics.forEach(consumer::unsubscribe);
+        } else {
+            consumer.assign(newAssignment);
         }
     }
 
@@ -284,13 +287,14 @@ public class RocketMQPartitionSplitReader
         // If none of the partitions have any records,
         Set<MessageQueue> assignment;
         try {
-            assignment = consumer.assignment();
+            assignment = this.assignment;
             for (MessageQueue mq : assignment) {
-                if (consumer.committed(mq) >= getStoppingOffset(mq)) {
+                if (consumer.getOffsetStore().readOffset(mq, ReadOffsetType.READ_FROM_STORE)
+                        >= getStoppingOffset(mq)) {
                     emptyPartitions.add(mq);
                 }
             }
-        } catch (MQClientException e) {
+        } catch (Exception e) {
             throw new RocketMqConnectorException(
                     RocketMqConnectorErrorCode.GET_ASSIGNMENT_QUEUE_ERROR, e);
         }
@@ -320,11 +324,15 @@ public class RocketMQPartitionSplitReader
             LOG.info(
                     "Seeking starting offsets to : {}",
                     JsonUtils.toJsonString(partitionsStartingOffsets));
-            partitionsStartingOffsets.forEach(
-                    (mq, offset) -> {
-                        consumer.getOffsetStore().updateOffset(mq, offset, false);
-                        consumer.getOffsetStore().persist(mq);
-                    });
+            for (Map.Entry<MessageQueue, Long> messageQueueEntry :
+                    partitionsStartingOffsets.entrySet()) {
+                try {
+                    consumer.seek(messageQueueEntry.getKey(), messageQueueEntry.getValue());
+                } catch (MQClientException e) {
+                    throw new RocketMqConnectorException(
+                            RocketMqConnectorErrorCode.SEEK_MESSAGE_QUEUE_OFFSET_ERROR, e);
+                }
+            }
         }
     }
 
