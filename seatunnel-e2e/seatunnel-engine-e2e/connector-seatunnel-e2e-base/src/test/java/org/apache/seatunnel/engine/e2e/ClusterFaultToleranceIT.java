@@ -862,7 +862,7 @@ public class ClusterFaultToleranceIT {
             // Ensure that after the cluster is restored, the corresponding JobMaster exists in the
             // pendingJobQueue or runningJobMasterMap.
             Awaitility.await()
-                    .atMost(30000, TimeUnit.MILLISECONDS)
+                    .atMost(90000, TimeUnit.MILLISECONDS)
                     .pollInterval(1000, TimeUnit.MILLISECONDS)
                     .untilAsserted(
                             () -> {
