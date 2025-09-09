@@ -29,6 +29,8 @@ import org.apache.seatunnel.connectors.seatunnel.rocketmq.source.RocketMQPartiti
 import org.apache.rocketmq.common.message.MessageExt;
 import org.apache.rocketmq.common.message.MessageQueue;
 
+import lombok.SneakyThrows;
+
 import java.util.Map;
 import java.util.concurrent.BlockingQueue;
 import java.util.function.Supplier;
@@ -67,6 +69,7 @@ public class RocketMQSourceFetcherManager
 
         splitFetcher.addTask(
                 new SplitFetcherTask() {
+                    @SneakyThrows
                     @Override
                     public void run() {
                         rocketMQReader.notifyCheckpointComplete(committedOffsets, callback);
