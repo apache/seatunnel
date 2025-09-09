@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.iotdb.sink;
 
-import lombok.extern.slf4j.Slf4j;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
@@ -26,6 +25,8 @@ import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSimpleSink;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 import org.apache.seatunnel.connectors.seatunnel.iotdb.constant.SinkConstants;
 import org.apache.seatunnel.connectors.seatunnel.iotdb.sink.relational.IoTDBRelationalSinkWriter;
+
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.Optional;
 

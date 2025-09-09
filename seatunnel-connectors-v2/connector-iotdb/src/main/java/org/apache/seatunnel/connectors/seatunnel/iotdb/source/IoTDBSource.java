@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.iotdb.source;
 
-import lombok.extern.slf4j.Slf4j;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
@@ -30,6 +29,8 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.iotdb.constant.SourceConstants;
 import org.apache.seatunnel.connectors.seatunnel.iotdb.source.relational.IoTDBRelationalSourceReader;
 import org.apache.seatunnel.connectors.seatunnel.iotdb.state.IoTDBSourceState;
+
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.Collections;
 import java.util.List;
@@ -65,7 +66,8 @@ public class IoTDBSource
     public SourceReader<SeaTunnelRow, IoTDBSourceSplit> createReader(
             SourceReader.Context readerContext) {
         if (SourceConstants.TABLE.equalsIgnoreCase(sqlDialect)) {
-            return new IoTDBRelationalSourceReader(pluginConfig, readerContext, catalogTable.getSeaTunnelRowType());
+            return new IoTDBRelationalSourceReader(
+                    pluginConfig, readerContext, catalogTable.getSeaTunnelRowType());
         }
         return new IoTDBSourceReader(
                 pluginConfig, readerContext, catalogTable.getSeaTunnelRowType());

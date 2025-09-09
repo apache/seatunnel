@@ -30,10 +30,10 @@ import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.iotdb.config.IoTDBSourceOptions;
-
-import com.google.auto.service.AutoService;
 import org.apache.seatunnel.connectors.seatunnel.iotdb.constant.SourceConstants;
 import org.apache.seatunnel.connectors.seatunnel.iotdb.exception.IotdbConnectorException;
+
+import com.google.auto.service.AutoService;
 
 import java.io.Serializable;
 

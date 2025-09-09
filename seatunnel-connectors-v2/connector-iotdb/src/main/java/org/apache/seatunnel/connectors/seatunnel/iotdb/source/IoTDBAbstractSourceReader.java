@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.iotdb.source;
 
-import lombok.extern.slf4j.Slf4j;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.Collector;
@@ -25,13 +24,16 @@ import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.iotdb.serialize.SeaTunnelRowDeserializer;
 
+import lombok.extern.slf4j.Slf4j;
+
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Queue;
 
 @Slf4j
-public abstract class IoTDBAbstractSourceReader implements SourceReader<SeaTunnelRow, IoTDBSourceSplit> {
+public abstract class IoTDBAbstractSourceReader
+        implements SourceReader<SeaTunnelRow, IoTDBSourceSplit> {
 
     protected final ReadonlyConfig conf;
 
@@ -43,8 +45,7 @@ public abstract class IoTDBAbstractSourceReader implements SourceReader<SeaTunne
 
     private volatile boolean noMoreSplitsAssignment;
 
-    public IoTDBAbstractSourceReader(
-            ReadonlyConfig conf, SourceReader.Context readerContext) {
+    public IoTDBAbstractSourceReader(ReadonlyConfig conf, SourceReader.Context readerContext) {
         this.conf = conf;
         this.pendingSplits = new LinkedList<>();
         this.context = readerContext;
@@ -66,7 +67,8 @@ public abstract class IoTDBAbstractSourceReader implements SourceReader<SeaTunne
         }
     }
 
-    abstract public void read(IoTDBSourceSplit split, Collector<SeaTunnelRow> output) throws Exception;
+    public abstract void read(IoTDBSourceSplit split, Collector<SeaTunnelRow> output)
+            throws Exception;
 
     @Override
     public List<IoTDBSourceSplit> snapshotState(long checkpointId) {

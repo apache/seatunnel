@@ -29,5 +29,8 @@ public class IoTDBCommonOptions {
     public static final Option<String> PASSWORD =
             Options.key("password").stringType().noDefaultValue().withDescription("password");
     public static final Option<String> SQL_DIALECT =
-            Options.key("sql_dialect").stringType().defaultValue("tree").withDescription("sql dialect");
+            Options.key("sql_dialect")
+                    .stringType()
+                    .defaultValue("tree")
+                    .withDescription("sql dialect");
 }

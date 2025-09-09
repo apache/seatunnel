@@ -17,20 +17,22 @@
 
 package org.apache.seatunnel.connectors.seatunnel.iotdb.sink.relational;
 
-import lombok.extern.slf4j.Slf4j;
-import org.apache.iotdb.isession.ITableSession;
-import org.apache.iotdb.rpc.IoTDBConnectionException;
-import org.apache.iotdb.rpc.StatementExecutionException;
-import org.apache.iotdb.session.TableSessionBuilder;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.iotdb.config.SinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.iotdb.exception.IotdbConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.iotdb.exception.IotdbConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.iotdb.serialize.relational.IoTDBRelationalRecord;
+
+import org.apache.iotdb.isession.ITableSession;
+import org.apache.iotdb.rpc.IoTDBConnectionException;
+import org.apache.iotdb.rpc.StatementExecutionException;
+import org.apache.iotdb.session.TableSessionBuilder;
 import org.apache.tsfile.enums.ColumnCategory;
 import org.apache.tsfile.enums.TSDataType;
 import org.apache.tsfile.write.record.Tablet;
+
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.time.LocalDate;
@@ -54,11 +56,12 @@ public class IoTDBRelationalSinkClient {
     private final List<ColumnCategory> columnCategories;
     private final List<TSDataType> columnDataTypes;
 
-    public IoTDBRelationalSinkClient(SinkConfig sinkConfig,
-                                     List<String> tagKeys,
-                                     List<String> attributeKeys,
-                                     List<String> fieldNames,
-                                     List<TSDataType> fieldTypes) {
+    public IoTDBRelationalSinkClient(
+            SinkConfig sinkConfig,
+            List<String> tagKeys,
+            List<String> attributeKeys,
+            List<String> fieldNames,
+            List<TSDataType> fieldTypes) {
         this.sinkConfig = sinkConfig;
         this.batchList = new ArrayList<>();
 
@@ -256,15 +259,17 @@ public class IoTDBRelationalSinkClient {
         }
     }
 
-    private List<String> combineColumnNames(List<String> tagKeys, List<String> attributeKeys, List<String> fieldNames) {
-        List<String> res =  new ArrayList<>();
+    private List<String> combineColumnNames(
+            List<String> tagKeys, List<String> attributeKeys, List<String> fieldNames) {
+        List<String> res = new ArrayList<>();
         res.addAll(tagKeys);
         res.addAll(attributeKeys);
         res.addAll(fieldNames);
         return res;
     }
 
-    private List<ColumnCategory> generateColumnCategories(int tagSize, int attributeSize, int fieldSize) {
+    private List<ColumnCategory> generateColumnCategories(
+            int tagSize, int attributeSize, int fieldSize) {
         List<ColumnCategory> res = new ArrayList<>();
         for (int i = 0; i < tagSize; ++i) {
             res.add(ColumnCategory.TAG);
@@ -278,7 +283,8 @@ public class IoTDBRelationalSinkClient {
         return res;
     }
 
-    private List<TSDataType> generateColumnTypes(int tagSize, int attributeSize, List<TSDataType> fieldTypes) {
+    private List<TSDataType> generateColumnTypes(
+            int tagSize, int attributeSize, List<TSDataType> fieldTypes) {
         List<TSDataType> res = new ArrayList<>();
         int s = tagSize + attributeSize;
         for (int i = 0; i < s; ++i) {

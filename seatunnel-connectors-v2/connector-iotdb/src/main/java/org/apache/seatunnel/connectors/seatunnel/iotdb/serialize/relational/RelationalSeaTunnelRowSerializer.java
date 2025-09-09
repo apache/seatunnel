@@ -17,18 +17,20 @@
 
 package org.apache.seatunnel.connectors.seatunnel.iotdb.serialize.relational;
 
-import lombok.NonNull;
-import lombok.extern.slf4j.Slf4j;
+import org.apache.seatunnel.shade.com.google.common.base.Strings;
+
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.iotdb.exception.IotdbConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.iotdb.serialize.SeaTunnelRowSerializer;
-import org.apache.seatunnel.shade.com.google.common.base.Strings;
+
 import org.apache.tsfile.enums.TSDataType;
 
-import java.time.LocalDate;
+import lombok.NonNull;
+import lombok.extern.slf4j.Slf4j;
+
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
@@ -36,7 +38,8 @@ import java.util.List;
 import java.util.function.Function;
 
 @Slf4j
-public class RelationalSeaTunnelRowSerializer implements SeaTunnelRowSerializer<IoTDBRelationalRecord> {
+public class RelationalSeaTunnelRowSerializer
+        implements SeaTunnelRowSerializer<IoTDBRelationalRecord> {
 
     private final Function<SeaTunnelRow, String> tableNameExtractor;
     private final Function<SeaTunnelRow, Long> timestampExtractor;
@@ -126,7 +129,9 @@ public class RelationalSeaTunnelRowSerializer implements SeaTunnelRowSerializer<
     }
 
     private Function<SeaTunnelRow, List<Object>> createFieldsExtractor(
-            SeaTunnelRowType seaTunnelRowType, List<String> fieldList, List<TSDataType> fieldTypeList) {
+            SeaTunnelRowType seaTunnelRowType,
+            List<String> fieldList,
+            List<TSDataType> fieldTypeList) {
         int fieldSize = fieldList.size();
         return row -> {
             List<Object> values = new ArrayList<>(fieldSize);

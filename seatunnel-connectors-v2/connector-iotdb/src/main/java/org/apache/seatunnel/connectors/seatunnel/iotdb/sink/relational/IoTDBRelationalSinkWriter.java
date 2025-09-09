@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.iotdb.sink.relational;
 
-import lombok.SneakyThrows;
-import lombok.extern.slf4j.Slf4j;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -30,7 +28,11 @@ import org.apache.seatunnel.connectors.seatunnel.iotdb.exception.IotdbConnectorE
 import org.apache.seatunnel.connectors.seatunnel.iotdb.serialize.SeaTunnelRowSerializer;
 import org.apache.seatunnel.connectors.seatunnel.iotdb.serialize.relational.IoTDBRelationalRecord;
 import org.apache.seatunnel.connectors.seatunnel.iotdb.serialize.relational.RelationalSeaTunnelRowSerializer;
+
 import org.apache.tsfile.enums.TSDataType;
+
+import lombok.SneakyThrows;
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -45,7 +47,8 @@ public class IoTDBRelationalSinkWriter extends AbstractSinkWriter<SeaTunnelRow, 
     private final SeaTunnelRowSerializer<IoTDBRelationalRecord> serializer;
     private final IoTDBRelationalSinkClient sinkClient;
 
-    public IoTDBRelationalSinkWriter(ReadonlyConfig pluginConfig, SeaTunnelRowType seaTunnelRowType) {
+    public IoTDBRelationalSinkWriter(
+            ReadonlyConfig pluginConfig, SeaTunnelRowType seaTunnelRowType) {
         SinkConfig sinkConfig = SinkConfig.loadConfig(pluginConfig);
         List<String> tagKeys = sinkConfig.getKeyTagFields();
         if (tagKeys == null) {
@@ -64,22 +67,37 @@ public class IoTDBRelationalSinkWriter extends AbstractSinkWriter<SeaTunnelRow, 
             timestampKey = "";
         }
         List<String> fieldKeys = sinkConfig.getKeyMeasurementFields();
-        List<String> fieldNames = createFieldList(seaTunnelRowType, fieldKeys, tagKeys, attributeKeys, tableNameKey, timestampKey);
+        List<String> fieldNames =
+                createFieldList(
+                        seaTunnelRowType,
+                        fieldKeys,
+                        tagKeys,
+                        attributeKeys,
+                        tableNameKey,
+                        timestampKey);
         List<TSDataType> fieldTypes = createFieldTypeList(seaTunnelRowType, fieldNames);
-        this.serializer = new RelationalSeaTunnelRowSerializer(
-                seaTunnelRowType,
-                sinkConfig.getStorageGroup(),
-                tableNameKey,
-                timestampKey,
-                tagKeys, attributeKeys,
-                fieldNames, fieldTypes);
-        this.sinkClient = new IoTDBRelationalSinkClient(sinkConfig,
-                tagKeys, attributeKeys, fieldNames, fieldTypes);
+        this.serializer =
+                new RelationalSeaTunnelRowSerializer(
+                        seaTunnelRowType,
+                        sinkConfig.getStorageGroup(),
+                        tableNameKey,
+                        timestampKey,
+                        tagKeys,
+                        attributeKeys,
+                        fieldNames,
+                        fieldTypes);
+        this.sinkClient =
+                new IoTDBRelationalSinkClient(
+                        sinkConfig, tagKeys, attributeKeys, fieldNames, fieldTypes);
     }
 
     private List<String> createFieldList(
-            SeaTunnelRowType seaTunnelRowType, List<String> fieldKeys,
-            List<String> tagList, List<String> attributeList, String tableNameKey, String timestampKey) {
+            SeaTunnelRowType seaTunnelRowType,
+            List<String> fieldKeys,
+            List<String> tagList,
+            List<String> attributeList,
+            String tableNameKey,
+            String timestampKey) {
         if (fieldKeys == null || fieldKeys.isEmpty()) {
             return Stream.of(seaTunnelRowType.getFieldNames())
                     .filter(name -> !tagList.contains(name))
@@ -91,14 +109,17 @@ public class IoTDBRelationalSinkWriter extends AbstractSinkWriter<SeaTunnelRow, 
         return fieldKeys;
     }
 
-    private List<TSDataType> createFieldTypeList(SeaTunnelRowType seaTunnelRowType, List<String> fieldList) {
+    private List<TSDataType> createFieldTypeList(
+            SeaTunnelRowType seaTunnelRowType, List<String> fieldList) {
         return fieldList.stream()
-                .map(field -> {
-                    int index = seaTunnelRowType.indexOf(field);
-                    SeaTunnelDataType<?> seaTunnelType =
-                            seaTunnelRowType.getFieldType(index);
-                    return convert(seaTunnelType);
-                }).collect(Collectors.toList());
+                .map(
+                        field -> {
+                            int index = seaTunnelRowType.indexOf(field);
+                            SeaTunnelDataType<?> seaTunnelType =
+                                    seaTunnelRowType.getFieldType(index);
+                            return convert(seaTunnelType);
+                        })
+                .collect(Collectors.toList());
     }
 
     @Override

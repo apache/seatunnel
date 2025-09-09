@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.iotdb.serialize;
 
-import lombok.extern.slf4j.Slf4j;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -30,6 +29,7 @@ import org.apache.tsfile.read.common.Field;
 import org.apache.tsfile.read.common.RowRecord;
 
 import lombok.AllArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 import java.time.ZoneOffset;
 import java.util.Date;
@@ -56,8 +56,7 @@ public class DefaultSeaTunnelRowDeserializer implements SeaTunnelRowDeserializer
         List<Field> fields = rowRecord.getFields();
         if (fields.size() != (rowType.getTotalFields() - 1)) {
             throw new IotdbConnectorException(
-                    CommonErrorCode.ILLEGAL_ARGUMENT,
-                    "Illegal SeaTunnelRowType: " + rowRecord);
+                    CommonErrorCode.ILLEGAL_ARGUMENT, "Illegal SeaTunnelRowType: " + rowRecord);
         }
         Object[] seaTunnelFields = new Object[rowType.getTotalFields()];
         seaTunnelFields[0] = convertTimestamp(timestamp, rowType.getFieldType(0));
@@ -77,8 +76,7 @@ public class DefaultSeaTunnelRowDeserializer implements SeaTunnelRowDeserializer
         List<Field> fields = rowRecord.getFields();
         if (fields.size() != rowType.getTotalFields()) {
             throw new IotdbConnectorException(
-                    CommonErrorCode.ILLEGAL_ARGUMENT,
-                    "Illegal SeaTunnelRowType: " + rowRecord);
+                    CommonErrorCode.ILLEGAL_ARGUMENT, "Illegal SeaTunnelRowType: " + rowRecord);
         }
         Object[] seaTunnelFields = new Object[rowType.getTotalFields()];
         for (int i = 0; i < rowType.getTotalFields(); i++) {
@@ -124,7 +122,10 @@ public class DefaultSeaTunnelRowDeserializer implements SeaTunnelRowDeserializer
                 long timestamp = (long) field.getObjectValue(TSDataType.TIMESTAMP);
                 switch (seaTunnelFieldType.getSqlType()) {
                     case TIMESTAMP:
-                        return new Date(timestamp).toInstant().atZone(ZoneOffset.UTC).toLocalDateTime();
+                        return new Date(timestamp)
+                                .toInstant()
+                                .atZone(ZoneOffset.UTC)
+                                .toLocalDateTime();
                     case BIGINT:
                         return timestamp;
                     default:

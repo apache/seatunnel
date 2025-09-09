@@ -27,10 +27,10 @@ import org.apache.seatunnel.connectors.seatunnel.iotdb.exception.IotdbConnectorE
 import org.apache.seatunnel.connectors.seatunnel.iotdb.exception.IotdbConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.iotdb.serialize.DefaultSeaTunnelRowDeserializer;
 
-import org.apache.iotdb.rpc.IoTDBConnectionException;
-import org.apache.iotdb.session.Session;
 import org.apache.iotdb.isession.SessionDataSet;
 import org.apache.iotdb.isession.util.Version;
+import org.apache.iotdb.rpc.IoTDBConnectionException;
+import org.apache.iotdb.session.Session;
 import org.apache.tsfile.read.common.RowRecord;
 
 import java.io.IOException;
@@ -52,7 +52,8 @@ public class IoTDBSourceReader extends IoTDBAbstractSourceReader {
 
     private Session session;
 
-    public IoTDBSourceReader(ReadonlyConfig conf, SourceReader.Context readerContext, SeaTunnelRowType rowType) {
+    public IoTDBSourceReader(
+            ReadonlyConfig conf, SourceReader.Context readerContext, SeaTunnelRowType rowType) {
         super(conf, readerContext);
         this.deserializer = new DefaultSeaTunnelRowDeserializer(rowType, SourceConstants.TREE);
     }
@@ -104,7 +105,8 @@ public class IoTDBSourceReader extends IoTDBAbstractSourceReader {
         }
         Session session = sessionBuilder.build();
         if (null != conf.get(ENABLE_CACHE_LEADER)) {
-            session.setEnableCacheLeader(Boolean.parseBoolean(conf.get(ENABLE_CACHE_LEADER).toString()));
+            session.setEnableCacheLeader(
+                    Boolean.parseBoolean(conf.get(ENABLE_CACHE_LEADER).toString()));
         }
         return session;
     }

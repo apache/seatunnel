@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.iotdb.sink;
 
-import lombok.extern.slf4j.Slf4j;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.connector.TableSink;
@@ -26,10 +25,11 @@ import org.apache.seatunnel.api.table.factory.TableSinkFactory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.iotdb.config.IoTDBSinkOptions;
-
-import com.google.auto.service.AutoService;
 import org.apache.seatunnel.connectors.seatunnel.iotdb.constant.SinkConstants;
 import org.apache.seatunnel.connectors.seatunnel.iotdb.exception.IotdbConnectorException;
+
+import com.google.auto.service.AutoService;
+import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @AutoService(Factory.class)
@@ -85,6 +85,7 @@ public class IoTDBSinkFactory implements TableSinkFactory {
         } else {
             targetSqlDialect = SinkConstants.TREE;
         }
-        return () -> new IoTDBSink(context.getOptions(), context.getCatalogTable(), targetSqlDialect);
+        return () ->
+                new IoTDBSink(context.getOptions(), context.getCatalogTable(), targetSqlDialect);
     }
 }
