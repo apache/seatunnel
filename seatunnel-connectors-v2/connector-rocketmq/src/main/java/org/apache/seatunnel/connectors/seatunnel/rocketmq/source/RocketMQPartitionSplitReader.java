@@ -17,14 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.rocketmq.source;
 
-import org.apache.commons.lang3.StringUtils;
-import org.apache.rocketmq.acl.common.AclClientRPCHook;
-import org.apache.rocketmq.acl.common.SessionCredentials;
-import org.apache.rocketmq.client.consumer.DefaultLitePullConsumer;
-import org.apache.rocketmq.client.consumer.store.ReadOffsetType;
-import org.apache.rocketmq.client.exception.MQClientException;
-import org.apache.rocketmq.common.message.MessageExt;
-import org.apache.rocketmq.common.message.MessageQueue;
+import org.apache.seatunnel.shade.com.google.common.base.Preconditions;
+
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.connectors.seatunnel.common.source.reader.RecordsWithSplitIds;
@@ -34,11 +28,21 @@ import org.apache.seatunnel.connectors.seatunnel.common.source.reader.splitreade
 import org.apache.seatunnel.connectors.seatunnel.rocketmq.common.RocketMqBaseConfiguration;
 import org.apache.seatunnel.connectors.seatunnel.rocketmq.exception.RocketMqConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.rocketmq.exception.RocketMqConnectorException;
-import org.apache.seatunnel.shade.com.google.common.base.Preconditions;
+
+import org.apache.commons.lang3.StringUtils;
+import org.apache.rocketmq.acl.common.AclClientRPCHook;
+import org.apache.rocketmq.acl.common.SessionCredentials;
+import org.apache.rocketmq.client.consumer.DefaultLitePullConsumer;
+import org.apache.rocketmq.client.consumer.store.ReadOffsetType;
+import org.apache.rocketmq.client.exception.MQClientException;
+import org.apache.rocketmq.common.message.MessageExt;
+import org.apache.rocketmq.common.message.MessageQueue;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nullable;
+
 import java.io.IOException;
 import java.lang.management.ManagementFactory;
 import java.util.ArrayList;
