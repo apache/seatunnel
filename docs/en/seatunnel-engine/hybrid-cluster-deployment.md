@@ -89,6 +89,10 @@ The interval between two checkpoints, in milliseconds. If the `checkpoint.interv
 
 The timeout for checkpoints. If the checkpoint cannot be completed within the timeout, a checkpoint failure will be triggered and the job will fail. If the `checkpoint.timeout` parameter is configured in the job configuration file's `env`, the one set in the job configuration file will be used.
 
+**min-pause**
+
+The minimum pause (in milliseconds) between consecutive checkpoints. This ensures that checkpoints are not triggered too frequently.
+
 Example
 
 ```yaml
@@ -101,6 +105,8 @@ seatunnel:
         checkpoint:
             interval: 300000
             timeout: 10000
+            min-pause: 5000
+
 ```
 
 **checkpoint storage**

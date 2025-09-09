@@ -25,6 +25,7 @@ import ChangeLog from '../changelog/connector-file-hadoop.md';
 - [x] [列投影](../../concept/connector-v2-features.md)
 - [x] [并行度](../../concept/connector-v2-features.md)
 - [ ] [支持用户定义分片](../../concept/connector-v2-features.md)
+- [x] [支持多表读](../../concept/connector-v2-features.md)
 - [x] 文件格式类型
   - [x] text
   - [x] csv
@@ -260,6 +261,46 @@ sink {
   Console {
   }
 }
+```
+
+### 多表配置
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  HdfsFile {
+    tables_configs = [
+      {
+        schema = {
+          table = "student"
+        }
+        path = "/apps/hive/demo/student"
+        file_format_type = "json"
+        fs.defaultFS = "hdfs://namenode001"
+      },
+      {
+        schema = {
+          table = "teacher"
+        }
+        path = "/apps/hive/demo/teacher"
+        file_format_type = "json"
+        fs.defaultFS = "hdfs://namenode001"
+      }
+    ]
+  }
+}
+
+sink {
+    HdfsFile {
+      fs.defaultFS = "hdfs://hadoopcluster"
+      path = "/tmp/hive/warehouse/${table_name}"
+      file_format_type = "orc"
+    }
+}
+
 ```
 
 ## 变更日志
