@@ -21,12 +21,17 @@ import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.ConstraintKey;
 import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.catalog.exception.CatalogException;
 import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
+import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
+import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.AbstractJdbcCatalog;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.utils.CatalogUtils;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.xugu.XuguTypeConverter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.xugu.XuguTypeMapper;
+
+import org.apache.commons.lang3.StringUtils;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -36,6 +41,10 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
+import java.util.stream.Collectors;
+
+import static org.apache.seatunnel.common.exception.CommonErrorCode.UNSUPPORTED_METHOD;
 
 @Slf4j
 public class XuguCatalog extends AbstractJdbcCatalog {
@@ -98,11 +107,11 @@ public class XuguCatalog extends AbstractJdbcCatalog {
                     + "        c.DEF_VAL AS DEFAULT_VALUE,\n"
                     + "        c.NOT_NULl AS IS_NULLABLE\n"
                     + "    FROM\n"
-                    + "        dba_columns c\n"
-                    + "    LEFT JOIN dba_tables tab ON\n"
+                    + "        all_columns c\n"
+                    + "    LEFT JOIN all_tables tab ON\n"
                     + "        c.db_id = tab.db_id\n"
                     + "        AND c.table_id = tab.table_id\n"
-                    + "    LEFT JOIN dba_schemas sc ON\n"
+                    + "    LEFT JOIN all_schemas sc ON\n"
                     + "        tab.schema_id = sc.schema_id\n"
                     + "        AND tab.db_id = sc.db_id\n"
                     + "    WHERE\n"
@@ -122,21 +131,44 @@ public class XuguCatalog extends AbstractJdbcCatalog {
 
     @Override
     protected String getDatabaseWithConditionSql(String databaseName) {
-        return String.format(getListDatabaseSql() + "  where DB_NAME = '%s'", databaseName);
+        return String.format(getListDatabaseSql() + "  where UPPER(DB_NAME) = '%s'", databaseName);
     }
 
     @Override
     protected String getTableWithConditionSql(TablePath tablePath) {
         return String.format(
                 getListTableSql(tablePath.getDatabaseName())
-                        + "  where user_name = '%s' and table_name = '%s'",
+                        + "  and s.schema_name = '%s' and t.table_name = '%s'",
                 tablePath.getSchemaName(),
                 tablePath.getTableName());
     }
 
+    // "Test" and "TEST" are the same database
     @Override
     protected String getListDatabaseSql() {
-        return "SELECT DB_NAME FROM dba_databases";
+        return "SELECT UPPER(DB_NAME) FROM all_databases";
+    }
+
+    // Rewrite the databaseExists method, and xugu will force the conversion to uppercase
+    @Override
+    public boolean databaseExists(String databaseName) throws CatalogException {
+        if (StringUtils.isBlank(databaseName)) {
+            return false;
+        }
+        try {
+            return querySQLResultExists(
+                    defaultUrl, getDatabaseWithConditionSql(databaseName.toUpperCase()));
+        } catch (SeaTunnelRuntimeException e) {
+            if (e.getSeaTunnelErrorCode().getCode().equals(UNSUPPORTED_METHOD.getCode())) {
+                log.warn(
+                        "The catalog: {} is not supported the getDatabaseWithConditionSql for databaseExists",
+                        this.catalogName);
+                return listDatabases().contains(databaseName.toUpperCase());
+            }
+            throw e;
+        } catch (SQLException e) {
+            throw new SeaTunnelException("Failed to querySQLResult", e);
+        }
     }
 
     @Override
@@ -162,8 +194,10 @@ public class XuguCatalog extends AbstractJdbcCatalog {
 
     @Override
     protected String getListTableSql(String databaseName) {
-        return "SELECT user_name ,table_name FROM all_users au \n"
-                + "INNER JOIN all_tables at ON au.user_id=at.user_id AND au.db_id=at.db_id";
+        return "select s.schema_name,t.table_name \n"
+                + "from all_schemas s,all_tables t\n"
+                + "where\n"
+                + "s.schema_id=t.schema_id";
     }
 
     @Override
@@ -243,11 +277,48 @@ public class XuguCatalog extends AbstractJdbcCatalog {
     protected List<ConstraintKey> getConstraintKeys(DatabaseMetaData metaData, TablePath tablePath)
             throws SQLException {
         try {
-            return getConstraintKeys(
-                    metaData,
-                    tablePath.getDatabaseName(),
-                    tablePath.getSchemaName(),
-                    tablePath.getTableName());
+            List<ConstraintKey> constraintKeys =
+                    getConstraintKeys(
+                            metaData,
+                            tablePath.getDatabaseName(),
+                            tablePath.getSchemaName(),
+                            tablePath.getTableName());
+            // Block the unique constraint field name because all returned by xugu are enclosed in
+            // double quotes
+            if (constraintKeys != null && !constraintKeys.isEmpty()) {
+                constraintKeys =
+                        constraintKeys.stream()
+                                .filter(Objects::nonNull)
+                                .map(
+                                        constraintKey ->
+                                                ConstraintKey.of(
+                                                        constraintKey.getConstraintType(),
+                                                        constraintKey.getConstraintName(),
+                                                        constraintKey.getColumnNames() != null
+                                                                ? constraintKey.getColumnNames()
+                                                                        .stream()
+                                                                        .filter(Objects::nonNull)
+                                                                        .map(
+                                                                                column ->
+                                                                                        ConstraintKey
+                                                                                                .ConstraintKeyColumn
+                                                                                                .of(
+                                                                                                        column
+                                                                                                                                .getColumnName()
+                                                                                                                        != null
+                                                                                                                ? column.getColumnName()
+                                                                                                                        .replace(
+                                                                                                                                "\"",
+                                                                                                                                "")
+                                                                                                                : null,
+                                                                                                        column
+                                                                                                                .getSortType()))
+                                                                        .collect(
+                                                                                Collectors.toList())
+                                                                : null))
+                                .collect(Collectors.toList());
+            }
+            return constraintKeys;
         } catch (SQLException e) {
             log.info("Obtain constraint failure", e);
             return new ArrayList<>();
