@@ -190,8 +190,7 @@ class BaseServletTest extends AbstractSeaTunnelServerTest {
     @AfterAll
     public void teardown() {
         try {
-            // Manually release log4j2 log context references, otherwise deleting log files will
-            // fail
+            // Manually release log4j2 context references, otherwise deleting log files will fail
             LoggerContext context = (LoggerContext) LogManager.getContext(false);
             context.close();
             // clean the log dir
