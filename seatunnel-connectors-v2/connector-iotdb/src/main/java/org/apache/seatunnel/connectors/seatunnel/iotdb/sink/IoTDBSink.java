@@ -50,7 +50,6 @@ public class IoTDBSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
     @Override
     public AbstractSinkWriter<SeaTunnelRow, Void> createWriter(SinkWriter.Context context) {
         if (SinkConstants.TABLE.equalsIgnoreCase(sqlDialect)) {
-            log.info("returned IoTDBRelationalSinkWriter"); // to-delete
             return new IoTDBRelationalSinkWriter(pluginConfig, catalogTable.getSeaTunnelRowType());
         }
         return new IoTDBSinkWriter(pluginConfig, catalogTable.getSeaTunnelRowType());

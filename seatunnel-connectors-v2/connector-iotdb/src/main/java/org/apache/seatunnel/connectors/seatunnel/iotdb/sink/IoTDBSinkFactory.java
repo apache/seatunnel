@@ -85,8 +85,6 @@ public class IoTDBSinkFactory implements TableSinkFactory {
         } else {
             targetSqlDialect = SinkConstants.TREE;
         }
-
-        log.info("targetSqlDialect:{}", targetSqlDialect); // to-delete
         return () -> new IoTDBSink(context.getOptions(), context.getCatalogTable(), targetSqlDialect);
     }
 }

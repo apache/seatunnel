@@ -19,7 +19,6 @@ package org.apache.seatunnel.connectors.seatunnel.iotdb.sink.relational;
 
 import lombok.extern.slf4j.Slf4j;
 import org.apache.iotdb.isession.ITableSession;
-import org.apache.iotdb.isession.SessionDataSet;
 import org.apache.iotdb.rpc.IoTDBConnectionException;
 import org.apache.iotdb.rpc.StatementExecutionException;
 import org.apache.iotdb.session.TableSessionBuilder;
@@ -31,10 +30,10 @@ import org.apache.seatunnel.connectors.seatunnel.iotdb.exception.IotdbConnectorE
 import org.apache.seatunnel.connectors.seatunnel.iotdb.serialize.relational.IoTDBRelationalRecord;
 import org.apache.tsfile.enums.ColumnCategory;
 import org.apache.tsfile.enums.TSDataType;
-import org.apache.tsfile.read.common.RowRecord;
 import org.apache.tsfile.write.record.Tablet;
 
 import java.io.IOException;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -125,7 +124,6 @@ public class IoTDBRelationalSinkClient {
     }
 
     public synchronized void write(IoTDBRelationalRecord record) throws IOException {
-        log.info("write record: {}", record); // to-delete
         tryInit();
         checkFlushException();
 
@@ -133,13 +131,11 @@ public class IoTDBRelationalSinkClient {
         Tablet curTablet;
         int tabletIndex = tableNameList.indexOf(tableName);
         if (tabletIndex == -1) {
-            log.info("add new tablet with tableName: {}", tableName); // to-delete
             tableNameList.add(tableName);
             curTablet = new Tablet(tableName, columnNames, columnDataTypes, columnCategories);
             addValuesToTablet(record, curTablet, 0);
             batchList.add(curTablet);
         } else {
-            log.info("existing tablet with tableName: {}", tableName); // to-delete
             curTablet = batchList.get(tabletIndex);
             addValuesToTablet(record, curTablet, curTablet.getRowSize());
         }
@@ -184,8 +180,10 @@ public class IoTDBRelationalSinkClient {
                     break;
                 case TEXT:
                 case STRING:
-                case DATE:
                     tablet.addValue(rowIndex, columnIndex++, (String) fieldValue);
+                    break;
+                case DATE:
+                    tablet.addValue(rowIndex, columnIndex++, LocalDate.parse((String) fieldValue));
                     break;
                 default:
                     throw new IotdbConnectorException(
@@ -212,7 +210,6 @@ public class IoTDBRelationalSinkClient {
     synchronized void flush() {
         checkFlushException();
         if (batchList.isEmpty()) {
-            log.info("flush empty batch list"); // to-delete
             return;
         }
 
@@ -220,7 +217,6 @@ public class IoTDBRelationalSinkClient {
         for (int i = 0; i <= maxRetries; i++) {
             try {
                 for (Tablet tablet : batchList) {
-                    log.info("flush tablet:{}", tablet); // to-delete
                     tableSession.insert(tablet);
                 }
             } catch (IoTDBConnectionException | StatementExecutionException e) {
@@ -261,14 +257,10 @@ public class IoTDBRelationalSinkClient {
     }
 
     private List<String> combineColumnNames(List<String> tagKeys, List<String> attributeKeys, List<String> fieldNames) {
-        log.info("tagKeys: {}", tagKeys); // to-delete
-        log.info("attributeKeys: {}", attributeKeys); // to-delete
-        log.info("fieldNames: {}", fieldNames); // to-delete
         List<String> res =  new ArrayList<>();
         res.addAll(tagKeys);
         res.addAll(attributeKeys);
         res.addAll(fieldNames);
-        log.info("combineColumnNames: {}", res); // to-delete
         return res;
     }
 
@@ -283,7 +275,6 @@ public class IoTDBRelationalSinkClient {
         for (int i = 0; i < fieldSize; ++i) {
             res.add(ColumnCategory.FIELD);
         }
-        log.info("generateColumnCategories: {}", res); // to-delete
         return res;
     }
 
@@ -294,8 +285,6 @@ public class IoTDBRelationalSinkClient {
             res.add(TSDataType.STRING);
         }
         res.addAll(fieldTypes);
-        log.info("generateColumnTypes: {}", res); // to-delete
         return res;
     }
-
 }

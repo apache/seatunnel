@@ -28,12 +28,10 @@ import org.apache.seatunnel.connectors.seatunnel.iotdb.serialize.SeaTunnelRowSer
 import org.apache.seatunnel.shade.com.google.common.base.Strings;
 import org.apache.tsfile.enums.TSDataType;
 
-import java.text.SimpleDateFormat;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.List;
 import java.util.function.Function;
 
@@ -64,13 +62,11 @@ public class RelationalSeaTunnelRowSerializer implements SeaTunnelRowSerializer<
 
     @Override
     public IoTDBRelationalRecord serialize(SeaTunnelRow seaTunnelRow) {
-        log.info("start serializing seaTunnelRow: {}", seaTunnelRow); // to-delete
         String tableName = tableNameExtractor.apply(seaTunnelRow);
         Long timestamp = timestampExtractor.apply(seaTunnelRow);
         List<String> tags = tagsExtractor.apply(seaTunnelRow);
         List<String> attributes = attributesExtractor.apply(seaTunnelRow);
         List<Object> fields = fieldsExtractor.apply(seaTunnelRow);
-        log.info("serialized seatunnel row: {}", seaTunnelRow); // to-delete
         return new IoTDBRelationalRecord(tableName, timestamp, tags, attributes, fields);
     }
 
@@ -158,9 +154,6 @@ public class RelationalSeaTunnelRowSerializer implements SeaTunnelRowSerializer<
         switch (tsDataType) {
             case BOOLEAN:
                 return Boolean.parseBoolean(value.toString());
-            case DATE:
-                SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
-                return sdf.format(value);
             case INT32:
                 return ((Number) value).intValue();
             case INT64:
@@ -171,6 +164,7 @@ public class RelationalSeaTunnelRowSerializer implements SeaTunnelRowSerializer<
                 return ((Number) value).doubleValue();
             case TIMESTAMP:
                 return ((LocalDateTime) value).atZone(ZoneOffset.UTC).toInstant().toEpochMilli();
+            case DATE:
             case TEXT:
             case STRING:
                 return value.toString();

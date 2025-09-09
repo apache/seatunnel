@@ -103,9 +103,7 @@ public class IoTDBRelationalSinkWriter extends AbstractSinkWriter<SeaTunnelRow, 
 
     @Override
     public void write(SeaTunnelRow element) throws IOException {
-        log.info("write element:{}", element); // to-delete
         IoTDBRelationalRecord record = serializer.serialize(element);
-        log.info("converted to record:{}", record); // to-delete
         sinkClient.write(record);
     }
 
