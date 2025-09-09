@@ -193,6 +193,10 @@ seatunnel:
 ```
 This will distribute metrics across 4 partitions instead of using a single key.
 
+Increasing the partition count provides significant benefits when the number of tasks exceeds approximately 20,000.
+As a practical guideline, a partition count of around 1,000–2,000 tends to offer the best balance between reducing lock contention and minimizing overhead.
+It is recommended to start with this value and then adjust based on your cluster size and workload characteristics.
+
 Note:
 Increasing the partition count may improve concurrency under heavy contention,
 but setting it too high can introduce additional overhead in distribution and merging, which can reduce overall performance.
