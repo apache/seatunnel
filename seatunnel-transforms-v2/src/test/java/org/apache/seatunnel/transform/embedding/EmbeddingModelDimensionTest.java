@@ -82,6 +82,7 @@ public class EmbeddingModelDimensionTest {
                         "modelName",
                         "https://api.doubao.io/v1/chat/completions",
                         1,
+                        false,
                         client);
 
         int dimension = ThreadLocalRandom.current().nextInt(1024, 2561);

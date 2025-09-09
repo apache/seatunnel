@@ -4,9 +4,9 @@
 
 ## 描述
 
-`Embedding` 转换插件利用 embedding 模型将文本数据转换为向量化表示。此转换可以应用于各种字段。该插件支持多种模型提供商，并且可以与不同的API集成。
+`Embedding` 转换插件利用 embedding 模型将文本和多模态数据转换为向量化表示。此转换可以应用于各种字段，包括文本、图片和视频。该插件支持多种模型提供商，并且可以与不同的API集成。
 
-> **重要提示：** 当前 embedding 精确度仅支持 float32 
+> **重要提示：** 当前 embedding 精确度仅支持 float32
 
 ## 配置选项
 
@@ -53,14 +53,67 @@
 
 ### vectorization_fields
 
-输入字段和相应的输出向量字段之间的映射。这使得插件可以理解要向量化的文本字段以及如何存储生成的向量。
+输入字段和相应的输出向量字段之间的映射。这使得插件可以理解要向量化的字段以及如何存储生成的向量。插件通过允许您为每个字段指定模态类型来支持多模态数据。
 
+**基本文本向量化：**
 ```hocon
 vectorization_fields {
     book_intro_vector = book_intro
-    author_biography_vector  = author_biography
+    author_biography_vector = author_biography
 }
 ```
+
+**多模态向量化：**
+```hocon
+vectorization_fields {
+    # 基本文本字段
+    text_vector = text_field
+
+    # 显式指定模态类型的配置
+    product_image_vector = {
+        field = product_image_url
+        modality = jpeg
+        format = url
+    }
+
+    # 自动检测模态类型（根据文件后缀）
+    thumbnail_vector = {
+        field = thumbnail_image  # 如果值为 "image.png"，会自动检测为 PNG 模态
+        format = url
+    }
+
+    # 视频字段配置
+    demo_video_vector = {
+        field = product_video_url
+        modality = mp4
+        format = url
+    }
+
+    # 二进制数据配置
+    binary_image_vector = {
+        field = image_data
+        modality = jpeg
+        format = binary
+    }
+}
+```
+
+**字段规范格式：**
+
+**支持的模态类型：**
+- **图片：** `jpeg` (jpg, jpeg), `png` (png, apng), `gif`, `webp`, `bmp` (bmp, dib), `tiff` (tiff, tif), `ico`, `icns`, `sgi`, `jpeg2000` (j2c, j2k, jp2, jpc, jpf, jpx)
+- **视频：** `mp4`, `avi`, `mov`
+- **文本：** `text`（默认）
+
+**数据格式：**
+- `text` - 文本格式（默认）
+- `url` - URL 格式
+- `binary` - 二进制数据格式
+
+**自动模态检测：**
+当未显式指定 `modality` 且 `format` 不是 `binary` 时，系统会根据字段值的文件后缀自动检测模态类型：
+
+> **重要：** 使用多模态字段（图片或视频）时，请确保您的模型提供商支持多模态 embedding。图片和视频字段必须包含有效的 URL 或二进制数据。目前，`DOUBAO` 提供商支持多模态数据处理。
 
 ### model
 
@@ -126,6 +179,8 @@ vectorization_fields {
 转换插件的常见参数, 请参考  [Transform Plugin](common-options.md) 了解详情
 
 ## 示例配置
+
+### 基本文本 Embedding
 
 ```hocon
 env {
@@ -250,6 +305,243 @@ sink {
           ]
         }
     }
+}
+```
+
+### 多模态 Embedding（火山引擎豆包）
+
+多模态 Embedding 支持输入可访问 URL 或 二进制数据格式处理多模态数据
+
+#### 可访问 URL
+
+```hocon
+env {
+  job.mode = "BATCH"
+}
+
+source {
+  FakeSource {
+    row.num = 5
+    schema = {
+      fields {
+        id = "int"
+        product_name = "string"
+        description = "string"
+        product_image_url = "string"
+        product_video_url = "string"
+        thumbnail_image = "string"
+        promotional_video = "string"
+        category = "string"
+        price = "decimal(10,2)"
+        created_at = "timestamp"
+      }
+    }
+    rows = [
+      {
+        fields = [
+          1,
+          "iPhone 15 Pro",
+          "Latest iPhone with advanced camera system and A17 Pro chip",
+          "https://example.com/images/iphone15pro.jpg",
+          "https://example.com/videos/iphone15pro_demo.mp4",
+          "https://example.com/thumbnails/iphone15pro_thumb.png",
+          "https://example.com/videos/iphone15pro_promo.mov",
+          "Electronics",
+          999.99,
+          "2024-01-15T10:30:00"
+        ],
+        kind = INSERT
+      },
+      {
+        fields = [
+          2,
+          "MacBook Air M3",
+          "Ultra-thin laptop with M3 chip for incredible performance",
+          "https://example.com/images/macbook_air_m3.jpeg",
+          "https://example.com/videos/macbook_air_review.avi",
+          "https://example.com/thumbnails/macbook_thumb.webp",
+          "https://example.com/videos/macbook_commercial.mp4",
+          "Computers",
+          1299.99,
+          "2024-02-20T14:15:00"
+        ],
+        kind = INSERT
+      }
+    ]
+    plugin_output = "fake"
+  }
+}
+
+transform {
+  Embedding {
+    plugin_input = "fake"
+    model_provider = DOUBAO
+    model = "doubao-embedding-vision"
+    api_key = "your-api-key"
+    api_path = "https://ark.cn-beijing.volces.com/api/v3/embeddings/multimodal"
+    single_vectorized_input_number = 1
+
+    vectorization_fields {
+      # 文本字段 - 默认文本模态
+      description_vector = description
+
+      # 显式指定图片模态
+      product_image_vector = {
+        field = product_image_url
+        modality = jpeg
+        format = url
+      }
+
+      thumbnail_vector = {
+        field = thumbnail_image
+        format = url
+      }
+
+      # 视频字段
+      demo_video_vector = {
+        field = product_video_url
+        modality = mp4
+        format = url
+      }
+
+      promo_video_vector = {
+        field = promotional_video  # 如果值为 "promo.mov"，自动检测为 MOV
+        format = url
+      }
+
+      product_name_vector = product_name
+    }
+
+    plugin_output = "multimodal_embedding_output"
+  }
+}
+
+sink {
+  Assert {
+    plugin_input = "multimodal_embedding_output"
+    rules = {
+      field_rules = [
+        {
+          field_name = id
+          field_type = int
+          field_value = [
+            {
+              rule_type = NOT_NULL
+            }
+          ]
+        },
+        {
+          field_name = description_vector
+          field_type = float_vector
+          field_value = [
+            {
+              rule_type = NOT_NULL
+            }
+          ]
+        },
+        {
+          field_name = product_image_vector
+          field_type = float_vector
+          field_value = [
+            {
+              rule_type = NOT_NULL
+            }
+          ]
+        },
+        {
+          field_name = thumbnail_vector
+          field_type = float_vector
+          field_value = [
+            {
+              rule_type = NOT_NULL
+            }
+          ]
+        },
+        {
+          field_name = demo_video_vector
+          field_type = float_vector
+          field_value = [
+            {
+              rule_type = NOT_NULL
+            }
+          ]
+        }
+      ]
+    }
+  }
+}
+```
+
+#### 二进制格式
+
+```hocon
+env {
+  job.mode = "BATCH"
+}
+
+source {
+  LocalFile {
+    path = "/seatunnel/read/binary/"
+    file_format_type = "binary"
+    binary_complete_file_mode = false
+    binary_chunk_size = 1024
+    plugin_output = "binary_source"
+  }
+}
+
+transform {
+  Embedding {
+    plugin_input = "binary_source"
+    model_provider = DOUBAO
+    model = "doubao-embedding-vision-250615"
+    api_key = "test-api-key"
+    api_path = "http://mockserver:1080/api/v3/embeddings/multimodal"
+    single_vectorized_input_number = 1
+
+    vectorization_fields = {
+      image_embedding = {
+        field = "data"
+        modality = "jpeg"
+        format = "binary"
+      }
+    }
+
+    plugin_output = "binary_embedding_output"
+  }
+}
+
+sink {
+  Assert {
+    plugin_input = "binary_embedding_output"
+    rules = {
+      row_rules = [
+        {
+          rule_type = MAX_ROW
+          rule_value = 1
+        }
+      ],
+      field_rules = [
+        {
+          field_name = image_embedding
+          field_type = float_vector
+          field_value = [
+            {
+              rule_type = NOT_NULL
+            }
+          ]
+        },
+        {
+          field_name = relativePath
+          field_type = string
+          field_value = [
+            {
+              rule_type = NOT_NULL
+            }
+          ]
+        }
+      ]
+    }
+  }
 }
 ```
 
