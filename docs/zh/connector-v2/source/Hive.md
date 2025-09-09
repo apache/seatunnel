@@ -8,6 +8,18 @@ import ChangeLog from '../changelog/connector-hive.md';
 
 从 Hive 读取数据。
 
+使用 markdown 格式时，SeaTunnel 可以解析存储在 Hive 表中的 markdown 文件并提取结构化数据，包括标题、段落、列表、代码块和表格等元素。每个元素都转换为具有以下架构的行：
+- `element_id`：元素的唯一标识符
+- `element_type`：元素类型（Heading、Paragraph、ListItem 等）
+- `heading_level`：标题级别（1-6，非标题元素为 null）
+- `text`：元素的文本内容
+- `page_number`：页码（默认：1）
+- `position_index`：文档中的位置索引
+- `parent_id`：父元素的 ID
+- `child_ids`：子元素 ID 的逗号分隔列表
+
+注意：Markdown 格式仅支持读取，不支持写入。
+
 :::tip 提示
 
 为了使用此连接器，您必须确保您的 Spark/Flink 集群已经集成了 Hive。测试过的 Hive 版本是 2.3.9 和 3.1.3。
@@ -32,6 +44,7 @@ import ChangeLog from '../changelog/connector-hive.md';
     - [x] Parquet
     - [x] ORC
     - [x] JSON
+    - [x] markdown
 
 ## 选项
 

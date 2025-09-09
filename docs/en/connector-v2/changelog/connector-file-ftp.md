@@ -2,6 +2,7 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
+|[Feature][File] Add markdown parser #9714|https://github.com/apache/seatunnel/commit/8b3c07844| dev || --- | --- | --- |
 |[Improve][Connector-V2] Support maxcompute sink writer with timestamp field type (#9234)|https://github.com/apache/seatunnel/commit/a513c495e3| dev |
 |[Improve][Connector-V2] Add remote host verification option for FTP data channels (#9324)|https://github.com/apache/seatunnel/commit/019d69d10a|2.3.11|
 |[improve] update file connectors config (#9034)|https://github.com/apache/seatunnel/commit/8041d59dc2|2.3.11|

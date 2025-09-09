@@ -2,6 +2,7 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
+|[Feature][File] Add markdown parser #9714|https://github.com/apache/seatunnel/commit/8b3c07844| dev |
 |[Feature][connector-hive] hive sink connector support overwrite mode #7843 (#7891)|https://github.com/apache/seatunnel/commit/6fafe6f4d3| dev |
 |[Fix][Connector-V2] Fix hive client thread unsafe (#9282)|https://github.com/apache/seatunnel/commit/5dc25897a9|2.3.11|
 |[improve] update file connectors config (#9034)|https://github.com/apache/seatunnel/commit/8041d59dc2|2.3.11|
