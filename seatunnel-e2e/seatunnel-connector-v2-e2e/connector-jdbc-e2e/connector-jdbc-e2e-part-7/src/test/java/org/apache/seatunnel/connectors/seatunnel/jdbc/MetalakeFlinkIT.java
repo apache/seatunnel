@@ -168,6 +168,20 @@ public class MetalakeFlinkIT extends Flink13Container {
         Startables.deepStart(Stream.of(taskManager)).join();
         executeExtraCommands(jobManager);
 
+        jobManager.execInContainer(
+                "bash",
+                "-c",
+                "mkdir -p /tmp/seatunnel/plugins/Jdbc/lib && cd /tmp/seatunnel/plugins/Jdbc/lib && wget "
+                        + driverUrl()
+                        + " --no-check-certificate"
+                        + "&& mkdir -p /tmp/gravitino && cd /tmp/gravitino && curl -C - --retry 5 -L -k -o gravitino-0.9.1-bin.tar.gz https://dlcdn.apache.org/gravitino/0.9.1/gravitino-0.9.1-bin.tar.gz && tar -zxvf gravitino-0.9.1-bin.tar.gz && cd /tmp/gravitino/gravitino-0.9.1-bin && ./bin/gravitino.sh start");
+
+        jobManager.execInContainer(
+                "bash",
+                "-c",
+                "sleep 60 && curl -L 'http://127.0.0.1:8090/api/metalakes' -H 'Content-Type: application/json' -H 'Accept: application/vnd.gravitino.v1+json' -d '{\"name\":\"test_metalake\",\"comment\":\"for metalake test\",\"properties\":{}}'"
+                        + "&& curl -L 'http://127.0.0.1:8090/api/metalakes/test_metalake/catalogs' -H 'Content-Type: application/json' -H 'Accept: application/vnd.gravitino.v1+json' -d '{\"name\":\"test_catalog\",\"type\":\"relational\",\"provider\":\"jdbc-mysql\",\"comment\":\"for metalake test\",\"properties\":{\"jdbc-driver\":\"com.mysql.cj.jdbc.Driver\",\"jdbc-url\":\"not used\",\"jdbc-user\":\"root\",\"jdbc-password\":\"Abc!@#135_seatunnel\"}}'");
+
         dbServer = initContainer().withImagePullPolicy(PullPolicy.alwaysPull());
 
         Startables.deepStart(Stream.of(dbServer)).join();
