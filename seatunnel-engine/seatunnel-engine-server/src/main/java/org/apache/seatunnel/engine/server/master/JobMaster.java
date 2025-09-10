@@ -151,7 +151,7 @@ public class JobMaster {
     private final IMap<Object, Object> runningJobStateTimestampsIMap;
 
     // TODO add config to change value
-    private boolean isPhysicalDAGIInfo = true;
+    private boolean isPhysicalDAGInfo = true;
 
     private final EngineConfig engineConfig;
 
@@ -643,7 +643,7 @@ public class JobMaster {
                             logicalDag,
                             jobImmutableInformation,
                             engineConfig,
-                            isPhysicalDAGIInfo,
+                            isPhysicalDAGInfo,
                             new ExecutionAddress(
                                     this.nodeEngine.getThisAddress().getHost(),
                                     this.nodeEngine.getThisAddress().getPort()),
