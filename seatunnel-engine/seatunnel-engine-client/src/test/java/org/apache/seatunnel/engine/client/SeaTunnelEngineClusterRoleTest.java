@@ -301,7 +301,7 @@ public class SeaTunnelEngineClusterRoleTest {
             status.contains("PENDING");
 
             // Cancel the job in the pending state, The task is canceled from the Pending queue, the
-            // task itself is not running, and the job status should be UNKNOWABLE
+            // task itself is not running, and the job status should be CANCELED
             seaTunnelClient.getJobClient().cancelJob(clientJobProxy.getJobId());
             Awaitility.await()
                     .atMost(60000, TimeUnit.MILLISECONDS)
