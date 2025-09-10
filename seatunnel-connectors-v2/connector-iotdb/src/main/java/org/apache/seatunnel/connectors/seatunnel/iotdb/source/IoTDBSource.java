@@ -30,12 +30,9 @@ import org.apache.seatunnel.connectors.seatunnel.iotdb.constant.SourceConstants;
 import org.apache.seatunnel.connectors.seatunnel.iotdb.source.relational.IoTDBRelationalSourceReader;
 import org.apache.seatunnel.connectors.seatunnel.iotdb.state.IoTDBSourceState;
 
-import lombok.extern.slf4j.Slf4j;
-
 import java.util.Collections;
 import java.util.List;
 
-@Slf4j
 public class IoTDBSource
         implements SeaTunnelSource<SeaTunnelRow, IoTDBSourceSplit, IoTDBSourceState>,
                 SupportParallelism,
@@ -49,7 +46,6 @@ public class IoTDBSource
         this.catalogTable = catalogTable;
         this.pluginConfig = pluginConfig;
         this.sqlDialect = sqlDialect;
-        log.info("Created IoTDB source with sql_dialect {}", sqlDialect);
     }
 
     @Override
