@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.e2e.connector.paimon;
 
+import org.apache.seatunnel.common.utils.FileUtils;
 import org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonBaseOptions;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
@@ -43,6 +44,7 @@ import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.Container;
 import org.testcontainers.utility.MountableFile;
 
+import java.io.File;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -53,10 +55,10 @@ import java.util.List;
         disabledReason =
                 "Paimon does not support flink 1.13, Spark 2.4.6 has a jar package(zstd-jni-version.jar) version compatibility issue.")
 public class PaimonIT extends TestSuiteBase implements TestResource {
-    private String rootUser = "root";
-    private String rootPassword = "123456";
-    private String paimonUser = "paimon";
-    private String paimonUserPassword = "123456";
+    private final String rootUser = "root";
+    private final String rootPassword = "123456";
+    private final String paimonUser = "paimon";
+    private final String paimonUserPassword = "123456";
 
     private PrivilegedCatalog privilegedCatalog;
     private final String DATABASE_NAME = "default";
@@ -183,5 +185,23 @@ public class PaimonIT extends TestSuiteBase implements TestResource {
         Container.ExecResult execResult1 =
                 container.executeJob("/paimon_to_paimon_privilege1.conf");
         Assertions.assertEquals(1, execResult1.getExitCode());
+    }
+
+    @TestTemplate
+    public void jobFinishedCleanTmpFiles(TestContainer container) throws Exception {
+        // fake to paimon
+        Container.ExecResult execResult =
+                container.executeJob("/fake_to_paimon_with_change_log_tmp.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+        // check job finished clean up tmp files
+        String hostName = System.getProperty("user.name");
+        boolean isWindows =
+                System.getProperties().getProperty("os.name").toUpperCase().contains("WINDOWS");
+        String tmpDir =
+                isWindows
+                        ? String.format("C:/Users/%s/tmp/seatunnel_mnt/paimon_tmp", hostName)
+                        : "/tmp/seatunnel_mnt/paimon_tmp";
+        List<File> files = FileUtils.listFile(tmpDir);
+        Assertions.assertTrue(CollectionUtils.isEmpty(files));
     }
 }

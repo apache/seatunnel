@@ -84,6 +84,14 @@ public class EnvCommonOptions {
                     .noDefaultValue()
                     .withDescription("The timeout (in milliseconds) for a checkpoint.");
 
+    public static Option<Integer> CHECKPOINT_MIN_PAUSE =
+            Options.key("min-pause")
+                    .intType()
+                    .defaultValue(-1)
+                    .withDescription(
+                            "The minimum pause (in milliseconds) between consecutive checkpoints. "
+                                    + "This ensures that checkpoints are not triggered too frequently and provides.");
+
     public static Option<SaveModeExecuteLocation> SAVEMODE_EXECUTE_LOCATION =
             Options.key("savemode.execute.location")
                     .enumType(SaveModeExecuteLocation.class)

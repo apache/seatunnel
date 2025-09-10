@@ -25,6 +25,7 @@ import ChangeLog from '../changelog/connector-file-hadoop.md';
 - [x] [column projection](../../concept/connector-v2-features.md)
 - [x] [parallelism](../../concept/connector-v2-features.md)
 - [ ] [support user-defined split](../../concept/connector-v2-features.md)
+- [x] [support multiple table read](../../concept/connector-v2-features.md)
 - [x] file format file
   - [x] text
   - [x] csv
@@ -259,6 +260,46 @@ sink {
   Console {
   }
 }
+```
+
+### Multiple Table
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  HdfsFile {
+    tables_configs = [
+      {
+        schema = {
+          table = "student"
+        }
+        path = "/apps/hive/demo/student"
+        file_format_type = "json"
+        fs.defaultFS = "hdfs://namenode001"
+      },
+      {
+        schema = {
+          table = "teacher"
+        }
+        path = "/apps/hive/demo/teacher"
+        file_format_type = "json"
+        fs.defaultFS = "hdfs://namenode001"
+      }
+    ]
+  }
+}
+
+sink {
+    HdfsFile {
+      fs.defaultFS = "hdfs://hadoopcluster"
+      path = "/tmp/hive/warehouse/${table_name}"
+      file_format_type = "orc"
+    }
+}
+
 ```
 
 ## Changelog

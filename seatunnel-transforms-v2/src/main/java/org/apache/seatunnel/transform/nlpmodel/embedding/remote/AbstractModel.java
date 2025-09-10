@@ -32,7 +32,7 @@ public abstract class AbstractModel implements Model {
 
     protected static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
     protected static final String DIMENSION_EXAMPLE = "dimension example";
-    private final Integer singleVectorizedInputNumber;
+    protected final Integer singleVectorizedInputNumber;
 
     protected AbstractModel(Integer singleVectorizedInputNumber) {
         this.singleVectorizedInputNumber = singleVectorizedInputNumber;

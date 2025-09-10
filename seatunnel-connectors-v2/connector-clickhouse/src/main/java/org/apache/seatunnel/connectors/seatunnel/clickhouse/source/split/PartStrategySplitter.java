@@ -118,7 +118,6 @@ public class PartStrategySplitter implements Splitter, AutoCloseable, Serializab
                                 new ArrayList<>(partSplit),
                                 shardPartsEntry.getKey(),
                                 clickhouseSourceTable.getOriginQuery(),
-                                0,
                                 splitId);
                 splits.add(clickhouseSourceSplit);
             }
