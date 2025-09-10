@@ -339,6 +339,8 @@ public class CoordinatorService {
                         ExceptionUtils.getMessage(new NoEnoughResourceException()));
         jobMaster.getPhysicalPlan().updateJobState(JobStatus.FAILED);
         jobMaster.getPhysicalPlan().completeJobEndFuture(jobResult);
+        // wait job complete
+        jobMaster.getJobMasterCompleteFuture().join();
         logger.info(
                 String.format(
                         "The job %s is not running because the resources is not enough insufficient",
