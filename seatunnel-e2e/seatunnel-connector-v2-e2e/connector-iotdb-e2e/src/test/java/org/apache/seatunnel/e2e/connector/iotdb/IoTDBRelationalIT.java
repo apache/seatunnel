@@ -17,24 +17,26 @@
 
 package org.apache.seatunnel.e2e.connector.iotdb;
 
-import lombok.extern.slf4j.Slf4j;
-import org.apache.iotdb.isession.ITableSession;
-import org.apache.iotdb.isession.SessionDataSet;
-import org.apache.iotdb.rpc.IoTDBConnectionException;
-import org.apache.iotdb.rpc.StatementExecutionException;
-import org.apache.iotdb.session.TableSessionBuilder;
+import org.apache.seatunnel.shade.com.google.common.collect.Lists;
+
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
-import org.apache.seatunnel.shade.com.google.common.collect.Lists;
+
+import org.apache.iotdb.isession.ITableSession;
+import org.apache.iotdb.isession.SessionDataSet;
+import org.apache.iotdb.rpc.IoTDBConnectionException;
+import org.apache.iotdb.rpc.StatementExecutionException;
+import org.apache.iotdb.session.TableSessionBuilder;
 import org.apache.tsfile.enums.ColumnCategory;
 import org.apache.tsfile.enums.TSDataType;
 import org.apache.tsfile.read.common.Field;
 import org.apache.tsfile.read.common.RowRecord;
 import org.apache.tsfile.utils.Binary;
 import org.apache.tsfile.write.record.Tablet;
+
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
@@ -45,8 +47,14 @@ import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerLoggerFactory;
 
+import lombok.extern.slf4j.Slf4j;
+
 import java.time.LocalDate;
-import java.util.*;
+import java.util.Arrays;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
@@ -92,17 +100,19 @@ public class IoTDBRelationalIT extends TestSuiteBase implements TestResource {
                 .atLeast(100, TimeUnit.MILLISECONDS)
                 .pollInterval(500, TimeUnit.MILLISECONDS)
                 .atMost(30, TimeUnit.SECONDS)
-                .until(() -> {
-                    tableSession = tableSessionBuilder.build();
-                    return tableSession != null;
-                });
+                .until(
+                        () -> {
+                            tableSession = tableSessionBuilder.build();
+                            return tableSession != null;
+                        });
 
         testTableDataSet = generateTestTableDataSet();
     }
 
     @TestTemplate
     public void testIoTDBTable(TestContainer container) throws Exception {
-        Container.ExecResult execResult = container.executeJob("/iotdb/iotdb_source_to_sink_table.conf");
+        Container.ExecResult execResult =
+                container.executeJob("/iotdb/iotdb_source_to_sink_table.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
 
         List<RowRecord> sinkTableDataset = readSinkTableDataset();
@@ -120,9 +130,26 @@ public class IoTDBRelationalIT extends TestSuiteBase implements TestResource {
         return tableSessionBuilder;
     }
 
-    private List<RowRecord> generateTestTableDataSet() throws IoTDBConnectionException, StatementExecutionException {
-        tableSession.executeNonQueryStatement(String.format("CREATE DATABASE IF NOT EXISTS %s", SOURCE_DATABASE));
-        List<String> columnNames = Arrays.asList("c_tag", "c_attribute", "c_boolean", "c_tinyint", "c_smallint", "c_int", "c_bigint", "c_float", "c_double", "c_string", "c_text", "c_date", "c_timestamp", "c_blob");
+    private List<RowRecord> generateTestTableDataSet()
+            throws IoTDBConnectionException, StatementExecutionException {
+        tableSession.executeNonQueryStatement(
+                String.format("CREATE DATABASE IF NOT EXISTS %s", SOURCE_DATABASE));
+        List<String> columnNames =
+                Arrays.asList(
+                        "c_tag",
+                        "c_attribute",
+                        "c_boolean",
+                        "c_tinyint",
+                        "c_smallint",
+                        "c_int",
+                        "c_bigint",
+                        "c_float",
+                        "c_double",
+                        "c_string",
+                        "c_text",
+                        "c_date",
+                        "c_timestamp",
+                        "c_blob");
         List<ColumnCategory> columnCategories = new ArrayList<>();
         columnCategories.add(ColumnCategory.TAG);
         columnCategories.add(ColumnCategory.ATTRIBUTE);
@@ -168,9 +195,8 @@ public class IoTDBRelationalIT extends TestSuiteBase implements TestResource {
             record.addField(Long.MAX_VALUE, TSDataType.INT64);
             record.addField(Float.MAX_VALUE, TSDataType.FLOAT);
             record.addField(Double.MAX_VALUE, TSDataType.DOUBLE);
-            // record.addField(new Binary("testString".getBytes()), TSDataType.STRING);
             record.addField(new Binary("testText".getBytes()), TSDataType.TEXT);
-            LocalDate ld = LocalDate.of(2024, 12,25);
+            LocalDate ld = LocalDate.of(2024, 12, 25);
             record.addField(20241225, TSDataType.DATE);
             record.addField(timestamp, TSDataType.TIMESTAMP);
             record.addField(new Binary("0x3939".getBytes()), TSDataType.BLOB);
@@ -198,8 +224,13 @@ public class IoTDBRelationalIT extends TestSuiteBase implements TestResource {
         return rowRecords;
     }
 
-    private List<RowRecord> readSinkTableDataset() throws IoTDBConnectionException, StatementExecutionException {
-        SessionDataSet dataSet = tableSession.executeQueryStatement("SELECT time, c_tag, c_attribute, c_boolean, c_tinyint, c_smallint, c_int, c_bigint, c_float, c_double, c_text, c_date, c_timestamp, c_blob FROM " + SINK_DATABASE + ".testString");
+    private List<RowRecord> readSinkTableDataset()
+            throws IoTDBConnectionException, StatementExecutionException {
+        SessionDataSet dataSet =
+                tableSession.executeQueryStatement(
+                        "SELECT time, c_tag, c_attribute, c_boolean, c_tinyint, c_smallint, c_int, c_bigint, c_float, c_double, c_text, c_date, c_timestamp, c_blob FROM "
+                                + SINK_DATABASE
+                                + ".testString");
         List<RowRecord> results = new ArrayList<>();
         while (dataSet.hasNext()) {
             RowRecord record = dataSet.next();
@@ -217,7 +248,8 @@ public class IoTDBRelationalIT extends TestSuiteBase implements TestResource {
         for (int rowIndex = 0; rowIndex < testDataset.size(); rowIndex++) {
             RowRecord testDatasetRow = testDataset.get(rowIndex);
             RowRecord sinkDatasetRow = sinkDataset.get(rowIndex);
-            Assertions.assertEquals(testDatasetRow.getTimestamp(), sinkDatasetRow.getField(0).getLongV());
+            Assertions.assertEquals(
+                    testDatasetRow.getTimestamp(), sinkDatasetRow.getField(0).getLongV());
 
             List<Field> testDatasetRowFields = testDatasetRow.getFields();
             List<Field> sinkDatasetRowFields = sinkDatasetRow.getFields();
