@@ -27,11 +27,14 @@ import org.apache.seatunnel.engine.server.AbstractSeaTunnelServerTest;
 import org.apache.seatunnel.engine.server.checkpoint.operation.TaskAcknowledgeOperation;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
+import org.apache.seatunnel.engine.server.master.JobMaster;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
+
+import com.hazelcast.spi.impl.operationservice.impl.InvocationFuture;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -160,6 +163,119 @@ public class CheckpointCoordinatorTest
                     new AtomicLong(startTime.toEpochMilli()));
             checkpointManager.reportedPipelineRunning(1, true);
             Assertions.assertTrue(invokedHandleCheckpointError.get(1, TimeUnit.MINUTES));
+        } finally {
+            executorService.shutdownNow();
+        }
+    }
+
+    @Test
+    void testCheckpointMinPause()
+            throws CheckpointStorageException, ExecutionException, InterruptedException,
+                    TimeoutException {
+        CheckpointConfig checkpointConfig = new CheckpointConfig();
+        checkpointConfig.setStorage(new CheckpointStorageConfig());
+        checkpointConfig.setCheckpointInterval(10000); // 10 seconds
+        checkpointConfig.setCheckpointMinPause(5000); // 5 seconds min-pause
+        checkpointConfig.setCheckpointTimeout(30000);
+
+        Map<Integer, CheckpointPlan> planMap = new HashMap<>();
+        TaskLocation taskLocation = new TaskLocation(new TaskGroupLocation(1L, 1, 1), 1, 1);
+        planMap.put(
+                1,
+                CheckpointPlan.builder()
+                        .pipelineId(1)
+                        .pipelineSubtasks(Collections.singleton(taskLocation))
+                        .startingSubtasks(Collections.singleton(taskLocation))
+                        .build());
+
+        ExecutorService executorService = Executors.newCachedThreadPool();
+        JobMaster mockJobMaster = Mockito.mock(JobMaster.class);
+        Mockito.when(mockJobMaster.getJobId()).thenReturn(1L);
+        Mockito.when(mockJobMaster.isNeedRestore()).thenReturn(false);
+        Mockito.when(mockJobMaster.queryTaskGroupAddress(Mockito.any(TaskGroupLocation.class)))
+                .thenReturn(nodeEngine.getThisAddress());
+
+        // Simulate the scenario: checkpoint starts at 0s, completes at 8s, next should trigger at
+        // 13s
+        Instant time0s = Instant.ofEpochMilli(0);
+        // Checkpoint completes at 8s
+        Instant time8s = Instant.ofEpochMilli(8000);
+        Instant time10s = Instant.ofEpochMilli(10000);
+
+        CompletedCheckpoint completedCheckpoint =
+                new CompletedCheckpoint(
+                        1L,
+                        1,
+                        1L,
+                        time0s.toEpochMilli(), // triggerTimestamp (started at 0s)
+                        CheckpointType.CHECKPOINT_TYPE,
+                        time8s.toEpochMilli(), // completedTimestamp (completed at 8s)
+                        new HashMap<>(),
+                        new HashMap<>());
+
+        try (MockedStatic<Instant> mockedInstant = Mockito.mockStatic(Instant.class)) {
+            mockedInstant.when(Instant::now).thenReturn(time10s);
+
+            CheckpointManager checkpointManager =
+                    new CheckpointManager(
+                            1L,
+                            false,
+                            nodeEngine,
+                            mockJobMaster,
+                            planMap,
+                            checkpointConfig,
+                            server.getCheckpointService().getCheckpointStorage(),
+                            executorService,
+                            nodeEngine.getHazelcastInstance().getMap(IMAP_RUNNING_JOB_STATE)) {
+
+                        @Override
+                        public void acknowledgeTask(TaskAcknowledgeOperation ackOperation) {
+                            mockedInstant.when(Instant::now).thenReturn(time8s);
+                            super.acknowledgeTask(ackOperation);
+                        }
+
+                        @Override
+                        public CheckpointCoordinator getCheckpointCoordinator(int pipelineId) {
+
+                            CheckpointCoordinator originalCoordinator =
+                                    super.getCheckpointCoordinator(pipelineId);
+                            CheckpointCoordinator spyCheckpointCoordinator =
+                                    Mockito.spy(originalCoordinator);
+                            Mockito.doAnswer(
+                                            invocation -> {
+                                                Object argument = invocation.getArgument(1);
+                                                Assertions.assertEquals(
+                                                        3000,
+                                                        Integer.parseInt(argument.toString()),
+                                                        "Checkpoint should be delayed by exactly 3 seconds (from 10s to 13s)");
+                                                return invocation.callRealMethod();
+                                            })
+                                    .when(spyCheckpointCoordinator)
+                                    .scheduleTriggerPendingCheckpoint(
+                                            Mockito.any(CheckpointType.class), Mockito.anyLong());
+
+                            Mockito.doReturn(new InvocationFuture[0])
+                                    .when(spyCheckpointCoordinator)
+                                    .notifyCheckpointCompleted(completedCheckpoint);
+                            Mockito.doReturn(new InvocationFuture[0])
+                                    .when(spyCheckpointCoordinator)
+                                    .notifyCheckpointEnd(completedCheckpoint);
+
+                            ReflectionUtils.setField(
+                                    spyCheckpointCoordinator,
+                                    "latestCompletedCheckpoint",
+                                    completedCheckpoint);
+
+                            return spyCheckpointCoordinator;
+                        }
+                    };
+
+            ReflectionUtils.setField(
+                    checkpointManager.getCheckpointCoordinator(1),
+                    "latestTriggerTimestamp",
+                    new AtomicLong(time0s.toEpochMilli()));
+            checkpointManager.reportedPipelineRunning(1, true);
+
         } finally {
             executorService.shutdownNow();
         }
