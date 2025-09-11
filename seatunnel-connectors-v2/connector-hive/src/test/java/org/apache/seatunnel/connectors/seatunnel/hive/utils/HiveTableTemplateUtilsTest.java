@@ -251,33 +251,39 @@ public class HiveTableTemplateUtilsTest {
 
     @Test
     void testExtractTableTypeFromTemplate_external_vs_managed() {
-        String managed = "CREATE TABLE IF NOT EXISTS `${database}`.`${table}` (id int) STORED AS PARQUET";
-        String external = "CREATE EXTERNAL TABLE IF NOT EXISTS `${database}`.`${table}` (id int) STORED AS PARQUET";
+        String managed =
+                "CREATE TABLE IF NOT EXISTS `${database}`.`${table}` (id int) STORED AS PARQUET";
+        String external =
+                "CREATE EXTERNAL TABLE IF NOT EXISTS `${database}`.`${table}` (id int) STORED AS PARQUET";
         assertEquals("MANAGED_TABLE", HiveTableTemplateUtils.extractTableTypeFromTemplate(managed));
-        assertEquals("EXTERNAL_TABLE", HiveTableTemplateUtils.extractTableTypeFromTemplate(external));
+        assertEquals(
+                "EXTERNAL_TABLE", HiveTableTemplateUtils.extractTableTypeFromTemplate(external));
     }
 
     @Test
     void testExtractLocationFromTemplate_with_and_without_variable() {
         String withVar = "CREATE TABLE t (id int) LOCATION '${table_location}'";
         String withoutVar = "CREATE TABLE t (id int) LOCATION '/custom/warehouse/db.tbl'";
-        String extractedWithVar = HiveTableTemplateUtils.extractLocationFromTemplate(withVar, "db", "tbl");
-        String extractedWithoutVar = HiveTableTemplateUtils.extractLocationFromTemplate(withoutVar, "db", "tbl");
+        String extractedWithVar =
+                HiveTableTemplateUtils.extractLocationFromTemplate(withVar, "db", "tbl");
+        String extractedWithoutVar =
+                HiveTableTemplateUtils.extractLocationFromTemplate(withoutVar, "db", "tbl");
         assertEquals("file:/tmp/hive/warehouse/db.db/tbl", extractedWithVar);
         assertEquals("/custom/warehouse/db.tbl", extractedWithoutVar);
     }
 
     @Test
     void testExtractTblPropertiesFromTemplate_various_pairs() {
-        String tpl = "CREATE TABLE t (id int) STORED AS PARQUET TBLPROPERTIES (\n" +
-                "  'k1' = 'v1',\n" +
-                "  \"k2\"=\"v2\",\n" +
-                "  'seatunnel.created.time'='123456789'\n" +
-                ")";
-        java.util.Map<String, String> props = HiveTableTemplateUtils.extractTblPropertiesFromTemplate(tpl);
+        String tpl =
+                "CREATE TABLE t (id int) STORED AS PARQUET TBLPROPERTIES (\n"
+                        + "  'k1' = 'v1',\n"
+                        + "  \"k2\"=\"v2\",\n"
+                        + "  'seatunnel.created.time'='123456789'\n"
+                        + ")";
+        java.util.Map<String, String> props =
+                HiveTableTemplateUtils.extractTblPropertiesFromTemplate(tpl);
         assertEquals("v1", props.get("k1"));
         assertEquals("v2", props.get("k2"));
         assertEquals("123456789", props.get("seatunnel.created.time"));
     }
-
 }

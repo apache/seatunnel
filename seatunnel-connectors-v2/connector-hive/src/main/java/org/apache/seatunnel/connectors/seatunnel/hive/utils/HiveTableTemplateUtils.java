@@ -188,8 +188,8 @@ public class HiveTableTemplateUtils {
     }
 
     /**
-     * Extract table type from template. Returns EXTERNAL_TABLE if template contains
-     * "CREATE EXTERNAL TABLE" (case-insensitive), otherwise MANAGED_TABLE.
+     * Extract table type from template. Returns EXTERNAL_TABLE if template contains "CREATE
+     * EXTERNAL TABLE" (case-insensitive), otherwise MANAGED_TABLE.
      */
     public static String extractTableTypeFromTemplate(String template) {
         if (template == null) {

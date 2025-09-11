@@ -321,11 +321,12 @@ public class HiveSaveModeHandler implements SaveModeHandler, AutoCloseable {
         for (String partitionField : partitionFields) {
             // Determine type from source schema if present; otherwise default to string
             String hiveType = getPartitionFieldType(partitionField);
-            String comment = tableSchema.getColumns().stream()
-                    .filter(column -> column.getName().equals(partitionField))
-                    .findFirst()
-                    .map(org.apache.seatunnel.api.table.catalog.Column::getComment)
-                    .orElse("Partition field");
+            String comment =
+                    tableSchema.getColumns().stream()
+                            .filter(column -> column.getName().equals(partitionField))
+                            .findFirst()
+                            .map(org.apache.seatunnel.api.table.catalog.Column::getComment)
+                            .orElse("Partition field");
             partitionKeys.add(new FieldSchema(partitionField, hiveType, comment));
         }
         table.setPartitionKeys(partitionKeys);
@@ -353,8 +354,12 @@ public class HiveSaveModeHandler implements SaveModeHandler, AutoCloseable {
         sd.setCols(cols);
 
         // Set table location: extract from template if present; fallback to default
-        String extractedLocation = HiveTableTemplateUtils.extractLocationFromTemplate(template, dbName, tableName);
-        String tableLocation = extractedLocation != null ? extractedLocation : HiveTableTemplateUtils.getDefaultTableLocation(dbName, tableName);
+        String extractedLocation =
+                HiveTableTemplateUtils.extractLocationFromTemplate(template, dbName, tableName);
+        String tableLocation =
+                extractedLocation != null
+                        ? extractedLocation
+                        : HiveTableTemplateUtils.getDefaultTableLocation(dbName, tableName);
         sd.setLocation(tableLocation);
 
         String storageFormat = extractStorageFormatFromTemplate();
@@ -370,7 +375,8 @@ public class HiveSaveModeHandler implements SaveModeHandler, AutoCloseable {
         // Pass through the raw custom template into TBLPROPERTIES
         table.putToParameters("seatunnel.creation.template", template);
         // Merge TBLPROPERTIES from the template into table parameters
-        java.util.Map<String, String> tblProps = HiveTableTemplateUtils.extractTblPropertiesFromTemplate(template);
+        java.util.Map<String, String> tblProps =
+                HiveTableTemplateUtils.extractTblPropertiesFromTemplate(template);
         for (java.util.Map.Entry<String, String> e : tblProps.entrySet()) {
             table.putToParameters(e.getKey(), e.getValue());
         }
