@@ -67,7 +67,7 @@ import static org.awaitility.Awaitility.given;
                 "There is a conflict of thrift version between IoTDB and Spark.Therefore. Refactor starter module, so disabled in spark")
 public class IoTDBIT extends TestSuiteBase implements TestResource {
 
-    private static final String IOTDB_DOCKER_IMAGE = "apache/iotdb:0.13.1-node";
+    private static final String IOTDB_DOCKER_IMAGE = "apache/iotdb:2.0.5-standalone";
     private static final String IOTDB_HOST = "flink_e2e_iotdb_sink";
     private static final int IOTDB_PORT = 6667;
     private static final String IOTDB_USERNAME = "root";
