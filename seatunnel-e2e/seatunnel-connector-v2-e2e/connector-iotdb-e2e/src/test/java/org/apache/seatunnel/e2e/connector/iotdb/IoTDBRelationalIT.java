@@ -86,7 +86,6 @@ public class IoTDBRelationalIT extends TestSuiteBase implements TestResource {
         iotdbServer.setPortBindings(Lists.newArrayList(String.format("%s:6667", IOTDB_PORT)));
         Startables.deepStart(Stream.of(iotdbServer)).join();
         log.info("IoTDB container started");
-        // wait for IoTDB fully start
         tableSessionBuilder = createTableSessionBuilder();
         given().ignoreExceptions()
                 .await()
