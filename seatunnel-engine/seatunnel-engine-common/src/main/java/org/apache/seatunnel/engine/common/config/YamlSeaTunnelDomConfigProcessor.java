@@ -282,6 +282,14 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
                                 ServerConfigOptions.MasterServerConfigOptions.CHECKPOINT_TIMEOUT
                                         .key(),
                                 getTextContent(node)));
+            } else if (ServerConfigOptions.MasterServerConfigOptions.CHECKPOINT_MIN_PAUSE
+                    .key()
+                    .equals(name)) {
+                checkpointConfig.setCheckpointMinPause(
+                        getIntegerValue(
+                                ServerConfigOptions.MasterServerConfigOptions.CHECKPOINT_MIN_PAUSE
+                                        .key(),
+                                getTextContent(node)));
             } else if (ServerConfigOptions.MasterServerConfigOptions
                     .SCHEMA_CHANGE_CHECKPOINT_TIMEOUT
                     .key()

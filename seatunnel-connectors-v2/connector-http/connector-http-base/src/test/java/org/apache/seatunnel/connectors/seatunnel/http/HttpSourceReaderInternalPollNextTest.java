@@ -121,8 +121,9 @@ public class HttpSourceReaderInternalPollNextTest {
         httpSourceReader =
                 new HttpSourceReader(
                         httpParameter, context, deserializationSchema, jsonField, null, pageInfo);
+        // This creates a real HTTP client. For testing purposes, we need to replace it with a mock.
         httpSourceReader.open();
-
+        httpSourceReader.setHttpClient(httpClientProvider);
         httpSourceReader.internalPollNext(collector);
 
         // Verify the body was updated correctly
