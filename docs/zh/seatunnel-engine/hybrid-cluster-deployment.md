@@ -89,6 +89,10 @@ seatunnel:
 
 检查点的超时时间。如果在超时时间内无法完成检查点，则会触发检查点失败，作业失败。如果在作业的配置文件的`env`中配置了`checkpoint.timeout`参数，将以作业配置文件中设置的为准。
 
+**min-pause**
+
+连续检查点之间的最小暂停时间(以毫秒为单位)，确保检查点不会频繁触发。
+
 示例
 
 ```yaml
@@ -101,6 +105,7 @@ seatunnel:
         checkpoint:
             interval: 300000
             timeout: 10000
+            min-pause: 5000
 ```
 
 **checkpoint storage**

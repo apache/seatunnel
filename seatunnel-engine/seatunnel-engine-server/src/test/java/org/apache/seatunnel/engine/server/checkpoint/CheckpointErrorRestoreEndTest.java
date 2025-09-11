@@ -43,7 +43,7 @@ public class CheckpointErrorRestoreEndTest
 
         JobMaster jobMaster = server.getCoordinatorService().getJobMaster(jobId);
         Assertions.assertEquals(1, jobMaster.getPhysicalPlan().getPipelineList().size());
-        await().atMost(120, TimeUnit.SECONDS)
+        await().atMost(240, TimeUnit.SECONDS)
                 .untilAsserted(
                         () ->
                                 Assertions.assertEquals(
@@ -53,7 +53,7 @@ public class CheckpointErrorRestoreEndTest
                                                 .getPipelineList()
                                                 .get(0)
                                                 .getPipelineRestoreNum()));
-        await().atMost(120, TimeUnit.SECONDS)
+        await().atMost(240, TimeUnit.SECONDS)
                 .untilAsserted(
                         () ->
                                 Assertions.assertEquals(

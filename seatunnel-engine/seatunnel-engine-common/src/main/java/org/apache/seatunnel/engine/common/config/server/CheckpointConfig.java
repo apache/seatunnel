@@ -32,6 +32,8 @@ public class CheckpointConfig implements Serializable {
             ServerConfigOptions.MasterServerConfigOptions.CHECKPOINT_INTERVAL.defaultValue();
     private long checkpointTimeout =
             ServerConfigOptions.MasterServerConfigOptions.CHECKPOINT_TIMEOUT.defaultValue();
+    private long checkpointMinPause =
+            ServerConfigOptions.MasterServerConfigOptions.CHECKPOINT_MIN_PAUSE.defaultValue();
     private long schemaChangeCheckpointTimeout =
             ServerConfigOptions.MasterServerConfigOptions.SCHEMA_CHANGE_CHECKPOINT_TIMEOUT
                     .defaultValue();
@@ -53,6 +55,10 @@ public class CheckpointConfig implements Serializable {
                 checkpointTimeout >= MINIMAL_CHECKPOINT_TIME,
                 "The minimum checkpoint timeout is 10 mills.");
         this.checkpointTimeout = checkpointTimeout;
+    }
+
+    public void setCheckpointMinPause(long checkpointMinPause) {
+        this.checkpointMinPause = checkpointMinPause;
     }
 
     public void setSchemaChangeCheckpointTimeout(long checkpointTimeout) {

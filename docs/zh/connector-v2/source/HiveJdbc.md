@@ -81,7 +81,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 ### 提示
 
->如果未设置partition_column，它将以单并发运行，如果设置了partition_coolumn，它将根据任务的并发性并行执行。当您的分片读取字段是bigint（及以上）等大数字类型并且数据分布不均匀时，建议将并行级别设置为1，以确保
+>如果未设置partition_column，它将以单并发运行，如果设置了partition_column，它将根据任务的并发性并行执行。当您的分片读取字段是bigint（及以上）等大数字类型并且数据分布不均匀时，建议将并行级别设置为1，以确保
 数据倾斜问题已得到解决
 
 ## 任务示例
