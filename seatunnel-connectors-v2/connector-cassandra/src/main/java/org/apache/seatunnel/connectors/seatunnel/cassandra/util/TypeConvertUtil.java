@@ -141,14 +141,17 @@ public class TypeConvertUtil {
                     fields[i] = row.getString(i);
                     break;
                 case ProtocolConstants.DataType.VARINT:
-                    fields[i] = Objects.requireNonNull(row.getBigInteger(i)).toString();
+                    fields[i] = Objects.isNull(row.getBigInteger(i)) ? null :
+                            row.getBigInteger(i).toString();
                     break;
                 case ProtocolConstants.DataType.TIMEUUID:
                 case ProtocolConstants.DataType.UUID:
-                    fields[i] = Objects.requireNonNull(row.getUuid(i)).toString();
+                    fields[i] = Objects.isNull(row.getUuid(i)) ? null :
+                            row.getUuid(i).toString();
                     break;
                 case ProtocolConstants.DataType.INET:
-                    fields[i] = Objects.requireNonNull(row.getInetAddress(i)).getHostAddress();
+                    fields[i] = Objects.isNull(row.getInetAddress(i)) ? null :
+                            row.getInetAddress(i).getHostAddress();
                     break;
                 case ProtocolConstants.DataType.TINYINT:
                     fields[i] = row.getByte(i);
@@ -169,7 +172,8 @@ public class TypeConvertUtil {
                     fields[i] = row.getDouble(i);
                     break;
                 case ProtocolConstants.DataType.DECIMAL:
-                    fields[i] = Objects.requireNonNull(row.getBigDecimal(i)).doubleValue();
+                    fields[i] = Objects.isNull(row.getBigDecimal(i)) ? null :
+                            row.getBigDecimal(i).doubleValue();
                     break;
                 case ProtocolConstants.DataType.BOOLEAN:
                     fields[i] = row.getBoolean(i);
@@ -181,14 +185,13 @@ public class TypeConvertUtil {
                     fields[i] = row.getLocalDate(i);
                     break;
                 case ProtocolConstants.DataType.TIMESTAMP:
-                    fields[i] =
-                            Timestamp.from(Objects.requireNonNull(row.getInstant(i)))
-                                    .toLocalDateTime();
+                    // If source is null, sink will be null, so it is not need to convert and throw exception.
+                    fields[i] = Objects.isNull(row.getInstant(i)) ? null :
+                            Timestamp.from(row.getInstant(i)).toLocalDateTime();
                     break;
                 case ProtocolConstants.DataType.BLOB:
-                    fields[i] =
-                            ArrayUtils.toObject(
-                                    Objects.requireNonNull(row.getByteBuffer(i)).array());
+                    fields[i] = Objects.isNull(row.getByteBuffer(i)) ? null :
+                            ArrayUtils.toObject(row.getByteBuffer(i).array());
                     break;
                 case ProtocolConstants.DataType.MAP:
                     subType = metaData.get(i).getType();
@@ -204,37 +207,29 @@ public class TypeConvertUtil {
                             convert(((DefaultListType) metaData.get(i).getType()).getElementType())
                                     .getTypeClass();
                     if (String.class.equals(typeClass)) {
-                        fields[i] =
-                                Objects.requireNonNull(row.getList(i, String.class))
-                                        .toArray(new String[0]);
+                        fields[i] = Objects.isNull(row.getList(i, String.class)) ? null :
+                                row.getList(i, String.class).toArray(new String[0]);
                     } else if (Byte.class.equals(typeClass)) {
-                        fields[i] =
-                                Objects.requireNonNull(row.getList(i, Byte.class))
-                                        .toArray(new Byte[0]);
+                        fields[i] = Objects.isNull(row.getList(i, Byte.class)) ? null :
+                                row.getList(i, Byte.class).toArray(new Byte[0]);
                     } else if (Short.class.equals(typeClass)) {
-                        fields[i] =
-                                Objects.requireNonNull(row.getList(i, Short.class))
-                                        .toArray(new Short[0]);
+                        fields[i] = Objects.isNull(row.getList(i, Short.class)) ? null :
+                                row.getList(i, Short.class).toArray(new Short[0]);
                     } else if (Integer.class.equals(typeClass)) {
-                        fields[i] =
-                                Objects.requireNonNull(row.getList(i, Integer.class))
-                                        .toArray(new Integer[0]);
+                        fields[i] = Objects.isNull(row.getList(i, Integer.class)) ? null :
+                                row.getList(i, Integer.class).toArray(new Integer[0]);
                     } else if (Long.class.equals(typeClass)) {
-                        fields[i] =
-                                Objects.requireNonNull(row.getList(i, Long.class))
-                                        .toArray(new Long[0]);
+                        fields[i] = Objects.isNull(row.getList(i, Long.class)) ? null :
+                                row.getList(i, Long.class).toArray(new Long[0]);
                     } else if (Float.class.equals(typeClass)) {
-                        fields[i] =
-                                Objects.requireNonNull(row.getList(i, Float.class))
-                                        .toArray(new Float[0]);
+                        fields[i] = Objects.isNull(row.getList(i, Float.class)) ? null :
+                                row.getList(i, Float.class).toArray(new Float[0]);
                     } else if (Double.class.equals(typeClass)) {
-                        fields[i] =
-                                Objects.requireNonNull(row.getList(i, Double.class))
-                                        .toArray(new Double[0]);
+                        fields[i] = Objects.isNull(row.getList(i, Double.class)) ? null :
+                                row.getList(i, Double.class).toArray(new Double[0]);
                     } else if (Boolean.class.equals(typeClass)) {
-                        fields[i] =
-                                Objects.requireNonNull(row.getList(i, Boolean.class))
-                                        .toArray(new Boolean[0]);
+                        fields[i] = Objects.isNull(row.getList(i, Boolean.class)) ? null :
+                                row.getList(i, Boolean.class).toArray(new Boolean[0]);
                     } else {
                         throw new CassandraConnectorException(
                                 CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
@@ -246,37 +241,29 @@ public class TypeConvertUtil {
                             convert(((DefaultSetType) metaData.get(i).getType()).getElementType())
                                     .getTypeClass();
                     if (String.class.equals(typeClass)) {
-                        fields[i] =
-                                Objects.requireNonNull(row.getSet(i, String.class))
-                                        .toArray(new String[0]);
+                        fields[i] = Objects.isNull(row.getSet(i, String.class)) ? null :
+                                row.getSet(i, String.class).toArray(new String[0]);
                     } else if (Byte.class.equals(typeClass)) {
-                        fields[i] =
-                                Objects.requireNonNull(row.getSet(i, Byte.class))
-                                        .toArray(new Byte[0]);
+                        fields[i] = Objects.isNull(row.getSet(i, Byte.class)) ? null :
+                                row.getSet(i, Byte.class).toArray(new Byte[0]);
                     } else if (Short.class.equals(typeClass)) {
-                        fields[i] =
-                                Objects.requireNonNull(row.getSet(i, Short.class))
-                                        .toArray(new Short[0]);
+                        fields[i] = Objects.isNull(row.getSet(i, Short.class)) ? null :
+                                row.getSet(i, Short.class).toArray(new Short[0]);
                     } else if (Integer.class.equals(typeClass)) {
-                        fields[i] =
-                                Objects.requireNonNull(row.getSet(i, Integer.class))
-                                        .toArray(new Integer[0]);
+                        fields[i] = Objects.isNull(row.getSet(i, Integer.class)) ? null :
+                                row.getSet(i, Integer.class).toArray(new Integer[0]);
                     } else if (Long.class.equals(typeClass)) {
-                        fields[i] =
-                                Objects.requireNonNull(row.getSet(i, Long.class))
-                                        .toArray(new Long[0]);
+                        fields[i] = Objects.isNull(row.getSet(i, Long.class)) ? null :
+                                row.getSet(i, Long.class).toArray(new Long[0]);
                     } else if (Float.class.equals(typeClass)) {
-                        fields[i] =
-                                Objects.requireNonNull(row.getSet(i, Float.class))
-                                        .toArray(new Float[0]);
+                        fields[i] = Objects.isNull(row.getSet(i, Float.class)) ? null :
+                                row.getSet(i, Float.class).toArray(new Float[0]);
                     } else if (Double.class.equals(typeClass)) {
-                        fields[i] =
-                                Objects.requireNonNull(row.getSet(i, Double.class))
-                                        .toArray(new Double[0]);
+                        fields[i] = Objects.isNull(row.getSet(i, Double.class)) ? null :
+                                row.getSet(i, Double.class).toArray(new Double[0]);
                     } else if (Boolean.class.equals(typeClass)) {
-                        fields[i] =
-                                Objects.requireNonNull(row.getSet(i, Boolean.class))
-                                        .toArray(new Boolean[0]);
+                        fields[i] = Objects.isNull(row.getSet(i, Boolean.class)) ? null :
+                                row.getSet(i, Boolean.class).toArray(new Boolean[0]);
                     } else {
                         throw new CassandraConnectorException(
                                 CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
