@@ -167,4 +167,72 @@ public class HiveTableTemplateUtils {
 
         log.info("Template validation passed");
     }
+
+    /** Extract LOCATION path from template. If it contains ${table_location}, replace it. */
+    public static String extractLocationFromTemplate(
+            String template, String database, String table) {
+        if (template == null) {
+            return null;
+        }
+        String patternStr = "LOCATION\\s+'([^']+)'";
+        java.util.regex.Pattern pattern =
+                java.util.regex.Pattern.compile(
+                        patternStr, java.util.regex.Pattern.CASE_INSENSITIVE);
+        java.util.regex.Matcher matcher = pattern.matcher(template);
+        if (matcher.find()) {
+            String raw = matcher.group(1);
+            String defaultLocation = getDefaultTableLocation(database, table);
+            return raw.replace("${table_location}", defaultLocation);
+        }
+        return null;
+    }
+
+    /**
+     * Extract table type from template. Returns EXTERNAL_TABLE if template contains
+     * "CREATE EXTERNAL TABLE" (case-insensitive), otherwise MANAGED_TABLE.
+     */
+    public static String extractTableTypeFromTemplate(String template) {
+        if (template == null) {
+            return "MANAGED_TABLE";
+        }
+        String upper = template.toUpperCase();
+        if (upper.contains("CREATE EXTERNAL TABLE")) {
+            return "EXTERNAL_TABLE";
+        }
+        return "MANAGED_TABLE";
+    }
+
+    /** Extract TBLPROPERTIES key-value pairs from template (best effort). */
+    public static java.util.Map<String, String> extractTblPropertiesFromTemplate(String template) {
+        java.util.Map<String, String> props = new java.util.HashMap<>();
+        if (template == null) {
+            return props;
+        }
+        String patternStr = "TBLPROPERTIES\\s*\\(([^)]*)\\)";
+        java.util.regex.Pattern pattern =
+                java.util.regex.Pattern.compile(
+                        patternStr,
+                        java.util.regex.Pattern.CASE_INSENSITIVE | java.util.regex.Pattern.DOTALL);
+        java.util.regex.Matcher matcher = pattern.matcher(template);
+        if (matcher.find()) {
+            String body = matcher.group(1);
+            // Split on commas not inside quotes is complex; here we split on commas and trim
+            for (String entry : body.split(",")) {
+                String e = entry.trim();
+                if (e.isEmpty()) {
+                    continue;
+                }
+                // Patterns like 'key' = 'value' or "key"="value"
+                String kvPattern = "['\"]?([^'\"=]+)['\"]?\\s*=\\s*['\"]([^'\"]*)['\"]";
+                java.util.regex.Pattern kvp = java.util.regex.Pattern.compile(kvPattern);
+                java.util.regex.Matcher km = kvp.matcher(e);
+                if (km.find()) {
+                    String k = km.group(1).trim();
+                    String v = km.group(2).trim();
+                    props.put(k, v);
+                }
+            }
+        }
+        return props;
+    }
 }

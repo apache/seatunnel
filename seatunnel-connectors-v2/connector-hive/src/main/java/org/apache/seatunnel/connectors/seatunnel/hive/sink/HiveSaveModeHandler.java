@@ -285,7 +285,7 @@ public class HiveSaveModeHandler implements SaveModeHandler, AutoCloseable {
                         });
         sd.setCols(cols);
 
-        // Set table location
+        // Set table location using default template's default location
         String tableLocation = HiveTableTemplateUtils.getDefaultTableLocation(dbName, tableName);
         sd.setLocation(tableLocation);
 
@@ -310,22 +310,23 @@ public class HiveSaveModeHandler implements SaveModeHandler, AutoCloseable {
         table.setTableName(tableName);
         table.setOwner(System.getProperty("user.name", "seatunnel"));
         table.setCreateTime((int) (System.currentTimeMillis() / 1000));
-        table.setTableType("MANAGED_TABLE");
+
+        // Determine table type from template (EXTERNAL_TABLE or MANAGED_TABLE)
+        String template = readonlyConfig.get(HiveSinkOptions.SAVE_MODE_CREATE_TEMPLATE);
+        String tableType = HiveTableTemplateUtils.extractTableTypeFromTemplate(template);
+        table.setTableType(tableType);
 
         List<String> partitionFields = extractPartitionFieldsFromConfig();
         List<FieldSchema> partitionKeys = new ArrayList<>();
         for (String partitionField : partitionFields) {
-            tableSchema.getColumns().stream()
+            // Determine type from source schema if present; otherwise default to string
+            String hiveType = getPartitionFieldType(partitionField);
+            String comment = tableSchema.getColumns().stream()
                     .filter(column -> column.getName().equals(partitionField))
                     .findFirst()
-                    .ifPresent(
-                            column -> {
-                                String hiveType =
-                                        HiveTypeConvertor.seatunnelToHiveType(column.getDataType());
-                                String comment = column.getComment();
-                                partitionKeys.add(
-                                        new FieldSchema(partitionField, hiveType, comment));
-                            });
+                    .map(org.apache.seatunnel.api.table.catalog.Column::getComment)
+                    .orElse("Partition field");
+            partitionKeys.add(new FieldSchema(partitionField, hiveType, comment));
         }
         table.setPartitionKeys(partitionKeys);
 
@@ -351,8 +352,9 @@ public class HiveSaveModeHandler implements SaveModeHandler, AutoCloseable {
                         });
         sd.setCols(cols);
 
-        // Set table location
-        String tableLocation = HiveTableTemplateUtils.getDefaultTableLocation(dbName, tableName);
+        // Set table location: extract from template if present; fallback to default
+        String extractedLocation = HiveTableTemplateUtils.extractLocationFromTemplate(template, dbName, tableName);
+        String tableLocation = extractedLocation != null ? extractedLocation : HiveTableTemplateUtils.getDefaultTableLocation(dbName, tableName);
         sd.setLocation(tableLocation);
 
         String storageFormat = extractStorageFormatFromTemplate();
@@ -365,6 +367,13 @@ public class HiveSaveModeHandler implements SaveModeHandler, AutoCloseable {
         // Set table parameters
         table.putToParameters("seatunnel.creation.mode", "custom_template");
         table.putToParameters("seatunnel.created.time", String.valueOf(System.currentTimeMillis()));
+        // Pass through the raw custom template into TBLPROPERTIES
+        table.putToParameters("seatunnel.creation.template", template);
+        // Merge TBLPROPERTIES from the template into table parameters
+        java.util.Map<String, String> tblProps = HiveTableTemplateUtils.extractTblPropertiesFromTemplate(template);
+        for (java.util.Map.Entry<String, String> e : tblProps.entrySet()) {
+            table.putToParameters(e.getKey(), e.getValue());
+        }
 
         return table;
     }

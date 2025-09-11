@@ -254,4 +254,43 @@ public class HiveSaveModeHandlerTest {
         assertEquals(SchemaSaveMode.CREATE_SCHEMA_WHEN_NOT_EXIST, handler.getSchemaSaveMode());
         assertEquals(DataSaveMode.APPEND_DATA, handler.getDataSaveMode());
     }
+
+    @Test
+    void testCustomTemplate_buildsExpectedTable() throws Exception {
+        // Build config with a custom template using EXTERNAL + LOCATION '${table_location}' and TBLPROPERTIES
+        Map<String, Object> configMap = new HashMap<>();
+        configMap.put(HiveConfig.TABLE_NAME.key(), "test_db.user_table");
+        configMap.put(HiveConfig.METASTORE_URI.key(), "thrift://localhost:9083");
+        String template =
+                "CREATE EXTERNAL TABLE IF NOT EXISTS `${database}`.`${table}` (" +
+                "  ${rowtype_fields}" +
+                ") STORED AS ORC " +
+                "LOCATION '${table_location}' " +
+                "TBLPROPERTIES ('k1'='v1','k2'='v2')";
+        configMap.put(HiveSinkOptions.SAVE_MODE_CREATE_TEMPLATE.key(), template);
+        ReadonlyConfig configWithTemplate = ReadonlyConfig.fromMap(configMap);
+
+        HiveSaveModeHandler handler =
+                new HiveSaveModeHandler(
+                        configWithTemplate, catalogTable, SchemaSaveMode.CREATE_SCHEMA_WHEN_NOT_EXIST);
+
+        // Reflectively invoke buildTableFromCustomTemplate to get the Table
+        java.lang.reflect.Method m = HiveSaveModeHandler.class.getDeclaredMethod("buildTableFromCustomTemplate");
+        m.setAccessible(true);
+        org.apache.hadoop.hive.metastore.api.Table table =
+                (org.apache.hadoop.hive.metastore.api.Table) m.invoke(handler);
+
+        // Verify table type from template
+        assertEquals("EXTERNAL_TABLE", table.getTableType());
+        // Verify location uses default replacement for ${table_location}
+        assertEquals(
+                "file:/tmp/hive/warehouse/test_db.db/user_table",
+                table.getSd().getLocation());
+        // Verify TBLPROPERTIES propagated into parameters
+        assertEquals("v1", table.getParameters().get("k1"));
+        assertEquals("v2", table.getParameters().get("k2"));
+        // Also ensure original template is stored
+        assertEquals(template, table.getParameters().get("seatunnel.creation.template"));
+    }
+
 }
