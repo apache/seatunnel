@@ -27,10 +27,10 @@
     </parent>
 
     <artifactId>connector-iotdb</artifactId>
-    <name>SeaTunnel : Connectors V2 : IotDB</name>
+    <name>SeaTunnel : Connectors V2 : IoTDB</name>
 
     <properties>
-        <iotdb.version>2.0.5</iotdb.version>
+        <iotdb.version>0.13.1</iotdb.version>
     </properties>
 
     <dependencies>
@@ -50,12 +50,6 @@
                     <artifactId>logback-classic</artifactId>
                 </exclusion>
             </exclusions>
-        </dependency>
-
-        <dependency>
-            <groupId>org.apache.iotdb</groupId>
-            <artifactId>tsfile</artifactId>
-            <version>1.3.2</version>
         </dependency>
     </dependencies>
 

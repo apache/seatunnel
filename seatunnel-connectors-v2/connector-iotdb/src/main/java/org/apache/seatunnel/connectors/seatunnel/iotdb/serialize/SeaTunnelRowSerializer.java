@@ -19,7 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.iotdb.serialize;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 
-public interface SeaTunnelRowSerializer<T> {
+public interface SeaTunnelRowSerializer {
 
-    T serialize(SeaTunnelRow seaTunnelRow);
+    IoTDBRecord serialize(SeaTunnelRow seaTunnelRow);
 }

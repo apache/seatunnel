@@ -35,7 +35,7 @@ import java.util.Optional;
 @Slf4j
 public class IoTDBSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
 
-    private final SeaTunnelRowSerializer<IoTDBRecord> serializer;
+    private final SeaTunnelRowSerializer serializer;
     private final IoTDBSinkClient sinkClient;
 
     public IoTDBSinkWriter(ReadonlyConfig pluginConfig, SeaTunnelRowType seaTunnelRowType) {

@@ -23,24 +23,17 @@ import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSimpleSink;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
-import org.apache.seatunnel.connectors.seatunnel.iotdb.constant.SinkConstants;
-import org.apache.seatunnel.connectors.seatunnel.iotdb.sink.relational.IoTDBRelationalSinkWriter;
-
-import lombok.extern.slf4j.Slf4j;
 
 import java.util.Optional;
 
-@Slf4j
 public class IoTDBSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
 
     private final ReadonlyConfig pluginConfig;
     private final CatalogTable catalogTable;
-    private final String sqlDialect;
 
-    public IoTDBSink(ReadonlyConfig pluginConfig, CatalogTable catalogTable, String sqlDialect) {
+    public IoTDBSink(ReadonlyConfig pluginConfig, CatalogTable catalogTable) {
         this.pluginConfig = pluginConfig;
         this.catalogTable = catalogTable;
-        this.sqlDialect = sqlDialect;
     }
 
     @Override
@@ -50,9 +43,6 @@ public class IoTDBSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
 
     @Override
     public AbstractSinkWriter<SeaTunnelRow, Void> createWriter(SinkWriter.Context context) {
-        if (SinkConstants.TABLE.equalsIgnoreCase(sqlDialect)) {
-            return new IoTDBRelationalSinkWriter(pluginConfig, catalogTable.getSeaTunnelRowType());
-        }
         return new IoTDBSinkWriter(pluginConfig, catalogTable.getSeaTunnelRowType());
     }
 

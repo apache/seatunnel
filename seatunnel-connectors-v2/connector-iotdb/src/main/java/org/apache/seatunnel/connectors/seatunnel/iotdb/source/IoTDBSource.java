@@ -26,8 +26,6 @@ import org.apache.seatunnel.api.source.SupportColumnProjection;
 import org.apache.seatunnel.api.source.SupportParallelism;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.connectors.seatunnel.iotdb.constant.SourceConstants;
-import org.apache.seatunnel.connectors.seatunnel.iotdb.source.relational.IoTDBRelationalSourceReader;
 import org.apache.seatunnel.connectors.seatunnel.iotdb.state.IoTDBSourceState;
 
 import java.util.Collections;
@@ -40,12 +38,10 @@ public class IoTDBSource
 
     private CatalogTable catalogTable;
     private ReadonlyConfig pluginConfig;
-    private String sqlDialect;
 
-    public IoTDBSource(CatalogTable catalogTable, ReadonlyConfig pluginConfig, String sqlDialect) {
+    public IoTDBSource(CatalogTable catalogTable, ReadonlyConfig pluginConfig) {
         this.catalogTable = catalogTable;
         this.pluginConfig = pluginConfig;
-        this.sqlDialect = sqlDialect;
     }
 
     @Override
@@ -61,10 +57,6 @@ public class IoTDBSource
     @Override
     public SourceReader<SeaTunnelRow, IoTDBSourceSplit> createReader(
             SourceReader.Context readerContext) {
-        if (SourceConstants.TABLE.equalsIgnoreCase(sqlDialect)) {
-            return new IoTDBRelationalSourceReader(
-                    pluginConfig, readerContext, catalogTable.getSeaTunnelRowType());
-        }
         return new IoTDBSourceReader(
                 pluginConfig, readerContext, catalogTable.getSeaTunnelRowType());
     }

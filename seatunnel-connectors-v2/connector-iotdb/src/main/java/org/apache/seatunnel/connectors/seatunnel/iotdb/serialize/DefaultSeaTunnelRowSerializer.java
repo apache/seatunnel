@@ -25,7 +25,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.iotdb.exception.IotdbConnectorException;
 
-import org.apache.tsfile.enums.TSDataType;
+import org.apache.iotdb.tsfile.file.metadata.enums.TSDataType;
 
 import lombok.NonNull;
 
@@ -37,7 +37,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer<IoTDBRecord> {
+public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer {
 
     private final Function<SeaTunnelRow, Long> timestampExtractor;
     private final Function<SeaTunnelRow, String> deviceExtractor;

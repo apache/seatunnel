@@ -25,16 +25,16 @@ import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 
-import org.apache.iotdb.isession.SessionDataSet;
 import org.apache.iotdb.rpc.IoTDBConnectionException;
 import org.apache.iotdb.rpc.StatementExecutionException;
 import org.apache.iotdb.session.Session;
-import org.apache.tsfile.enums.TSDataType;
-import org.apache.tsfile.file.metadata.enums.CompressionType;
-import org.apache.tsfile.file.metadata.enums.TSEncoding;
-import org.apache.tsfile.read.common.Field;
-import org.apache.tsfile.read.common.RowRecord;
-import org.apache.tsfile.utils.Binary;
+import org.apache.iotdb.session.SessionDataSet;
+import org.apache.iotdb.tsfile.file.metadata.enums.CompressionType;
+import org.apache.iotdb.tsfile.file.metadata.enums.TSDataType;
+import org.apache.iotdb.tsfile.file.metadata.enums.TSEncoding;
+import org.apache.iotdb.tsfile.read.common.Field;
+import org.apache.iotdb.tsfile.read.common.RowRecord;
+import org.apache.iotdb.tsfile.utils.Binary;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
@@ -67,7 +67,7 @@ import static org.awaitility.Awaitility.given;
                 "There is a conflict of thrift version between IoTDB and Spark.Therefore. Refactor starter module, so disabled in spark")
 public class IoTDBIT extends TestSuiteBase implements TestResource {
 
-    private static final String IOTDB_DOCKER_IMAGE = "apache/iotdb:2.0.5-standalone";
+    private static final String IOTDB_DOCKER_IMAGE = "apache/iotdb:0.13.1-node";
     private static final String IOTDB_HOST = "flink_e2e_iotdb_sink";
     private static final int IOTDB_PORT = 6667;
     private static final String IOTDB_USERNAME = "root";
@@ -157,7 +157,7 @@ public class IoTDBIT extends TestSuiteBase implements TestResource {
             for (int rowCount = 0; rowCount < 100; rowCount++) {
                 long timestamp = System.currentTimeMillis() - TimeUnit.MINUTES.toMillis(rowCount);
                 RowRecord record = new RowRecord(timestamp);
-                record.addField(new Binary(deviceId.getBytes()), TSDataType.TEXT);
+                record.addField(new Binary(deviceId), TSDataType.TEXT);
                 record.addField(Boolean.FALSE, TSDataType.BOOLEAN);
                 record.addField(Byte.valueOf(Byte.MAX_VALUE).intValue(), TSDataType.INT32);
                 record.addField(Short.valueOf(Short.MAX_VALUE).intValue(), TSDataType.INT32);

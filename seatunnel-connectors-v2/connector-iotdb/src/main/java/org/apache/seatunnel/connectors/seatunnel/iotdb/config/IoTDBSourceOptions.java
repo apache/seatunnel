@@ -43,10 +43,6 @@ public class IoTDBSourceOptions extends IoTDBCommonOptions {
     public static final Option<String> NODE_URLS =
             Options.key("node_urls").stringType().noDefaultValue().withDescription("node urls");
 
-    /** Database (only valid when sql_dialect is table) */
-    public static final Option<String> DATABASE =
-            Options.key("database").stringType().noDefaultValue().withDescription("database");
-
     /*---------------------- other configurations -------------------------*/
 
     /** Fetches the next batch of data from the source. */

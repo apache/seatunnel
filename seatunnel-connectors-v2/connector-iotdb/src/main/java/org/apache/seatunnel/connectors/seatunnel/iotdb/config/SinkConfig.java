@@ -37,8 +37,6 @@ public class SinkConfig extends CommonConfig {
     private String keyTimestamp;
     private String keyDevice;
     private List<String> keyMeasurementFields;
-    private List<String> keyTagFields;
-    private List<String> keyAttributeFields;
     private String storageGroup;
     private int batchSize;
     private int maxRetries;
@@ -66,8 +64,6 @@ public class SinkConfig extends CommonConfig {
         sinkConfig.setKeyTimestamp(pluginConfig.get(IoTDBSinkOptions.KEY_TIMESTAMP));
         sinkConfig.setKeyMeasurementFields(
                 pluginConfig.get(IoTDBSinkOptions.KEY_MEASUREMENT_FIELDS));
-        sinkConfig.setKeyTagFields(pluginConfig.get(IoTDBSinkOptions.KEY_TAG_FIELDS));
-        sinkConfig.setKeyAttributeFields(pluginConfig.get(IoTDBSinkOptions.KEY_ATTRIBUTE_FIELDS));
         sinkConfig.setStorageGroup(pluginConfig.get(IoTDBSinkOptions.STORAGE_GROUP));
         if (pluginConfig.getOptional(IoTDBSinkOptions.BATCH_SIZE).isPresent()) {
             sinkConfig.setBatchSize(pluginConfig.get(IoTDBSinkOptions.BATCH_SIZE));

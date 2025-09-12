@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.iotdb.source;
 
-import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
@@ -28,10 +27,7 @@ import org.apache.seatunnel.api.table.connector.TableSource;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.iotdb.config.IoTDBSourceOptions;
-import org.apache.seatunnel.connectors.seatunnel.iotdb.constant.SourceConstants;
-import org.apache.seatunnel.connectors.seatunnel.iotdb.exception.IotdbConnectorException;
 
 import com.google.auto.service.AutoService;
 
@@ -54,8 +50,6 @@ public class IoTDBSourceFactory implements TableSourceFactory {
                         IoTDBSourceOptions.SQL,
                         ConnectorCommonOptions.SCHEMA)
                 .optional(
-                        IoTDBSourceOptions.SQL_DIALECT,
-                        IoTDBSourceOptions.DATABASE,
                         IoTDBSourceOptions.FETCH_SIZE,
                         IoTDBSourceOptions.THRIFT_DEFAULT_BUFFER_SIZE,
                         IoTDBSourceOptions.THRIFT_MAX_FRAME_SIZE,
@@ -71,30 +65,13 @@ public class IoTDBSourceFactory implements TableSourceFactory {
     public <T, SplitT extends SourceSplit, StateT extends Serializable>
             TableSource<T, SplitT, StateT> createSource(TableSourceFactoryContext context) {
         CatalogTable catalogTable = CatalogTableUtil.buildWithConfig(context.getOptions());
-        ReadonlyConfig conf = context.getOptions();
-        String targetSqlDialect;
-        if (conf.get(IoTDBSourceOptions.SQL_DIALECT) != null) {
-            String sqlDialect = conf.get(IoTDBSourceOptions.SQL_DIALECT);
-            if (SourceConstants.TABLE.equalsIgnoreCase(sqlDialect)) {
-                targetSqlDialect = SourceConstants.TABLE;
-            } else {
-                if (SourceConstants.TREE.equalsIgnoreCase(sqlDialect)) {
-                    targetSqlDialect = SourceConstants.TREE;
-                } else {
-                    throw new IotdbConnectorException(
-                            CommonErrorCode.ILLEGAL_ARGUMENT, "Sql dialect not supported");
-                }
-            }
-        } else {
-            targetSqlDialect = SourceConstants.TREE;
-        }
         return () ->
                 (SeaTunnelSource<T, SplitT, StateT>)
-                        new IoTDBSource(catalogTable, context.getOptions(), targetSqlDialect);
+                        new IoTDBSource(catalogTable, context.getOptions());
     }
 
     @Override
-    public Class<IoTDBSource> getSourceClass() {
+    public Class<? extends SeaTunnelSource> getSourceClass() {
         return IoTDBSource.class;
     }
 }
