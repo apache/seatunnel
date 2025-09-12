@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-prometheus.md';
+
 # Prometheus
 
 > Prometheus 数据源连接器
@@ -96,7 +98,7 @@ http请求失败，最大重试回退时间(毫秒)
 
 ## 示例
 
-### Instant:
+### Instant
 
 ```hocon
 source {
@@ -143,10 +145,6 @@ source {
   }
 ```
 
-## Changelog
+## 变更日志
 
-### next version
-
-- 添加Prometheus源连接器
-- 减少配置项
-
+<ChangeLog />

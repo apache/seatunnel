@@ -36,7 +36,7 @@ import org.apache.seatunnel.connectors.doris.exception.DorisSchemaChangeExceptio
 import org.apache.seatunnel.connectors.doris.rest.models.RespContent;
 import org.apache.seatunnel.connectors.doris.schema.SchemaChangeManager;
 import org.apache.seatunnel.connectors.doris.serialize.DorisSerializer;
-import org.apache.seatunnel.connectors.doris.serialize.SeaTunnelRowSerializer;
+import org.apache.seatunnel.connectors.doris.serialize.SeaTunnelRowSerializerFactory;
 import org.apache.seatunnel.connectors.doris.sink.LoadStatus;
 import org.apache.seatunnel.connectors.doris.sink.committer.DorisCommitInfo;
 import org.apache.seatunnel.connectors.doris.util.HttpUtil;
@@ -120,6 +120,7 @@ public class DorisSinkWriter
 
         for (int i = 0; i < feNodesNum; i++) {
             try {
+                log.info("Trying FE node {}  for stream load.", feNodes.get(i));
                 this.dorisStreamLoad =
                         new DorisStreamLoad(
                                 feNodes.get(i),
@@ -133,6 +134,7 @@ public class DorisSinkWriter
                 break;
             } catch (Exception e) {
                 if (i == feNodesNum - 1) {
+                    log.error("All {} FE nodes failed, no more nodes to try", feNodesNum);
                     throw new DorisConnectorException(
                             DorisConnectorErrorCode.STREAM_LOAD_FAILED, e);
                 }
@@ -266,13 +268,6 @@ public class DorisSinkWriter
 
     private DorisSerializer createSerializer(
             DorisSinkConfig dorisSinkConfig, SeaTunnelRowType seaTunnelRowType) {
-        return new SeaTunnelRowSerializer(
-                dorisSinkConfig
-                        .getStreamLoadProps()
-                        .getProperty(LoadConstants.FORMAT_KEY)
-                        .toLowerCase(),
-                seaTunnelRowType,
-                dorisSinkConfig.getStreamLoadProps().getProperty(LoadConstants.FIELD_DELIMITER_KEY),
-                dorisSinkConfig.getEnableDelete());
+        return SeaTunnelRowSerializerFactory.createSerializer(dorisSinkConfig, seaTunnelRowType);
     }
 }

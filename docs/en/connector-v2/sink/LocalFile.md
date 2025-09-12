@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-file-local.md';
+
 # LocalFile
 
 > Local file sink connector
@@ -16,6 +18,10 @@ If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you
 
 ## Key Features
 
+- [x] [multimodal](../../concept/connector-v2-features.md#multimodal)
+
+  Use binary file format to read and write files in any format, such as videos, pictures, etc. In short, any files can be synchronized to the target place.
+
 - [x] [exactly-once](../../concept/connector-v2-features.md)
 - [x] [support multiple table write](../../concept/connector-v2-features.md)
 
@@ -33,18 +39,19 @@ By default, we use 2PC commit to ensure `exactly-once`
 
 ## Options
 
-| Name                                  | Type    | Required | Default                                  | Description                                                                                                                                                            |
-|---------------------------------------|---------|----------|------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| path                                  | string  | yes      | -                                        |                                                                                                                                                                        |
-| tmp_path                              | string  | no       | /tmp/seatunnel                           | The result file will write to a tmp path first and then use `mv` to submit tmp dir to target dir.                                                                      |
-| custom_filename                       | boolean | no       | false                                    | Whether you need custom the filename                                                                                                                                   |
-| file_name_expression                  | string  | no       | "${transactionId}"                       | Only used when custom_filename is true                                                                                                                                 |
-| filename_time_format                  | string  | no       | "yyyy.MM.dd"                             | Only used when custom_filename is true                                                                                                                                 |
-| file_format_type                      | string  | no       | "csv"                                    |                                                                                                                                                                        |
-| field_delimiter                       | string  | no       | '\001'                                   | Only used when file_format_type is text                                                                                                                                |
-| row_delimiter                         | string  | no       | "\n"                                     | Only used when file_format_type is text                                                                                                                                |
-| have_partition                        | boolean | no       | false                                    | Whether you need processing partitions.                                                                                                                                |
-| partition_by                          | array   | no       | -                                        | Only used then have_partition is true                                                                                                                                  |
+| Name                                  | Type    | Required | Default                                    | Description                                                                                                                                                            |
+|---------------------------------------|---------|----------|--------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| path                                  | string  | yes      | -                                          |                                                                                                                                                                        |
+| tmp_path                              | string  | no       | /tmp/seatunnel                             | The result file will write to a tmp path first and then use `mv` to submit tmp dir to target dir.                                                                      |
+| custom_filename                       | boolean | no       | false                                      | Whether you need custom the filename                                                                                                                                   |
+| file_name_expression                  | string  | no       | "${transactionId}"                         | Only used when custom_filename is true                                                                                                                                 |
+| filename_time_format                  | string  | no       | "yyyy.MM.dd"                               | Only used when custom_filename is true                                                                                                                                 |
+| file_format_type                      | string  | no       | "csv"                                      |                                                                                                                                                                        |
+| filename_extension                    | string  | no       | -                                          | Override the default file name extensions with custom file name extensions. E.g. `.xml`, `.json`, `dat`, `.customtype`                                                 |
+| field_delimiter                       | string  | no       | '\001' for text and ',' for csv            | Only used when file_format_type is text  and csv                                                                                                                       |
+| row_delimiter                         | string  | no       | "\n"                                       | Only used when file_format_type is `text`, `csv` and `json`                                                                                                            |
+| have_partition                        | boolean | no       | false                                      | Whether you need processing partitions.                                                                                                                                |
+| partition_by                          | array   | no       | -                                          | Only used then have_partition is true                                                                                                                                  |
 | partition_dir_expression              | string  | no       | "${k0}=${v0}/${k1}=${v1}/.../${kn}=${vn}/" | Only used then have_partition is true                                                                                                                                  |
 | is_partition_field_write_in_file      | boolean | no       | false                                      | Only used then have_partition is true                                                                                                                                  |
 | sink_columns                          | array   | no       |                                            | When this parameter is empty, all fields are sink columns                                                                                                              |
@@ -53,6 +60,7 @@ By default, we use 2PC commit to ensure `exactly-once`
 | compress_codec                        | string  | no       | none                                       |                                                                                                                                                                        |
 | common-options                        | object  | no       | -                                          |                                                                                                                                                                        |
 | max_rows_in_memory                    | int     | no       | -                                          | Only used when file_format_type is excel.                                                                                                                              |
+| sheet_max_rows                        | int     | no       | 1048576                                    | Only used when file_format_type is excel.                                                                                                                              |
 | sheet_name                            | string  | no       | Sheet${Random number}                      | Only used when file_format_type is excel.                                                                                                                              |
 | csv_string_quote_mode                 | enum    | no       | MINIMAL                                    | Only used when file_format is csv.                                                                                                                                     |
 | xml_root_tag                          | string  | no       | RECORDS                                    | Only used when file_format is xml.                                                                                                                                     |
@@ -109,11 +117,11 @@ Please note that, The final file name will end with the file_format_type's suffi
 
 ### field_delimiter [string]
 
-The separator between columns in a row of data. Only needed by `text` file format.
+The separator between columns in a row of data. Only needed by `text` and `csv` file format.
 
 ### row_delimiter [string]
 
-The separator between rows in a file. Only needed by `text` file format.
+The separator between rows in a file. Only needed by `text`, `json` and `json` file format.
 
 ### have_partition [boolean]
 
@@ -177,6 +185,10 @@ Sink plugin common parameters, please refer to [Sink Common Options](../sink-com
 ### max_rows_in_memory [int]
 
 When File Format is Excel,The maximum number of data items that can be cached in the memory.
+
+### sheet_max_rows [int]
+
+When file format is Excel, the maximum number of rows per sheet.
 
 ### sheet_name [string]
 
@@ -327,22 +339,4 @@ LocalFile {
 
 ## Changelog
 
-### 2.2.0-beta 2022-09-26
-
-- Add Local File Sink Connector
-
-### 2.3.0-beta 2022-10-20
-
-- [BugFix] Fix the bug of incorrect path in windows environment ([2980](https://github.com/apache/seatunnel/pull/2980))
-- [BugFix] Fix filesystem get error ([3117](https://github.com/apache/seatunnel/pull/3117))
-- [BugFix] Solved the bug of can not parse '\t' as delimiter from config file ([3083](https://github.com/apache/seatunnel/pull/3083))
-
-### Next version
-
-- [BugFix] Fixed the following bugs that failed to write data to files ([3258](https://github.com/apache/seatunnel/pull/3258))
-  - When field from upstream is null it will throw NullPointerException
-  - Sink columns mapping failed
-  - When restore writer from states getting transaction directly failed
-- [Improve] Support setting batch size for every file ([3625](https://github.com/apache/seatunnel/pull/3625))
-- [Improve] Support file compress ([3899](https://github.com/apache/seatunnel/pull/3899))
-
+<ChangeLog />

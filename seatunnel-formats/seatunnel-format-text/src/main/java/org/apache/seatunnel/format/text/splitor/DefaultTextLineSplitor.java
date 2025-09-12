@@ -18,11 +18,12 @@
 package org.apache.seatunnel.format.text.splitor;
 
 import java.io.Serializable;
+import java.util.regex.Pattern;
 
 public class DefaultTextLineSplitor implements TextLineSplitor, Serializable {
 
     @Override
     public String[] spliteLine(String line, String seperator) {
-        return line.split(seperator, -1);
+        return line.split(Pattern.quote(seperator), -1);
     }
 }

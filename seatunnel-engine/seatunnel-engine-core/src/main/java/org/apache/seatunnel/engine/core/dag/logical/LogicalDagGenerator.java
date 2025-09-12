@@ -105,12 +105,7 @@ public class LogicalDagGenerator {
                 .map(
                         entry ->
                                 entry.getValue().stream()
-                                        .map(
-                                                targetId ->
-                                                        new LogicalEdge(
-                                                                logicalVertexMap.get(
-                                                                        entry.getKey()),
-                                                                logicalVertexMap.get(targetId)))
+                                        .map(targetId -> new LogicalEdge(entry.getKey(), targetId))
                                         .collect(Collectors.toList()))
                 .flatMap(Collection::stream)
                 .collect(Collectors.toCollection(LinkedHashSet::new));

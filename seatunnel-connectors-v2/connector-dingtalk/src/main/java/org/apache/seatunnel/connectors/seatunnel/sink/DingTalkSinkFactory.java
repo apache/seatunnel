@@ -18,13 +18,15 @@
 package org.apache.seatunnel.connectors.seatunnel.sink;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
+import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
 
 import com.google.auto.service.AutoService;
 
-import static org.apache.seatunnel.connectors.seatunnel.config.DingTalkConfig.SECRET;
-import static org.apache.seatunnel.connectors.seatunnel.config.DingTalkConfig.URL;
+import static org.apache.seatunnel.connectors.seatunnel.config.DingTalkSinkOptions.SECRET;
+import static org.apache.seatunnel.connectors.seatunnel.config.DingTalkSinkOptions.URL;
 
 @AutoService(Factory.class)
 public class DingTalkSinkFactory implements TableSinkFactory {
@@ -36,5 +38,10 @@ public class DingTalkSinkFactory implements TableSinkFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder().required(URL, SECRET).build();
+    }
+
+    @Override
+    public TableSink createSink(TableSinkFactoryContext context) {
+        return () -> new DingTalkSink(context.getOptions(), context.getCatalogTable());
     }
 }

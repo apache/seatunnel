@@ -35,15 +35,17 @@ import org.apache.seatunnel.connectors.cdc.base.utils.CatalogTableUtils;
 import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.option.PostgresOptions;
 import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.source.PostgresIncrementalSource;
 import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.source.PostgresSourceOptions;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.JdbcCatalogOptions;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcCommonOptions;
 
 import com.google.auto.service.AutoService;
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.Serializable;
 import java.util.List;
 import java.util.Optional;
 
 @AutoService(Factory.class)
+@Slf4j
 public class OpengaussIncrementalSourceFactory implements TableSourceFactory {
     private static final String IDENTIFIER = "Opengauss-CDC";
 
@@ -58,7 +60,7 @@ public class OpengaussIncrementalSourceFactory implements TableSourceFactory {
                 .required(
                         JdbcSourceOptions.USERNAME,
                         JdbcSourceOptions.PASSWORD,
-                        JdbcCatalogOptions.BASE_URL)
+                        JdbcCommonOptions.URL)
                 .exclusive(ConnectorCommonOptions.TABLE_NAMES, ConnectorCommonOptions.TABLE_PATTERN)
                 .optional(
                         JdbcSourceOptions.DATABASE_NAMES,
@@ -89,6 +91,12 @@ public class OpengaussIncrementalSourceFactory implements TableSourceFactory {
     public <T, SplitT extends SourceSplit, StateT extends Serializable>
             TableSource<T, SplitT, StateT> createSource(TableSourceFactoryContext context) {
         return () -> {
+            // Load the JDBC driver in to DriverManager
+            try {
+                Class.forName("org.postgresql.Driver");
+            } catch (Exception e) {
+                log.warn("Failed to load JDBC driver org.postgresql.Driver", e);
+            }
             List<CatalogTable> catalogTables =
                     CatalogTableUtil.getCatalogTables(
                             "Postgres", context.getOptions(), context.getClassLoader());

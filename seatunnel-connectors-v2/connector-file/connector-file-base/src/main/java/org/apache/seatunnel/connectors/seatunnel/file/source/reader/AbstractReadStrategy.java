@@ -26,7 +26,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.file.config.ArchiveCompressFormat;
-import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfigOptions;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.hadoop.HadoopFileSystemProxy;
@@ -35,6 +35,7 @@ import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
 import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
 import org.apache.commons.compress.compressors.gzip.GzipCompressorInputStream;
 import org.apache.commons.compress.compressors.gzip.GzipParameters;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.hadoop.fs.FileStatus;
 
 import lombok.extern.slf4j.Slf4j;
@@ -44,15 +45,17 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.math.BigDecimal;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Date;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
@@ -79,13 +82,16 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
     protected List<String> readPartitions = new ArrayList<>();
     protected List<String> readColumns = new ArrayList<>();
     protected boolean isMergePartition = true;
-    protected long skipHeaderNumber = BaseSourceConfigOptions.SKIP_HEADER_ROW_NUMBER.defaultValue();
+    protected long skipHeaderNumber = FileBaseSourceOptions.SKIP_HEADER_ROW_NUMBER.defaultValue();
     protected transient boolean isKerberosAuthorization = false;
+    protected String filenameExtension;
     protected HadoopFileSystemProxy hadoopFileSystemProxy;
     protected ArchiveCompressFormat archiveCompressFormat =
-            BaseSourceConfigOptions.ARCHIVE_COMPRESS_CODEC.defaultValue();
+            FileBaseSourceOptions.ARCHIVE_COMPRESS_CODEC.defaultValue();
 
     protected Pattern pattern;
+    protected Date fileModifiedStartDate;
+    protected Date fileModifiedEndDate;
 
     @Override
     public void init(HadoopConf conf) {
@@ -119,7 +125,9 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
             if (fileStatus.isFile() && filterFileByPattern(fileStatus) && fileStatus.getLen() > 0) {
                 // filter '_SUCCESS' file
                 if (!fileStatus.getPath().getName().equals("_SUCCESS")
-                        && !fileStatus.getPath().getName().startsWith(".")) {
+                        && !fileStatus.getPath().getName().startsWith(".")
+                        && filterFileByModificationDate(fileStatus)) {
+
                     String filePath = fileStatus.getPath().toString();
                     if (!readPartitions.isEmpty()) {
                         for (String readPartition : readPartitions) {
@@ -136,41 +144,97 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
                 }
             }
         }
-
+        if (StringUtils.isNotEmpty(filenameExtension)) {
+            this.fileNames.removeIf(fileName -> !fileName.endsWith(filenameExtension));
+            fileNames.removeIf(fileName -> !fileName.endsWith(filenameExtension));
+        }
         return fileNames;
+    }
+
+    private Date getFileModifiedDate(String modifiedDate) {
+        SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+        if (modifiedDate != null) {
+            try {
+                return dateFormat.parse(modifiedDate);
+            } catch (ParseException e) {
+                throw new IllegalArgumentException(
+                        "Failed to parse file modified date format: yyyy-MM-dd HH:mm:ss, please check file_filter_modified_start or file_filter_modified_end format.");
+            }
+        }
+
+        return null;
+    }
+
+    protected boolean filterFileByModificationDate(FileStatus fileStatus) {
+
+        long fileModifiedTime = fileStatus.getModificationTime();
+
+        // Both start and end date are set
+        if (fileModifiedStartDate != null && fileModifiedEndDate != null) {
+            return fileModifiedTime >= fileModifiedStartDate.getTime()
+                    && fileModifiedTime < fileModifiedEndDate.getTime();
+        }
+
+        // Only start date is set
+        if (fileModifiedStartDate != null) {
+            return fileModifiedTime >= fileModifiedStartDate.getTime();
+        }
+
+        // Only end date is set
+        if (fileModifiedEndDate != null) {
+            return fileModifiedTime < fileModifiedEndDate.getTime();
+        }
+
+        // Neither start nor end date is set
+        return true;
     }
 
     @Override
     public void setPluginConfig(Config pluginConfig) {
         this.pluginConfig = pluginConfig;
         // Determine whether it is a compressed file
-        if (pluginConfig.hasPath(BaseSourceConfigOptions.ARCHIVE_COMPRESS_CODEC.key())) {
+        if (pluginConfig.hasPath(FileBaseSourceOptions.ARCHIVE_COMPRESS_CODEC.key())) {
             String archiveCompressCodec =
-                    pluginConfig.getString(BaseSourceConfigOptions.ARCHIVE_COMPRESS_CODEC.key());
+                    pluginConfig.getString(FileBaseSourceOptions.ARCHIVE_COMPRESS_CODEC.key());
             archiveCompressFormat =
                     ArchiveCompressFormat.valueOf(archiveCompressCodec.toUpperCase());
         }
-        if (pluginConfig.hasPath(BaseSourceConfigOptions.PARSE_PARTITION_FROM_PATH.key())) {
+        if (pluginConfig.hasPath(FileBaseSourceOptions.PARSE_PARTITION_FROM_PATH.key())) {
             isMergePartition =
-                    pluginConfig.getBoolean(
-                            BaseSourceConfigOptions.PARSE_PARTITION_FROM_PATH.key());
+                    pluginConfig.getBoolean(FileBaseSourceOptions.PARSE_PARTITION_FROM_PATH.key());
         }
-        if (pluginConfig.hasPath(BaseSourceConfigOptions.SKIP_HEADER_ROW_NUMBER.key())) {
+        if (pluginConfig.hasPath(FileBaseSourceOptions.SKIP_HEADER_ROW_NUMBER.key())) {
             skipHeaderNumber =
-                    pluginConfig.getLong(BaseSourceConfigOptions.SKIP_HEADER_ROW_NUMBER.key());
+                    pluginConfig.getLong(FileBaseSourceOptions.SKIP_HEADER_ROW_NUMBER.key());
         }
-        if (pluginConfig.hasPath(BaseSourceConfigOptions.READ_PARTITIONS.key())) {
+        if (pluginConfig.hasPath(FileBaseSourceOptions.FILENAME_EXTENSION.key())) {
+            filenameExtension =
+                    pluginConfig.getString(FileBaseSourceOptions.FILENAME_EXTENSION.key());
+        }
+        if (pluginConfig.hasPath(FileBaseSourceOptions.READ_PARTITIONS.key())) {
             readPartitions.addAll(
-                    pluginConfig.getStringList(BaseSourceConfigOptions.READ_PARTITIONS.key()));
+                    pluginConfig.getStringList(FileBaseSourceOptions.READ_PARTITIONS.key()));
         }
-        if (pluginConfig.hasPath(BaseSourceConfigOptions.READ_COLUMNS.key())) {
+        if (pluginConfig.hasPath(FileBaseSourceOptions.READ_COLUMNS.key())) {
             readColumns.addAll(
-                    pluginConfig.getStringList(BaseSourceConfigOptions.READ_COLUMNS.key()));
+                    pluginConfig.getStringList(FileBaseSourceOptions.READ_COLUMNS.key()));
         }
-        if (pluginConfig.hasPath(BaseSourceConfigOptions.FILE_FILTER_PATTERN.key())) {
+        if (pluginConfig.hasPath(FileBaseSourceOptions.FILE_FILTER_PATTERN.key())) {
             String filterPattern =
-                    pluginConfig.getString(BaseSourceConfigOptions.FILE_FILTER_PATTERN.key());
-            this.pattern = Pattern.compile(Matcher.quoteReplacement(filterPattern));
+                    pluginConfig.getString(FileBaseSourceOptions.FILE_FILTER_PATTERN.key());
+            this.pattern = Pattern.compile(filterPattern);
+        }
+        if (pluginConfig.hasPath(FileBaseSourceOptions.FILE_FILTER_MODIFIED_START.key())) {
+            fileModifiedStartDate =
+                    getFileModifiedDate(
+                            pluginConfig.getString(
+                                    FileBaseSourceOptions.FILE_FILTER_MODIFIED_START.key()));
+        }
+        if (pluginConfig.hasPath(FileBaseSourceOptions.FILE_FILTER_MODIFIED_END.key())) {
+            fileModifiedEndDate =
+                    getFileModifiedDate(
+                            pluginConfig.getString(
+                                    FileBaseSourceOptions.FILE_FILTER_MODIFIED_END.key()));
         }
     }
 

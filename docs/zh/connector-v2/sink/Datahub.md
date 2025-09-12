@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-datahub.md';
+
 # DataHub
 
 > DataHub 接收器连接器
@@ -12,16 +14,16 @@
 
 ## 选项
 
-|      名称           |  类型  | 必需 | 默认值 |
-|----------------|--------|----|---------------|
-| endpoint       | string | 是  | -             |
-| accessId       | string | 是  | -             |
-| accessKey      | string | 是  | -             |
-| project        | string | 是  | -             |
-| topic          | string | 是  | -             |
-| timeout        | int    | 是  | -             |
-| retryTimes     | int    | 是  | -             |
-| common-options |        | 否  | -             |
+|      名称           |  类型  | 必需  | 默认值  |
+|----------------|--------|-----|------|
+| endpoint       | string | 是   | -    |
+| accessId       | string | 是   | -    |
+| accessKey      | string | 是   | -    |
+| project        | string | 是   | -    |
+| topic          | string | 是   | -    |
+| timeout        | int    | 否   | 3000 |
+| retryTimes     | int    | 否   | 3    |
+| common-options |        | 否   | -    |
 
 ### endpoint [string]
 
@@ -31,7 +33,7 @@
 
 您的DataHub accessId可以从阿里云访问哪个云
 
-### accessKey[string]
+### accessKey [string]
 
 您的DataHub accessKey可以从阿里云访问哪个云
 
@@ -73,7 +75,4 @@ sink {
 
 ## 变更日志
 
-### 2.2.0-beta 2022-09-26
-
-- 添加DataHub接收器连接器
-
+<ChangeLog />

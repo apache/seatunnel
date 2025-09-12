@@ -25,7 +25,7 @@ import org.apache.seatunnel.shade.com.google.common.primitives.Ints;
 
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.IcebergTableLoader;
-import org.apache.seatunnel.connectors.seatunnel.iceberg.config.SinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.utils.SchemaUtils;
 
 import org.apache.iceberg.FileFormat;
@@ -56,9 +56,9 @@ import static org.apache.iceberg.TableProperties.WRITE_TARGET_FILE_SIZE_BYTES_DE
 @Slf4j
 public class IcebergWriterFactory {
     private final IcebergTableLoader tableLoader;
-    private final SinkConfig config;
+    private final IcebergSinkConfig config;
 
-    public IcebergWriterFactory(IcebergTableLoader tableLoader, SinkConfig config) {
+    public IcebergWriterFactory(IcebergTableLoader tableLoader, IcebergSinkConfig config) {
         this.tableLoader = tableLoader;
         this.config = config;
     }
@@ -89,7 +89,7 @@ public class IcebergWriterFactory {
         return new IcebergRecordWriter(table, this, config);
     }
 
-    public TaskWriter<Record> createTaskWriter(Table table, SinkConfig config) {
+    public TaskWriter<Record> createTaskWriter(Table table, IcebergSinkConfig config) {
         Map<String, String> tableProps = Maps.newHashMap(table.properties());
         tableProps.putAll(config.getWriteProps());
 

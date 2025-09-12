@@ -19,7 +19,7 @@ package org.apache.seatunnel.transform.nlpmodel.embedding.remote;
 
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 
-import org.apache.seatunnel.common.utils.BufferUtils;
+import org.apache.seatunnel.common.utils.VectorUtils;
 
 import org.apache.commons.lang3.ArrayUtils;
 
@@ -32,7 +32,7 @@ public abstract class AbstractModel implements Model {
 
     protected static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
     protected static final String DIMENSION_EXAMPLE = "dimension example";
-    private final Integer singleVectorizedInputNumber;
+    protected final Integer singleVectorizedInputNumber;
 
     protected AbstractModel(Integer singleVectorizedInputNumber) {
         this.singleVectorizedInputNumber = singleVectorizedInputNumber;
@@ -44,7 +44,7 @@ public abstract class AbstractModel implements Model {
 
         List<List<Float>> vectors = batchProcess(fields, singleVectorizedInputNumber);
         for (List<Float> vector : vectors) {
-            result.add(BufferUtils.toByteBuffer(vector.toArray(new Float[0])));
+            result.add(VectorUtils.toByteBuffer(vector.toArray(new Float[0])));
         }
         return result;
     }

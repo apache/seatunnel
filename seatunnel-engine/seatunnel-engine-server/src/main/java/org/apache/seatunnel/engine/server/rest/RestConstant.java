@@ -33,6 +33,8 @@ public class RestConstant {
 
     public static final String CREATE_TIME = "createTime";
 
+    public static final String START_TIME = "startTime";
+
     public static final String FINISH_TIME = "finishTime";
 
     public static final String ENV_OPTIONS = "envOptions";
@@ -46,8 +48,6 @@ public class RestConstant {
     public static final String ERROR_MSG = "errorMsg";
 
     public static final String METRICS = "metrics";
-
-    public static final String HOCON = "hocon";
 
     public static final String TABLE_SOURCE_RECEIVED_COUNT = "TableSourceReceivedCount";
     public static final String TABLE_SINK_WRITE_COUNT = "TableSinkWriteCount";

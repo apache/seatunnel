@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-neo4j.md';
+
 # Neo4j
 
 > Neo4j 写连接器
@@ -42,7 +44,7 @@
 
 `Neo4j`密码。如果提供了“用户名”，则需要。
 
-### max_batch_size[Integer]
+### max_batch_size [Integer]
 
 `max_batch_size` 是指写入数据时，单个事务中可以写入的最大数据条目数。
 
@@ -132,13 +134,6 @@ sink {
 }
 ```
 
-## Changelog
+## 变更日志
 
-### 2.2.0-beta 2022-09-26
-
-- 添加 Neo4j 写连接器
-
-### issue ##4835
-
-- 写连接器支持批量写入
-
+<ChangeLog />

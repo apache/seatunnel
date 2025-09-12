@@ -46,4 +46,10 @@ public class DatahubIT extends TestSuiteBase implements TestResource {
         Container.ExecResult execResult = container.executeJob("/fakesource_to_datahub.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
     }
+
+    @TestTemplate
+    public void testDatahubMulti(TestContainer container) throws IOException, InterruptedException {
+        Container.ExecResult execResult = container.executeJob("/fakesource_to_multi_datahub.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+    }
 }

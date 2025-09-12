@@ -43,7 +43,7 @@ public class TransformSpecificationCheckTest {
                 FactoryUtil.discoverFactories(
                         Thread.currentThread().getContextClassLoader(),
                         TableTransformFactory.class);
-        Assertions.assertEquals(16, factories.size());
+        Assertions.assertEquals(20, factories.size());
     }
 
     @Test

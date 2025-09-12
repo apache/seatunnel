@@ -19,7 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.hive.storage;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
-import org.apache.seatunnel.connectors.seatunnel.file.s3.config.S3ConfigOptions;
+import org.apache.seatunnel.connectors.seatunnel.file.s3.config.S3FileBaseOptions;
 import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveOnS3Conf;
 
 import org.junit.jupiter.api.Assertions;
@@ -40,15 +40,17 @@ public class S3StorageTest {
                                     "hive.hadoop.conf",
                                     new HashMap<String, String>() {
                                         {
-                                            put(S3ConfigOptions.S3_BUCKET.key(), "s3a://my_bucket");
                                             put(
-                                                    S3ConfigOptions.S3A_AWS_CREDENTIALS_PROVIDER
+                                                    S3FileBaseOptions.S3_BUCKET.key(),
+                                                    "s3a://my_bucket");
+                                            put(
+                                                    S3FileBaseOptions.S3A_AWS_CREDENTIALS_PROVIDER
                                                             .key(),
-                                                    S3ConfigOptions.S3aAwsCredentialsProvider
+                                                    S3FileBaseOptions.S3aAwsCredentialsProvider
                                                             .InstanceProfileCredentialsProvider
                                                             .getProvider());
                                             put(
-                                                    S3ConfigOptions.FS_S3A_ENDPOINT.key(),
+                                                    S3FileBaseOptions.FS_S3A_ENDPOINT.key(),
                                                     "http://s3.ap-northeast-1.amazonaws.com");
                                         }
                                     });
@@ -63,14 +65,16 @@ public class S3StorageTest {
                                     "hive.hadoop.conf",
                                     new HashMap<String, String>() {
                                         {
-                                            put(S3ConfigOptions.S3_BUCKET.key(), "s3://my_bucket");
                                             put(
-                                                    S3ConfigOptions.S3A_AWS_CREDENTIALS_PROVIDER
+                                                    S3FileBaseOptions.S3_BUCKET.key(),
+                                                    "s3://my_bucket");
+                                            put(
+                                                    S3FileBaseOptions.S3A_AWS_CREDENTIALS_PROVIDER
                                                             .key(),
-                                                    S3ConfigOptions.S3aAwsCredentialsProvider
+                                                    S3FileBaseOptions.S3aAwsCredentialsProvider
                                                             .InstanceProfileCredentialsProvider
                                                             .getProvider());
-                                            put(S3ConfigOptions.FS_S3A_ENDPOINT.key(), "test");
+                                            put(S3FileBaseOptions.FS_S3A_ENDPOINT.key(), "test");
                                         }
                                     });
                         }

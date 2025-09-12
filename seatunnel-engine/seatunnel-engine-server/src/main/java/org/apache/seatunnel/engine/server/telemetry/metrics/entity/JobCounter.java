@@ -24,6 +24,7 @@ import lombok.Data;
 @AllArgsConstructor
 public class JobCounter {
     private long createdJobCount;
+    private long pendingJobCount;
     private long scheduledJobCount;
     private long runningJobCount;
     private long failingJobCount;

@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-clickhouse.md';
+
 # ClickhouseFile
 
 > Clickhouse文件数据接收器
@@ -132,12 +134,4 @@ ClickhouseFile {
 
 ## 变更日志
 
-### 2.2.0-beta 2022-09-26
-
-- 支持将数据写入ClickHouse文件并迁移到ClickHouse数据目录
-
-### 随后版本
-
-- [BugFix] 修复生成的数据部分名称冲突BUG并改进文件提交逻辑  [3416](https://github.com/apache/seatunnel/pull/3416)
-- [Feature] 支持compatible_mode来兼容低版本的Clickhouse  [3416](https://github.com/apache/seatunnel/pull/3416)
-
+<ChangeLog />

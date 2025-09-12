@@ -21,30 +21,34 @@ import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
-import org.apache.seatunnel.api.source.SupportColumnProjection;
-import org.apache.seatunnel.api.source.SupportParallelism;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseSourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.clickhouse.source.split.ClickhouseSourceSplit;
+import org.apache.seatunnel.connectors.seatunnel.clickhouse.source.split.ClickhouseSourceSplitEnumerator;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.state.ClickhouseSourceState;
 
 import com.clickhouse.client.ClickHouseNode;
 
-import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 public class ClickhouseSource
-        implements SeaTunnelSource<SeaTunnelRow, ClickhouseSourceSplit, ClickhouseSourceState>,
-                SupportParallelism,
-                SupportColumnProjection {
+        implements SeaTunnelSource<SeaTunnelRow, ClickhouseSourceSplit, ClickhouseSourceState> {
 
-    private List<ClickHouseNode> servers;
-    private CatalogTable catalogTable;
-    private String sql;
+    private final Map<TablePath, List<ClickHouseNode>> servers;
+    private final ClickhouseSourceConfig clickhouseSourceConfig;
+    private final Map<TablePath, ClickhouseSourceTable> clickhouseSourceTables;
 
-    public ClickhouseSource(List<ClickHouseNode> servers, CatalogTable catalogTable, String sql) {
+    public ClickhouseSource(
+            Map<TablePath, List<ClickHouseNode>> servers,
+            Map<TablePath, ClickhouseSourceTable> clickhouseSourceTables,
+            ClickhouseSourceConfig clickhouseSourceConfig) {
         this.servers = servers;
-        this.catalogTable = catalogTable;
-        this.sql = sql;
+        this.clickhouseSourceTables = clickhouseSourceTables;
+        this.clickhouseSourceConfig = clickhouseSourceConfig;
     }
 
     @Override
@@ -59,28 +63,34 @@ public class ClickhouseSource
 
     @Override
     public List<CatalogTable> getProducedCatalogTables() {
-        return Collections.singletonList(catalogTable);
+
+        return clickhouseSourceTables.values().stream()
+                .map(ClickhouseSourceTable::getCatalogTable)
+                .collect(Collectors.toList());
     }
 
     @Override
     public SourceReader<SeaTunnelRow, ClickhouseSourceSplit> createReader(
-            SourceReader.Context readerContext) throws Exception {
-        return new ClickhouseSourceReader(
-                servers, readerContext, this.catalogTable.getSeaTunnelRowType(), sql);
+            SourceReader.Context readerContext) {
+        return new ClickhouseSourceReader(servers, readerContext, clickhouseSourceTables);
     }
 
     @Override
     public SourceSplitEnumerator<ClickhouseSourceSplit, ClickhouseSourceState> createEnumerator(
-            SourceSplitEnumerator.Context<ClickhouseSourceSplit> enumeratorContext)
-            throws Exception {
-        return new ClickhouseSourceSplitEnumerator(enumeratorContext);
+            SourceSplitEnumerator.Context<ClickhouseSourceSplit> enumeratorContext) {
+        return new ClickhouseSourceSplitEnumerator(
+                enumeratorContext, clickhouseSourceConfig, clickhouseSourceTables, servers);
     }
 
     @Override
     public SourceSplitEnumerator<ClickhouseSourceSplit, ClickhouseSourceState> restoreEnumerator(
             SourceSplitEnumerator.Context<ClickhouseSourceSplit> enumeratorContext,
-            ClickhouseSourceState checkpointState)
-            throws Exception {
-        return new ClickhouseSourceSplitEnumerator(enumeratorContext);
+            ClickhouseSourceState checkpointState) {
+        return new ClickhouseSourceSplitEnumerator(
+                enumeratorContext,
+                clickhouseSourceConfig,
+                clickhouseSourceTables,
+                servers,
+                checkpointState);
     }
 }

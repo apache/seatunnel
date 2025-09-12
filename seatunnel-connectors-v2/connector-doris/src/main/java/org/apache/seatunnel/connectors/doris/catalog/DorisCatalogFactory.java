@@ -22,12 +22,12 @@ import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.factory.CatalogFactory;
 import org.apache.seatunnel.api.table.factory.Factory;
-import org.apache.seatunnel.connectors.doris.config.DorisOptions;
+import org.apache.seatunnel.connectors.doris.config.DorisBaseOptions;
 import org.apache.seatunnel.connectors.doris.config.DorisSinkOptions;
 
 import com.google.auto.service.AutoService;
 
-import static org.apache.seatunnel.connectors.doris.config.DorisOptions.IDENTIFIER;
+import static org.apache.seatunnel.connectors.doris.config.DorisBaseOptions.IDENTIFIER;
 import static org.apache.seatunnel.connectors.doris.config.DorisSinkOptions.SAVE_MODE_CREATE_TEMPLATE;
 
 @AutoService(Factory.class)
@@ -37,10 +37,10 @@ public class DorisCatalogFactory implements CatalogFactory {
     public Catalog createCatalog(String catalogName, ReadonlyConfig options) {
         return new DorisCatalog(
                 catalogName,
-                options.get(DorisOptions.FENODES),
-                options.get(DorisOptions.QUERY_PORT),
-                options.get(DorisOptions.USERNAME),
-                options.get(DorisOptions.PASSWORD),
+                options.get(DorisBaseOptions.FENODES),
+                options.get(DorisBaseOptions.QUERY_PORT),
+                options.get(DorisBaseOptions.USERNAME),
+                options.get(DorisBaseOptions.PASSWORD),
                 options.get(SAVE_MODE_CREATE_TEMPLATE),
                 options.get(DorisSinkOptions.DEFAULT_DATABASE));
     }
@@ -52,6 +52,12 @@ public class DorisCatalogFactory implements CatalogFactory {
 
     @Override
     public OptionRule optionRule() {
-        return DorisOptions.CATALOG_RULE.build();
+        return OptionRule.builder()
+                .required(
+                        DorisBaseOptions.FENODES,
+                        DorisBaseOptions.QUERY_PORT,
+                        DorisBaseOptions.USERNAME,
+                        DorisBaseOptions.PASSWORD)
+                .build();
     }
 }

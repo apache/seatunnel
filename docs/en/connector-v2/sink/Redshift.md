@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-jdbc.md';
+
 # Redshift
 
 > JDBC Redshift sink Connector
@@ -58,14 +60,14 @@ semantics (using XA transaction guarantee).
 
 ## Task Example
 
-### Simple:
+### Simple
 
 ```
 sink {
     jdbc {
         url = "jdbc:redshift://localhost:5439/mydatabase"
         driver = "com.amazon.redshift.jdbc.Driver"
-        user = "myUser"
+        username = "myUser"
         password = "myPassword"
         
         generate_sink_sql = true
@@ -84,7 +86,7 @@ sink {
     jdbc {
         url = "jdbc:redshift://localhost:5439/mydatabase"
         driver = "com.amazon.redshift.jdbc.Driver"
-        user = "myUser"
+        username = "myUser"
         password = "mypassword"
         
         generate_sink_sql = true
@@ -97,3 +99,6 @@ sink {
 }
 ```
 
+## Changelog
+
+<ChangeLog />

@@ -47,6 +47,7 @@ import com.mongodb.MongoNamespace;
 import com.mongodb.client.ChangeStreamIterable;
 import com.mongodb.client.MongoChangeStreamCursor;
 import com.mongodb.client.MongoClient;
+import com.mongodb.client.model.changestream.OperationType;
 import com.mongodb.kafka.connect.source.heartbeat.HeartbeatManager;
 import io.debezium.connector.base.ChangeEventQueue;
 import io.debezium.pipeline.DataChangeEvent;
@@ -69,6 +70,7 @@ import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.Mongo
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.ID_FIELD;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.ILLEGAL_OPERATION_ERROR;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.NS_FIELD;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.OPERATION_TYPE;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.SNAPSHOT_FIELD;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.SOURCE_FIELD;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.TS_MS_FIELD;
@@ -155,24 +157,37 @@ public class MongodbStreamFetchTask implements FetchTask<SourceSplitBase> {
                     nextUpdate = time.milliseconds() + sourceConfig.getPollAwaitTimeMillis();
                 } else {
                     BsonDocument changeStreamDocument = next.get();
-                    MongoNamespace namespace = getMongoNamespace(changeStreamDocument);
+                    OperationType operationType = getOperationType(changeStreamDocument);
 
-                    BsonDocument resumeToken = changeStreamDocument.getDocument(ID_FIELD);
-                    BsonDocument valueDocument =
-                            normalizeChangeStreamDocument(changeStreamDocument);
+                    switch (operationType) {
+                        case INSERT:
+                        case UPDATE:
+                        case REPLACE:
+                        case DELETE:
+                            MongoNamespace namespace = getMongoNamespace(changeStreamDocument);
 
-                    log.trace("Adding {} to {}", valueDocument, namespace.getFullName());
+                            BsonDocument resumeToken = changeStreamDocument.getDocument(ID_FIELD);
+                            BsonDocument valueDocument =
+                                    normalizeChangeStreamDocument(changeStreamDocument);
 
-                    changeRecord =
-                            MongodbRecordUtils.buildSourceRecord(
-                                    createPartitionMap(
-                                            sourceConfig.getHosts(),
-                                            namespace.getDatabaseName(),
-                                            namespace.getCollectionName()),
-                                    createSourceOffsetMap(resumeToken, false),
-                                    namespace.getFullName(),
-                                    changeStreamDocument.getDocument(ID_FIELD),
-                                    valueDocument);
+                            log.trace("Adding {} to {}", valueDocument, namespace.getFullName());
+
+                            changeRecord =
+                                    MongodbRecordUtils.buildSourceRecord(
+                                            createPartitionMap(
+                                                    sourceConfig.getHosts(),
+                                                    namespace.getDatabaseName(),
+                                                    namespace.getCollectionName()),
+                                            createSourceOffsetMap(resumeToken, false),
+                                            namespace.getFullName(),
+                                            changeStreamDocument.getDocument(ID_FIELD),
+                                            valueDocument);
+                            break;
+                        default:
+                            // Ignore drop、drop_database、rename and other record to prevent
+                            // documentKey from being empty.
+                            log.info("Ignored {} record: {}", operationType, changeStreamDocument);
+                    }
                 }
 
                 if (changeRecord != null && !isBoundedRead()) {
@@ -385,6 +400,10 @@ public class MongodbStreamFetchTask implements FetchTask<SourceSplitBase> {
 
         return new MongoNamespace(
                 ns.getString(DB_FIELD).getValue(), ns.getString(COLL_FIELD).getValue());
+    }
+
+    private OperationType getOperationType(BsonDocument changeStreamDocument) {
+        return OperationType.fromString(changeStreamDocument.getString(OPERATION_TYPE).getValue());
     }
 
     private boolean isBoundedRead() {

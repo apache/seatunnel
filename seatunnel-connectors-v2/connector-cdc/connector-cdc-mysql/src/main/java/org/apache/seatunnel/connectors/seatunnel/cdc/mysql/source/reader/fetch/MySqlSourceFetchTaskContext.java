@@ -19,21 +19,19 @@ package org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source.reader.fetch;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.utils.ReflectionUtils;
+import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.dialect.JdbcDataSourceDialect;
+import org.apache.seatunnel.connectors.cdc.base.option.StartupMode;
 import org.apache.seatunnel.connectors.cdc.base.relational.JdbcSourceEventDispatcher;
 import org.apache.seatunnel.connectors.cdc.base.source.offset.Offset;
 import org.apache.seatunnel.connectors.cdc.base.source.reader.external.JdbcSourceFetchTaskContext;
-import org.apache.seatunnel.connectors.cdc.base.source.split.IncrementalSplit;
-import org.apache.seatunnel.connectors.cdc.base.source.split.SnapshotSplit;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SourceSplitBase;
-import org.apache.seatunnel.connectors.cdc.debezium.EmbeddedDatabaseHistory;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.config.MySqlSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source.offset.BinlogOffset;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.utils.MySqlConnectionUtils;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.utils.MySqlUtils;
 
-import org.apache.kafka.connect.data.SchemaAndValue;
 import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.source.SourceRecord;
 
@@ -56,6 +54,7 @@ import io.debezium.connector.mysql.MySqlStreamingChangeEventSourceMetrics;
 import io.debezium.connector.mysql.MySqlTaskContext;
 import io.debezium.connector.mysql.MySqlTopicSelector;
 import io.debezium.data.Envelope;
+import io.debezium.jdbc.JdbcConnection;
 import io.debezium.pipeline.DataChangeEvent;
 import io.debezium.pipeline.ErrorHandler;
 import io.debezium.pipeline.metrics.SnapshotChangeEventSourceMetrics;
@@ -66,7 +65,6 @@ import io.debezium.relational.RelationalDatabaseConnectorConfig;
 import io.debezium.relational.Table;
 import io.debezium.relational.TableId;
 import io.debezium.relational.Tables;
-import io.debezium.relational.history.TableChanges;
 import io.debezium.schema.DataCollectionId;
 import io.debezium.schema.TopicSelector;
 import io.debezium.util.Collect;
@@ -75,9 +73,6 @@ import lombok.extern.slf4j.Slf4j;
 import java.io.IOException;
 import java.sql.SQLException;
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -85,6 +80,7 @@ import java.util.Optional;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source.offset.BinlogOffset.BINLOG_FILENAME_OFFSET_KEY;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mysql.utils.MySqlConnectionUtils.createBinaryClient;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mysql.utils.MySqlConnectionUtils.createMySqlConnection;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mysql.utils.MySqlConnectionUtils.findBinlogOffsetBytimestamp;
 
 /** The context for fetch task that fetching data of snapshot split from MySQL data source. */
 @Slf4j
@@ -118,7 +114,7 @@ public class MySqlSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
 
     @Override
     public void configure(SourceSplitBase sourceSplitBase) {
-        registerDatabaseHistory(sourceSplitBase);
+        super.registerDatabaseHistory(sourceSplitBase, connection);
 
         // initial stateful objects
         final MySqlConnectorConfig connectorConfig = getDbzConnectorConfig();
@@ -276,8 +272,8 @@ public class MySqlSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
         Offset offset =
                 mySqlSplit.isSnapshotSplit()
                         ? BinlogOffset.INITIAL_OFFSET
-                        : mySqlSplit.asIncrementalSplit().getStartupOffset();
-
+                        : getInitOffset(mySqlSplit);
+        LOG.info("mysql cdc start at {}", offset);
         MySqlOffsetContext mySqlOffsetContext = loader.load(offset.getOffset());
 
         if (!isBinlogAvailable(mySqlOffsetContext)) {
@@ -288,6 +284,21 @@ public class MySqlSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
                             + "available on the server. Reconfigure the connector to use a snapshot when needed.");
         }
         return mySqlOffsetContext;
+    }
+
+    private Offset getInitOffset(SourceSplitBase mySqlSplit) {
+        StartupMode startupMode = getSourceConfig().getStartupConfig().getStartupMode();
+        if (startupMode.equals(StartupMode.TIMESTAMP)) {
+            long timestamp = getSourceConfig().getStartupConfig().getTimestamp();
+            try (JdbcConnection jdbcConnection =
+                    getDataSourceDialect().openJdbcConnection(getSourceConfig())) {
+                return findBinlogOffsetBytimestamp(jdbcConnection, binaryLogClient, timestamp);
+            } catch (Exception e) {
+                throw new SeaTunnelException(e);
+            }
+        } else {
+            return mySqlSplit.asIncrementalSplit().getStartupOffset();
+        }
     }
 
     private boolean isBinlogAvailable(MySqlOffsetContext offset) {
@@ -383,49 +394,6 @@ public class MySqlSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
             MySqlOffsetContext offset, MySqlDatabaseSchema schema) {
         schema.initializeStorage();
         schema.recover(Offsets.of(mySqlPartition, offset));
-    }
-
-    private void registerDatabaseHistory(SourceSplitBase sourceSplitBase) {
-        List<TableChanges.TableChange> engineHistory = new ArrayList<>();
-        // TODO: support save table schema
-        if (sourceSplitBase instanceof SnapshotSplit) {
-            SnapshotSplit snapshotSplit = (SnapshotSplit) sourceSplitBase;
-            engineHistory.add(
-                    dataSourceDialect.queryTableSchema(connection, snapshotSplit.getTableId()));
-        } else {
-            IncrementalSplit incrementalSplit = (IncrementalSplit) sourceSplitBase;
-            Map<TableId, byte[]> historyTableChanges = incrementalSplit.getHistoryTableChanges();
-            for (TableId tableId : incrementalSplit.getTableIds()) {
-                if (historyTableChanges != null && historyTableChanges.containsKey(tableId)) {
-                    SchemaAndValue schemaAndValue =
-                            jsonConverter.toConnectData("topic", historyTableChanges.get(tableId));
-                    Struct deserializedStruct = (Struct) schemaAndValue.value();
-
-                    TableChanges tableChanges =
-                            tableChangeSerializer.deserialize(
-                                    Collections.singletonList(deserializedStruct), false);
-
-                    Iterator<TableChanges.TableChange> iterator = tableChanges.iterator();
-                    TableChanges.TableChange tableChange = null;
-                    while (iterator.hasNext()) {
-                        if (tableChange != null) {
-                            throw new IllegalStateException(
-                                    "The table changes should only have one element");
-                        }
-                        tableChange = iterator.next();
-                    }
-                    engineHistory.add(tableChange);
-                    continue;
-                }
-                engineHistory.add(dataSourceDialect.queryTableSchema(connection, tableId));
-            }
-        }
-
-        EmbeddedDatabaseHistory.registerHistory(
-                sourceConfig
-                        .getDbzConfiguration()
-                        .getString(EmbeddedDatabaseHistory.DATABASE_HISTORY_INSTANCE_NAME),
-                engineHistory);
     }
 
     /** A subclass implementation of {@link MySqlTaskContext} which reuses one BinaryLogClient. */

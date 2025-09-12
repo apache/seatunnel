@@ -181,7 +181,15 @@ public class PaimonCatalogTest {
                                         (Long) null,
                                         false,
                                         null,
-                                        "c_timestamp"));
+                                        "c_timestamp"))
+                        .column(
+                                PhysicalColumn.of(
+                                        "c_time",
+                                        LocalTimeType.LOCAL_TIME_TYPE,
+                                        (Long) null,
+                                        false,
+                                        null,
+                                        "c_time"));
     }
 
     @Test

@@ -19,6 +19,8 @@ package org.apache.seatunnel.connectors.doris.sink;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.options.SinkConnectorCommonOptions;
+import org.apache.seatunnel.api.sink.DataSaveMode;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.connector.TableSink;
@@ -38,10 +40,8 @@ import com.google.auto.service.AutoService;
 import java.util.Arrays;
 import java.util.List;
 
-import static org.apache.seatunnel.connectors.doris.config.DorisOptions.DATABASE;
-import static org.apache.seatunnel.connectors.doris.config.DorisOptions.IDENTIFIER;
-import static org.apache.seatunnel.connectors.doris.config.DorisOptions.TABLE;
-import static org.apache.seatunnel.connectors.doris.config.DorisOptions.TABLE_IDENTIFIER;
+import static org.apache.seatunnel.connectors.doris.config.DorisBaseOptions.DATABASE;
+import static org.apache.seatunnel.connectors.doris.config.DorisBaseOptions.TABLE;
 import static org.apache.seatunnel.connectors.doris.config.DorisSinkOptions.NEEDS_UNSUPPORTED_TYPE_CASTING;
 
 @AutoService(Factory.class)
@@ -49,12 +49,41 @@ public class DorisSinkFactory implements TableSinkFactory {
 
     @Override
     public String factoryIdentifier() {
-        return IDENTIFIER;
+        return DorisSinkOptions.IDENTIFIER;
     }
 
     @Override
     public OptionRule optionRule() {
-        return DorisSinkOptions.SINK_RULE.build();
+        return OptionRule.builder()
+                .required(
+                        DorisSinkOptions.FENODES,
+                        DorisSinkOptions.USERNAME,
+                        DorisSinkOptions.PASSWORD,
+                        DorisSinkOptions.SINK_LABEL_PREFIX,
+                        DorisSinkOptions.DORIS_SINK_CONFIG_PREFIX,
+                        DorisSinkOptions.DATA_SAVE_MODE,
+                        DorisSinkOptions.SCHEMA_SAVE_MODE)
+                .optional(
+                        DorisSinkOptions.DATABASE,
+                        DorisSinkOptions.TABLE,
+                        DorisSinkOptions.TABLE_IDENTIFIER,
+                        DorisSinkOptions.QUERY_PORT,
+                        DorisSinkOptions.DORIS_BATCH_SIZE,
+                        DorisSinkOptions.SINK_ENABLE_2PC,
+                        DorisSinkOptions.SINK_ENABLE_DELETE,
+                        DorisSinkOptions.SAVE_MODE_CREATE_TEMPLATE,
+                        DorisSinkOptions.NEEDS_UNSUPPORTED_TYPE_CASTING,
+                        DorisSinkOptions.SINK_CHECK_INTERVAL,
+                        DorisSinkOptions.SINK_MAX_RETRIES,
+                        DorisSinkOptions.SINK_BUFFER_SIZE,
+                        DorisSinkOptions.SINK_BUFFER_COUNT,
+                        DorisSinkOptions.DEFAULT_DATABASE,
+                        SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA)
+                .conditional(
+                        DorisSinkOptions.DATA_SAVE_MODE,
+                        DataSaveMode.CUSTOM_PROCESSING,
+                        DorisSinkOptions.CUSTOM_SQL)
+                .build();
     }
 
     @Override
@@ -79,7 +108,7 @@ public class DorisSinkFactory implements TableSinkFactory {
         TableIdentifier tableId = catalogTable.getTableId();
         String tableName;
         String databaseName;
-        String tableIdentifier = options.get(TABLE_IDENTIFIER);
+        String tableIdentifier = options.get(DorisSinkOptions.TABLE_IDENTIFIER);
         if (StringUtils.isNotEmpty(tableIdentifier)) {
             tableName = tableIdentifier.split("\\.")[1];
             databaseName = tableIdentifier.split("\\.")[0];

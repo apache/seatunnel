@@ -29,16 +29,12 @@
     <artifactId>connector-amazonsqs</artifactId>
     <name>SeaTunnel : Connectors V2 : Amazon SQS</name>
 
-    <properties>
-        <amazon.awssdk>2.18.1</amazon.awssdk>
-    </properties>
-
     <dependencyManagement>
         <dependencies>
             <dependency>
                 <groupId>software.amazon.awssdk</groupId>
                 <artifactId>bom</artifactId>
-                <version>${amazon.awssdk}</version>
+                <version>${software.amazon.awssdk.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>

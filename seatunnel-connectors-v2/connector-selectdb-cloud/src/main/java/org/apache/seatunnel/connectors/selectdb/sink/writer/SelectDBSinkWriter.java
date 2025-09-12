@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.connectors.selectdb.sink.writer;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -54,9 +52,9 @@ public class SelectDBSinkWriter
             SinkWriter.Context context,
             List<SelectDBSinkState> state,
             SeaTunnelRowType seaTunnelRowType,
-            Config pluginConfig,
+            SelectDBConfig selectdbConfig,
             String jobId) {
-        this.selectdbConfig = SelectDBConfig.loadConfig(pluginConfig);
+        this.selectdbConfig = selectdbConfig;
         this.lastCheckpointId = state.size() != 0 ? state.get(0).getCheckpointId() : 0;
         log.info("restore checkpointId {}", lastCheckpointId);
         // filename prefix is uuid

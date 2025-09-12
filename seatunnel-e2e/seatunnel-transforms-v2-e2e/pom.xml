@@ -29,6 +29,8 @@
         <module>seatunnel-transforms-v2-e2e-common</module>
         <module>seatunnel-transforms-v2-e2e-part-1</module>
         <module>seatunnel-transforms-v2-e2e-part-2</module>
+        <module>seatunnel-transforms-v2-udf</module>
+        <module>seatunnel-transforms-v2-e2e-udf</module>
     </modules>
 
     <dependencies>

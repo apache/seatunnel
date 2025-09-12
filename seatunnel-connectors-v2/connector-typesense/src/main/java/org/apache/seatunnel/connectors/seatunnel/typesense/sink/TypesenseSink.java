@@ -32,15 +32,12 @@ import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.factory.CatalogFactory;
 import org.apache.seatunnel.api.table.factory.FactoryUtil;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.connectors.seatunnel.typesense.config.SinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.typesense.config.TypesenseSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.typesense.state.TypesenseAggregatedCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.typesense.state.TypesenseCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.typesense.state.TypesenseSinkState;
 
 import java.util.Optional;
-
-import static org.apache.seatunnel.connectors.seatunnel.typesense.config.SinkConfig.MAX_BATCH_SIZE;
-import static org.apache.seatunnel.connectors.seatunnel.typesense.config.SinkConfig.MAX_RETRY_COUNT;
 
 public class TypesenseSink
         implements SeaTunnelSink<
@@ -59,13 +56,13 @@ public class TypesenseSink
     public TypesenseSink(ReadonlyConfig config, CatalogTable catalogTable) {
         this.config = config;
         this.catalogTable = catalogTable;
-        maxBatchSize = config.get(MAX_BATCH_SIZE);
-        maxRetryCount = config.get(MAX_RETRY_COUNT);
+        maxBatchSize = config.get(TypesenseSinkOptions.MAX_BATCH_SIZE);
+        maxRetryCount = config.get(TypesenseSinkOptions.MAX_RETRY_COUNT);
     }
 
     @Override
     public String getPluginName() {
-        return "Typesense";
+        return TypesenseSinkOptions.CONNECTOR_IDENTITY;
     }
 
     @Override
@@ -84,8 +81,8 @@ public class TypesenseSink
             return Optional.empty();
         }
         Catalog catalog = catalogFactory.createCatalog(catalogFactory.factoryIdentifier(), config);
-        SchemaSaveMode schemaSaveMode = config.get(SinkConfig.SCHEMA_SAVE_MODE);
-        DataSaveMode dataSaveMode = config.get(SinkConfig.DATA_SAVE_MODE);
+        SchemaSaveMode schemaSaveMode = config.get(TypesenseSinkOptions.SCHEMA_SAVE_MODE);
+        DataSaveMode dataSaveMode = config.get(TypesenseSinkOptions.DATA_SAVE_MODE);
 
         TablePath tablePath = TablePath.of("", catalogTable.getTableId().getTableName());
         catalog.open();

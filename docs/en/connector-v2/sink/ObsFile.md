@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-file-obs.md';
+
 # ObsFile
 
 > Obs file sink connector
@@ -11,6 +13,10 @@
 > Seatunnel Zeta
 
 ## Key features
+
+- [x] [multimodal](../../concept/connector-v2-features.md#multimodal)
+
+  Use binary file format to read and write files in any format, such as videos, pictures, etc. In short, any files can be synchronized to the target place.
 
 - [x] [exactly-once](../../concept/connector-v2-features.md)
 
@@ -62,7 +68,7 @@ It only supports hadoop version **2.9.X+**.
 | filename_time_format             | string  | no       | "yyyy.MM.dd"                               | Specify the time format of the `path`. Only used when custom_filename is true. [Tips](#filename_time_format)                                                           |
 | file_format_type                 | string  | no       | "csv"                                      | Supported file types. [Tips](#file_format_type)                                                                                                                        |
 | field_delimiter                  | string  | no       | '\001'                                     | The separator between columns in a row of data.Only used when file_format is text.                                                                                     |
-| row_delimiter                    | string  | no       | "\n"                                       | The separator between rows in a file. Only needed by `text` file format.                                                                                               |
+| row_delimiter                    | string  | no       | "\n"                                       | The separator between rows in a file. Only needed by `text`, `csv` and `json` file format.                                                                              |
 | have_partition                   | boolean | no       | false                                      | Whether you need processing partitions.                                                                                                                                |
 | partition_by                     | array   | no       | -                                          | Partition data based on selected fields. Only used then have_partition is true.                                                                                        |
 | partition_dir_expression         | string  | no       | "${k0}=${v0}/${k1}=${v1}/.../${kn}=${vn}/" | Only used then have_partition is true.[Tips](#partition_dir_expression)                                                                                                |
@@ -76,6 +82,7 @@ It only supports hadoop version **2.9.X+**.
 | common-options                   | object  | no       | -                                          | [Tips](#common_options)                                                                                                                                                |
 | max_rows_in_memory               | int     | no       | -                                          | When File Format is Excel,The maximum number of data items that can be cached in the memory.Only used when file_format is excel.                                       |
 | sheet_name                       | string  | no       | Sheet${Random number}                      | Writer the sheet of the workbook. Only used when file_format is excel.                                                                                                 |
+| sheet_max_rows                   | int     | no       | 1048576                                    | Only used when file format_type is excel.                                                                                                                              |
 
 ### Tips
 
@@ -283,7 +290,4 @@ Please note that excel type does not support any compression format
 
 ## Changelog
 
-### next version
-
-- Add Obs Sink Connector
-
+<ChangeLog />

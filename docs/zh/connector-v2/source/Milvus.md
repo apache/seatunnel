@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-milvus.md';
+
 # Milvus
 
 > Milvus 源连接器
@@ -59,3 +61,4 @@ source {
 
 ## 变更日志
 
+<ChangeLog />

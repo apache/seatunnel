@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-jdbc.md';
+
 # Redshift
 
 > JDBC Redshift Source Connector
@@ -59,7 +61,7 @@ Read external data source data through JDBC.
 
 ## Example
 
-### Simple:
+### Simple
 
 > This example queries type_bin 'table' 16 data in your test "database" in single parallel and queries all of its fields. You can also specify which fields to query for final output to the console.
 
@@ -72,7 +74,7 @@ source{
     Jdbc {
         url = "jdbc:redshift://localhost:5439/dev"
         driver = "com.amazon.redshift.jdbc.Driver"
-        user = "root"
+        username = "root"
         password = "123456"
         
         table_path = "public.table2"
@@ -92,7 +94,7 @@ sink {
 }
 ```
 
-### Multiple table read:
+### Multiple table read
 
 ***Configuring `table_list` will turn on auto split, you can configure `split.*` to adjust the split strategy***
 
@@ -105,7 +107,7 @@ source {
   Jdbc {
     url = "jdbc:redshift://localhost:5439/dev"
     driver = "com.amazon.redshift.jdbc.Driver"
-    user = "root"
+    username = "root"
     password = "123456"
 
     table_list = [
@@ -131,3 +133,6 @@ sink {
 }
 ```
 
+## Changelog
+
+<ChangeLog />

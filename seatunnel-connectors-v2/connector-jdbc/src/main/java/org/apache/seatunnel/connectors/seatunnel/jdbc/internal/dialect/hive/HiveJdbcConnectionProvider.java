@@ -48,7 +48,7 @@ public class HiveJdbcConnectionProvider extends SimpleJdbcConnectionProvider {
         HiveConnectionProduceFunction hiveConnectionProduceFunction =
                 new HiveConnectionProduceFunction(driver, jdbcConfig);
 
-        if (jdbcConfig.useKerberos) {
+        if (jdbcConfig.isUseKerberos()) {
             super.setConnection(getConnectionWithKerberos(hiveConnectionProduceFunction));
         } else {
             super.setConnection(hiveConnectionProduceFunction.produce());
@@ -70,9 +70,9 @@ public class HiveJdbcConnectionProvider extends SimpleJdbcConnectionProvider {
             configuration.set("hadoop.security.authentication", "kerberos");
             return HadoopLoginFactory.loginWithKerberos(
                     configuration,
-                    jdbcConfig.krb5Path,
-                    jdbcConfig.kerberosPrincipal,
-                    jdbcConfig.kerberosKeytabPath,
+                    jdbcConfig.getKrb5Path(),
+                    jdbcConfig.getKerberosPrincipal(),
+                    jdbcConfig.getKerberosKeytabPath(),
                     (conf, userGroupInformation) -> hiveConnectionProduceFunction.produce());
         } catch (Exception ex) {
             throw new JdbcConnectorException(KERBEROS_AUTHENTICATION_FAILED, ex);

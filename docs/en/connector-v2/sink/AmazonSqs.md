@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-amazonsqs.md';
+
 # AmazonSqs
 
 > Amazon SQS sink connector
@@ -85,3 +87,6 @@ sink {
 }
 ```
 
+## Changelog
+
+<ChangeLog />

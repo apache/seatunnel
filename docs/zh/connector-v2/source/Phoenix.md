@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-jdbc.md';
+
 # Phoenix
 
 > Phoenix 源连接器
@@ -61,7 +63,4 @@ Jdbc {
 
 ## 变更日志
 
-### 2.2.0-beta 2022-09-26
-
-- 添加 Phoenix 源连接器
-
+<ChangeLog />

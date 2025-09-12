@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-jdbc.md';
+
 # Redshift
 
 > JDBC Redshift 接收器连接器
@@ -57,14 +59,14 @@
 
 ## 任务示例
 
-### 简单示例:
+### 简单示例
 
 ```
 sink {
     jdbc {
         url = "jdbc:redshift://localhost:5439/mydatabase"
         driver = "com.amazon.redshift.jdbc.Driver"
-        user = "myUser"
+        username = "myUser"
         password = "myPassword"
         
         generate_sink_sql = true
@@ -83,7 +85,7 @@ sink {
     jdbc {
         url = "jdbc:redshift://localhost:5439/mydatabase"
         driver = "com.amazon.redshift.jdbc.Driver"
-        user = "myUser"
+        username = "myUser"
         password = "mypassword"
         
         generate_sink_sql = true
@@ -96,3 +98,6 @@ sink {
 }
 ```
 
+## 变更日志
+
+<ChangeLog />

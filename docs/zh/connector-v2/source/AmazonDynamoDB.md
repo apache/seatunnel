@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-amazondynamodb.md';
+
 # AmazonDynamoDB
 
 > AmazonDynamoDB 源连接器
@@ -37,11 +39,11 @@
 
 Amazon DynamoDB 的分区.
 
-### accessKeyId [string]
+### access_key_id [string]
 
 Amazon DynamoDB的访问id.
 
-### secretAccessKey [string]
+### secret_access_key [string]
 
 Amazon DynamoDB的访问密钥.
 
@@ -85,8 +87,8 @@ schema {
 Amazondynamodb {
   url = "http://127.0.0.1:8000"
   region = "us-east-1"
-  accessKeyId = "dummy-key"
-  secretAccessKey = "dummy-secret"
+  access_key_id = "dummy-key"
+  secret_access_key = "dummy-secret"
   table = "TableName"
   schema = {
     fields {
@@ -113,8 +115,4 @@ Amazondynamodb {
 
 ## 变更日志
 
-### 下一个版本
-
-- 添加Amazon DynamoDB源连接器
-- 将源代码拆分添加到Amazondynamodb连接器
-
+<ChangeLog />

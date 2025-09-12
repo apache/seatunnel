@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-jdbc.md';
+
 # SQL Server
 
 > JDBC SQL Server Sink Connector
@@ -69,13 +71,12 @@ semantics (using XA transaction guarantee).
 |-------------------------------------------|---------|----------|---------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | url                                       | String  | Yes      | -       | The URL of the JDBC connection. Refer to a case: jdbc:sqlserver://localhost:1433;databaseName=mydatabase                                                                                                                                     |
 | driver                                    | String  | Yes      | -       | The jdbc class name used to connect to the remote data source,<br/> if you use sqlServer the value is `com.microsoft.sqlserver.jdbc.SQLServerDriver`.                                                                                        |
-| user                                      | String  | No       | -       | Connection instance user name                                                                                                                                                                                                                |
+| username                                      | String  | No       | -       | Connection instance user name                                                                                                                                                                                                                |
 | password                                  | String  | No       | -       | Connection instance password                                                                                                                                                                                                                 |
 | query                                     | String  | No       | -       | Use this sql write upstream input datas to database. e.g `INSERT ...`,`query` have the higher priority                                                                                                                                       |
 | database                                  | String  | No       | -       | Use this `database` and `table-name` auto-generate sql and receive upstream input datas write to database.<br/>This option is mutually exclusive with `query` and has a higher priority.                                                     |
 | table                                     | String  | No       | -       | Use database and this table-name auto-generate sql and receive upstream input datas write to database.<br/>This option is mutually exclusive with `query` and has a higher priority.                                                         |
 | primary_keys                              | Array   | No       | -       | This option is used to support operations such as `insert`, `delete`, and `update` when automatically generate sql.                                                                                                                          |
-| support_upsert_by_query_primary_key_exist | Boolean | No       | false   | Choose to use INSERT sql, UPDATE sql to process update events(INSERT, UPDATE_AFTER) based on query primary key exists. This configuration is only used when database unsupport upsert syntax. **Note**: that this method has low performance |
 | connection_check_timeout_sec              | Int     | No       | 30      | The time in seconds to wait for the database operation used to validate the connection to complete.                                                                                                                                          |
 | max_retries                               | Int     | No       | 0       | The number of retries to submit failed (executeBatch)                                                                                                                                                                                        |
 | batch_size                                | Int     | No       | 1000    | For batch writing, when the number of buffered records reaches the number of `batch_size` or the time reaches `checkpoint.interval`<br/>, the data will be flushed into the database                                                         |
@@ -94,7 +95,7 @@ semantics (using XA transaction guarantee).
 
 ## Task Example
 
-### simple:
+### simple
 
 > This is one that reads Sqlserver data and inserts it directly into another table
 
@@ -109,7 +110,7 @@ source {
   Jdbc {
     driver = com.microsoft.sqlserver.jdbc.SQLServerDriver
     url = "jdbc:sqlserver://localhost:1433;databaseName=column_type_test"
-    user = SA
+    username = SA
     password = "Y.sa123456"
     query = "select * from column_type_test.dbo.full_types_jdbc"
     # Parallel sharding reads fields
@@ -132,7 +133,7 @@ sink {
   Jdbc {
     driver = com.microsoft.sqlserver.jdbc.SQLServerDriver
     url = "jdbc:sqlserver://localhost:1433;databaseName=column_type_test"
-    user = SA
+    username = SA
     password = "Y.sa123456"
     query = "insert into full_types_jdbc_sink( id, val_char, val_varchar, val_text, val_nchar, val_nvarchar, val_ntext, val_decimal, val_numeric, val_float, val_real, val_smallmoney, val_money, val_bit, val_tinyint, val_smallint, val_int, val_bigint, val_date, val_time, val_datetime2, val_datetime, val_smalldatetime ) values( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? )"
 
@@ -150,7 +151,7 @@ Jdbc {
   plugin_input = "customers"
   driver = com.microsoft.sqlserver.jdbc.SQLServerDriver
   url = "jdbc:sqlserver://localhost:1433;databaseName=column_type_test"
-  user = SA
+  username = SA
   password = "Y.sa123456"
   generate_sink_sql = true
   database = "column_type_test"
@@ -168,7 +169,7 @@ Jdbc {
   Jdbc {
     driver = com.microsoft.sqlserver.jdbc.SQLServerDriver
     url = "jdbc:sqlserver://localhost:1433;databaseName=column_type_test"
-    user = SA
+    username = SA
     password = "Y.sa123456"
     query = "insert into full_types_jdbc_sink( id, val_char, val_varchar, val_text, val_nchar, val_nvarchar, val_ntext, val_decimal, val_numeric, val_float, val_real, val_smallmoney, val_money, val_bit, val_tinyint, val_smallint, val_int, val_bigint, val_date, val_time, val_datetime2, val_datetime, val_smalldatetime ) values( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? )"
     is_exactly_once = "true"
@@ -180,3 +181,6 @@ Jdbc {
 
 ```
 
+## Changelog
+
+<ChangeLog />

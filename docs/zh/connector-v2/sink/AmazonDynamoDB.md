@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-amazondynamodb.md';
+
 # AmazonDynamoDB
 
 > Amazon DynamoDB 接收器连接器
@@ -30,11 +32,11 @@
 
 Amazon DynamoDB 的分区.
 
-### accessKeyId [string]
+### access_key_id [string]
 
 Amazon DynamoDB的访问id.
 
-### secretAccessKey [string]
+### secret_access_key [string]
 
 Amazon DynamoDB的访问密钥.
 
@@ -52,15 +54,12 @@ Sink插件常用参数，请参考 [Sink Common Options](../sink-common-options.
 Amazondynamodb {
     url = "http://127.0.0.1:8000"
     region = "us-east-1"
-    accessKeyId = "dummy-key"
-    secretAccessKey = "dummy-secret"
+    access_key_id = "dummy-key"
+    secret_access_key = "dummy-secret"
     table = "TableName"
   }
 ```
 
 ## 变更日志
 
-### 下一个版本
-
-- 添加 Amazon DynamoDB 接收器连接器
-
+<ChangeLog />

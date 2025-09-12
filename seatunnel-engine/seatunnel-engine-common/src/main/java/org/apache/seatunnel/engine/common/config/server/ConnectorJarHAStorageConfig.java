@@ -25,7 +25,9 @@ import java.util.Map;
 @Data
 public class ConnectorJarHAStorageConfig {
 
-    private String type = ServerConfigOptions.CONNECTOR_JAR_HA_STORAGE_TYPE.defaultValue();
+    private String type =
+            ServerConfigOptions.MasterServerConfigOptions.CONNECTOR_JAR_HA_STORAGE_TYPE
+                    .defaultValue();
 
     /** Storage plugin instance configuration */
     private Map<String, String> storagePluginConfig = new HashMap<>();

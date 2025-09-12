@@ -22,7 +22,8 @@ import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.connectors.seatunnel.typesense.config.SinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.typesense.config.TypesenseBaseOptions;
+import org.apache.seatunnel.connectors.seatunnel.typesense.config.TypesenseSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.typesense.dto.CollectionInfo;
 import org.apache.seatunnel.connectors.seatunnel.typesense.serialize.sink.TypesenseRowSerializer;
 
@@ -41,8 +42,8 @@ public class TypesenseRowSerializerTest {
         String collection = "test";
         String primaryKey = "id";
         Map<String, Object> confMap = new HashMap<>();
-        confMap.put(SinkConfig.COLLECTION.key(), collection);
-        confMap.put(SinkConfig.PRIMARY_KEYS.key(), Arrays.asList(primaryKey));
+        confMap.put(TypesenseBaseOptions.COLLECTION.key(), collection);
+        confMap.put(TypesenseSinkOptions.PRIMARY_KEYS.key(), Arrays.asList(primaryKey));
 
         ReadonlyConfig pluginConf = ReadonlyConfig.fromMap(confMap);
         CollectionInfo collectionInfo = new CollectionInfo(collection, pluginConf);

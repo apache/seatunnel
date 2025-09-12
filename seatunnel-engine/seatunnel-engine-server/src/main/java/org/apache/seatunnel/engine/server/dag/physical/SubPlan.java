@@ -98,7 +98,7 @@ public class SubPlan {
 
     private PassiveCompletableFuture<Void> reSchedulerPipelineFuture;
 
-    private Integer pipelineRestoreNum;
+    private AtomicInteger pipelineRestoreNum;
 
     private final Object restoreLock = new Object();
 
@@ -125,7 +125,7 @@ public class SubPlan {
         this.pipelineFuture = new CompletableFuture<>();
         this.physicalVertexList = physicalVertexList;
         this.coordinatorVertexList = coordinatorVertexList;
-        pipelineRestoreNum = 0;
+        pipelineRestoreNum = new AtomicInteger();
         pipelineMaxRestoreNum =
                 Integer.parseInt(
                         jobImmutableInformation
@@ -462,7 +462,7 @@ public class SubPlan {
     private boolean prepareRestorePipeline() {
         synchronized (restoreLock) {
             try {
-                pipelineRestoreNum++;
+                pipelineRestoreNum.getAndIncrement();
                 log.info(
                         String.format(
                                 "Restore time %s, pipeline %s",
@@ -590,7 +590,7 @@ public class SubPlan {
     }
 
     public int getPipelineRestoreNum() {
-        return pipelineRestoreNum;
+        return pipelineRestoreNum.get();
     }
 
     public void handleCheckpointError() {
@@ -625,11 +625,33 @@ public class SubPlan {
                 break;
             case SCHEDULED:
                 try {
-                    ResourceUtils.applyResourceForPipeline(jobMaster, this);
+                    Map<TaskGroupLocation, SlotProfile> slotProfiles =
+                            ResourceUtils.applyResourceForPipeline(jobMaster, this);
                     log.debug(
                             "slotProfiles: {}, PipelineLocation: {}",
                             slotProfiles,
                             this.getPipelineLocation());
+
+                    // Log task execution locations for the entire pipeline
+                    if (slotProfiles != null && !slotProfiles.isEmpty()) {
+                        log.info(
+                                "Resource allocation for pipeline {} completed. Task execution locations:",
+                                getPipelineFullName());
+                        slotProfiles.forEach(
+                                (taskLocation, slotProfile) -> {
+                                    if (slotProfile != null) {
+                                        log.info(
+                                                "  Task [{}] will be executed on worker [{}], slotID [{}], resourceProfile [{}], sequence [{}], assigned [{}]",
+                                                taskLocation,
+                                                slotProfile.getWorker(),
+                                                slotProfile.getSlotID(),
+                                                slotProfile.getResourceProfile(),
+                                                slotProfile.getSequence(),
+                                                slotProfile.getOwnerJobID());
+                                    }
+                                });
+                    }
+
                     updatePipelineState(PipelineStatus.DEPLOYING);
                 } catch (Exception e) {
                     makePipelineFailing(e);

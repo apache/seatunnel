@@ -32,8 +32,8 @@ import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.factory.CatalogFactory;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseConfig;
 import org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseParameters;
+import org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.hbase.constant.HbaseIdentifier;
 import org.apache.seatunnel.connectors.seatunnel.hbase.state.HbaseAggregatedCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.hbase.state.HbaseCommitInfo;
@@ -102,8 +102,8 @@ public class HbaseSink
             return Optional.empty();
         }
         Catalog catalog = catalogFactory.createCatalog(catalogFactory.factoryIdentifier(), config);
-        SchemaSaveMode schemaSaveMode = config.get(HbaseConfig.SCHEMA_SAVE_MODE);
-        DataSaveMode dataSaveMode = config.get(HbaseConfig.DATA_SAVE_MODE);
+        SchemaSaveMode schemaSaveMode = config.get(HbaseSinkOptions.SCHEMA_SAVE_MODE);
+        DataSaveMode dataSaveMode = config.get(HbaseSinkOptions.DATA_SAVE_MODE);
         TablePath tablePath =
                 TablePath.of(hbaseParameters.getNamespace(), hbaseParameters.getTable());
         return Optional.of(

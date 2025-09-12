@@ -157,6 +157,7 @@ const sidebars = {
                 },
                 "connector-v2/source-common-options",
                 "connector-v2/sink-common-options",
+                "connector-v2/connector-isolated-dependency",
                 "connector-v2/Error-Quick-Reference-Manual",
                 "connector-v2/Config-Encryption-Decryption"
             ]
@@ -208,13 +209,21 @@ const sidebars = {
                 "seatunnel-engine/engine-jar-storage-mode",
                 "seatunnel-engine/tcp",
                 "seatunnel-engine/resource-isolation",
-                "seatunnel-engine/rest-api-v1",
-                "seatunnel-engine/rest-api-v2",
+                {
+                    "type": "category",
+                    "label": "RESTFul API",
+                    "items": [
+                        "seatunnel-engine/rest-api-v1",
+                        "seatunnel-engine/rest-api-v2",
+                        "seatunnel-engine/security"
+                    ]
+                },
                 "seatunnel-engine/user-command",
                 "seatunnel-engine/logging",
                 "seatunnel-engine/telemetry",
                 "seatunnel-engine/web-ui",
-                "seatunnel-engine/slot-allocation-strategy"
+                "seatunnel-engine/slot-allocation-strategy",
+                "seatunnel-engine/tuning-guide"
             ]
         },
         {

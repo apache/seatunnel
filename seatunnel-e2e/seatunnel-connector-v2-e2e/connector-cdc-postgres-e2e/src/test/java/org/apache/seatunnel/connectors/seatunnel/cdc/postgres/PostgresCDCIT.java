@@ -32,6 +32,17 @@ import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 import org.apache.seatunnel.e2e.common.util.JobIdGenerator;
 
+import org.apache.kafka.clients.admin.AdminClient;
+import org.apache.kafka.clients.admin.AdminClientConfig;
+import org.apache.kafka.clients.admin.NewTopic;
+import org.apache.kafka.clients.consumer.ConsumerConfig;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.apache.kafka.clients.consumer.ConsumerRecords;
+import org.apache.kafka.clients.consumer.KafkaConsumer;
+import org.apache.kafka.clients.consumer.OffsetResetStrategy;
+import org.apache.kafka.common.IsolationLevel;
+import org.apache.kafka.common.TopicPartition;
+
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
@@ -40,10 +51,12 @@ import org.junit.jupiter.api.TestTemplate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testcontainers.containers.Container;
+import org.testcontainers.containers.KafkaContainer;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerImageName;
+import org.testcontainers.utility.DockerLoggerFactory;
 
 import io.debezium.jdbc.JdbcConnection;
 import io.debezium.relational.TableId;
@@ -59,19 +72,24 @@ import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.Properties;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static org.awaitility.Awaitility.await;
-import static org.junit.Assert.assertNotNull;
+import static org.awaitility.Awaitility.given;
 
 @Slf4j
 @DisabledOnContainer(
@@ -93,14 +111,31 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
     private static final String SOURCE_TABLE_1 = "postgres_cdc_table_1";
     private static final String SOURCE_TABLE_2 = "postgres_cdc_table_2";
     private static final String SOURCE_TABLE_3 = "postgres_cdc_table_3";
+    private static final String SOURCE_TABLE_4 = "postgres_cdc_table_4";
+    private static final String SOURCE_TABLE_5 = "postgres_cdc_table_5";
     private static final String SINK_TABLE_1 = "sink_postgres_cdc_table_1";
     private static final String SINK_TABLE_2 = "sink_postgres_cdc_table_2";
     private static final String SINK_TABLE_3 = "sink_postgres_cdc_table_3";
+    private static final String SINK_TABLE_4 = "sink_postgres_cdc_table_4";
+    private static final String SINK_TABLE_5 = "sink_postgres_cdc_table_5";
 
     private static final String SOURCE_TABLE_NO_PRIMARY_KEY = "full_types_no_primary_key";
 
+    private static final String SOURCE_TABLE_NO_PRIMARY_KEY_DEBEZIUM =
+            "full_types_no_primary_key_with_debezium";
+
     private static final String SOURCE_SQL_TEMPLATE = "select * from %s.%s order by id";
 
+    // kafka container
+    private static final String KAFKA_IMAGE_NAME = "confluentinc/cp-kafka:7.0.9";
+
+    private static final String KAFKA_HOST = "kafka_e2e";
+
+    private static KafkaContainer KAFKA_CONTAINER;
+
+    private static KafkaConsumer<String, String> kafkaConsumer;
+
+    private static final String DEBEZIUM_JSON_TOPIC = "debezium_json_topic";
     // use newer version of postgresql image to support pgoutput plugin
     // when testing postgres 13, only 13-alpine supports both amd64 and arm64
     protected static final DockerImageName PG_IMAGE =
@@ -121,6 +156,16 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
                             "fsync=off",
                             "-c",
                             "max_replication_slots=20");
+
+    private void createKafkaContainer() {
+        KAFKA_CONTAINER =
+                new KafkaContainer(DockerImageName.parse(KAFKA_IMAGE_NAME))
+                        .withNetwork(NETWORK)
+                        .withNetworkAliases(KAFKA_HOST)
+                        .withLogConsumer(
+                                new Slf4jLogConsumer(
+                                        DockerLoggerFactory.getLogger(KAFKA_IMAGE_NAME)));
+    }
 
     private String driverUrl() {
         return "https://repo1.maven.org/maven2/org/postgresql/postgresql/42.5.1/postgresql-42.5.1.jar";
@@ -149,8 +194,136 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
                                 PostgreSQLContainer.POSTGRESQL_PORT,
                                 PostgreSQLContainer.POSTGRESQL_PORT)));
         Startables.deepStart(Stream.of(POSTGRES_CONTAINER)).join();
+
         log.info("Postgres Containers are started");
         initializePostgresTable(POSTGRES_CONTAINER, "inventory");
+
+        LOG.info("The third stage: Starting Kafka containers...");
+        createKafkaContainer();
+        Startables.deepStart(Stream.of(KAFKA_CONTAINER)).join();
+        LOG.info("Kafka Containers are started");
+
+        given().ignoreExceptions()
+                .atLeast(100, TimeUnit.MILLISECONDS)
+                .pollInterval(500, TimeUnit.MILLISECONDS)
+                .atMost(180, TimeUnit.SECONDS)
+                .untilAsserted(this::createTopic);
+        LOG.info("Kafka create topic: " + DEBEZIUM_JSON_TOPIC);
+    }
+
+    // Initialize the kafka Topic
+    private void createTopic() {
+        Properties props = new Properties();
+        props.put(
+                AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, KAFKA_CONTAINER.getBootstrapServers());
+
+        try (AdminClient adminClient = AdminClient.create(props)) {
+            // Create a new topic
+            NewTopic newTopic = new NewTopic(DEBEZIUM_JSON_TOPIC, 1, (short) 1);
+
+            // Create the topic (async operation)
+            adminClient.createTopics(Collections.singleton(newTopic)).all().get();
+
+            System.out.println("Topic " + DEBEZIUM_JSON_TOPIC + " created successfully");
+        } catch (InterruptedException | ExecutionException e) {
+            System.err.println("Error creating topic: " + e.getMessage());
+        }
+    }
+    // Initialize the kafka Consumer
+
+    private Properties kafkaConsumerConfig() {
+        Properties props = new Properties();
+        props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, KAFKA_CONTAINER.getBootstrapServers());
+        props.put(
+                ConsumerConfig.AUTO_OFFSET_RESET_CONFIG,
+                OffsetResetStrategy.EARLIEST.toString().toLowerCase());
+        props.put(
+                ConsumerConfig.ISOLATION_LEVEL_CONFIG,
+                IsolationLevel.READ_COMMITTED.name().toLowerCase());
+        props.put(
+                ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG,
+                "org.apache.kafka.common.serialization.StringDeserializer");
+        props.put(
+                ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG,
+                "org.apache.kafka.common.serialization.StringDeserializer");
+
+        props.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, true);
+        return props;
+    }
+
+    private List<String> getKafkaData() {
+        long endOffset;
+        long lastProcessedOffset = -1L;
+        List<String> data = new ArrayList<>();
+        kafkaConsumer.subscribe(Collections.singletonList(PostgresCDCIT.DEBEZIUM_JSON_TOPIC));
+        Map<TopicPartition, Long> offsets =
+                kafkaConsumer.endOffsets(
+                        Collections.singletonList(
+                                new TopicPartition(PostgresCDCIT.DEBEZIUM_JSON_TOPIC, 0)));
+        endOffset = offsets.entrySet().iterator().next().getValue();
+        log.info("End offset: {}", endOffset);
+        do {
+            ConsumerRecords<String, String> consumerRecords =
+                    kafkaConsumer.poll(Duration.ofMillis(1000));
+            for (ConsumerRecord<String, String> record : consumerRecords) {
+                data.add(record.value());
+                lastProcessedOffset = record.offset();
+            }
+            log.info("Data size: {}", data.size());
+        } while (lastProcessedOffset < endOffset - 1);
+
+        return data;
+    }
+
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK, EngineType.FLINK},
+            disabledReason = "Currently Only support Zeta engine")
+    public void testPostgresCdcWithDebeziumJsonFormat(TestContainer container) {
+        try {
+
+            log.info(
+                    "Table {} has {} rows.",
+                    SOURCE_TABLE_NO_PRIMARY_KEY_DEBEZIUM,
+                    query(getQuerySQL(POSTGRESQL_SCHEMA, SOURCE_TABLE_NO_PRIMARY_KEY_DEBEZIUM)));
+
+            Properties props = kafkaConsumerConfig();
+            props.put(ConsumerConfig.GROUP_ID_CONFIG, "group-debezium-json-format");
+            kafkaConsumer = new KafkaConsumer<>(props);
+
+            CompletableFuture.supplyAsync(
+                    () -> {
+                        try {
+                            container.executeJob(
+                                    "/postgrescdc_to_postgres_with_debezium_to_kafka.conf");
+                        } catch (Exception e) {
+                            log.error("Commit task exception :" + e.getMessage());
+                            throw new RuntimeException(e);
+                        }
+                        return null;
+                    });
+            AtomicReference<Integer> dataSize = new AtomicReference<>(0);
+
+            await().atMost(1000 * 60 * 3, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () -> {
+                                dataSize.updateAndGet(v -> v + getKafkaData().size());
+                                Assertions.assertEquals(1, dataSize.get());
+                            });
+            // insert update delete
+            upsertDeleteSourceTable(POSTGRESQL_SCHEMA, SOURCE_TABLE_NO_PRIMARY_KEY_DEBEZIUM);
+
+            await().atMost(1000 * 60 * 3, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () -> {
+                                dataSize.updateAndGet(v -> v + getKafkaData().size());
+                                Assertions.assertEquals(5, dataSize.get());
+                            });
+        } finally {
+            clearTable(POSTGRESQL_SCHEMA, SOURCE_TABLE_NO_PRIMARY_KEY_DEBEZIUM);
+            kafkaConsumer.close();
+        }
     }
 
     @TestTemplate
@@ -424,7 +597,7 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
             value = {},
             type = {EngineType.SPARK, EngineType.FLINK},
             disabledReason = "Currently SPARK and FLINK do not support restore")
-    public void testAddFiledWithRestore(TestContainer container)
+    public void testAddFieldWithRestore(TestContainer container)
             throws IOException, InterruptedException {
         Long jobId = JobIdGenerator.newJobId();
         try {
@@ -458,7 +631,7 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
 
             Assertions.assertEquals(0, container.savepointJob(String.valueOf(jobId)).getExitCode());
 
-            // add filed add insert source table data
+            // add field add insert source table data
             addFieldsForTable(POSTGRESQL_SCHEMA, SOURCE_TABLE_3);
             addFieldsForTable(POSTGRESQL_SCHEMA, SINK_TABLE_3);
             insertSourceTableForAddFields(POSTGRESQL_SCHEMA, SOURCE_TABLE_3);
@@ -555,8 +728,7 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
-    public void testPostgresCdcCheckDataWithCustomPrimaryKey(TestContainer container)
-            throws Exception {
+    public void testPostgresCdcCheckDataWithCustomPrimaryKey(TestContainer container) {
 
         try {
             CompletableFuture.supplyAsync(
@@ -603,6 +775,66 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
         }
     }
 
+    @TestTemplate
+    public void testPostgresCdcCheckDataWithIntervalDataType(TestContainer container)
+            throws Exception {
+
+        try {
+            CompletableFuture.supplyAsync(
+                    () -> {
+                        try {
+                            container.executeJob(
+                                    "/postgrescdc_to_postgres_with_interval_data_type.conf");
+                        } catch (Exception e) {
+                            log.error("Commit task exception :" + e.getMessage());
+                            throw new RuntimeException(e);
+                        }
+                        return null;
+                    });
+
+            // stream stage
+            await().atMost(60000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () -> {
+                                Assertions.assertIterableEquals(
+                                        query(getQuerySQL(POSTGRESQL_SCHEMA, SOURCE_TABLE_4)),
+                                        query(getQuerySQL(POSTGRESQL_SCHEMA, SINK_TABLE_4)));
+                            });
+        } finally {
+            clearTable(POSTGRESQL_SCHEMA, SOURCE_TABLE_4);
+            clearTable(POSTGRESQL_SCHEMA, SINK_TABLE_4);
+        }
+    }
+
+    @TestTemplate
+    public void testPostgresCdcCheckDataWithNetworkAddressTypes(TestContainer container) {
+        try {
+            CompletableFuture.supplyAsync(
+                    () -> {
+                        try {
+                            container.executeJob(
+                                    "/postgrescdc_to_postgres_with_network_address_types.conf");
+                        } catch (Exception e) {
+                            log.error("Commit task exception :" + e.getMessage());
+                            throw new RuntimeException(e);
+                        }
+                        return null;
+                    });
+
+            // stream stage
+            await().atMost(60000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () -> {
+                                Assertions.assertIterableEquals(
+                                        query(getQuerySQL(POSTGRESQL_SCHEMA, SOURCE_TABLE_5)),
+                                        query(getQuerySQL(POSTGRESQL_SCHEMA, SINK_TABLE_5)));
+                            });
+        } finally {
+            clearTable(POSTGRESQL_SCHEMA, SOURCE_TABLE_5);
+            clearTable(POSTGRESQL_SCHEMA, SINK_TABLE_5);
+        }
+    }
+
     @Test
     public void testDialectCheckDisabledCDCTable() throws SQLException {
         JdbcSourceConfigFactory factory =
@@ -639,7 +871,7 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
     protected void initializePostgresTable(PostgreSQLContainer container, String sqlFile) {
         final String ddlFile = String.format("ddl/%s.sql", sqlFile);
         final URL ddlTestFile = PostgresCDCIT.class.getClassLoader().getResource(ddlFile);
-        assertNotNull("Cannot locate " + ddlFile, ddlTestFile);
+        Assertions.assertNotNull(ddlTestFile, "Cannot locate " + ddlFile);
         try (Connection connection = getJdbcConnection();
                 Statement statement = connection.createStatement()) {
             final List<String> statements =
@@ -723,7 +955,7 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
                         + tableName
                         + " VALUES (2, '2', 32767, 65535, 2147483647, 5.5, 6.6, 123.12345, 404.4443, true,\n"
                         + "        'Hello World', 'a', 'abc', 'abcd..xyz', '2020-07-17 18:00:22.123', '2020-07-17 18:00:22.123456',\n"
-                        + "        '2020-07-17', '18:00:22', 500,'192.168.1.1');");
+                        + "        '2020-07-17', '18:00:22', 500, 88, '192.168.1.1');");
 
         executeSql(
                 "INSERT INTO "
@@ -732,7 +964,7 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
                         + tableName
                         + " VALUES (3, '2', 32767, 65535, 2147483647, 5.5, 6.6, 123.12345, 404.4443, true,\n"
                         + "        'Hello World', 'a', 'abc', 'abcd..xyz', '2020-07-17 18:00:22.123', '2020-07-17 18:00:22.123456',\n"
-                        + "        '2020-07-17', '18:00:22', 500,'192.168.1.1');");
+                        + "        '2020-07-17', '18:00:22', 500, 88,'192.168.1.1');");
 
         executeSql("DELETE FROM " + database + "." + tableName + " where id = 2;");
 

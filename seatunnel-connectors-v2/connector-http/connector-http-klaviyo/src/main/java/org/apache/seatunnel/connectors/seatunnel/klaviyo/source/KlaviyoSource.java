@@ -17,20 +17,13 @@
 
 package org.apache.seatunnel.connectors.seatunnel.klaviyo.source;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
-import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.common.config.CheckConfigUtil;
-import org.apache.seatunnel.common.config.CheckResult;
-import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitReader;
 import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
 import org.apache.seatunnel.connectors.seatunnel.http.source.HttpSource;
 import org.apache.seatunnel.connectors.seatunnel.http.source.HttpSourceReader;
-import org.apache.seatunnel.connectors.seatunnel.klaviyo.source.config.KlaviyoSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.klaviyo.source.config.KlaviyoSourceParameter;
-import org.apache.seatunnel.connectors.seatunnel.klaviyo.source.config.exception.KlaviyoConnectorException;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -38,21 +31,8 @@ import lombok.extern.slf4j.Slf4j;
 public class KlaviyoSource extends HttpSource {
     private final KlaviyoSourceParameter klaviyoSourceParameter = new KlaviyoSourceParameter();
 
-    public KlaviyoSource(Config pluginConfig) {
+    public KlaviyoSource(ReadonlyConfig pluginConfig) {
         super(pluginConfig);
-        CheckResult result =
-                CheckConfigUtil.checkAllExists(
-                        pluginConfig,
-                        KlaviyoSourceConfig.URL.key(),
-                        KlaviyoSourceConfig.PRIVATE_KEY.key(),
-                        KlaviyoSourceConfig.REVISION.key());
-        if (!result.isSuccess()) {
-            throw new KlaviyoConnectorException(
-                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                    String.format(
-                            "PluginName: %s, PluginType: %s, Message: %s",
-                            getPluginName(), PluginType.SOURCE, result.getMsg()));
-        }
         this.klaviyoSourceParameter.buildWithConfig(pluginConfig);
     }
 

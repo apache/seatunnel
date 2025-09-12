@@ -30,6 +30,7 @@ import java.util.Map;
 @AllArgsConstructor
 @Getter
 public class KuduSourceState implements Serializable {
+    private static final long serialVersionUID = -3141157457869831037L;
     private List<TablePath> pendingTables;
     private Map<Integer, List<KuduSourceSplit>> pendingSplits;
 }

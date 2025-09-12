@@ -30,6 +30,7 @@ import java.util.Map;
 @Data
 @AllArgsConstructor
 public class JdbcSourceState implements Serializable {
+    private static final long serialVersionUID = -6441009212721284346L;
     private List<TablePath> pendingTables;
     private Map<Integer, List<JdbcSourceSplit>> pendingSplits;
 }

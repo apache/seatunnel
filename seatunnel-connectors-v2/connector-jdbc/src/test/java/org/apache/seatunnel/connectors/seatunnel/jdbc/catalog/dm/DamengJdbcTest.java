@@ -52,7 +52,13 @@ public class DamengJdbcTest {
     @BeforeAll
     static void before() {
         DAMENG_CATALOG =
-                new DamengCatalog("DAMENG_CATALOG", "DM_USER01", "Te$Dt_1234", DM_URL_INFO, null);
+                new DamengCatalog(
+                        "DAMENG_CATALOG",
+                        "DM_USER01",
+                        "Te$Dt_1234",
+                        DM_URL_INFO,
+                        null,
+                        "dm.jdbc.driver.DmDriver");
         DAMENG_CATALOG.open();
     }
 

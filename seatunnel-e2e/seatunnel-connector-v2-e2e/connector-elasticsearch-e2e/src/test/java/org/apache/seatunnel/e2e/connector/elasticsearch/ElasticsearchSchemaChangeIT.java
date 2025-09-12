@@ -21,6 +21,7 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.testutils.MySqlContainer;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.testutils.MySqlVersion;
@@ -49,8 +50,9 @@ import org.testcontainers.utility.DockerLoggerFactory;
 import lombok.extern.slf4j.Slf4j;
 
 import java.time.Duration;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
@@ -97,17 +99,16 @@ public class ElasticsearchSchemaChangeIT extends TestSuiteBase implements TestRe
                                         DockerLoggerFactory.getLogger("elasticsearch:8.9.0")));
         Startables.deepStart(Stream.of(container)).join();
         log.info("Elasticsearch container started");
-        esRestClient =
-                EsRestClient.createInstance(
-                        Lists.newArrayList("https://" + container.getHttpHostAddress()),
-                        Optional.of("elastic"),
-                        Optional.of("elasticsearch"),
-                        false,
-                        false,
-                        Optional.empty(),
-                        Optional.empty(),
-                        Optional.empty(),
-                        Optional.empty());
+        // Create configuration for EsRestClient
+        Map<String, Object> configMap = new HashMap<>();
+        configMap.put("hosts", Lists.newArrayList("https://" + container.getHttpHostAddress()));
+        configMap.put("username", "elastic");
+        configMap.put("password", "elasticsearch");
+        configMap.put("tls_verify_certificate", false);
+        configMap.put("tls_verify_hostname", false);
+
+        ReadonlyConfig config = ReadonlyConfig.fromMap(configMap);
+        esRestClient = EsRestClient.createInstance(config);
 
         Startables.deepStart(Stream.of(MYSQL_CONTAINER)).join();
         shopDatabase.createAndInitialize();
@@ -192,9 +193,30 @@ public class ElasticsearchSchemaChangeIT extends TestSuiteBase implements TestRe
                                     this.container.execInContainer(
                                             "bash",
                                             "-c",
-                                            "curl -k -u elastic:elasticsearch https://localhost:9200/schema_change_index/_count");
-                            Assertions.assertTrue(
-                                    indexCountResult.getStdout().contains("\"count\":18"));
+                                            "curl -k -u elastic:elasticsearch -H \"Content-Type:application/json\" -d '{ \"from\": 0, \"size\": 10000, \"query\": { \"match_all\": {}}}' https://localhost:9200/schema_change_index/_search");
+                            log.info("indexCountResult: {}", indexCountResult.getStdout());
+                            ObjectNode jsonNode =
+                                    JsonUtils.parseObject(indexCountResult.getStdout());
+                            JsonNode hits = jsonNode.get("hits");
+                            long totalCount = hits.get("total").get("value").asLong();
+                            Assertions.assertEquals(18L, totalCount);
+
+                            hits.get("hits")
+                                    .forEach(
+                                            hit -> {
+                                                JsonNode source = hit.get("_source");
+                                                int id = source.get("id").asInt();
+                                                if (id >= 119 && id <= 127) {
+                                                    Assertions.assertTrue(
+                                                            source.has("add_column1"));
+                                                    Assertions.assertFalse(
+                                                            source.get("add_column1").isNull());
+                                                    Assertions.assertTrue(
+                                                            source.has("add_column2"));
+                                                    Assertions.assertFalse(
+                                                            source.get("add_column2").isNull());
+                                                }
+                                            });
                         });
     }
 

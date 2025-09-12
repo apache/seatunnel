@@ -17,22 +17,17 @@
 
 package org.apache.seatunnel.engine.server.checkpoint;
 
-import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
-
 import org.apache.seatunnel.api.tracing.MDCTracer;
 import org.apache.seatunnel.engine.checkpoint.storage.PipelineState;
 import org.apache.seatunnel.engine.checkpoint.storage.api.CheckpointStorage;
-import org.apache.seatunnel.engine.checkpoint.storage.api.CheckpointStorageFactory;
-import org.apache.seatunnel.engine.checkpoint.storage.exception.CheckpointStorageException;
 import org.apache.seatunnel.engine.common.config.server.CheckpointConfig;
+import org.apache.seatunnel.engine.common.job.JobStatus;
 import org.apache.seatunnel.engine.common.utils.ExceptionUtil;
-import org.apache.seatunnel.engine.common.utils.FactoryUtil;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.core.checkpoint.CheckpointIDCounter;
 import org.apache.seatunnel.engine.core.dag.actions.Action;
 import org.apache.seatunnel.engine.core.job.Job;
-import org.apache.seatunnel.engine.core.job.JobStatus;
 import org.apache.seatunnel.engine.core.job.PipelineStatus;
 import org.apache.seatunnel.engine.server.checkpoint.operation.TaskAcknowledgeOperation;
 import org.apache.seatunnel.engine.server.checkpoint.operation.TaskReportStatusOperation;
@@ -81,9 +76,9 @@ public class CheckpointManager {
 
     private final CheckpointStorage checkpointStorage;
 
-    private final JobMaster jobMaster;
+    private final CheckpointConfig checkpointConfig;
 
-    private final ExecutorService executorService;
+    private final JobMaster jobMaster;
 
     public CheckpointManager(
             long jobId,
@@ -92,19 +87,15 @@ public class CheckpointManager {
             JobMaster jobMaster,
             Map<Integer, CheckpointPlan> checkpointPlanMap,
             CheckpointConfig checkpointConfig,
+            CheckpointStorage checkpointStorage,
             ExecutorService executorService,
-            IMap<Object, Object> runningJobStateIMap)
-            throws CheckpointStorageException {
-        this.executorService = executorService;
+            IMap<Object, Object> runningJobStateIMap) {
         this.jobId = jobId;
         this.nodeEngine = nodeEngine;
         this.jobMaster = jobMaster;
-        this.checkpointStorage =
-                FactoryUtil.discoverFactory(
-                                Thread.currentThread().getContextClassLoader(),
-                                CheckpointStorageFactory.class,
-                                checkpointConfig.getStorage().getStorage())
-                        .create(checkpointConfig.getStorage().getStoragePluginConfig());
+        this.checkpointStorage = checkpointStorage;
+        this.checkpointConfig = checkpointConfig;
+
         this.coordinatorMap =
                 MDCTracer.tracing(checkpointPlanMap.values().parallelStream())
                         .map(
@@ -115,7 +106,8 @@ public class CheckpointManager {
                                     try {
                                         idCounter.start();
                                         PipelineState pipelineState = null;
-                                        if (isStartWithSavePoint) {
+                                        if (checkpointConfig.isCheckpointEnable()
+                                                && isStartWithSavePoint) {
                                             pipelineState =
                                                     checkpointStorage
                                                             .getLatestCheckpointByJobIdAndPipelineId(
@@ -182,7 +174,6 @@ public class CheckpointManager {
         getCheckpointCoordinator(taskLocation).reportCheckpointErrorFromTask(errorMsg);
     }
 
-    @VisibleForTesting
     public CheckpointCoordinator getCheckpointCoordinator(int pipelineId) {
         CheckpointCoordinator coordinator = coordinatorMap.get(pipelineId);
         if (coordinator == null) {
@@ -240,7 +231,8 @@ public class CheckpointManager {
      * Listen to the {@link JobStatus} of the {@link Job}.
      */
     public void clearCheckpointIfNeed(JobStatus jobStatus) {
-        if ((jobStatus == JobStatus.FINISHED || jobStatus == JobStatus.CANCELED)
+        if (checkpointConfig.isCheckpointEnable()
+                && (jobStatus == JobStatus.FINISHED || jobStatus == JobStatus.CANCELED)
                 && !isSavePointEnd()) {
             checkpointStorage.deleteCheckpoint(jobId + "");
         }
@@ -318,7 +310,7 @@ public class CheckpointManager {
 
     protected InvocationFuture<?> sendOperationToMemberNode(TaskOperation operation) {
         log.debug(
-                "Sead Operation : "
+                "Send Operation : "
                         + operation.getClass().getSimpleName()
                         + " to "
                         + jobMaster.queryTaskGroupAddress(

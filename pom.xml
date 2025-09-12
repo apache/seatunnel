@@ -57,7 +57,7 @@
 
     <properties>
         <!--todo The classification is too confusing, reclassify by type-->
-        <revision>2.3.10-SNAPSHOT</revision>
+        <revision>2.3.12-SNAPSHOT</revision>
         <seatunnel.config.shade.version>2.1.1</seatunnel.config.shade.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <java.version>1.8</java.version>
@@ -66,7 +66,9 @@
         <maven.compiler.source>${java.version}</maven.compiler.source>
         <maven.compiler.target>${java.version}</maven.compiler.target>
 
-        <slf4j.version>1.7.25</slf4j.version>
+        <system-rules.version>1.2.1</system-rules.version>
+        <powermock.version>2.0.9</powermock.version>
+        <slf4j.version>1.7.36</slf4j.version>
         <log4j2.version>2.17.1</log4j2.version>
         <log4j2-disruptor.version>3.4.4</log4j2-disruptor.version>
         <log4j.version>1.2.17</log4j.version>
@@ -140,6 +142,7 @@
         <jsqlparser.version>4.9</jsqlparser.version>
         <json-path.version>2.7.0</json-path.version>
         <groovy.version>4.0.16</groovy.version>
+        <scala.version>2.12.15</scala.version>
         <jetty.version>9.4.56.v20240826</jetty.version>
         <jakarta.servlet-api>4.0.4</jakarta.servlet-api>
         <!-- Option args -->
@@ -161,7 +164,9 @@
         <enableSourceJarCreation>true</enableSourceJarCreation>
 
         <hadoop-aws.version>3.1.4</hadoop-aws.version>
+        <software.amazon.awssdk.version>2.31.30</software.amazon.awssdk.version>
         <arrow.version>15.0.1</arrow.version>
+        <okhttp.version>4.12.0</okhttp.version>
 
     </properties>
 
@@ -319,6 +324,19 @@
                 <groupId>commons-codec</groupId>
                 <artifactId>commons-codec</artifactId>
                 <version>${codec.version}</version>
+            </dependency>
+
+            <!-- OkHttp dependencies -->
+            <dependency>
+                <groupId>com.squareup.okhttp3</groupId>
+                <artifactId>okhttp</artifactId>
+                <version>${okhttp.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.squareup.okhttp3</groupId>
+                <artifactId>mockwebserver</artifactId>
+                <version>${okhttp.version}</version>
+                <scope>test</scope>
             </dependency>
 
             <dependency>
@@ -565,6 +583,31 @@
         <dependency>
             <groupId>org.mockito</groupId>
             <artifactId>mockito-junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-inline</artifactId>
+            <version>${mockito.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.github.stefanbirkner</groupId>
+            <artifactId>system-lambda</artifactId>
+            <version>${system-rules.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.powermock</groupId>
+            <artifactId>powermock-module-junit4</artifactId>
+            <version>${powermock.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.powermock</groupId>
+            <artifactId>powermock-api-mockito2</artifactId>
+            <version>${powermock.version}</version>
             <scope>test</scope>
         </dependency>
 
@@ -890,6 +933,26 @@
                             <name>Block jUnit4 imports</name>
                             <searchRegex>import\s+org\.junit\.[^jupiter][^\*\s]*(|\*);(\r\n|\r|\n)</searchRegex>
                             <replacement>$1</replacement>
+                        </replaceRegex>
+                        <replaceRegex>
+                            <name>Convert Google Guava imports to shade</name>
+                            <searchRegex>import\s+(static\s+)?com\.google\.common\.([^;]+);(\r\n|\r|\n)</searchRegex>
+                            <replacement>import $1org.apache.seatunnel.shade.com.google.common.$2;$3</replacement>
+                        </replaceRegex>
+                        <replaceRegex>
+                            <name>Convert Jetty imports to shade</name>
+                            <searchRegex>import\s+(static\s+)?org\.eclipse\.jetty\.([^;]+);(\r\n|\r|\n)</searchRegex>
+                            <replacement>import $1org.apache.seatunnel.shade.org.eclipse.jetty.$2;$3</replacement>
+                        </replaceRegex>
+                        <replaceRegex>
+                            <name>Convert Hikari imports to shade</name>
+                            <searchRegex>import\s+(static\s+)?com\.zaxxer\.hikari\.([^;]+);(\r\n|\r|\n)</searchRegex>
+                            <replacement>import $1org.apache.seatunnel.shade.com.zaxxer.hikari.$2;$3</replacement>
+                        </replaceRegex>
+                        <replaceRegex>
+                            <name>Convert Janino imports to shade</name>
+                            <searchRegex>import\s+(static\s+)?org\.codehaus\.(janino|commons)\.([^;]+);(\r\n|\r|\n)</searchRegex>
+                            <replacement>import $1org.apache.seatunnel.shade.org.codehaus.$2.$3;$4</replacement>
                         </replaceRegex>
                     </java>
                     <pom>

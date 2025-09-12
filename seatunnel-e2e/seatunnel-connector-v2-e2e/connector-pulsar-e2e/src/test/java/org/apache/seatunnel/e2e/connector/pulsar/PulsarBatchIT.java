@@ -151,7 +151,7 @@ public class PulsarBatchIT extends TestSuiteBase implements TestResource {
                     ConfigFactory.parseFile(new File(Paths.get(resource.toURI()).toString()));
 
             FakeConfig fakeConfig = FakeConfig.buildWithConfig(ReadonlyConfig.fromConfig(config));
-            FakeDataGenerator fakeDataGenerator = new FakeDataGenerator(fakeConfig);
+            FakeDataGenerator fakeDataGenerator = new FakeDataGenerator(fakeConfig, null);
             List<SeaTunnelRow> seaTunnelRows = fakeDataGenerator.generateFakedRows(100);
             JsonSerializationSchema jsonSerializationSchema =
                     new JsonSerializationSchema(SEATUNNEL_ROW_TYPE);

@@ -38,9 +38,9 @@ import org.apache.paimon.types.DateType;
 import org.apache.paimon.types.TimestampType;
 import org.apache.paimon.utils.DateTimeUtils;
 
-import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.Container;
 
@@ -64,16 +64,14 @@ import static org.awaitility.Awaitility.given;
 @Slf4j
 public class PaimonSinkCDCIT extends AbstractPaimonIT implements TestResource {
 
-    @BeforeAll
+    @BeforeEach
     @Override
     public void startUp() throws Exception {
         this.isWindows =
                 System.getProperties().getProperty("os.name").toUpperCase().contains("WINDOWS");
-        CATALOG_ROOT_DIR_WIN = CATALOG_ROOT_DIR_WIN + System.getProperty("user.name") + "/tmp/";
-        CATALOG_DIR_WIN = CATALOG_ROOT_DIR_WIN + NAMESPACE + "/";
     }
 
-    @AfterAll
+    @AfterEach
     @Override
     public void tearDown() throws Exception {}
 
@@ -93,8 +91,6 @@ public class PaimonSinkCDCIT extends AbstractPaimonIT implements TestResource {
                 .atMost(30L, TimeUnit.SECONDS)
                 .untilAsserted(
                         () -> {
-                            // copy paimon to local
-                            container.executeExtraCommands(containerExtendedFactory);
                             List<PaimonRecord> paimonRecords =
                                     loadPaimonData("seatunnel_namespace9", TARGET_TABLE);
                             Assertions.assertEquals(3, paimonRecords.size());
@@ -122,8 +118,6 @@ public class PaimonSinkCDCIT extends AbstractPaimonIT implements TestResource {
                 .atMost(30L, TimeUnit.SECONDS)
                 .untilAsserted(
                         () -> {
-                            // copy paimon to local
-                            container.executeExtraCommands(containerExtendedFactory);
                             List<PaimonRecord> paimonRecords =
                                     loadPaimonData("seatunnel_namespace1", TARGET_TABLE);
                             Assertions.assertEquals(2, paimonRecords.size());
@@ -150,7 +144,7 @@ public class PaimonSinkCDCIT extends AbstractPaimonIT implements TestResource {
                 errResult
                         .getStderr()
                         .contains(
-                                "[Paimon: The source filed with schema 'name INT', except filed schema of sink is '`name` INT'; but the filed in sink table which actual schema is '`name` STRING'. Please check schema of sink table.]"));
+                                "['Paimon': The source field with schema 'name INT', expected field schema of sink is '`name` INT'; whose actual schema in the sink table is '`name` STRING'. Please check schema of sink table.]"));
     }
 
     @TestTemplate
@@ -164,8 +158,6 @@ public class PaimonSinkCDCIT extends AbstractPaimonIT implements TestResource {
                 .atMost(30L, TimeUnit.SECONDS)
                 .untilAsserted(
                         () -> {
-                            // copy paimon to local
-                            container.executeExtraCommands(containerExtendedFactory);
                             // Check FakeDatabase1.FakeTable1
                             List<PaimonRecord> fake1PaimonRecords =
                                     loadPaimonData(FAKE_DATABASE1, FAKE_TABLE1);
@@ -207,8 +199,6 @@ public class PaimonSinkCDCIT extends AbstractPaimonIT implements TestResource {
                 .atMost(30L, TimeUnit.SECONDS)
                 .untilAsserted(
                         () -> {
-                            // copy paimon to local
-                            container.executeExtraCommands(containerExtendedFactory);
                             Table table = getTable("seatunnel_namespace3", TARGET_TABLE);
                             String bucket = table.options().get(CoreOptions.BUCKET.key());
                             Assertions.assertTrue(StringUtils.isNoneBlank(bucket));
@@ -239,8 +229,6 @@ public class PaimonSinkCDCIT extends AbstractPaimonIT implements TestResource {
                 .atMost(30L, TimeUnit.SECONDS)
                 .untilAsserted(
                         () -> {
-                            // copy paimon to local
-                            container.executeExtraCommands(containerExtendedFactory);
                             Table table = getTable("seatunnel_namespace4", TARGET_TABLE);
                             List<String> partitionKeys = table.partitionKeys();
                             List<String> primaryKeys = table.primaryKeys();
@@ -292,8 +280,6 @@ public class PaimonSinkCDCIT extends AbstractPaimonIT implements TestResource {
                 .atMost(30L, TimeUnit.SECONDS)
                 .untilAsserted(
                         () -> {
-                            // copy paimon to local
-                            container.executeExtraCommands(containerExtendedFactory);
                             Table table = getTable("seatunnel_namespace5", TARGET_TABLE);
                             String fileFormat = table.options().get(CoreOptions.FILE_FORMAT.key());
                             Assertions.assertTrue(StringUtils.isNoneBlank(fileFormat));
@@ -324,8 +310,6 @@ public class PaimonSinkCDCIT extends AbstractPaimonIT implements TestResource {
                 .atMost(30L, TimeUnit.SECONDS)
                 .untilAsserted(
                         () -> {
-                            // copy paimon to local
-                            container.executeExtraCommands(containerExtendedFactory);
                             Table table = getTable("seatunnel_namespace6", TARGET_TABLE);
                             String fileFormat = table.options().get(CoreOptions.FILE_FORMAT.key());
                             Assertions.assertTrue(StringUtils.isNoneBlank(fileFormat));
@@ -357,8 +341,6 @@ public class PaimonSinkCDCIT extends AbstractPaimonIT implements TestResource {
                 .atMost(30L, TimeUnit.SECONDS)
                 .untilAsserted(
                         () -> {
-                            // copy paimon to local
-                            container.executeExtraCommands(containerExtendedFactory);
                             FileStoreTable table =
                                     (FileStoreTable) getTable("seatunnel_namespace7", TARGET_TABLE);
                             List<DataField> fields = table.schema().fields();
@@ -399,15 +381,15 @@ public class PaimonSinkCDCIT extends AbstractPaimonIT implements TestResource {
                             Assertions.assertEquals(2, result.size());
                             for (PaimonRecord paimonRecord : result) {
                                 Assertions.assertEquals(
-                                        paimonRecord.oneTime.toString(), "2024-03-10T10:00:12");
+                                        "2024-03-10T10:00:12", paimonRecord.oneTime.toString());
                                 Assertions.assertEquals(
-                                        paimonRecord.twoTime.toString(), "2024-03-10T10:00:00.123");
+                                        "2024-03-10T10:00:00.123", paimonRecord.twoTime.toString());
                                 Assertions.assertEquals(
-                                        paimonRecord.threeTime.toString(),
-                                        "2024-03-10T10:00:00.123456");
+                                        "2024-03-10T10:00:00.123456",
+                                        paimonRecord.threeTime.toString());
                                 Assertions.assertEquals(
-                                        paimonRecord.fourTime.toString(),
-                                        "2024-03-10T10:00:00.123456789");
+                                        "2024-03-10T10:00:00.123456789",
+                                        paimonRecord.fourTime.toString());
                             }
                         });
 
@@ -427,8 +409,6 @@ public class PaimonSinkCDCIT extends AbstractPaimonIT implements TestResource {
                 .atMost(30L, TimeUnit.SECONDS)
                 .untilAsserted(
                         () -> {
-                            // copy paimon to local
-                            container.executeExtraCommands(containerExtendedFactory);
                             FileStoreTable table =
                                     (FileStoreTable) getTable("seatunnel_namespace8", TARGET_TABLE);
                             List<DataField> fields = table.schema().fields();
@@ -485,6 +465,24 @@ public class PaimonSinkCDCIT extends AbstractPaimonIT implements TestResource {
         Container.ExecResult readResult4 =
                 container.executeJob("/paimon_to_assert_with_filter4.conf");
         Assertions.assertEquals(0, readResult4.getExitCode());
+        Container.ExecResult readResult5 =
+                container.executeJob("/paimon_to_assert_with_filter5.conf");
+        Assertions.assertEquals(0, readResult5.getExitCode());
+        Container.ExecResult readResult6 =
+                container.executeJob("/paimon_to_assert_with_filter6.conf");
+        Assertions.assertEquals(0, readResult6.getExitCode());
+        Container.ExecResult readResult7 =
+                container.executeJob("/paimon_to_assert_with_filter7.conf");
+        Assertions.assertEquals(0, readResult7.getExitCode());
+        Container.ExecResult readResult8 =
+                container.executeJob("/paimon_to_assert_with_filter8.conf");
+        Assertions.assertEquals(0, readResult8.getExitCode());
+        Container.ExecResult readResult9 =
+                container.executeJob("/paimon_to_assert_with_filter9.conf");
+        Assertions.assertEquals(0, readResult9.getExitCode());
+        Container.ExecResult readResult10 =
+                container.executeJob("/paimon_to_assert_with_filter10.conf");
+        Assertions.assertEquals(0, readResult10.getExitCode());
     }
 
     @TestTemplate
@@ -501,8 +499,6 @@ public class PaimonSinkCDCIT extends AbstractPaimonIT implements TestResource {
                 .atMost(30L, TimeUnit.SECONDS)
                 .untilAsserted(
                         () -> {
-                            // copy paimon to local
-                            container.executeExtraCommands(containerExtendedFactory);
                             List<PaimonRecord> paimonRecords =
                                     loadPaimonData("seatunnel_namespace10", TARGET_TABLE);
                             Assertions.assertEquals(2, paimonRecords.size());
@@ -526,11 +522,10 @@ public class PaimonSinkCDCIT extends AbstractPaimonIT implements TestResource {
 
     @TestTemplate
     public void testChangelogLookup(TestContainer container) throws Exception {
-        // create Piamon table (changelog-producer=lookup)
+        // create Paimon table (changelog-producer=lookup)
         Container.ExecResult writeResult =
                 container.executeJob("/changelog_fake_cdc_sink_paimon_case1_ddl.conf");
         Assertions.assertEquals(0, writeResult.getExitCode());
-        TimeUnit.SECONDS.sleep(20);
         String[] jobIds =
                 new String[] {
                     String.valueOf(JobIdGenerator.newJobId()),
@@ -575,16 +570,13 @@ public class PaimonSinkCDCIT extends AbstractPaimonIT implements TestResource {
                                 throw new SeaTunnelException(e);
                             }
                         }));
-        // stream job running 30 seconds
-        TimeUnit.SECONDS.sleep(30);
+        // stream job running 60 seconds
+        TimeUnit.SECONDS.sleep(60);
         // cancel stream job
         container.cancelJob(jobIds[1]);
         container.cancelJob(jobIds[2]);
         container.cancelJob(jobIds[0]);
         changeLogEnabled = true;
-        TimeUnit.SECONDS.sleep(10);
-        // copy paimon to local
-        container.executeExtraCommands(containerExtendedFactory);
         List<PaimonRecord> paimonRecords1 = loadPaimonData("seatunnel_namespace", "st_test_sink");
         List<String> actual1 =
                 paimonRecords1.stream()
@@ -636,8 +628,6 @@ public class PaimonSinkCDCIT extends AbstractPaimonIT implements TestResource {
         // cancel stream job
         container.cancelJob(String.valueOf(jobId));
         TimeUnit.SECONDS.sleep(5);
-        // copy paimon to local
-        container.executeExtraCommands(containerExtendedFactory);
         List<PaimonRecord> paimonRecords = loadPaimonData("seatunnel_namespace", "st_test_full");
         List<String> actual =
                 paimonRecords.stream()

@@ -22,7 +22,7 @@ FieldRename transform plugin for rename field name.
 ```
 env {
     parallelism = 1
-    job.mode = "BATCH"
+    job.mode = "STREAMING"
 }
 
 source {
@@ -32,7 +32,7 @@ source {
         username = "root"
         password = "123456"
         table-names = ["source.user_shop", "source.user_order"]
-        base-url = "jdbc:mysql://localhost:3306/source"
+        url = "jdbc:mysql://localhost:3306/source"
     }
 }
 
@@ -78,14 +78,14 @@ sink {
 ```
 env {
     parallelism = 1
-    job.mode = "BATCH"
+    job.mode = "STREAMING"
 }
 
 source {
   Oracle-CDC {
     plugin_output = "customers_oracle_cdc"
     
-    base-url = "jdbc:oracle:thin:@localhost:1521/ORCLCDB"
+    url = "jdbc:oracle:thin:@localhost:1521/ORCLCDB"
     username = "dbzuser"
     password = "dbz"
     database-names = ["ORCLCDB"]

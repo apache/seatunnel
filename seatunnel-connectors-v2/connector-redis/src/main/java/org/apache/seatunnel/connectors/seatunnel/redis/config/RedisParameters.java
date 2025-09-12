@@ -25,6 +25,7 @@ import org.apache.seatunnel.connectors.seatunnel.redis.client.RedisSingleClient;
 import org.apache.seatunnel.connectors.seatunnel.redis.exception.RedisConnectorException;
 
 import org.apache.commons.lang3.StringUtils;
+import org.apache.logging.log4j.core.util.Assert;
 
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
@@ -45,7 +46,7 @@ import static org.apache.seatunnel.connectors.seatunnel.redis.exception.RedisErr
 @Slf4j
 public class RedisParameters implements Serializable {
     private String host;
-    private int port;
+    private Integer port;
     private String auth = "";
     private int dbNum;
     private String user = "";
@@ -54,6 +55,9 @@ public class RedisParameters implements Serializable {
     private RedisDataType redisDataType;
     private RedisBaseOptions.RedisMode mode;
     private RedisSourceOptions.HashKeyParseMode hashKeyParseMode;
+    private Boolean readKeyEnabled;
+    private String singleFieldName;
+    private String keyFieldName;
     private List<String> redisNodes = Collections.emptyList();
     private long expire = RedisSinkOptions.EXPIRE.defaultValue();
     private int batchSize = RedisBaseOptions.BATCH_SIZE.defaultValue();
@@ -73,6 +77,22 @@ public class RedisParameters implements Serializable {
         this.dbNum = config.get(RedisBaseOptions.DB_NUM);
         // set hash key mode
         this.hashKeyParseMode = config.get(RedisSourceOptions.HASH_KEY_PARSE_MODE);
+        // set read with key
+        this.readKeyEnabled = config.get(RedisSourceOptions.READ_KEY_ENABLED);
+        // set single field name
+        if (config.getOptional(RedisSourceOptions.SINGLE_FIELD_NAME).isPresent()) {
+            this.singleFieldName = config.get(RedisSourceOptions.SINGLE_FIELD_NAME);
+        }
+        // set key name
+        if (!config.getOptional(RedisSourceOptions.KEY_FIELD_NAME).isPresent()) {
+            if (config.get(RedisBaseOptions.DATA_TYPE) == RedisDataType.HASH) {
+                this.keyFieldName = "hash_key";
+            } else {
+                this.keyFieldName = "key";
+            }
+        } else {
+            this.keyFieldName = config.get(RedisSourceOptions.KEY_FIELD_NAME);
+        }
         // set expire
         this.expire = config.get(RedisSinkOptions.EXPIRE);
         // set auth
@@ -171,21 +191,18 @@ public class RedisParameters implements Serializable {
                 return jedis;
             case CLUSTER:
                 HashSet<HostAndPort> nodes = new HashSet<>();
-                HostAndPort node = new HostAndPort(host, port);
-                nodes.add(node);
-                if (!redisNodes.isEmpty()) {
-                    for (String redisNode : redisNodes) {
-                        String[] splits = redisNode.split(":");
-                        if (splits.length != 2) {
-                            throw new RedisConnectorException(
-                                    INVALID_CONFIG,
-                                    "Invalid redis node information,"
-                                            + "redis node information must like as the following: [host:port]");
-                        }
-                        HostAndPort hostAndPort =
-                                new HostAndPort(splits[0], Integer.parseInt(splits[1]));
-                        nodes.add(hostAndPort);
+                Assert.requireNonEmpty(redisNodes, "nodes parameter must not be empty");
+                for (String redisNode : redisNodes) {
+                    String[] splits = redisNode.split(":");
+                    if (splits.length != 2) {
+                        throw new RedisConnectorException(
+                                INVALID_CONFIG,
+                                "Invalid redis node information,"
+                                        + "redis node information must like as the following: [host:port]");
                     }
+                    HostAndPort hostAndPort =
+                            new HostAndPort(splits[0], Integer.parseInt(splits[1]));
+                    nodes.add(hostAndPort);
                 }
                 ConnectionPoolConfig connectionPoolConfig = new ConnectionPoolConfig();
                 JedisCluster jedisCluster;

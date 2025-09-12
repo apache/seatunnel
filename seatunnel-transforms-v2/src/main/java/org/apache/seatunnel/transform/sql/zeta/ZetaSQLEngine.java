@@ -23,6 +23,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
+import org.apache.seatunnel.transform.exception.TransformCommonError;
 import org.apache.seatunnel.transform.exception.TransformException;
 import org.apache.seatunnel.transform.sql.SQLEngine;
 
@@ -240,9 +241,13 @@ public class ZetaSQLEngine implements SQLEngine {
         Object[] inputFields = scanTable(inputRow);
 
         // Filter
-        boolean retain = zetaSQLFilter.executeFilter(selectBody.getWhere(), inputFields);
-        if (!retain) {
-            return null;
+        try {
+            boolean retain = zetaSQLFilter.executeFilter(selectBody.getWhere(), inputFields);
+            if (!retain) {
+                return null;
+            }
+        } catch (Exception e) {
+            throw TransformCommonError.sqlWhereStatementError(selectBody.getWhere().toString(), e);
         }
 
         // Project
@@ -251,6 +256,7 @@ public class ZetaSQLEngine implements SQLEngine {
         SeaTunnelRow seaTunnelRow = new SeaTunnelRow(outputFields);
         seaTunnelRow.setRowKind(inputRow.getRowKind());
         seaTunnelRow.setTableId(inputRow.getTableId());
+        seaTunnelRow.setOptions(inputRow.getOptions());
         List<LateralView> lateralViews = selectBody.getLateralViews();
         if (CollectionUtils.isEmpty(lateralViews)) {
             return Lists.newArrayList(seaTunnelRow);
@@ -280,8 +286,12 @@ public class ZetaSQLEngine implements SQLEngine {
                 }
             } else {
                 Expression expression = selectItem.getExpression();
-                fields[idx] = zetaSQLFunction.computeForValue(expression, inputFields);
-                idx++;
+                try {
+                    fields[idx] = zetaSQLFunction.computeForValue(expression, inputFields);
+                    idx++;
+                } catch (Exception e) {
+                    throw TransformCommonError.sqlExpressionError(expression.toString(), e);
+                }
             }
         }
         return fields;

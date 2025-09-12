@@ -41,6 +41,9 @@ import org.apache.paimon.utils.Preconditions;
 
 import lombok.extern.slf4j.Slf4j;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import static org.apache.seatunnel.connectors.seatunnel.paimon.sink.schema.UpdatedDataFields.canConvert;
 
 @Slf4j
@@ -95,13 +98,16 @@ public class AlterPaimonTableSchemaEventHandler {
                             ? null
                             : SchemaChange.Move.after(column.getName(), afterColumnName);
             BasicTypeDefine<DataType> reconvertColumn = PaimonTypeMapper.INSTANCE.reconvert(column);
-            SchemaChange schemaChange =
+            DataType nativeType = reconvertColumn.getNativeType();
+            List<SchemaChange> schemaChanges = new ArrayList<>();
+            schemaChanges.add(
                     SchemaChange.addColumn(
-                            column.getName(),
-                            reconvertColumn.getNativeType(),
-                            column.getComment(),
-                            move);
-            paimonCatalog.alterTable(identifier, schemaChange, false);
+                            column.getName(), nativeType.copy(true), column.getComment(), move));
+            if (!nativeType.isNullable()) {
+                schemaChanges.add(
+                        SchemaChange.updateColumnType(column.getName(), nativeType.copy(false)));
+            }
+            paimonCatalog.alterTable(identifier, schemaChanges, false);
         } else if (event instanceof AlterTableDropColumnEvent) {
             String columnName = ((AlterTableDropColumnEvent) event).getColumn();
             paimonCatalog.alterTable(identifier, SchemaChange.dropColumn(columnName), true);

@@ -17,11 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.console.sink;
 
-import org.apache.seatunnel.api.configuration.Option;
-import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
-import org.apache.seatunnel.api.options.SinkConnectorCommonOptions;
 import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
@@ -32,20 +29,6 @@ import com.google.auto.service.AutoService;
 @AutoService(Factory.class)
 public class ConsoleSinkFactory implements TableSinkFactory {
 
-    public static final Option<Boolean> LOG_PRINT_DATA =
-            Options.key("log.print.data")
-                    .booleanType()
-                    .defaultValue(true)
-                    .withDescription(
-                            "Flag to determine whether data should be printed in the logs.");
-
-    public static final Option<Integer> LOG_PRINT_DELAY =
-            Options.key("log.print.delay.ms")
-                    .intType()
-                    .defaultValue(0)
-                    .withDescription(
-                            "Delay in milliseconds between printing each data item to the logs.");
-
     @Override
     public String factoryIdentifier() {
         return "Console";
@@ -55,9 +38,9 @@ public class ConsoleSinkFactory implements TableSinkFactory {
     public OptionRule optionRule() {
         return OptionRule.builder()
                 .optional(
-                        LOG_PRINT_DATA,
-                        LOG_PRINT_DELAY,
-                        SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA)
+                        ConsoleSinkOptions.LOG_PRINT_DATA,
+                        ConsoleSinkOptions.LOG_PRINT_DELAY,
+                        ConsoleSinkOptions.MULTI_TABLE_SINK_REPLICA)
                 .build();
     }
 

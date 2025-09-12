@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-clickhouse.md';
+
 # Clickhouse
 
 > Clickhouse 数据连接器
@@ -14,6 +16,8 @@
 - [x] [cdc](../../concept/connector-v2-features.md)
 
 > Clickhouse sink 插件通过实现幂等写入可以达到精准一次，需要配合 aggregating merge tree 支持重复数据删除的引擎。
+- [x] [支持多表写入](../../concept/connector-v2-features.md)
+
 
 ## 描述
 
@@ -60,10 +64,11 @@
 | allow_experimental_lightweight_delete | Boolean | No   | false | 允许基于`MergeTree`表引擎实验性轻量级删除.                                                                                                                                                      |
 | schema_save_mode               | Enum    | no       | CREATE_SCHEMA_WHEN_NOT_EXIST | schema保存模式，请参考下面的`schema_save_mode`                                                                                                                    |
 | data_save_mode                 | Enum    | no       | APPEND_DATA                  | 数据保存模式，请参考下面的`data_save_mode`。                                                                                                                         |
+| custom_sql                  | String  | no   | -                            | 当data_save_mode设置为CUSTOM_PROCESSING时，必须同时设置CUSTOM_SQL参数。CUSTOM_SQL的值为可执行的SQL语句，在同步任务开启前SQL将会被执行                     |
 | save_mode_create_template      | string  | no       | see below                    | 见下文。                                                                                                                                                   |
 | common-options                        |         | No   | -     | Sink插件查用参数,详见[Sink常用选项](../sink-common-options.md).                                                                                                                              |
 
-### schema_save_mode[Enum]
+### schema_save_mode [Enum]
 
 在开启同步任务之前，针对现有的表结构选择不同的处理方案。
 选项介绍：  
@@ -72,7 +77,7 @@
 `ERROR_WHEN_SCHEMA_NOT_EXIST` ：表不存在时会报错。  
 `IGNORE` ：忽略对表的处理。
 
-### data_save_mode[Enum]
+### data_save_mode [Enum]
 
 在开启同步任务之前，针对目标端已有的数据选择不同的处理方案。
 选项介绍：  
@@ -126,7 +131,9 @@ CREATE TABLE IF NOT EXISTS  `${database}`.`${table}` (
 - rowtype_unique_key：用于获取上游模式中的唯一键（可能是列表）。
 - comment：用于获取上游模式中的表注释。
 
-## 如何创建一个clickhouse 同步任务
+## 示例配置与案例
+
+### 如何创建一个clickhouse 同步任务
 
 以下示例演示如何创建将随机生成的数据写入Clickhouse数据库的数据同步作业。
 
@@ -164,13 +171,13 @@ sink {
 }
 ```
 
-### 小提示
-
+> 小提示：
+>
 > 1.[SeaTunnel 部署文档](../../start-v2/locally/deployment.md). <br/>
 > 2.需要在同步前提前创建要写入的表.<br/>
 > 3.当写入 ClickHouse 表,无需设置其结构，因为连接器会在写入前向 ClickHouse 查询当前表的结构信息.<br/>
 
-## Clickhouse 接收器配置
+### Clickhouse 接收器配置
 
 ```hocon
 sink {
@@ -188,7 +195,7 @@ sink {
 }
 ```
 
-## 切分模式
+### 切分模式
 
 ```hocon
 sink {
@@ -206,7 +213,7 @@ sink {
 }
 ```
 
-## CDC(Change data capture) Sink
+### CDC(Change data capture) Sink
 
 ```hocon
 sink {
@@ -224,7 +231,7 @@ sink {
 }
 ```
 
-## CDC(Change data capture) for *MergeTree engine
+### CDC(Change data capture) for *MergeTree engine
 
 ```hocon
 sink {
@@ -243,3 +250,104 @@ sink {
 }
 ```
 
+### 多表写入案例
+
+在ClickHouse中提前创建下面两张数据表：
+
+```
+create table if not exists `default`.multi_sink_table1(
+     `c_string`          String,
+     `c_boolean`         Boolean,
+     `c_tinyint`         Int8,
+     `c_smallint`        Int16,
+     `c_int`             Int32,
+     `c_bigint`          Int64,
+     `c_float`           Float32,
+     `c_double`          Float64,
+     `c_decimal`         Decimal(30, 8),
+     `c_date`            Date,
+     `c_time`            DateTime64,
+     `c_map`             Map(String, Int32),
+     `c_array`           Array(Int32)
+)engine=Memory
+comment '''N''-N';
+
+create table if not exists `default`.multi_sink_table2 as `default`.multi_sink_table1;
+```
+
+然后使用的配置参考如下：
+
+```
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+  job.name = "fake_to_clickhouse_with_multi_table"
+}
+
+source {
+  FakeSource {
+    tables_configs = [
+      {
+        schema = {
+          table = "multi_sink_table1"
+          fields {
+            c_string = string
+            c_boolean = boolean
+            c_tinyint = tinyint
+            c_smallint = smallint
+            c_int = int
+            c_bigint = bigint
+            c_float = float
+            c_double = double
+            c_decimal = "decimal(30, 8)"
+            c_date = date
+            c_time = timestamp
+            c_map = "map<string, int>"
+            c_array = "array<int>"
+          }
+        }
+        row.num = 100
+      },
+      {
+        schema = {
+          table = "multi_sink_table2"
+          fields {
+            c_string = string
+            c_boolean = boolean
+            c_tinyint = tinyint
+            c_smallint = smallint
+            c_int = int
+            c_bigint = bigint
+            c_float = float
+            c_double = double
+            c_decimal = "decimal(30, 8)"
+            c_date = date
+            c_time = timestamp
+            c_map = "map<string, int>"
+            c_array = "array<int>"
+          }
+        }
+        row.num = 100
+      }
+    ]
+    plugin_output = "multi_sink_table"
+  }
+}
+
+sink {
+  Clickhouse {
+    plugin_input = "multi_sink_table"
+    host = "clickhouse:8123"
+    database = "default"
+    table = "${table_name}"
+    username = "default"
+    password = ""
+  }
+}
+```
+
+提交作业并执行成功后，我们可以看到 ClickHouse 数据表 `multi_sink_table1` 和 `multi_sink_table2` 的数据量都为100.
+
+## 变更日志
+
+<ChangeLog />

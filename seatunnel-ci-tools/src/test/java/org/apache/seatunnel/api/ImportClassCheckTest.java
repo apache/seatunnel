@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.api;
 
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -83,6 +84,32 @@ public class ImportClassCheckTest {
     }
 
     @Test
+    public void commonLang2Check() {
+        // both common-lang and comon-lang3 share the same prefix org.apache.commons.lang
+        Map<String, List<String>> commonLangMap =
+                checkImportClassPrefix(
+                        Arrays.asList("org.apache.commons.lang"),
+                        Collections.emptyList(),
+                        Collections.emptyList());
+        // common-lang3
+        Map<String, List<String>> commonLang3Map =
+                checkImportClassPrefix(
+                        Arrays.asList("org.apache.commons.lang3"),
+                        Collections.emptyList(),
+                        Collections.emptyList());
+
+        // find the one in common-lang but not common-lang3
+        Map<String, List<String>> errorMap =
+                commonLangMap.entrySet().stream()
+                        .filter(entry -> !commonLang3Map.containsKey(entry.getKey()))
+                        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+
+        Assertions.assertEquals(
+                0, errorMap.size(), shadeErrorMsg("org.apache.commons.lang", errorMap));
+        log.info("check org.apache.commons.lang successfully");
+    }
+
+    @Test
     public void guavaShadeCheck() {
         Map<String, List<String>> errorMap =
                 checkImportClassPrefixWithAll(Collections.singletonList("com.google.common"));
@@ -110,6 +137,14 @@ public class ImportClassCheckTest {
                 checkImportClassPrefixWithAll(Collections.singletonList("org.eclipse.jetty"));
         Assertions.assertEquals(0, errorMap.size(), shadeErrorMsg("jetty", errorMap));
         log.info("check jetty shade successfully");
+    }
+
+    @Test
+    public void hikariShadeCheck() {
+        Map<String, List<String>> errorMap =
+                checkImportClassPrefixWithAll(Collections.singletonList("com.zaxxer.hikari"));
+        Assertions.assertEquals(0, errorMap.size(), shadeErrorMsg("hikari", errorMap));
+        log.info("check hikari shade successfully");
     }
 
     @Test
@@ -215,5 +250,10 @@ public class ImportClassCheckTest {
     private String getImportClassLineNum(ImportDeclaration importDeclaration) {
         Range range = importDeclaration.getRange().get();
         return String.format("%s  [%s]", importDeclaration.getName().asString(), range.end.line);
+    }
+
+    @AfterAll
+    public static void cleanup() {
+        importsMap.clear();
     }
 }

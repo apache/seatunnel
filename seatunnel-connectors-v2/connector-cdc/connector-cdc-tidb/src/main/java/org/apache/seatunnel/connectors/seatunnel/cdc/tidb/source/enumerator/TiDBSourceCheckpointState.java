@@ -32,6 +32,7 @@ import java.util.Map;
 @AllArgsConstructor
 @ToString
 public class TiDBSourceCheckpointState implements Serializable {
+    private static final long serialVersionUID = 6292978509042158791L;
     private boolean shouldEnumerate;
     private Map<Integer, TiDBSourceSplit> pendingSplit;
 }

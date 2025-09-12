@@ -94,7 +94,10 @@ public class DorisStreamLoad implements Serializable {
             CloseableHttpClient httpClient) {
         this.hostPort = hostPort;
         this.db = tablePath.getDatabaseName();
-        this.table = tablePath.getTableName();
+        this.table =
+                dorisSinkConfig.isCaseSensitive()
+                        ? tablePath.getTableName()
+                        : tablePath.getTableName().toLowerCase();
         this.user = dorisSinkConfig.getUsername();
         this.passwd = dorisSinkConfig.getPassword();
         this.labelGenerator = labelGenerator;
@@ -119,9 +122,9 @@ public class DorisStreamLoad implements Serializable {
         loadBatchFirstRecord = true;
     }
 
-    public void abortPreCommit(String labelSuffix, long chkID) throws Exception {
+    public void abortPreCommit(String labelPrefix, long chkID) throws Exception {
         long startChkID = chkID;
-        log.info("abort for labelSuffix {}. start chkId {}.", labelSuffix, chkID);
+        log.info("abort for labelPrefix {}. start chkId {}.", labelPrefix, chkID);
         while (true) {
             try {
                 String label = labelGenerator.generateLabel(startChkID);
@@ -173,7 +176,7 @@ public class DorisStreamLoad implements Serializable {
                 throw e;
             }
         }
-        log.info("abort for labelSuffix {} finished", labelSuffix);
+        log.info("abort for labelPrefix {} finished", labelPrefix);
     }
 
     public void writeRecord(byte[] record) throws IOException {

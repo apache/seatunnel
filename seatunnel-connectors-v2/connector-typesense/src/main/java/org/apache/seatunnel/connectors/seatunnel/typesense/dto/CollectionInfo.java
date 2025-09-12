@@ -18,7 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.typesense.dto;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
-import org.apache.seatunnel.connectors.seatunnel.typesense.config.SinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.typesense.config.TypesenseSinkOptions;
 
 import lombok.Data;
 
@@ -32,9 +32,9 @@ public class CollectionInfo {
 
     public CollectionInfo(String collection, ReadonlyConfig config) {
         this.collection = collection;
-        if (config.getOptional(SinkConfig.PRIMARY_KEYS).isPresent()) {
-            primaryKeys = config.get(SinkConfig.PRIMARY_KEYS).toArray(new String[0]);
+        if (config.getOptional(TypesenseSinkOptions.PRIMARY_KEYS).isPresent()) {
+            primaryKeys = config.get(TypesenseSinkOptions.PRIMARY_KEYS).toArray(new String[0]);
         }
-        keyDelimiter = config.get(SinkConfig.KEY_DELIMITER);
+        keyDelimiter = config.get(TypesenseSinkOptions.KEY_DELIMITER);
     }
 }

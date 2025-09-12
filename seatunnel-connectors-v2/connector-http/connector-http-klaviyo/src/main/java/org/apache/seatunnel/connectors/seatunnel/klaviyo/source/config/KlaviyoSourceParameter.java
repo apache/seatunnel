@@ -17,8 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.klaviyo.source.config;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.connectors.seatunnel.http.config.HttpParameter;
 
 import java.util.HashMap;
@@ -26,17 +25,17 @@ import java.util.HashMap;
 public class KlaviyoSourceParameter extends HttpParameter {
 
     @Override
-    public void buildWithConfig(Config pluginConfig) {
+    public void buildWithConfig(ReadonlyConfig pluginConfig) {
         super.buildWithConfig(pluginConfig);
         // put authorization in headers
         this.headers = this.getHeaders() == null ? new HashMap<>() : this.getHeaders();
-        this.headers.put(KlaviyoSourceConfig.ACCEPT, KlaviyoSourceConfig.APPLICATION_JSON);
+        this.headers.put(KlaviyoSourceOptions.ACCEPT, KlaviyoSourceOptions.APPLICATION_JSON);
         this.headers.put(
-                KlaviyoSourceConfig.AUTHORIZATION,
-                KlaviyoSourceConfig.KLAVIYO_API_KEY
+                KlaviyoSourceOptions.AUTHORIZATION,
+                KlaviyoSourceOptions.KLAVIYO_API_KEY
                         + " "
-                        + pluginConfig.getString(KlaviyoSourceConfig.PRIVATE_KEY.key()));
-        this.headers.put("revision", pluginConfig.getString(KlaviyoSourceConfig.REVISION.key()));
+                        + pluginConfig.get(KlaviyoSourceOptions.PRIVATE_KEY));
+        this.headers.put("revision", pluginConfig.get(KlaviyoSourceOptions.REVISION));
         this.setHeaders(this.headers);
     }
 }

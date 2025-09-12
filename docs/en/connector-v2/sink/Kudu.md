@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-kudu.md';
+
 # Kudu
 
 > Kudu sink connector
@@ -55,7 +57,7 @@
 
 ## Task Example
 
-### Simple:
+### Simple
 
 > The following example refers to a FakeSource named "kudu" cdc write kudu table "kudu_sink_table"
 
@@ -137,7 +139,7 @@ env {
 
 source {
   Mysql-CDC {
-    base-url = "jdbc:mysql://127.0.0.1:3306/seatunnel"
+    url = "jdbc:mysql://127.0.0.1:3306/seatunnel"
     username = "root"
     password = "******"
     
@@ -195,15 +197,4 @@ sink {
 
 ## Changelog
 
-### 2.2.0-beta 2022-09-26
-
-- Add Kudu Sink Connector
-
-### 2.3.0-beta 2022-10-20
-
-- [Improve] Kudu Sink Connector Support to upsert row ([2881](https://github.com/apache/seatunnel/pull/2881))
-
-### Next Version
-
-- Change plugin name from `KuduSink` to `Kudu` [3432](https://github.com/apache/seatunnel/pull/3432)
-
+<ChangeLog />

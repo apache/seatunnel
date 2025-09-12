@@ -30,7 +30,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSimpleSink;
 import org.apache.seatunnel.connectors.seatunnel.maxcompute.catalog.MaxComputeCatalog;
-import org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeConfig;
+import org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.maxcompute.exception.MaxcomputeConnectorException;
 
 import org.slf4j.Logger;
@@ -39,8 +39,6 @@ import org.slf4j.LoggerFactory;
 import java.util.Optional;
 
 import static org.apache.seatunnel.api.table.factory.FactoryUtil.discoverFactory;
-import static org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeConfig.OVERWRITE;
-import static org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeConfig.PLUGIN_NAME;
 
 public class MaxcomputeSink extends AbstractSimpleSink<SeaTunnelRow, Void>
         implements SupportSaveMode, SupportMultiTableSink {
@@ -55,7 +53,7 @@ public class MaxcomputeSink extends AbstractSimpleSink<SeaTunnelRow, Void>
 
     @Override
     public String getPluginName() {
-        return PLUGIN_NAME;
+        return MaxcomputeSinkOptions.PLUGIN_NAME;
     }
 
     @Override
@@ -69,7 +67,7 @@ public class MaxcomputeSink extends AbstractSimpleSink<SeaTunnelRow, Void>
                 discoverFactory(
                         Thread.currentThread().getContextClassLoader(),
                         CatalogFactory.class,
-                        "MaxCompute");
+                        MaxcomputeSinkOptions.PLUGIN_NAME);
         if (catalogFactory == null) {
             throw new MaxcomputeConnectorException(
                     SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
@@ -84,8 +82,8 @@ public class MaxcomputeSink extends AbstractSimpleSink<SeaTunnelRow, Void>
                         catalogFactory.createCatalog(
                                 catalogFactory.factoryIdentifier(), readonlyConfig);
 
-        DataSaveMode dataSaveMode = readonlyConfig.get(MaxcomputeConfig.DATA_SAVE_MODE);
-        if (readonlyConfig.get(OVERWRITE)) {
+        DataSaveMode dataSaveMode = readonlyConfig.get(MaxcomputeSinkOptions.DATA_SAVE_MODE);
+        if (readonlyConfig.get(MaxcomputeSinkOptions.OVERWRITE)) {
             // compatible with old version
             LOG.warn(
                     "The configuration of 'overwrite' is deprecated, please use 'data_save_mode' instead.");
@@ -94,11 +92,11 @@ public class MaxcomputeSink extends AbstractSimpleSink<SeaTunnelRow, Void>
 
         return Optional.of(
                 new MaxComputeSaveModeHandler(
-                        readonlyConfig.get(MaxcomputeConfig.SCHEMA_SAVE_MODE),
+                        readonlyConfig.get(MaxcomputeSinkOptions.SCHEMA_SAVE_MODE),
                         dataSaveMode,
                         catalog,
                         catalogTable,
-                        readonlyConfig.get(MaxcomputeConfig.CUSTOM_SQL),
+                        readonlyConfig.get(MaxcomputeSinkOptions.CUSTOM_SQL),
                         readonlyConfig));
     }
 

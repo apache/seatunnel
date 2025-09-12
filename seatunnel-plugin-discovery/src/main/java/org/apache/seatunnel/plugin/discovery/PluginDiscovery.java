@@ -45,6 +45,13 @@ public interface PluginDiscovery<T> {
     List<URL> getPluginJarPaths(List<PluginIdentifier> pluginIdentifiers);
 
     /**
+     * Get all plugin dependency jar paths.
+     *
+     * @return plugin dependency jars.
+     */
+    List<URL> getPluginJarAndDependencyPaths(List<PluginIdentifier> pluginIdentifiers);
+
+    /**
      * Get plugin instance by plugin identifier.
      *
      * @param pluginIdentifier plugin identifier.

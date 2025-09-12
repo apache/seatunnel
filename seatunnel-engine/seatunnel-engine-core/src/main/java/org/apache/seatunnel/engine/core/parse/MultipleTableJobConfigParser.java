@@ -23,8 +23,10 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.common.PluginIdentifier;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.ConfigValidator;
 import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.options.EnvCommonOptions;
+import org.apache.seatunnel.api.options.EnvOptionRule;
 import org.apache.seatunnel.api.sink.SaveModeExecuteLocation;
 import org.apache.seatunnel.api.sink.SaveModeExecuteWrapper;
 import org.apache.seatunnel.api.sink.SaveModeHandler;
@@ -76,6 +78,7 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.sql.DriverManager;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -101,6 +104,18 @@ import static org.apache.seatunnel.engine.core.parse.ConfigParserUtil.getInputId
 
 @Slf4j
 public class MultipleTableJobConfigParser {
+
+    static {
+        // Load DriverManager first to avoid deadlock between DriverManager's
+        // static initialization block and specific driver class's static
+        // initialization block when two different driver classes are loading
+        // concurrently using Class.forName while DriverManager is uninitialized
+        // before.
+        //
+        // This could happen in JDK 8 but not above as driver loading has been
+        // moved out of DriverManager's static initialization block since JDK 9.
+        DriverManager.getDrivers();
+    }
 
     private final IdGenerator idGenerator;
     private final JobConfig jobConfig;
@@ -160,6 +175,7 @@ public class MultipleTableJobConfigParser {
         this.seaTunnelJobConfig = ConfigBuilder.of(Paths.get(jobDefineFilePath), variables);
         this.envOptions = ReadonlyConfig.fromConfig(seaTunnelJobConfig.getConfig("env"));
         this.pipelineCheckpoints = pipelineCheckpoints;
+        ConfigValidator.of(this.envOptions).validate(new EnvOptionRule().optionRule());
     }
 
     public MultipleTableJobConfigParser(
@@ -176,6 +192,7 @@ public class MultipleTableJobConfigParser {
         this.seaTunnelJobConfig = seaTunnelJobConfig;
         this.envOptions = ReadonlyConfig.fromConfig(seaTunnelJobConfig.getConfig("env"));
         this.pipelineCheckpoints = pipelineCheckpoints;
+        ConfigValidator.of(this.envOptions).validate(new EnvOptionRule().optionRule());
     }
 
     public ImmutablePair<List<Action>, Set<URL>> parse(ClassLoaderService classLoaderService) {
@@ -285,7 +302,8 @@ public class MultipleTableJobConfigParser {
                                                 factory))
                         .collect(Collectors.toList());
         List<URL> jarPaths = new ArrayList<>();
-        jarPaths.addAll(new SeaTunnelSinkPluginDiscovery().getPluginJarPaths(factoryIds));
+        jarPaths.addAll(
+                new SeaTunnelSinkPluginDiscovery().getPluginJarAndDependencyPaths(factoryIds));
         jarPaths.addAll(commonPluginJars);
         return jarPaths;
     }
@@ -690,6 +708,8 @@ public class MultipleTableJobConfigParser {
                         actionConfig);
         if (!isStartWithSavePoint) {
             handleSaveMode(sink);
+        } else {
+            handleSchemaSaveModeWithRestore(sink);
         }
         sinkAction.setParallelism(parallelism);
         return sinkAction;
@@ -716,6 +736,25 @@ public class MultipleTableJobConfigParser {
         }
     }
 
+    public void handleSchemaSaveModeWithRestore(SeaTunnelSink<?, ?, ?, ?> sink) {
+        if (SupportSaveMode.class.isAssignableFrom(sink.getClass())) {
+            SupportSaveMode saveModeSink = (SupportSaveMode) sink;
+            if (envOptions
+                    .get(EnvCommonOptions.SAVEMODE_EXECUTE_LOCATION)
+                    .equals(SaveModeExecuteLocation.CLIENT)) {
+                Optional<SaveModeHandler> saveModeHandler = saveModeSink.getSaveModeHandler();
+                if (saveModeHandler.isPresent()) {
+                    try (SaveModeHandler handler = saveModeHandler.get()) {
+                        handler.open();
+                        handler.handleSchemaSaveModeWithRestore();
+                    } catch (Exception e) {
+                        throw new SeaTunnelRuntimeException(HANDLE_SAVE_MODE_FAILED, e);
+                    }
+                }
+            }
+        }
+    }
+
     private List<URL> getSourcePluginJarPaths(Config sourceConfig) {
         SeaTunnelSourcePluginDiscovery sourcePluginDiscovery = new SeaTunnelSourcePluginDiscovery();
         PluginIdentifier pluginIdentifier =
@@ -724,7 +763,8 @@ public class MultipleTableJobConfigParser {
                         CollectionConstants.SOURCE_PLUGIN,
                         sourceConfig.getString(CollectionConstants.PLUGIN_NAME));
         List<URL> pluginJarPaths =
-                sourcePluginDiscovery.getPluginJarPaths(Lists.newArrayList(pluginIdentifier));
+                sourcePluginDiscovery.getPluginJarAndDependencyPaths(
+                        Lists.newArrayList(pluginIdentifier));
         return pluginJarPaths;
     }
 
@@ -749,7 +789,8 @@ public class MultipleTableJobConfigParser {
                         CollectionConstants.SINK_PLUGIN,
                         sinkConfig.getString(CollectionConstants.PLUGIN_NAME));
         List<URL> pluginJarPaths =
-                sinkPluginDiscovery.getPluginJarPaths(Lists.newArrayList(pluginIdentifier));
+                sinkPluginDiscovery.getPluginJarAndDependencyPaths(
+                        Lists.newArrayList(pluginIdentifier));
         return pluginJarPaths;
     }
 

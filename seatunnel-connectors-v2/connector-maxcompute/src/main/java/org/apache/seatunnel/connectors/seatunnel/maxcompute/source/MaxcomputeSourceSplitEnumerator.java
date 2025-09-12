@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.maxcompute.source;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.maxcompute.util.MaxcomputeUtil;
 
 import com.aliyun.odps.tunnel.TableTunnel;
@@ -35,8 +36,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import static org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeConfig.SPLIT_ROW;
-
 @Slf4j
 public class MaxcomputeSourceSplitEnumerator
         implements SourceSplitEnumerator<MaxcomputeSourceSplit, MaxcomputeSourceState> {
@@ -45,6 +44,7 @@ public class MaxcomputeSourceSplitEnumerator
     private Set<MaxcomputeSourceSplit> assignedSplits;
     private final ReadonlyConfig readonlyConfig;
     private final Map<TablePath, SourceTableInfo> sourceTableInfos;
+    private final Object stateLock = new Object();
 
     public MaxcomputeSourceSplitEnumerator(
             SourceSplitEnumerator.Context<MaxcomputeSourceSplit> enumeratorContext,
@@ -71,8 +71,12 @@ public class MaxcomputeSourceSplitEnumerator
 
     @Override
     public void run() throws Exception {
-        discoverySplits();
-        assignPendingSplits();
+        synchronized (stateLock) {
+            discoverySplits();
+        }
+        synchronized (stateLock) {
+            assignPendingSplits();
+        }
     }
 
     @Override
@@ -93,7 +97,9 @@ public class MaxcomputeSourceSplitEnumerator
 
     @Override
     public MaxcomputeSourceState snapshotState(long checkpointId) {
-        return new MaxcomputeSourceState(assignedSplits);
+        synchronized (stateLock) {
+            return new MaxcomputeSourceState(assignedSplits);
+        }
     }
 
     @Override
@@ -114,7 +120,7 @@ public class MaxcomputeSourceSplitEnumerator
                             sourceTableInfo.getPartitionSpec());
             long recordCount = session.getRecordCount();
             int splitRowNum = (int) Math.ceil((double) recordCount / numReaders);
-            int splitRow = SPLIT_ROW.defaultValue();
+            int splitRow = MaxcomputeSourceOptions.SPLIT_ROW.defaultValue();
             if (sourceTableInfo.getSplitRow() != null && sourceTableInfo.getSplitRow() > 0) {
                 splitRow = sourceTableInfo.getSplitRow();
             }

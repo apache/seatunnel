@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-neo4j.md';
+
 # Neo4j
 
 > Neo4j sink connector
@@ -42,7 +44,7 @@ username of the Neo4j
 
 password of the Neo4j. required if `username` is provided
 
-### max_batch_size[Integer]
+### max_batch_size [Integer]
 
 max_batch_size refers to the maximum number of data entries that can be written in a single transaction when writing to a database.
 
@@ -116,6 +118,8 @@ sink {
 
 ## WriteBatchExample
 > The unwind keyword provided by cypher supports batch writing, and the default variable for a batch of data is batch. If you write a batch write statement, then you should declare cypher:unwind $batch as row to do someting
+ 
+
 ```
 sink {
   Neo4j {
@@ -137,11 +141,4 @@ sink {
 
 ## Changelog
 
-### 2.2.0-beta 2022-09-26
-
-- Add Neo4j Sink Connector
-
-### issue ##4835
-
-- Sink supports batch write
-
+<ChangeLog />

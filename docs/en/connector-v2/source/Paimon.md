@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-paimon.md';
+
 # Paimon
 
 > Paimon source connector
@@ -6,28 +8,58 @@
 
 Read data from Apache Paimon.
 
+### Comparison between Seatunnel and Paimon vsrsion
+
+| Seatunnel Version | Paimon Version   |
+|-------------------|------------------|
+| 2.3.2  -  2.3.3   | 0.4-SNAPSHOT     |
+| 2.3.4             | 0.6-SNAPSHOT     |
+| 2.3.5  -  2.3.11  | 0.7.0-incubating |
+| 2.3.12            | 1.1.1            |
+
+### Key Considerations for Upgrading Paimon from `0.7.0-incubating` to `1.1.1`
+
+1. **Backup Recommendations**
+   Although compatibility is ensured, it is strongly recommended to backup critical data, especially the metadata directory, before initiating the upgrade.
+2. **Gradual Upgrade Process**
+    - **Test Environment Validation**: First validate the upgrade process in a staging environment.
+    - **Update JAR Files**: Replace Paimon JAR files with version 1.1.1.
+    - **Automatic Format Upgrade**: The system will automatically detect and upgrade older file formats.
+3. **Configuration Check**
+   Review your configurations to ensure no deprecated options are in use. While most configurations remain backward-compatible, deprecated settings may require updates.
+4. **Post-Upgrade Validation**
+   Verify the following after upgrading:
+    - **Read/Write Operations**: Ensure data ingestion and retrieval workflows function normally.
+    - **Query Performance**: Confirm that query response times meet expectations.
+    - **New Feature Verification**: Test all newly introduced features (e.g., time travel, enhanced compaction) to ensure proper functionality.
+
+**Note**: These steps help minimize risks and ensure a smooth transition to the stable version 1.1.1.
+
 ## Key features
 
 - [x] [batch](../../concept/connector-v2-features.md)
 - [x] [stream](../../concept/connector-v2-features.md)
 - [ ] [exactly-once](../../concept/connector-v2-features.md)
-- [ ] [column projection](../../concept/connector-v2-features.md)
+- [x] [column projection](../../concept/connector-v2-features.md)
 - [ ] [parallelism](../../concept/connector-v2-features.md)
 - [ ] [support user-defined split](../../concept/connector-v2-features.md)
 
 ## Options
 
-|          name           |  type  | required | default value |
-|-------------------------|--------|----------|---------------|
-| warehouse               | String | Yes      | -             |
-| catalog_type            | String | No       | filesystem    |
-| catalog_uri             | String | No       | -             |
-| database                | String | Yes      | -             |
-| table                   | String | Yes      | -             |
-| hdfs_site_path          | String | No       | -             |
-| query                   | String | No       | -             |
-| paimon.hadoop.conf      | Map    | No       | -             |
-| paimon.hadoop.conf-path | String | No       | -             |
+| name                    | type     | required       | default value |
+|-------------------------|----------|----------------|---------------|
+| warehouse               | String   | Yes            | -             |
+| catalog_type            | String   | No             | filesystem    |
+| catalog_uri             | String   | No             | -             |
+| database                | String   | Yes            | -             |
+| table                   | String   | no             | -             |
+| table_list              | array    | no             | -             |
+| user                    | String   | No             | -             |
+| password                | String   | No             | -             |
+| hdfs_site_path          | String   | No             | -             |
+| query                   | String   | No             | -             |
+| paimon.hadoop.conf      | Map      | No             | -             |
+| paimon.hadoop.conf-path | String   | No             | -             |
 
 ### warehouse [string]
 
@@ -49,6 +81,10 @@ The database you want to access
 
 The table you want to access
 
+### table_list [array]
+
+The list of tables to be read, you can use this configuration instead of `table`
+
 ### hdfs_site_path [string]
 
 The file path of `hdfs-site.xml`
@@ -56,9 +92,10 @@ The file path of `hdfs-site.xml`
 ### query [string]
 
 The filter condition of the table read. For example: `select * from st_test where id > 100`. If not specified, all rows are read.
-Currently, where conditions only support <, <=, >, >=, =, !=, or, and,is null, is not null, and others are not supported.
+Currently, where conditions only support <, <=, >, >=, =, !=, or, and,is null, is not null, between...and, in, not in, like, and others are not supported.
 The Having, Group By, Order By clauses are currently unsupported, because these clauses are not supported by Paimon.
-The projection and limit will be supported in the future.
+you can also project specific columns, for example: select id, name from st_test where id > 100.
+The limit will be supported in the future.
 
 Note: When the field after the where condition is a string or boolean value, its value must be enclosed in single quotes, otherwise an error will be reported. `For example: name='abc' or tag='true'`
 The field data types currently supported by where conditions are as follows:
@@ -73,6 +110,7 @@ The field data types currently supported by where conditions are as follows:
 * double
 * date
 * timestamp
+* time
 
 ### paimon.hadoop.conf [string]
 
@@ -98,6 +136,27 @@ source {
      database = "default"
      table = "st_test"
    }
+}
+```
+
+### Multiple tables
+
+```hocon
+source {
+  Paimon {
+    warehouse = "/tmp/paimon"
+    database = "default"
+    table_list = [
+      {
+        table = "table1"
+        query = "select * from table1 where id > 100"
+      },
+      {
+        table = "table2"
+        query = "select * from table2 where id > 100"
+      }
+    ]
+  }
 }
 ```
 
@@ -152,6 +211,7 @@ source {
     table="st_test"
     query = "select * from st_test where pk_id is not null and pk_id < 3"
     paimon.hadoop.conf = {
+      hadoop_user_name = "hdfs"
       fs.defaultFS = "hdfs://nameservice1"
       dfs.nameservices = "nameservice1"
       dfs.ha.namenodes.nameservice1 = "nn1,nn2"
@@ -193,7 +253,7 @@ If you want to read the changelog of the Paimon table, first set the `changelog-
 
 ### Note
 
-Currently, batch reads are always the latest snapshot read, so to read full changelog data, you need to use stream reads and start stream reads before writing data to the Piamon table, and to ensure order, the parallelism of the stream read task should be set to 1.
+Currently, batch reads are always the latest snapshot read, so to read full changelog data, you need to use stream reads and start stream reads before writing data to the Paimon table, and to ensure order, the parallelism of the stream read task should be set to 1.
 
 ### Streaming read example
 ```hocon
@@ -219,3 +279,21 @@ sink {
   }
 }
 ```
+
+### paimon enable privilege example
+
+```hocon
+source {
+ Paimon {
+     warehouse = "/tmp/paimon"
+     database = "default"
+     table = "st_test"
+     user = "paimon"
+     password = "******"
+   }
+}
+```
+
+## Changelog
+
+<ChangeLog />

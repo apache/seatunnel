@@ -28,6 +28,7 @@ import org.apache.seatunnel.transform.common.MultipleFieldOutputTransform;
 import org.apache.seatunnel.transform.dynamiccompile.parse.AbstractParse;
 import org.apache.seatunnel.transform.dynamiccompile.parse.GroovyClassParse;
 import org.apache.seatunnel.transform.dynamiccompile.parse.JavaClassParse;
+import org.apache.seatunnel.transform.dynamiccompile.parse.ScalaClassParse;
 import org.apache.seatunnel.transform.exception.TransformException;
 
 import java.nio.file.Paths;
@@ -59,6 +60,10 @@ public class DynamicCompileTransform extends MultipleFieldOutputTransform {
             DynamicCompileParse = new GroovyClassParse();
         } else if (CompileLanguage.JAVA.equals(compileLanguage)) {
             DynamicCompileParse = new JavaClassParse();
+        } else if (CompileLanguage.SCALA.equals(compileLanguage)) {
+            DynamicCompileParse = new ScalaClassParse();
+        } else {
+            throw new IllegalArgumentException("Unsupported compile language: " + compileLanguage);
         }
         compilePattern = readonlyConfig.get(DynamicCompileTransformConfig.COMPILE_PATTERN);
 

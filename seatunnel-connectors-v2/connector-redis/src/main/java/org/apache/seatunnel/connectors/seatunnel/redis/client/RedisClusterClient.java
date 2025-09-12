@@ -79,7 +79,7 @@ public class RedisClusterClient extends RedisClient {
         List<Map<String, String>> result = new ArrayList<>(keys.size());
         for (String key : keys) {
             Map<String, String> map = jedis.hgetAll(key);
-            map.put("hash_key", key);
+            map.put(redisParameters.getKeyFieldName(), key);
             result.add(map);
         }
         return result;

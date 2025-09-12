@@ -31,11 +31,12 @@ import org.apache.hadoop.conf.Configuration;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.MethodOrderer;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestMethodOrder;
+import org.junit.jupiter.api.condition.DisabledOnOs;
+import org.junit.jupiter.api.condition.OS;
 
 import java.util.Collections;
 import java.util.HashMap;
@@ -45,7 +46,7 @@ import static org.apache.seatunnel.api.table.type.LocalTimeType.LOCAL_DATE_TIME_
 import static org.apache.seatunnel.api.table.type.LocalTimeType.LOCAL_DATE_TYPE;
 
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
-@Disabled
+@DisabledOnOs(OS.WINDOWS)
 class HudiCatalogTest {
     private static final String CATALOG_NAME = "seatunnel";
     private static final String CATALOG_DIR = "/tmp/seatunnel/hudi";
@@ -124,6 +125,14 @@ class HudiCatalogTest {
 
     @Test
     @Order(8)
+    void testPrecombineField() {
+        CatalogTable table = hudicatalog.getTable(tablePath);
+        CatalogTable templateTable = buildAllTypesTable(tableIdentifier);
+        Assertions.assertEquals(table.toString(), templateTable.toString());
+    }
+
+    @Test
+    @Order(9)
     void dropTable() {
         hudicatalog.dropTable(tablePath, false);
         Assertions.assertFalse(hudicatalog.tableExists(tablePath));
@@ -170,6 +179,7 @@ class HudiCatalogTest {
         options.put("record_key_fields", "id,boolean_col");
         options.put("cdc_enabled", "false");
         options.put("table_type", "MERGE_ON_READ");
+        options.put("precombine_field", "integer_col");
         return CatalogTable.of(
                 tableIdentifier, schema, options, Collections.singletonList("dt_col"), "null");
     }

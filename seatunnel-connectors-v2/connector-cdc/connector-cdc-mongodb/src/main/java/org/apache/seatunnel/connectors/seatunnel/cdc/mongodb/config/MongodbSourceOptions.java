@@ -58,6 +58,10 @@ public class MongodbSourceOptions extends SourceOptions {
 
     public static final String ID_FIELD = "_id";
 
+    public static final String HEARTBEAT_KEY_FIELD = "HEARTBEAT";
+
+    public static final String COPY_KEY_FIELD = "copy";
+
     public static final String DOCUMENT_KEY = "documentKey";
 
     public static final String NS_FIELD = "ns";
@@ -229,6 +233,12 @@ public class MongodbSourceOptions extends SourceOptions {
                     .withDescription(
                             "The amount of time to wait before checking for new results on the change stream."
                                     + "Defaults: 1000.");
+
+    public static final Option<Boolean> EXACTLY_ONCE =
+            Options.key("exactly_once")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription("Enable exactly once semantic.");
 
     public static final Option<Integer> HEARTBEAT_INTERVAL_MILLIS =
             Options.key("heartbeat.interval.ms")

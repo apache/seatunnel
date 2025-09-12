@@ -1,7 +1,3 @@
----
-sidebar_position: 12
----
-
 # RESTful API V2
 
 SeaTunnel有一个用于监控的API，可用于查询运行作业的状态和统计信息，以及最近完成的作业。监控API是RESTful风格的，它接受HTTP请求并使用JSON数据格式进行响应。
@@ -9,7 +5,7 @@ SeaTunnel有一个用于监控的API，可用于查询运行作业的状态和�
 ## 概述
 
 v2版本的api使用jetty支持，与v1版本的接口规范相同 ,可以通过修改`seatunnel.yaml`中的配置项来指定端口和context-path，
-同时可以配置 `enable-dynamic-port` 开启动态端口(默认从 `port` 开始累加)，默认为关闭，
+同时可以配置 `enable-dynamic-port` 开启动态端口(默认从 `port` 开始累加)，默认为开启，
 如果`enable-dynamic-port`为`true`，我们将使用`port`和`port`+`port-range`范围内未使用的端口，默认范围是100。
 
 ```yaml
@@ -34,6 +30,10 @@ seatunnel:
       port: 8080
       context-path: /seatunnel
 ```
+
+## 开启 HTTPS
+
+请参考 [security](security.md)
 
 ## API参考
 
@@ -153,6 +153,7 @@ seatunnel:
     "pipelineEdges": {}
   },
   "metrics": {
+    "IntermediateQueueSize": "",
     "SourceReceivedCount": "",
     "SourceReceivedQPS": "",
     "SourceReceivedBytes": "",
@@ -269,9 +270,9 @@ seatunnel:
 
 #### 参数
 
-> | 参数名称  |   是否必传   |  参数类型  |                               参数描述                               |
-> |-------|----------|--------|------------------------------------------------------------------|
-> | state | optional | string | finished job status. `FINISHED`,`CANCELED`,`FAILED`,`UNKNOWABLE` |
+> | 参数名称  |   是否必传   |  参数类型  | 参数描述                                                                              |
+> |-------|----------|--------|-----------------------------------------------------------------------------------|
+> | state | optional | string | finished job status. `FINISHED`,`CANCELED`,`FAILED`,`SAVEPOINT_DONE`,`UNKNOWABLE` |
 
 #### 响应
 
@@ -385,11 +386,11 @@ seatunnel:
 > | jobId                | optional | string | job id                            |
 > | jobName              | optional | string | job name                          |
 > | isStartWithSavePoint | optional | string | if job is started with save point |
-> | format               | optional | string    | 配置风格,支持json和hocon,默认 json         |
+> | format               | optional | string    | 配置风格,支持json、hocon 和 sql,默认 json   |
 
 #### 请求体
 
-你可以选择用json或者hocon的方式来传递请求体。
+你可以选择用json、hocon或者sql的方式来传递请求体。
 Json请求示例：
 ```json
 {
@@ -451,6 +452,48 @@ sink {
 }
 
 ```
+
+SQL请求示例：
+
+```sql
+/* config
+env {
+  parallelism = 2
+  job.mode = "BATCH"
+}
+*/
+
+CREATE TABLE fake_source (
+    id INT,
+    name STRING,
+    age INT
+) WITH (
+    'connector' = 'FakeSource',
+    'rows' = '[
+        { fields = [1, "Alice", 25], kind = INSERT },
+        { fields = [2, "Bob", 30], kind = INSERT }
+    ]',
+    'schema' = '{
+        fields {
+            id = "int",
+            name = "string",
+            age = "int"
+        }
+    }',
+    'type' = 'source'
+);
+
+CREATE TABLE console_sink (
+    id INT,
+    name STRING,
+    age INT
+) WITH (
+    'connector' = 'Console',
+    'type' = 'sink'
+);
+
+INSERT INTO console_sink SELECT * FROM fake_source;
+```
 #### 响应
 
 ```json
@@ -477,13 +520,19 @@ sink {
 > | isStartWithSavePoint | optional | string | if job is started with save point |
 
 #### 请求体
-上传文件key的名称是config_file,文件后缀json的按照json格式来解析,conf或config文件后缀按照hocon格式解析
+上传文件key的名称是config_file，支持以下格式：
+- `.json` 文件：按照 JSON 格式解析
+- `.conf` 或 `.config` 文件：按照 HOCON 格式解析
+- `.sql` 文件：按照 SQL 格式解析，支持 CREATE TABLE 和 INSERT INTO 语法
 
 curl Example
 
-```
+```bash
+# 上传 HOCON 配置文件
 curl --location 'http://127.0.0.1:8080/submit-job/upload' --form 'config_file=@"/temp/fake_to_console.conf"'
 
+# 上传 SQL 配置文件
+curl --location 'http://127.0.0.1:8080/submit-job/upload' --form 'config_file=@"/temp/job.sql"'
 ```
 #### 响应
 

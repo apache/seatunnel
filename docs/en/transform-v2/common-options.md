@@ -19,7 +19,7 @@ The old configuration name `source_table_name`/`result_table_name` is deprecated
 
 ## Task Example
 
-### Simple:
+### Simple
 
 > This is the process of converting the data source to fake and write it to two different sinks, Detailed reference `transform`
 

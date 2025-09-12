@@ -24,7 +24,6 @@ import org.apache.seatunnel.connectors.seatunnel.iceberg.source.enumerator.scan.
 import org.apache.seatunnel.connectors.seatunnel.iceberg.utils.SchemaUtils;
 
 import org.apache.iceberg.catalog.TableIdentifier;
-import org.apache.iceberg.expressions.Expression;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -33,7 +32,7 @@ import lombok.experimental.Tolerate;
 
 import java.io.Serializable;
 
-import static org.apache.seatunnel.connectors.seatunnel.iceberg.config.SourceConfig.KEY_STREAM_SCAN_STRATEGY;
+import static org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergSourceOptions.KEY_STREAM_SCAN_STRATEGY;
 
 @AllArgsConstructor
 @Data
@@ -50,7 +49,7 @@ public class SourceTableConfig implements Serializable {
     private Long useSnapshotTimestamp;
 
     private IcebergStreamScanStrategy streamScanStrategy = KEY_STREAM_SCAN_STRATEGY.defaultValue();
-    private Expression filter;
+    private String query;
     private Long splitSize;
     private Integer splitLookback;
     private Long splitOpenFileCost;

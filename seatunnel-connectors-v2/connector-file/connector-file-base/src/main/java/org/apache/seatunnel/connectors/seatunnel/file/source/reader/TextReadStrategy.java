@@ -29,8 +29,8 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.utils.DateTimeUtils;
 import org.apache.seatunnel.common.utils.DateUtils;
 import org.apache.seatunnel.common.utils.TimeUtils;
-import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfigOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.CompressFormat;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
@@ -53,15 +53,116 @@ import java.util.Optional;
 @Slf4j
 public class TextReadStrategy extends AbstractReadStrategy {
     private DeserializationSchema<SeaTunnelRow> deserializationSchema;
-    private String fieldDelimiter = BaseSourceConfigOptions.FIELD_DELIMITER.defaultValue();
-    private DateUtils.Formatter dateFormat = BaseSourceConfigOptions.DATE_FORMAT.defaultValue();
+    private String fieldDelimiter = FileBaseSourceOptions.FIELD_DELIMITER.defaultValue();
+    private String rowDelimiter = FileBaseSourceOptions.ROW_DELIMITER.defaultValue();
+    private DateUtils.Formatter dateFormat =
+            FileBaseSourceOptions.DATE_FORMAT_LEGACY.defaultValue();
     private DateTimeUtils.Formatter datetimeFormat =
-            BaseSourceConfigOptions.DATETIME_FORMAT.defaultValue();
-    private TimeUtils.Formatter timeFormat = BaseSourceConfigOptions.TIME_FORMAT.defaultValue();
-    private CompressFormat compressFormat = BaseSourceConfigOptions.COMPRESS_CODEC.defaultValue();
+            FileBaseSourceOptions.DATETIME_FORMAT_LEGACY.defaultValue();
+    private TimeUtils.Formatter timeFormat =
+            FileBaseSourceOptions.TIME_FORMAT_LEGACY.defaultValue();
+    private CompressFormat compressFormat = FileBaseSourceOptions.COMPRESS_CODEC.defaultValue();
     private TextLineSplitor textLineSplitor;
     private int[] indexes;
-    private String encoding = BaseSourceConfigOptions.ENCODING.defaultValue();
+    private String encoding = FileBaseSourceOptions.ENCODING.defaultValue();
+
+    /** Custom stream divider for splitting text streams by specified delimiters */
+    public static class StreamLineSplitter {
+        private final char[] delimiterChars;
+        private final StringBuilder lineBuffer;
+        private int delimiterIndex;
+        private int skipCount;
+        private final long skipHeaderNumber;
+        private final LineProcessor lineProcessor;
+        private final boolean useReadLine;
+
+        public StreamLineSplitter(
+                String delimiter, long skipHeaderNumber, LineProcessor lineProcessor) {
+            this.delimiterChars = delimiter.toCharArray();
+            this.lineBuffer = new StringBuilder();
+            this.delimiterIndex = 0;
+            this.skipCount = 0;
+            this.skipHeaderNumber = skipHeaderNumber;
+            this.lineProcessor = lineProcessor;
+
+            this.useReadLine = isDefaultLineDelimiter(delimiter);
+        }
+
+        private boolean isDefaultLineDelimiter(String delimiter) {
+            return "\n".equals(delimiter) || "\r".equals(delimiter) || "\r\n".equals(delimiter);
+        }
+
+        public void processStream(BufferedReader reader) throws IOException {
+            if (useReadLine) {
+                processWithReadLine(reader);
+            } else {
+                processWithCharByChar(reader);
+            }
+        }
+
+        private void processWithReadLine(BufferedReader reader) throws IOException {
+            String line;
+            int lineCount = 0;
+
+            while ((line = reader.readLine()) != null) {
+                if (lineCount >= skipHeaderNumber) {
+                    if (!line.trim().isEmpty()) {
+                        lineProcessor.processLine(line);
+                    }
+                } else {
+                    lineCount++;
+                }
+            }
+        }
+
+        private void processWithCharByChar(BufferedReader reader) throws IOException {
+            int ch;
+            while ((ch = reader.read()) != -1) {
+                char currentChar = (char) ch;
+                processChar(currentChar);
+            }
+
+            if (lineBuffer.length() > 0) {
+                if (skipCount >= skipHeaderNumber) {
+                    String line = lineBuffer.toString();
+                    if (!line.trim().isEmpty()) {
+                        lineProcessor.processLine(line);
+                    }
+                }
+            }
+        }
+
+        private void processChar(char currentChar) throws IOException {
+            if (currentChar == delimiterChars[delimiterIndex]) {
+                delimiterIndex++;
+                if (delimiterIndex == delimiterChars.length) {
+                    if (skipCount >= skipHeaderNumber) {
+                        String line = lineBuffer.toString();
+                        if (!line.trim().isEmpty()) {
+                            lineProcessor.processLine(line);
+                        }
+                    } else {
+                        skipCount++;
+                    }
+
+                    lineBuffer.setLength(0);
+                    delimiterIndex = 0;
+                }
+            } else {
+                if (delimiterIndex > 0) {
+                    for (int i = 0; i < delimiterIndex; i++) {
+                        lineBuffer.append(delimiterChars[i]);
+                    }
+                    delimiterIndex = 0;
+                }
+                lineBuffer.append(currentChar);
+            }
+        }
+    }
+
+    public interface LineProcessor {
+        void processLine(String line) throws IOException;
+    }
 
     @Override
     public void read(String path, String tableId, Collector<SeaTunnelRow> output)
@@ -98,49 +199,59 @@ public class TextReadStrategy extends AbstractReadStrategy {
 
         try (BufferedReader reader =
                 new BufferedReader(new InputStreamReader(actualInputStream, encoding))) {
-            reader.lines()
-                    .skip(skipHeaderNumber)
-                    .forEach(
-                            line -> {
-                                try {
-                                    SeaTunnelRow seaTunnelRow =
-                                            deserializationSchema.deserialize(
-                                                    line.getBytes(StandardCharsets.UTF_8));
-                                    if (!readColumns.isEmpty()) {
-                                        // need column projection
-                                        Object[] fields;
-                                        if (isMergePartition) {
-                                            fields =
-                                                    new Object
-                                                            [readColumns.size()
-                                                                    + partitionsMap.size()];
-                                        } else {
-                                            fields = new Object[readColumns.size()];
-                                        }
-                                        for (int i = 0; i < indexes.length; i++) {
-                                            fields[i] = seaTunnelRow.getField(indexes[i]);
-                                        }
-                                        seaTunnelRow = new SeaTunnelRow(fields);
-                                    }
-                                    if (isMergePartition) {
-                                        int index = seaTunnelRowType.getTotalFields();
-                                        for (String value : partitionsMap.values()) {
-                                            seaTunnelRow.setField(index++, value);
-                                        }
-                                    }
-                                    seaTunnelRow.setTableId(tableId);
-                                    output.collect(seaTunnelRow);
-                                } catch (IOException e) {
-                                    String errorMsg =
-                                            String.format(
-                                                    "Deserialize this data [%s] failed, please check the origin data",
-                                                    line);
-                                    throw new FileConnectorException(
-                                            FileConnectorErrorCode.DATA_DESERIALIZE_FAILED,
-                                            errorMsg,
-                                            e);
-                                }
-                            });
+
+            LineProcessor lineProcessor =
+                    line -> {
+                        try {
+                            processLineData(line, tableId, output, partitionsMap);
+                        } catch (FileConnectorException e) {
+                            throw new IOException(e);
+                        }
+                    };
+
+            StreamLineSplitter splitter =
+                    new StreamLineSplitter(rowDelimiter, skipHeaderNumber, lineProcessor);
+            splitter.processStream(reader);
+        }
+    }
+
+    private void processLineData(
+            String line,
+            String tableId,
+            Collector<SeaTunnelRow> output,
+            Map<String, String> partitionsMap)
+            throws FileConnectorException {
+        try {
+            SeaTunnelRow seaTunnelRow =
+                    deserializationSchema.deserialize(line.getBytes(StandardCharsets.UTF_8));
+            if (!readColumns.isEmpty()) {
+                // need column projection
+                Object[] fields;
+                if (isMergePartition) {
+                    fields = new Object[readColumns.size() + partitionsMap.size()];
+                } else {
+                    fields = new Object[readColumns.size()];
+                }
+                for (int i = 0; i < indexes.length; i++) {
+                    fields[i] = seaTunnelRow.getField(indexes[i]);
+                }
+                seaTunnelRow = new SeaTunnelRow(fields);
+            }
+            if (isMergePartition) {
+                int index = seaTunnelRowType.getTotalFields();
+                for (String value : partitionsMap.values()) {
+                    seaTunnelRow.setField(index++, value);
+                }
+            }
+            seaTunnelRow.setTableId(tableId);
+            output.collect(seaTunnelRow);
+        } catch (IOException e) {
+            String errorMsg =
+                    String.format(
+                            "Deserialize this data [%s] failed, please check the origin data",
+                            line);
+            throw new FileConnectorException(
+                    FileConnectorErrorCode.DATA_DESERIALIZE_FAILED, errorMsg, e);
         }
     }
 
@@ -150,7 +261,7 @@ public class TextReadStrategy extends AbstractReadStrategy {
         this.seaTunnelRowTypeWithPartition =
                 mergePartitionTypes(fileNames.get(0), seaTunnelRowType);
         initFormatter();
-        if (pluginConfig.hasPath(BaseSourceConfigOptions.READ_COLUMNS.key())) {
+        if (pluginConfig.hasPath(FileBaseSourceOptions.READ_COLUMNS.key())) {
             throw new FileConnectorException(
                     SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
                     "When reading text files, if user has not specified schema information, "
@@ -163,7 +274,7 @@ public class TextReadStrategy extends AbstractReadStrategy {
                         .textLineSplitor(textLineSplitor)
                         .nullFormat(
                                 readonlyConfig
-                                        .getOptional(BaseSourceConfigOptions.NULL_FORMAT)
+                                        .getOptional(FileBaseSourceOptions.NULL_FORMAT)
                                         .orElse(null));
         if (isMergePartition) {
             deserializationSchema =
@@ -181,12 +292,15 @@ public class TextReadStrategy extends AbstractReadStrategy {
                 mergePartitionTypes(fileNames.get(0), rowType);
         ReadonlyConfig readonlyConfig = ReadonlyConfig.fromConfig(pluginConfig);
         Optional<String> fieldDelimiterOptional =
-                readonlyConfig.getOptional(BaseSourceConfigOptions.FIELD_DELIMITER);
+                readonlyConfig.getOptional(FileBaseSourceOptions.FIELD_DELIMITER);
+        Optional<String> rowDelimiterOptional =
+                readonlyConfig.getOptional(FileBaseSourceOptions.ROW_DELIMITER);
         encoding =
                 readonlyConfig
-                        .getOptional(BaseSourceConfigOptions.ENCODING)
+                        .getOptional(FileBaseSourceOptions.ENCODING)
                         .orElse(StandardCharsets.UTF_8.name());
         fieldDelimiterOptional.ifPresent(s -> fieldDelimiter = s);
+        rowDelimiterOptional.ifPresent(s -> rowDelimiter = s);
         initFormatter();
         TextDeserializationSchema.Builder builder =
                 TextDeserializationSchema.builder()
@@ -194,7 +308,7 @@ public class TextReadStrategy extends AbstractReadStrategy {
                         .textLineSplitor(textLineSplitor)
                         .nullFormat(
                                 readonlyConfig
-                                        .getOptional(BaseSourceConfigOptions.NULL_FORMAT)
+                                        .getOptional(FileBaseSourceOptions.NULL_FORMAT)
                                         .orElse(null));
         if (isMergePartition) {
             deserializationSchema =
@@ -203,7 +317,7 @@ public class TextReadStrategy extends AbstractReadStrategy {
             deserializationSchema = builder.seaTunnelRowType(rowType).build();
         }
         // column projection
-        if (pluginConfig.hasPath(BaseSourceConfigOptions.READ_COLUMNS.key())) {
+        if (pluginConfig.hasPath(FileBaseSourceOptions.READ_COLUMNS.key())) {
             // get the read column index from user-defined row type
             indexes = new int[readColumns.size()];
             String[] fields = new String[readColumns.size()];
@@ -223,24 +337,25 @@ public class TextReadStrategy extends AbstractReadStrategy {
     }
 
     private void initFormatter() {
-        if (pluginConfig.hasPath(BaseSourceConfigOptions.DATE_FORMAT.key())) {
+        if (pluginConfig.hasPath(FileBaseSourceOptions.DATE_FORMAT_LEGACY.key())) {
             dateFormat =
                     DateUtils.Formatter.parse(
-                            pluginConfig.getString(BaseSourceConfigOptions.DATE_FORMAT.key()));
+                            pluginConfig.getString(FileBaseSourceOptions.DATE_FORMAT_LEGACY.key()));
         }
-        if (pluginConfig.hasPath(BaseSourceConfigOptions.DATETIME_FORMAT.key())) {
+        if (pluginConfig.hasPath(FileBaseSourceOptions.DATETIME_FORMAT_LEGACY.key())) {
             datetimeFormat =
                     DateTimeUtils.Formatter.parse(
-                            pluginConfig.getString(BaseSourceConfigOptions.DATETIME_FORMAT.key()));
+                            pluginConfig.getString(
+                                    FileBaseSourceOptions.DATETIME_FORMAT_LEGACY.key()));
         }
-        if (pluginConfig.hasPath(BaseSourceConfigOptions.TIME_FORMAT.key())) {
+        if (pluginConfig.hasPath(FileBaseSourceOptions.TIME_FORMAT_LEGACY.key())) {
             timeFormat =
                     TimeUtils.Formatter.parse(
-                            pluginConfig.getString(BaseSourceConfigOptions.TIME_FORMAT.key()));
+                            pluginConfig.getString(FileBaseSourceOptions.TIME_FORMAT_LEGACY.key()));
         }
-        if (pluginConfig.hasPath(BaseSourceConfigOptions.COMPRESS_CODEC.key())) {
+        if (pluginConfig.hasPath(FileBaseSourceOptions.COMPRESS_CODEC.key())) {
             String compressCodec =
-                    pluginConfig.getString(BaseSourceConfigOptions.COMPRESS_CODEC.key());
+                    pluginConfig.getString(FileBaseSourceOptions.COMPRESS_CODEC.key());
             compressFormat = CompressFormat.valueOf(compressCodec.toUpperCase());
         }
         textLineSplitor = new DefaultTextLineSplitor();

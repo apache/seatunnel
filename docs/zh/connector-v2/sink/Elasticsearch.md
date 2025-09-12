@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-elasticsearch.md';
+
 # Elasticsearch
 
 ## 描述
@@ -19,7 +21,7 @@
 
 ## 选项
 
-|           名称            |   类型    | 是否必须 |             默认值              |
+|           名称            | 类型      | 是否必须 |             默认值              |
 |-------------------------|---------|------|------------------------------|
 | hosts                   | array   | 是    | -                            |
 | index                   | string  | 是    | -                            |
@@ -39,6 +41,8 @@
 | tls_truststore_path     | string  | 否    | -                            |
 | tls_truststore_password | string  | 否    | -                            |
 | common-options          |         | 否    | -                            |
+| vectorization_fields    | array   | 否    | -                            |
+| vector_dimensions       | int     | 否    | -                            |
 
 ### hosts [array]
 
@@ -71,6 +75,12 @@ x-pack 密码
 ### max_retry_count [int]
 
 批次批量请求最大尝试大小
+
+### vectorization_fields [array]
+需要向量转换的字段名
+
+### vector_dimensions [int]
+向量维度
 
 ### max_batch_size [int]
 
@@ -143,6 +153,19 @@ sink {
         hosts = ["localhost:9200"]
         index = "${table_name}"
         schema_save_mode="IGNORE"
+    }
+}
+```
+向量转换(vector data)
+
+```conf
+sink {
+    Elasticsearch {
+        hosts = ["localhost:9200"]
+        index = "${table_name}"
+        schema_save_mode="IGNORE"
+        vectorization_fields = ["review_embedding"]  
+        vector_dimensions = 1024 
     }
 }
 ```
@@ -220,7 +243,7 @@ sink {
 }
 ```
 
-配置表生成策略 (schema_save_mode)
+配置表生成策略
 
 通过设置 `schema_save_mode` 配置为 `CREATE_SCHEMA_WHEN_NOT_EXIST` 来支持不存在表时创建表
 
@@ -260,7 +283,7 @@ source {
     username = "st_user_source"
     password = "mysqlpw"
     table-names = ["shop.products"]
-    base-url = "jdbc:mysql://mysql_cdc_e2e:3306/shop"
+    url = "jdbc:mysql://mysql_cdc_e2e:3306/shop"
     schema-changes.enabled = true
   }
 }
@@ -279,3 +302,7 @@ sink {
   }
 }
 ```
+
+## 变更日志
+
+<ChangeLog />

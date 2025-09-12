@@ -20,10 +20,12 @@ package org.apache.seatunnel.connectors.seatunnel.sink;
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.sink.DefaultSinkWriterContext;
+import org.apache.seatunnel.api.sink.MultiTableResourceManager;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
 import org.apache.seatunnel.api.sink.SinkCommitter;
 import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.sink.SupportMultiTableSinkAggregatedCommitter;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
@@ -76,6 +78,19 @@ public class SinkFlowTestUtils {
         runWithContext(catalogTable, options, factory, rows, context, parallelism);
     }
 
+    public static void runBatchWithMultiTableSink(
+            TableSinkFactory<SeaTunnelRow, ?, ?, ?> factory,
+            TableSinkFactoryContext tableSinkFactoryContext,
+            List<SeaTunnelRow> rows,
+            boolean checkpointEnabled,
+            int parallelism)
+            throws IOException {
+        JobContext context = new JobContext(System.currentTimeMillis());
+        context.setJobMode(JobMode.BATCH);
+        context.setEnableCheckpoint(checkpointEnabled);
+        runWithContext(factory, tableSinkFactoryContext, rows, context, parallelism);
+    }
+
     private static void runWithContext(
             CatalogTable catalogTable,
             ReadonlyConfig options,
@@ -84,13 +99,23 @@ public class SinkFlowTestUtils {
             JobContext context,
             int parallelism)
             throws IOException {
+
+        TableSinkFactoryContext tableSinkFactoryContext =
+                new TableSinkFactoryContext(
+                        catalogTable, options, Thread.currentThread().getContextClassLoader());
+
+        runWithContext(factory, tableSinkFactoryContext, rows, context, parallelism);
+    }
+
+    private static void runWithContext(
+            TableSinkFactory<SeaTunnelRow, ?, ?, ?> factory,
+            TableSinkFactoryContext tableSinkFactoryContext,
+            List<SeaTunnelRow> rows,
+            JobContext context,
+            int parallelism)
+            throws IOException {
         SeaTunnelSink<SeaTunnelRow, ?, ?, ?> sink =
-                factory.createSink(
-                                new TableSinkFactoryContext(
-                                        catalogTable,
-                                        options,
-                                        Thread.currentThread().getContextClassLoader()))
-                        .createSink();
+                factory.createSink(tableSinkFactoryContext).createSink();
         sink.setJobContext(context);
         List<Object> commitInfos = new ArrayList<>();
         for (int i = 0; i < parallelism; i++) {
@@ -108,16 +133,30 @@ public class SinkFlowTestUtils {
         }
 
         Optional<? extends SinkCommitter<?>> sinkCommitter = sink.createCommitter();
-        Optional<? extends SinkAggregatedCommitter<?, ?>> aggregatedCommitter =
+        Optional<? extends SinkAggregatedCommitter<?, ?>> aggregatedCommitterOptional =
                 sink.createAggregatedCommitter();
 
         if (!commitInfos.isEmpty()) {
-            if (aggregatedCommitter.isPresent()) {
+            if (aggregatedCommitterOptional.isPresent()) {
+                SinkAggregatedCommitter<?, ?> aggregatedCommitter =
+                        aggregatedCommitterOptional.get();
+                MultiTableResourceManager resourceManager = null;
+                if (aggregatedCommitter instanceof SupportMultiTableSinkAggregatedCommitter) {
+                    resourceManager =
+                            ((SupportMultiTableSinkAggregatedCommitter<?>) aggregatedCommitter)
+                                    .initMultiTableResourceManager(1, 1);
+                }
+                aggregatedCommitter.init();
+                if (resourceManager != null) {
+                    ((SupportMultiTableSinkAggregatedCommitter<?>) aggregatedCommitter)
+                            .setMultiTableResourceManager(resourceManager, 0);
+                }
+
                 Object aggregatedCommitInfoT =
-                        ((SinkAggregatedCommitter) aggregatedCommitter.get()).combine(commitInfos);
-                ((SinkAggregatedCommitter) aggregatedCommitter.get())
+                        ((SinkAggregatedCommitter) aggregatedCommitter).combine(commitInfos);
+                ((SinkAggregatedCommitter) aggregatedCommitter)
                         .commit(Collections.singletonList(aggregatedCommitInfoT));
-                aggregatedCommitter.get().close();
+                aggregatedCommitter.close();
             } else if (sinkCommitter.isPresent()) {
                 ((SinkCommitter) sinkCommitter.get()).commit(commitInfos);
             } else {

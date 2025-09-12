@@ -83,8 +83,15 @@ public class ClickhouseIT extends TestSuiteBase implements TestResource {
     private static final String CLICKHOUSE_JOB_CONFIG = "/clickhouse_to_clickhouse.conf";
     private static final String DATABASE = "default";
     private static final String SOURCE_TABLE = "source_table";
+    private static final String SOURCE_MERGE_TREE_TABLE = "source_merge_tree_table";
     private static final String SINK_TABLE = "sink_table";
+    private static final List<String> MULTI_SINK_TABLES =
+            Arrays.asList("multi_sink_table1", "multi_sink_table2");
+    private static final List<String> MULTI_SOURCE_SINK_TABLES =
+            Arrays.asList(
+                    "source_table_multi_table_sink", "source_merge_tree_table_multi_table_sink");
     private static final String INSERT_SQL = "insert_sql";
+    private static final String INSERT_MERGE_TREE_SQL = "insert_merge_tree_sql";
     private static final String COMPARE_SQL = "compare_sql";
     private static final Pair<SeaTunnelRowType, List<SeaTunnelRow>> TEST_DATASET =
             generateTestDataSet();
@@ -92,13 +99,15 @@ public class ClickhouseIT extends TestSuiteBase implements TestResource {
     private ClickHouseContainer container;
     private Connection connection;
 
+    private static final String FIX_PARTITION_DATE = "2025-06-17";
+
     @TestTemplate
     public void testClickhouse(TestContainer container) throws Exception {
         Container.ExecResult execResult = container.executeJob(CLICKHOUSE_JOB_CONFIG);
         Assertions.assertEquals(0, execResult.getExitCode());
         assertHasData(SINK_TABLE);
-        compareResult();
-        clearSinkTable();
+        compareResult(SOURCE_TABLE, SINK_TABLE);
+        clearTable(SINK_TABLE);
     }
 
     @TestTemplate
@@ -195,6 +204,76 @@ public class ClickhouseIT extends TestSuiteBase implements TestResource {
         dropTable(tableName);
     }
 
+    @TestTemplate
+    public void testClickHouseWithMultiTableSink(TestContainer container) throws Exception {
+        for (String tableName : MULTI_SINK_TABLES) {
+            Assertions.assertEquals(0, countData(tableName));
+        }
+        Container.ExecResult execResult =
+                container.executeJob("/fake_to_clickhouse_with_multi_table.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+        for (String tableName : MULTI_SINK_TABLES) {
+            Assertions.assertEquals(100, countData(tableName));
+            clearTable(tableName);
+        }
+    }
+
+    @TestTemplate
+    public void testClickhouseWithParallelismRead(TestContainer testContainer)
+            throws IOException, InterruptedException, SQLException {
+        Container.ExecResult execResult =
+                testContainer.executeJob("/clickhouse_with_parallelism_read.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+        Assertions.assertEquals(100, countData(SOURCE_MERGE_TREE_TABLE));
+        Assertions.assertEquals(100, countData(SINK_TABLE));
+        compareResult(SOURCE_MERGE_TREE_TABLE, SINK_TABLE);
+        clearTable(SINK_TABLE);
+    }
+
+    @TestTemplate
+    public void testClickhouseWithParallelismAddFilterQuery(TestContainer testContainer)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                testContainer.executeJob("/clickhouse_with_parallelism_add_filter_query.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+        Assertions.assertEquals(100, countData(SOURCE_MERGE_TREE_TABLE));
+        Assertions.assertEquals(47, countData(SINK_TABLE));
+        clearTable(SINK_TABLE);
+    }
+
+    @TestTemplate
+    public void testClickhouseWithParallelismAddPartitionList(TestContainer testContainer)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                testContainer.executeJob("/clickhouse_with_parallelism_add_partition_list.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+        Assertions.assertEquals(100, countData(SOURCE_MERGE_TREE_TABLE));
+        Assertions.assertEquals(30, countData(SINK_TABLE));
+        clearTable(SINK_TABLE);
+    }
+
+    @TestTemplate
+    public void testClickhouseWitJoinComplexSql(TestContainer testContainer)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                testContainer.executeJob("/clickhouse_with_join_complex_sql.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+        Assertions.assertEquals(100, countData(SINK_TABLE));
+        clearTable(SINK_TABLE);
+    }
+
+    @TestTemplate
+    public void testClickhouseWithMultiTableSource(TestContainer testContainer)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                testContainer.executeJob("/clickhouse_with_multi_table_source.conf");
+
+        Assertions.assertEquals(0, execResult.getExitCode());
+        Assertions.assertEquals(100, countData(MULTI_SOURCE_SINK_TABLES.get(0)));
+        Assertions.assertEquals(47, countData(MULTI_SOURCE_SINK_TABLES.get(1)));
+        MULTI_SOURCE_SINK_TABLES.forEach(this::clearTable);
+    }
+
     @BeforeAll
     @Override
     public void startUp() throws Exception {
@@ -221,6 +300,16 @@ public class ClickhouseIT extends TestSuiteBase implements TestResource {
             Statement statement = this.connection.createStatement();
             statement.execute(CONFIG.getString(SOURCE_TABLE));
             statement.execute(CONFIG.getString(SINK_TABLE));
+            statement.execute(CONFIG.getString(SOURCE_MERGE_TREE_TABLE));
+
+            // table for multi-table sink test
+            for (String tableName : MULTI_SINK_TABLES) {
+                statement.execute(CONFIG.getString(tableName));
+            }
+
+            for (String tableName : MULTI_SOURCE_SINK_TABLES) {
+                statement.execute(CONFIG.getString(tableName));
+            }
         } catch (SQLException e) {
             throw new RuntimeException("Initializing Clickhouse table failed!", e);
         }
@@ -307,54 +396,59 @@ public class ClickhouseIT extends TestSuiteBase implements TestResource {
 
     private void batchInsertData() {
         String sql = CONFIG.getString(INSERT_SQL);
-        PreparedStatement preparedStatement = null;
-        try {
-            this.connection.setAutoCommit(true);
-            preparedStatement = this.connection.prepareStatement(sql);
-            for (SeaTunnelRow row : TEST_DATASET.getValue()) {
-                preparedStatement.setLong(1, (Long) row.getField(0));
-                preparedStatement.setObject(2, row.getField(1));
-                preparedStatement.setArray(3, toSqlArray(row.getField(2)));
-                preparedStatement.setArray(4, toSqlArray(row.getField(3)));
-                preparedStatement.setArray(5, toSqlArray(row.getField(4)));
-                preparedStatement.setArray(6, toSqlArray(row.getField(5)));
-                preparedStatement.setArray(7, toSqlArray(row.getField(6)));
-                preparedStatement.setArray(8, toSqlArray(row.getField(7)));
-                preparedStatement.setString(9, (String) row.getField(8));
-                preparedStatement.setBoolean(10, (Boolean) row.getField(9));
-                preparedStatement.setByte(11, (Byte) row.getField(10));
-                preparedStatement.setShort(12, (Short) row.getField(11));
-                preparedStatement.setInt(13, (Integer) row.getField(12));
-                preparedStatement.setLong(14, (Long) row.getField(13));
-                preparedStatement.setFloat(15, (Float) row.getField(14));
-                preparedStatement.setDouble(16, (Double) row.getField(15));
-                preparedStatement.setBigDecimal(17, (BigDecimal) row.getField(16));
-                preparedStatement.setDate(18, Date.valueOf((LocalDate) row.getField(17)));
-                preparedStatement.setTimestamp(
-                        19, Timestamp.valueOf((LocalDateTime) row.getField(18)));
-                preparedStatement.setInt(20, (Integer) row.getField(19));
-                preparedStatement.setString(21, (String) row.getField(20));
-                preparedStatement.setArray(22, toSqlArray(row.getField(21)));
-                preparedStatement.setArray(23, toSqlArray(row.getField(22)));
-                preparedStatement.setArray(24, toSqlArray(row.getField(23)));
-                preparedStatement.setObject(25, row.getField(24));
-                preparedStatement.setObject(26, row.getField(25));
-                preparedStatement.setObject(27, row.getField(26));
-                preparedStatement.setObject(28, row.getField(27));
-                preparedStatement.setObject(29, row.getField(28));
-                preparedStatement.setObject(30, row.getField(29));
-                preparedStatement.addBatch();
-            }
-            preparedStatement.executeBatch();
-            preparedStatement.clearBatch();
-        } catch (SQLException e) {
-            throw new RuntimeException("Batch insert data failed!", e);
-        } finally {
-            if (preparedStatement != null) {
-                try {
-                    preparedStatement.close();
-                } catch (SQLException e) {
-                    throw new RuntimeException("PreparedStatement close failed!", e);
+        String mergeTreeSql = CONFIG.getString(INSERT_MERGE_TREE_SQL);
+
+        List<String> insertSqlList = Arrays.asList(sql, mergeTreeSql);
+        for (String insertSql : insertSqlList) {
+            PreparedStatement preparedStatement = null;
+            try {
+                this.connection.setAutoCommit(true);
+                preparedStatement = this.connection.prepareStatement(insertSql);
+                for (SeaTunnelRow row : TEST_DATASET.getValue()) {
+                    preparedStatement.setLong(1, (Long) row.getField(0));
+                    preparedStatement.setObject(2, row.getField(1));
+                    preparedStatement.setArray(3, toSqlArray(row.getField(2)));
+                    preparedStatement.setArray(4, toSqlArray(row.getField(3)));
+                    preparedStatement.setArray(5, toSqlArray(row.getField(4)));
+                    preparedStatement.setArray(6, toSqlArray(row.getField(5)));
+                    preparedStatement.setArray(7, toSqlArray(row.getField(6)));
+                    preparedStatement.setArray(8, toSqlArray(row.getField(7)));
+                    preparedStatement.setString(9, (String) row.getField(8));
+                    preparedStatement.setBoolean(10, (Boolean) row.getField(9));
+                    preparedStatement.setByte(11, (Byte) row.getField(10));
+                    preparedStatement.setShort(12, (Short) row.getField(11));
+                    preparedStatement.setInt(13, (Integer) row.getField(12));
+                    preparedStatement.setLong(14, (Long) row.getField(13));
+                    preparedStatement.setFloat(15, (Float) row.getField(14));
+                    preparedStatement.setDouble(16, (Double) row.getField(15));
+                    preparedStatement.setBigDecimal(17, (BigDecimal) row.getField(16));
+                    preparedStatement.setDate(18, Date.valueOf((LocalDate) row.getField(17)));
+                    preparedStatement.setTimestamp(
+                            19, Timestamp.valueOf((LocalDateTime) row.getField(18)));
+                    preparedStatement.setInt(20, (Integer) row.getField(19));
+                    preparedStatement.setString(21, (String) row.getField(20));
+                    preparedStatement.setArray(22, toSqlArray(row.getField(21)));
+                    preparedStatement.setArray(23, toSqlArray(row.getField(22)));
+                    preparedStatement.setArray(24, toSqlArray(row.getField(23)));
+                    preparedStatement.setObject(25, row.getField(24));
+                    preparedStatement.setObject(26, row.getField(25));
+                    preparedStatement.setObject(27, row.getField(26));
+                    preparedStatement.setObject(28, row.getField(27));
+                    preparedStatement.setObject(29, row.getField(28));
+                    preparedStatement.setObject(30, row.getField(29));
+                    preparedStatement.addBatch();
+                }
+                preparedStatement.executeBatch();
+                preparedStatement.clearBatch();
+            } catch (SQLException e) {
+                throw new RuntimeException("Batch insert data failed!", e);
+            } finally {
+                if (preparedStatement != null) {
+                    try {
+                        preparedStatement.close();
+                    } catch (SQLException e) {
+                        throw new RuntimeException("PreparedStatement close failed!", e);
+                    }
                 }
             }
         }
@@ -449,7 +543,7 @@ public class ClickhouseIT extends TestSuiteBase implements TestResource {
                                 Float.parseFloat("1.1"),
                                 Double.parseDouble("1.1"),
                                 BigDecimal.valueOf(11L, 1),
-                                LocalDate.now(),
+                                i < 30 ? LocalDate.parse(FIX_PARTITION_DATE) : LocalDate.now(),
                                 LocalDateTime.now(),
                                 i,
                                 "string",
@@ -468,9 +562,10 @@ public class ClickhouseIT extends TestSuiteBase implements TestResource {
         return Pair.of(rowType, rows);
     }
 
-    private void compareResult() throws SQLException, IOException {
-        String sourceSql = "select * from " + SOURCE_TABLE + " order by id";
-        String sinkSql = "select * from " + SINK_TABLE + " order by id";
+    private void compareResult(String sourceTable, String sinkTable)
+            throws SQLException, IOException {
+        String sourceSql = "select * from " + sourceTable + " order by id";
+        String sinkSql = "select * from " + sinkTable + " order by id";
         List<String> columnList =
                 Arrays.stream(generateTestDataSet().getKey().getFieldNames())
                         .collect(Collectors.toList());
@@ -481,6 +576,7 @@ public class ClickhouseIT extends TestSuiteBase implements TestResource {
             Assertions.assertEquals(
                     sourceResultSet.getMetaData().getColumnCount(),
                     sinkResultSet.getMetaData().getColumnCount());
+
             while (sourceResultSet.next()) {
                 if (sinkResultSet.next()) {
                     for (String column : columnList) {
@@ -524,9 +620,9 @@ public class ClickhouseIT extends TestSuiteBase implements TestResource {
         }
     }
 
-    private void clearSinkTable() {
+    private void clearTable(String tableName) {
         try (Statement statement = connection.createStatement()) {
-            statement.execute(String.format("truncate table %s.%s", DATABASE, SINK_TABLE));
+            statement.execute(String.format("truncate table %s.%s", DATABASE, tableName));
         } catch (SQLException e) {
             throw new RuntimeException("Test clickhouse server image error", e);
         }

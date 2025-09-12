@@ -54,6 +54,8 @@ public class RowTypeConverterTest {
 
     private Column column;
 
+    private Column columnNotNull;
+
     private TableSchema tableSchema;
 
     public static final RowType DEFAULT_ROW_TYPE =
@@ -71,6 +73,7 @@ public class RowTypeConverterTest {
                         DataTypes.BOOLEAN(),
                         DataTypes.DATE(),
                         DataTypes.TIMESTAMP(),
+                        DataTypes.TIME(),
                         DataTypes.MAP(DataTypes.STRING(), DataTypes.STRING()),
                         DataTypes.ARRAY(DataTypes.STRING())
                     },
@@ -87,6 +90,7 @@ public class RowTypeConverterTest {
                         "c_boolean",
                         "c_date",
                         "c_timestamp",
+                        "c_time",
                         "c_map",
                         "c_array"
                     });
@@ -110,6 +114,7 @@ public class RowTypeConverterTest {
                             "c_boolean",
                             "c_date",
                             "c_timestamp",
+                            "c_time",
                             "c_map",
                             "c_array"
                         },
@@ -126,6 +131,7 @@ public class RowTypeConverterTest {
                             BasicType.BOOLEAN_TYPE,
                             LocalTimeType.LOCAL_DATE_TYPE,
                             LocalTimeType.LOCAL_DATE_TIME_TYPE,
+                            LocalTimeType.LOCAL_TIME_TYPE,
                             new MapType<>(BasicType.STRING_TYPE, BasicType.STRING_TYPE),
                             ArrayType.STRING_ARRAY_TYPE
                         });
@@ -149,9 +155,10 @@ public class RowTypeConverterTest {
                         new DataField(9, "c_boolean", DataTypes.BOOLEAN()),
                         new DataField(10, "c_date", DataTypes.DATE()),
                         new DataField(11, "c_timestamp", DataTypes.TIMESTAMP(6)),
+                        new DataField(12, "c_time", DataTypes.TIME()),
                         new DataField(
-                                12, "c_map", DataTypes.MAP(DataTypes.STRING(), DataTypes.STRING())),
-                        new DataField(13, "c_array", DataTypes.ARRAY(DataTypes.STRING())));
+                                13, "c_map", DataTypes.MAP(DataTypes.STRING(), DataTypes.STRING())),
+                        new DataField(14, "c_array", DataTypes.ARRAY(DataTypes.STRING())));
 
         tableSchema =
                 new TableSchema(
@@ -182,14 +189,26 @@ public class RowTypeConverterTest {
 
         column =
                 PhysicalColumn.builder()
-                        .name("c_decimal")
+                        .name("c_decimal_null")
+                        .sourceType(DataTypes.DECIMAL(30, 8).toString())
+                        .nullable(true)
+                        .dataType(dataType)
+                        .columnLength(30L)
+                        .defaultValue(3.0)
+                        .scale(8)
+                        .comment("c_decimal_type_define")
+                        .build();
+
+        columnNotNull =
+                PhysicalColumn.builder()
+                        .name("c_decimal_not_null")
                         .sourceType(DataTypes.DECIMAL(30, 8).toString())
                         .nullable(false)
                         .dataType(dataType)
                         .columnLength(30L)
                         .defaultValue(3.0)
                         .scale(8)
-                        .comment("c_decimal_type_define")
+                        .comment("c_decimal_not_null")
                         .build();
     }
 
@@ -222,6 +241,12 @@ public class RowTypeConverterTest {
     public void seaTunnelColumnToPaimonDataType() {
         BasicTypeDefine<DataType> dataTypeDefine = RowTypeConverter.reconvert(column);
         isEquals(column, dataTypeDefine);
+        Assertions.assertTrue(dataTypeDefine.isNullable());
+        Assertions.assertTrue(dataTypeDefine.getNativeType().isNullable());
+        BasicTypeDefine<DataType> dataTypeDefineNotNull = RowTypeConverter.reconvert(columnNotNull);
+        isEquals(columnNotNull, dataTypeDefineNotNull);
+        Assertions.assertFalse(dataTypeDefineNotNull.isNullable());
+        Assertions.assertFalse(dataTypeDefineNotNull.getNativeType().isNullable());
     }
 
     private void isEquals(Column column, BasicTypeDefine<DataType> dataTypeDefine) {

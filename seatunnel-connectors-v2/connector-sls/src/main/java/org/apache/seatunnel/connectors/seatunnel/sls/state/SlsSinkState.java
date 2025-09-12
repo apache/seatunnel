@@ -26,5 +26,6 @@ import java.io.Serializable;
 @AllArgsConstructor
 public class SlsSinkState implements Serializable {
 
+    private static final long serialVersionUID = -2896931637893765517L;
     private final String data;
 }

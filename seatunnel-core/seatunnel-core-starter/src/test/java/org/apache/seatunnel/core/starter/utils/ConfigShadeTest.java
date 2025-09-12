@@ -39,6 +39,7 @@ import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Base64;
 import java.util.List;
 import java.util.Map;
@@ -88,7 +89,9 @@ public class ConfigShadeTest {
         Config config = ConfigBuilder.of(Paths.get(resource.toURI()), Lists.newArrayList());
         config =
                 ConfigFactory.parseMap(
-                                ConfigBuilder.configDesensitization(config.root().unwrapped()))
+                                ConfigBuilder.configDesensitization(
+                                        config.root().unwrapped(),
+                                        ConfigShadeUtils.getSensitiveOptions(config)))
                         .resolve(ConfigResolveOptions.defaults().setAllowUnresolved(true))
                         .resolveWith(
                                 ConfigFactory.systemProperties(),
@@ -101,6 +104,12 @@ public class ConfigShadeTest {
                 config.getConfigList("source").get(0).getString("access_key"), "******");
         Assertions.assertEquals(
                 config.getConfigList("source").get(0).getString("secret_key"), "******");
+        Assertions.assertEquals(config.getConfigList("source").get(0).getString("f1"), "******");
+        Assertions.assertEquals(
+                config.getConfigList("source").get(0).getString("config1.f1"), "******");
+        Assertions.assertEquals(
+                config.getConfigList("source").get(0).getStringList("config2.list"),
+                Arrays.asList("******", "******", "******"));
         String conf = ConfigBuilder.mapToString(config.root().unwrapped());
         Assertions.assertTrue(conf.contains("\"password\" : \"******\""));
     }
@@ -112,7 +121,9 @@ public class ConfigShadeTest {
         Config config = ConfigBuilder.of(Paths.get(resource.toURI()), Lists.newArrayList());
         config =
                 ConfigFactory.parseMap(
-                                ConfigBuilder.configDesensitization(config.root().unwrapped()))
+                                ConfigBuilder.configDesensitization(
+                                        config.root().unwrapped(),
+                                        ConfigShadeUtils.getSensitiveOptions(config)))
                         .resolve(ConfigResolveOptions.defaults().setAllowUnresolved(true))
                         .resolveWith(
                                 ConfigFactory.systemProperties(),
@@ -121,6 +132,13 @@ public class ConfigShadeTest {
                 config.getConfigList("source").get(0).getString("username"), "******");
         Assertions.assertEquals(
                 config.getConfigList("source").get(0).getString("password"), "******");
+        Assertions.assertEquals(config.getConfigList("source").get(0).getString("f1"), "******");
+        Assertions.assertEquals(
+                config.getConfigList("source").get(0).getString("config1.f1"), "******");
+        Assertions.assertEquals(
+                config.getConfigList("source").get(0).getStringList("config2.list"),
+                Arrays.asList("******", "******", "******"));
+        String conf = ConfigBuilder.mapToString(config.root().unwrapped());
         String json = ConfigBuilder.mapToString(config.root().unwrapped());
         Assertions.assertTrue(json.contains("\"password\" : \"******\""));
     }
@@ -132,7 +150,9 @@ public class ConfigShadeTest {
         Config config = ConfigBuilder.of(Paths.get(resource.toURI()), Lists.newArrayList());
         config =
                 ConfigFactory.parseMap(
-                                ConfigBuilder.configDesensitization(config.root().unwrapped()))
+                                ConfigBuilder.configDesensitization(
+                                        config.root().unwrapped(),
+                                        ConfigShadeUtils.getSensitiveOptions(config)))
                         .resolve(ConfigResolveOptions.defaults().setAllowUnresolved(true))
                         .resolveWith(
                                 ConfigFactory.systemProperties(),
@@ -261,6 +281,55 @@ public class ConfigShadeTest {
         Assertions.assertEquals(
                 "System placeholders cannot be used. Incorrect config parameter: table_name",
                 configCheckException.getMessage());
+    }
+
+    @Test
+    public void testTableListPlaceholderReplacement() throws URISyntaxException {
+        String incOffsetDays = "7";
+        String testValue = "replaced_value";
+
+        List<String> variables = new ArrayList<>();
+        variables.add("inc_offset_days=" + incOffsetDays);
+        variables.add("test_placeholder=" + testValue);
+
+        URL resource = ConfigShadeTest.class.getResource("/config_table_list_variables.conf");
+        Assertions.assertNotNull(resource);
+        Config config = ConfigBuilder.of(Paths.get(resource.toURI()), variables);
+
+        List<? extends ConfigObject> sourceConfigs = config.getObjectList("source");
+        for (ConfigObject configObject : sourceConfigs) {
+            Config sourceConfig = configObject.toConfig();
+
+            // Test 1: Verify table_list placeholder replacement (List<Map>)
+            if (sourceConfig.hasPath("table_list")) {
+                List<? extends ConfigObject> tableList = sourceConfig.getObjectList("table_list");
+                for (ConfigObject tableObject : tableList) {
+                    Config tableConfig = tableObject.toConfig();
+                    String query = tableConfig.getString("query");
+                    // Verify that placeholders are replaced correctly
+                    Assertions.assertTrue(
+                            query.contains("sysdate-" + incOffsetDays),
+                            "Query should contain replaced placeholder value: " + query);
+                    Assertions.assertFalse(
+                            query.contains("${inc_offset_days}"),
+                            "Query should not contain unreplaced placeholder: " + query);
+                }
+            }
+
+            // Test 2: Verify nested List placeholder replacement (List<List<String>>)
+            if (sourceConfig.hasPath("nested_list")) {
+                List<List<String>> nestedList =
+                        (List<List<String>>) sourceConfig.getAnyRef("nested_list");
+
+                // Verify nested list placeholders
+                Assertions.assertTrue(
+                        nestedList.get(0).contains(testValue),
+                        "Nested list should contain replaced placeholder");
+                Assertions.assertFalse(
+                        nestedList.get(0).contains("${test_placeholder}"),
+                        "Nested list should not contain unreplaced placeholder");
+            }
+        }
     }
 
     @Test
