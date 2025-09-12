@@ -2,6 +2,10 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
+|[Feature][Core] Add plugin directory support for each connector (#9650)|https://github.com/apache/seatunnel/commit/4beb2b9336|2.3.12|
+|[Improve][API] Optimize the enumerator API semantics and reduce lock calls at the connector level (#9671)|https://github.com/apache/seatunnel/commit/9212a77140|2.3.12|
+|[Fix][Connector-V2] Fix misleading parameter name in DorisStreamLoad (#9685)|https://github.com/apache/seatunnel/commit/16618c8019|2.3.12|
+|[improve]improve FE node failover logging for better observability (#9657)|https://github.com/apache/seatunnel/commit/ebc9ee3915|2.3.12|
 |[Feature][Connector-doris] Adds case insensitivity feature (#9306)|https://github.com/apache/seatunnel/commit/9d1cffa5e1|2.3.11|
 |[Feature][Transform] Support define sink column type (#9114)|https://github.com/apache/seatunnel/commit/ab7119e507|2.3.11|
 |[Feature][Checkpoint] Add check script for source/sink state class serialVersionUID missing (#9118)|https://github.com/apache/seatunnel/commit/4f5adeb1c7|2.3.11|
