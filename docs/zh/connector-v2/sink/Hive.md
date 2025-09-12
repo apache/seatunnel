@@ -45,8 +45,11 @@ import ChangeLog from '../changelog/connector-hive.md';
 | krb5_path                             | string  | 否  | /etc/krb5.conf |
 | kerberos_principal                    | string  | 否  | -              |
 | kerberos_keytab_path                  | string  | 否  | -              |
-| abort_drop_partition_metadata         | boolean | 否  | true           |
+| abort_drop_partition_metadata         | boolean | 否  | false          |
 | parquet_avro_write_timestamp_as_int96 | boolean | 否  | false          |
+| overwrite                             | boolean | 否  | false          |
+| schema_save_mode                      | enum    | 否  | CREATE_SCHEMA_WHEN_NOT_EXIST |
+| save_mode_create_template             | string  | 否  | -              |
 | common-options                        |         | 否  | -              |
 
 ### table_name [string]
@@ -533,8 +536,16 @@ sink {
     table_name = "warehouse.employees"
     metastore_uri = "thrift://metastore:9083"
     schema_save_mode = "CREATE_SCHEMA_WHEN_NOT_EXIST"
-    table_format = "PARQUET"
-    partition_fields = ["department"]
+    save_mode_create_template = """
+      CREATE TABLE IF NOT EXISTS `${database}`.`${table}` (
+        ${rowtype_fields}
+      )
+      PARTITIONED BY (
+        department string COMMENT '部门分区'
+      )
+      STORED AS PARQUET
+      LOCATION '${table_location}'
+    """
   }
 }
 ```

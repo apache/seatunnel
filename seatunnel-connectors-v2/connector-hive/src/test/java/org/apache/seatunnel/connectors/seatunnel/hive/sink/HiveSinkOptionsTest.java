@@ -47,8 +47,6 @@ public class HiveSinkOptionsTest {
     void testSaveModeCreateTemplateOption() {
         assertNotNull(HiveSinkOptions.SAVE_MODE_CREATE_TEMPLATE);
         assertEquals("save_mode_create_template", HiveSinkOptions.SAVE_MODE_CREATE_TEMPLATE.key());
-        // Template option has no default value - we can't directly test this, but we can verify
-        // it's optional
         assertNotNull(HiveSinkOptions.SAVE_MODE_CREATE_TEMPLATE);
     }
 
@@ -79,15 +77,12 @@ public class HiveSinkOptionsTest {
     @Test
     void testDefaultValues() {
         Map<String, Object> configMap = new HashMap<>();
-        // Empty config - should use defaults
 
         ReadonlyConfig config = ReadonlyConfig.fromMap(configMap);
 
-        // Test default SaveMode
         SchemaSaveMode defaultSaveMode = config.get(HiveSinkOptions.SCHEMA_SAVE_MODE);
         assertEquals(SchemaSaveMode.CREATE_SCHEMA_WHEN_NOT_EXIST, defaultSaveMode);
 
-        // Template option should not have default value
         assertFalse(config.getOptional(HiveSinkOptions.SAVE_MODE_CREATE_TEMPLATE).isPresent());
     }
 
@@ -96,15 +91,12 @@ public class HiveSinkOptionsTest {
         Map<String, Object> configMap = new HashMap<>();
         configMap.put(HiveOptions.TABLE_NAME.key(), "test_db.test_table");
         configMap.put(HiveOptions.METASTORE_URI.key(), "thrift://localhost:9083");
-        // No SaveMode options
 
         ReadonlyConfig config = ReadonlyConfig.fromMap(configMap);
 
-        // SaveMode options should use defaults when not specified
         SchemaSaveMode defaultSaveMode = config.get(HiveSinkOptions.SCHEMA_SAVE_MODE);
         assertEquals(SchemaSaveMode.CREATE_SCHEMA_WHEN_NOT_EXIST, defaultSaveMode);
 
-        // Template should be optional
         assertFalse(config.getOptional(HiveSinkOptions.SAVE_MODE_CREATE_TEMPLATE).isPresent());
     }
 
@@ -147,7 +139,6 @@ public class HiveSinkOptionsTest {
         ReadonlyConfig config = ReadonlyConfig.fromMap(configMap);
         String readTemplate = config.get(HiveSinkOptions.SAVE_MODE_CREATE_TEMPLATE);
 
-        // Verify all template variables are present
         for (String variable : templateVariables) {
             assertTrue(
                     readTemplate.contains(variable),
@@ -158,11 +149,9 @@ public class HiveSinkOptionsTest {
     @Test
     void testConfigurationWithExistingHiveOptions() {
         Map<String, Object> configMap = new HashMap<>();
-        // Existing Hive options
         configMap.put(HiveOptions.TABLE_NAME.key(), "analytics.user_events");
         configMap.put(HiveOptions.METASTORE_URI.key(), "thrift://hive-metastore:9083");
 
-        // New SaveMode options
         configMap.put(HiveSinkOptions.SCHEMA_SAVE_MODE.key(), "RECREATE_SCHEMA");
         String template =
                 "CREATE TABLE IF NOT EXISTS `${database}`.`${table}` (\n"
@@ -178,7 +167,6 @@ public class HiveSinkOptionsTest {
 
         ReadonlyConfig config = ReadonlyConfig.fromMap(configMap);
 
-        // Verify all options are readable
         assertEquals("analytics.user_events", config.get(HiveOptions.TABLE_NAME));
         assertEquals("thrift://hive-metastore:9083", config.get(HiveOptions.METASTORE_URI));
         assertEquals(SchemaSaveMode.RECREATE_SCHEMA, config.get(HiveSinkOptions.SCHEMA_SAVE_MODE));

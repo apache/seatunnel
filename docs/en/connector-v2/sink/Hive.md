@@ -48,6 +48,8 @@ By default, we use 2PC commit to ensure `exactly-once`
 | abort_drop_partition_metadata         | boolean | no       | true           |
 | parquet_avro_write_timestamp_as_int96 | boolean | no       | false          |
 | overwrite                             | boolean | no       | false          |
+| schema_save_mode                      | enum    | no       | CREATE_SCHEMA_WHEN_NOT_EXIST |
+| save_mode_create_template             | string  | no       | -              |
 | common-options                        |         | no       | -              |
 
 ### table_name [string]

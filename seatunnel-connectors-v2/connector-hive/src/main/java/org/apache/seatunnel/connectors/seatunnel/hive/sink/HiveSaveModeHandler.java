@@ -374,7 +374,6 @@ public class HiveSaveModeHandler implements SaveModeHandler, AutoCloseable {
         table.putToParameters("seatunnel.created.time", String.valueOf(System.currentTimeMillis()));
         // Pass through the raw custom template into TBLPROPERTIES
         table.putToParameters("seatunnel.creation.template", template);
-        // Merge TBLPROPERTIES from the template into table parameters
         java.util.Map<String, String> tblProps =
                 HiveTableTemplateUtils.extractTblPropertiesFromTemplate(template);
         for (java.util.Map.Entry<String, String> e : tblProps.entrySet()) {
@@ -392,7 +391,6 @@ public class HiveSaveModeHandler implements SaveModeHandler, AutoCloseable {
     private String extractStorageFormatFromTemplate() {
         if (readonlyConfig.getOptional(HiveSinkOptions.SAVE_MODE_CREATE_TEMPLATE).isPresent()) {
             String template = readonlyConfig.get(HiveSinkOptions.SAVE_MODE_CREATE_TEMPLATE);
-            // Simple extraction of storage format from template
             if (template.toUpperCase().contains("STORED AS PARQUET")) {
                 return "PARQUET";
             } else if (template.toUpperCase().contains("STORED AS ORC")) {
@@ -401,7 +399,7 @@ public class HiveSaveModeHandler implements SaveModeHandler, AutoCloseable {
                 return "TEXTFILE";
             }
         }
-        return "PARQUET"; // Default format
+        return "PARQUET";
     }
 
     private void configureStorageDescriptor(StorageDescriptor sd, String format) {
@@ -446,6 +444,6 @@ public class HiveSaveModeHandler implements SaveModeHandler, AutoCloseable {
                 .filter(col -> col.getName().equals(partitionField))
                 .findFirst()
                 .map(col -> HiveTypeConvertor.seatunnelToHiveType(col.getDataType()))
-                .orElse("string"); // Default to string for new partition fields
+                .orElse("string");
     }
 }

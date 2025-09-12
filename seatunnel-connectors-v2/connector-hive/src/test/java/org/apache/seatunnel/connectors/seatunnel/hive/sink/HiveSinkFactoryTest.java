@@ -52,7 +52,6 @@ public class HiveSinkFactoryTest {
     void setUp() {
         factory = new HiveSinkFactory();
 
-        // Create test table schema
         List<Column> columns =
                 Arrays.asList(
                         PhysicalColumn.of("id", BasicType.LONG_TYPE, 0, false, null, "ID"),
@@ -92,7 +91,6 @@ public class HiveSinkFactoryTest {
 
         ReadonlyConfig config = ReadonlyConfig.fromMap(configMap);
 
-        // Test that factory can create TableSink with valid configuration
         // Note: We don't call tableSink.createSink() to avoid MetaStore dependency in unit tests
         assertDoesNotThrow(
                 () -> {
@@ -107,7 +105,6 @@ public class HiveSinkFactoryTest {
         Map<String, Object> configMap = new HashMap<>();
         configMap.put(HiveConfig.TABLE_NAME.key(), "test_db.test_table");
         configMap.put(HiveConfig.METASTORE_URI.key(), "thrift://localhost:9083");
-        // No SaveMode configuration
 
         ReadonlyConfig config = ReadonlyConfig.fromMap(configMap);
 
@@ -128,7 +125,6 @@ public class HiveSinkFactoryTest {
 
         ReadonlyConfig config = ReadonlyConfig.fromMap(configMap);
 
-        // Invalid SaveMode should cause an exception during config parsing
         assertThrows(
                 Exception.class,
                 () -> {
@@ -142,7 +138,6 @@ public class HiveSinkFactoryTest {
         configMap.put(HiveConfig.TABLE_NAME.key(), "test_db.test_table");
         configMap.put(HiveConfig.METASTORE_URI.key(), "thrift://localhost:9083");
         configMap.put(HiveSinkOptions.SCHEMA_SAVE_MODE.key(), "CREATE_SCHEMA_WHEN_NOT_EXIST");
-        // No template provided - should use default template
 
         ReadonlyConfig config = ReadonlyConfig.fromMap(configMap);
 
@@ -156,7 +151,6 @@ public class HiveSinkFactoryTest {
 
     @Test
     void testValidSaveModeValues() {
-        // Test all valid SaveMode values
         String[] validModes = {
             "CREATE_SCHEMA_WHEN_NOT_EXIST",
             "RECREATE_SCHEMA",
@@ -214,14 +208,12 @@ public class HiveSinkFactoryTest {
 
     @Test
     void testRequiredConfigValidation() {
-        // Test missing table name - this should be caught by HiveSink constructor
         Map<String, Object> configMap = new HashMap<>();
         configMap.put(HiveConfig.METASTORE_URI.key(), "thrift://localhost:9083");
         configMap.put(HiveSinkOptions.SCHEMA_SAVE_MODE.key(), "CREATE_SCHEMA_WHEN_NOT_EXIST");
 
         ReadonlyConfig config = ReadonlyConfig.fromMap(configMap);
 
-        // The factory should create the sink, but HiveSink constructor may validate
         assertDoesNotThrow(
                 () -> {
                     TableSinkFactoryContext context = createContext(config, catalogTable);
@@ -231,14 +223,12 @@ public class HiveSinkFactoryTest {
 
     @Test
     void testRequiredMetastoreUriValidation() {
-        // Test missing metastore URI - this should be caught by HiveSink constructor
         Map<String, Object> configMap = new HashMap<>();
         configMap.put(HiveConfig.TABLE_NAME.key(), "test_db.test_table");
         configMap.put(HiveSinkOptions.SCHEMA_SAVE_MODE.key(), "CREATE_SCHEMA_WHEN_NOT_EXIST");
 
         ReadonlyConfig config = ReadonlyConfig.fromMap(configMap);
 
-        // The factory should create the sink, but HiveSink constructor may validate
         assertDoesNotThrow(
                 () -> {
                     TableSinkFactoryContext context = createContext(config, catalogTable);
@@ -248,10 +238,8 @@ public class HiveSinkFactoryTest {
 
     @Test
     void testFactoryOptionKeys() {
-        // Test that factory exposes correct option keys
         assertNotNull(factory.optionRule());
 
-        // The factory should support SaveMode options
         assertTrue(
                 factory.optionRule()
                         .getOptionalOptions()

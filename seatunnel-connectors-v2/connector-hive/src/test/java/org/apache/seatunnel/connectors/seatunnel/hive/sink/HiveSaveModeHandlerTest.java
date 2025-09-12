@@ -61,7 +61,6 @@ public class HiveSaveModeHandlerTest {
 
     @BeforeEach
     void setUp() {
-        // Create test table schema
         List<Column> columns =
                 Arrays.asList(
                         PhysicalColumn.of("id", BasicType.LONG_TYPE, 0, false, null, "Primary key"),
@@ -87,7 +86,6 @@ public class HiveSaveModeHandlerTest {
 
         tableSchema = TableSchema.builder().columns(columns).build();
 
-        // Create catalog table
         catalogTable =
                 CatalogTable.of(
                         TableIdentifier.of("test_catalog", "test_db", "user_table"),
@@ -96,7 +94,6 @@ public class HiveSaveModeHandlerTest {
                         Arrays.asList(),
                         "Test user table");
 
-        // Create readonly config
         Map<String, Object> configMap = new HashMap<>();
         configMap.put(HiveConfig.TABLE_NAME.key(), "test_db.user_table");
         configMap.put(HiveConfig.METASTORE_URI.key(), "thrift://localhost:9083");
@@ -120,28 +117,23 @@ public class HiveSaveModeHandlerTest {
 
     @Test
     void testBuildTableFromTemplate() throws Exception {
-        // Test the template building logic without external dependencies
         HiveSaveModeHandler handler =
                 new HiveSaveModeHandler(
                         readonlyConfig, catalogTable, SchemaSaveMode.CREATE_SCHEMA_WHEN_NOT_EXIST);
 
-        // Test basic properties that don't require external dependencies
         assertEquals(SchemaSaveMode.CREATE_SCHEMA_WHEN_NOT_EXIST, handler.getSchemaSaveMode());
         assertEquals(DataSaveMode.APPEND_DATA, handler.getDataSaveMode());
         assertEquals(TablePath.of("test_db.user_table"), handler.getHandleTablePath());
 
-        // Test partition field extraction - no template means no partitions
         assertFalse(handler.isPartitionedTable());
     }
 
     @Test
     void testHandleSchemaSaveModeCreateWhenNotExist() throws Exception {
-        // Test basic schema save mode handling without external dependencies
         HiveSaveModeHandler handler =
                 new HiveSaveModeHandler(
                         readonlyConfig, catalogTable, SchemaSaveMode.CREATE_SCHEMA_WHEN_NOT_EXIST);
 
-        // Test basic properties
         assertEquals(SchemaSaveMode.CREATE_SCHEMA_WHEN_NOT_EXIST, handler.getSchemaSaveMode());
         assertEquals(DataSaveMode.APPEND_DATA, handler.getDataSaveMode());
         assertEquals(TablePath.of("test_db.user_table"), handler.getHandleTablePath());
@@ -149,12 +141,10 @@ public class HiveSaveModeHandlerTest {
 
     @Test
     void testHandleSchemaSaveModeRecreateSchema() throws Exception {
-        // Test recreate schema mode without external dependencies
         HiveSaveModeHandler handler =
                 new HiveSaveModeHandler(
                         readonlyConfig, catalogTable, SchemaSaveMode.RECREATE_SCHEMA);
 
-        // Test basic properties
         assertEquals(SchemaSaveMode.RECREATE_SCHEMA, handler.getSchemaSaveMode());
         assertEquals(DataSaveMode.APPEND_DATA, handler.getDataSaveMode());
         assertEquals(TablePath.of("test_db.user_table"), handler.getHandleTablePath());
@@ -166,13 +156,11 @@ public class HiveSaveModeHandlerTest {
                 new HiveSaveModeHandler(
                         readonlyConfig, catalogTable, SchemaSaveMode.CREATE_SCHEMA_WHEN_NOT_EXIST);
 
-        // Data save mode should not throw exception and should log message
         assertDoesNotThrow(() -> handler.handleDataSaveMode());
     }
 
     @Test
     void testTemplateWithPartitionFields() {
-        // Test with custom template containing partition fields
         Map<String, Object> configMap = new HashMap<>();
         configMap.put(HiveConfig.TABLE_NAME.key(), "test_db.user_table");
         configMap.put(HiveConfig.METASTORE_URI.key(), "thrift://localhost:9083");
@@ -188,13 +176,11 @@ public class HiveSaveModeHandlerTest {
                         catalogTable,
                         SchemaSaveMode.CREATE_SCHEMA_WHEN_NOT_EXIST);
 
-        // Test partition field extraction from template
         assertTrue(handler.isPartitionedTable());
     }
 
     @Test
     void testCustomTemplate() throws Exception {
-        // Test with custom template
         Map<String, Object> configMap = new HashMap<>();
         configMap.put(HiveConfig.TABLE_NAME.key(), "test_db.user_table");
         configMap.put(HiveConfig.METASTORE_URI.key(), "thrift://localhost:9083");
@@ -210,7 +196,6 @@ public class HiveSaveModeHandlerTest {
                         catalogTable,
                         SchemaSaveMode.CREATE_SCHEMA_WHEN_NOT_EXIST);
 
-        // Test custom template properties without external dependencies
         assertEquals(SchemaSaveMode.CREATE_SCHEMA_WHEN_NOT_EXIST, handler.getSchemaSaveMode());
         assertEquals(DataSaveMode.APPEND_DATA, handler.getDataSaveMode());
         assertEquals(TablePath.of("test_db.user_table"), handler.getHandleTablePath());
@@ -218,22 +203,18 @@ public class HiveSaveModeHandlerTest {
 
     @Test
     void testDefaultTemplate() throws Exception {
-        // Test with default template (no custom template provided)
         HiveSaveModeHandler handler =
                 new HiveSaveModeHandler(
                         readonlyConfig, catalogTable, SchemaSaveMode.CREATE_SCHEMA_WHEN_NOT_EXIST);
 
-        // Test basic properties without external dependencies
         assertEquals(SchemaSaveMode.CREATE_SCHEMA_WHEN_NOT_EXIST, handler.getSchemaSaveMode());
         assertEquals(DataSaveMode.APPEND_DATA, handler.getDataSaveMode());
 
-        // Test partition field extraction from config - no template means no partitions
         assertFalse(handler.isPartitionedTable());
     }
 
     @Test
     void testTemplateWithPartitionedTable() throws Exception {
-        // Test with partitioned table template
         Map<String, Object> configMap = new HashMap<>();
         configMap.put(HiveConfig.TABLE_NAME.key(), "test_db.user_table");
         configMap.put(HiveConfig.METASTORE_URI.key(), "thrift://localhost:9083");
@@ -249,7 +230,6 @@ public class HiveSaveModeHandlerTest {
                         catalogTable,
                         SchemaSaveMode.CREATE_SCHEMA_WHEN_NOT_EXIST);
 
-        // Test partitioned table properties without external dependencies
         assertTrue(handler.isPartitionedTable());
         assertEquals(SchemaSaveMode.CREATE_SCHEMA_WHEN_NOT_EXIST, handler.getSchemaSaveMode());
         assertEquals(DataSaveMode.APPEND_DATA, handler.getDataSaveMode());
@@ -257,8 +237,6 @@ public class HiveSaveModeHandlerTest {
 
     @Test
     void testCustomTemplate_buildsExpectedTable() throws Exception {
-        // Build config with a custom template using EXTERNAL + LOCATION '${table_location}' and
-        // TBLPROPERTIES
         Map<String, Object> configMap = new HashMap<>();
         configMap.put(HiveConfig.TABLE_NAME.key(), "test_db.user_table");
         configMap.put(HiveConfig.METASTORE_URI.key(), "thrift://localhost:9083");
@@ -277,21 +255,16 @@ public class HiveSaveModeHandlerTest {
                         catalogTable,
                         SchemaSaveMode.CREATE_SCHEMA_WHEN_NOT_EXIST);
 
-        // Reflectively invoke buildTableFromCustomTemplate to get the Table
         java.lang.reflect.Method m =
                 HiveSaveModeHandler.class.getDeclaredMethod("buildTableFromCustomTemplate");
         m.setAccessible(true);
         org.apache.hadoop.hive.metastore.api.Table table =
                 (org.apache.hadoop.hive.metastore.api.Table) m.invoke(handler);
 
-        // Verify table type from template
         assertEquals("EXTERNAL_TABLE", table.getTableType());
-        // Verify location uses default replacement for ${table_location}
         assertEquals("file:/tmp/hive/warehouse/test_db.db/user_table", table.getSd().getLocation());
-        // Verify TBLPROPERTIES propagated into parameters
         assertEquals("v1", table.getParameters().get("k1"));
         assertEquals("v2", table.getParameters().get("k2"));
-        // Also ensure original template is stored
         assertEquals(template, table.getParameters().get("seatunnel.creation.template"));
     }
 }

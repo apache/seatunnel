@@ -280,4 +280,12 @@ public class HiveIT extends TestSuiteBase implements TestResource {
                 "/auto_table_creation/fake_to_hive_custom_template.conf",
                 "/auto_table_creation/hive_auto_orc_format_to_assert.conf");
     }
+
+    @TestTemplate
+    public void testAutoTableCreationDefaultTemplate(TestContainer container) throws Exception {
+        executeJob(
+                container,
+                "/auto_table_creation/fake_to_hive_default_template.conf",
+                "/auto_table_creation/hive_auto_create_default_to_assert.conf");
+    }
 }
