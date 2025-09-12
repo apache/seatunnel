@@ -25,19 +25,19 @@
     <artifactId>seatunnel-transforms-v2-udf</artifactId>
     <packaging>jar</packaging>
 
-    <name>seatunnel-transforms-v2-udf</name>
+    <name>SeaTunnel : Transforms V2 : UDF</name>
 
     <dependencies>
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
             <artifactId>seatunnel-transforms-v2</artifactId>
-            <version>${revision}</version>
+            <version>${project.version}</version>
             <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
             <artifactId>seatunnel-api</artifactId>
-            <version>${revision}</version>
+            <version>${project.version}</version>
             <scope>provided</scope>
         </dependency>
         <dependency>

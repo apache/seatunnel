@@ -179,6 +179,15 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
                                         .JOB_METRICS_BACKUP_INTERVAL
                                         .key(),
                                 getTextContent(node)));
+            } else if (ServerConfigOptions.MasterServerConfigOptions.JOB_METRICS_PARTITION_COUNT
+                    .key()
+                    .equals(name)) {
+                engineConfig.setJobMetricsPartitionCount(
+                        getIntegerValue(
+                                ServerConfigOptions.MasterServerConfigOptions
+                                        .JOB_METRICS_PARTITION_COUNT
+                                        .key(),
+                                getTextContent(node)));
             } else if (ServerConfigOptions.WorkerServerConfigOptions
                     .TASK_EXECUTION_THREAD_SHARE_MODE
                     .key()
@@ -280,6 +289,14 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
                 checkpointConfig.setCheckpointTimeout(
                         getIntegerValue(
                                 ServerConfigOptions.MasterServerConfigOptions.CHECKPOINT_TIMEOUT
+                                        .key(),
+                                getTextContent(node)));
+            } else if (ServerConfigOptions.MasterServerConfigOptions.CHECKPOINT_MIN_PAUSE
+                    .key()
+                    .equals(name)) {
+                checkpointConfig.setCheckpointMinPause(
+                        getIntegerValue(
+                                ServerConfigOptions.MasterServerConfigOptions.CHECKPOINT_MIN_PAUSE
                                         .key(),
                                 getTextContent(node)));
             } else if (ServerConfigOptions.MasterServerConfigOptions

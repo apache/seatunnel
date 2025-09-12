@@ -49,6 +49,7 @@ import org.apache.seatunnel.connectors.seatunnel.paimon.utils.RowConverter;
 import org.apache.paimon.CoreOptions;
 import org.apache.paimon.data.InternalRow;
 import org.apache.paimon.disk.IOManager;
+import org.apache.paimon.disk.IOManagerImpl;
 import org.apache.paimon.schema.TableSchema;
 import org.apache.paimon.table.BucketMode;
 import org.apache.paimon.table.FileStoreTable;
@@ -82,6 +83,8 @@ public class PaimonSinkWriter
     private final String commitUser;
 
     private FileStoreTable paimonTable;
+
+    private final IOManagerImpl ioManager;
 
     private TableWrite tableWrite;
 
@@ -150,6 +153,9 @@ public class PaimonSinkWriter
         this.taskIndex = context.getIndexOfSubtask();
         this.paimonSinkConfig = paimonSinkConfig;
         this.sinkPaimonTableSchema = this.paimonTable.schema();
+        this.ioManager =
+                (IOManagerImpl)
+                        IOManager.create(splitPaths(paimonSinkConfig.getChangelogTmpPath()));
         this.newTableWrite();
         BucketMode bucketMode = this.paimonTable.bucketMode();
         // https://paimon.apache.org/docs/master/primary-key-table/data-distribution/#dynamic-bucket
@@ -275,12 +281,7 @@ public class PaimonSinkWriter
     private void newTableWrite() {
         TableWrite oldTableWrite = this.tableWrite;
         tableWriteClose(oldTableWrite);
-        this.tableWrite =
-                this.paimonTable
-                        .newWrite(commitUser)
-                        .withIOManager(
-                                IOManager.create(
-                                        splitPaths(paimonSinkConfig.getChangelogTmpPath())));
+        this.tableWrite = this.paimonTable.newWrite(commitUser).withIOManager(ioManager);
     }
 
     @Override
@@ -328,6 +329,11 @@ public class PaimonSinkWriter
             paimonBucketAssignerFactory.clear(paimonTablePath, taskIndex);
             if (Objects.nonNull(paimonCatalog)) {
                 paimonCatalog.close();
+            }
+            try {
+                ioManager.close();
+            } catch (Exception e) {
+                log.warn("Failed to close io manager in paimon sink writer.", e);
             }
         }
     }

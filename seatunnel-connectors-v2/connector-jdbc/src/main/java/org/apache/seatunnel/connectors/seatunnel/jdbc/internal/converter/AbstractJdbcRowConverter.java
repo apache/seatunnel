@@ -44,6 +44,7 @@ import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.OffsetDateTime;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
@@ -274,6 +275,10 @@ public abstract class AbstractJdbcRowConverter implements JdbcRowConverter {
             case TIMESTAMP:
                 LocalDateTime localDateTime = (LocalDateTime) value;
                 statement.setTimestamp(statementIndex, Timestamp.valueOf(localDateTime));
+                break;
+            case TIMESTAMP_TZ:
+                OffsetDateTime offsetDateTime = (OffsetDateTime) value;
+                statement.setTimestamp(statementIndex, Timestamp.from(offsetDateTime.toInstant()));
                 break;
             case BYTES:
                 statement.setBytes(statementIndex, (byte[]) value);
