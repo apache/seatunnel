@@ -97,6 +97,16 @@ public class PeekBlockingQueue<E> {
         }
     }
 
+    public void clear() {
+        lock.lock();
+        try {
+            queue.clear();
+            jobIdMap.clear();
+        } finally {
+            lock.unlock();
+        }
+    }
+
     public E getById(Long jobId) {
         return jobIdMap.get(jobId);
     }

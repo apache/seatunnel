@@ -321,11 +321,8 @@ public class CoordinatorService {
                 });
     }
 
-    private void queueRemove(JobMaster jobMaster) throws InterruptedException {
-        PendingJobInfo take = pendingJobQueue.peekBlocking();
-        if (take.getJobMaster() != jobMaster) {
-            logger.severe("The job master is not equal to the peek job master");
-        } else {
+    private void queueRemove(JobMaster jobMaster) {
+        if (pendingJobQueue.contains(jobMaster.getJobId())) {
             pendingJobQueue.removeById(jobMaster.getJobId());
         }
     }
@@ -568,11 +565,13 @@ public class CoordinatorService {
         if (isWaitStrategy) {
             pendingJobQueue
                     .getJobIdMap()
+                    .values()
                     .forEach(
-                            (jobId, pendingJobInfo) -> {
-                                pendingJobInfo.getJobMaster().interrupt();
-                                pendingJobQueue.removeById(jobId);
+                            pendingJobInfo -> {
+                                JobMaster jobMaster = pendingJobInfo.getJobMaster();
+                                jobMaster.interrupt();
                             });
+            pendingJobQueue.clear();
         }
         executorService.shutdownNow();
         runningJobMasterMap.clear();
