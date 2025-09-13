@@ -39,7 +39,7 @@ import java.util.regex.Pattern;
 @Slf4j
 public class MetalakeConfigUtils {
 
-    private static final Pattern pattern = Pattern.compile("\\$\\{[^}]*\\}");
+    private static final Pattern pattern = Pattern.compile("\\$\\{([^}]*)\\}");
 
     public static Config getMetalakeConfig(Config jobConfigTmp) {
         Config update = jobConfigTmp;
