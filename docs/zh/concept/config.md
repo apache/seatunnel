@@ -266,7 +266,7 @@ sink {
 其中 `resName`，`rowNum`，`nameType` 我们未设置，他将获取默认值
 
 
-然后最终提交的配置是:
+最终提交的配置为:
 
 ```hocon
 env {
@@ -309,20 +309,14 @@ sink {
 
 ```
 
-一些注意事项:
+# 参数配置注意事项:
 
-- 如果值包含特殊字符，如`(`，请使用`'`引号将其括起来。
-- 如果替换变量包含`"`或`'`(如`"resName"`和`"nameVal"`)，需要添加`"`。
-- 值不能包含空格`' '`。例如, `-i jobName='this is a job name'`将被替换为`job.name = "this"`。 你可以使用环境变量传递带有空格的值。 
-- 如果要使用动态参数,可以使用以下格式: `-i date=$(date +"%Y%m%d")`。
-- 不能使用指定系统保留字符，它将不会被`-i`替换，如:`${database_name}`、`${schema_name}`、`${table_name}`、`${schema_full_name}`、`${table_full_name}`、`${primary_key}`、`${unique_key}`、`${field_names}`。具体可参考[Sink参数占位符](sink-options-placeholders.md)
-## 此外
+- 当参数值包含特殊字符(如`(`)时，需使用单引号`'`进行转义。
+- 对于包含引号(如`"`或`'`)的替换变量(例如`"resName"`、`"nameVal"`)，需添加双引号`"`。
+- 参数值中不允许包含空格字符。例如，`-i jobName='this is a job name'`实际会被解析为`job.name = "this"`。如需传递包含空格的值，请使用环境变量。
+- 对于动态参数配置，可采用如下格式: `-i date=$(date +"%Y%m%d")`。
+- 系统保留的占位符将不会被`-i`参数替换，包括:`${database_name}`、`${schema_name}`、`${table_name}`、`${schema_full_name}`、`${table_full_name}`、`${primary_key}`、`${unique_key}`、`${field_names}`。详情请参阅[Sink参数占位符](sink-options-placeholders.md)。
 
-如果你想了解更多关于格式配置的详细信息，请查看 [HOCON](https://github.com/lightbend/config/blob/main/HOCON.md)。
-- 值不能包含空格`' '`。例如, `-i jobName='this is a job name'`将被替换为`job.name = "this"`。 你可以使用环境变量传递带有空格的值。 
-- 如果要使用动态参数,可以使用以下格式: `-i date=$(date +"%Y%m%d")`。
-- 不能使用指定系统保留字符，它将不会被`-i`替换，如:`${database_name}`、`${schema_name}`、`${table_name}`、`${schema_full_name}`、`${table_full_name}`、`${primary_key}`、`${unique_key}`、`${field_names}`。具体可参考[Sink参数占位符](sink-options-placeholders.md)
-## 此外
+## 补充说明
 
-如果你想了解更多关于格式配置的详细信息，请查看 [HOCON](https://github.com/lightbend/config/blob/main/HOCON.md)。
-
+如需了解更多配置格式相关信息，请参考 [HOCON](https://github.com/lightbend/config/blob/main/HOCON.md)。
