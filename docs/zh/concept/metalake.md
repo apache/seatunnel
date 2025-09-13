@@ -1,8 +1,8 @@
 # METALAKE
 
-由于seatunnel在执行任务时，需要将数据库用户名与密码等隐私信息明文写在脚本中，可能会导致信息泄露；并且维护较为困难，数据源信息发生变更时可能需要手动更改。
+由于Seatunnel在执行任务时，需要将数据库用户名与密码等隐私信息明文写在脚本中，可能会导致信息泄露；并且维护较为困难，数据源信息发生变更时可能需要手动更改。
 
-因此引入了metalake，将数据源的信息存储于Apache Gravitino等metalake中，任务脚本采用`sourId`和占位符的方法来代替原本的用户名和密码等信息，运行时seatunnel-engine通过http请求从metalake获取信息，根据占位符进行替换。
+因此引入了metalake，将数据源的信息存储于Apache Gravitino等metalake中，任务脚本采用`sourceId`和占位符的方法来代替原本的用户名和密码等信息，运行时seatunnel-engine通过http请求从metalake获取信息，根据占位符进行替换。
 
 若要使用metalake，首先要修改**seatunnel-env.sh**中的环境变量：
 
@@ -66,4 +66,4 @@ source {
 }
 ```
 
-其中`sourceId`指代catalog的名称，从而其他项可以使用`${}`占位符，运行时会自动替换。注意，在sink中使用时，同样叫`sourceId`；使用占位符时必须以`${`开头，以`}`结尾
+其中`sourceId`指代catalog的名称，从而其他项可以使用`${}`占位符，运行时会自动替换。注意，在sink中使用时，同样叫`sourceId`；使用占位符时必须以`${`开头，以`}`结尾，每一项最多只能包含一个占位符，占位符以外也可以有内容

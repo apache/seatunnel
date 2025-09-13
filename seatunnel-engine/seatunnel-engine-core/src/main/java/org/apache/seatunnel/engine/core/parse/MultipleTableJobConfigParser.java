@@ -17,21 +17,14 @@
 
 package org.apache.seatunnel.engine.core.parse;
 
-import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
 import org.apache.seatunnel.shade.com.google.common.base.Preconditions;
 import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
-import org.apache.seatunnel.shade.com.typesafe.config.ConfigList;
-import org.apache.seatunnel.shade.com.typesafe.config.ConfigObject;
-import org.apache.seatunnel.shade.com.typesafe.config.ConfigValue;
-import org.apache.seatunnel.shade.com.typesafe.config.ConfigValueFactory;
-import org.apache.seatunnel.shade.com.typesafe.config.ConfigValueType;
 
 import org.apache.seatunnel.api.common.PluginIdentifier;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.ConfigValidator;
-import org.apache.seatunnel.api.metalake.MetalakeClient;
-import org.apache.seatunnel.api.metalake.MetalakeClientFactory;
+import org.apache.seatunnel.api.metalake.MetalakeConfigUtils;
 import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.options.EnvCommonOptions;
 import org.apache.seatunnel.api.options.EnvOptionRule;
@@ -81,7 +74,6 @@ import org.apache.commons.lang3.tuple.ImmutablePair;
 import lombok.extern.slf4j.Slf4j;
 import scala.Tuple2;
 
-import java.io.IOException;
 import java.io.Serializable;
 import java.net.MalformedURLException;
 import java.net.URL;
@@ -185,7 +177,8 @@ public class MultipleTableJobConfigParser {
                 Boolean.parseBoolean(System.getenv().getOrDefault("METALAKE_ENABLED", "false"));
         if (metalakeEnabled) {
             this.seaTunnelJobConfig =
-                    getMetalakeConfig(ConfigBuilder.of(Paths.get(jobDefineFilePath), variables));
+                    MetalakeConfigUtils.getMetalakeConfig(
+                            ConfigBuilder.of(Paths.get(jobDefineFilePath), variables));
         } else {
             this.seaTunnelJobConfig = ConfigBuilder.of(Paths.get(jobDefineFilePath), variables);
         }
@@ -846,88 +839,5 @@ public class MultipleTableJobConfigParser {
                                                         : Stream.of(state.getState()))
                         .collect(Collectors.toList());
         return new ChangeStreamTableSourceCheckpoint(coordinatorState, subtaskState);
-    }
-
-    private Config getMetalakeConfig(Config jobConfigTmp) {
-        Config update = jobConfigTmp;
-        String metalakeType = System.getenv("METALAKE_TYPE");
-        String metalakeUrl = System.getenv("METALAKE_URL");
-
-        MetalakeClient metalakeClient = MetalakeClientFactory.create(metalakeType, metalakeUrl);
-
-        try {
-            ConfigList sourceList = jobConfigTmp.getList("source");
-            List<ConfigValue> newSourceList = new ArrayList<>(sourceList);
-
-            for (int i = 0; i < sourceList.size(); i++) {
-                ConfigObject sourceObj = (ConfigObject) sourceList.get(i);
-                if (sourceObj.containsKey("sourceId")) {
-                    ConfigObject tmp = sourceObj;
-                    String sourceId = sourceObj.toConfig().getString("sourceId");
-                    JsonNode metalakeJson = metalakeClient.getMetaInfo(sourceId);
-                    for (Map.Entry<String, ConfigValue> entry : sourceObj.entrySet()) {
-                        String subKey = entry.getKey();
-                        ConfigValue value = entry.getValue();
-
-                        if (value.valueType() == ConfigValueType.STRING) {
-                            String strValue = (String) value.unwrapped();
-                            if (strValue.startsWith("${") && strValue.endsWith("}")) {
-                                String placeholder = strValue.substring(2, strValue.length() - 1);
-
-                                if (metalakeJson.has(placeholder)) {
-                                    String replaced = metalakeJson.get(placeholder).asText();
-                                    tmp =
-                                            tmp.withValue(
-                                                    subKey,
-                                                    ConfigValueFactory.fromAnyRef(replaced));
-                                }
-                            }
-                        }
-                    }
-                    newSourceList.set(i, tmp);
-                }
-            }
-            update = update.withValue("source", ConfigValueFactory.fromIterable(newSourceList));
-        } catch (IOException e) {
-            log.error("Fail to get MetaInfo, metalakeUrl: {}", metalakeUrl, e);
-        }
-
-        try {
-            ConfigList sinkList = jobConfigTmp.getList("sink");
-            List<ConfigValue> newSinkList = new ArrayList<>(sinkList);
-
-            for (int i = 0; i < sinkList.size(); i++) {
-                ConfigObject sinkObj = (ConfigObject) sinkList.get(i);
-                if (sinkObj.containsKey("sourceId")) {
-                    ConfigObject tmp = sinkObj;
-                    String sourceId = sinkObj.toConfig().getString("sourceId");
-                    JsonNode metalakeJson = metalakeClient.getMetaInfo(sourceId);
-                    for (Map.Entry<String, ConfigValue> entry : sinkObj.entrySet()) {
-                        String subKey = entry.getKey();
-                        ConfigValue value = entry.getValue();
-
-                        if (value.valueType() == ConfigValueType.STRING) {
-                            String strValue = (String) value.unwrapped();
-                            if (strValue.startsWith("${") && strValue.endsWith("}")) {
-                                String placeholder = strValue.substring(2, strValue.length() - 1);
-
-                                if (metalakeJson.has(placeholder)) {
-                                    String replaced = metalakeJson.get(placeholder).asText();
-                                    tmp =
-                                            tmp.withValue(
-                                                    subKey,
-                                                    ConfigValueFactory.fromAnyRef(replaced));
-                                }
-                            }
-                        }
-                    }
-                    newSinkList.set(i, tmp);
-                }
-            }
-            update = update.withValue("sink", ConfigValueFactory.fromIterable(newSinkList));
-        } catch (IOException e) {
-            log.error("Fail to get MetaInfo, metalakeUrl: {}", metalakeUrl, e);
-        }
-        return update;
     }
 }

@@ -66,4 +66,4 @@ source {
 }
 ```
 
-Here, `sourceId` refers to the catalog name, allowing other fields to use `${}` placeholders. At runtime, they will be automatically replaced. Note that in sinks, the same `sourceId` name is used, and placeholders must always start with `${` and end with `}`.
+Here, `sourceId` refers to the catalog name, allowing other fields to use `${}` placeholders. At runtime, they will be automatically replaced. Note that in sinks, the same `sourceId` name is used, and placeholders must always start with `${` and end with `}`. Each item can contain at most one placeholder, and there can be content outside the placeholder as well.
