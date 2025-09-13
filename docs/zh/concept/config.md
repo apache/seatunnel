@@ -1,24 +1,22 @@
 # 配置文件简介
 
-在SeaTunnel中，最重要的事情就是配置文件，尽管用户可以自定义他们自己的数据同步需求以发挥SeaTunnel最大的潜力。那么接下来我将会向你介绍如何设置配置文件。
+配置文件是SeaTunnel中最核心的组成部分。用户可以通过配置文件自定义数据同步需求，充分发挥SeaTunnel的能力。本文将详细介绍配置文件的设置方法。
 
-配置文件的主要格式是 `hocon`, 有关该格式类型的更多信息你可以参考[HOCON-GUIDE](https://github.com/lightbend/config/blob/main/HOCON.md),
-顺便提一下，我们也支持 `json`格式，但你应该知道配置文件的名称应该是以 `.json`结尾。
+配置文件主要使用`hocon`格式，关于该格式的详细信息可参考[HOCON-GUIDE](https://github.com/lightbend/config/blob/main/HOCON.md)。
+同时也支持`json`格式，但需要注意配置文件必须以`.json`作为后缀。
 
-我们同时提供了以 `SQL` 格式，详细可以参考[SQL配置文件](sql-config.md)。
+此外，SeaTunnel还支持`SQL`格式的配置文件，详细信息请参考[SQL配置文件](sql-config.md)。
 
-## 例子
+## 示例
 
-在你阅读之前，你可以在发布包中的config目录[这里](https://github.com/apache/seatunnel/tree/dev/config)找到配置文件的例子。
+在SeaTunnel发布包的config目录中提供了配置文件示例，可以在[这里](https://github.com/apache/seatunnel/tree/dev/config)查看。
 
 ## 配置文件结构
 
-配置文件类似下面这个例子：
+以下是一个典型的配置文件示例：
 
 :::caution 警告
-
-旧的配置名称 `result_table_name`/`source_table_name` 已经过时，请尽快迁移到新名称 `plugin_output`/`plugin_input`。
-
+配置项 `result_table_name`/`source_table_name` 已废弃，请尽快迁移到新的配置项 `plugin_output`/`plugin_input`。
 :::
 
 ### hocon
@@ -68,23 +66,21 @@ sink {
 
 ### env
 
-用于添加引擎可选的参数，不管是什么引擎（Zeta、Spark 或者 Flink），对应的可选参数应该在这里填写。
+用于配置引擎相关的可选参数。无论是使用Zeta、Spark还是Flink引擎，相应的配置参数都应该在此处设置。
 
-注意，我们按照引擎分离了参数，对于公共参数我们可以像以前一样配置。对于Flink和Spark引擎，其参数的具体配置规则可以参考[JobEnvConfig](./JobEnvConfig.md)。
+需要注意的是，参数配置已按引擎类型进行了分离。通用参数可以按原有方式配置，而Flink和Spark引擎的特定参数配置规则请参考[JobEnvConfig](./JobEnvConfig.md)。
 
 <!-- TODO add supported env parameters -->
 
 ### source
 
-source用于定义SeaTunnel在哪儿检索数据，并将检索的数据用于下一步。
-可以同时定义多个source。目前支持的source请看[Source of SeaTunnel](../connector-v2/source)。每种source都有自己特定的参数用来
-定义如何检索数据，SeaTunnel也抽象了每种source所使用的参数，例如 `plugin_output` 参数，用于指定当前source生成的数据的名称，
-方便后续其他模块使用。
+source模块定义了数据的来源位置以及数据获取方式。系统支持同时配置多个source。当前支持的source类型请参考[Source of SeaTunnel](../connector-v2/source)。
+每种source都有其特定的参数配置，用于定义数据获取方式。SeaTunnel为所有source抽象了一些通用参数，例如`plugin_output`参数用于指定当前source输出的数据集名称，
+便于后续模块引用。
 
 ### transform
 
-当我们有了数据源之后，我们可能需要对数据进行进一步的处理，所以我们就有了transform模块。当然，这里使用了“可能”这个词，
-这意味着我们也可以直接将transform视为不存在，直接从source到sink，像下面这样：
+获取数据后，可能需要进行数据处理，这就是transform模块的作用。transform模块是可选的，也可以直接从source到sink，示例如下：
 
 ```hocon
 env {
@@ -118,22 +114,21 @@ sink {
 }
 ```
 
-与source类似, transform也有属于每个模块的特定参数。目前支持的source请看。目前支持的transform请看 [Transform V2 of SeaTunnel](../transform-v2)
-
-<!-- TODO missing source links --->
+与source类似，每个transform模块都有其特定的参数配置。目前支持的transform类型请参考[Transform V2 of SeaTunnel](../transform-v2)。
 
 ### sink
 
-我们使用SeaTunnel的作用是将数据从一个地方同步到其它地方，所以定义数据如何写入，写入到哪里是至关重要的。通过SeaTunnel提供的
-sink模块，你可以快速高效地完成这个操作。Sink和source非常相似，区别在于读取和写入。所以去看看我们[Sink of SeaTunnel](../connector-v2/sink)吧。
+sink模块定义了数据的写入位置和方式，是实现数据同步的关键环节。通过SeaTunnel提供的sink模块，可以高效地完成数据写入操作。
+sink的配置方式与source类似，区别在于数据流向的不同。支持的sink类型请参考[Sink of SeaTunnel](../connector-v2/sink)。
 
-### 其它
+### 数据流转说明
 
-你会疑惑当定义了多个source和多个sink时，每个sink读取哪些数据，每个transform读取哪些数据？我们使用`plugin_output` 和
-`plugin_input` 两个配置。每个source模块都会配置一个`plugin_output`来指示数据源生成的数据源名称，其它transform和sink
-模块可以使用`plugin_input` 引用相应的数据源名称，表示要读取数据进行处理。然后transform，作为一个中间的处理模块，可以同时使用
-`plugin_output` 和 `plugin_input` 配置。但你会发现在上面的配置例子中，不是每个模块都配置了这些参数，因为在SeaTunnel中，
-有一个默认的约定，如果这两个参数没有配置，则使用上一个节点的最后一个模块生成的数据。当只有一个source时这是非常方便的。
+当配置了多个source和sink时，如何确定数据的流转关系？这就需要用到`plugin_output`和`plugin_input`两个配置项：
+- source模块通过`plugin_output`指定输出的数据集名称
+- transform和sink模块通过`plugin_input`指定要处理的数据集来源
+- transform作为中间处理模块，可以同时配置`plugin_input`和`plugin_output`
+
+值得注意的是，这两个参数不是必须配置的。在SeaTunnel中有一个默认约定：如果未配置这两个参数，系统会自动使用上一个节点最后一个模块的输出作为输入。这在只有单一数据流的场景下特别方便。
 
 ## 多行文本支持
 
@@ -198,21 +193,20 @@ sql = """ select * from "table" """
 
 ## 配置变量替换
 
-在配置文件中,我们可以定义一些变量并在运行时替换它们。但是注意仅支持 hocon 格式的文件。
+配置文件支持变量替换功能（仅支持hocon格式）。变量的使用方式如下：
+- `${varName}` - 若变量未赋值则抛出异常
+- `${varName:default}` - 若变量未赋值则使用默认值（变量需要用双引号包围）
+- `${varName:}` - 若变量未赋值则使用空字符串
 
-变量使用方法：
- - `${varName}`，如果变量未传值，则抛出异常。
- - `${varName:default}`，如果变量未传值，则使用默认值。如果设置默认值则变量需要写在双引号中。
- - `${varName:}`，如果变量未传值，则使用空字符串。
-
-如果您不通过`-i`设置变量值，也可以通过设置系统的环境变量传值，变量替换支持通过环境变量获取变量值。
-例如，您可以在shell脚本中设置环境变量如下：
+变量值的传入有两种方式：
+1. 通过`-i`参数直接传入
+2. 通过系统环境变量设置，例如：
 ```shell
 export varName="value with space"
 ```
-然后您可以在配置文件中使用变量。
 
-如果您在配置文件中设置了没有默认值的变量，但在执行过程中未传递该变量，则会保留该变量值，系统不会抛出异常。但请您需要确保其他流程能够正确解析该变量值。例如，ElasticSearch的索引需要支持`${xxx}`这样的格式来动态指定索引。若其他流程不支持，程序可能无法正常运行。
+特别说明：如果配置文件中使用了没有默认值的变量，且执行时未传入该变量值，系统会保留原变量形式而不会抛出异常。这种情况下需要确保后续处理流程能够正确解析该变量值，
+例如ElasticSearch的索引支持`${xxx}`这样的动态索引格式。如果其他流程不支持该格式，可能会导致程序执行异常。
 
 具体样例：
 ```hocon
@@ -319,6 +313,12 @@ sink {
 
 - 如果值包含特殊字符，如`(`，请使用`'`引号将其括起来。
 - 如果替换变量包含`"`或`'`(如`"resName"`和`"nameVal"`)，需要添加`"`。
+- 值不能包含空格`' '`。例如, `-i jobName='this is a job name'`将被替换为`job.name = "this"`。 你可以使用环境变量传递带有空格的值。 
+- 如果要使用动态参数,可以使用以下格式: `-i date=$(date +"%Y%m%d")`。
+- 不能使用指定系统保留字符，它将不会被`-i`替换，如:`${database_name}`、`${schema_name}`、`${table_name}`、`${schema_full_name}`、`${table_full_name}`、`${primary_key}`、`${unique_key}`、`${field_names}`。具体可参考[Sink参数占位符](sink-options-placeholders.md)
+## 此外
+
+如果你想了解更多关于格式配置的详细信息，请查看 [HOCON](https://github.com/lightbend/config/blob/main/HOCON.md)。
 - 值不能包含空格`' '`。例如, `-i jobName='this is a job name'`将被替换为`job.name = "this"`。 你可以使用环境变量传递带有空格的值。 
 - 如果要使用动态参数,可以使用以下格式: `-i date=$(date +"%Y%m%d")`。
 - 不能使用指定系统保留字符，它将不会被`-i`替换，如:`${database_name}`、`${schema_name}`、`${table_name}`、`${schema_full_name}`、`${table_full_name}`、`${primary_key}`、`${unique_key}`、`${field_names}`。具体可参考[Sink参数占位符](sink-options-placeholders.md)
