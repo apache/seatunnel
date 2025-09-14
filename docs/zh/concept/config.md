@@ -75,8 +75,8 @@ sink {
 ### source
 
 source模块定义了数据的来源位置以及数据获取方式。系统支持同时配置多个source。当前支持的source类型请参考[Source of SeaTunnel](../connector-v2/source)。
-每种source都有其特定的参数配置，用于定义数据获取方式。SeaTunnel为所有source抽象了一些通用参数，例如`plugin_output`参数用于指定当前source输出的数据集名称，
-便于后续模块引用。
+
+每种source都有其特定的参数配置，用于定义数据获取方式。SeaTunnel为所有source抽象了一些通用参数，例如 `plugin_output` 参数用于指定当前source输出的数据集名称，便于后续模块引用。
 
 ### transform
 
