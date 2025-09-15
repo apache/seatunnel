@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.common.utils;
 
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
+
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -47,5 +49,19 @@ public class PlaceholderUtils {
         }
         matcher.appendTail(result);
         return result.toString();
+    }
+
+    public static String replacePlaceholders(String input, JsonNode json) {
+        Pattern pattern = Pattern.compile("\\$\\{([^}]*)\\}");
+        Matcher matcher = pattern.matcher(input);
+        if (matcher.find()) {
+            String placeholder = matcher.group(1);
+
+            if (json.has(placeholder)) {
+                String replaced = json.get(placeholder).asText();
+                return replacePlaceholders(input, placeholder, replaced);
+            }
+        }
+        return input;
     }
 }

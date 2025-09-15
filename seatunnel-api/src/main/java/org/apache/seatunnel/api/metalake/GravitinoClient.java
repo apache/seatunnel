@@ -18,7 +18,8 @@
 package org.apache.seatunnel.api.metalake;
 
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
-import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
+
+import org.apache.seatunnel.common.utils.JsonUtils;
 
 import org.apache.http.HttpEntity;
 import org.apache.http.client.methods.CloseableHttpResponse;
@@ -51,8 +52,7 @@ public class GravitinoClient implements MetalakeClient {
                 if (entity == null) {
                     throw new RuntimeException("No response entity");
                 }
-                ObjectMapper mapper = new ObjectMapper();
-                JsonNode rootNode = mapper.readTree(entity.getContent());
+                JsonNode rootNode = JsonUtils.readTree(entity.getContent());
                 EntityUtils.consume(entity);
                 JsonNode catalogNode = rootNode.get("catalog");
                 if (catalogNode == null) {
