@@ -56,6 +56,58 @@ public class PrivilegeUtil {
                                                                 tableIdentifier);
                                                     }
                                                     break;
+                                                case ALTER_TABLE:
+                                                    for (Identifier tableIdentifier : identifiers) {
+                                                        privilegeChecker.assertCanAlterTable(
+                                                                tableIdentifier);
+                                                    }
+                                                    break;
+                                                case DROP_TABLE:
+                                                    for (Identifier tableIdentifier : identifiers) {
+                                                        privilegeChecker.assertCanDropTable(
+                                                                tableIdentifier);
+                                                    }
+                                                    break;
+                                                case CREATE_TABLE:
+                                                    for (Identifier tableIdentifier : identifiers) {
+                                                        privilegeChecker.assertCanCreateTable(
+                                                                tableIdentifier.getDatabaseName());
+                                                    }
+                                                    break;
+                                                case DROP_DATABASE:
+                                                    for (Identifier tableIdentifier : identifiers) {
+                                                        privilegeChecker.assertCanDropDatabase(
+                                                                tableIdentifier.getDatabaseName());
+                                                    }
+                                                    break;
+                                                case ALTER_DATABASE:
+                                                    for (Identifier tableIdentifier : identifiers) {
+                                                        privilegeChecker.assertCanAlterDatabase(
+                                                                tableIdentifier.getDatabaseName());
+                                                    }
+                                                    break;
+                                                case CREATE_DATABASE:
+                                                    privilegeChecker.assertCanCreateDatabase();
+                                                    break;
+                                                case ADMIN:
+                                                    for (Identifier tableIdentifier : identifiers) {
+                                                        privilegeChecker.assertCanSelect(
+                                                                tableIdentifier);
+                                                        privilegeChecker.assertCanInsert(
+                                                                tableIdentifier);
+                                                        privilegeChecker.assertCanAlterTable(
+                                                                tableIdentifier);
+                                                        privilegeChecker.assertCanDropTable(
+                                                                tableIdentifier);
+                                                        privilegeChecker.assertCanCreateTable(
+                                                                tableIdentifier.getDatabaseName());
+                                                        privilegeChecker.assertCanDropDatabase(
+                                                                tableIdentifier.getDatabaseName());
+                                                        privilegeChecker.assertCanAlterDatabase(
+                                                                tableIdentifier.getDatabaseName());
+                                                        privilegeChecker.assertCanCreateDatabase();
+                                                    }
+                                                    break;
                                                 default:
                                                     throw new UnsupportedOperationException(
                                                             "Unsupported privilege type: " + type);
