@@ -27,7 +27,6 @@ import org.junit.jupiter.api.condition.DisabledOnOs;
 import org.junit.jupiter.api.condition.OS;
 
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
 
 import static org.awaitility.Awaitility.await;
 
@@ -42,25 +41,14 @@ public class CheckpointErrorRestoreEndTest
         long jobId = System.currentTimeMillis();
         startJob(jobId, STREAM_CONF_WITH_ERROR_PATH, false);
 
-        AtomicReference<JobMaster> jobMasterReference = new AtomicReference<>();
-        await().atMost(60, TimeUnit.SECONDS)
-                .untilAsserted(
-                        () -> {
-                            JobMaster jobMaster =
-                                    server.getCoordinatorService().getJobMaster(jobId);
-                            Assertions.assertNotNull(jobMaster);
-                            jobMasterReference.set(jobMaster);
-                        });
-
-        Assertions.assertEquals(
-                1, jobMasterReference.get().getPhysicalPlan().getPipelineList().size());
+        JobMaster jobMaster = server.getCoordinatorService().getJobMaster(jobId);
+        Assertions.assertEquals(1, jobMaster.getPhysicalPlan().getPipelineList().size());
         await().atMost(240, TimeUnit.SECONDS)
                 .untilAsserted(
                         () ->
                                 Assertions.assertEquals(
                                         3,
-                                        jobMasterReference
-                                                .get()
+                                        jobMaster
                                                 .getPhysicalPlan()
                                                 .getPipelineList()
                                                 .get(0)

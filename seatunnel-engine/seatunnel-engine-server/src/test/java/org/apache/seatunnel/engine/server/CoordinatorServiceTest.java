@@ -95,8 +95,8 @@ public class CoordinatorServiceTest {
                                 CoordinatorService coordinatorService =
                                         server2.getCoordinatorService();
                                 Assertions.assertTrue(coordinatorService.isCoordinatorActive());
-                            } catch (Exception e) {
-                                Assertions.assertInstanceOf(SeaTunnelEngineException.class, e);
+                            } catch (SeaTunnelEngineException e) {
+                                Assertions.fail("Should not throw SeaTunnelEngineException here.");
                             }
                         });
         instance2.shutdown();
@@ -203,6 +203,8 @@ public class CoordinatorServiceTest {
                         "batch_fake_to_console.conf",
                         "test_cleanup_running_job_state_imap");
         CoordinatorService coordinatorService = jobInformation.coordinatorService;
+        IMap<Object, Object> runningJobStateIMap =
+                coordinatorService.getJobMaster(jobInformation.jobId).getRunningJobStateIMap();
 
         await().atMost(10000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
@@ -229,6 +231,7 @@ public class CoordinatorServiceTest {
                                     coordinatorService.getJobMaster(jobInformation.jobId);
                             // job master should be null
                             Assertions.assertNull(jobMaster);
+                            Assertions.assertTrue(runningJobStateIMap.isEmpty());
                         });
 
         jobInformation.coordinatorService.clearCoordinatorService();
@@ -384,13 +387,9 @@ public class CoordinatorServiceTest {
         Data data =
                 coordinatorServiceTest.getSerializationService().toData(jobImmutableInformation);
 
-        try {
-            coordinatorService
-                    .submitJob(jobId, data, jobImmutableInformation.isStartWithSavePoint())
-                    .join();
-        } catch (Throwable e) {
-            log.error("submit job failed", e);
-        }
+        coordinatorService
+                .submitJob(jobId, data, jobImmutableInformation.isStartWithSavePoint())
+                .join();
         return new JobInformation(coordinatorServiceTest, coordinatorService, jobId);
     }
 

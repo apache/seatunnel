@@ -619,9 +619,6 @@ public class ClusterFaultToleranceTwoPipelineIT {
                                                 + FileUtils.getFileLineNumberFromDir(
                                                         testResources.getLeft())
                                                 + "=================================\n");
-                                JobStatus jobStatus = clientJobProxy.getJobStatus();
-                                System.out.println("++++++++++++++++++++++++++++++++++++++++");
-                                System.out.println(jobStatus);
                                 Assertions.assertTrue(objectCompletableFuture.isDone());
                                 Assertions.assertEquals(
                                         JobStatus.FINISHED, objectCompletableFuture.get());

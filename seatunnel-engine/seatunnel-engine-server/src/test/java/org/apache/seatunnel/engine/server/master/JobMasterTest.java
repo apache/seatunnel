@@ -51,7 +51,6 @@ import com.hazelcast.map.IMap;
 import java.util.Collections;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
 
 import static org.awaitility.Awaitility.await;
 
@@ -311,28 +310,16 @@ public class JobMasterTest extends AbstractSeaTunnelServerTest {
                         .submitJob(jobId, data, jobImmutableInformation.isStartWithSavePoint());
         voidPassiveCompletableFuture.join();
 
-        AtomicReference<JobMaster> jobMasterReference = new AtomicReference<>();
-
-        await().atMost(30000, TimeUnit.MILLISECONDS)
-                .untilAsserted(
-                        () -> {
-                            JobMaster jobMaster =
-                                    server.getCoordinatorService().getJobMaster(jobId);
-                            Assertions.assertNotNull(jobMaster);
-                            jobMasterReference.set(jobMaster);
-                        });
+        JobMaster jobMaster = server.getCoordinatorService().getJobMaster(jobId);
 
         // waiting for job status turn to running
         await().atMost(120000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
-                        () ->
-                                Assertions.assertEquals(
-                                        JobStatus.RUNNING,
-                                        jobMasterReference.get().getJobStatus()));
+                        () -> Assertions.assertEquals(JobStatus.RUNNING, jobMaster.getJobStatus()));
 
         // Because handleCheckpointTimeout is an async method, so we need sleep 5s to waiting job
         // status become running again
         Thread.sleep(5000);
-        return jobMasterReference.get();
+        return jobMaster;
     }
 }
