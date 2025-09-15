@@ -34,7 +34,9 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 
 /** Unit tests for TikaDocumentTransform */
 public class TikaDocumentTransformTest {
@@ -111,17 +113,11 @@ public class TikaDocumentTransformTest {
         Assertions.assertEquals(3, outputColumns.length);
 
         // Check column names
-        String[] expectedNames = {"extracted_text", "mime_type", "doc_title"};
+        Set<String> expectedNames =
+                new HashSet<>(Arrays.asList("extracted_text", "mime_type", "doc_title"));
         for (int i = 0; i < outputColumns.length; i++) {
-            boolean found = false;
-            for (String expectedName : expectedNames) {
-                if (expectedName.equals(outputColumns[i].getName())) {
-                    found = true;
-                    break;
-                }
-            }
             Assertions.assertTrue(
-                    found,
+                    expectedNames.contains(outputColumns[i].getName()),
                     "Column name " + outputColumns[i].getName() + " not found in expected names");
         }
     }

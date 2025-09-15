@@ -45,13 +45,7 @@ public class TikaDocumentTransformConfig implements Serializable {
     public static final Option<Map<String, String>> OUTPUT_FIELDS =
             Options.key("output_fields")
                     .mapType()
-                    .defaultValue(
-                            new HashMap<String, String>() {
-                                {
-                                    put("content", "extracted_text");
-                                    put("content_type", "mime_type");
-                                }
-                            })
+                    .defaultValue(createDefaultOutputFields())
                     .withDescription("Map of output field names to their column names");
 
     // Parse options
@@ -179,5 +173,12 @@ public class TikaDocumentTransformConfig implements Serializable {
             default:
                 return ErrorHandleWay.SKIP;
         }
+    }
+
+    private static Map<String, String> createDefaultOutputFields() {
+        Map<String, String> defaultFields = new HashMap<>();
+        defaultFields.put("content", "extracted_text");
+        defaultFields.put("content_type", "mime_type");
+        return defaultFields;
     }
 }

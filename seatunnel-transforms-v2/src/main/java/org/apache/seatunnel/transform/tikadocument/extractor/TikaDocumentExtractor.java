@@ -37,8 +37,11 @@ import lombok.extern.slf4j.Slf4j;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.Arrays;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
 
 /** Apache Tika implementation of DocumentExtractor */
@@ -51,21 +54,18 @@ public class TikaDocumentExtractor implements DocumentExtractor {
 
     // Supported MIME types for first phase (MVP)
     private static final Set<String> SUPPORTED_MIME_TYPES =
-            new HashSet<String>() {
-                {
-                    add("application/pdf");
-                    add("application/msword");
-                    add("application/vnd.openxmlformats-officedocument.wordprocessingml.document");
-                    add("application/vnd.ms-excel");
-                    add("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
-                    add("application/vnd.ms-powerpoint");
-                    add(
-                            "application/vnd.openxmlformats-officedocument.presentationml.presentation");
-                    add("text/plain");
-                    add("text/html");
-                    add("application/rtf");
-                }
-            };
+            new HashSet<>(
+                    Arrays.asList(
+                            "application/pdf",
+                            "application/msword",
+                            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                            "application/vnd.ms-excel",
+                            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                            "application/vnd.ms-powerpoint",
+                            "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+                            "text/plain",
+                            "text/html",
+                            "application/rtf"));
 
     public TikaDocumentExtractor() {
         this.parser = new AutoDetectParser();
@@ -198,13 +198,14 @@ public class TikaDocumentExtractor implements DocumentExtractor {
             }
         }
 
-        // Add all other metadata as custom metadata
-        DocumentMetadata tempMetadata = builder.build();
+        // Collect all other metadata as custom metadata before building
+        Map<String, Object> customMetadata = new HashMap<>();
         for (String name : metadata.names()) {
             if (!isStandardMetadata(name)) {
-                tempMetadata.setCustomMetadata(name, metadata.get(name));
+                customMetadata.put(name, metadata.get(name));
             }
         }
+        builder.customMetadata(customMetadata);
     }
 
     private boolean isStandardMetadata(String name) {
