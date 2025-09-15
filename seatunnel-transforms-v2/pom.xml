@@ -33,6 +33,7 @@
         <httpclient.version>4.5.13</httpclient.version>
         <httpcore.version>4.4.16</httpcore.version>
         <zhipu.version>release-V4-2.3.0</zhipu.version>
+        <tika.version>2.9.1</tika.version>
     </properties>
 
     <dependencyManagement>
@@ -121,6 +122,18 @@
             <artifactId>seatunnel-guava</artifactId>
             <version>${project.version}</version>
             <classifier>optional</classifier>
+        </dependency>
+
+        <!-- Apache Tika for document processing -->
+        <dependency>
+            <groupId>org.apache.tika</groupId>
+            <artifactId>tika-core</artifactId>
+            <version>${tika.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.tika</groupId>
+            <artifactId>tika-parsers-standard-package</artifactId>
+            <version>${tika.version}</version>
         </dependency>
     </dependencies>
 
