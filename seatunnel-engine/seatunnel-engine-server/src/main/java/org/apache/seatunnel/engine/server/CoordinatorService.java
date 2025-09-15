@@ -322,9 +322,7 @@ public class CoordinatorService {
     }
 
     private void queueRemove(JobMaster jobMaster) {
-        if (pendingJobQueue.contains(jobMaster.getJobId())) {
-            pendingJobQueue.removeById(jobMaster.getJobId());
-        }
+        pendingJobQueue.removeById(jobMaster.getJobId());
     }
 
     private void completeFailJob(JobMaster jobMaster) {
