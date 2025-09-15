@@ -29,7 +29,7 @@ git clone git@github.com:apache/seatunnel.git
 在克隆好源代码以后， 运行 `./mvnw` 命令安装子项目到 maven 本地仓库目录。 否则你的代码无法在 IDEA 中正常启动。
 
 ```shell
-./mvnw clean install -DskipUT=true -Dskip.ui=true
+./mvnw clean install -DskipTests
 ```
 
 ### 源码编译
