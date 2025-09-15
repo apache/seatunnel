@@ -32,7 +32,7 @@ After cloning the source code, you should run the `./mvnw` command to install th
 Otherwise, your code could not start in JetBrains IntelliJ IDEA correctly.
 
 ```shell
-./mvnw clean install -DskipUT=true -Dskip.ui=true
+./mvnw clean install -DskipTests
 ```
 
 ### Building SeaTunnel From Source
