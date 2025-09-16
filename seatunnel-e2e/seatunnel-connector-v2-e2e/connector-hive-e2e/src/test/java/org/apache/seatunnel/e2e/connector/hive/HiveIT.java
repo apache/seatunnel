@@ -259,73 +259,83 @@ public class HiveIT extends TestSuiteBase implements TestResource {
 
     @TestTemplate
     public void testAutoTableCreationCreateWhenNotExist(TestContainer container) throws Exception {
-        // Run the job to create and write data
-        Container.ExecResult execResult =
-                container.executeJob(
-                        "/auto_table_creation/fake_to_hive_create_when_not_exist.conf");
-        Assertions.assertEquals(0, execResult.getExitCode());
-        // Verify via Hive JDBC instead of launching another SeaTunnel job
-        try (java.sql.Statement stmt = this.hiveConnection.createStatement();
-                java.sql.ResultSet rs =
-                        stmt.executeQuery(
-                                "select count(*) from default.test_auto_create_when_not_exist")) {
-            Assertions.assertTrue(rs.next());
-            Assertions.assertEquals(3, rs.getInt(1));
-        }
+        executeJob(
+                container,
+                "/auto_table_creation/fake_to_hive_create_when_not_exist.conf",
+                "/auto_table_creation/hive_auto_create_to_assert.conf");
     }
 
     @TestTemplate
     public void testAutoTableCreationRecreateSchema(TestContainer container) throws Exception {
-        Container.ExecResult execResult =
-                container.executeJob("/auto_table_creation/fake_to_hive_recreate_schema.conf");
-        Assertions.assertEquals(0, execResult.getExitCode());
-        try (java.sql.Statement stmt = this.hiveConnection.createStatement();
-                java.sql.ResultSet rs =
-                        stmt.executeQuery(
-                                "select count(*) from default.test_auto_create_when_not_exist")) {
-            Assertions.assertTrue(rs.next());
-            Assertions.assertEquals(3, rs.getInt(1));
-        }
+        executeJob(
+                container,
+                "/auto_table_creation/fake_to_hive_recreate_schema.conf",
+                "/auto_table_creation/hive_auto_recreate_to_assert.conf");
     }
 
     @TestTemplate
     public void testAutoTableCreationORCFormat(TestContainer container) throws Exception {
-        Container.ExecResult execResult =
-                container.executeJob("/auto_table_creation/fake_to_hive_custom_template.conf");
-        Assertions.assertEquals(0, execResult.getExitCode());
-        // Verify table created with ORC format by checking SERDE or format via DESCRIBE FORMATTED
-        try (java.sql.Statement stmt = this.hiveConnection.createStatement();
-                java.sql.ResultSet rs =
-                        stmt.executeQuery(
-                                "DESCRIBE FORMATTED default.test_auto_create_when_not_exist")) {
-            boolean sawOrc = false;
-            while (rs.next()) {
-                String col1 = rs.getString(1);
-                String col2 = rs.getString(2);
-                if (col1 != null
-                        && col1.contains("SerDe Library")
-                        && col2 != null
-                        && col2.contains("OrcSerde")) {
-                    sawOrc = true;
-                    break;
-                }
-            }
-            Assertions.assertTrue(sawOrc, "Expected ORC SerDe in table properties");
-        }
+        executeJob(
+                container,
+                "/auto_table_creation/fake_to_hive_custom_template.conf",
+                "/auto_table_creation/hive_auto_orc_format_to_assert.conf");
     }
 
     @TestTemplate
     public void testAutoTableCreationDefaultTemplate(TestContainer container) throws Exception {
+        executeJob(
+                container,
+                "/auto_table_creation/fake_to_hive_default_template.conf",
+                "/auto_table_creation/hive_auto_create_default_to_assert.conf");
+    }
+
+    @TestTemplate
+    public void testAutoTableCreationAllTypes(TestContainer container) throws Exception {
+        // Run the all-types job
         Container.ExecResult execResult =
-                container.executeJob("/auto_table_creation/fake_to_hive_default_template.conf");
+                container.executeJob("/auto_table_creation/fake_to_hive_all_types.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
-        // Verify the default template behavior: table exists and has 3 rows
+
+        // Verify column types via DESCRIBE (name, type)
+        java.util.Map<String, String> expected = new java.util.LinkedHashMap<>();
+        expected.put("c_string", "string");
+        expected.put("c_boolean", "boolean");
+        expected.put("c_tinyint", "tinyint");
+        expected.put("c_smallint", "smallint");
+        expected.put("c_int", "int");
+        expected.put("c_bigint", "bigint");
+        expected.put("c_float", "float");
+        expected.put("c_double", "double");
+        expected.put("c_decimal", "decimal(10,2)");
+        expected.put("c_bytes", "binary");
+        expected.put("c_date", "date");
+        expected.put("c_timestamp", "timestamp");
+        expected.put("c_array", "array<int>");
+        expected.put("c_map", "map<string,int>");
+        expected.put("c_row", "struct<f1:int,b:string,f3:array<double>,f4:map<string,string>>");
+
         try (java.sql.Statement stmt = this.hiveConnection.createStatement();
-                java.sql.ResultSet rs =
-                        stmt.executeQuery(
-                                "select count(*) from default.test_auto_create_default")) {
-            Assertions.assertTrue(rs.next());
-            Assertions.assertEquals(3, rs.getInt(1));
+                java.sql.ResultSet rs = stmt.executeQuery("DESCRIBE default.test_all_types")) {
+            java.util.Map<String, String> actual = new java.util.LinkedHashMap<>();
+            while (rs.next()) {
+                String col = rs.getString(1);
+                String typ = rs.getString(2);
+                if (col == null || typ == null) {
+                    continue;
+                }
+                col = col.trim();
+                typ = typ.trim().toLowerCase().replaceAll("\\s+", "");
+                if (expected.containsKey(col)) {
+                    actual.put(col, typ);
+                }
+            }
+            // normalize expected formatting
+            java.util.Map<String, String> normalizedExpected = new java.util.LinkedHashMap<>();
+            expected.forEach(
+                    (k, v) -> normalizedExpected.put(k, v.toLowerCase().replaceAll("\\s+", "")));
+
+            // Assert all expected columns present and types match (case/space insensitive)
+            Assertions.assertEquals(normalizedExpected, actual);
         }
     }
 }

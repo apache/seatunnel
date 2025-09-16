@@ -78,4 +78,57 @@ class HiveTypeConvertorTest {
                 "timestamp",
                 HiveTypeConvertor.seatunnelToHiveType(LocalTimeType.LOCAL_DATE_TIME_TYPE));
     }
+
+    @Test
+    void testSeatunnelToHiveTypeComplexTypes() {
+        // ARRAY
+        org.apache.seatunnel.api.table.type.ArrayType<Integer[], Integer> intArrayType =
+                new org.apache.seatunnel.api.table.type.ArrayType<>(
+                        Integer[].class, BasicType.INT_TYPE);
+        assertEquals("array<int>", HiveTypeConvertor.seatunnelToHiveType(intArrayType));
+
+        // MAP
+        org.apache.seatunnel.api.table.type.MapType<String, Integer> mapType =
+                new org.apache.seatunnel.api.table.type.MapType<>(
+                        BasicType.STRING_TYPE, BasicType.INT_TYPE);
+        assertEquals("map<string,int>", HiveTypeConvertor.seatunnelToHiveType(mapType));
+
+        // ROW (struct)
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"a", "b"},
+                        new org.apache.seatunnel.api.table.type.SeaTunnelDataType<?>[] {
+                            BasicType.INT_TYPE, BasicType.STRING_TYPE
+                        });
+        assertEquals("struct<a:int,b:string>", HiveTypeConvertor.seatunnelToHiveType(rowType));
+
+        // Nested: array<map<string,array<int>>>
+        org.apache.seatunnel.api.table.type.ArrayType<Integer[], Integer> nestedArray =
+                new org.apache.seatunnel.api.table.type.ArrayType<>(
+                        Integer[].class, BasicType.INT_TYPE);
+        org.apache.seatunnel.api.table.type.MapType<String, Integer[]> nestedMap =
+                new org.apache.seatunnel.api.table.type.MapType<>(
+                        BasicType.STRING_TYPE, nestedArray);
+        org.apache.seatunnel.api.table.type.ArrayType<
+                        java.util.Map<String, Integer[]>[], java.util.Map<String, Integer[]>>
+                complexArray =
+                        new org.apache.seatunnel.api.table.type.ArrayType<>(
+                                (Class) java.util.Map[].class, nestedMap);
+        assertEquals(
+                "array<map<string,array<int>>>",
+                HiveTypeConvertor.seatunnelToHiveType(complexArray));
+
+        // Nested: struct<f1:array<int>,f2:map<string,string>>
+        SeaTunnelRowType nestedRow =
+                new SeaTunnelRowType(
+                        new String[] {"f1", "f2"},
+                        new org.apache.seatunnel.api.table.type.SeaTunnelDataType<?>[] {
+                            intArrayType,
+                            new org.apache.seatunnel.api.table.type.MapType<>(
+                                    BasicType.STRING_TYPE, BasicType.STRING_TYPE)
+                        });
+        assertEquals(
+                "struct<f1:array<int>,f2:map<string,string>>",
+                HiveTypeConvertor.seatunnelToHiveType(nestedRow));
+    }
 }

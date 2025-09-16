@@ -92,10 +92,42 @@ public class HiveTypeConvertor {
             case TIMESTAMP:
                 return "timestamp";
             case ROW:
+                if (seaTunnelType instanceof org.apache.seatunnel.api.table.type.SeaTunnelRowType) {
+                    org.apache.seatunnel.api.table.type.SeaTunnelRowType rowType =
+                            (org.apache.seatunnel.api.table.type.SeaTunnelRowType) seaTunnelType;
+                    StringBuilder sb = new StringBuilder("struct<");
+                    String[] fieldNames = rowType.getFieldNames();
+                    org.apache.seatunnel.api.table.type.SeaTunnelDataType<?>[] fieldTypes =
+                            rowType.getFieldTypes();
+                    for (int i = 0; i < fieldNames.length; i++) {
+                        if (i > 0) {
+                            sb.append(',');
+                        }
+                        sb.append(fieldNames[i])
+                                .append(':')
+                                .append(seatunnelToHiveType(fieldTypes[i]));
+                    }
+                    sb.append('>');
+                    return sb.toString();
+                }
                 return "struct";
             case ARRAY:
+                if (seaTunnelType instanceof org.apache.seatunnel.api.table.type.ArrayType) {
+                    org.apache.seatunnel.api.table.type.ArrayType<?, ?> arrayType =
+                            (org.apache.seatunnel.api.table.type.ArrayType<?, ?>) seaTunnelType;
+                    return "array<" + seatunnelToHiveType(arrayType.getElementType()) + ">";
+                }
                 return "array";
             case MAP:
+                if (seaTunnelType instanceof org.apache.seatunnel.api.table.type.MapType) {
+                    org.apache.seatunnel.api.table.type.MapType<?, ?> mapType =
+                            (org.apache.seatunnel.api.table.type.MapType<?, ?>) seaTunnelType;
+                    return "map<"
+                            + seatunnelToHiveType(mapType.getKeyType())
+                            + ","
+                            + seatunnelToHiveType(mapType.getValueType())
+                            + ">";
+                }
                 return "map";
             case NULL:
                 throw new UnsupportedOperationException("Orc does not support NULL type");
