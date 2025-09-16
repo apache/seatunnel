@@ -17,21 +17,27 @@
 
 package org.apache.seatunnel.connectors.seatunnel.redis.sink;
 
+import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.serialization.SerializationSchema;
 import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
 import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 import org.apache.seatunnel.connectors.seatunnel.redis.client.RedisClient;
+import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisBaseOptions;
 import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisDataType;
 import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisParameters;
 import org.apache.seatunnel.connectors.seatunnel.redis.exception.RedisConnectorException;
 import org.apache.seatunnel.format.json.JsonSerializationSchema;
+import org.apache.seatunnel.format.text.TextSerializationSchema;
 
 import org.apache.commons.lang3.StringUtils;
+
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -40,12 +46,13 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
+@Slf4j
 public class RedisSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
         implements SupportMultiTableSinkWriter<Void> {
-    private static final String REDIS_GROUP_DELIMITER = ":";
-    private static final String LEFT_PLACEHOLDER_MARKER = "{";
-    private static final String RIGHT_PLACEHOLDER_MARKER = "}";
+    private static final Pattern PLACEHOLDER_PATTERN = Pattern.compile("\\{([^}]+)\\}");
     private final SeaTunnelRowType seaTunnelRowType;
     private final RedisParameters redisParameters;
     private final SerializationSchema serializationSchema;
@@ -60,9 +67,7 @@ public class RedisSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
     public RedisSinkWriter(SeaTunnelRowType seaTunnelRowType, RedisParameters redisParameters) {
         this.seaTunnelRowType = seaTunnelRowType;
         this.redisParameters = redisParameters;
-        // TODO according to format to initialize serializationSchema
-        // Now temporary using json serializationSchema
-        this.serializationSchema = new JsonSerializationSchema(seaTunnelRowType);
+        this.serializationSchema = createSerializationSchema(redisParameters, seaTunnelRowType);
         this.redisClient = redisParameters.buildRedisClient();
         this.batchSize = redisParameters.getBatchSize();
         this.rowKinds = new ArrayList<>(batchSize);
@@ -81,6 +86,8 @@ public class RedisSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
         if (keyBuffer.size() >= batchSize) {
             flush();
         }
+
+        log.debug("write redis key: {}, value: {}， rowKind: {}", key, value, element.getRowKind());
     }
 
     private String getKey(SeaTunnelRow element, List<String> fields) {
@@ -101,28 +108,28 @@ public class RedisSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
         }
     }
 
-    private String getCustomKey(SeaTunnelRow element, List<String> fields, String keyField) {
-        String[] keyFieldSegments = keyField.split(REDIS_GROUP_DELIMITER);
-        StringBuilder key = new StringBuilder();
-        for (int i = 0; i < keyFieldSegments.length; i++) {
-            String keyFieldSegment = keyFieldSegments[i];
-            if (keyFieldSegment.startsWith(LEFT_PLACEHOLDER_MARKER)
-                    && keyFieldSegment.endsWith(RIGHT_PLACEHOLDER_MARKER)) {
-                String realKeyField = keyFieldSegment.substring(1, keyFieldSegment.length() - 1);
-                if (fields.contains(realKeyField)) {
-                    Object realFieldValue = element.getField(fields.indexOf(realKeyField));
-                    key.append(realFieldValue == null ? "" : realFieldValue.toString());
-                } else {
-                    key.append(keyFieldSegment);
-                }
-            } else {
-                key.append(keyFieldSegment);
-            }
-            if (i != keyFieldSegments.length - 1) {
-                key.append(REDIS_GROUP_DELIMITER);
-            }
+    protected String getCustomKey(SeaTunnelRow element, List<String> fields, String keyField) {
+        Matcher matcher = PLACEHOLDER_PATTERN.matcher(keyField);
+        StringBuffer result = new StringBuffer();
+
+        while (matcher.find()) {
+            String fieldName = matcher.group(1);
+            String fieldValue = getFieldValue(element, fields, fieldName);
+            matcher.appendReplacement(result, Matcher.quoteReplacement(fieldValue));
         }
-        return key.toString();
+        matcher.appendTail(result);
+
+        return result.toString();
+    }
+
+    private String getFieldValue(SeaTunnelRow element, List<String> fields, String fieldName) {
+        if (fields.contains(fieldName)) {
+            Object fieldValue = element.getField(fields.indexOf(fieldName));
+            return fieldValue == null ? "" : fieldValue.toString();
+        } else {
+            // If the field does not exist, return the original field name
+            return fieldName;
+        }
     }
 
     private String getValue(SeaTunnelRow element, List<String> fields) {
@@ -217,6 +224,31 @@ public class RedisSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
         throw new RedisConnectorException(
                 CommonErrorCode.UNSUPPORTED_DATA_TYPE,
                 "UnSupport redisDataType,only support string,list,hash,set,zset");
+    }
+
+    private SerializationSchema createSerializationSchema(
+            RedisParameters redisParameters, SeaTunnelRowType rowType) {
+
+        RedisBaseOptions.Format format = redisParameters.getFormat();
+
+        switch (format) {
+            case JSON:
+                return new JsonSerializationSchema(rowType);
+            case TEXT:
+                String fieldDelimiter = redisParameters.getFieldDelimiter();
+                return TextSerializationSchema.builder()
+                        .seaTunnelRowType(rowType)
+                        .delimiter(fieldDelimiter)
+                        .build();
+            default:
+                throw new RedisConnectorException(
+                        SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                        String.format(
+                                "PluginName: %s, PluginType: %s, Message: %s",
+                                RedisBaseOptions.CONNECTOR_IDENTITY,
+                                PluginType.SINK,
+                                "Unsupported format: " + format));
+        }
     }
 
     @Override

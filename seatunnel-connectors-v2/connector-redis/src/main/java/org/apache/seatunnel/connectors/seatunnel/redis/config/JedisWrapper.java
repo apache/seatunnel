@@ -17,7 +17,11 @@
 
 package org.apache.seatunnel.connectors.seatunnel.redis.config;
 
+import org.apache.seatunnel.connectors.seatunnel.redis.exception.RedisConnectorException;
+
 import lombok.NonNull;
+import lombok.extern.slf4j.Slf4j;
+import redis.clients.jedis.ConnectionPool;
 import redis.clients.jedis.Jedis;
 import redis.clients.jedis.JedisCluster;
 
@@ -25,6 +29,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import static org.apache.seatunnel.connectors.seatunnel.redis.exception.RedisErrorCode.GET_REDIS_INFO_ERROR;
+
+@Slf4j
 public class JedisWrapper extends Jedis {
     private final JedisCluster jedisCluster;
 
@@ -80,6 +87,48 @@ public class JedisWrapper extends Jedis {
     @Override
     public List<String> zrange(final String key, final long start, final long stop) {
         return jedisCluster.zrange(key, start, stop);
+    }
+
+    @Override
+    public String info() {
+        Map<String, ConnectionPool> nodes = jedisCluster.getClusterNodes();
+        if (nodes.isEmpty()) {
+            throw new RedisConnectorException(
+                    GET_REDIS_INFO_ERROR, "No available nodes in cluster");
+        }
+
+        // Traverse all nodes and try to obtain the info
+        Exception lastException = null;
+        for (Map.Entry<String, ConnectionPool> entry : nodes.entrySet()) {
+            ConnectionPool pool = entry.getValue();
+            try {
+                try (Jedis jedis = new Jedis(pool.getResource())) {
+                    return jedis.info();
+                }
+            } catch (Exception e) {
+                lastException = e;
+                log.warn("Failed to get info from node: {}", entry.getKey(), e);
+            }
+        }
+
+        throw new RedisConnectorException(
+                GET_REDIS_INFO_ERROR,
+                "Failed to get redis info from any node in cluster",
+                lastException);
+    }
+
+    @Override
+    public String type(String key) {
+        return jedisCluster.type(key);
+    }
+
+    public Map<String, ConnectionPool> getClusterNodes() {
+        return jedisCluster.getClusterNodes();
+    }
+
+    @Override
+    public long expire(final String key, final long seconds) {
+        return jedisCluster.expire(key, seconds);
     }
 
     @Override

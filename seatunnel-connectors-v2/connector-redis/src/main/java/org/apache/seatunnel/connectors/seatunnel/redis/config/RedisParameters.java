@@ -65,6 +65,8 @@ public class RedisParameters implements Serializable {
     private String valueField;
     private String hashKeyField;
     private String hashValueField;
+    private String fieldDelimiter;
+    private RedisBaseOptions.Format format;
 
     private int redisVersion;
 
@@ -137,6 +139,12 @@ public class RedisParameters implements Serializable {
         if (config.getOptional(RedisSinkOptions.HASH_VALUE_FIELD).isPresent()) {
             this.hashValueField = config.get(RedisSinkOptions.HASH_VALUE_FIELD);
         }
+
+        // set format, default json
+        this.format = config.get(RedisBaseOptions.FORMAT);
+
+        // set field delimiter, only need when format is TEXT
+        this.fieldDelimiter = config.get(RedisBaseOptions.FIELD_DELIMITER);
     }
 
     public RedisClient buildRedisClient() {
@@ -219,7 +227,6 @@ public class RedisParameters implements Serializable {
                     jedisCluster = new JedisCluster(nodes);
                 }
                 JedisWrapper jedisWrapper = new JedisWrapper(jedisCluster);
-                jedisWrapper.select(dbNum);
                 return jedisWrapper;
             default:
                 // do nothing
