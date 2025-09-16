@@ -283,9 +283,11 @@ public class RedisClusterIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
-    public void testRedisClusterScan(TestContainer container) throws IOException, InterruptedException {
+    public void testRedisClusterScan(TestContainer container)
+            throws IOException, InterruptedException {
         try {
-            Container.ExecResult execResult = container.executeJob("/cluster-redis-to-redis-scan.conf");
+            Container.ExecResult execResult =
+                    container.executeJob("/cluster-redis-to-redis-scan.conf");
             Assertions.assertEquals(0, execResult.getExitCode());
 
             long listLength = jedisCluster.llen("key_list");
