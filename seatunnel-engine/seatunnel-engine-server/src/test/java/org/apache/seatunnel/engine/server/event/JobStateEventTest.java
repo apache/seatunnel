@@ -79,7 +79,8 @@ public class JobStateEventTest extends AbstractSeaTunnelServerTest {
                                         server.getCoordinatorService()
                                                 .getJobStatus(jobId_finished)));
         // check whether the event handler is executed
-        Assertions.assertEquals(1, accessCounter.get());
+        await().atMost(10, TimeUnit.SECONDS)
+                .untilAsserted(() -> Assertions.assertEquals(1, accessCounter.get()));
         JobStateEvent jobStateEventFinished = jobStateEventReference.get();
         Assertions.assertEquals(String.valueOf(jobId_finished), jobStateEventFinished.getJobId());
         Assertions.assertEquals(JobStatus.FINISHED, jobStateEventFinished.getJobStatus());
@@ -95,7 +96,8 @@ public class JobStateEventTest extends AbstractSeaTunnelServerTest {
                                         JobStatus.FAILED,
                                         server.getCoordinatorService().getJobStatus(jobId_failed)));
 
-        Assertions.assertEquals(2, accessCounter.get());
+        await().atMost(10, TimeUnit.SECONDS)
+                .untilAsserted(() -> Assertions.assertEquals(2, accessCounter.get()));
         JobStateEvent jobStateEventFailed = jobStateEventReference.get();
         Assertions.assertEquals(String.valueOf(jobId_failed), jobStateEventFailed.getJobId());
         Assertions.assertEquals(JobStatus.FAILED, jobStateEventFailed.getJobStatus());

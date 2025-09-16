@@ -35,6 +35,7 @@ import ChangeLog from '../changelog/connector-file-hadoop.md';
   - [x] excel
   - [x] xml
   - [x] binary
+  - [x] markdown
 
 ## 描述
 
@@ -51,7 +52,7 @@ import ChangeLog from '../changelog/connector-file-hadoop.md';
 | 名称                      | 类型    | 是否必须 | 默认值             | 描述                                                                                                                                                                                                                                                                                                                                   |
 |---------------------------|---------|----------|---------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | path                      | string  | 是      | -                   | 源文件路径。                                                                                                                                                                                                                                                                                                                         |
-| file_format_type          | string  | 是      | -                   | 我们支持以下文件类型：`text` `csv` `parquet` `orc` `json` `excel` `xml` `binary`。请注意，最终文件名将以文件格式的后缀结束，文本文件的后缀是 `txt`。                                                                                                                       |
+| file_format_type          | string  | 是      | -                   | 我们支持以下文件类型：`text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `markdown`。请注意，最终文件名将以文件格式的后缀结束，文本文件的后缀是 `txt`。                                                                                                                       |
 | fs.defaultFS              | string  | 是      | -                   | 以 `hdfs://` 开头的 hadoop 集群地址，例如：`hdfs://hadoopcluster`                                                                                                                                                                                                                                                                     |
 | read_columns              | list    | 否       | -                   | 数据源的读取列列表，用户可以使用它来实现字段投影。支持列投影的文件类型如下所示：[text,json,csv,orc,parquet,excel,xml]。提示：如果用户想在读取 `text` `json` `csv` 文件时使用此功能，必须配置 schema 选项。                       |
 | hdfs_site_path            | string  | 否       | -                   | `hdfs-site.xml` 的路径，用于加载 namenodes 的 ha 配置                                                                                                                                                                                                                                                                                       |
@@ -82,6 +83,26 @@ import ChangeLog from '../changelog/connector-file-hadoop.md';
 | common-options            |         | 否       | -                   | 数据源插件通用参数，请参阅 [数据源通用选项](../source-common-options.md) 了解详情。                                                                                                                                                                                                                                                           |
 | file_filter_modified_start  | string  | 否    | -                   | 按照最后修改时间过滤文件。 要过滤的开始时间(包括改时间),时间格式是：`yyyy-MM-dd HH:mm:ss`                                                                                 |
 | file_filter_modified_end    | string  | 否    | -                   | 按照最后修改时间过滤文件。 要过滤的结束时间(不包括改时间),时间格式是：`yyyy-MM-dd HH:mm:ss`                                                                                                                   |
+
+### file_format_type [string]
+
+文件类型，支持以下文件类型：
+
+`text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `markdown`
+
+如果您将文件类型指定为 `markdown`，SeaTunnel 可以解析 markdown 文件并提取结构化数据。
+markdown 解析器提取各种元素，包括标题、段落、列表、代码块、表格等。
+每个元素都转换为具有以下架构的行：
+- `element_id`：元素的唯一标识符
+- `element_type`：元素类型（Heading、Paragraph、ListItem 等）
+- `heading_level`：标题级别（1-6，非标题元素为 null）
+- `text`：元素的文本内容
+- `page_number`：页码（默认：1）
+- `position_index`：文档中的位置索引
+- `parent_id`：父元素的 ID
+- `child_ids`：子元素 ID 的逗号分隔列表
+
+注意：Markdown 格式仅支持读取，不支持写入。
 
 ### delimiter/field_delimiter [string]
 

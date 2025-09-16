@@ -45,12 +45,13 @@ import ChangeLog from '../changelog/connector-file-oss.md';
   - [x] excel
   - [x] xml
   - [x] binary
+  - [x] markdown
 
 ## 数据类型映射
 
 数据类型映射与正在读取的文件类型相关，我们支持以下文件类型：
 
-`text` `csv` `parquet` `orc` `json` `excel` `xml`
+`text` `csv` `parquet` `orc` `json` `excel` `xml` `markdown`
 
 ### JSON文件类型
 
@@ -185,7 +186,7 @@ schema {
 | 名称                      | 类型    | 是否必需 | 默认值       | 描述                                                                                                                                                                                                                                                                                                                         |
 |---------------------------|---------|----------|---------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | path                      | string  | 是      | -                   | 需要读取的Oss路径，可以有子路径，但子路径需要满足一定的格式要求。具体要求可以参考"parse_partition_from_path"选项                                                                                                                                      |
-| file_format_type          | string  | 是      | -                   | 文件类型，支持以下文件类型：`text` `csv` `parquet` `orc` `json` `excel` `xml` `binary`                                                                                                                                                                                                                                        |
+| file_format_type          | string  | 是      | -                   | 文件类型，支持以下文件类型：`text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `markdown`                                                                                                                                                                                                                                        |
 | bucket                    | string  | 是      | -                   | oss文件系统的bucket地址，例如：`oss://seatunnel-test`。                                                                                                                                                                                                                                                                         |
 | endpoint                  | string  | 是      | -                   | fs oss端点                                                                                                                                                                                                                                                                                                                     |
 | read_columns              | list    | 否       | -                   | 数据源的读取列列表，用户可以使用它来实现字段投影。支持列投影的文件类型如下所示：`text` `csv` `parquet` `orc` `json` `excel` `xml`。如果用户想在读取`text` `json` `csv`文件时使用此功能，必须配置"schema"选项。 |
@@ -240,6 +241,26 @@ schema {
 仅在file_format_type为binary时使用。
 
 是否将完整文件作为单个块读取，而不是分割成块。启用时，整个文件内容将一次性读入内存。默认为false。
+
+### file_format_type [string]
+
+文件类型，支持以下文件类型：
+
+`text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `markdown`
+
+如果您将文件类型指定为 `markdown`，SeaTunnel 可以解析 markdown 文件并提取结构化数据。
+markdown 解析器提取各种元素，包括标题、段落、列表、代码块、表格等。
+每个元素都转换为具有以下架构的行：
+- `element_id`：元素的唯一标识符
+- `element_type`：元素类型（Heading、Paragraph、ListItem 等）
+- `heading_level`：标题级别（1-6，非标题元素为 null）
+- `text`：元素的文本内容
+- `page_number`：页码（默认：1）
+- `position_index`：文档中的位置索引
+- `parent_id`：父元素的 ID
+- `child_ids`：子元素 ID 的逗号分隔列表
+
+注意：Markdown 格式仅支持读取，不支持写入。
 
 ### file_filter_pattern [string]
 

@@ -41,6 +41,7 @@
         <jaxen.version>2.0.0</jaxen.version>
         <easyexcel.version>4.0.3</easyexcel.version>
         <fastexcel-reader.version>0.18.4</fastexcel-reader.version>
+        <flexmark-all.version>0.62.2</flexmark-all.version>
     </properties>
 
     <dependencyManagement>
@@ -179,6 +180,11 @@
             <version>${easyexcel.version}</version>
         </dependency>
 
+        <dependency>
+            <groupId>com.vladsch.flexmark</groupId>
+            <artifactId>flexmark-all</artifactId>
+            <version>${flexmark-all.version}</version>
+        </dependency>
     </dependencies>
 
     <build>

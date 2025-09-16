@@ -2,6 +2,12 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
+|[Feature][Transform-V2] Support vector series sql function (#9765)|https://github.com/apache/seatunnel/commit/a40114cf7a|2.3.12|
+|[Improve][Connector-milvus]update milvus-sdk-java to 2.5.11 (#9710)|https://github.com/apache/seatunnel/commit/08ebbaa8bd|2.3.12|
+|[Chore] fix typos filed -&gt; field (#9757)|https://github.com/apache/seatunnel/commit/e3e1c67d29|2.3.12|
+|[Improve][Connector-V2]  Optimize Milvus doc and e2e test case (#9766)|https://github.com/apache/seatunnel/commit/e67466f73e|2.3.12|
+|[Improve][API] Optimize the enumerator API semantics and reduce lock calls at the connector level (#9671)|https://github.com/apache/seatunnel/commit/9212a77140|2.3.12|
+|[Improve][API] Add metadata schema into catalog table (#9586)|https://github.com/apache/seatunnel/commit/385814e7f1|2.3.12|
 |[Feature][Transform] Support define sink column type (#9114)|https://github.com/apache/seatunnel/commit/ab7119e507|2.3.11|
 |[Feature][Checkpoint] Add check script for source/sink state class serialVersionUID missing (#9118)|https://github.com/apache/seatunnel/commit/4f5adeb1c7|2.3.11|
 |[improve] milvus options (#9165)|https://github.com/apache/seatunnel/commit/5247e17640|2.3.11|
