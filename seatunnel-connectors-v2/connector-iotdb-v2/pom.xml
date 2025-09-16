@@ -29,10 +29,6 @@
     <artifactId>connector-iotdb-v2</artifactId>
     <name>SeaTunnel : Connectors V2 : IoTDBv2</name>
 
-    <properties>
-        <iotdb.version>2.0.5</iotdb.version>
-    </properties>
-
     <dependencies>
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
@@ -41,15 +37,9 @@
         </dependency>
 
         <dependency>
-            <groupId>org.apache.iotdb</groupId>
-            <artifactId>iotdb-session</artifactId>
-            <version>${iotdb.version}</version>
-            <exclusions>
-                <exclusion>
-                    <groupId>ch.qos.logback</groupId>
-                    <artifactId>logback-classic</artifactId>
-                </exclusion>
-            </exclusions>
+            <groupId>com.timecho.iotdb</groupId>
+            <artifactId>shade-iotdb-session</artifactId>
+            <version>2.0.6.1</version>
         </dependency>
     </dependencies>
 

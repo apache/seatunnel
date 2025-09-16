@@ -43,7 +43,7 @@ import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.IoTDBSource
 import static org.apache.seatunnel.connectors.seatunnel.iotdb.constant.SourceConstants.DEFAULT_PARTITIONS;
 import static org.apache.seatunnel.connectors.seatunnel.iotdb.constant.SourceConstants.SQL_ALIGN;
 import static org.apache.seatunnel.connectors.seatunnel.iotdb.constant.SourceConstants.SQL_WHERE;
-import static org.apache.tsfile.common.constant.QueryConstant.RESERVED_TIME;
+import static shaded.org.apache.tsfile.common.constant.QueryConstant.RESERVED_TIME;
 
 @Slf4j
 public class IoTDBSourceSplitEnumerator

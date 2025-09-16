@@ -25,9 +25,8 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.iotdb.exception.IotdbConnectorException;
 
-import org.apache.tsfile.enums.TSDataType;
-
 import lombok.NonNull;
+import shaded.org.apache.tsfile.enums.TSDataType;
 
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;

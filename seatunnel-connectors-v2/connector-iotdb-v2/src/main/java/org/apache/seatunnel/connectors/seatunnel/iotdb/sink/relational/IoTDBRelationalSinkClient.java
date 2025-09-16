@@ -24,15 +24,14 @@ import org.apache.seatunnel.connectors.seatunnel.iotdb.exception.IotdbConnectorE
 import org.apache.seatunnel.connectors.seatunnel.iotdb.exception.IotdbConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.iotdb.serialize.relational.IoTDBRelationalRecord;
 
-import org.apache.iotdb.isession.ITableSession;
-import org.apache.iotdb.rpc.IoTDBConnectionException;
-import org.apache.iotdb.rpc.StatementExecutionException;
-import org.apache.iotdb.session.TableSessionBuilder;
-import org.apache.tsfile.enums.ColumnCategory;
-import org.apache.tsfile.enums.TSDataType;
-import org.apache.tsfile.write.record.Tablet;
-
 import lombok.extern.slf4j.Slf4j;
+import shaded.org.apache.iotdb.isession.ITableSession;
+import shaded.org.apache.iotdb.rpc.IoTDBConnectionException;
+import shaded.org.apache.iotdb.rpc.StatementExecutionException;
+import shaded.org.apache.iotdb.session.TableSessionBuilder;
+import shaded.org.apache.tsfile.enums.ColumnCategory;
+import shaded.org.apache.tsfile.enums.TSDataType;
+import shaded.org.apache.tsfile.write.record.Tablet;
 
 import java.io.IOException;
 import java.time.LocalDate;
@@ -85,7 +84,8 @@ public class IoTDBRelationalSinkClient {
                         .nodeUrls(sinkConfig.getNodeUrls())
                         .username(sinkConfig.getUsername())
                         .password(sinkConfig.getPassword())
-                        .database(database);
+                        .database(database)
+                        .enableCompression(false);
         if (sinkConfig.getThriftDefaultBufferSize() != null) {
             sessionBuilder.thriftDefaultBufferSize(sinkConfig.getThriftDefaultBufferSize());
         }

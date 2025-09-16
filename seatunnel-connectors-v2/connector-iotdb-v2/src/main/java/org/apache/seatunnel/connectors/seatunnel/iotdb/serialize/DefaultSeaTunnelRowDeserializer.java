@@ -24,12 +24,11 @@ import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.iotdb.constant.SourceConstants;
 import org.apache.seatunnel.connectors.seatunnel.iotdb.exception.IotdbConnectorException;
 
-import org.apache.tsfile.enums.TSDataType;
-import org.apache.tsfile.read.common.Field;
-import org.apache.tsfile.read.common.RowRecord;
-
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import shaded.org.apache.tsfile.enums.TSDataType;
+import shaded.org.apache.tsfile.read.common.Field;
+import shaded.org.apache.tsfile.read.common.RowRecord;
 
 import java.time.ZoneOffset;
 import java.util.Date;

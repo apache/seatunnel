@@ -26,12 +26,11 @@ import org.apache.seatunnel.connectors.seatunnel.iotdb.constant.SourceConstants;
 import org.apache.seatunnel.connectors.seatunnel.iotdb.exception.IotdbConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.iotdb.exception.IotdbConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.iotdb.serialize.DefaultSeaTunnelRowDeserializer;
-
-import org.apache.iotdb.isession.SessionDataSet;
-import org.apache.iotdb.isession.util.Version;
-import org.apache.iotdb.rpc.IoTDBConnectionException;
-import org.apache.iotdb.session.Session;
-import org.apache.tsfile.read.common.RowRecord;
+import shaded.org.apache.iotdb.isession.SessionDataSet;
+import shaded.org.apache.iotdb.isession.util.Version;
+import shaded.org.apache.iotdb.rpc.IoTDBConnectionException;
+import shaded.org.apache.iotdb.session.Session;
+import shaded.org.apache.tsfile.read.common.RowRecord;
 
 import java.io.IOException;
 import java.util.List;

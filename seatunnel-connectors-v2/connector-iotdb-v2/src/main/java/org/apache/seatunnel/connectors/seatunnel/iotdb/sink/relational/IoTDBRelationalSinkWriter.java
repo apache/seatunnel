@@ -29,10 +29,9 @@ import org.apache.seatunnel.connectors.seatunnel.iotdb.serialize.SeaTunnelRowSer
 import org.apache.seatunnel.connectors.seatunnel.iotdb.serialize.relational.IoTDBRelationalRecord;
 import org.apache.seatunnel.connectors.seatunnel.iotdb.serialize.relational.RelationalSeaTunnelRowSerializer;
 
-import org.apache.tsfile.enums.TSDataType;
-
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
+import shaded.org.apache.tsfile.enums.TSDataType;
 
 import java.io.IOException;
 import java.util.ArrayList;

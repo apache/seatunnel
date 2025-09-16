@@ -28,13 +28,12 @@ import org.apache.seatunnel.connectors.seatunnel.iotdb.exception.IotdbConnectorE
 import org.apache.seatunnel.connectors.seatunnel.iotdb.serialize.DefaultSeaTunnelRowDeserializer;
 import org.apache.seatunnel.connectors.seatunnel.iotdb.source.IoTDBAbstractSourceReader;
 import org.apache.seatunnel.connectors.seatunnel.iotdb.source.IoTDBSourceSplit;
-
-import org.apache.iotdb.isession.ITableSession;
-import org.apache.iotdb.isession.SessionDataSet;
-import org.apache.iotdb.isession.util.Version;
-import org.apache.iotdb.rpc.IoTDBConnectionException;
-import org.apache.iotdb.session.TableSessionBuilder;
-import org.apache.tsfile.read.common.RowRecord;
+import shaded.org.apache.iotdb.isession.ITableSession;
+import shaded.org.apache.iotdb.isession.SessionDataSet;
+import shaded.org.apache.iotdb.isession.util.Version;
+import shaded.org.apache.iotdb.rpc.IoTDBConnectionException;
+import shaded.org.apache.iotdb.session.TableSessionBuilder;
+import shaded.org.apache.tsfile.read.common.RowRecord;
 
 import java.io.IOException;
 import java.util.List;
@@ -79,7 +78,7 @@ public class IoTDBRelationalSourceReader extends IoTDBAbstractSourceReader {
     }
 
     private ITableSession buildTableSession(ReadonlyConfig conf) throws IoTDBConnectionException {
-        TableSessionBuilder sessionBuilder = new TableSessionBuilder();
+        TableSessionBuilder sessionBuilder = new TableSessionBuilder().enableCompression(false);
         String nodeUrlsString = conf.get(NODE_URLS);
         List<String> nodes =
                 Stream.of(nodeUrlsString.split(NODES_SPLIT)).collect(Collectors.toList());

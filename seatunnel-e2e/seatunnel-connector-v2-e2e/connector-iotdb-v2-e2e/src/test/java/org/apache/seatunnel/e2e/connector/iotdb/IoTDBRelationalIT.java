@@ -25,18 +25,6 @@ import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 
-import org.apache.iotdb.isession.ITableSession;
-import org.apache.iotdb.isession.SessionDataSet;
-import org.apache.iotdb.rpc.IoTDBConnectionException;
-import org.apache.iotdb.rpc.StatementExecutionException;
-import org.apache.iotdb.session.TableSessionBuilder;
-import org.apache.tsfile.enums.ColumnCategory;
-import org.apache.tsfile.enums.TSDataType;
-import org.apache.tsfile.read.common.Field;
-import org.apache.tsfile.read.common.RowRecord;
-import org.apache.tsfile.utils.Binary;
-import org.apache.tsfile.write.record.Tablet;
-
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
@@ -48,6 +36,17 @@ import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerLoggerFactory;
 
 import lombok.extern.slf4j.Slf4j;
+import shaded.org.apache.iotdb.isession.ITableSession;
+import shaded.org.apache.iotdb.isession.SessionDataSet;
+import shaded.org.apache.iotdb.rpc.IoTDBConnectionException;
+import shaded.org.apache.iotdb.rpc.StatementExecutionException;
+import shaded.org.apache.iotdb.session.TableSessionBuilder;
+import shaded.org.apache.tsfile.enums.ColumnCategory;
+import shaded.org.apache.tsfile.enums.TSDataType;
+import shaded.org.apache.tsfile.read.common.Field;
+import shaded.org.apache.tsfile.read.common.RowRecord;
+import shaded.org.apache.tsfile.utils.Binary;
+import shaded.org.apache.tsfile.write.record.Tablet;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -127,6 +126,7 @@ public class IoTDBRelationalIT extends TestSuiteBase implements TestResource {
         tableSessionBuilder.username(IOTDB_USERNAME);
         tableSessionBuilder.password(IOTDB_PASSWORD);
         tableSessionBuilder.database(SOURCE_DATABASE);
+        tableSessionBuilder.enableCompression(false);
         return tableSessionBuilder;
     }
 
@@ -202,6 +202,7 @@ public class IoTDBRelationalIT extends TestSuiteBase implements TestResource {
             record.addField(new Binary("0x3939".getBytes()), TSDataType.BLOB);
             rowRecords.add(record);
             log.info("TestTableDataSet row: {}", record);
+            System.out.printf("TestTableDataSet row: %s%n", record);
 
             tb.addTimestamp(i, timestamp);
             tb.addValue(i, 0, "tag" + i);

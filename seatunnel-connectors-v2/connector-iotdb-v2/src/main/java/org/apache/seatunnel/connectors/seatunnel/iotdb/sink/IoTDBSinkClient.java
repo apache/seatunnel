@@ -23,13 +23,12 @@ import org.apache.seatunnel.connectors.seatunnel.iotdb.exception.IotdbConnectorE
 import org.apache.seatunnel.connectors.seatunnel.iotdb.exception.IotdbConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.iotdb.serialize.IoTDBRecord;
 
-import org.apache.iotdb.rpc.IoTDBConnectionException;
-import org.apache.iotdb.rpc.StatementExecutionException;
-import org.apache.iotdb.session.Session;
-import org.apache.tsfile.enums.TSDataType;
-
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
+import shaded.org.apache.iotdb.rpc.IoTDBConnectionException;
+import shaded.org.apache.iotdb.rpc.StatementExecutionException;
+import shaded.org.apache.iotdb.session.Session;
+import shaded.org.apache.tsfile.enums.TSDataType;
 
 import java.io.IOException;
 import java.util.ArrayList;

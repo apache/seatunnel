@@ -26,10 +26,9 @@ import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.iotdb.exception.IotdbConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.iotdb.serialize.SeaTunnelRowSerializer;
 
-import org.apache.tsfile.enums.TSDataType;
-
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
+import shaded.org.apache.tsfile.enums.TSDataType;
 
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;

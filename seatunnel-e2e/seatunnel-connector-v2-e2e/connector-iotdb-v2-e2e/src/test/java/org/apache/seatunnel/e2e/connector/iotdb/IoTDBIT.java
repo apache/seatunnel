@@ -25,17 +25,6 @@ import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 
-import org.apache.iotdb.isession.SessionDataSet;
-import org.apache.iotdb.rpc.IoTDBConnectionException;
-import org.apache.iotdb.rpc.StatementExecutionException;
-import org.apache.iotdb.session.Session;
-import org.apache.tsfile.enums.TSDataType;
-import org.apache.tsfile.file.metadata.enums.CompressionType;
-import org.apache.tsfile.file.metadata.enums.TSEncoding;
-import org.apache.tsfile.read.common.Field;
-import org.apache.tsfile.read.common.RowRecord;
-import org.apache.tsfile.utils.Binary;
-
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
@@ -47,6 +36,16 @@ import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerLoggerFactory;
 
 import lombok.extern.slf4j.Slf4j;
+import shaded.org.apache.iotdb.isession.SessionDataSet;
+import shaded.org.apache.iotdb.rpc.IoTDBConnectionException;
+import shaded.org.apache.iotdb.rpc.StatementExecutionException;
+import shaded.org.apache.iotdb.session.Session;
+import shaded.org.apache.tsfile.enums.TSDataType;
+import shaded.org.apache.tsfile.file.metadata.enums.CompressionType;
+import shaded.org.apache.tsfile.file.metadata.enums.TSEncoding;
+import shaded.org.apache.tsfile.read.common.Field;
+import shaded.org.apache.tsfile.read.common.RowRecord;
+import shaded.org.apache.tsfile.utils.Binary;
 
 import java.util.ArrayList;
 import java.util.Collections;
