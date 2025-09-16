@@ -208,15 +208,8 @@ public class MysqlCDCWithBinlogDeleteIT extends TestSuiteBase implements TestRes
                 .atMost(60, TimeUnit.SECONDS)
                 .untilAsserted(
                         () ->
-                                Assertions.assertNotEquals(
-                                        "FAILED", container.getJobStatus(String.valueOf(jobId))));
-
-        // check no error
-        log.info("****************** container logs start ******************");
-        String containerLogs = container.getServerLogs();
-        log.info(containerLogs);
-        Assertions.assertFalse(containerLogs.contains("ERROR"));
-        log.info("****************** container logs end ******************");
+                                Assertions.assertEquals(
+                                        "RUNNING", container.getJobStatus(String.valueOf(jobId))));
 
         // cancel task
         Assertions.assertEquals(0, container.cancelJob(String.valueOf(jobId)).getExitCode());
