@@ -2,10 +2,21 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
-|[Improve][Connector-file]  Add configurable binary chunk size support to BinaryReadStrategy (#9391)|https://github.com/apache/seatunnel/commit/38e87e75a3| dev |
-|[Feature][Sink] File support new format: maxwell_json,canal_json,debezium_json  (#9278) (#9336)|https://github.com/apache/seatunnel/commit/a1bfbb20dd| dev |
-|[Improve][Connector-V2] Support maxcompute sink writer with timestamp field type (#9234)|https://github.com/apache/seatunnel/commit/a513c495e3| dev |
-|[Feature][connector-hive] hive sink connector support overwrite mode #7843 (#7891)|https://github.com/apache/seatunnel/commit/6fafe6f4d3| dev |
+|[Feature][Connector-V2] Support hdfs file multi table source read (#9816)|https://github.com/apache/seatunnel/commit/672af255ef| dev |
+|[Feature][Transform-V2] Support multimodal embeddings (#9673)|https://github.com/apache/seatunnel/commit/12414c4eab| dev |
+|[Improve][Connector-V2] File Source Support filtering files by last modified time.  (#9526)|https://github.com/apache/seatunnel/commit/cde4c3d410|2.3.12|
+|[Feature][Format] Improve maxwell_json,canal_json,debezium_json format add ts_ms and table (#9701)|https://github.com/apache/seatunnel/commit/fb8444b946|2.3.12|
+|[Improve][API] Optimize the enumerator API semantics and reduce lock calls at the connector level (#9671)|https://github.com/apache/seatunnel/commit/9212a77140|2.3.12|
+|[Feature] [connector-file] Add configurable sheet_max_rows support for Excel sink connector (#9668)|https://github.com/apache/seatunnel/commit/ea5bc51067|2.3.12|
+|[Feature][Connector-File-Hadoop]Support multi table sink feature for HdfsFile (#9651)|https://github.com/apache/seatunnel/commit/bb4f743c05|2.3.12|
+|[Improve][Csv] support configurable CSV delimiter in file connector (#9660)|https://github.com/apache/seatunnel/commit/48fb7ef697|2.3.12|
+|[Fix][Connector-V2] Update file filter pattern compilation to remove unnecessary quoting (#9658)|https://github.com/apache/seatunnel/commit/b5c7b4ad0e|2.3.12|
+|[Improve][Connector-V2] Add customizable row delimiter support for text file processing (#9608)|https://github.com/apache/seatunnel/commit/7898e62e01|2.3.12|
+|[Fix][Connector-File] Fix parquet support user config schema (#9596)|https://github.com/apache/seatunnel/commit/2bdaeb6a07|2.3.12|
+|[Improve][Connector-file]  Add configurable binary chunk size support to BinaryReadStrategy (#9391)|https://github.com/apache/seatunnel/commit/38e87e75a3|2.3.12|
+|[Feature][Sink] File support new format: maxwell_json,canal_json,debezium_json  (#9278) (#9336)|https://github.com/apache/seatunnel/commit/a1bfbb20dd|2.3.12|
+|[Improve][Connector-V2] Support maxcompute sink writer with timestamp field type (#9234)|https://github.com/apache/seatunnel/commit/a513c495e3|2.3.12|
+|[Feature][connector-hive] hive sink connector support overwrite mode #7843 (#7891)|https://github.com/apache/seatunnel/commit/6fafe6f4d3|2.3.12|
 |[Improve][Connector-V2] Add remote host verification option for FTP data channels (#9324)|https://github.com/apache/seatunnel/commit/019d69d10a|2.3.11|
 |[Doc][Connector-V2] Update save mode config for OssFileSink (#9303)|https://github.com/apache/seatunnel/commit/40097d7f3e|2.3.11|
 |[Fix][connector-file-base] fix parquet int32 convert error (#9142)|https://github.com/apache/seatunnel/commit/e6413c388e|2.3.11|

@@ -2,7 +2,10 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
-|[Feature][connector-kudu] implement the filter (#9405)|https://github.com/apache/seatunnel/commit/2714dd1105| dev |
+|[Chore] fix typos filed -&gt; field (#9757)|https://github.com/apache/seatunnel/commit/e3e1c67d29|2.3.12|
+|[Improve][Core] Update apache common to apache common lang3 (#9694)|https://github.com/apache/seatunnel/commit/6e5737c1ec|2.3.12|
+|[Improve][API] Optimize the enumerator API semantics and reduce lock calls at the connector level (#9671)|https://github.com/apache/seatunnel/commit/9212a77140|2.3.12|
+|[Feature][connector-kudu] implement the filter (#9405)|https://github.com/apache/seatunnel/commit/2714dd1105|2.3.12|
 |[Feature][Checkpoint] Add check script for source/sink state class serialVersionUID missing (#9118)|https://github.com/apache/seatunnel/commit/4f5adeb1c7|2.3.11|
 |[Improve] kudu options (#9162)|https://github.com/apache/seatunnel/commit/e7edafdbac|2.3.11|
 |[Improve] restruct connector common options (#8634)|https://github.com/apache/seatunnel/commit/f3499a6eeb|2.3.10|
