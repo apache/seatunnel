@@ -47,7 +47,6 @@ public class RedisSinkWriterTest {
 
     @BeforeEach
     void setUp() {
-        // 设置测试用的行类型
         rowType =
                 new SeaTunnelRowType(
                         new String[] {"id", "name", "age", "email"},
