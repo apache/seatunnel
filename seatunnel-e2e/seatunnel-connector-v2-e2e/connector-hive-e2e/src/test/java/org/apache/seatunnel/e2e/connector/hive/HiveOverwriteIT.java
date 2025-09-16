@@ -239,36 +239,24 @@ public class HiveOverwriteIT extends TestSuiteBase implements TestResource {
                 container.executeJob("/overwrite/fake_to_hive_overwrite_1.conf");
         Assertions.assertEquals(0, execResult1.getExitCode());
 
-        try (Statement stmt = this.hiveConnection.createStatement();
-                java.sql.ResultSet rs =
-                        stmt.executeQuery(
-                                "select count(*) from default.test_hive_sink_on_hdfs_overwrite")) {
-            Assertions.assertTrue(rs.next());
-            Assertions.assertEquals(3, rs.getInt(1));
-        }
+        Container.ExecResult readResult1 =
+                container.executeJob("/overwrite/hive_to_assert_overwrite_1.conf");
+        Assertions.assertEquals(0, readResult1.getExitCode());
 
         Container.ExecResult execResult2 =
                 container.executeJob("/overwrite/fake_to_hive_overwrite_2.conf");
         Assertions.assertEquals(0, execResult2.getExitCode());
 
-        try (Statement stmt = this.hiveConnection.createStatement();
-                java.sql.ResultSet rs =
-                        stmt.executeQuery(
-                                "select count(*) from default.test_hive_sink_on_hdfs_overwrite")) {
-            Assertions.assertTrue(rs.next());
-            Assertions.assertEquals(2, rs.getInt(1));
-        }
+        Container.ExecResult readResult2 =
+                container.executeJob("/overwrite/hive_to_assert_overwrite_2.conf");
+        Assertions.assertEquals(0, readResult2.getExitCode());
 
         Container.ExecResult execResult3 =
                 container.executeJob("/overwrite/fake_to_hive_overwrite_3.conf");
         Assertions.assertEquals(0, execResult3.getExitCode());
 
-        try (Statement stmt = this.hiveConnection.createStatement();
-                java.sql.ResultSet rs =
-                        stmt.executeQuery(
-                                "select count(*) from default.test_hive_sink_on_hdfs_overwrite")) {
-            Assertions.assertTrue(rs.next());
-            Assertions.assertEquals(1, rs.getInt(1));
-        }
+        Container.ExecResult readResult3 =
+                container.executeJob("/overwrite/hive_to_assert_overwrite_3.conf");
+        Assertions.assertEquals(0, readResult3.getExitCode());
     }
 }

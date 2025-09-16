@@ -40,7 +40,7 @@ public class HiveSinkAggregatedCommitter extends FileSinkAggregatedCommitter {
     private final String dbName;
     private final String tableName;
     private final boolean abortDropPartitionMetadata;
-    private final boolean overwrite;
+    private final org.apache.seatunnel.api.sink.DataSaveMode dataSaveMode;
 
     private final ReadonlyConfig readonlyConfig;
     private final HiveMetaStoreCatalog hiveMetaStore;
@@ -54,21 +54,22 @@ public class HiveSinkAggregatedCommitter extends FileSinkAggregatedCommitter {
         this.tableName = tableName;
         this.abortDropPartitionMetadata =
                 readonlyConfig.get(HiveSinkOptions.ABORT_DROP_PARTITION_METADATA);
-        this.overwrite =
-                readonlyConfig.get(HiveSinkOptions.OVERWRITE)
-                        || readonlyConfig.get(
-                                        org.apache.seatunnel.connectors.seatunnel.hive.sink
-                                                .HiveSinkOptions.DATA_SAVE_MODE)
-                                == org.apache.seatunnel.api.sink.DataSaveMode.DROP_DATA;
+        // Normalize overwrite into data_save_mode
+        org.apache.seatunnel.api.sink.DataSaveMode configured =
+                readonlyConfig.get(
+                        org.apache.seatunnel.connectors.seatunnel.hive.sink.HiveSinkOptions
+                                .DATA_SAVE_MODE);
+        boolean overwrite = readonlyConfig.get(HiveSinkOptions.OVERWRITE);
+        this.dataSaveMode =
+                overwrite ? org.apache.seatunnel.api.sink.DataSaveMode.DROP_DATA : configured;
     }
 
     @Override
     public List<FileAggregatedCommitInfo> commit(
             List<FileAggregatedCommitInfo> aggregatedCommitInfos) throws IOException {
         log.info("Aggregated commit infos: {}", aggregatedCommitInfos);
-        if (overwrite) {
-            log.info(
-                    "start delete directories in aggregatedCommitInfos because overwrite is enabled.");
+        if (dataSaveMode == org.apache.seatunnel.api.sink.DataSaveMode.DROP_DATA) {
+            log.info("DataSaveMode=DROP_DATA: delete existing target directories before commit.");
             deleteDirectories(aggregatedCommitInfos);
         }
 
