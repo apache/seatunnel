@@ -52,10 +52,8 @@ public class HiveSaveModeHandler implements SaveModeHandler, AutoCloseable {
     private final String dbName;
     private final String tableName;
     private final TableSchema tableSchema;
-    private final List<String> partitionFields;
 
     private HiveMetaStoreCatalog hiveCatalog;
-    private Catalog optionalCatalog;
 
     public HiveSaveModeHandler(
             ReadonlyConfig readonlyConfig,
@@ -68,26 +66,11 @@ public class HiveSaveModeHandler implements SaveModeHandler, AutoCloseable {
         this.dbName = tablePath.getDatabaseName();
         this.tableName = tablePath.getTableName();
         this.tableSchema = catalogTable.getTableSchema();
-
-        // Initialize partition fields from template if available
-        this.partitionFields = extractPartitionFieldsFromConfig();
-    }
-
-    public HiveSaveModeHandler(
-            ReadonlyConfig readonlyConfig,
-            CatalogTable catalogTable,
-            SchemaSaveMode schemaSaveMode,
-            Catalog catalog) {
-        this(readonlyConfig, catalogTable, schemaSaveMode);
-        this.optionalCatalog = catalog;
     }
 
     @Override
     public void open() {
         this.hiveCatalog = HiveMetaStoreCatalog.create(readonlyConfig);
-        if (this.optionalCatalog == null) {
-            this.optionalCatalog = this.hiveCatalog;
-        }
     }
 
     @Override
@@ -103,7 +86,7 @@ public class HiveSaveModeHandler implements SaveModeHandler, AutoCloseable {
 
     @Override
     public Catalog getHandleCatalog() {
-        return optionalCatalog;
+        return hiveCatalog;
     }
 
     @Override
@@ -113,16 +96,12 @@ public class HiveSaveModeHandler implements SaveModeHandler, AutoCloseable {
 
     @Override
     public DataSaveMode getDataSaveMode() {
-        // Hive uses OVERWRITE parameter for data handling
-        return DataSaveMode.APPEND_DATA;
+        return readonlyConfig.get(HiveSinkOptions.DATA_SAVE_MODE);
     }
 
     @Override
     public void close() throws Exception {
-        if (optionalCatalog != null) {
-            optionalCatalog.close();
-        }
-        if (hiveCatalog != null && hiveCatalog != optionalCatalog) {
+        if (hiveCatalog != null) {
             hiveCatalog.close();
         }
     }
@@ -161,12 +140,7 @@ public class HiveSaveModeHandler implements SaveModeHandler, AutoCloseable {
 
     @Override
     public void handleDataSaveMode() {
-        // For Hive, data save mode is handled by the existing OVERWRITE parameter
-        // No additional data handling is needed here
-        log.info(
-                "Data save mode handling is managed by existing OVERWRITE parameter for table {}.{}",
-                dbName,
-                tableName);
+        // No-op: data cleanup is handled in AggregatedCommitter via overwrite or DROP_DATA
     }
 
     private void handleRecreateSchema() throws TException {
@@ -381,11 +355,6 @@ public class HiveSaveModeHandler implements SaveModeHandler, AutoCloseable {
         }
 
         return table;
-    }
-
-    /** Check if table should be partitioned */
-    public boolean isPartitionedTable() {
-        return partitionFields != null && !partitionFields.isEmpty();
     }
 
     private String extractStorageFormatFromTemplate() {

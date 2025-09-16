@@ -48,6 +48,8 @@ By default, we use 2PC commit to ensure `exactly-once`
 | abort_drop_partition_metadata         | boolean | no       | true           |
 | parquet_avro_write_timestamp_as_int96 | boolean | no       | false          |
 | overwrite                             | boolean | no       | false          |
+| data_save_mode                        | enum    | no       | APPEND_DATA    |
+
 | schema_save_mode                      | enum    | no       | CREATE_SCHEMA_WHEN_NOT_EXIST |
 | save_mode_create_template             | string  | no       | -              |
 | common-options                        |         | no       | -              |
@@ -99,6 +101,16 @@ Flag to decide whether to drop partition metadata from Hive Metastore during an 
 Support writing Parquet INT96 from a timestamp, only valid for parquet files.
 
 ### overwrite [boolean]
+
+### data_save_mode [enum]
+
+Select how to handle existing data on the target before writing new data.
+
+- APPEND_DATA (default): Keep existing data and append new records.
+- DROP_DATA: Behaves the same as overwrite=true. Before commit, delete the existing data in the target path (for non-partitioned tables, delete the table directory; for partitioned tables, delete the related partition directories), then write new data.
+- CUSTOM_PROCESSING / ERROR_WHEN_DATA_EXISTS: Currently not recommended for Hive sink unless you have specific requirements.
+
+Note: overwrite=true and data_save_mode=DROP_DATA are equivalent. Use either one; do not set both.
 
 Flag to decide whether to use overwrite mode when inserting data into Hive. If set to true, for non-partitioned tables, the existing data in the table will be deleted before inserting new data. For partitioned tables, the data in the relevant partition will be deleted before inserting new data.
 

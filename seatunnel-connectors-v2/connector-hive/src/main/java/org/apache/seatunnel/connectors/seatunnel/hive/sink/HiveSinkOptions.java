@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.hive.sink;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
+import org.apache.seatunnel.api.sink.DataSaveMode;
 import org.apache.seatunnel.api.sink.SchemaSaveMode;
 import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveOptions;
 
@@ -49,6 +50,12 @@ public class HiveSinkOptions extends HiveOptions {
                                     + "RECREATE_SCHEMA: Drop and recreate table. "
                                     + "ERROR_WHEN_SCHEMA_NOT_EXIST: Throw error when table not exists. "
                                     + "IGNORE: Skip table creation.");
+
+    public static final Option<DataSaveMode> DATA_SAVE_MODE =
+            Options.key("data_save_mode")
+                    .enumType(DataSaveMode.class)
+                    .defaultValue(DataSaveMode.APPEND_DATA)
+                    .withDescription("Data save mode. DROP_DATA behaves like overwrite=true.");
 
     public static final Option<String> SAVE_MODE_CREATE_TEMPLATE =
             Options.key("save_mode_create_template")

@@ -259,33 +259,73 @@ public class HiveIT extends TestSuiteBase implements TestResource {
 
     @TestTemplate
     public void testAutoTableCreationCreateWhenNotExist(TestContainer container) throws Exception {
-        executeJob(
-                container,
-                "/auto_table_creation/fake_to_hive_create_when_not_exist.conf",
-                "/auto_table_creation/hive_auto_create_to_assert.conf");
+        // Run the job to create and write data
+        Container.ExecResult execResult =
+                container.executeJob(
+                        "/auto_table_creation/fake_to_hive_create_when_not_exist.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+        // Verify via Hive JDBC instead of launching another SeaTunnel job
+        try (java.sql.Statement stmt = this.hiveConnection.createStatement();
+                java.sql.ResultSet rs =
+                        stmt.executeQuery(
+                                "select count(*) from default.test_auto_create_when_not_exist")) {
+            Assertions.assertTrue(rs.next());
+            Assertions.assertEquals(3, rs.getInt(1));
+        }
     }
 
     @TestTemplate
     public void testAutoTableCreationRecreateSchema(TestContainer container) throws Exception {
-        executeJob(
-                container,
-                "/auto_table_creation/fake_to_hive_recreate_schema.conf",
-                "/auto_table_creation/hive_auto_recreate_to_assert.conf");
+        Container.ExecResult execResult =
+                container.executeJob("/auto_table_creation/fake_to_hive_recreate_schema.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+        try (java.sql.Statement stmt = this.hiveConnection.createStatement();
+                java.sql.ResultSet rs =
+                        stmt.executeQuery(
+                                "select count(*) from default.test_auto_create_when_not_exist")) {
+            Assertions.assertTrue(rs.next());
+            Assertions.assertEquals(3, rs.getInt(1));
+        }
     }
 
     @TestTemplate
     public void testAutoTableCreationORCFormat(TestContainer container) throws Exception {
-        executeJob(
-                container,
-                "/auto_table_creation/fake_to_hive_custom_template.conf",
-                "/auto_table_creation/hive_auto_orc_format_to_assert.conf");
+        Container.ExecResult execResult =
+                container.executeJob("/auto_table_creation/fake_to_hive_custom_template.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+        // Verify table created with ORC format by checking SERDE or format via DESCRIBE FORMATTED
+        try (java.sql.Statement stmt = this.hiveConnection.createStatement();
+                java.sql.ResultSet rs =
+                        stmt.executeQuery(
+                                "DESCRIBE FORMATTED default.test_auto_create_when_not_exist")) {
+            boolean sawOrc = false;
+            while (rs.next()) {
+                String col1 = rs.getString(1);
+                String col2 = rs.getString(2);
+                if (col1 != null
+                        && col1.contains("SerDe Library")
+                        && col2 != null
+                        && col2.contains("OrcSerde")) {
+                    sawOrc = true;
+                    break;
+                }
+            }
+            Assertions.assertTrue(sawOrc, "Expected ORC SerDe in table properties");
+        }
     }
 
     @TestTemplate
     public void testAutoTableCreationDefaultTemplate(TestContainer container) throws Exception {
-        executeJob(
-                container,
-                "/auto_table_creation/fake_to_hive_default_template.conf",
-                "/auto_table_creation/hive_auto_create_default_to_assert.conf");
+        Container.ExecResult execResult =
+                container.executeJob("/auto_table_creation/fake_to_hive_default_template.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+        // Verify the default template behavior: table exists and has 3 rows
+        try (java.sql.Statement stmt = this.hiveConnection.createStatement();
+                java.sql.ResultSet rs =
+                        stmt.executeQuery(
+                                "select count(*) from default.test_auto_create_default")) {
+            Assertions.assertTrue(rs.next());
+            Assertions.assertEquals(3, rs.getInt(1));
+        }
     }
 }

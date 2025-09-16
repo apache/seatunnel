@@ -54,7 +54,12 @@ public class HiveSinkAggregatedCommitter extends FileSinkAggregatedCommitter {
         this.tableName = tableName;
         this.abortDropPartitionMetadata =
                 readonlyConfig.get(HiveSinkOptions.ABORT_DROP_PARTITION_METADATA);
-        this.overwrite = readonlyConfig.get(HiveSinkOptions.OVERWRITE);
+        this.overwrite =
+                readonlyConfig.get(HiveSinkOptions.OVERWRITE)
+                        || readonlyConfig.get(
+                                        org.apache.seatunnel.connectors.seatunnel.hive.sink
+                                                .HiveSinkOptions.DATA_SAVE_MODE)
+                                == org.apache.seatunnel.api.sink.DataSaveMode.DROP_DATA;
     }
 
     @Override
