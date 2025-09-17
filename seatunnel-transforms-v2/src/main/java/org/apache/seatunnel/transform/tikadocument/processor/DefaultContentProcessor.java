@@ -25,6 +25,8 @@ import java.util.regex.Pattern;
 @Slf4j
 public class DefaultContentProcessor implements ContentProcessor {
 
+    private static final long serialVersionUID = 1L;
+
     private static final Pattern MULTIPLE_WHITESPACE = Pattern.compile("\\s+");
     private static final Pattern EMPTY_LINES = Pattern.compile("(?m)^\\s*$");
 

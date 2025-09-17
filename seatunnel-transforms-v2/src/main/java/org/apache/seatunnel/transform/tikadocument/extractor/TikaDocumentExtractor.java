@@ -48,8 +48,10 @@ import java.util.Set;
 @Slf4j
 public class TikaDocumentExtractor implements DocumentExtractor {
 
-    private final Parser parser;
-    private final Detector detector;
+    private static final long serialVersionUID = 1L;
+
+    private transient Parser parser;
+    private transient Detector detector;
     private long timeoutMs = 30000; // 30 seconds default timeout
 
     // Supported MIME types for first phase (MVP)
@@ -68,8 +70,7 @@ public class TikaDocumentExtractor implements DocumentExtractor {
                             "application/rtf"));
 
     public TikaDocumentExtractor() {
-        this.parser = new AutoDetectParser();
-        this.detector = new DefaultDetector();
+        initializeTransientFields();
     }
 
     @Override
@@ -250,5 +251,22 @@ public class TikaDocumentExtractor implements DocumentExtractor {
     @Override
     public void close() {
         // No resources to clean up for AutoDetectParser
+    }
+
+    /** Initialize transient fields after deserialization */
+    private void readObject(java.io.ObjectInputStream in)
+            throws IOException, ClassNotFoundException {
+        in.defaultReadObject();
+        initializeTransientFields();
+    }
+
+    /** Initialize transient fields */
+    private void initializeTransientFields() {
+        if (parser == null) {
+            this.parser = new AutoDetectParser();
+        }
+        if (detector == null) {
+            this.detector = new DefaultDetector();
+        }
     }
 }

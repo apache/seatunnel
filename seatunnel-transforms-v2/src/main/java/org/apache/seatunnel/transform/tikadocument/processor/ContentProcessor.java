@@ -17,8 +17,10 @@
 
 package org.apache.seatunnel.transform.tikadocument.processor;
 
+import java.io.Serializable;
+
 /** Interface for processing extracted document content */
-public interface ContentProcessor {
+public interface ContentProcessor extends Serializable {
 
     /**
      * Process the extracted text content

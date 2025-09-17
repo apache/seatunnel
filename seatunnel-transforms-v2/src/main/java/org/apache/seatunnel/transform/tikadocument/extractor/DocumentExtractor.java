@@ -18,9 +18,10 @@
 package org.apache.seatunnel.transform.tikadocument.extractor;
 
 import java.io.InputStream;
+import java.io.Serializable;
 
 /** Interface for document content and metadata extraction */
-public interface DocumentExtractor {
+public interface DocumentExtractor extends Serializable {
 
     /**
      * Extract metadata and content from document data
