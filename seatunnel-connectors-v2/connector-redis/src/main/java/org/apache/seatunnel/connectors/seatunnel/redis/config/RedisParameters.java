@@ -25,7 +25,6 @@ import org.apache.seatunnel.connectors.seatunnel.redis.client.RedisSingleClient;
 import org.apache.seatunnel.connectors.seatunnel.redis.exception.RedisConnectorException;
 
 import org.apache.commons.lang3.StringUtils;
-import org.apache.logging.log4j.core.util.Assert;
 
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
@@ -41,6 +40,7 @@ import java.util.List;
 
 import static org.apache.seatunnel.connectors.seatunnel.redis.exception.RedisErrorCode.GET_REDIS_VERSION_INFO_FAILED;
 import static org.apache.seatunnel.connectors.seatunnel.redis.exception.RedisErrorCode.INVALID_CONFIG;
+import static org.apache.seatunnel.connectors.seatunnel.redis.exception.RedisErrorCode.REDIS_NODE_EMPTY_ERROR;
 
 @Data
 @Slf4j
@@ -199,7 +199,10 @@ public class RedisParameters implements Serializable {
                 return jedis;
             case CLUSTER:
                 HashSet<HostAndPort> nodes = new HashSet<>();
-                Assert.requireNonEmpty(redisNodes, "nodes parameter must not be empty");
+                if (redisNodes.isEmpty()) {
+                    throw new RedisConnectorException(
+                            REDIS_NODE_EMPTY_ERROR, "Redis nodes parameter must not be empty");
+                }
                 for (String redisNode : redisNodes) {
                     String[] splits = redisNode.split(":");
                     if (splits.length != 2) {
