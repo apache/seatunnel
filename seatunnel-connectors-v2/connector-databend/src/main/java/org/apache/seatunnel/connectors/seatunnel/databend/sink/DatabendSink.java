@@ -345,6 +345,6 @@ public class DatabendSink
 
     @Override
     public Optional<CatalogTable> getWriteCatalogTable() {
-        return SeaTunnelSink.super.getWriteCatalogTable();
+        return Optional.of(catalogTable);
     }
 }
