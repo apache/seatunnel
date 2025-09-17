@@ -51,7 +51,7 @@ import ChangeLog from '../changelog/connector-file-local.md';
 | file_format_type                      | string  | 否    | "csv"                                      | 文件格式类型                                                          |
 | filename_extension                    | string  | 否    | -                                          | 使用自定义的文件扩展名覆盖默认的文件扩展名。 例如：`.xml`, `.json`, `dat`, `.customtype` |
 | field_delimiter                       | string  | 否    | '\001'                                     | 仅在 file_format_type 为 text 时使用                                  |
-| row_delimiter                         | string  | 否    | "\n"                                       | 仅在 file_format_type 为 `text`、`csv`、`json` 时使用                                  |
+| row_delimiter                         | string  | 否    | "\n"                                       | 仅在 file_format_type 为 `text`、`csv`、`json` 时使用                   |
 | have_partition                        | boolean | 否    | false                                      | 是否需要处理分区                                                        |
 | partition_by                          | array   | 否    | -                                          | 仅在 have_partition 为 true 时使用                                    |
 | partition_dir_expression              | string  | 否    | "${k0}=${v0}/${k1}=${v1}/.../${kn}=${vn}/" | 仅在 have_partition 为 true 时使用                                    |
@@ -73,6 +73,7 @@ import ChangeLog from '../changelog/connector-file-local.md';
 | parquet_avro_write_fixed_as_int96     | array   | 否    | -                                          | 仅在 file_format 为 parquet 时使用                                    |
 | enable_header_write                   | boolean | 否    | false                                      | 仅在 file_format_type 为 text,csv 时使用。<br/> false:不写入表头,true:写入表头。 |
 | encoding                              | string  | 否    | "UTF-8"                                    | 仅在 file_format_type 为 json,text,csv,xml 时使用                     |
+| merge_update_event                    | boolean | 否    | false                                      | 仅当file_format_type为canal_json、debezium_json、maxwell_json.       |
 
 ### path [string]
 
@@ -224,6 +225,12 @@ _root_tag [string]
 ### encoding [string]
 
 仅在 file_format_type 为 json,text,csv,xml 时使用。文件写入的编码。该参数将通过 `Charset.forName(encoding)` 解析。
+
+### merge_update_event [boolean]
+
+仅当file_format_type为canal_json、debezium_json、maxwell_json时使用.
+设置成true,序列化数据时,UPDATE_AFTER 和 UPDATE_BEFORE 会合并成 UPDATE;
+设置成false,序列化数据时,UPDATE_AFTER 和 UPDATE_BEFORE 不会合并;
 
 ## 示例
 

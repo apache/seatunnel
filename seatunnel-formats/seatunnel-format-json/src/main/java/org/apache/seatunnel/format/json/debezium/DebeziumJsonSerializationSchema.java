@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.serialization.SerializationSchema;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.MapType;
+import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -43,20 +44,27 @@ public class DebeziumJsonSerializationSchema implements SerializationSchema {
 
     private static final String OP_INSERT = "c"; // insert
     private static final String OP_DELETE = "d"; // delete
+    private static final String OP_UPDATE = "u"; // update
     public static final String FORMAT = "Debezium";
 
     private final JsonSerializationSchema jsonSerializer;
 
     private transient SeaTunnelRow genericRow;
 
+    boolean mergeUpdateEventFlag;
+    SeaTunnelRow cacheUpdateBeforeRow;
+
     public DebeziumJsonSerializationSchema(SeaTunnelRowType rowType) {
         this.jsonSerializer = new JsonSerializationSchema(createJsonRowType(rowType));
         this.genericRow = new SeaTunnelRow(GENERATE_ROW_SIZE);
+        this.mergeUpdateEventFlag = false;
     }
 
-    public DebeziumJsonSerializationSchema(SeaTunnelRowType rowType, Charset charset) {
+    public DebeziumJsonSerializationSchema(
+            SeaTunnelRowType rowType, Charset charset, boolean mergeUpdateEventFlag) {
         this.jsonSerializer = new JsonSerializationSchema(createJsonRowType(rowType), charset);
         this.genericRow = new SeaTunnelRow(GENERATE_ROW_SIZE);
+        this.mergeUpdateEventFlag = mergeUpdateEventFlag;
     }
 
     @Override
@@ -71,9 +79,14 @@ public class DebeziumJsonSerializationSchema implements SerializationSchema {
             switch (row.getRowKind()) {
                 case INSERT:
                 case UPDATE_AFTER:
-                    genericRow.setField(0, null);
+                    if (mergeUpdateEventFlag && row.getRowKind().equals(RowKind.UPDATE_AFTER)) {
+                        genericRow.setField(0, cacheUpdateBeforeRow);
+                        genericRow.setField(2, OP_UPDATE);
+                    } else {
+                        genericRow.setField(0, null);
+                        genericRow.setField(2, OP_INSERT);
+                    }
                     genericRow.setField(1, row);
-                    genericRow.setField(2, OP_INSERT);
                     genericRow.setField(3, source);
 
                     if (row.getOptions() != null
@@ -84,6 +97,10 @@ public class DebeziumJsonSerializationSchema implements SerializationSchema {
                     }
                     return jsonSerializer.serialize(genericRow);
                 case UPDATE_BEFORE:
+                    if (mergeUpdateEventFlag) {
+                        cacheUpdateBeforeRow = row;
+                        return null;
+                    }
                 case DELETE:
                     genericRow.setField(0, row);
                     genericRow.setField(1, null);

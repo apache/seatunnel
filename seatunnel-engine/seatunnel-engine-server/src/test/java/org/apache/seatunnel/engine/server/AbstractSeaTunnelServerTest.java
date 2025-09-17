@@ -18,12 +18,16 @@
 package org.apache.seatunnel.engine.server;
 
 import org.apache.seatunnel.common.utils.ExceptionUtils;
+import org.apache.seatunnel.common.utils.FileUtils;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.runtime.ExecutionMode;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
+
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.core.LoggerContext;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -36,6 +40,8 @@ import com.hazelcast.logging.ILogger;
 import com.hazelcast.spi.impl.NodeEngine;
 import lombok.extern.slf4j.Slf4j;
 
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Collections;
 
 @Slf4j
@@ -128,6 +134,12 @@ public abstract class AbstractSeaTunnelServerTest<T extends AbstractSeaTunnelSer
             if (instance != null) {
                 instance.shutdown();
             }
+
+            // Manually release log4j2 context references, otherwise deleting log files will fail
+            LoggerContext context = (LoggerContext) LogManager.getContext(false);
+            context.close();
+            Path logPath = Paths.get("logs");
+            FileUtils.deleteFile(logPath.toString());
         } catch (Exception e) {
             log.error(ExceptionUtils.getMessage(e));
         }
