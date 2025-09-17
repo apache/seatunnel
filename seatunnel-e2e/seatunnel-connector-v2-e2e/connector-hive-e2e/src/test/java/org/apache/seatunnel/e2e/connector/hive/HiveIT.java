@@ -312,7 +312,7 @@ public class HiveIT extends TestSuiteBase implements TestResource {
         expected.put("c_timestamp", "timestamp");
         expected.put("c_array", "array<int>");
         expected.put("c_map", "map<string,int>");
-        expected.put("c_row", "struct<f1:int,b:string,f3:array<double>,f4:map<string,string>>");
+        expected.put("c_row", "struct<f1:int,f2:string,f3:array<double>,f4:map<string,string>>");
 
         try (java.sql.Statement stmt = this.hiveConnection.createStatement();
                 java.sql.ResultSet rs = stmt.executeQuery("DESCRIBE default.test_all_types")) {
