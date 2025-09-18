@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.transform.nlpmodel.embedding;
 
+import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
+
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.transform.nlpmodel.ModelTransformConfig;
@@ -32,10 +34,14 @@ public class EmbeddingTransformConfig extends ModelTransformConfig {
                     .withDescription(
                             "The number of single vectorized inputs, default is 1 , which means 1 inputs will be vectorized in one request , eg: qianfan only allows a maximum of 16 simultaneous messages, depending on your own settings, etc");
 
-    public static final Option<Map<String, String>> VECTORIZATION_FIELDS =
+    public static final Option<Map<String, Object>> VECTORIZATION_FIELDS =
             Options.key("vectorization_fields")
-                    .mapType()
+                    .type(new TypeReference<Map<String, Object>>() {})
                     .noDefaultValue()
                     .withDescription(
-                            "Specify the field vectorization relationship between input and output");
+                            "Specify the field vectorization relationship between input and output. "
+                                    + "Supports multiple formats: "
+                                    + "1. String format: 'fieldName' (defaults to text modality) "
+                                    + "2. Object format with modality and format: {field: 'fieldName', modality: 'modalityType', format: 'formatType'} "
+                                    + "where modality can be 'image/jpeg', 'video/mp4' etc. , format can be 'url', 'binary'. ");
 }

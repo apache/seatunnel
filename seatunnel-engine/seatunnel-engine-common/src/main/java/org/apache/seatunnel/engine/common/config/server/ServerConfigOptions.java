@@ -91,6 +91,11 @@ public class ServerConfigOptions {
                         .defaultValue(10)
                         .withDescription("The interval (in seconds) of job metrics backups");
 
+        public static final Option<Integer> JOB_METRICS_PARTITION_COUNT =
+                Options.key("job-metrics-partition-count")
+                        .intType()
+                        .defaultValue(1)
+                        .withDescription("Number of partitions for storing job metrics in IMap.");
         /////////////////////////////////////////////////
         // The options about Hazelcast IMAP store start
         public static final Option<Integer> BACKUP_COUNT =
@@ -121,6 +126,14 @@ public class ServerConfigOptions {
                         .intType()
                         .defaultValue(30000)
                         .withDescription("The timeout (in milliseconds) for a checkpoint.");
+
+        public static final Option<Integer> CHECKPOINT_MIN_PAUSE =
+                Options.key("min-pause")
+                        .intType()
+                        .defaultValue(-1)
+                        .withDescription(
+                                "The minimum pause (in milliseconds) between consecutive checkpoints. "
+                                        + "This ensures that checkpoints are not triggered too frequently and provides.");
 
         public static final Option<String> CHECKPOINT_STORAGE_TYPE =
                 Options.key("type")

@@ -2,6 +2,8 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
+|[Feature][connector-tdengine] Support subtable and fieldNames in tdengine source (#9593)|https://github.com/apache/seatunnel/commit/b136a0dc43|2.3.12|
+|[improve] tdengine options (#9399)|https://github.com/apache/seatunnel/commit/ff122fe405|2.3.12|
 |[Feature][Connector-V2] Support multi-table sink feature for TDengine (#9215)|https://github.com/apache/seatunnel/commit/98b593f095|2.3.11|
 |[Feature][Checkpoint] Add check script for source/sink state class serialVersionUID missing (#9118)|https://github.com/apache/seatunnel/commit/4f5adeb1c7|2.3.11|
 |[Fix][Connector-V2]  Fix NullPointerException when column or tag contains null value in TDengine sink (#9158)|https://github.com/apache/seatunnel/commit/a047cab546|2.3.11|

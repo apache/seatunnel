@@ -18,9 +18,12 @@
 package org.apache.seatunnel.e2e.transform;
 
 import org.apache.seatunnel.e2e.common.TestResource;
+import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
 import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
+import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
+import org.apache.seatunnel.e2e.common.util.ContainerUtil;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
@@ -79,6 +82,13 @@ public class TestEmbeddingIT extends TestSuiteBase implements TestResource {
         Startables.deepStart(Stream.of(mockserverContainer)).join();
     }
 
+    @TestContainerExtension
+    private final ContainerExtendedFactory extendedFactory =
+            container -> {
+                ContainerUtil.copyFileIntoContainers(
+                        "/binary/cat.png", "/seatunnel/read/binary/cat.png", container);
+            };
+
     @AfterAll
     @Override
     public void tearDown() throws Exception {
@@ -94,6 +104,14 @@ public class TestEmbeddingIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
+    public void testMultimodalEmbedding(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                container.executeJob("/embedding_transform_multimodal.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+    }
+
+    @TestTemplate
     public void testEmbeddingMultiTable(TestContainer container)
             throws IOException, InterruptedException {
         Container.ExecResult execResult =
@@ -105,6 +123,21 @@ public class TestEmbeddingIT extends TestSuiteBase implements TestResource {
     public void testEmbeddingWithCustomModel(TestContainer container)
             throws IOException, InterruptedException {
         Container.ExecResult execResult = container.executeJob("/embedding_transform_custom.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+    }
+
+    @TestTemplate
+    public void testBinaryEmbeddingWithCompleteMode(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                container.executeJob("/embedding_transform_binary_complete_file.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+    }
+
+    @TestTemplate
+    public void testBinaryEmbedding(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult = container.executeJob("/embedding_transform_binary.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
     }
 }

@@ -29,6 +29,7 @@ import ChangeLog from '../changelog/connector-file-ftp.md';
   - [x] excel
   - [x] xml
   - [x] binary
+  - [x] markdown
 
 ## Description
 
@@ -258,6 +259,20 @@ If you assign file type to `binary`, SeaTunnel can synchronize files in any form
 such as compressed packages, pictures, etc. In short, any files can be synchronized to the target place.
 Under this requirement, you need to ensure that the source and sink use `binary` format for file synchronization
 at the same time. You can find the specific usage in the example below.
+
+If you assign file type to `markdown`, SeaTunnel can parse markdown files and extract structured data.
+The markdown parser extracts various elements including headings, paragraphs, lists, code blocks, tables, and more.
+Each element is converted to a row with the following schema:
+- `element_id`: Unique identifier for the element
+- `element_type`: Type of the element (Heading, Paragraph, ListItem, etc.)
+- `heading_level`: Level of heading (1-6, null for non-heading elements)
+- `text`: Text content of the element
+- `page_number`: Page number (default: 1)
+- `position_index`: Position index within the document
+- `parent_id`: ID of the parent element
+- `child_ids`: Comma-separated list of child element IDs
+
+Note: Markdown format only supports reading, not writing.
 
 ### connection_mode [string]
 
