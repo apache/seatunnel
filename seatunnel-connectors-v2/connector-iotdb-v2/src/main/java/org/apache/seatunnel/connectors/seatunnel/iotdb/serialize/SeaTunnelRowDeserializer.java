@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.iotdb.serialize;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+
 import shaded.org.apache.tsfile.read.common.RowRecord;
 
 public interface SeaTunnelRowDeserializer {
