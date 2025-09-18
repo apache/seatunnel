@@ -34,6 +34,7 @@
         <httpcore.version>4.4.16</httpcore.version>
         <zhipu.version>release-V4-2.3.0</zhipu.version>
         <tika.version>2.9.1</tika.version>
+        <commons-compress.version>1.21</commons-compress.version>
     </properties>
 
     <dependencyManagement>
@@ -43,6 +44,12 @@
                 <artifactId>seatunnel-api</artifactId>
                 <version>${project.version}</version>
                 <scope>provided</scope>
+            </dependency>
+            <!-- Force commons-compress version to be compatible with Tika 2.9.1 -->
+            <dependency>
+                <groupId>org.apache.commons</groupId>
+                <artifactId>commons-compress</artifactId>
+                <version>${commons-compress.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>

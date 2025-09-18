@@ -258,8 +258,13 @@ public class TikaDocumentTransform extends MultipleFieldOutputTransform {
             case FAIL:
                 throw new TikaDocumentException(errorMessage);
             case SKIP:
-            case SKIP_ROW:
                 return null; // This will cause the row to be skipped
+            case SKIP_ROW:
+                // Fill with null values but keep the row
+                for (int i = 0; i < result.length; i++) {
+                    result[i] = null;
+                }
+                return result;
             default:
                 // Fill with null values
                 for (int i = 0; i < result.length; i++) {
