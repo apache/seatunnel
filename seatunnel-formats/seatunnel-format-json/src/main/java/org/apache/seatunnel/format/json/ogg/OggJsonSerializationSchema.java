@@ -30,6 +30,8 @@ import org.apache.seatunnel.format.json.exception.SeaTunnelJsonFormatException;
 
 import org.apache.commons.lang3.StringUtils;
 
+import java.nio.charset.Charset;
+
 import static org.apache.seatunnel.api.table.type.BasicType.LONG_TYPE;
 import static org.apache.seatunnel.api.table.type.BasicType.STRING_TYPE;
 import static org.apache.seatunnel.api.table.type.CommonOptions.EVENT_TIME;
@@ -38,31 +40,53 @@ public class OggJsonSerializationSchema implements SerializationSchema {
 
     private static final long serialVersionUID = 1L;
 
-    private static final String OP_INSERT = "INSERT";
-    private static final String OP_DELETE = "DELETE";
+    private static final String OP_INSERT = "I";
+    private static final String OP_DELETE = "D";
+    private static final String OP_UPDATE = "U";
     public static final String FORMAT = "Ogg";
 
     private transient SeaTunnelRow reuse;
 
     private final JsonSerializationSchema jsonSerializer;
 
+    private final boolean mergeUpdateEventFlag;
+    SeaTunnelRow cacheUpdateBeforeRow;
+
     public OggJsonSerializationSchema(SeaTunnelRowType rowType) {
         this.jsonSerializer = new JsonSerializationSchema(createJsonRowType(rowType));
-        this.reuse = new SeaTunnelRow(4);
+        this.reuse = new SeaTunnelRow(5);
+        mergeUpdateEventFlag = false;
+    }
+
+    public OggJsonSerializationSchema(
+            SeaTunnelRowType rowType, Charset charset, boolean mergeUpdateEventFlag) {
+        this.jsonSerializer = new JsonSerializationSchema(createJsonRowType(rowType), charset);
+        this.reuse = new SeaTunnelRow(5);
+        this.mergeUpdateEventFlag = mergeUpdateEventFlag;
     }
 
     @Override
     public byte[] serialize(SeaTunnelRow row) {
         try {
-            String opType = rowKind2String(row.getRowKind());
-            reuse.setField(0, row);
-            reuse.setField(1, opType);
+            if (mergeUpdateEventFlag && row.getRowKind() == RowKind.UPDATE_BEFORE) {
+                cacheUpdateBeforeRow = row;
+                return null;
+            }
+
+            if (mergeUpdateEventFlag && row.getRowKind() == RowKind.UPDATE_AFTER) {
+                reuse.setField(0, cacheUpdateBeforeRow);
+            } else {
+                reuse.setField(0, null);
+            }
+
+            reuse.setField(1, row);
+            reuse.setField(2, rowKind2String(row.getRowKind()));
             if (!StringUtils.isEmpty(row.getTableId())) {
-                reuse.setField(2, row.getTableId());
+                reuse.setField(3, row.getTableId());
             }
 
             if (row.getOptions() != null && row.getOptions().containsKey(EVENT_TIME.getName())) {
-                reuse.setField(3, row.getOptions().get(EVENT_TIME.getName()));
+                reuse.setField(4, row.getOptions().get(EVENT_TIME.getName()));
             }
             return jsonSerializer.serialize(reuse);
         } catch (Throwable t) {
@@ -74,6 +98,9 @@ public class OggJsonSerializationSchema implements SerializationSchema {
         switch (rowKind) {
             case INSERT:
             case UPDATE_AFTER:
+                if (mergeUpdateEventFlag && rowKind.equals(RowKind.UPDATE_AFTER)) {
+                    return OP_UPDATE;
+                }
                 return OP_INSERT;
             case UPDATE_BEFORE:
             case DELETE:
@@ -86,11 +113,10 @@ public class OggJsonSerializationSchema implements SerializationSchema {
     }
 
     private static SeaTunnelRowType createJsonRowType(SeaTunnelRowType databaseSchema) {
-        // Ogg JSON contains other information, e.g. "database", "ts"
-        // but we don't need them
-        // and we don't need "old" , because can not support UPDATE_BEFORE,UPDATE_AFTER
         return new SeaTunnelRowType(
-                new String[] {"data", "type", "table", "op_ts"},
-                new SeaTunnelDataType[] {databaseSchema, STRING_TYPE, STRING_TYPE, LONG_TYPE});
+                new String[] {"before", "after", "op_type", "table", "op_ts"},
+                new SeaTunnelDataType[] {
+                    databaseSchema, databaseSchema, STRING_TYPE, STRING_TYPE, LONG_TYPE
+                });
     }
 }

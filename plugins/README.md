@@ -45,5 +45,5 @@ SEATUNNEL_HOME/
 - By checking the job logs, you can confirm that each connector only loads its own dependency jars.
 
     ```log
-    2025-08-13T17:55:48.7732601Z [] 2025-08-13 17:55:47,270 INFO  org.apache.seatunnel.plugin.discovery.AbstractPluginDiscovery - find connector jar and dependency for PluginIdentifier{engineType='seatunnel', pluginType='source', pluginName='Jdbc'}: [file:/tmp/seatunnel/plugins/Jdbc/lib/vertica-jdbc-12.0.3-0.jar, file:/tmp/seatunnel/connectors/connector-jdbc-2.3.12-SNAPSHOT-2.12.15.jar]
+    2025-08-13T17:55:48.7732601Z [] 2025-08-13 17:55:47,270 INFO  org.apache.seatunnel.plugin.discovery.AbstractPluginDiscovery - find connector jar and dependency for PluginIdentifier{engineType='seatunnel', pluginType='source', pluginName='Jdbc'}: [file:/tmp/seatunnel/plugins/Jdbc/lib/vertica-jdbc-12.0.3-0.jar, file:/tmp/seatunnel/connectors/connector-jdbc-2.3.13-SNAPSHOT-2.12.15.jar]
     ```

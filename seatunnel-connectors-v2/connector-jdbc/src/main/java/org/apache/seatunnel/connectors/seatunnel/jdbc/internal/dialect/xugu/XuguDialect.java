@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.xugu;
 
 import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.JdbcRowConverter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
@@ -86,11 +87,6 @@ public class XuguDialect implements JdbcDialect {
     }
 
     @Override
-    public String extractTableName(TablePath tablePath) {
-        return tablePath.getSchemaAndTableName();
-    }
-
-    @Override
     public TablePath parse(String tablePath) {
         return TablePath.of(tablePath, true);
     }
@@ -107,6 +103,10 @@ public class XuguDialect implements JdbcDialect {
                 Arrays.stream(fieldNames)
                         .filter(fieldName -> !Arrays.asList(uniqueKeyFields).contains(fieldName))
                         .collect(Collectors.toList());
+        if (nonUniqueKeyFields.isEmpty()) {
+            throw new SeaTunnelException(
+                    "The non-primary key field cannot be empty. Please set other fields");
+        }
         String valuesBinding =
                 Arrays.stream(fieldNames)
                         .map(fieldName -> ":" + fieldName + " " + quoteIdentifier(fieldName))
@@ -139,7 +139,6 @@ public class XuguDialect implements JdbcDialect {
                 Arrays.stream(fieldNames)
                         .map(fieldName -> "SOURCE." + quoteIdentifier(fieldName))
                         .collect(Collectors.joining(", "));
-
         String upsertSQL =
                 String.format(
                         " MERGE INTO %s TARGET"

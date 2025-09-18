@@ -83,7 +83,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 ### 小贴士
 
-> 如果未设置partition_column，它将以单并发运行，如果设置了partition_coolumn，它将根据任务的并发性并行执行.
+> 如果未设置partition_column，它将以单并发运行，如果设置了partition_column，它将根据任务的并发性并行执行.
 
 ## 任务示例
 

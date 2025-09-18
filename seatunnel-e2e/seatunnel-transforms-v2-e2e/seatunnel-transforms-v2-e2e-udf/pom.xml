@@ -25,7 +25,7 @@
     <artifactId>seatunnel-transforms-v2-e2e-udf</artifactId>
     <packaging>jar</packaging>
 
-    <name>seatunnel-transforms-v2-e2e-udf</name>
+    <name>SeaTunnel : E2E : Transforms V2 : UDF</name>
 
     <dependencies>
 
