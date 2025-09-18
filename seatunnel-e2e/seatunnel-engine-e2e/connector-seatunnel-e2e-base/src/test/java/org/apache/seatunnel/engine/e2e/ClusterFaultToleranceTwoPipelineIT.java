@@ -118,7 +118,6 @@ public class ClusterFaultToleranceTwoPipelineIT {
                     engineClient.createExecutionContext(
                             testResources.getRight(), jobConfig, seaTunnelConfig);
             ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
-            TimeUnit.SECONDS.sleep(2);
             CompletableFuture<JobStatus> objectCompletableFuture =
                     CompletableFuture.supplyAsync(clientJobProxy::waitForJobComplete);
 
@@ -247,7 +246,6 @@ public class ClusterFaultToleranceTwoPipelineIT {
                     engineClient.createExecutionContext(
                             testResources.getRight(), jobConfig, seaTunnelConfig);
             ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
-            TimeUnit.SECONDS.sleep(2);
             CompletableFuture<JobStatus> objectCompletableFuture =
                     CompletableFuture.supplyAsync(clientJobProxy::waitForJobComplete);
 
@@ -345,7 +343,6 @@ public class ClusterFaultToleranceTwoPipelineIT {
                     engineClient.createExecutionContext(
                             testResources.getRight(), jobConfig, seaTunnelConfig);
             ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
-            TimeUnit.SECONDS.sleep(2);
             CompletableFuture<JobStatus> objectCompletableFuture =
                     CompletableFuture.supplyAsync(clientJobProxy::waitForJobComplete);
 
@@ -458,7 +455,6 @@ public class ClusterFaultToleranceTwoPipelineIT {
                     engineClient.createExecutionContext(
                             testResources.getRight(), jobConfig, seaTunnelConfig);
             ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
-            TimeUnit.SECONDS.sleep(2);
             CompletableFuture<JobStatus> objectCompletableFuture =
                     CompletableFuture.supplyAsync(() -> clientJobProxy.waitForJobComplete());
 
@@ -582,7 +578,6 @@ public class ClusterFaultToleranceTwoPipelineIT {
                     engineClient.createExecutionContext(
                             testResources.getRight(), jobConfig, seaTunnelConfig);
             ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
-            TimeUnit.SECONDS.sleep(2);
             CompletableFuture<JobStatus> objectCompletableFuture =
                     CompletableFuture.supplyAsync(clientJobProxy::waitForJobComplete);
 
@@ -692,7 +687,6 @@ public class ClusterFaultToleranceTwoPipelineIT {
                     engineClient.createExecutionContext(
                             testResources.getRight(), jobConfig, seaTunnelConfig);
             ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
-            TimeUnit.SECONDS.sleep(2);
             CompletableFuture<JobStatus> objectCompletableFuture =
                     CompletableFuture.supplyAsync(clientJobProxy::waitForJobComplete);
 

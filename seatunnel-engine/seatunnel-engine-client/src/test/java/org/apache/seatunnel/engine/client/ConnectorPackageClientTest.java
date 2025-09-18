@@ -252,7 +252,6 @@ public class ConnectorPackageClientTest {
             ClientJobExecutionEnvironment jobExecutionEnv =
                     seaTunnelClient.createExecutionContext(filePath, jobConfig, SEATUNNEL_CONFIG);
             final ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
-            TimeUnit.SECONDS.sleep(2);
             CompletableFuture<JobStatus> objectCompletableFuture =
                     CompletableFuture.supplyAsync(() -> clientJobProxy.waitForJobComplete());
 

@@ -67,7 +67,6 @@ public class SeaTunnelSlotIT {
                     engineClient.createExecutionContext(filePath, jobConfig, seaTunnelConfig);
 
             final ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
-            TimeUnit.SECONDS.sleep(2);
             CompletableFuture<JobStatus> objectCompletableFuture =
                     CompletableFuture.supplyAsync(clientJobProxy::waitForJobComplete);
             Awaitility.await()
@@ -120,7 +119,6 @@ public class SeaTunnelSlotIT {
                     engineClient.createExecutionContext(filePath, jobConfig, seaTunnelConfig);
 
             final ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
-            TimeUnit.SECONDS.sleep(2);
             CompletableFuture<JobStatus> objectCompletableFuture =
                     CompletableFuture.supplyAsync(clientJobProxy::waitForJobComplete);
             Awaitility.await()

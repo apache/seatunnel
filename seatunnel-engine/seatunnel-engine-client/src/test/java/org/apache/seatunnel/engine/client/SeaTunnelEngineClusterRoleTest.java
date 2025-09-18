@@ -160,7 +160,6 @@ public class SeaTunnelEngineClusterRoleTest {
             ClientJobExecutionEnvironment jobExecutionEnv =
                     seaTunnelClient.createExecutionContext(filePath, jobConfig, seaTunnelConfig);
             final ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
-            TimeUnit.SECONDS.sleep(2);
             PassiveCompletableFuture<JobResult> jobResultPassiveCompletableFuture =
                     clientJobProxy.doWaitForJobComplete();
             await().atMost(60000, TimeUnit.MILLISECONDS)

@@ -91,7 +91,6 @@ public class JobExecutionIT {
                     engineClient.createExecutionContext(filePath, jobConfig, SEATUNNEL_CONFIG);
 
             final ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
-            TimeUnit.SECONDS.sleep(2);
             CompletableFuture<JobStatus> objectCompletableFuture =
                     CompletableFuture.supplyAsync(clientJobProxy::waitForJobComplete);
 
@@ -148,7 +147,6 @@ public class JobExecutionIT {
             ClientJobExecutionEnvironment jobExecutionEnv =
                     engineClient.createExecutionContext(filePath, jobConfig, SEATUNNEL_CONFIG);
             final ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
-            TimeUnit.SECONDS.sleep(2);
             CompletableFuture<JobStatus> completableFuture =
                     CompletableFuture.supplyAsync(clientJobProxy::waitForJobComplete);
             await().atMost(300000, TimeUnit.MILLISECONDS)
@@ -171,7 +169,6 @@ public class JobExecutionIT {
             ClientJobExecutionEnvironment jobExecutionEnv =
                     engineClient.createExecutionContext(filePath, jobConfig, SEATUNNEL_CONFIG);
             final ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
-            TimeUnit.SECONDS.sleep(2);
             CompletableFuture<JobStatus> completableFuture =
                     CompletableFuture.supplyAsync(clientJobProxy::waitForJobComplete);
             await().atMost(300000, TimeUnit.MILLISECONDS)
@@ -218,7 +215,6 @@ public class JobExecutionIT {
                     engineClient.createExecutionContext(filePath, jobConfig, SEATUNNEL_CONFIG);
 
             final ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
-            TimeUnit.SECONDS.sleep(2);
             Assertions.assertEquals(clientJobProxy.waitForJobComplete(), JobStatus.FINISHED);
             await().atMost(65, TimeUnit.SECONDS)
                     .untilAsserted(
