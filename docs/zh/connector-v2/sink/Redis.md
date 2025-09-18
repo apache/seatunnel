@@ -223,7 +223,7 @@ Redis {
 Redis {
   host = localhost
   port = 6379
-  key = "name:{name}"
+  key = "name:${name}"
   support_custom_key = true
   data_type = key
 }

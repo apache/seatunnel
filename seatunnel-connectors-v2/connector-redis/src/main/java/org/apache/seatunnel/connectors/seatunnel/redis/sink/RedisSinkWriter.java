@@ -26,6 +26,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.common.utils.JsonUtils;
+import org.apache.seatunnel.common.utils.PlaceholderUtils;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 import org.apache.seatunnel.connectors.seatunnel.redis.client.RedisClient;
 import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisBaseOptions;
@@ -110,16 +111,25 @@ public class RedisSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
 
     protected String getCustomKey(SeaTunnelRow element, List<String> fields, String keyField) {
         Matcher matcher = PLACEHOLDER_PATTERN.matcher(keyField);
-        StringBuffer result = new StringBuffer();
+
+        Map<String, String> placeholderValues = new HashMap<>();
 
         while (matcher.find()) {
             String fieldName = matcher.group(1);
             String fieldValue = getFieldValue(element, fields, fieldName);
-            matcher.appendReplacement(result, Matcher.quoteReplacement(fieldValue));
+            placeholderValues.put(fieldName, fieldValue);
         }
-        matcher.appendTail(result);
 
-        return result.toString();
+        return placeholderValues.keySet().stream()
+                .reduce(
+                        keyField,
+                        (result, placeholderName) -> {
+                            return PlaceholderUtils.replacePlaceholders(
+                                    result,
+                                    placeholderName,
+                                    placeholderValues.get(placeholderName),
+                                    null);
+                        });
     }
 
     private String getFieldValue(SeaTunnelRow element, List<String> fields, String fieldName) {

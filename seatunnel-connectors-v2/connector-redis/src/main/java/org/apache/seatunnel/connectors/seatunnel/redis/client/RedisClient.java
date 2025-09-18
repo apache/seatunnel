@@ -62,14 +62,14 @@ public abstract class RedisClient {
         if (redisVersion <= REDIS_5) {
             return scanOnRedis5(cursor, scanParams, type);
         } else {
-            return scanKeyResult(cursor, scanParams, type);
+            return jedis.scan(cursor, scanParams, type.name());
         }
     }
 
     // When the version is earlier than redis5, scan command does not support type
     private ScanResult<String> scanOnRedis5(
             String cursor, ScanParams scanParams, RedisDataType type) {
-        ScanResult<String> scanResult = scanKeyResult(cursor, scanParams, null);
+        ScanResult<String> scanResult = jedis.scan(cursor, scanParams);
         String resultCursor = scanResult.getCursor();
         List<String> keys = scanResult.getResult();
         List<String> typeKeys = new ArrayList<>(keys.size());
@@ -87,9 +87,6 @@ public abstract class RedisClient {
             jedis.close();
         }
     }
-
-    public abstract ScanResult<String> scanKeyResult(
-            String cursor, ScanParams scanParams, RedisDataType type);
 
     public abstract List<String> batchGetString(List<String> keys);
 

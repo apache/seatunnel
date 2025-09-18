@@ -69,7 +69,7 @@ public class RedisSinkWriterTest {
     @Test
     void testGetCustomKey() {
         // Set custom key mode
-        when(mockRedisParameters.getKeyField()).thenReturn("user:{id}:profile");
+        when(mockRedisParameters.getKeyField()).thenReturn("user:${id}:profile");
         when(mockRedisParameters.getSupportCustomKey()).thenReturn(true);
         when(mockRedisParameters.getRedisDataType()).thenReturn(RedisDataType.STRING);
         when(mockRedisParameters.getExpire()).thenReturn(3600L);

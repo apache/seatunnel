@@ -18,16 +18,12 @@
 package org.apache.seatunnel.connectors.seatunnel.redis.client;
 
 import org.apache.seatunnel.api.table.type.RowKind;
-import org.apache.seatunnel.connectors.seatunnel.redis.config.JedisWrapper;
 import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisDataType;
 import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisParameters;
 
 import org.apache.commons.collections4.CollectionUtils;
 
-import redis.clients.jedis.ConnectionPool;
 import redis.clients.jedis.Jedis;
-import redis.clients.jedis.params.ScanParams;
-import redis.clients.jedis.resps.ScanResult;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -35,11 +31,9 @@ import java.util.Map;
 import java.util.Set;
 
 public class RedisClusterClient extends RedisClient {
-    private final List<Map.Entry<String, ConnectionPool>> nodes;
 
     public RedisClusterClient(RedisParameters redisParameters, Jedis jedis, int redisVersion) {
         super(redisParameters, jedis, redisVersion);
-        this.nodes = new ArrayList<>(((JedisWrapper) jedis).getClusterNodes().entrySet());
     }
 
     @Override
@@ -167,61 +161,5 @@ public class RedisClusterClient extends RedisClient {
                 RedisDataType.ZSET.set(jedis, keys.get(i), values.get(i), expireSeconds);
             }
         }
-    }
-
-    /** In cluster mode, traverse and scan each node key */
-    @Override
-    public ScanResult<String> scanKeyResult(
-            final String cursor, final ScanParams params, final RedisDataType type) {
-        // Create a composite cursor to traverse the cluster nodes: the format is "Node Index: Node
-        // cursor"
-        int nodeIndex = 0;
-        String nodeCursor = cursor;
-        boolean isFirstScan = !cursor.contains(":");
-
-        if (!ScanParams.SCAN_POINTER_START.equals(cursor) && cursor.contains(":")) {
-            String[] parts = cursor.split(":", 2);
-            nodeIndex = Integer.parseInt(parts[0]);
-            nodeCursor = parts[1];
-        }
-
-        // All nodes have been scanned
-        if (nodeIndex >= nodes.size()) {
-            return new ScanResult<>(ScanParams.SCAN_POINTER_START, new ArrayList<>());
-        }
-
-        ConnectionPool pool = nodes.get(nodeIndex).getValue();
-        List<String> resultKeys;
-        String nextCursor;
-
-        try (Jedis jedis = new Jedis(pool.getResource())) {
-            // Perform the scan operation
-            ScanResult<String> scanResult;
-            if (type != null) {
-                // redis 7
-                scanResult = jedis.scan(nodeCursor, params, type.name());
-            } else {
-                // redis 5
-                scanResult = jedis.scan(nodeCursor, params);
-            }
-
-            resultKeys = new ArrayList<>(scanResult.getResult());
-
-            // Generate the next cursor
-            if (!isFirstScan && ScanParams.SCAN_POINTER_START.equals(scanResult.getCursor())) {
-                // The current node scan has been completed. Move to the next node
-                nodeIndex++;
-                if (nodeIndex < nodes.size()) {
-                    nextCursor = nodeIndex + ":" + ScanParams.SCAN_POINTER_START;
-                } else {
-                    nextCursor = ScanParams.SCAN_POINTER_START;
-                }
-            } else {
-                // The current node has not been fully scanned. Update the composite cursor
-                nextCursor = nodeIndex + ":" + scanResult.getCursor();
-            }
-        }
-
-        return new ScanResult<>(nextCursor, resultKeys);
     }
 }

@@ -24,6 +24,8 @@ import lombok.extern.slf4j.Slf4j;
 import redis.clients.jedis.ConnectionPool;
 import redis.clients.jedis.Jedis;
 import redis.clients.jedis.JedisCluster;
+import redis.clients.jedis.params.ScanParams;
+import redis.clients.jedis.resps.ScanResult;
 
 import java.util.List;
 import java.util.Map;
@@ -124,6 +126,17 @@ public class JedisWrapper extends Jedis {
 
     public Map<String, ConnectionPool> getClusterNodes() {
         return jedisCluster.getClusterNodes();
+    }
+
+    @Override
+    public ScanResult<String> scan(final String cursor, final ScanParams params) {
+        return jedisCluster.scan(cursor, params);
+    }
+
+    @Override
+    public ScanResult<String> scan(
+            final String cursor, final ScanParams params, final String type) {
+        return jedisCluster.scan(cursor, params, type);
     }
 
     @Override
