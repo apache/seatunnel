@@ -50,8 +50,13 @@ public class FlinkTaskExecuteCommand implements Command<FlinkCommandArgs> {
         Path configFile = FileUtils.getConfigPath(flinkCommandArgs);
         checkConfigExist(configFile);
         Config config = null;
+        Config envConfig =
+                ConfigBuilder.of(configFile, flinkCommandArgs.getVariables()).getConfig("env");
         boolean metalakeEnabled =
-                Boolean.parseBoolean(System.getenv().getOrDefault("METALAKE_ENABLED", "false"));
+                envConfig.hasPath("metalake_enabled")
+                        ? envConfig.getBoolean("metalake_enabled")
+                        : Boolean.parseBoolean(
+                                System.getenv().getOrDefault("METALAKE_ENABLED", "false"));
         if (metalakeEnabled) {
             config =
                     MetalakeConfigUtils.getMetalakeConfig(

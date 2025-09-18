@@ -39,13 +39,15 @@ public class MetalakeConfigUtils {
 
     public static Config getMetalakeConfig(Config jobConfigTmp) {
         Config update = jobConfigTmp;
+        Config envConfig = jobConfigTmp.getConfig("env");
 
         try {
             ConfigList sourceList = jobConfigTmp.getList("source");
             update =
                     update.withValue(
                             "source",
-                            ConfigValueFactory.fromIterable(replaceConfigList(sourceList)));
+                            ConfigValueFactory.fromIterable(
+                                    replaceConfigList(sourceList, envConfig)));
         } catch (IOException e) {
             log.error("Fail to get MetaInfo", e);
         }
@@ -54,16 +56,25 @@ public class MetalakeConfigUtils {
             ConfigList sinkList = jobConfigTmp.getList("sink");
             update =
                     update.withValue(
-                            "sink", ConfigValueFactory.fromIterable(replaceConfigList(sinkList)));
+                            "sink",
+                            ConfigValueFactory.fromIterable(
+                                    replaceConfigList(sinkList, envConfig)));
         } catch (IOException e) {
             log.error("Fail to get MetaInfo", e);
         }
         return update;
     }
 
-    private static List<ConfigValue> replaceConfigList(ConfigList list) throws IOException {
-        String metalakeType = System.getenv("METALAKE_TYPE");
-        String metalakeUrl = System.getenv("METALAKE_URL");
+    private static List<ConfigValue> replaceConfigList(ConfigList list, Config envConfig)
+            throws IOException {
+        String metalakeType =
+                envConfig.hasPath("metalake_type")
+                        ? envConfig.getString("metalake_type")
+                        : System.getenv("METALAKE_TYPE");
+        String metalakeUrl =
+                envConfig.hasPath("metalake_url")
+                        ? envConfig.getString("metalake_url")
+                        : System.getenv("METALAKE_URL");
         MetalakeClient metalakeClient = MetalakeClientFactory.create(metalakeType, metalakeUrl);
 
         List<ConfigValue> newConfigList = new ArrayList<>(list);

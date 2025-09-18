@@ -173,8 +173,13 @@ public class MultipleTableJobConfigParser {
         this.jobConfig = jobConfig;
         this.commonPluginJars = commonPluginJars;
         this.isStartWithSavePoint = isStartWithSavePoint;
+        Config envConfig =
+                ConfigBuilder.of(Paths.get(jobDefineFilePath), variables).getConfig("env");
         boolean metalakeEnabled =
-                Boolean.parseBoolean(System.getenv().getOrDefault("METALAKE_ENABLED", "false"));
+                envConfig.hasPath("metalake_enabled")
+                        ? envConfig.getBoolean("metalake_enabled")
+                        : Boolean.parseBoolean(
+                                System.getenv().getOrDefault("METALAKE_ENABLED", "false"));
         if (metalakeEnabled) {
             this.seaTunnelJobConfig =
                     MetalakeConfigUtils.getMetalakeConfig(
