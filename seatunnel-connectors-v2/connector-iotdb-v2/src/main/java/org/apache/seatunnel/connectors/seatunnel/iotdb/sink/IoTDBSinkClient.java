@@ -101,16 +101,16 @@ public class IoTDBSinkClient {
     }
 
     public synchronized void close() throws IOException {
-        flush();
-
         try {
-            if (session != null) {
-                session.close();
+            flush();
+        } finally {
+            try {
+                if (session != null) {
+                    session.close();
+                }
+            } catch (IoTDBConnectionException e) {
+                log.error("Close IoTDB client failed.", e);
             }
-        } catch (IoTDBConnectionException e) {
-            log.error("Close IoTDB client failed.", e);
-            throw new IotdbConnectorException(
-                    IotdbConnectorErrorCode.CLOSE_CLIENT_FAILED, "Close IoTDB client failed.", e);
         }
     }
 

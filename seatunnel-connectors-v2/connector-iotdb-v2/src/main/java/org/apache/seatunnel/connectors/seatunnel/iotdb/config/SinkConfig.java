@@ -94,10 +94,11 @@ public class SinkConfig extends CommonConfig {
         if (pluginConfig.getOptional(IoTDBSinkOptions.ZONE_ID).isPresent()) {
             sinkConfig.setZoneId(ZoneId.of(pluginConfig.get(IoTDBSinkOptions.ZONE_ID)));
         }
-        sinkConfig.setEnableRPCCompression(
-                pluginConfig.get(IoTDBSinkOptions.ENABLE_RPC_COMPRESSION));
+        if (pluginConfig.getOptional(IoTDBSinkOptions.ENABLE_RPC_COMPRESSION).isPresent()) {
+            sinkConfig.setEnableRPCCompression(
+                    pluginConfig.get(IoTDBSinkOptions.ENABLE_RPC_COMPRESSION));
+        }
         if (pluginConfig.getOptional(IoTDBSinkOptions.CONNECTION_TIMEOUT_IN_MS).isPresent()) {
-            checkNotNull(sinkConfig.getEnableRPCCompression());
             sinkConfig.setConnectionTimeoutInMs(
                     pluginConfig.get(IoTDBSinkOptions.CONNECTION_TIMEOUT_IN_MS));
         }

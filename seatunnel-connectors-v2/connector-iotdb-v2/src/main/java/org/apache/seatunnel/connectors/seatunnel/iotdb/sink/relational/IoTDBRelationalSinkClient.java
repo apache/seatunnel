@@ -98,9 +98,6 @@ public class IoTDBRelationalSinkClient {
         if (sinkConfig.getConnectionTimeoutInMs() != null) {
             sessionBuilder.connectionTimeoutInMs(sinkConfig.getConnectionTimeoutInMs());
         }
-        if (sinkConfig.getEnableRPCCompression() != null) {
-            sessionBuilder.enableCompression(sinkConfig.getEnableRPCCompression());
-        }
 
         try {
             tableSession = sessionBuilder.build();
@@ -197,16 +194,16 @@ public class IoTDBRelationalSinkClient {
     }
 
     public synchronized void close() throws IOException {
-        flush();
-
         try {
-            if (tableSession != null) {
-                tableSession.close();
+            flush();
+        } finally {
+            try {
+                if (tableSession != null) {
+                    tableSession.close();
+                }
+            } catch (IoTDBConnectionException e) {
+                log.error("Close IoTDB client failed.", e);
             }
-        } catch (IoTDBConnectionException e) {
-            log.error("Close IoTDB client failed.", e);
-            throw new IotdbConnectorException(
-                    IotdbConnectorErrorCode.CLOSE_CLIENT_FAILED, "Close IoTDB client failed.", e);
         }
     }
 
