@@ -49,21 +49,9 @@ public class FlinkTaskExecuteCommand implements Command<FlinkCommandArgs> {
     public void execute() throws CommandExecuteException {
         Path configFile = FileUtils.getConfigPath(flinkCommandArgs);
         checkConfigExist(configFile);
-        Config config = null;
-        Config envConfig =
-                ConfigBuilder.of(configFile, flinkCommandArgs.getVariables()).getConfig("env");
-        boolean metalakeEnabled =
-                envConfig.hasPath("metalake_enabled")
-                        ? envConfig.getBoolean("metalake_enabled")
-                        : Boolean.parseBoolean(
-                                System.getenv().getOrDefault("METALAKE_ENABLED", "false"));
-        if (metalakeEnabled) {
-            config =
-                    MetalakeConfigUtils.getMetalakeConfig(
-                            ConfigBuilder.of(configFile, flinkCommandArgs.getVariables()));
-        } else {
-            config = ConfigBuilder.of(configFile, flinkCommandArgs.getVariables());
-        }
+        Config config =
+                MetalakeConfigUtils.getMetalakeConfig(
+                        ConfigBuilder.of(configFile, flinkCommandArgs.getVariables()));
         // if user specified job name using command line arguments, override config option
         if (!flinkCommandArgs.getJobName().equals(Constants.LOGO)) {
             config =

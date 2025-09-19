@@ -38,9 +38,15 @@ import java.util.Map;
 public class MetalakeConfigUtils {
 
     public static Config getMetalakeConfig(Config jobConfigTmp) {
-        Config update = jobConfigTmp;
         Config envConfig = jobConfigTmp.getConfig("env");
+        boolean metalakeEnabled =
+                envConfig.hasPath("metalake_enabled")
+                        ? envConfig.getBoolean("metalake_enabled")
+                        : Boolean.parseBoolean(
+                                System.getenv().getOrDefault("METALAKE_ENABLED", "false"));
+        if (!metalakeEnabled) return jobConfigTmp;
 
+        Config update = jobConfigTmp;
         try {
             ConfigList sourceList = jobConfigTmp.getList("source");
             update =
@@ -57,6 +63,17 @@ public class MetalakeConfigUtils {
             update =
                     update.withValue(
                             "sink",
+                            ConfigValueFactory.fromIterable(
+                                    replaceConfigList(sinkList, envConfig)));
+        } catch (IOException e) {
+            log.error("Fail to get MetaInfo", e);
+        }
+
+        try {
+            ConfigList sinkList = jobConfigTmp.getList("transform");
+            update =
+                    update.withValue(
+                            "transform",
                             ConfigValueFactory.fromIterable(
                                     replaceConfigList(sinkList, envConfig)));
         } catch (IOException e) {

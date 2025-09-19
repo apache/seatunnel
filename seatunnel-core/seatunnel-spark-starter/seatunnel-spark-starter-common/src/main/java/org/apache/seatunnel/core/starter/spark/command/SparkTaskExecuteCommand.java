@@ -49,21 +49,9 @@ public class SparkTaskExecuteCommand implements Command<SparkCommandArgs> {
     public void execute() throws CommandExecuteException {
         Path configFile = FileUtils.getConfigPath(sparkCommandArgs);
         checkConfigExist(configFile);
-        Config config = null;
-        Config envConfig =
-                ConfigBuilder.of(configFile, sparkCommandArgs.getVariables()).getConfig("env");
-        boolean metalakeEnabled =
-                envConfig.hasPath("metalake_enabled")
-                        ? envConfig.getBoolean("metalake_enabled")
-                        : Boolean.parseBoolean(
-                                System.getenv().getOrDefault("METALAKE_ENABLED", "false"));
-        if (metalakeEnabled) {
-            config =
-                    MetalakeConfigUtils.getMetalakeConfig(
-                            ConfigBuilder.of(configFile, sparkCommandArgs.getVariables()));
-        } else {
-            config = ConfigBuilder.of(configFile, sparkCommandArgs.getVariables());
-        }
+        Config config =
+                MetalakeConfigUtils.getMetalakeConfig(
+                        ConfigBuilder.of(configFile, sparkCommandArgs.getVariables()));
         if (!sparkCommandArgs.getJobName().equals(Constants.LOGO)) {
             config =
                     config.withValue(
