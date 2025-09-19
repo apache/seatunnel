@@ -43,6 +43,7 @@ public class FileSourceSplitEnumerator
             new TreeSet<>(Comparator.comparing(FileSourceSplit::splitId));
     private Set<FileSourceSplit> assignedSplit;
     private final List<String> filePaths;
+    private final Object lock = new Object();
     private final AtomicInteger assignCount = new AtomicInteger(0);
 
     public FileSourceSplitEnumerator(
@@ -69,7 +70,9 @@ public class FileSourceSplitEnumerator
     public void run() {
         for (int i = 0; i < context.currentParallelism(); i++) {
             LOGGER.info("Assigned splits to reader [{}]", i);
-            assignSplit(i);
+            synchronized (lock) {
+                assignSplit(i);
+            }
         }
     }
 
@@ -139,7 +142,9 @@ public class FileSourceSplitEnumerator
 
     @Override
     public FileSourceState snapshotState(long checkpointId) {
-        return new FileSourceState(assignedSplit);
+        synchronized (lock) {
+            return new FileSourceState(assignedSplit);
+        }
     }
 
     @Override

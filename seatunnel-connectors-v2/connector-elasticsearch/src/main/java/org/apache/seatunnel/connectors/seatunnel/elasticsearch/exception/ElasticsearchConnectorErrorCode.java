@@ -40,6 +40,9 @@ public enum ElasticsearchConnectorErrorCode implements SeaTunnelErrorCode {
     CREATE_PIT_FAILED("ELASTICSEARCH-15", "Create Point-in-Time failed"),
     DELETE_PIT_FAILED("ELASTICSEARCH-16", "Delete Point-in-Time failed"),
     SEARCH_WITH_PIT_FAILED("ELASTICSEARCH-17", "Search with Point-in-Time failed"),
+    UNSUPPORTED_AUTH_TYPE("ELASTICSEARCH-18", "Unsupported authentication type"),
+    AUTH_CONFIG_INVALID("ELASTICSEARCH-19", "Authentication configuration is invalid"),
+    AUTH_SETUP_FAILED("ELASTICSEARCH-20", "Authentication setup failed"),
     ;
 
     private final String code;

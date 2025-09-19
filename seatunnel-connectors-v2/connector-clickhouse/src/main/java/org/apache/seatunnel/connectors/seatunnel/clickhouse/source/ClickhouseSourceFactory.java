@@ -32,6 +32,7 @@ import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseSourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseTableConfig;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.exception.ClickhouseConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.file.ClickhouseTable;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.util.ClickhouseProxy;
@@ -78,95 +79,113 @@ public class ClickhouseSourceFactory implements TableSourceFactory {
         ClickhouseSourceConfig clickhouseSourceConfig =
                 ClickhouseSourceConfig.of(context.getOptions());
 
-        String sql = clickhouseSourceConfig.getSql();
-        TablePath tablePath = clickhouseSourceConfig.getTableIdentifier();
-        List<ClickHouseNode> nodes =
-                ClickhouseUtil.createNodes(
-                        clickhouseSourceConfig.getHost(),
-                        tablePath.getDatabaseName(),
-                        clickhouseSourceConfig.getServerTimeZone(),
-                        clickhouseSourceConfig.getUsername(),
-                        clickhouseSourceConfig.getPassword(),
-                        clickhouseSourceConfig.getClickhouseConfig());
+        List<ClickhouseTableConfig> tableConfigs = clickhouseSourceConfig.getTableconfigList();
 
-        ClickHouseNode currentServer = nodes.get(ThreadLocalRandom.current().nextInt(nodes.size()));
         Map<TablePath, ClickhouseSourceTable> clickhouseSourceTables = new HashMap<>();
+        Map<TablePath, List<ClickHouseNode>> nodesMap = new HashMap<>();
 
-        try (ClickhouseProxy proxy = new ClickhouseProxy(currentServer);
-                ClickHouseResponse response =
-                        proxy.getClickhouseConnection()
-                                .query(
-                                        generateQuerySql(
-                                                sql,
-                                                tablePath.getDatabaseName(),
-                                                tablePath.getTableName()))
-                                .executeAndWait()) {
-            TableSchema.Builder builder = TableSchema.builder();
-            List<ClickHouseColumn> columns = response.getColumns();
-            columns.forEach(
-                    column -> {
-                        PhysicalColumn physicalColumn =
-                                PhysicalColumn.of(
-                                        column.getColumnName(),
-                                        TypeConvertUtil.convert(column),
-                                        (long) column.getEstimatedLength(),
-                                        column.getScale(),
-                                        column.isNullable(),
-                                        null,
-                                        null);
-                        builder.column(physicalColumn);
-                    });
-            String catalogName = "clickhouse_catalog";
-            CatalogTable catalogTable =
-                    CatalogTable.of(
-                            TableIdentifier.of(catalogName, tablePath.getDatabaseName(), "default"),
-                            builder.build(),
-                            Collections.emptyMap(),
-                            Collections.emptyList(),
-                            "",
-                            catalogName);
+        for (ClickhouseTableConfig tableConfig : tableConfigs) {
 
-            boolean isComplexSql =
-                    StringUtils.isNotEmpty(sql)
-                            && (tablePath == TablePath.DEFAULT || proxy.isComplexSql(sql));
+            String sql = tableConfig.getSql();
+            TablePath tablePath = tableConfig.getTableIdentifier();
 
-            ClickhouseTable clickhouseTable =
-                    isComplexSql
-                            ? null
-                            : proxy.getClickhouseTable(
-                                    proxy.getClickhouseConnection(),
-                                    tablePath.getDatabaseName(),
-                                    tablePath.getTableName());
+            List<ClickHouseNode> nodes =
+                    ClickhouseUtil.createNodes(
+                            clickhouseSourceConfig.getHost(),
+                            tablePath.getDatabaseName(),
+                            clickhouseSourceConfig.getServerTimeZone(),
+                            clickhouseSourceConfig.getUsername(),
+                            clickhouseSourceConfig.getPassword(),
+                            clickhouseSourceConfig.getClickhouseConfig());
 
-            ClickhouseSourceTable clickhouseSourceTable =
-                    ClickhouseSourceTable.builder()
-                            .tablePath(tablePath)
-                            .clickhouseTable(clickhouseTable)
-                            .originQuery(sql)
-                            .filterQuery(clickhouseSourceConfig.getFilterQuery())
-                            .splitSize(clickhouseSourceConfig.getSplitSize())
-                            .batchSize(clickhouseSourceConfig.getBatchSize())
-                            .partitionList(clickhouseSourceConfig.getPartitionList())
-                            .isSqlStrategyRead(clickhouseSourceConfig.isSqlStrategyRead())
-                            .isComplexSql(isComplexSql)
-                            .build();
+            ClickHouseNode currentServer =
+                    nodes.get(ThreadLocalRandom.current().nextInt(nodes.size()));
 
-            clickhouseSourceTables.put(tablePath, clickhouseSourceTable);
+            try (ClickhouseProxy proxy = new ClickhouseProxy(currentServer);
+                    ClickHouseResponse response =
+                            proxy.getClickhouseConnection()
+                                    .query(
+                                            generateQuerySql(
+                                                    sql,
+                                                    tablePath.getDatabaseName(),
+                                                    tablePath.getTableName()))
+                                    .executeAndWait()) {
 
-            return () ->
-                    (SeaTunnelSource<T, SplitT, StateT>)
-                            new ClickhouseSource(
-                                    nodes,
-                                    catalogTable,
-                                    clickhouseSourceTables,
-                                    clickhouseSourceConfig);
-        } catch (ClickHouseException e) {
-            throw new ClickhouseConnectorException(
-                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                    String.format(
-                            "PluginName: %s, PluginType: %s, Message: %s",
-                            factoryIdentifier(), PluginType.SOURCE, e.getMessage()));
+                TableSchema.Builder builder = TableSchema.builder();
+                List<ClickHouseColumn> columns = response.getColumns();
+
+                columns.forEach(
+                        column -> {
+                            PhysicalColumn physicalColumn =
+                                    PhysicalColumn.of(
+                                            column.getColumnName(),
+                                            TypeConvertUtil.convert(column),
+                                            (long) column.getEstimatedLength(),
+                                            column.getScale(),
+                                            column.isNullable(),
+                                            null,
+                                            null);
+                            builder.column(physicalColumn);
+                        });
+
+                String catalogName = "clickhouse_catalog";
+
+                CatalogTable catalogTable =
+                        CatalogTable.of(
+                                TableIdentifier.of(
+                                        catalogName,
+                                        tablePath.getDatabaseName(),
+                                        tablePath.getTableName()),
+                                builder.build(),
+                                Collections.emptyMap(),
+                                Collections.emptyList(),
+                                "",
+                                catalogName);
+
+                boolean isComplexSql =
+                        StringUtils.isNotEmpty(sql)
+                                && (tablePath == TablePath.DEFAULT || proxy.isComplexSql(sql));
+
+                ClickhouseTable clickhouseTable =
+                        isComplexSql
+                                ? null
+                                : proxy.getClickhouseTable(
+                                        proxy.getClickhouseConnection(),
+                                        tablePath.getDatabaseName(),
+                                        tablePath.getTableName());
+
+                ClickhouseSourceTable clickhouseSourceTable =
+                        ClickhouseSourceTable.builder()
+                                .tablePath(tablePath)
+                                .clickhouseTable(clickhouseTable)
+                                .originQuery(sql)
+                                .filterQuery(tableConfig.getFilterQuery())
+                                .splitSize(tableConfig.getSplitSize())
+                                .batchSize(tableConfig.getBatchSize())
+                                .partitionList(tableConfig.getPartitionList())
+                                .isSqlStrategyRead(tableConfig.isSqlStrategyRead())
+                                .isComplexSql(isComplexSql)
+                                .catalogTable(catalogTable)
+                                .build();
+
+                clickhouseSourceTables.put(tablePath, clickhouseSourceTable);
+                // The database may be different for each tableConfig
+                // so create a separate nodes for each tablePath
+                nodesMap.put(tablePath, nodes);
+
+            } catch (ClickHouseException e) {
+                throw new ClickhouseConnectorException(
+                        SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                        String.format(
+                                "PluginName: %s, PluginType: %s, Message: %s",
+                                factoryIdentifier(), PluginType.SOURCE, e.getMessage()));
+            }
         }
+
+        return () ->
+                (SeaTunnelSource<T, SplitT, StateT>)
+                        new ClickhouseSource(
+                                nodesMap, clickhouseSourceTables, clickhouseSourceConfig);
     }
 
     private String modifySQLToLimit1(String sql) {

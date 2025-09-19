@@ -38,6 +38,7 @@ import org.junit.jupiter.api.Test;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 
 class DebeziumJsonFormatTest {
 
@@ -104,6 +105,11 @@ class DebeziumJsonFormatTest {
         @Override
         public String getPluginName() {
             return "";
+        }
+
+        @Override
+        public Optional<String> driverName() {
+            return Optional.empty();
         }
     }
 

@@ -12,11 +12,15 @@ import ChangeLog from '../changelog/connector-file-cos.md';
 
 ## 关键特性
 
+- [x] [多模态](../../concept/connector-v2-features.md#多模态multimodal)
+
+  使用二进制文件格式读取和写入任何格式的文件，例如视频、图片等。简而言之，任何文件都可以同步到目标位置。
+
 - [x] [批处理](../../concept/connector-v2-features.md)
 - [ ] [流处理](../../concept/connector-v2-features.md)
 - [x] [精确一次](../../concept/connector-v2-features.md)
 
-在pollNext调用中读取拆分的所有数据。读取的拆分内容将保存在快照中。
+  在pollNext调用中读取拆分的所有数据。读取的拆分内容将保存在快照中。
 
 - [x] [列映射](../../concept/connector-v2-features.md)
 - [x] [并行度](../../concept/connector-v2-features.md)
@@ -47,33 +51,36 @@ import ChangeLog from '../changelog/connector-file-cos.md';
 
 ## 选项
 
-| 名称                                    |  类型    | 必需  | 默认值                 |
-|---------------------------------------|---------|-----|---------------------|
-| path                                  | string  | 是   | -                   |
-| file_format_type                      | string  | 是   | -                   |
-| bucket                                | string  | 是   | -                   |
-| secret_id                             | string  | 是   | -                   |
-| secret_key                            | string  | 是   | -                   |
-| region                                | string  | 是   | -                   |
-| read_columns                          | list    | 是   | -                   |
-| delimiter/field_delimiter             | string  | 否   | \001                |
-| parse_partition_from_path             | boolean | 否   | true                |
-| skip_header_row_number                | long    | 否   | 0                   |
-| date_format                           | string  | 否   | yyyy-MM-dd          |
-| datetime_format                       | string  | 否   | yyyy-MM-dd HH:mm:ss |
-| time_format                           | string  | 否   | HH:mm:ss            |
-| schema                                | config  | 否   | -                   |
-| sheet_name                            | string  | 否   | -                   |
-| xml_row_tag                           | string  | 否   | -                   |
-| xml_use_attr_format                   | boolean | 否   | -                   |
-| csv_use_header_line                   | boolean | 否   | false               |
-| file_filter_pattern                   | string  | 否   |                     |
-| compress_codec                        | string  | 否   | none                |
-| archive_compress_codec                | string  | 否   | none                |
-| encoding                              | string  | 否   | UTF-8               |
-| binary_chunk_size                     | int     | 否   | 1024                |
-| binary_complete_file_mode             | boolean | 否   | false               |
-| common-options                        |         | 否   | -                   |
+| 名称                        | 类型      | 必需 | 默认值                 |
+|---------------------------|---------|----|---------------------|
+| path                      | string  | 是  | -                   |
+| file_format_type          | string  | 是  | -                   |
+| bucket                    | string  | 是  | -                   |
+| secret_id                 | string  | 是  | -                   |
+| secret_key                | string  | 是  | -                   |
+| region                    | string  | 是  | -                   |
+| read_columns              | list    | 是  | -                   |
+| delimiter/field_delimiter | string  | 否  | \001                |
+| row_delimiter             | string  | 否  | \n                  |
+| parse_partition_from_path | boolean | 否  | true                |
+| skip_header_row_number    | long    | 否  | 0                   |
+| date_format               | string  | 否  | yyyy-MM-dd          |
+| datetime_format           | string  | 否  | yyyy-MM-dd HH:mm:ss |
+| time_format               | string  | 否  | HH:mm:ss            |
+| schema                    | config  | 否  | -                   |
+| sheet_name                | string  | 否  | -                   |
+| xml_row_tag               | string  | 否  | -                   |
+| xml_use_attr_format       | boolean | 否  | -                   |
+| csv_use_header_line       | boolean | 否  | false               |
+| file_filter_pattern       | string  | 否  |                     |
+| compress_codec            | string  | 否  | none                |
+| archive_compress_codec    | string  | 否  | none                |
+| encoding                  | string  | 否  | UTF-8               |
+| binary_chunk_size         | int     | 否  | 1024                |
+| binary_complete_file_mode | boolean | 否  | false               |
+| common-options            |         | 否  | -                   |
+| file_filter_modified_start  | string  | 否    | -                   | 按照最后修改时间过滤文件。 要过滤的开始时间(包括改时间),时间格式是：`yyyy-MM-dd HH:mm:ss`                                                                               |
+| file_filter_modified_end    | string  | 否    | -                   | 按照最后修改时间过滤文件。 要过滤的结束时间(不包括改时间),时间格式是：`yyyy-MM-dd HH:mm:ss`                                                                                                                  |
 
 ### path [string]
 
@@ -200,6 +207,14 @@ cos文件系统的region。
 字段分隔符，用于告诉连接器如何对字段进行切片和切块
 
 默认值“\001”，与配置单元的默认分隔符相同
+
+### row_delimiter [string]
+
+仅在 file_format 为 text 时需要配置。
+
+行分隔符，用于告诉连接器如何分割行。
+
+默认 `\n`。
 
 ### parse_partition_from_path [boolean]
 

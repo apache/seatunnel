@@ -19,6 +19,8 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc;
 
 import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.xugu.XuguCatalog;
@@ -26,6 +28,8 @@ import org.apache.seatunnel.e2e.common.container.TestContainer;
 
 import org.apache.commons.lang3.tuple.Pair;
 
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
@@ -245,7 +249,142 @@ public class JdbcXuguIT extends AbstractJdbcIT {
                         jdbcCase.getPassword(),
                         JdbcUrlUtil.getUrlInfo(jdbcUrl),
                         XUGU_SCHEMA,
-                        null);
+                        DRIVER_CLASS);
         catalog.open();
+    }
+
+    // Catalog test methods transferred from XuguCatalogTest
+    @Test
+    void testListDatabases() {
+        // Test listing databases functionality
+        List<String> databases = catalog.listDatabases();
+        Assertions.assertNotNull(databases, "Database list should not be null");
+        Assertions.assertFalse(databases.isEmpty(), "Database list should not be empty");
+    }
+
+    @Test
+    void testDatabaseExists() {
+        // Test specific database existence with case sensitivity
+        Assertions.assertTrue(
+                catalog.databaseExists(XUGU_DATABASE), "SYSTEM database should exist");
+        Assertions.assertTrue(
+                catalog.databaseExists(XUGU_DATABASE.toUpperCase()),
+                "Database existence check should be case-insensitive (uppercase)");
+
+        // Test mixed case scenarios for SYSTEM database
+        Assertions.assertTrue(catalog.databaseExists("system"), "system should exist (lowercase)");
+        Assertions.assertTrue(catalog.databaseExists("System"), "System should exist (mixed case)");
+
+        // Test non-existent database
+        Assertions.assertFalse(
+                catalog.databaseExists("NON_EXISTENT_DB"),
+                "Non-existent database should return false");
+    }
+
+    @Test
+    void testTableExists() {
+        // Test specific table existence
+        TablePath testTablePath = TablePath.of(XUGU_DATABASE, XUGU_SCHEMA, XUGU_SOURCE);
+        Assertions.assertTrue(
+                catalog.tableExists(testTablePath),
+                "e2e_table_source should exist in SYSDBA schema");
+
+        // Test case-insensitive database name handling
+        TablePath lowerCaseDatabasePath =
+                TablePath.of(XUGU_DATABASE.toLowerCase(), XUGU_SCHEMA, XUGU_SOURCE);
+        Assertions.assertTrue(
+                catalog.tableExists(lowerCaseDatabasePath),
+                "Table existence check should be case-insensitive for database name");
+
+        // Test non-existent table
+        TablePath nonExistentTable = TablePath.of(XUGU_DATABASE, XUGU_SCHEMA, "NON_EXISTENT_TABLE");
+        Assertions.assertFalse(
+                catalog.tableExists(nonExistentTable), "Non-existent table should return false");
+    }
+
+    @Test
+    void testGetTable() {
+        // Test getting specific table metadata
+        TablePath testTablePath = TablePath.of(XUGU_DATABASE, XUGU_SCHEMA, XUGU_SOURCE);
+        CatalogTable table = catalog.getTable(testTablePath);
+
+        Assertions.assertNotNull(table, "Table metadata should not be null");
+        Assertions.assertNotNull(table.getTableSchema(), "Table schema should not be null");
+        Assertions.assertEquals(
+                XUGU_SOURCE, table.getTableId().getTableName(), "Table name should match");
+        Assertions.assertEquals(
+                XUGU_SCHEMA, table.getTableId().getSchemaName(), "Schema name should match");
+        Assertions.assertEquals(
+                XUGU_DATABASE, table.getTableId().getDatabaseName(), "Database name should match");
+
+        // Test that table has columns
+        Assertions.assertNotNull(table.getTableSchema().getColumns(), "Table should have columns");
+        Assertions.assertFalse(
+                table.getTableSchema().getColumns().isEmpty(),
+                "e2e_table_source should have columns");
+    }
+
+    @Test
+    void testGetConstraintKeys() {
+        // Test constraint keys for specific table
+        TablePath testTablePath = TablePath.of(XUGU_DATABASE, XUGU_SCHEMA, XUGU_SOURCE);
+        CatalogTable table = catalog.getTable(testTablePath);
+
+        Assertions.assertNotNull(table, "Table should not be null");
+        Assertions.assertNotNull(table.getTableSchema(), "Table schema should not be null");
+        Assertions.assertNotNull(
+                table.getTableSchema().getConstraintKeys(), "Constraint keys should not be null");
+
+        // Test Xugu-specific constraint key processing (removes double quotes)
+        table.getTableSchema()
+                .getConstraintKeys()
+                .forEach(
+                        constraintKey -> {
+                            if (constraintKey.getColumnNames() != null) {
+                                constraintKey
+                                        .getColumnNames()
+                                        .forEach(
+                                                column -> {
+                                                    if (column.getColumnName() != null) {
+                                                        Assertions.assertFalse(
+                                                                column.getColumnName()
+                                                                        .contains("\""),
+                                                                "Column names should not contain double quotes after Xugu processing");
+                                                    }
+                                                });
+                            }
+                        });
+    }
+
+    @Test
+    void testXuguCaseInsensitiveDatabaseHandling() {
+        // Test Xugu's specific case-insensitive database name handling
+        // Xugu forces database names to uppercase internally
+        List<String> databases = catalog.listDatabases();
+        if (!databases.isEmpty()) {
+            String firstDatabase = databases.get(0);
+
+            // Test that all returned database names are uppercase (Xugu behavior)
+            Assertions.assertEquals(
+                    firstDatabase.toUpperCase(),
+                    firstDatabase,
+                    "Xugu should return database names in uppercase");
+
+            // Test various case combinations all resolve to the same database
+            String[] testCases = {
+                firstDatabase,
+                firstDatabase.toLowerCase(),
+                firstDatabase.toUpperCase(),
+                firstDatabase.substring(0, 1).toLowerCase() + firstDatabase.substring(1),
+                firstDatabase.substring(0, 1).toUpperCase()
+                        + firstDatabase.substring(1).toLowerCase()
+            };
+
+            for (String testCase : testCases) {
+                Assertions.assertTrue(
+                        catalog.databaseExists(testCase),
+                        "Database existence check should work for case variant: " + testCase);
+            }
+        }
     }
 }

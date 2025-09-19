@@ -69,27 +69,27 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 ## Sink 选项
 
-|                   Name                    |  Type   | Required | Default |                                                                                                                  Description                                                                                                                   |
-|-------------------------------------------|---------|----------|---------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| url                                       | String  | 是       | -       | JDBC连接的URL。参考案例: jdbc:oceanbase://localhost:2883/test                                                                                                                                                          |
-| driver                                    | String  | 是       | -       | 用于连接到远程数据源的jdbc类名应为 `com.oceanbase.jdbc.Driver`.                                                                                                                                          |
-| user                                      | String  | 否       | -       | 连接实例用户名                                                                                                                                                                                                                  |
-| password                                  | String  | 否       | -       | 连接实例密码                                                                                                                                                                                                                   |
-| query                                     | String  | 否       | -       | 使用此sql将上游输入数据写入数据库。例如“insert…”查询具有更高的优先级                                                                                                                                         |
-| compatible_mode                           | String  | 是       | -       | OceanBase的兼容模式可以是“mysql”或“oracle”。                                                                                                                                                                                 |
-| database                                  | String  | 否       | -       | 使用这个“database”和“table-name”自动生成sql并接收上游输入数据写入数据库<br/>此选项与“query”互斥，具有更高的优先级。                                                       |
-| table                                     | String  | 否       | -       | 使用数据库和此表名自动生成sql并接收上游输入数据写入数据库<br/>此选项与“query”互斥，并且具有更高的 priority.                                                           |
-| primary_keys                              | Array   | 否       | -       | 此选项用于在自动生成sql时支持“insert”、“delete”和“update”等操作。                                                                                                                           |
-| connection_check_timeout_sec              | Int     | 否       | 30      | 等待用于验证连接的数据库操作完成的时间（秒）。                                                                                                                                            |
-| max_retries                               | Int     | 否       | 0       | 提交失败的重试次数(executeBatch)                                                                                                                                                                                          |
-| batch_size                                | Int     | 否       | 1000    | 对于批量写入，当缓冲记录的数量达到“batch_size”的数量或时间达到“checkpoint.interval”<br/>时，数据将被刷新到数据库中                                                           |
-| generate_sink_sql                         | Boolean | 否       | false   | 根据要写入的数据库表生成sql语句                                                                                                                            |
-| max_commit_attempts                       | Int     | 否       | 3       | 事务提交失败的重试次数                                                                                                                                                                                          |
-| transaction_timeout_sec                   | Int     | 否       | -1      | 事务打开后的超时，默认值为-1（永不超时）。请注意，设置超时可能会影响＜br/＞精确一次语义                                                                                           |
-| auto_commit                               | Boolean | 否       | true    | 默认情况下启用自动事务提交                                                                                                                                                                                             |
-| properties                                | Map     | 否       | -       | 其他连接配置参数，当属性和URL具有相同的参数时，优先级由驱动程序的特定实现决定。例如，在MySQL中，属性优先于URL。 |
-| common-options                            |         | 否       | -       | Sink插件常用参数，详见[Sink common Options]（../sink-common-options.md）                                                                                                                                    |
-| enable_upsert                             | Boolean | 否       | true    | 通过primary_keys存在启用upsert，如果任务没有键重复数据，将此参数设置为“false”可以加快数据导入                                                                                                         |
+| Name                         |  Type   | Required | Default |                                                                                                                  Description                                                                                                                   |
+|------------------------------|---------|----------|---------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| url                          | String  | 是       | -       | JDBC连接的URL。参考案例: jdbc:oceanbase://localhost:2883/test                                                                                                                                                          |
+| driver                       | String  | 是       | -       | 用于连接到远程数据源的jdbc类名应为 `com.oceanbase.jdbc.Driver`.                                                                                                                                          |
+| username                     | String  | 否       | -       | 连接实例用户名                                                                                                                                                                                                                  |
+| password                     | String  | 否       | -       | 连接实例密码                                                                                                                                                                                                                   |
+| query                        | String  | 否       | -       | 使用此sql将上游输入数据写入数据库。例如“insert…”查询具有更高的优先级                                                                                                                                         |
+| compatible_mode              | String  | 是       | -       | OceanBase的兼容模式可以是“mysql”或“oracle”。                                                                                                                                                                                 |
+| database                     | String  | 否       | -       | 使用这个“database”和“table-name”自动生成sql并接收上游输入数据写入数据库<br/>此选项与“query”互斥，具有更高的优先级。                                                       |
+| table                        | String  | 否       | -       | 使用数据库和此表名自动生成sql并接收上游输入数据写入数据库<br/>此选项与“query”互斥，并且具有更高的 priority.                                                           |
+| primary_keys                 | Array   | 否       | -       | 此选项用于在自动生成sql时支持“insert”、“delete”和“update”等操作。                                                                                                                           |
+| connection_check_timeout_sec | Int     | 否       | 30      | 等待用于验证连接的数据库操作完成的时间（秒）。                                                                                                                                            |
+| max_retries                  | Int     | 否       | 0       | 提交失败的重试次数(executeBatch)                                                                                                                                                                                          |
+| batch_size                   | Int     | 否       | 1000    | 对于批量写入，当缓冲记录的数量达到“batch_size”的数量或时间达到“checkpoint.interval”<br/>时，数据将被刷新到数据库中                                                           |
+| generate_sink_sql            | Boolean | 否       | false   | 根据要写入的数据库表生成sql语句                                                                                                                            |
+| max_commit_attempts          | Int     | 否       | 3       | 事务提交失败的重试次数                                                                                                                                                                                          |
+| transaction_timeout_sec      | Int     | 否       | -1      | 事务打开后的超时，默认值为-1（永不超时）。请注意，设置超时可能会影响＜br/＞精确一次语义                                                                                           |
+| auto_commit                  | Boolean | 否       | true    | 默认情况下启用自动事务提交                                                                                                                                                                                             |
+| properties                   | Map     | 否       | -       | 其他连接配置参数，当属性和URL具有相同的参数时，优先级由驱动程序的特定实现决定。例如，在MySQL中，属性优先于URL。 |
+| common-options               |         | 否       | -       | Sink插件常用参数，详见[Sink common Options]（../sink-common-options.md）                                                                                                                                    |
+| enable_upsert                | Boolean | 否       | true    | 通过primary_keys存在启用upsert，如果任务没有键重复数据，将此参数设置为“false”可以加快数据导入                                                                                                         |
 
 ### 提示
 
@@ -134,7 +134,7 @@ sink {
     jdbc {
         url = "jdbc:oceanbase://localhost:2883/test"
         driver = "com.oceanbase.jdbc.Driver"
-        user = "root"
+        username = "root"
         password = "123456"
         compatible_mode = "mysql"
         query = "insert into test_table(name,age) values(?,?)"
@@ -153,7 +153,7 @@ sink {
     jdbc {
         url = "jdbc:oceanbase://localhost:2883/test"
         driver = "com.oceanbase.jdbc.Driver"
-        user = "root"
+        username = "root"
         password = "123456"
         compatible_mode = "mysql"
         # 根据数据库表名自动生成sql语句
@@ -173,7 +173,7 @@ sink {
     jdbc {
         url = "jdbc:oceanbase://localhost:3306/test"
         driver = "com.oceanbase.jdbc.Driver"
-        user = "root"
+        username = "root"
         password = "123456"
         compatible_mode = "mysql"
         generate_sink_sql = true

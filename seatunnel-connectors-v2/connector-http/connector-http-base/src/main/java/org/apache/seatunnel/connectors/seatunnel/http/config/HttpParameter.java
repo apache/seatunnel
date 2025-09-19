@@ -45,6 +45,7 @@ public class HttpParameter implements Serializable {
     protected boolean arrayMode = false;
     protected int batchSize = 1;
     protected int requestIntervalMs = 0;
+    protected boolean jsonFiledMissedReturnNull;
 
     public void buildWithConfig(ReadonlyConfig pluginConfig) {
         // set url
@@ -83,5 +84,7 @@ public class HttpParameter implements Serializable {
         this.setEnableMultilines(pluginConfig.get(HttpSourceOptions.ENABLE_MULTI_LINES));
         this.setConnectTimeoutMs(pluginConfig.get(HttpSourceOptions.CONNECT_TIMEOUT_MS));
         this.setSocketTimeoutMs(pluginConfig.get(HttpSourceOptions.SOCKET_TIMEOUT_MS));
+        this.setJsonFiledMissedReturnNull(
+                pluginConfig.get(HttpSourceOptions.JSON_FILED_MISSED_RETURN_NULL));
     }
 }

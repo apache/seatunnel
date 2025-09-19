@@ -31,7 +31,9 @@ Transform plugin common parameters, please refer to [Transform Plugin](common-op
 ### compile_language [Enum]
 
 Some syntax in Java may not be supported, please refer https://github.com/janino-compiler/janino
-GROOVY,JAVA
+GROOVY,JAVA,SCALA(Only Support Zeta)
+
+**Note**: SCALA support uses the Scala REPL for dynamic compilation and requires proper Scala syntax.
 
 ### compile_pattern [Enum]
 
@@ -222,6 +224,46 @@ Then the data in result table `java_out` will like this
 | May Ding | 40  | 123  | JAVA             |
 | Kin Dom  | 30  | 123  | JAVA             | 
 | Joy Dom  | 30  | 123  | JAVA             |
+
+- use scala
+```hacon
+transform {
+ DynamicCompile {
+    plugin_input = "fake"
+    plugin_output = "scala_out"
+    compile_language="SCALA"
+    compile_pattern="SOURCE_CODE"
+    source_code="""
+                 import org.apache.seatunnel.api.table.catalog.Column
+                 import org.apache.seatunnel.api.table.catalog.CatalogTable
+                 import org.apache.seatunnel.api.table.catalog.PhysicalColumn
+                 import org.apache.seatunnel.api.table.`type`.SeaTunnelRowAccessor
+                 import org.apache.seatunnel.api.table.`type`.BasicType
+                 import java.util.ArrayList
+
+                 class ScalaDemo {
+                   def getInlineOutputColumns(inputCatalogTable: CatalogTable): Array[Column] = {
+                     val columns = new ArrayList[Column]()
+                     val destColumn = PhysicalColumn.of(
+                       "compile_language",
+                       BasicType.STRING_TYPE,
+                       10L,
+                       true,
+                       "",
+                       ""
+                     )
+                     columns.add(destColumn)
+                     columns.toArray(new Array[Column](0))
+                   }
+
+                   def getInlineOutputFieldValues(inputRow: SeaTunnelRowAccessor): Array[Object] = {
+                     Array[Object]("SCALA")
+                   }
+                 }
+                """
+  }
+}
+```
 
 More complex examples can be referred to
 https://github.com/apache/seatunnel/tree/dev/seatunnel-e2e/seatunnel-transforms-v2-e2e/seatunnel-transforms-v2-e2e-part-2/src/test/resources/dynamic_compile/conf

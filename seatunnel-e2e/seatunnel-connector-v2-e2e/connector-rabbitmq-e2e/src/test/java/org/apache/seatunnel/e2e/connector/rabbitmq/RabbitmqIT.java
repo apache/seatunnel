@@ -71,8 +71,6 @@ public class RabbitmqIT extends TestSuiteBase implements TestResource {
     private static final String IMAGE = "rabbitmq:3-management";
     private static final String HOST = "rabbitmq-e2e";
     private static final int PORT = 5672;
-    private static final String QUEUE_NAME = "test";
-    private static final String SINK_QUEUE_NAME = "test1";
     private static final String USERNAME = "guest";
     private static final String PASSWORD = "guest";
     private static final Boolean DURABLE = true;
@@ -86,7 +84,6 @@ public class RabbitmqIT extends TestSuiteBase implements TestResource {
 
     private GenericContainer<?> rabbitmqContainer;
     Connection connection;
-    RabbitmqClient rabbitmqClient;
 
     @BeforeAll
     @Override
@@ -102,10 +99,10 @@ public class RabbitmqIT extends TestSuiteBase implements TestResource {
                                         .withStartupTimeout(Duration.ofMinutes(2)));
         Startables.deepStart(Stream.of(rabbitmqContainer)).join();
         log.info("rabbitmq container started");
-        this.initRabbitMQ();
     }
 
-    private void initSourceData() throws IOException, InterruptedException {
+    private void initSourceData(RabbitmqClient rabbitmqClient)
+            throws IOException, InterruptedException {
         List<SeaTunnelRow> rows = TEST_DATASET.getValue();
         for (int i = 0; i < rows.size(); i++) {
             rabbitmqClient.write(
@@ -179,31 +176,12 @@ public class RabbitmqIT extends TestSuiteBase implements TestResource {
         return Pair.of(rowType, rows);
     }
 
-    private void initRabbitMQ() {
+    private RabbitmqClient getRabbitmqClient(String queueName) {
         try {
             RabbitmqConfig config = new RabbitmqConfig();
             config.setHost(rabbitmqContainer.getHost());
             config.setPort(rabbitmqContainer.getFirstMappedPort());
-            config.setQueueName(QUEUE_NAME);
-            config.setVirtualHost("/");
-            config.setUsername(USERNAME);
-            config.setPassword(PASSWORD);
-            config.setDurable(DURABLE);
-            config.setExclusive(EXCLUSIVE);
-            config.setAutoDelete(AUTO_DELETE);
-            rabbitmqClient = new RabbitmqClient(config);
-        } catch (Exception e) {
-            throw new RuntimeException("init Rabbitmq error", e);
-        }
-    }
-
-    private RabbitmqClient initSinkRabbitMQ() {
-
-        try {
-            RabbitmqConfig config = new RabbitmqConfig();
-            config.setHost(rabbitmqContainer.getHost());
-            config.setPort(rabbitmqContainer.getFirstMappedPort());
-            config.setQueueName(SINK_QUEUE_NAME);
+            config.setQueueName(queueName);
             config.setVirtualHost("/");
             config.setUsername(USERNAME);
             config.setPassword(PASSWORD);
@@ -227,16 +205,19 @@ public class RabbitmqIT extends TestSuiteBase implements TestResource {
 
     @TestTemplate
     public void testRabbitMQ(TestContainer container) throws Exception {
+        final String sourceQueueName = "test";
+        final String sinkQueueName = "test1";
+        RabbitmqClient sourceClient = this.getRabbitmqClient(sourceQueueName);
         // send data to source queue before executeJob start in every testContainer
-        initSourceData();
+        initSourceData(sourceClient);
 
         // init consumer client before executeJob start in every testContainer
-        RabbitmqClient sinkRabbitmqClient = initSinkRabbitMQ();
+        RabbitmqClient sinkRabbitmqClient = getRabbitmqClient(sinkQueueName);
 
         Set<String> resultSet = new HashSet<>();
         Handover handover = new Handover<>();
         DefaultConsumer consumer = sinkRabbitmqClient.getQueueingConsumer(handover);
-        sinkRabbitmqClient.getChannel().basicConsume(SINK_QUEUE_NAME, true, consumer);
+        sinkRabbitmqClient.getChannel().basicConsume(sinkQueueName, true, consumer);
         // assert execute Job code
         Container.ExecResult execResult = container.executeJob("/rabbitmq-to-rabbitmq.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
@@ -262,5 +243,29 @@ public class RabbitmqIT extends TestSuiteBase implements TestResource {
                                 new String(
                                         JSON_SERIALIZATION_SCHEMA.serialize(
                                                 TEST_DATASET.getValue().get(1)))));
+    }
+
+    @TestTemplate
+    public void testRabbitMQUSingDefaultConfig(TestContainer container) throws Exception {
+        final String sourceQueueName = "test2_0";
+        final String sinkQueueName = "test2_1";
+        RabbitmqClient sourceClient = this.getRabbitmqClient(sourceQueueName);
+        // send data to source queue before executeJob start in every testContainer
+        initSourceData(sourceClient);
+
+        // init consumer client before executeJob start in every testContainer
+        RabbitmqClient sinkRabbitmqClient = getRabbitmqClient(sinkQueueName);
+
+        Handover handover = new Handover<>();
+        DefaultConsumer consumer = sinkRabbitmqClient.getQueueingConsumer(handover);
+        sinkRabbitmqClient.getChannel().basicConsume(sinkQueueName, true, consumer);
+        // assert execute Job code
+        Container.ExecResult execResult = null;
+        try {
+            execResult = container.executeJob("/rabbitmq-to-rabbitmq-using-default-config.conf");
+        } catch (IOException | InterruptedException e) {
+            throw new RuntimeException(e);
+        }
+        Assertions.assertEquals(0, execResult.getExitCode());
     }
 }

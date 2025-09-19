@@ -61,7 +61,7 @@ Read external data source data through JDBC.
 |------------------------------|------------|----------|-----------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | url                          | String     | Yes      | -               | The URL of the JDBC connection. Refer to a case: jdbc:kingbase8://localhost:54321/test                                                                                                                                                                                |
 | driver                       | String     | Yes      | -               | The jdbc class name used to connect to the remote data source, should be `com.kingbase8.Driver`.                                                                                                                                                                      |
-| user                         | String     | No       | -               | Connection instance user name                                                                                                                                                                                                                                         |
+| username                         | String     | No       | -               | Connection instance user name                                                                                                                                                                                                                                         |
 | password                     | String     | No       | -               | Connection instance password                                                                                                                                                                                                                                          |
 | query                        | String     | Yes      | -               | Query statement                                                                                                                                                                                                                                                       |
 | connection_check_timeout_sec | Int        | No       | 30              | The time in seconds to wait for the database operation used to validate the connection to complete                                                                                                                                                                    |
@@ -90,7 +90,7 @@ source {
   Jdbc {
     driver = "com.kingbase8.Driver"
     url = "jdbc:kingbase8://localhost:54321/db_test"
-    user = "root"
+    username = "root"
     password = ""
     query = "select * from source"
   }
@@ -115,7 +115,7 @@ source {
   Jdbc {
     driver = "com.kingbase8.Driver"
     url = "jdbc:kingbase8://localhost:54321/db_test"
-    user = "root"
+    username = "root"
     password = ""
     query = "select * from source"
     # Parallel sharding reads fields
@@ -135,7 +135,7 @@ source {
   Jdbc {
     driver = "com.kingbase8.Driver"
     url = "jdbc:kingbase8://localhost:54321/db_test"
-    user = "root"
+    username = "root"
     password = ""
     query = "select * from source"
     partition_column = "id"

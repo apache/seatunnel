@@ -12,6 +12,10 @@ import ChangeLog from '../changelog/connector-file-ftp.md';
 
 ## 关键特性
 
+- [x] [多模态](../../concept/connector-v2-features.md#多模态multimodal)
+
+  使用二进制文件格式读取和写入任何格式的文件，例如视频、图片等。简而言之，任何文件都可以同步到目标位置。
+
 - [x] [批处理](../../concept/connector-v2-features.md)
 - [ ] [流处理](../../concept/connector-v2-features.md)
 - [ ] [精确一次处理](../../concept/connector-v2-features.md)
@@ -69,6 +73,8 @@ import ChangeLog from '../changelog/connector-file-ftp.md';
 | binary_chunk_size           | int     | 否    | 1024                |
 | binary_complete_file_mode   | boolean | 否    | false               |
 | common-options              |         | 否    | -                   |
+| file_filter_modified_start  | string  | 否    | -                   | 按照最后修改时间过滤文件。 要过滤的开始时间(包括改时间),时间格式是：`yyyy-MM-dd HH:mm:ss`                                                                                  |
+| file_filter_modified_end    | string  | 否    | -                   | 按照最后修改时间过滤文件。 要过滤的结束时间(不包括改时间),时间格式是：`yyyy-MM-dd HH:mm:ss`                                                                                                                |
 
 ### host [string]
 

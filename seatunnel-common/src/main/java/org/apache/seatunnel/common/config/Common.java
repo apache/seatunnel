@@ -173,7 +173,7 @@ public class Common {
     }
 
     /** return plugin's dependent jars, which located in 'plugins/${pluginName}/lib/*'. */
-    public static List<Path> getPluginsJarDependencies() {
+    public static List<Path> getPluginsJarDependenciesWithoutConnectorDependency() {
         Path pluginRootDir = Common.pluginRootDir();
         if (!Files.exists(pluginRootDir) || !Files.isDirectory(pluginRootDir)) {
             return Collections.emptyList();
@@ -183,6 +183,12 @@ public class Common {
                             it ->
                                     pluginRootDir.relativize(it).getNameCount()
                                             == PLUGIN_LIB_DIR_DEPTH)
+                    .filter(
+                            it ->
+                                    !it.getParent()
+                                            .getParent()
+                                            .getName(it.getParent().getParent().getNameCount() - 1)
+                                            .startsWith("connector-"))
                     .filter(it -> it.getParent().endsWith("lib"))
                     .filter(it -> it.getFileName().toString().endsWith(".jar"))
                     .collect(Collectors.toList());

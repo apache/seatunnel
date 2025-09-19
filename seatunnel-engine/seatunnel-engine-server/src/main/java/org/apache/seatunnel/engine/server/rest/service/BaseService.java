@@ -28,6 +28,7 @@ import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.common.utils.DateTimeUtils;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.JobConfig;
+import org.apache.seatunnel.engine.common.job.JobStatus;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.core.classloader.ClassLoaderService;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
@@ -35,7 +36,6 @@ import org.apache.seatunnel.engine.core.job.ExecutionAddress;
 import org.apache.seatunnel.engine.core.job.JobDAGInfo;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.core.job.JobInfo;
-import org.apache.seatunnel.engine.core.job.JobStatus;
 import org.apache.seatunnel.engine.server.CoordinatorService;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.dag.DAGUtils;
@@ -78,6 +78,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
+import static org.apache.seatunnel.api.common.metrics.MetricNames.INTERMEDIATE_QUEUE_SIZE;
 import static org.apache.seatunnel.api.common.metrics.MetricNames.SINK_WRITE_BYTES;
 import static org.apache.seatunnel.api.common.metrics.MetricNames.SINK_WRITE_BYTES_PER_SECONDS;
 import static org.apache.seatunnel.api.common.metrics.MetricNames.SINK_WRITE_COUNT;
@@ -205,11 +206,13 @@ public abstract class BaseService {
     private String getJobStartTime(long jobId) {
         IMap<Object, Long[]> stateTimestamps =
                 nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_STATE_TIMESTAMPS);
-        Long[] jobnStateTimestamps = stateTimestamps.get(jobId);
-        if (jobnStateTimestamps != null) {
-            Long startTimestamp = jobnStateTimestamps[JobStatus.SCHEDULED.ordinal()];
-            return DateTimeUtils.toString(
-                    startTimestamp, DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS);
+        Long[] jobStateTimestamps = stateTimestamps.get(jobId);
+        if (jobStateTimestamps != null) {
+            Long startTimestamp = jobStateTimestamps[JobStatus.SCHEDULED.ordinal()];
+            if (startTimestamp != null) {
+                return DateTimeUtils.toString(
+                        startTimestamp, DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS);
+            }
         }
         return null;
     }
@@ -245,7 +248,11 @@ public abstract class BaseService {
         Map<String, Object> metricsMap = new HashMap<>();
         // To add metrics, populate the corresponding array,
         String[] countMetricsNames = {
-            SOURCE_RECEIVED_COUNT, SINK_WRITE_COUNT, SOURCE_RECEIVED_BYTES, SINK_WRITE_BYTES
+            SOURCE_RECEIVED_COUNT,
+            SINK_WRITE_COUNT,
+            SOURCE_RECEIVED_BYTES,
+            SINK_WRITE_BYTES,
+            INTERMEDIATE_QUEUE_SIZE
         };
         String[] rateMetricsNames = {
             SOURCE_RECEIVED_QPS,

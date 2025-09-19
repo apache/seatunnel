@@ -54,7 +54,7 @@ Write data through jdbc. Support Batch mode and Streaming mode, support concurre
 |-------------------------------------------|---------|----------|---------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | url                                       | String  | Yes      | -       | The URL of the JDBC connection. Refer to a case: jdbc&#58;snowflake://<account_name>.snowflakecomputing.com                                                                                                                                    |
 | driver                                    | String  | Yes      | -       | The jdbc class name used to connect to the remote data source,<br/> if you use Snowflake the value is `net.snowflake.client.jdbc.SnowflakeDriver`.                                                                                             |
-| user                                      | String  | No       | -       | Connection instance user name                                                                                                                                                                                                                  |
+| username                                      | String  | No       | -       | Connection instance user name                                                                                                                                                                                                                  |
 | password                                  | String  | No       | -       | Connection instance password                                                                                                                                                                                                                   |
 | query                                     | String  | No       | -       | Use this sql write upstream input datas to database. e.g `INSERT ...`,`query` have the higher priority                                                                                                                                         |
 | database                                  | String  | No       | -       | Use this `database` and `table-name` auto-generate sql and receive upstream input datas write to database.<br/>This option is mutually exclusive with `query` and has a higher priority.                                                       |
@@ -110,7 +110,7 @@ sink {
     jdbc {
         url = "jdbc:snowflake://<account_name>.snowflakecomputing.com"
         driver = "net.snowflake.client.jdbc.SnowflakeDriver"
-        user = "root"
+        username = "root"
         password = "123456"
         query = "insert into test_table(name,age) values(?,?)"
     }
@@ -128,7 +128,7 @@ sink {
    jdbc {
    url = "jdbc:snowflake://<account_name>.snowflakecomputing.com"
    driver = "net.snowflake.client.jdbc.SnowflakeDriver"
-   user = "root"
+   username = "root"
    password = "123456"
    generate_sink_sql = true
    

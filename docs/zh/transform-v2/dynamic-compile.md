@@ -31,7 +31,7 @@
 ### compile_language [Enum]
 
 Java中的某些语法可能不受支持，请参阅https://github.com/janino-compiler/janino
-GROOVY，JAVA
+GROOVY，JAVA，SCALA(目前支持 Zeta)
 
 ### compile_pattern [Enum]
 

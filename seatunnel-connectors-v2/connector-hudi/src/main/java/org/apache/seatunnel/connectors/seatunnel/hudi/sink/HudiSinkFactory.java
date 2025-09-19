@@ -115,6 +115,11 @@ public class HudiSinkFactory implements TableSinkFactory {
                 .put(
                         HudiSinkOptions.CDC_ENABLED.key(),
                         String.valueOf(hudiTableConfig.isCdcEnabled()));
+
+        catalogTable
+                .getOptions()
+                .put(HudiSinkOptions.PRECOMBINE_FIELD.key(), hudiTableConfig.getPreCombineField());
+
         catalogTable =
                 CatalogTable.of(
                         newTableId,

@@ -23,9 +23,9 @@ import org.apache.seatunnel.engine.checkpoint.storage.api.CheckpointStorageFacto
 import org.apache.seatunnel.engine.checkpoint.storage.exception.CheckpointStorageException;
 import org.apache.seatunnel.engine.common.config.server.CheckpointConfig;
 import org.apache.seatunnel.engine.common.config.server.CheckpointStorageConfig;
+import org.apache.seatunnel.engine.common.job.JobStatus;
 import org.apache.seatunnel.engine.common.utils.FactoryUtil;
 import org.apache.seatunnel.engine.core.checkpoint.CheckpointType;
-import org.apache.seatunnel.engine.core.job.JobStatus;
 import org.apache.seatunnel.engine.core.job.PipelineStatus;
 import org.apache.seatunnel.engine.serializer.protobuf.ProtoStuffSerializer;
 import org.apache.seatunnel.engine.server.AbstractSeaTunnelServerTest;
@@ -88,6 +88,7 @@ public class CheckpointManagerTest extends AbstractSeaTunnelServerTest {
                         null,
                         planMap,
                         new CheckpointConfig(),
+                        server.getCheckpointService().getCheckpointStorage(),
                         instance.getExecutorService("test"),
                         nodeEngine.getHazelcastInstance().getMap(IMAP_RUNNING_JOB_STATE));
         Assertions.assertTrue(checkpointManager.isCompletedPipeline(1));

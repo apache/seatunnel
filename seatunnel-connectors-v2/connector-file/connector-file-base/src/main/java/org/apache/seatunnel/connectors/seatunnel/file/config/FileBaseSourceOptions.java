@@ -24,6 +24,8 @@ import org.apache.seatunnel.format.text.constant.TextFormatConstant;
 import java.util.List;
 
 public class FileBaseSourceOptions extends FileBaseOptions {
+    public static final String DEFAULT_ROW_DELIMITER = "\n";
+
     public static final Option<FileFormat> FILE_FORMAT_TYPE =
             Options.key("file_format_type")
                     .objectType(FileFormat.class)
@@ -38,6 +40,13 @@ public class FileBaseSourceOptions extends FileBaseOptions {
                     .withFallbackKeys("delimiter")
                     .withDescription(
                             "The separator between columns in a row of data. Only needed by `text` file format");
+
+    public static final Option<String> ROW_DELIMITER =
+            Options.key("row_delimiter")
+                    .stringType()
+                    .defaultValue(DEFAULT_ROW_DELIMITER)
+                    .withDescription(
+                            "The separator between rows in a file. Only needed by `text` file format");
 
     public static final Option<String> NULL_FORMAT =
             Options.key("null_format")
@@ -88,6 +97,20 @@ public class FileBaseSourceOptions extends FileBaseOptions {
                     .noDefaultValue()
                     .withDescription(
                             "File pattern. The connector will filter some files base on the pattern.");
+
+    public static final Option<String> FILE_FILTER_MODIFIED_START =
+            Options.key("file_filter_modified_start")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "File modification time filter. The connector will filter some files base on the last modification start time (include start time). the default data format is yyyy-MM-dd HH:mm:ss");
+
+    public static final Option<String> FILE_FILTER_MODIFIED_END =
+            Options.key("file_filter_modified_end")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "File modification time filter. The connector will filter some files base on the last modification end time (not include end time). the default data format is yyyy-MM-dd HH:mm:ss");
 
     public static final Option<Integer> BINARY_CHUNK_SIZE =
             Options.key("binary_chunk_size")

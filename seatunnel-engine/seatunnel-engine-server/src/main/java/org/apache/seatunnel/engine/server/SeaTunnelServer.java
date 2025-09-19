@@ -25,8 +25,11 @@ import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineRetryableException;
 import org.apache.seatunnel.engine.core.classloader.ClassLoaderService;
 import org.apache.seatunnel.engine.core.classloader.DefaultClassLoaderService;
+import org.apache.seatunnel.engine.server.dag.physical.PipelineLocation;
 import org.apache.seatunnel.engine.server.execution.ExecutionState;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
+import org.apache.seatunnel.engine.server.execution.TaskLocation;
+import org.apache.seatunnel.engine.server.metrics.SeaTunnelMetricsContext;
 import org.apache.seatunnel.engine.server.service.jar.ConnectorPackageService;
 import org.apache.seatunnel.engine.server.service.slot.DefaultSlotService;
 import org.apache.seatunnel.engine.server.service.slot.SlotService;
@@ -50,14 +53,31 @@ import lombok.Getter;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 
+import java.sql.DriverManager;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 @Slf4j
 public class SeaTunnelServer
         implements ManagedService, MembershipAwareService, LiveOperationsTracker {
+
+    static {
+        // Load DriverManager first to avoid deadlock between DriverManager's
+        // static initialization block and specific driver class's static
+        // initialization block when two different driver classes are loading
+        // concurrently using Class.forName while DriverManager is uninitialized
+        // before.
+        //
+        // This could happen in JDK 8 but not above as driver loading has been
+        // moved out of DriverManager's static initialization block since JDK 9.
+        DriverManager.getDrivers();
+    }
 
     private static final ILogger LOGGER = Logger.getLogger(SeaTunnelServer.class);
 
@@ -321,6 +341,81 @@ public class SeaTunnelServer
         if (coordinatorService.isCoordinatorActive() && this.isMasterNode()) {
             coordinatorService.printJobDetailInfo();
         }
+    }
+
+    public void updateMetrics(Map<TaskLocation, SeaTunnelMetricsContext> localMap) {
+        if (localMap == null || localMap.isEmpty()) {
+            return;
+        }
+        int partitionCount = seaTunnelConfig.getEngineConfig().getJobMetricsPartitionCount();
+
+        IMap<Long, Map<TaskLocation, SeaTunnelMetricsContext>> metricsImap =
+                getNodeEngine().getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_METRICS);
+
+        Map<Long, Map<TaskLocation, SeaTunnelMetricsContext>> partitioned = new HashMap<>();
+        localMap.forEach(
+                (key, value) -> {
+                    long partition = getMetricsImapPartition(key, partitionCount);
+                    partitioned.computeIfAbsent(partition, k -> new HashMap<>()).put(key, value);
+                });
+
+        partitioned
+                .entrySet()
+                .parallelStream()
+                .forEach(
+                        entry -> {
+                            metricsImap.compute(
+                                    entry.getKey(),
+                                    (k, oldVal) -> {
+                                        if (oldVal == null) oldVal = new HashMap<>();
+                                        oldVal.putAll(entry.getValue());
+                                        return oldVal;
+                                    });
+                        });
+    }
+
+    public void removeMetrics(PipelineLocation pipelineLocation) {
+        IMap<Long, Map<TaskLocation, SeaTunnelMetricsContext>> metricsImap =
+                getNodeEngine().getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_METRICS);
+
+        Map<Long, List<TaskLocation>> partitionedTasks = new HashMap<>();
+        for (Map.Entry<Long, Map<TaskLocation, SeaTunnelMetricsContext>> entry :
+                metricsImap.entrySet()) {
+            long partition = entry.getKey();
+            List<TaskLocation> tasksToRemove =
+                    entry.getValue().keySet().stream()
+                            .filter(
+                                    t ->
+                                            t.getTaskGroupLocation()
+                                                    .getPipelineLocation()
+                                                    .equals(pipelineLocation))
+                            .collect(Collectors.toList());
+            if (!tasksToRemove.isEmpty()) {
+                partitionedTasks.put(partition, tasksToRemove);
+            }
+        }
+
+        partitionedTasks
+                .entrySet()
+                .parallelStream()
+                .forEach(
+                        entry -> {
+                            long partition = entry.getKey();
+                            List<TaskLocation> tasks = entry.getValue();
+                            metricsImap.compute(
+                                    partition,
+                                    (k, oldVal) -> {
+                                        if (oldVal != null) {
+                                            tasks.forEach(oldVal::remove);
+                                            if (oldVal.isEmpty()) return null;
+                                        }
+                                        return oldVal;
+                                    });
+                        });
+    }
+
+    public static long getMetricsImapPartition(TaskLocation key, int partitionCount) {
+        return (key.hashCode() & 0x7FFFFFFF) % partitionCount;
     }
 
     public SeaTunnelConfig getSeaTunnelConfig() {

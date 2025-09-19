@@ -20,8 +20,10 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.sink;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.options.ConnectorCommonOptions;
+import org.apache.seatunnel.api.options.SinkConnectorCommonOptions;
 import org.apache.seatunnel.api.sink.DataSaveMode;
 import org.apache.seatunnel.api.sink.SchemaSaveMode;
+import org.apache.seatunnel.api.sink.SinkReplaceNameConstant;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.ConstraintKey;
 import org.apache.seatunnel.api.table.catalog.PrimaryKey;
@@ -31,9 +33,8 @@ import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.JdbcCatalogOptions;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectLoader;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.dialectenum.FieldIdeEnum;
@@ -47,34 +48,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
-
-import static org.apache.seatunnel.api.options.SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA;
-import static org.apache.seatunnel.api.sink.SinkReplaceNameConstant.REPLACE_DATABASE_NAME_KEY;
-import static org.apache.seatunnel.api.sink.SinkReplaceNameConstant.REPLACE_SCHEMA_NAME_KEY;
-import static org.apache.seatunnel.api.sink.SinkReplaceNameConstant.REPLACE_TABLE_NAME_KEY;
-import static org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.JdbcCatalogOptions.CREATE_INDEX;
-import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.AUTO_COMMIT;
-import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.BATCH_SIZE;
-import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.COMPATIBLE_MODE;
-import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.CONNECTION_CHECK_TIMEOUT_SEC;
-import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.CUSTOM_SQL;
-import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.DATABASE;
-import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.DATA_SAVE_MODE;
-import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.DIALECT;
-import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.DRIVER;
-import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.GENERATE_SINK_SQL;
-import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.IS_EXACTLY_ONCE;
-import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.MAX_COMMIT_ATTEMPTS;
-import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.MAX_RETRIES;
-import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.PASSWORD;
-import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.PRIMARY_KEYS;
-import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.QUERY;
-import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.SCHEMA_SAVE_MODE;
-import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.TABLE;
-import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.TRANSACTION_TIMEOUT_SEC;
-import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.URL;
-import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.USER;
-import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.XA_DATA_SOURCE_CLASS_NAME;
 
 @AutoService(Factory.class)
 public class JdbcSinkFactory implements TableSinkFactory {
@@ -99,10 +72,10 @@ public class JdbcSinkFactory implements TableSinkFactory {
         ReadonlyConfig config = context.getOptions();
         CatalogTable catalogTable = context.getCatalogTable();
         ReadonlyConfig catalogOptions = getCatalogOptions(context);
-        Optional<String> optionalTable = config.getOptional(TABLE);
-        Optional<String> optionalDatabase = config.getOptional(DATABASE);
+        Optional<String> optionalTable = config.getOptional(JdbcSinkOptions.TABLE);
+        Optional<String> optionalDatabase = config.getOptional(JdbcSinkOptions.DATABASE);
         if (!optionalTable.isPresent()) {
-            optionalTable = Optional.of(REPLACE_TABLE_NAME_KEY);
+            optionalTable = Optional.of(SinkReplaceNameConstant.REPLACE_TABLE_NAME_KEY);
         }
         // get source table relevant information
         TableIdentifier tableId = catalogTable.getTableId();
@@ -110,7 +83,8 @@ public class JdbcSinkFactory implements TableSinkFactory {
         String sourceSchemaName = tableId.getSchemaName();
         String pluginInputIdentifier = tableId.getTableName();
         // get sink table relevant information
-        String sinkDatabaseName = optionalDatabase.orElse(REPLACE_DATABASE_NAME_KEY);
+        String sinkDatabaseName =
+                optionalDatabase.orElse(SinkReplaceNameConstant.REPLACE_DATABASE_NAME_KEY);
         String sinkTableNameBefore = optionalTable.get();
         String[] sinkTableSplitArray = sinkTableNameBefore.split("\\.");
         String sinkTableName = sinkTableSplitArray[sinkTableSplitArray.length - 1];
@@ -120,13 +94,13 @@ public class JdbcSinkFactory implements TableSinkFactory {
         } else {
             sinkSchemaName = null;
         }
-        if (StringUtils.isNotBlank(catalogOptions.get(JdbcCatalogOptions.SCHEMA))) {
-            sinkSchemaName = catalogOptions.get(JdbcCatalogOptions.SCHEMA);
+        if (StringUtils.isNotBlank(catalogOptions.get(JdbcSinkOptions.SCHEMA))) {
+            sinkSchemaName = catalogOptions.get(JdbcSinkOptions.SCHEMA);
         }
         // to add tablePrefix and tableSuffix
         String tempTableName;
-        String prefix = catalogOptions.get(JdbcCatalogOptions.TABLE_PREFIX);
-        String suffix = catalogOptions.get(JdbcCatalogOptions.TABLE_SUFFIX);
+        String prefix = catalogOptions.get(JdbcSinkOptions.TABLE_PREFIX);
+        String suffix = catalogOptions.get(JdbcSinkOptions.TABLE_SUFFIX);
         if (StringUtils.isNotEmpty(prefix) || StringUtils.isNotEmpty(suffix)) {
             tempTableName = StringUtils.isNotEmpty(prefix) ? prefix + sinkTableName : sinkTableName;
             tempTableName = StringUtils.isNotEmpty(suffix) ? tempTableName + suffix : tempTableName;
@@ -138,7 +112,8 @@ public class JdbcSinkFactory implements TableSinkFactory {
         String finalDatabaseName = sinkDatabaseName;
         if (StringUtils.isNotEmpty(sourceDatabaseName)) {
             finalDatabaseName =
-                    sinkDatabaseName.replace(REPLACE_DATABASE_NAME_KEY, sourceDatabaseName);
+                    sinkDatabaseName.replace(
+                            SinkReplaceNameConstant.REPLACE_DATABASE_NAME_KEY, sourceDatabaseName);
         }
 
         String finalSchemaName;
@@ -146,14 +121,18 @@ public class JdbcSinkFactory implements TableSinkFactory {
             if (sourceSchemaName == null) {
                 finalSchemaName = sinkSchemaName;
             } else {
-                finalSchemaName = sinkSchemaName.replace(REPLACE_SCHEMA_NAME_KEY, sourceSchemaName);
+                finalSchemaName =
+                        sinkSchemaName.replace(
+                                SinkReplaceNameConstant.REPLACE_SCHEMA_NAME_KEY, sourceSchemaName);
             }
         } else {
             finalSchemaName = null;
         }
         String finalTableName = sinkTableName;
         if (StringUtils.isNotEmpty(pluginInputIdentifier)) {
-            finalTableName = tempTableName.replace(REPLACE_TABLE_NAME_KEY, pluginInputIdentifier);
+            finalTableName =
+                    tempTableName.replace(
+                            SinkReplaceNameConstant.REPLACE_TABLE_NAME_KEY, pluginInputIdentifier);
         }
 
         // rebuild TableIdentifier and catalogTable
@@ -174,18 +153,20 @@ public class JdbcSinkFactory implements TableSinkFactory {
         Map<String, String> map = config.toMap();
         if (catalogTable.getTableId().getSchemaName() != null) {
             map.put(
-                    TABLE.key(),
+                    JdbcSinkOptions.TABLE.key(),
                     catalogTable.getTableId().getSchemaName()
                             + "."
                             + catalogTable.getTableId().getTableName());
         } else {
-            map.put(TABLE.key(), catalogTable.getTableId().getTableName());
+            map.put(JdbcSinkOptions.TABLE.key(), catalogTable.getTableId().getTableName());
         }
-        map.put(DATABASE.key(), catalogTable.getTableId().getDatabaseName());
+        map.put(JdbcSinkOptions.DATABASE.key(), catalogTable.getTableId().getDatabaseName());
         PrimaryKey primaryKey = catalogTable.getTableSchema().getPrimaryKey();
-        if (!config.getOptional(PRIMARY_KEYS).isPresent()) {
+        if (!config.getOptional(JdbcSinkOptions.PRIMARY_KEYS).isPresent()) {
             if (primaryKey != null && !CollectionUtils.isEmpty(primaryKey.getColumnNames())) {
-                map.put(PRIMARY_KEYS.key(), String.join(",", primaryKey.getColumnNames()));
+                map.put(
+                        JdbcSinkOptions.PRIMARY_KEYS.key(),
+                        String.join(",", primaryKey.getColumnNames()));
             } else {
                 Optional<ConstraintKey> keyOptional =
                         catalogTable.getTableSchema().getConstraintKeys().stream()
@@ -196,7 +177,7 @@ public class JdbcSinkFactory implements TableSinkFactory {
                                 .findFirst();
                 if (keyOptional.isPresent()) {
                     map.put(
-                            PRIMARY_KEYS.key(),
+                            JdbcSinkOptions.PRIMARY_KEYS.key(),
                             keyOptional.get().getColumnNames().stream()
                                     .map(key -> key.getColumnName())
                                     .collect(Collectors.joining(",")));
@@ -207,7 +188,7 @@ public class JdbcSinkFactory implements TableSinkFactory {
             PrimaryKey configPk =
                     PrimaryKey.of(
                             catalogTable.getTablePath().getTableName() + "_config_pk",
-                            config.get(PRIMARY_KEYS));
+                            config.get(JdbcSinkOptions.PRIMARY_KEYS));
             TableSchema tableSchema = catalogTable.getTableSchema();
             catalogTable =
                     CatalogTable.of(
@@ -226,7 +207,7 @@ public class JdbcSinkFactory implements TableSinkFactory {
         // always execute
         final ReadonlyConfig options = config;
         JdbcSinkConfig sinkConfig = JdbcSinkConfig.of(config);
-        FieldIdeEnum fieldIdeEnum = config.get(JdbcOptions.FIELD_IDE);
+        FieldIdeEnum fieldIdeEnum = config.get(JdbcSinkOptions.FIELD_IDE);
         catalogTable
                 .getOptions()
                 .put("fieldIde", fieldIdeEnum == null ? null : fieldIdeEnum.getValue());
@@ -242,8 +223,8 @@ public class JdbcSinkFactory implements TableSinkFactory {
                 dialect.defaultParameter());
         CatalogTable finalCatalogTable = catalogTable;
         // get saveMode
-        DataSaveMode dataSaveMode = config.get(DATA_SAVE_MODE);
-        SchemaSaveMode schemaSaveMode = config.get(SCHEMA_SAVE_MODE);
+        DataSaveMode dataSaveMode = config.get(JdbcSinkOptions.DATA_SAVE_MODE);
+        SchemaSaveMode schemaSaveMode = config.get(JdbcSinkOptions.SCHEMA_SAVE_MODE);
         return () ->
                 new JdbcSink(
                         options,
@@ -257,30 +238,44 @@ public class JdbcSinkFactory implements TableSinkFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(URL, DRIVER, SCHEMA_SAVE_MODE, DATA_SAVE_MODE)
+                .required(
+                        JdbcSinkOptions.URL,
+                        JdbcSinkOptions.DRIVER,
+                        JdbcSinkOptions.SCHEMA_SAVE_MODE,
+                        JdbcSinkOptions.DATA_SAVE_MODE)
                 .optional(
-                        CREATE_INDEX,
-                        USER,
-                        PASSWORD,
-                        CONNECTION_CHECK_TIMEOUT_SEC,
-                        BATCH_SIZE,
-                        IS_EXACTLY_ONCE,
-                        GENERATE_SINK_SQL,
-                        AUTO_COMMIT,
-                        PRIMARY_KEYS,
-                        COMPATIBLE_MODE,
-                        MULTI_TABLE_SINK_REPLICA,
-                        DIALECT)
+                        JdbcSinkOptions.CREATE_INDEX,
+                        JdbcSinkOptions.USERNAME,
+                        JdbcSinkOptions.PASSWORD,
+                        JdbcSinkOptions.CONNECTION_CHECK_TIMEOUT_SEC,
+                        JdbcSinkOptions.BATCH_SIZE,
+                        JdbcSinkOptions.IS_EXACTLY_ONCE,
+                        JdbcSinkOptions.GENERATE_SINK_SQL,
+                        JdbcSinkOptions.AUTO_COMMIT,
+                        JdbcSinkOptions.PRIMARY_KEYS,
+                        JdbcSinkOptions.IS_PRIMARY_KEY_UPDATED,
+                        JdbcSinkOptions.SUPPORT_UPSERT_BY_INSERT_ONLY,
+                        JdbcSinkOptions.USE_COPY_STATEMENT,
+                        JdbcSinkOptions.COMPATIBLE_MODE,
+                        JdbcSinkOptions.ENABLE_UPSERT,
+                        JdbcSinkOptions.FIELD_IDE,
+                        JdbcSinkOptions.TABLE_PREFIX,
+                        JdbcSinkOptions.TABLE_SUFFIX,
+                        SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA,
+                        JdbcSinkOptions.DIALECT)
                 .conditional(
-                        IS_EXACTLY_ONCE,
+                        JdbcSinkOptions.IS_EXACTLY_ONCE,
                         true,
-                        XA_DATA_SOURCE_CLASS_NAME,
-                        MAX_COMMIT_ATTEMPTS,
-                        TRANSACTION_TIMEOUT_SEC)
-                .conditional(IS_EXACTLY_ONCE, false, MAX_RETRIES)
-                .conditional(GENERATE_SINK_SQL, true, DATABASE)
-                .conditional(GENERATE_SINK_SQL, false, QUERY)
-                .conditional(DATA_SAVE_MODE, DataSaveMode.CUSTOM_PROCESSING, CUSTOM_SQL)
+                        JdbcSinkOptions.XA_DATA_SOURCE_CLASS_NAME,
+                        JdbcSinkOptions.MAX_COMMIT_ATTEMPTS,
+                        JdbcSinkOptions.TRANSACTION_TIMEOUT_SEC)
+                .conditional(JdbcSinkOptions.IS_EXACTLY_ONCE, false, JdbcSinkOptions.MAX_RETRIES)
+                .conditional(JdbcSinkOptions.GENERATE_SINK_SQL, true, JdbcSinkOptions.DATABASE)
+                .conditional(JdbcSinkOptions.GENERATE_SINK_SQL, false, JdbcSinkOptions.QUERY)
+                .conditional(
+                        JdbcSinkOptions.DATA_SAVE_MODE,
+                        DataSaveMode.CUSTOM_PROCESSING,
+                        JdbcSinkOptions.CUSTOM_SQL)
                 .build();
     }
 }

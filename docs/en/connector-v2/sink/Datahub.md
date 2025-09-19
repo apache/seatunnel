@@ -33,7 +33,7 @@ your DataHub endpoint start with http （string）
 
 your DataHub accessId which cloud be access from Alibaba Cloud  (string)
 
-### accessKey[string]
+### accessKey [string]
 
 your DataHub accessKey which cloud be access from Alibaba Cloud  (string)
 
