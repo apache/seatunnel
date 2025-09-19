@@ -27,8 +27,6 @@ import lombok.ToString;
 import java.time.ZoneId;
 import java.util.List;
 
-import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkNotNull;
-
 @Setter
 @Getter
 @ToString
