@@ -251,7 +251,7 @@ public class CoordinatorService {
         }
 
         Long jobId = pendingJobInfo.getJobId();
-        JobMaster jobMaster = pendingJobInfo.getJobMaster();
+        final JobMaster jobMaster = pendingJobInfo.getJobMaster();
 
         if (!pendingJobQueue.contains(jobId)) {
             logger.fine(String.format("Job ID : %s already cancelled", jobId));
@@ -286,14 +286,13 @@ public class CoordinatorService {
                 return;
             }
         }
-
         logger.info(String.format("Resources enough, start running: %s", jobId));
-
+        // When deleting jobmaster from pendingJobQueue, make sure that there is a corresponding
+        // jobMaster in the runningJobMasterMap
+        runningJobMasterMap.put(jobId, jobMaster);
         final PendingJobInfo finalPendingJobInfo = pendingJobQueue.take();
         final JobMaster finalJobMaster = finalPendingJobInfo.getJobMaster();
-
-        PendingSourceState pendingSourceState = pendingJobInfo.getPendingSourceState();
-
+        PendingSourceState pendingSourceState = finalPendingJobInfo.getPendingSourceState();
         MDCExecutorService mdcExecutorService = MDCTracer.tracing(jobId, executorService);
         mdcExecutorService.submit(
                 () -> {
@@ -310,8 +309,6 @@ public class CoordinatorService {
                                 String.format(
                                         "The %s %s is in %s state, restore pipeline and take over this job running",
                                         pendingSourceState, jobFullName, jobStatus));
-
-                        runningJobMasterMap.put(jobId, finalJobMaster);
                         finalJobMaster.run();
                     } finally {
                         if (jobMasterCompletedSuccessfully(finalJobMaster, pendingSourceState)) {
@@ -676,7 +673,6 @@ public class CoordinatorService {
                                         "The submit job enter the pending queue , jobId: %s , jobName: %s",
                                         jobId,
                                         jobMaster.getJobImmutableInformation().getJobName()));
-
                     } else {
                         runningJobInfoIMap.remove(jobId);
                         runningJobMasterMap.remove(jobId);

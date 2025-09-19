@@ -118,7 +118,9 @@ public class JobExecutionIT {
                     engineClient.createExecutionContext(filePath, jobConfig, SEATUNNEL_CONFIG);
 
             final ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
-            Assertions.assertFalse(clientJobProxy.getJobStatus().isEndState());
+            JobStatus jobStatus = clientJobProxy.getJobStatus();
+            Assertions.assertFalse(
+                    jobStatus.isEndState(), "Job should not be in end state: " + jobStatus);
 
             CompletableFuture<JobStatus> objectCompletableFuture =
                     CompletableFuture.supplyAsync(clientJobProxy::waitForJobComplete);
