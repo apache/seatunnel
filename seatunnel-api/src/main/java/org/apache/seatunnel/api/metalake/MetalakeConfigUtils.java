@@ -47,43 +47,14 @@ public class MetalakeConfigUtils {
         if (!metalakeEnabled) return jobConfigTmp;
 
         Config update = jobConfigTmp;
-        try {
-            ConfigList sourceList = jobConfigTmp.getList("source");
-            update =
-                    update.withValue(
-                            "source",
-                            ConfigValueFactory.fromIterable(
-                                    replaceConfigList(sourceList, envConfig)));
-        } catch (IOException e) {
-            log.error("Fail to get MetaInfo", e);
-        }
-
-        try {
-            ConfigList sinkList = jobConfigTmp.getList("sink");
-            update =
-                    update.withValue(
-                            "sink",
-                            ConfigValueFactory.fromIterable(
-                                    replaceConfigList(sinkList, envConfig)));
-        } catch (IOException e) {
-            log.error("Fail to get MetaInfo", e);
-        }
-
-        try {
-            ConfigList sinkList = jobConfigTmp.getList("transform");
-            update =
-                    update.withValue(
-                            "transform",
-                            ConfigValueFactory.fromIterable(
-                                    replaceConfigList(sinkList, envConfig)));
-        } catch (IOException e) {
-            log.error("Fail to get MetaInfo", e);
-        }
+        update = replaceConfigList(update, "source");
+        update = replaceConfigList(update, "sink");
+        update = replaceConfigList(update, "transform");
         return update;
     }
 
-    private static List<ConfigValue> replaceConfigList(ConfigList list, Config envConfig)
-            throws IOException {
+    private static Config replaceConfigList(Config updateConfig, String key) {
+        Config envConfig = updateConfig.getConfig("env");
         String metalakeType =
                 envConfig.hasPath("metalake_type")
                         ? envConfig.getString("metalake_type")
@@ -94,28 +65,33 @@ public class MetalakeConfigUtils {
                         : System.getenv("METALAKE_URL");
         MetalakeClient metalakeClient = MetalakeClientFactory.create(metalakeType, metalakeUrl);
 
+        ConfigList list = updateConfig.getList(key);
         List<ConfigValue> newConfigList = new ArrayList<>(list);
 
-        for (int i = 0; i < list.size(); i++) {
-            ConfigObject Obj = (ConfigObject) list.get(i);
-            if (Obj.containsKey("sourceId")) {
-                ConfigObject tmp = Obj;
-                String sourceId = Obj.toConfig().getString("sourceId");
-                JsonNode metalakeJson = metalakeClient.getMetaInfo(sourceId);
-                for (Map.Entry<String, ConfigValue> entry : Obj.entrySet()) {
-                    String subKey = entry.getKey();
-                    ConfigValue value = entry.getValue();
+        try {
+            for (int i = 0; i < list.size(); i++) {
+                ConfigObject Obj = (ConfigObject) list.get(i);
+                if (Obj.containsKey("sourceId")) {
+                    ConfigObject tmp = Obj;
+                    String sourceId = Obj.toConfig().getString("sourceId");
+                    JsonNode metalakeJson = metalakeClient.getMetaInfo(sourceId);
+                    for (Map.Entry<String, ConfigValue> entry : Obj.entrySet()) {
+                        String subKey = entry.getKey();
+                        ConfigValue value = entry.getValue();
 
-                    if (value.valueType() == ConfigValueType.STRING) {
-                        String strValue = (String) value.unwrapped();
-                        String newValue =
-                                PlaceholderUtils.replacePlaceholders(strValue, metalakeJson);
-                        tmp = tmp.withValue(subKey, ConfigValueFactory.fromAnyRef(newValue));
+                        if (value.valueType() == ConfigValueType.STRING) {
+                            String strValue = (String) value.unwrapped();
+                            String newValue =
+                                    PlaceholderUtils.replacePlaceholders(strValue, metalakeJson);
+                            tmp = tmp.withValue(subKey, ConfigValueFactory.fromAnyRef(newValue));
+                        }
                     }
+                    newConfigList.set(i, tmp);
                 }
-                newConfigList.set(i, tmp);
             }
+        } catch (IOException e) {
+            log.error("Fail to get MetaInfo", e);
         }
-        return newConfigList;
+        return updateConfig.withValue(key, ConfigValueFactory.fromIterable(newConfigList));
     }
 }

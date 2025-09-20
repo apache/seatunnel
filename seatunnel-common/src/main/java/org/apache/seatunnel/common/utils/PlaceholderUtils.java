@@ -51,14 +51,14 @@ public class PlaceholderUtils {
         return result.toString();
     }
 
-    public static String replacePlaceholders(String input, JsonNode json) {
+    public static String replacePlaceholders(String input, JsonNode supportedValues) {
         Pattern pattern = Pattern.compile("\\$\\{([^}]*)\\}");
         Matcher matcher = pattern.matcher(input);
         if (matcher.find()) {
             String placeholder = matcher.group(1);
 
-            if (json.has(placeholder)) {
-                String replaced = json.get(placeholder).asText();
+            if (supportedValues.has(placeholder)) {
+                String replaced = supportedValues.get(placeholder).asText();
                 return replacePlaceholders(input, placeholder, replaced);
             }
         }
