@@ -406,7 +406,8 @@ public class OracleTypeConverter implements TypeConverter<BasicTypeDefine> {
                 builder.dataType(ORACLE_TIMESTAMP_WITH_LOCAL_TIME_ZONE);
                 break;
             case TIMESTAMP_TZ:
-                int tsTzScale = column.getScale() == null ? TIMESTAMP_DEFAULT_SCALE : column.getScale();
+                int tsTzScale =
+                        column.getScale() == null ? TIMESTAMP_DEFAULT_SCALE : column.getScale();
                 if (tsTzScale > MAX_TIMESTAMP_SCALE) {
                     tsTzScale = MAX_TIMESTAMP_SCALE;
                 }
