@@ -71,10 +71,6 @@ public class MongodbSinkFactory implements TableSinkFactory {
             builder.withPrimaryKey(
                     readonlyConfig.get(MongodbConfig.PRIMARY_KEY).toArray(new String[0]));
         }
-        if (readonlyConfig.getOptional(MongodbConfig.PRIMARY_KEY).isPresent()) {
-            builder.withPrimaryKey(
-                    readonlyConfig.get(MongodbConfig.PRIMARY_KEY).toArray(new String[0]));
-        }
         if (readonlyConfig.getOptional(MongodbConfig.UPSERT_ENABLE).isPresent()) {
             builder.withUpsertEnable(readonlyConfig.get(MongodbConfig.UPSERT_ENABLE));
         }
