@@ -112,6 +112,7 @@ public class JdbcDb2IT extends AbstractJdbcIT {
                 .sourceTable(DB2_SOURCE)
                 .sinkTable(DB2_SINK)
                 .createSql(CREATE_SQL)
+                .sinkCreateSql(CREATE_SQL)
                 .configFile(CONFIG_FILE)
                 .insertSql(insertSql)
                 .testData(testDataSet)
