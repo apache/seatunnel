@@ -87,4 +87,9 @@ public class MongodbSink
     public Optional<Serializer<MongodbCommitInfo>> getCommitInfoSerializer() {
         return options.transaction ? Optional.of(new DefaultSerializer<>()) : Optional.empty();
     }
+
+    @Override
+    public Optional<CatalogTable> getWriteCatalogTable() {
+        return Optional.ofNullable(catalogTable);
+    }
 }
