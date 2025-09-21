@@ -34,6 +34,8 @@ import org.apache.seatunnel.connectors.seatunnel.lance.exception.LanceConnectorE
 import org.apache.seatunnel.connectors.seatunnel.lance.exception.LanceConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.lance.utils.SchemaUtils;
 
+import org.apache.commons.collections4.CollectionUtils;
+
 import com.google.common.collect.Lists;
 import com.lancedb.lance.namespace.LanceNamespace;
 import com.lancedb.lance.namespace.model.CreateTableRequest;
@@ -46,7 +48,6 @@ import com.lancedb.lance.namespace.model.ListTablesRequest;
 import com.lancedb.lance.namespace.model.ListTablesResponse;
 import com.lancedb.lance.namespace.model.TableExistsRequest;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.collections4.CollectionUtils;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -130,10 +131,11 @@ public class LanceCatalog implements Catalog {
             namespace.tableExists(request);
         } catch (Exception e) {
             if (e instanceof UnsupportedOperationException
-                && e.getMessage().contains("Table does not exist")) {
+                    && e.getMessage().contains("Table does not exist")) {
                 return false;
             } else {
-                throw new LanceConnectorException(LanceConnectorErrorCode.TABLE_EXISTS_EXCEPTION, e.getMessage());
+                throw new LanceConnectorException(
+                        LanceConnectorErrorCode.TABLE_EXISTS_EXCEPTION, e.getMessage());
             }
         }
         return true;
@@ -171,15 +173,11 @@ public class LanceCatalog implements Catalog {
 
     @Override
     public void createDatabase(TablePath tablePath, boolean ignoreIfExists)
-            throws DatabaseAlreadyExistException, CatalogException {
-
-    }
+            throws DatabaseAlreadyExistException, CatalogException {}
 
     @Override
     public void dropDatabase(TablePath tablePath, boolean ignoreIfNotExists)
-            throws DatabaseNotExistException, CatalogException {
-
-    }
+            throws DatabaseNotExistException, CatalogException {}
 
     private CatalogTable convertTableSchema(JsonArrowSchema arrowSchema, String tableName) {
         if (Objects.isNull(arrowSchema)) {
@@ -193,29 +191,28 @@ public class LanceCatalog implements Catalog {
 
         TableSchema.Builder builder = TableSchema.builder();
         fields.forEach(
-            field -> {
-                SeaTunnelDataType<?> seaTunnelType =
+                field -> {
+                    SeaTunnelDataType<?> seaTunnelType =
                             SchemaUtils.toSeaTunnelType(field.getName(), field.getType());
-                PhysicalColumn physicalColumn =
-                    PhysicalColumn.of(
-                        field.getName(),
-                        seaTunnelType,
-                        (Long) null,
-                        field.getNullable(),
-                        null,
-                        null);
+                    PhysicalColumn physicalColumn =
+                            PhysicalColumn.of(
+                                    field.getName(),
+                                    seaTunnelType,
+                                    (Long) null,
+                                    field.getNullable(),
+                                    null,
+                                    null);
 
-                builder.column(physicalColumn);
-            }
-        );
+                    builder.column(physicalColumn);
+                });
 
         return CatalogTable.of(
-            org.apache.seatunnel.api.table.catalog.TableIdentifier.of(
-                catalogName, "", tableName),
-            builder.build(),
-            arrowSchema.getMetadata(),
-            null,
-            null,
-            catalogName);
+                org.apache.seatunnel.api.table.catalog.TableIdentifier.of(
+                        catalogName, "", tableName),
+                builder.build(),
+                arrowSchema.getMetadata(),
+                null,
+                null,
+                catalogName);
     }
 }

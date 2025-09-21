@@ -19,11 +19,12 @@ package org.apache.seatunnel.connectors.seatunnel.lance.catalog;
 
 import org.apache.seatunnel.connectors.seatunnel.lance.config.LanceCommonConfig;
 
+import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.memory.RootAllocator;
+
 import com.lancedb.lance.namespace.LanceNamespace;
 import com.lancedb.lance.namespace.LanceNamespaces;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.arrow.memory.BufferAllocator;
-import org.apache.arrow.memory.RootAllocator;
 
 import java.io.Serializable;
 
@@ -45,10 +46,9 @@ public class LanceCatalogLoader implements Serializable {
     public LanceNamespace loadNamespace() {
         Thread.currentThread().setContextClassLoader(LanceCatalogLoader.class.getClassLoader());
         return LanceNamespaces.connect(
-            LanceNamespaceType.ofImplByType(namespaceType.getType()),
-            config.getNamespaceProps(),
-            null,
-            bufferAllocator
-            );
+                LanceNamespaceType.ofImplByType(namespaceType.getType()),
+                config.getNamespaceProps(),
+                null,
+                bufferAllocator);
     }
 }

@@ -17,36 +17,51 @@
 
 package org.apache.seatunnel.connectors.seatunnel.lance.sink;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.sink.SaveModeHandler;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SupportMultiTableSink;
 import org.apache.seatunnel.api.sink.SupportSaveMode;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.connectors.seatunnel.lance.config.LanceSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.lance.sink.commit.LanceAggregatedCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.lance.sink.commit.LanceCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.lance.state.LanceSinkState;
 
 import java.io.IOException;
+import java.util.Objects;
 import java.util.Optional;
 
 public class LanceSink
         implements SeaTunnelSink<
-                        SeaTunnelRow,
-                        LanceSinkState,
-                        LanceCommitInfo,
-                        LanceAggregatedCommitInfo>,
-                        SupportSaveMode,
-                        SupportMultiTableSink {
+                        SeaTunnelRow, LanceSinkState, LanceCommitInfo, LanceAggregatedCommitInfo>,
+                SupportSaveMode,
+                SupportMultiTableSink {
 
     private static final String PLUGIN_NAME = "Lance";
+
+    private final LanceSinkConfig config;
+    private final ReadonlyConfig readonlyConfig;
+    private final CatalogTable catalogTable;
+
+    public LanceSink(ReadonlyConfig pluginConfig, CatalogTable catalogTable) {
+        this.readonlyConfig = pluginConfig;
+        this.config = new LanceSinkConfig(pluginConfig);
+        this.catalogTable = catalogTable;
+        // Reset primary keys if need
+//        if (config.getPrimaryKeys().isEmpty()
+//            && Objects.nonNull(this.catalogTable.getTableSchema().getPrimaryKey())) {
+//            this.config.setPrimaryKeys(
+//                this.catalogTable.getTableSchema().getPrimaryKey().getColumnNames());
+//        }
+    }
 
     @Override
     public String getPluginName() {
         return PLUGIN_NAME;
     }
-
-
 
     @Override
     public SinkWriter createWriter(SinkWriter.Context context) throws IOException {

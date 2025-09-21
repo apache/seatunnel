@@ -20,6 +20,8 @@ package org.apache.seatunnel.connectors.seatunnel.lance.config;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.connectors.seatunnel.lance.catalog.LanceNamespaceType;
 
+import lombok.Getter;
+
 import java.io.Serializable;
 import java.util.Map;
 
@@ -33,22 +35,23 @@ public class LanceCommonConfig implements Serializable {
 
     private Map<String, String> namespaceProps;
 
+    private String table;
+
     public LanceCommonConfig(LanceNamespaceType namespaceType, Map<String, String> namespaceProps) {
         this.namespaceType = namespaceType;
         this.namespaceProps = namespaceProps;
     }
 
-    public LanceCommonConfig(LanceNamespaceType namespaceType,
-                            String datasetPath,
-                            Map<String, String> namespaceProps) {
+    public LanceCommonConfig(
+            LanceNamespaceType namespaceType,
+            String datasetPath,
+            Map<String, String> namespaceProps) {
         this.namespaceType = namespaceType;
         this.datasetPath = datasetPath;
         this.namespaceProps = namespaceProps;
     }
 
-    public LanceCommonConfig(ReadonlyConfig pluginConfig) {
-
-    }
+    public LanceCommonConfig(ReadonlyConfig pluginConfig) {}
 
     public LanceNamespaceType getNamespaceType() {
         return namespaceType;

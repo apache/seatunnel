@@ -24,7 +24,4 @@ import java.io.Serializable;
 
 @Data
 @AllArgsConstructor
-public class LanceSinkState implements Serializable {
-
-
-}
+public class LanceSinkState implements Serializable {}

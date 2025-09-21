@@ -6,13 +6,11 @@ import java.util.Arrays;
 
 @VisibleForTesting
 public enum LanceNamespaceType {
-
     REST("rest", "com.lancedb.lance.namespace.rest.RestNamespace"),
     DIRECTORY("dir", "com.lancedb.lance.namespace.dir.DirectoryNamespace"),
     HIVE2("hive2", "com.lancedb.lance.namespace.hive2.Hive2Namespace"),
     HIVE3("hive3", "com.lancedb.lance.namespace.hive3.Hive3Namespace"),
-    GLUE("glue", "com.lancedb.lance.namespace.glue.GlueNamespace")
-    ;
+    GLUE("glue", "com.lancedb.lance.namespace.glue.GlueNamespace");
 
     final String type;
     final String impl;
@@ -32,7 +30,9 @@ public enum LanceNamespaceType {
 
     public static String ofImplByType(String type) {
         return Arrays.stream(LanceNamespaceType.values())
-            .filter(vo -> vo.getType().equals(type))
-            .findFirst().map(LanceNamespaceType::getImpl).orElse(null);
+                .filter(vo -> vo.getType().equals(type))
+                .findFirst()
+                .map(LanceNamespaceType::getImpl)
+                .orElse(null);
     }
 }

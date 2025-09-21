@@ -16,31 +16,29 @@
  */
 
 package org.apache.seatunnel.connectors.seatunnel.lance.utils;
-import com.lancedb.lance.Fragment;
-import com.lancedb.lance.FragmentMetadata;
+
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
 
-import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import com.lancedb.lance.Fragment;
+import com.lancedb.lance.FragmentMetadata;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 
-/** The converter for converting {@link Fragment} and {@link SeaTunnelRow} **/
+/** The converter for converting {@link Fragment} and {@link SeaTunnelRow} * */
 public class FragmentConverter {
 
-    private FragmentConverter() {
-
-    }
+    private FragmentConverter() {}
 
     public static List<FragmentMetadata> reconvert(
-        SeaTunnelRow seaTunnelRow,
-        SeaTunnelRowType seaTunnelRowType,
-        String datasetUri) {
+            SeaTunnelRow seaTunnelRow, SeaTunnelRowType seaTunnelRowType, String datasetUri) {
 
         return new ArrayList<>();
     }
@@ -48,15 +46,8 @@ public class FragmentConverter {
     public static Schema convertSchema(SeaTunnelRow row) {
         Object[] fields = row.getFields();
         if (Objects.nonNull(fields)) {
-            for (Object f : fields) {
-
-            }
+            for (Object f : fields) {}
         }
-        return new Schema(
-            Arrays.asList(
-                Field.nullable("id", new ArrowType.Int(32, true)))
-        );
+        return new Schema(Arrays.asList(Field.nullable("id", new ArrowType.Int(32, true))));
     }
-
-
 }

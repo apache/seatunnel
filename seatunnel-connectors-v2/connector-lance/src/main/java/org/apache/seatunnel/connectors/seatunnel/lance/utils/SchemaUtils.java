@@ -24,14 +24,15 @@ import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.connectors.seatunnel.lance.config.LanceCommonConfig;
 import org.apache.seatunnel.connectors.seatunnel.lance.data.LanceTypeMapper;
 
-import com.google.common.collect.Lists;
-import com.lancedb.lance.namespace.model.JsonArrowDataType;
 import org.apache.arrow.vector.types.DateUnit;
 import org.apache.arrow.vector.types.FloatingPointPrecision;
 import org.apache.arrow.vector.types.TimeUnit;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
+
+import com.google.common.collect.Lists;
+import com.lancedb.lance.namespace.model.JsonArrowDataType;
 
 import java.util.List;
 import java.util.Objects;
@@ -61,7 +62,10 @@ public class SchemaUtils {
                         break;
                     case FLOAT:
                     case DOUBLE:
-                        field = Field.nullable(fieldName, new ArrowType.FloatingPoint(FloatingPointPrecision.DOUBLE));
+                        field =
+                                Field.nullable(
+                                        fieldName,
+                                        new ArrowType.FloatingPoint(FloatingPointPrecision.DOUBLE));
                         fieldList.add(field);
                         break;
                     case STRING:
@@ -77,8 +81,7 @@ public class SchemaUtils {
                         fieldList.add(field);
                         break;
                     case DECIMAL:
-                        field = Field.nullable(fieldName,
-                            new ArrowType.Decimal(8, 16, 32));
+                        field = Field.nullable(fieldName, new ArrowType.Decimal(8, 16, 32));
                         fieldList.add(field);
                         break;
                     case BYTES:
@@ -90,13 +93,17 @@ public class SchemaUtils {
                         fieldList.add(field);
                         break;
                     case TIME:
-                        field = Field.nullable(fieldName,
-                            new ArrowType.Time(TimeUnit.MILLISECOND, 32));
+                        field =
+                                Field.nullable(
+                                        fieldName, new ArrowType.Time(TimeUnit.MILLISECOND, 32));
                         fieldList.add(field);
                         break;
                     case TIMESTAMP:
-                        field = Field.nullable(fieldName,
-                            new ArrowType.Timestamp(TimeUnit.MICROSECOND, "Asia/Shanghai"));
+                        field =
+                                Field.nullable(
+                                        fieldName,
+                                        new ArrowType.Timestamp(
+                                                TimeUnit.MICROSECOND, "Asia/Shanghai"));
                         fieldList.add(field);
                         break;
                     case MAP:
@@ -109,14 +116,13 @@ public class SchemaUtils {
                         break;
                     default:
                         throw CommonError.unsupportedDataType(
-                            LanceCommonConfig.CONNECTOR_IDENTITY,
-                            seaTunnelRowType.getFieldType(i).getSqlType().toString(),
-                            fieldName);
+                                LanceCommonConfig.CONNECTOR_IDENTITY,
+                                seaTunnelRowType.getFieldType(i).getSqlType().toString(),
+                                fieldName);
                 }
             }
         }
 
         return new Schema(fieldList);
     }
-
 }

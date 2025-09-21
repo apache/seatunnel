@@ -17,19 +17,15 @@
 
 package org.apache.seatunnel.connectors.seatunnel.lance;
 
-import org.junit.jupiter.api.MethodOrderer;
-import org.junit.jupiter.api.TestMethodOrder;
-import org.junit.jupiter.api.condition.DisabledOnOs;
-import org.junit.jupiter.api.condition.OS;
+import org.apache.seatunnel.connectors.seatunnel.lance.sink.LanceSinkFactory;
 
-@DisabledOnOs(OS.WINDOWS)
-@TestMethodOrder(MethodOrderer.OrderAnnotation.class)
-public class LanceCatalogTest {
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
-    private static final String CATALOG_NAME = "seatunnel";
+public class LanceFactoryTest {
 
-
-
-
-
+    @Test
+    void optionRule() {
+        Assertions.assertNotNull((new LanceSinkFactory()).optionRule());
+    }
 }

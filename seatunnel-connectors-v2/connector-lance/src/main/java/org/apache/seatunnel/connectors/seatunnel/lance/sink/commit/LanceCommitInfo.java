@@ -17,5 +17,4 @@
 
 package org.apache.seatunnel.connectors.seatunnel.lance.sink.commit;
 
-public class LanceCommitInfo {
-}
+public class LanceCommitInfo {}

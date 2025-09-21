@@ -19,10 +19,55 @@ package org.apache.seatunnel.connectors.seatunnel.lance.config;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 
+import com.lancedb.lance.WriteParams;
+
+import java.util.Map;
+
 public class LanceSinkConfig extends LanceCommonConfig {
 
+    private final Integer maxRowsPerFile;
+
+    private final Integer maxRowsPerGroup;
+
+    private final Long maxBytesPerFile;
+
+    private final WriteParams.WriteMode mode;
+
+    private Boolean enableStableRowIds;
+
+    private final Map<String, String> storageOptions;
 
     public LanceSinkConfig(ReadonlyConfig pluginConfig) {
         super(pluginConfig);
+        this.maxBytesPerFile = pluginConfig.get(LanceSinkOptions.WRITE_MAX_BYTES_PER_FILE);
+        this.maxRowsPerGroup = pluginConfig.get(LanceSinkOptions.WRITE_MAX_ROWS_PER_GROUP);
+        this.maxRowsPerFile = pluginConfig.get(LanceSinkOptions.WRITE_MAX_ROWS_PER_FILE);
+        this.mode = WriteParams.WriteMode.valueOf(pluginConfig.get(LanceSinkOptions.WRITE_MODE));
+        this.storageOptions = pluginConfig.get(LanceSinkOptions.WRITE_STORAGE_OPTIONS);
+        this.enableStableRowIds = pluginConfig.get(LanceSinkOptions.WRITE_ENABLE_STABLE_ROW_IDS);
+    }
+
+    public Integer getMaxRowsPerFile() {
+        return maxRowsPerFile;
+    }
+
+    public Integer getMaxRowsPerGroup() {
+        return maxRowsPerGroup;
+    }
+
+    public Long getMaxBytesPerFile() {
+        return maxBytesPerFile;
+    }
+
+    public WriteParams.WriteMode getMode() {
+        return mode;
+    }
+
+    public Boolean getEnableStableRowIds() {
+        return enableStableRowIds;
+    }
+
+    public Map<String, String> getStorageOptions() {
+        return storageOptions;
     }
 }

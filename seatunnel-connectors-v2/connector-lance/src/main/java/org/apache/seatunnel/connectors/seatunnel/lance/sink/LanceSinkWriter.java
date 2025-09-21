@@ -31,25 +31,25 @@ import org.apache.seatunnel.connectors.seatunnel.lance.state.LanceSinkState;
 import org.apache.seatunnel.connectors.seatunnel.lance.utils.FragmentConverter;
 import org.apache.seatunnel.connectors.seatunnel.lance.utils.SchemaUtils;
 
+import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.memory.RootAllocator;
+import org.apache.arrow.vector.types.pojo.Schema;
+
 import com.lancedb.lance.Dataset;
 import com.lancedb.lance.FragmentMetadata;
 import com.lancedb.lance.FragmentOperation;
 import com.lancedb.lance.WriteParams;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.arrow.memory.BufferAllocator;
-import org.apache.arrow.memory.RootAllocator;
-import org.apache.arrow.vector.types.pojo.Schema;
 
 import java.io.IOException;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Optional;
 
 @Slf4j
 public class LanceSinkWriter
-    implements SinkWriter<SeaTunnelRow, LanceCommitInfo, LanceSinkState>,
-            SupportMultiTableSinkWriter<Void>,
-            SupportSchemaEvolutionSinkWriter {
+        implements SinkWriter<SeaTunnelRow, LanceCommitInfo, LanceSinkState>,
+                SupportMultiTableSinkWriter<Void>,
+                SupportSchemaEvolutionSinkWriter {
 
     private SeaTunnelRowType seaTunnelRowType;
 
@@ -61,11 +61,12 @@ public class LanceSinkWriter
 
     private LanceCatalog catalog;
 
-    public LanceSinkWriter(SeaTunnelRowType seaTunnelRowType,
-                           TableSchema sourceTableSchema,
-                           Schema schema,
-                           LanceSinkConfig config,
-                           LanceCatalog catalog) {
+    public LanceSinkWriter(
+            SeaTunnelRowType seaTunnelRowType,
+            TableSchema sourceTableSchema,
+            Schema schema,
+            LanceSinkConfig config,
+            LanceCatalog catalog) {
         this.seaTunnelRowType = seaTunnelRowType;
         this.sourceTableSchema = sourceTableSchema;
         this.schema = schema;
@@ -78,20 +79,20 @@ public class LanceSinkWriter
         // build schema
         this.schema = SchemaUtils.convertSchema(element, seaTunnelRowType);
         List<FragmentMetadata> fragmentMetadata =
-            FragmentConverter.reconvert(element, seaTunnelRowType, "");
+                FragmentConverter.reconvert(element, seaTunnelRowType, "");
 
-        try (BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE)){
+        try (BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE)) {
             Schema schema = FragmentConverter.convertSchema(element);
             Dataset.create(
-                allocator,
-                config.getDatasetPath(),
-                schema,
-                new WriteParams.Builder()
-                    .withMaxBytesPerFile(10)
-                    .withMaxRowsPerFile(20)
-                    .withMode(WriteParams.WriteMode.CREATE)
-                    .withStorageOptions(new HashMap<>())
-                    .build());
+                    allocator,
+                    config.getDatasetPath(),
+                    schema,
+                    new WriteParams.Builder()
+                            .withMaxBytesPerFile(config.getMaxBytesPerFile())
+                            .withMaxRowsPerFile(config.getMaxRowsPerFile())
+                            .withMode(config.getMode())
+                            .withStorageOptions(config.getStorageOptions())
+                            .build());
 
             FragmentOperation.Append appendOp = new FragmentOperation.Append(fragmentMetadata);
             Dataset.commit(allocator, config.getDatasetPath(), appendOp, Optional.of(1L));
@@ -112,13 +113,8 @@ public class LanceSinkWriter
     }
 
     @Override
-    public void abortPrepare() {
-
-    }
+    public void abortPrepare() {}
 
     @Override
-    public void close() throws IOException {
-
-    }
-
+    public void close() throws IOException {}
 }

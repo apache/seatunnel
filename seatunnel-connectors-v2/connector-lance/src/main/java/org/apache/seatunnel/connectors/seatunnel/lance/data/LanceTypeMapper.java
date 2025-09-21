@@ -55,11 +55,9 @@ public class LanceTypeMapper {
                 return LocalTimeType.LOCAL_TIME_TYPE;
             case "timestamp":
                 return LocalTimeType.LOCAL_DATE_TIME_TYPE;
-            // TODO: struct|list|map
+                // TODO: struct|list|map
             default:
-                throw CommonError.convertToSeaTunnelTypeError(
-                    "Lance", type.getType(), field);
+                throw CommonError.convertToSeaTunnelTypeError("Lance", type.getType(), field);
         }
     }
-
 }

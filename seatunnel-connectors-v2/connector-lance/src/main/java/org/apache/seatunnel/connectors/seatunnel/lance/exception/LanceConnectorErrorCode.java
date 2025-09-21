@@ -3,9 +3,7 @@ package org.apache.seatunnel.connectors.seatunnel.lance.exception;
 import org.apache.seatunnel.common.exception.SeaTunnelErrorCode;
 
 public enum LanceConnectorErrorCode implements SeaTunnelErrorCode {
-
     TABLE_EXISTS_EXCEPTION("LANCE-01", "Table Exists response exception"),
-
     ;
 
     private final String code;
@@ -14,9 +12,7 @@ public enum LanceConnectorErrorCode implements SeaTunnelErrorCode {
     LanceConnectorErrorCode(String code, String description) {
         this.code = code;
         this.description = description;
-    }
-
-    ;
+    };
 
     @Override
     public String getCode() {
