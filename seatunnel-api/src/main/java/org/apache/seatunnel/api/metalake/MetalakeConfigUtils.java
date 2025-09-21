@@ -47,14 +47,6 @@ public class MetalakeConfigUtils {
         if (!metalakeEnabled) return jobConfigTmp;
 
         Config update = jobConfigTmp;
-        update = replaceConfigList(update, "source");
-        update = replaceConfigList(update, "sink");
-        update = replaceConfigList(update, "transform");
-        return update;
-    }
-
-    private static Config replaceConfigList(Config updateConfig, String key) {
-        Config envConfig = updateConfig.getConfig("env");
         String metalakeType =
                 envConfig.hasPath("metalake_type")
                         ? envConfig.getString("metalake_type")
@@ -64,7 +56,14 @@ public class MetalakeConfigUtils {
                         ? envConfig.getString("metalake_url")
                         : System.getenv("METALAKE_URL");
         MetalakeClient metalakeClient = MetalakeClientFactory.create(metalakeType, metalakeUrl);
+        update = replaceConfigList(update, "source", metalakeClient);
+        update = replaceConfigList(update, "sink", metalakeClient);
+        update = replaceConfigList(update, "transform", metalakeClient);
+        return update;
+    }
 
+    private static Config replaceConfigList(
+            Config updateConfig, String key, MetalakeClient metalakeClient) {
         ConfigList list = updateConfig.getList(key);
         List<ConfigValue> newConfigList = new ArrayList<>(list);
 
