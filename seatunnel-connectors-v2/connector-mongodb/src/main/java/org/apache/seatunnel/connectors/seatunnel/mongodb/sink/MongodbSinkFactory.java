@@ -84,6 +84,8 @@ public class MongodbSinkFactory implements TableSinkFactory {
         if (readonlyConfig.getOptional(MongodbConfig.TRANSACTION).isPresent()) {
             builder.withTransaction(readonlyConfig.get(MongodbConfig.TRANSACTION));
         }
+        // todo 替换库名表名
+
         return () -> new MongodbSink(builder.build(), context.getCatalogTable());
     }
 }
