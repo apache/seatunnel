@@ -26,6 +26,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.seatunnel.api.table.type.VectorType;
+import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.transform.exception.TransformException;
 import org.apache.seatunnel.transform.sql.zeta.functions.ArrayFunction;
@@ -415,7 +416,42 @@ public class ZetaSQLType {
             case ZetaSQLFunction.INNER_PRODUCT:
                 return BasicType.DOUBLE_TYPE;
             case ZetaSQLFunction.ARRAY:
-                return ArrayFunction.castArrayTypeMapping(function, inputRowType);
+                List<Expression> params = getExpressions(function);
+                if (params == null || params.isEmpty()) {
+                    return ArrayType.STRING_ARRAY_TYPE;
+                }
+                Expression firstExpr = params.get(0);
+                SeaTunnelDataType<?> elementType = getExpressionType(firstExpr);
+                if (firstExpr instanceof Function) {
+                    String fname = ((Function) firstExpr).getName().toUpperCase();
+                    if (ZetaSQLFunction.ARRAY.equals(fname) || ZetaSQLFunction.MAP.equals(fname)) {
+                        elementType = getFunctionType((Function) firstExpr);
+                    }
+                }
+                return createArrayType(elementType);
+            case ZetaSQLFunction.MAP:
+                List<Expression> mapParams = getExpressions(function);
+                if (mapParams == null || mapParams.size() < 2) {
+                    throw CommonError.unsupportedOperation(
+                            function.getName(), "MAP function requires at least two parameters");
+                }
+                Expression keyExpr = mapParams.get(0);
+                Expression valueExpr = mapParams.get(1);
+                SeaTunnelDataType<?> keyType = getExpressionType(keyExpr);
+                SeaTunnelDataType<?> valueType = getExpressionType(valueExpr);
+                if (keyExpr instanceof Function) {
+                    String fname = ((Function) keyExpr).getName().toUpperCase();
+                    if (ZetaSQLFunction.ARRAY.equals(fname) || ZetaSQLFunction.MAP.equals(fname)) {
+                        keyType = getFunctionType((Function) keyExpr);
+                    }
+                }
+                if (valueExpr instanceof Function) {
+                    String fname = ((Function) valueExpr).getName().toUpperCase();
+                    if (ZetaSQLFunction.ARRAY.equals(fname) || ZetaSQLFunction.MAP.equals(fname)) {
+                        valueType = getFunctionType((Function) valueExpr);
+                    }
+                }
+                return new MapType<>(keyType, valueType);
             case ZetaSQLFunction.ARRAY_MAX:
             case ZetaSQLFunction.ARRAY_MIN:
                 return ArrayFunction.getElementType(function, inputRowType);
@@ -518,6 +554,16 @@ public class ZetaSQLType {
                         CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
                         String.format("Unsupported function: %s ", function.getName()));
         }
+    }
+
+    private static ArrayType createArrayType(SeaTunnelDataType<?> elementType) {
+        if (elementType == BasicType.INT_TYPE) return ArrayType.INT_ARRAY_TYPE;
+        if (elementType == BasicType.LONG_TYPE) return ArrayType.LONG_ARRAY_TYPE;
+        if (elementType == BasicType.DOUBLE_TYPE) return ArrayType.DOUBLE_ARRAY_TYPE;
+        if (elementType == BasicType.FLOAT_TYPE) return ArrayType.FLOAT_ARRAY_TYPE;
+        if (elementType == BasicType.SHORT_TYPE) return ArrayType.SHORT_ARRAY_TYPE;
+        if (elementType == BasicType.BOOLEAN_TYPE) return ArrayType.BOOLEAN_ARRAY_TYPE;
+        return ArrayType.of(elementType);
     }
 
     private static List<Expression> getExpressions(Function function) {

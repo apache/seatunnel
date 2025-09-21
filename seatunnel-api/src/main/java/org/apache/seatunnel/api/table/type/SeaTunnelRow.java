@@ -237,7 +237,11 @@ public final class SeaTunnelRow implements Serializable {
                 return getArrayMapNotNullSize(v);
             case NULL:
             default:
-                return 0;
+                int total = 0;
+                for (Object elem : (Object[]) v) {
+                    total += getBytesForValue(elem, dataType);
+                }
+                return total;
         }
     }
 
@@ -342,6 +346,13 @@ public final class SeaTunnelRow implements Serializable {
                 }
                 return rowSize;
             default:
+                if (v.getClass().isArray() && v instanceof Object[]) {
+                    int sum = 0;
+                    for (Object o : (Object[]) v) {
+                        sum += getBytesForValue(o);
+                    }
+                    return sum;
+                }
                 if (v instanceof Map) {
                     int mapSize = 0;
                     for (Map.Entry<?, ?> entry : ((Map<?, ?>) v).entrySet()) {

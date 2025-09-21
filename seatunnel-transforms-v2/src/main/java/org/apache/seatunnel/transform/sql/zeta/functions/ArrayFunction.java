@@ -17,6 +17,8 @@
 package org.apache.seatunnel.transform.sql.zeta.functions;
 
 import org.apache.seatunnel.api.table.type.ArrayType;
+import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
@@ -101,7 +103,22 @@ public class ArrayFunction {
     }
 
     public static ArrayType castArrayTypeMapping(Function function, SeaTunnelRowType inputRowType) {
-        return castArrayTypeMapping(getFunctionArgs(function, inputRowType));
+        ExpressionList<Expression> params = (ExpressionList<Expression>) function.getParameters();
+        if (params == null
+                || params.getExpressions() == null
+                || params.getExpressions().isEmpty()) {
+            return ArrayType.STRING_ARRAY_TYPE;
+        }
+
+        SeaTunnelDataType<?> elementType = null;
+        for (Expression expr : params.getExpressions()) {
+            SeaTunnelDataType<?> t = toType(expr, inputRowType);
+            elementType = unifyElementType(elementType, t);
+        }
+        if (elementType == null) {
+            elementType = BasicType.STRING_TYPE;
+        }
+        return createArrayType(elementType);
     }
 
     public static ArrayType castArrayTypeMapping(List<Class<?>> args) {
@@ -111,6 +128,16 @@ public class ArrayFunction {
 
         Class<?> arrayType = getClassType(args);
         return getSeaTunnelDataType(arrayType);
+    }
+
+    private static ArrayType createArrayType(SeaTunnelDataType<?> elementType) {
+        if (elementType == BasicType.INT_TYPE) return ArrayType.INT_ARRAY_TYPE;
+        if (elementType == BasicType.LONG_TYPE) return ArrayType.LONG_ARRAY_TYPE;
+        if (elementType == BasicType.DOUBLE_TYPE) return ArrayType.DOUBLE_ARRAY_TYPE;
+        if (elementType == BasicType.FLOAT_TYPE) return ArrayType.FLOAT_ARRAY_TYPE;
+        if (elementType == BasicType.SHORT_TYPE) return ArrayType.SHORT_ARRAY_TYPE;
+        if (elementType == BasicType.BOOLEAN_TYPE) return ArrayType.BOOLEAN_ARRAY_TYPE;
+        return ArrayType.STRING_ARRAY_TYPE;
     }
 
     private static ArrayType getSeaTunnelDataType(Class<?> clazz) {
@@ -279,5 +306,130 @@ public class ArrayFunction {
         }
 
         throw new SeaTunnelException("Cannot convert " + obj.getClass() + " to " + targetType);
+    }
+
+    private static SeaTunnelDataType<?> toType(Expression expr, SeaTunnelRowType rowType) {
+        if (expr instanceof NullValue) {
+            return null;
+        }
+        if (expr instanceof DoubleValue) {
+            return BasicType.DOUBLE_TYPE;
+        }
+        if (expr instanceof LongValue) {
+            long v = ((LongValue) expr).getValue();
+            if (v <= Integer.MAX_VALUE && v >= Integer.MIN_VALUE) {
+                return BasicType.INT_TYPE;
+            }
+            return BasicType.LONG_TYPE;
+        }
+        if (expr instanceof StringValue) {
+            return BasicType.STRING_TYPE;
+        }
+        if (expr instanceof Column) {
+            Column c = (Column) expr;
+            int idx = rowType.indexOf(c.getColumnName());
+            if (idx < 0) {
+                throw new SeaTunnelException("column not found: " + c.getColumnName());
+            }
+            return rowType.getFieldType(idx);
+        }
+        if (expr instanceof Function) {
+            Function f = (Function) expr;
+            String name = f.getName();
+            if (name != null && "ARRAY".equalsIgnoreCase(name)) {
+                return castArrayTypeMapping(f, rowType);
+            }
+            if (name != null && "MAP".equalsIgnoreCase(name)) {
+                return deriveMapType(f, rowType);
+            }
+        }
+        throw new SeaTunnelException("unSupport expression: " + expr);
+    }
+
+    private static MapType<?, ?> deriveMapType(Function f, SeaTunnelRowType rowType) {
+        ExpressionList<Expression> ps = (ExpressionList<Expression>) f.getParameters();
+        if (ps == null
+                || ps.getExpressions() == null
+                || ps.getExpressions().size() < 2
+                || (ps.getExpressions().size() % 2 != 0)) {
+            throw new SeaTunnelException("MAP requires even number of arguments >= 2");
+        }
+
+        SeaTunnelDataType<?> keyType = null;
+        SeaTunnelDataType<?> valType = null;
+        List<Expression> exprs = ps.getExpressions();
+        for (int i = 0; i < exprs.size(); i += 2) {
+            SeaTunnelDataType<?> kt = toType(exprs.get(i), rowType);
+            SeaTunnelDataType<?> vt = toType(exprs.get(i + 1), rowType);
+            keyType = unifyKVType(keyType, kt, "key");
+            valType = unifyKVType(valType, vt, "value");
+        }
+        if (keyType == null) keyType = BasicType.STRING_TYPE;
+        if (valType == null) valType = BasicType.STRING_TYPE;
+        return new MapType<>(keyType, valType);
+    }
+
+    private static SeaTunnelDataType<?> unifyElementType(
+            SeaTunnelDataType<?> a, SeaTunnelDataType<?> b) {
+        if (a == null) return b;
+        if (b == null) return a;
+        if (a.equals(b)) return a;
+
+        if (isNumeric(a) && isNumeric(b)) {
+            return widenNumeric(a, b);
+        }
+        throw new SeaTunnelException(
+                "All ARRAY elements must share the same type: " + a + " vs " + b);
+    }
+
+    private static SeaTunnelDataType<?> unifyKVType(
+            SeaTunnelDataType<?> a, SeaTunnelDataType<?> b, String which) {
+        if (a == null) return b;
+        if (b == null) return a;
+        if (a.equals(b)) return a;
+        if (isNumeric(a) && isNumeric(b)) {
+            return widenNumeric(a, b);
+        }
+        throw new SeaTunnelException(
+                "All MAP " + which + "s must share the same type: " + a + " vs " + b);
+    }
+
+    private static boolean isNumeric(SeaTunnelDataType<?> t) {
+        return t == BasicType.BYTE_TYPE
+                || t == BasicType.SHORT_TYPE
+                || t == BasicType.INT_TYPE
+                || t == BasicType.LONG_TYPE
+                || t == BasicType.FLOAT_TYPE
+                || t == BasicType.DOUBLE_TYPE;
+    }
+
+    private static SeaTunnelDataType<?> widenNumeric(
+            SeaTunnelDataType<?> a, SeaTunnelDataType<?> b) {
+        int ra = numericRank(a);
+        int rb = numericRank(b);
+        int r = Math.max(ra, rb);
+        switch (r) {
+            case 5:
+                return BasicType.DOUBLE_TYPE;
+            case 4:
+                return BasicType.FLOAT_TYPE;
+            case 3:
+                return BasicType.LONG_TYPE;
+            case 2:
+                return BasicType.INT_TYPE;
+            case 1:
+                return BasicType.SHORT_TYPE;
+            default:
+                return BasicType.BYTE_TYPE;
+        }
+    }
+
+    private static int numericRank(SeaTunnelDataType<?> t) {
+        if (t == BasicType.DOUBLE_TYPE) return 5;
+        if (t == BasicType.FLOAT_TYPE) return 4;
+        if (t == BasicType.LONG_TYPE) return 3;
+        if (t == BasicType.INT_TYPE) return 2;
+        if (t == BasicType.SHORT_TYPE) return 1;
+        return 0; // BYTE
     }
 }
