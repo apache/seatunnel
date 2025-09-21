@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.transform.exception.TransformException;
@@ -103,15 +104,14 @@ public class ArrayFunction {
     }
 
     public static ArrayType castArrayTypeMapping(Function function, SeaTunnelRowType inputRowType) {
-        ExpressionList<Expression> params = (ExpressionList<Expression>) function.getParameters();
-        if (params == null
-                || params.getExpressions() == null
-                || params.getExpressions().isEmpty()) {
+        List<Expression> expressions = getExpressions(function);
+
+        if (expressions.isEmpty()) {
             return ArrayType.STRING_ARRAY_TYPE;
         }
 
         SeaTunnelDataType<?> elementType = null;
-        for (Expression expr : params.getExpressions()) {
+        for (Expression expr : expressions) {
             SeaTunnelDataType<?> t = toType(expr, inputRowType);
             elementType = unifyElementType(elementType, t);
         }
@@ -119,6 +119,17 @@ public class ArrayFunction {
             elementType = BasicType.STRING_TYPE;
         }
         return createArrayType(elementType);
+    }
+
+    private static List<Expression> getExpressions(Function function) {
+        ExpressionList<Expression> params = (ExpressionList<Expression>) function.getParameters();
+        List<Expression> expressions = new ArrayList<>();
+        if (params != null) {
+            for (Expression expression : params) {
+                expressions.add(expression);
+            }
+        }
+        return expressions;
     }
 
     public static ArrayType castArrayTypeMapping(List<Class<?>> args) {
@@ -232,7 +243,8 @@ public class ArrayFunction {
 
     public static SeaTunnelDataType<?> getElementType(
             Function function, SeaTunnelRowType inputRowType) {
-        String columnName = function.getParameters().getExpressions().get(0).toString();
+        List<Expression> expressions = getExpressions(function);
+        String columnName = expressions.get(0).toString();
         int columnIndex = inputRowType.indexOf(columnName);
         ArrayType arrayType = (ArrayType) inputRowType.getFieldType(columnIndex);
         return arrayType.getElementType();
@@ -244,7 +256,7 @@ public class ArrayFunction {
                 (ExpressionList<Expression>) function.getParameters();
         List<Class<?>> functionArgs = new ArrayList<>();
         if (expressionList != null) {
-            for (Expression expression : expressionList.getExpressions()) {
+            for (Expression expression : expressionList) {
                 if (expression instanceof NullValue) {
                     functionArgs.add(null);
                     continue;
@@ -329,7 +341,8 @@ public class ArrayFunction {
             Column c = (Column) expr;
             int idx = rowType.indexOf(c.getColumnName());
             if (idx < 0) {
-                throw new SeaTunnelException("column not found: " + c.getColumnName());
+                throw CommonError.illegalArgument(
+                        "column not found: " + c.getColumnName(), "derive expression type");
             }
             return rowType.getFieldType(idx);
         }
@@ -343,21 +356,21 @@ public class ArrayFunction {
                 return deriveMapType(f, rowType);
             }
         }
-        throw new SeaTunnelException("unSupport expression: " + expr);
+        throw CommonError.unsupportedDataType(
+                "SeaTunnel", expr.getClass().getTypeName(), expr.toString());
     }
 
-    private static MapType<?, ?> deriveMapType(Function f, SeaTunnelRowType rowType) {
-        ExpressionList<Expression> ps = (ExpressionList<Expression>) f.getParameters();
-        if (ps == null
-                || ps.getExpressions() == null
-                || ps.getExpressions().size() < 2
-                || (ps.getExpressions().size() % 2 != 0)) {
-            throw new SeaTunnelException("MAP requires even number of arguments >= 2");
+    private static MapType<?, ?> deriveMapType(Function function, SeaTunnelRowType rowType) {
+        List<Expression> expressions = getExpressions(function);
+        if (expressions.size() < 2 || (expressions.size() % 2 != 0)) {
+            throw CommonError.illegalArgument(
+                    String.valueOf(expressions.size()),
+                    "MAP requires even number of arguments >= 2");
         }
 
         SeaTunnelDataType<?> keyType = null;
         SeaTunnelDataType<?> valType = null;
-        List<Expression> exprs = ps.getExpressions();
+        List<Expression> exprs = expressions;
         for (int i = 0; i < exprs.size(); i += 2) {
             SeaTunnelDataType<?> kt = toType(exprs.get(i), rowType);
             SeaTunnelDataType<?> vt = toType(exprs.get(i + 1), rowType);
@@ -378,8 +391,7 @@ public class ArrayFunction {
         if (isNumeric(a) && isNumeric(b)) {
             return widenNumeric(a, b);
         }
-        throw new SeaTunnelException(
-                "All ARRAY elements must share the same type: " + a + " vs " + b);
+        throw CommonError.illegalArgument(a + " vs " + b, "unify element type");
     }
 
     private static SeaTunnelDataType<?> unifyKVType(
@@ -390,8 +402,7 @@ public class ArrayFunction {
         if (isNumeric(a) && isNumeric(b)) {
             return widenNumeric(a, b);
         }
-        throw new SeaTunnelException(
-                "All MAP " + which + "s must share the same type: " + a + " vs " + b);
+        throw CommonError.illegalArgument(a + " vs " + b, "unify " + which + " type");
     }
 
     private static boolean isNumeric(SeaTunnelDataType<?> t) {

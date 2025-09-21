@@ -417,7 +417,7 @@ public class ZetaSQLType {
                 return BasicType.DOUBLE_TYPE;
             case ZetaSQLFunction.ARRAY:
                 List<Expression> params = getExpressions(function);
-                if (params == null || params.isEmpty()) {
+                if (params.isEmpty()) {
                     return ArrayType.STRING_ARRAY_TYPE;
                 }
                 Expression firstExpr = params.get(0);
@@ -431,7 +431,7 @@ public class ZetaSQLType {
                 return createArrayType(elementType);
             case ZetaSQLFunction.MAP:
                 List<Expression> mapParams = getExpressions(function);
-                if (mapParams == null || mapParams.size() < 2) {
+                if (mapParams.size() < 2) {
                     throw CommonError.unsupportedOperation(
                             function.getName(), "MAP function requires at least two parameters");
                 }
@@ -567,15 +567,22 @@ public class ZetaSQLType {
     }
 
     private static List<Expression> getExpressions(Function function) {
-        ExpressionList parameters = function.getParameters();
+        ExpressionList<Expression> parameters =
+                (ExpressionList<Expression>) function.getParameters();
         if (parameters == null) {
             throw new TransformException(
                     CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
                     function.getName() + " function requires at least one parameter");
         }
 
-        List<Expression> expressions = parameters.getExpressions();
-        if (expressions == null || expressions.isEmpty()) {
+        List<Expression> expressions = new ArrayList<>();
+        if (function.getParameters() != null) {
+            for (Expression expression : parameters) {
+                expressions.add(expression);
+            }
+        }
+
+        if (expressions.isEmpty()) {
             throw new TransformException(
                     CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
                     function.getName() + " function requires at least one parameter");
