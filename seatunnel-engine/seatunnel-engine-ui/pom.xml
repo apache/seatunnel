@@ -126,8 +126,7 @@
                 <executable.rmdir>cmd</executable.rmdir>
                 <args.rm.clean>/C if exist "${dist.dir}" rmdir /S /Q "${dist.dir}" &amp;
                     if exist "${nodemodules.dir}" rmdir /S /Q "${nodemodules.dir}" &amp;
-                    if exist "${deployed.dir}" rmdir /S /Q "${deployed.dir}"
-                </args.rm.clean>
+                    if exist "${deployed.dir}" rmdir /S /Q "${deployed.dir}"</args.rm.clean>
                 <executable.shell>cmd</executable.shell>
                 <fileextension.shell>cmd</fileextension.shell>
                 <args.shell>/C</args.shell>
