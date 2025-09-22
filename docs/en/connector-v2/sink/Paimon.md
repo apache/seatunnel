@@ -8,14 +8,14 @@ import ChangeLog from '../changelog/connector-paimon.md';
 
 Sink connector for Apache Paimon. It can support cdc mode 、auto create table.
 
-### Comparison between Seatunnel and Paimon vsrsion
+### Comparison between SeaTunnel and Paimon version
 
 | Seatunnel Version | Paimon Version   |
 |-------------------|------------------|
 | 2.3.2  -  2.3.3   | 0.4-SNAPSHOT     |
 | 2.3.4             | 0.6-SNAPSHOT     |
 | 2.3.5  -  2.3.11  | 0.7.0-incubating |
-| 2.3.12            | 1.1.1            |
+| 2.3.12  - 2.3.13  | 1.1.1            |
 
 ### Key Considerations for Upgrading Paimon from `0.7.0-incubating` to `1.1.1`
 

@@ -34,6 +34,7 @@ import ChangeLog from '../changelog/connector-file-s3.md';
     - [x] excel
     - [x] xml
     - [x] binary
+    - [x] markdown
 
 ## Description
 
@@ -191,7 +192,7 @@ If you assign file type to `parquet` `orc`, schema option not required, connecto
 | name                            | type    | required | default value                                         | Description                                                                                                                                                                                                                                                                                                                                                                                                |
 |---------------------------------|---------|----------|-------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | path                            | string  | yes      | -                                                     | The s3 path that needs to be read can have sub paths, but the sub paths need to meet certain format requirements. Specific requirements can be referred to "parse_partition_from_path" option                                                                                                                                                                                                              |
-| file_format_type                | string  | yes      | -                                                     | File type, supported as the following file types: `text` `csv` `parquet` `orc` `json` `excel` `xml` `binary`                                                                                                                                                                                                                                                                                               |
+| file_format_type                | string  | yes      | -                                                     | File type, supported as the following file types: `text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `markdown`                                                                                                                                                                                                                                                                                               |
 | bucket                          | string  | yes      | -                                                     | The bucket address of s3 file system, for example: `s3n://seatunnel-test`, if you use `s3a` protocol, this parameter should be `s3a://seatunnel-test`.                                                                                                                                                                                                                                                     |
 | fs.s3a.endpoint                 | string  | yes      | -                                                     | fs s3a endpoint                                                                                                                                                                                                                                                                                                                                                                                            |
 | fs.s3a.aws.credentials.provider | string  | yes      | com.amazonaws.auth.InstanceProfileCredentialsProvider | The way to authenticate s3a. We only support `org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider` and `com.amazonaws.auth.InstanceProfileCredentialsProvider` now. More information about the credential provider you can see [Hadoop AWS Document](https://hadoop.apache.org/docs/stable/hadoop-aws/tools/hadoop-aws/index.html#Simple_name.2Fsecret_credentials_with_SimpleAWSCredentialsProvider.2A) |
@@ -221,6 +222,26 @@ If you assign file type to `parquet` `orc`, schema option not required, connecto
 | file_filter_pattern             | string  | no       |                                                       | Filter pattern, which used for filtering files.                                                                                                                                                                                                                                                                                                                                                            |
 | filename_extension              | string  | no       | -                                                     | Filter filename extension, which used for filtering files with specific extension. Example: `csv` `.txt` `json` `.xml`.                                                                                                                                                                                                                                                                                    |
 | common-options                  |         | no       | -                                                     | Source plugin common parameters, please refer to [Source Common Options](../source-common-options.md) for details.                                                                                                                                                                                                                                                                                         |
+
+### file_format_type [string]
+
+File type, supported as the following file types:
+
+`text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `markdown`
+
+If you assign file type to `markdown`, SeaTunnel can parse markdown files and extract structured data.
+The markdown parser extracts various elements including headings, paragraphs, lists, code blocks, tables, and more.
+Each element is converted to a row with the following schema:
+- `element_id`: Unique identifier for the element
+- `element_type`: Type of the element (Heading, Paragraph, ListItem, etc.)
+- `heading_level`: Level of heading (1-6, null for non-heading elements)
+- `text`: Text content of the element
+- `page_number`: Page number (default: 1)
+- `position_index`: Position index within the document
+- `parent_id`: ID of the parent element
+- `child_ids`: Comma-separated list of child element IDs
+
+Note: Markdown format only supports reading, not writing.
 
 ### delimiter/field_delimiter [string]
 

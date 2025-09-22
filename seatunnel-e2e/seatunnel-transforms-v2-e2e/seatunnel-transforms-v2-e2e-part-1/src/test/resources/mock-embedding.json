@@ -85,6 +85,45 @@
         "Content-Type": "application/json"
       }
     }
+  },
+  {
+    "httpRequest": {
+      "method": "POST",
+      "path": "/api/v3/embeddings/multimodal",
+      "headers": {
+        "Authorization": [
+          "Bearer .*"
+        ],
+        "Content-Type": [
+          "application/json"
+        ]
+      }
+    },
+    "httpResponse": {
+      "body": {
+        "created": 1743575029,
+        "data": {
+          "embedding": [
+            -0.123046875, -0.35546875, -0.318359375, -0.255859375
+          ],
+          "object": "embedding"
+        },
+        "id": "021743575029461acbe49a31755bec77b2f09448eb15fa9a88e47",
+        "model": "doubao-embedding-vision-250615",
+        "object": "list",
+        "usage": {
+          "prompt_tokens": 13987,
+          "prompt_tokens_details": {
+            "image_tokens": 13800,
+            "text_tokens": 187
+          },
+          "total_tokens": 13987
+        }
+      },
+      "headers": {
+        "Content-Type": "application/json"
+      }
+    }
   }
 ]
 

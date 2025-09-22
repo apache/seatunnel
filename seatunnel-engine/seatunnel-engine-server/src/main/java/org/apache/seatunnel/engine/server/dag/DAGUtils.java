@@ -98,14 +98,14 @@ public class DAGUtils {
             LogicalDag logicalDag,
             JobImmutableInformation jobImmutableInformation,
             EngineConfig engineConfig,
-            boolean isPhysicalDAGIInfo,
+            boolean isPhysicalDAGInfo,
             ExecutionAddress master,
             Set<ExecutionAddress> historyExecutionAddress) {
         List<Pipeline> pipelines =
                 new ExecutionPlanGenerator(logicalDag, jobImmutableInformation, engineConfig)
                         .generate()
                         .getPipelines();
-        if (isPhysicalDAGIInfo) {
+        if (isPhysicalDAGInfo) {
             // Generate ExecutePlan DAG
             Map<Integer, List<Edge>> pipelineWithEdges = new HashMap<>();
             Map<Long, VertexInfo> vertexInfoMap = new HashMap<>();

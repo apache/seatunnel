@@ -17,24 +17,19 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.hdfs.source;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
-import org.apache.seatunnel.api.common.PrepareFailException;
-import org.apache.seatunnel.api.source.SeaTunnelSource;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
+import org.apache.seatunnel.connectors.seatunnel.file.hdfs.config.MultipleTableHdfsFileSourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.file.source.BaseMultipleTableFileSource;
 
-import com.google.auto.service.AutoService;
+public class HdfsFileSource extends BaseMultipleTableFileSource {
 
-@AutoService(SeaTunnelSource.class)
-public class HdfsFileSource extends BaseHdfsFileSource {
+    public HdfsFileSource(ReadonlyConfig readonlyConfig) {
+        super(new MultipleTableHdfsFileSourceConfig(readonlyConfig));
+    }
 
     @Override
     public String getPluginName() {
         return FileSystemType.HDFS.getFileSystemPluginName();
-    }
-
-    @Override
-    public void prepare(Config pluginConfig) throws PrepareFailException {
-        super.prepare(pluginConfig);
     }
 }

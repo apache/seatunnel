@@ -2,7 +2,9 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
-|[Feature][connector-hive] hive sink connector support overwrite mode #7843 (#7891)|https://github.com/apache/seatunnel/commit/6fafe6f4d3| dev |
+|[Feature][File] Add markdown parser #9714|https://github.com/apache/seatunnel/commit/8b3c07844| dev |
+|[Improve][API] Optimize the enumerator API semantics and reduce lock calls at the connector level (#9671)|https://github.com/apache/seatunnel/commit/9212a77140|2.3.12|
+|[Feature][connector-hive] hive sink connector support overwrite mode #7843 (#7891)|https://github.com/apache/seatunnel/commit/6fafe6f4d3|2.3.12|
 |[Fix][Connector-V2] Fix hive client thread unsafe (#9282)|https://github.com/apache/seatunnel/commit/5dc25897a9|2.3.11|
 |[improve] update file connectors config (#9034)|https://github.com/apache/seatunnel/commit/8041d59dc2|2.3.11|
 |[Improve] Refactor file enumerator to prevent duplicate put split (#8989)|https://github.com/apache/seatunnel/commit/fdf1beae9c|2.3.11|
