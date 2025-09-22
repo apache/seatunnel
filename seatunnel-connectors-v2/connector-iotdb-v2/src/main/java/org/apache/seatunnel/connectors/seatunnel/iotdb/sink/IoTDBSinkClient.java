@@ -137,6 +137,7 @@ public class IoTDBSinkClient {
                             batchRecords.getTypesList(),
                             batchRecords.getValuesList());
                 }
+                break;
             } catch (IoTDBConnectionException | StatementExecutionException e) {
                 log.error("Writing records to IoTDB failed, retry times = {}", i, e);
                 if (i >= sinkConfig.getMaxRetries()) {

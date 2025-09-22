@@ -219,6 +219,7 @@ public class IoTDBRelationalSinkClient {
                 for (Tablet tablet : batchList) {
                     tableSession.insert(tablet);
                 }
+                break;
             } catch (IoTDBConnectionException | StatementExecutionException e) {
                 log.error("Writing records to IoTDB failed, retry times = {}", i, e);
                 if (i >= sinkConfig.getMaxRetries()) {
