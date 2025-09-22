@@ -38,15 +38,15 @@ public class MapFunction {
             return new LinkedHashMap<>();
         }
         if (args.size() % 2 != 0) {
-            throw new IllegalArgumentException(
-                    "MAP requires even number of arguments: key,value,...");
+            throw CommonError.illegalArgument(
+                    args.toString(), "MAP requires even number of arguments");
         }
         Map<String, Object> result = new LinkedHashMap<>(args.size() / 2);
         for (int i = 0; i < args.size(); i += 2) {
             Object keyObj = args.get(i);
             Object val = args.get(i + 1);
             if (keyObj == null) {
-                throw new IllegalArgumentException("MAP key cannot be null at index " + i);
+                throw CommonError.illegalArgument(args.toString(), "MAP key cannot be null");
             }
             String key = (keyObj instanceof String) ? (String) keyObj : String.valueOf(keyObj);
             result.put(key, val);
