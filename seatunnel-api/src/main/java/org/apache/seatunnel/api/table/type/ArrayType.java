@@ -17,9 +17,6 @@
 
 package org.apache.seatunnel.api.table.type;
 
-import org.apache.seatunnel.common.exception.CommonError;
-
-import java.lang.reflect.Array;
 import java.util.Objects;
 
 public class ArrayType<T, E> implements SeaTunnelDataType<T> {
@@ -64,22 +61,8 @@ public class ArrayType<T, E> implements SeaTunnelDataType<T> {
         this.elementType = elementType;
     }
 
-    @SuppressWarnings("unchecked")
-    public static <E> ArrayType<E[], E> of(SeaTunnelDataType<E> elementType) {
-        if (elementType == null) {
-            throw CommonError.illegalArgument("elementType is null", "create ArrayType");
-        }
-        Class<E[]> arrayClass = (Class<E[]>) toArrayClass(elementType);
-        return new ArrayType<>(arrayClass, elementType);
-    }
-
     public SeaTunnelDataType<E> getElementType() {
         return elementType;
-    }
-
-    private static Class<?> toArrayClass(SeaTunnelDataType<?> elementType) {
-        Class<?> elementClass = elementType.getTypeClass();
-        return Array.newInstance(elementClass, 0).getClass();
     }
 
     @Override

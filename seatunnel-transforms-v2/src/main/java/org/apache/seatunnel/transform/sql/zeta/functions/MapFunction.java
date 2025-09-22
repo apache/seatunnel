@@ -17,6 +17,15 @@
 
 package org.apache.seatunnel.transform.sql.zeta.functions;
 
+import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.MapType;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.exception.CommonError;
+
+import net.sf.jsqlparser.expression.Expression;
+import net.sf.jsqlparser.expression.Function;
+
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -28,7 +37,7 @@ public class MapFunction {
         if (args == null || args.isEmpty()) {
             return new LinkedHashMap<>();
         }
-        if ((args.size() & 1) == 1) {
+        if (args.size() % 2 != 0) {
             throw new IllegalArgumentException(
                     "MAP requires even number of arguments: key,value,...");
         }
@@ -43,5 +52,26 @@ public class MapFunction {
             result.put(key, val);
         }
         return result;
+    }
+
+    public static MapType castMapTypeMapping(Function function, SeaTunnelRowType rowType) {
+        List<Expression> expressions = CommonFunction.getExpressions(function);
+        if (expressions.size() < 2 || (expressions.size() % 2 != 0)) {
+            throw CommonError.illegalArgument(
+                    String.valueOf(expressions.size()),
+                    "MAP requires even number of arguments >= 2");
+        }
+
+        SeaTunnelDataType keyType = null;
+        SeaTunnelDataType valType = null;
+        for (int i = 0; i < expressions.size(); i += 2) {
+            SeaTunnelDataType kt = CommonFunction.toType(expressions.get(i), rowType);
+            SeaTunnelDataType vt = CommonFunction.toType(expressions.get(i + 1), rowType);
+            keyType = CommonFunction.unifyCollectionType(keyType, kt);
+            valType = CommonFunction.unifyCollectionType(valType, vt);
+        }
+        if (keyType == null) keyType = BasicType.STRING_TYPE;
+        if (valType == null) valType = BasicType.STRING_TYPE;
+        return new MapType<>(keyType, valType);
     }
 }
