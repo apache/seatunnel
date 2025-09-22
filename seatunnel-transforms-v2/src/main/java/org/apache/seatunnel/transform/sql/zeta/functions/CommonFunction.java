@@ -131,8 +131,7 @@ public class CommonFunction {
                 || type == BasicType.DOUBLE_TYPE;
     }
 
-    public static SeaTunnelDataType widenNumeric(
-            SeaTunnelDataType type1, SeaTunnelDataType type2) {
+    public static SeaTunnelDataType widenNumeric(SeaTunnelDataType type1, SeaTunnelDataType type2) {
         int rank1 = numericRank(type1);
         int rank2 = numericRank(type2);
         int max = Math.max(rank1, rank2);
