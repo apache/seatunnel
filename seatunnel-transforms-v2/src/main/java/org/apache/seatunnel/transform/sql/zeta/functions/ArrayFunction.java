@@ -104,7 +104,7 @@ public class ArrayFunction {
         SeaTunnelDataType<?> elementType = null;
         for (Expression expr : expressions) {
             SeaTunnelDataType<?> t = CommonFunction.toType(expr, inputRowType);
-            elementType = CommonFunction.unifyElementType(elementType, t);
+            elementType = CommonFunction.unifyCollectionType(elementType, t);
         }
         if (elementType == null) {
             elementType = BasicType.STRING_TYPE;

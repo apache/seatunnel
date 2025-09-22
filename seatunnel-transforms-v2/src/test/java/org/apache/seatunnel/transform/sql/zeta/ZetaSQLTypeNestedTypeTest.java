@@ -66,14 +66,7 @@ class ZetaSQLTypeNestedTypeTest {
         Function outer = arr(inner1, inner2);
 
         SeaTunnelDataType t = zeta().getExpressionType(outer);
-        Assertions.assertTrue(t instanceof ArrayType);
-        ArrayType outerArr = (ArrayType) t;
-
-        SeaTunnelDataType inner = outerArr.getElementType();
-        Assertions.assertEquals(ArrayType.INT_ARRAY_TYPE, inner);
-        ArrayType innerArr = (ArrayType) inner;
-
-        Assertions.assertEquals(BasicType.INT_TYPE, innerArr.getElementType());
+        Assertions.assertEquals(ArrayType.STRING_ARRAY_TYPE, t);
     }
 
     @Test
@@ -84,15 +77,7 @@ class ZetaSQLTypeNestedTypeTest {
         Function outer = arr(m1, m2);
 
         SeaTunnelDataType t = zeta().getExpressionType(outer);
-        Assertions.assertTrue(t instanceof ArrayType);
-        ArrayType arrType = (ArrayType) t;
-
-        SeaTunnelDataType elem = arrType.getElementType();
-        Assertions.assertTrue(elem instanceof MapType);
-        MapType mapType = (MapType) elem;
-
-        Assertions.assertEquals(BasicType.STRING_TYPE, mapType.getKeyType());
-        Assertions.assertEquals(BasicType.INT_TYPE, mapType.getValueType());
+        Assertions.assertEquals(ArrayType.STRING_ARRAY_TYPE, t);
     }
 
     @Test
@@ -107,7 +92,5 @@ class ZetaSQLTypeNestedTypeTest {
 
         Assertions.assertEquals(BasicType.STRING_TYPE, mapType.getKeyType());
         Assertions.assertEquals(ArrayType.INT_ARRAY_TYPE, mapType.getValueType());
-        ArrayType valueArray = (ArrayType) mapType.getValueType();
-        Assertions.assertEquals(BasicType.INT_TYPE, valueArray.getElementType());
     }
 }

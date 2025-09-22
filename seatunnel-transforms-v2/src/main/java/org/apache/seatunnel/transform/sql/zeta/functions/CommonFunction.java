@@ -79,18 +79,6 @@ public class CommonFunction {
                 "SeaTunnel", expression.getClass().getTypeName(), expression.toString());
     }
 
-    public static SeaTunnelDataType unifyElementType(
-            SeaTunnelDataType type1, SeaTunnelDataType type2) {
-        if (type1 == null) return type2;
-        if (type2 == null) return type1;
-        if (type1.equals(type2)) return type1;
-
-        if (isNumeric(type1) && isNumeric(type2)) {
-            return widenNumeric(type1, type2);
-        }
-        return BasicType.STRING_TYPE;
-    }
-
     public static SeaTunnelDataType unifyCollectionType(
             SeaTunnelDataType type1, SeaTunnelDataType type2) {
         if (type1 == null || BasicType.VOID_TYPE.equals(type1)) return type2;
