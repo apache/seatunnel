@@ -48,11 +48,11 @@ import static org.apache.seatunnel.connectors.seatunnel.iotdbv2.config.IoTDBSour
 import static org.apache.seatunnel.connectors.seatunnel.iotdbv2.config.IoTDBSourceOptions.VERSION;
 import static org.apache.seatunnel.connectors.seatunnel.iotdbv2.constant.SourceConstants.NODES_SPLIT;
 
-public class IoTDBSourceReader extends IoTDBAbstractSourceReader {
+public class IoTDBv2SourceReader extends IoTDBv2AbstractSourceReader {
 
     private Session session;
 
-    public IoTDBSourceReader(
+    public IoTDBv2SourceReader(
             ReadonlyConfig conf, SourceReader.Context readerContext, SeaTunnelRowType rowType) {
         super(conf, readerContext);
         this.deserializer = new DefaultSeaTunnelRowDeserializer(rowType, SourceConstants.TREE);
@@ -112,7 +112,7 @@ public class IoTDBSourceReader extends IoTDBAbstractSourceReader {
     }
 
     @Override
-    public void read(IoTDBSourceSplit split, Collector<SeaTunnelRow> output) throws Exception {
+    public void read(IoTDBv2SourceSplit split, Collector<SeaTunnelRow> output) throws Exception {
         try (SessionDataSet dataSet = session.executeQueryStatement(split.getQuery())) {
             while (dataSet.hasNext()) {
                 RowRecord rowRecord = dataSet.next();

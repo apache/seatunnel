@@ -86,6 +86,6 @@ public class IoTDBv2SinkFactory implements TableSinkFactory {
             targetSqlDialect = SinkConstants.TREE;
         }
         return () ->
-                new IoTDBSink(context.getOptions(), context.getCatalogTable(), targetSqlDialect);
+                new IoTDBv2Sink(context.getOptions(), context.getCatalogTable(), targetSqlDialect);
     }
 }

@@ -27,14 +27,14 @@ import org.apache.seatunnel.api.source.SupportParallelism;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.iotdbv2.constant.SourceConstants;
-import org.apache.seatunnel.connectors.seatunnel.iotdbv2.source.relational.IoTDBRelationalSourceReader;
+import org.apache.seatunnel.connectors.seatunnel.iotdbv2.source.relational.IoTDBv2RelationalSourceReader;
 import org.apache.seatunnel.connectors.seatunnel.iotdbv2.state.IoTDBSourceState;
 
 import java.util.Collections;
 import java.util.List;
 
-public class IoTDBSource
-        implements SeaTunnelSource<SeaTunnelRow, IoTDBSourceSplit, IoTDBSourceState>,
+public class IoTDBv2Source
+        implements SeaTunnelSource<SeaTunnelRow, IoTDBv2SourceSplit, IoTDBSourceState>,
                 SupportParallelism,
                 SupportColumnProjection {
 
@@ -42,7 +42,7 @@ public class IoTDBSource
     private ReadonlyConfig pluginConfig;
     private String sqlDialect;
 
-    public IoTDBSource(CatalogTable catalogTable, ReadonlyConfig pluginConfig, String sqlDialect) {
+    public IoTDBv2Source(CatalogTable catalogTable, ReadonlyConfig pluginConfig, String sqlDialect) {
         this.catalogTable = catalogTable;
         this.pluginConfig = pluginConfig;
         this.sqlDialect = sqlDialect;
@@ -59,28 +59,28 @@ public class IoTDBSource
     }
 
     @Override
-    public SourceReader<SeaTunnelRow, IoTDBSourceSplit> createReader(
+    public SourceReader<SeaTunnelRow, IoTDBv2SourceSplit> createReader(
             SourceReader.Context readerContext) {
         if (SourceConstants.TABLE.equalsIgnoreCase(sqlDialect)) {
-            return new IoTDBRelationalSourceReader(
+            return new IoTDBv2RelationalSourceReader(
                     pluginConfig, readerContext, catalogTable.getSeaTunnelRowType());
         }
-        return new IoTDBSourceReader(
+        return new IoTDBv2SourceReader(
                 pluginConfig, readerContext, catalogTable.getSeaTunnelRowType());
     }
 
     @Override
-    public SourceSplitEnumerator<IoTDBSourceSplit, IoTDBSourceState> createEnumerator(
-            SourceSplitEnumerator.Context<IoTDBSourceSplit> enumeratorContext) throws Exception {
-        return new IoTDBSourceSplitEnumerator(enumeratorContext, pluginConfig);
+    public SourceSplitEnumerator<IoTDBv2SourceSplit, IoTDBSourceState> createEnumerator(
+            SourceSplitEnumerator.Context<IoTDBv2SourceSplit> enumeratorContext) throws Exception {
+        return new IoTDBv2SourceSplitEnumerator(enumeratorContext, pluginConfig);
     }
 
     @Override
-    public SourceSplitEnumerator<IoTDBSourceSplit, IoTDBSourceState> restoreEnumerator(
-            SourceSplitEnumerator.Context<IoTDBSourceSplit> enumeratorContext,
+    public SourceSplitEnumerator<IoTDBv2SourceSplit, IoTDBSourceState> restoreEnumerator(
+            SourceSplitEnumerator.Context<IoTDBv2SourceSplit> enumeratorContext,
             IoTDBSourceState checkpointState)
             throws Exception {
-        return new IoTDBSourceSplitEnumerator(enumeratorContext, pluginConfig, checkpointState);
+        return new IoTDBv2SourceSplitEnumerator(enumeratorContext, pluginConfig, checkpointState);
     }
 
     @Override

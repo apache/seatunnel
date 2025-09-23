@@ -90,11 +90,11 @@ public class IoTDBv2SourceFactory implements TableSourceFactory {
         }
         return () ->
                 (SeaTunnelSource<T, SplitT, StateT>)
-                        new IoTDBSource(catalogTable, context.getOptions(), targetSqlDialect);
+                        new IoTDBv2Source(catalogTable, context.getOptions(), targetSqlDialect);
     }
 
     @Override
-    public Class<IoTDBSource> getSourceClass() {
-        return IoTDBSource.class;
+    public Class<IoTDBv2Source> getSourceClass() {
+        return IoTDBv2Source.class;
     }
 }

@@ -26,8 +26,8 @@ import org.apache.seatunnel.connectors.seatunnel.iotdbv2.constant.SourceConstant
 import org.apache.seatunnel.connectors.seatunnel.iotdbv2.exception.IotdbConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.iotdbv2.exception.IotdbConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.iotdbv2.serialize.DefaultSeaTunnelRowDeserializer;
-import org.apache.seatunnel.connectors.seatunnel.iotdbv2.source.IoTDBAbstractSourceReader;
-import org.apache.seatunnel.connectors.seatunnel.iotdbv2.source.IoTDBSourceSplit;
+import org.apache.seatunnel.connectors.seatunnel.iotdbv2.source.IoTDBv2AbstractSourceReader;
+import org.apache.seatunnel.connectors.seatunnel.iotdbv2.source.IoTDBv2SourceSplit;
 
 import shaded.org.apache.iotdb.isession.ITableSession;
 import shaded.org.apache.iotdb.isession.SessionDataSet;
@@ -51,11 +51,11 @@ import static org.apache.seatunnel.connectors.seatunnel.iotdbv2.config.IoTDBSour
 import static org.apache.seatunnel.connectors.seatunnel.iotdbv2.config.IoTDBSourceOptions.VERSION;
 import static org.apache.seatunnel.connectors.seatunnel.iotdbv2.constant.SourceConstants.NODES_SPLIT;
 
-public class IoTDBRelationalSourceReader extends IoTDBAbstractSourceReader {
+public class IoTDBv2RelationalSourceReader extends IoTDBv2AbstractSourceReader {
 
     private ITableSession tableSession;
 
-    public IoTDBRelationalSourceReader(
+    public IoTDBv2RelationalSourceReader(
             ReadonlyConfig conf, SourceReader.Context readerContext, SeaTunnelRowType rowType) {
         super(conf, readerContext);
         this.deserializer = new DefaultSeaTunnelRowDeserializer(rowType, SourceConstants.TABLE);
@@ -112,7 +112,7 @@ public class IoTDBRelationalSourceReader extends IoTDBAbstractSourceReader {
     }
 
     @Override
-    public void read(IoTDBSourceSplit split, Collector<SeaTunnelRow> output) throws Exception {
+    public void read(IoTDBv2SourceSplit split, Collector<SeaTunnelRow> output) throws Exception {
         try (SessionDataSet dataSet =
                 tableSession.executeQueryStatement(split.getQuery(), Long.MAX_VALUE)) {
             while (dataSet.hasNext()) {

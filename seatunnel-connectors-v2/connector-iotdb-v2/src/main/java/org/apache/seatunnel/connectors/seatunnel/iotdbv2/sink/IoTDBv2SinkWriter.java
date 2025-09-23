@@ -33,12 +33,12 @@ import java.io.IOException;
 import java.util.Optional;
 
 @Slf4j
-public class IoTDBSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
+public class IoTDBv2SinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
 
     private final SeaTunnelRowSerializer<IoTDBRecord> serializer;
-    private final IoTDBSinkClient sinkClient;
+    private final IoTDBv2SinkClient sinkClient;
 
-    public IoTDBSinkWriter(ReadonlyConfig pluginConfig, SeaTunnelRowType seaTunnelRowType) {
+    public IoTDBv2SinkWriter(ReadonlyConfig pluginConfig, SeaTunnelRowType seaTunnelRowType) {
         SinkConfig sinkConfig = SinkConfig.loadConfig(pluginConfig);
         this.serializer =
                 new DefaultSeaTunnelRowSerializer(
@@ -47,7 +47,7 @@ public class IoTDBSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
                         sinkConfig.getKeyTimestamp(),
                         sinkConfig.getKeyDevice(),
                         sinkConfig.getKeyMeasurementFields());
-        this.sinkClient = new IoTDBSinkClient(sinkConfig);
+        this.sinkClient = new IoTDBv2SinkClient(sinkConfig);
     }
 
     @Override

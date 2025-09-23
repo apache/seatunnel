@@ -35,7 +35,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Slf4j
-public class IoTDBSinkClient {
+public class IoTDBv2SinkClient {
 
     private final SinkConfig sinkConfig;
     private final List<IoTDBRecord> batchList;
@@ -44,7 +44,7 @@ public class IoTDBSinkClient {
     private volatile boolean initialize;
     private volatile Exception flushException;
 
-    public IoTDBSinkClient(SinkConfig sinkConfig) {
+    public IoTDBv2SinkClient(SinkConfig sinkConfig) {
         this.sinkConfig = sinkConfig;
         this.batchList = new ArrayList<>();
     }

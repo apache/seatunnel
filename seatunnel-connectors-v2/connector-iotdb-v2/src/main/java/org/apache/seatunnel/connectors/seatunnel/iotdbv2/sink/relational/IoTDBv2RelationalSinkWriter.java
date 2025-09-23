@@ -41,12 +41,12 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 @Slf4j
-public class IoTDBRelationalSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
+public class IoTDBv2RelationalSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
 
     private final SeaTunnelRowSerializer<IoTDBRelationalRecord> serializer;
-    private final IoTDBRelationalSinkClient sinkClient;
+    private final IoTDBv2RelationalSinkClient sinkClient;
 
-    public IoTDBRelationalSinkWriter(
+    public IoTDBv2RelationalSinkWriter(
             ReadonlyConfig pluginConfig, SeaTunnelRowType seaTunnelRowType) {
         SinkConfig sinkConfig = SinkConfig.loadConfig(pluginConfig);
         List<String> tagKeys = sinkConfig.getKeyTagFields();
@@ -86,7 +86,7 @@ public class IoTDBRelationalSinkWriter extends AbstractSinkWriter<SeaTunnelRow, 
                         fieldNames,
                         fieldTypes);
         this.sinkClient =
-                new IoTDBRelationalSinkClient(
+                new IoTDBv2RelationalSinkClient(
                         sinkConfig, tagKeys, attributeKeys, fieldNames, fieldTypes);
     }
 

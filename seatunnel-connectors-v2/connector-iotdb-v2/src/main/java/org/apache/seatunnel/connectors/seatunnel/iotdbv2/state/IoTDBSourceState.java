@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.iotdbv2.state;
 
-import org.apache.seatunnel.connectors.seatunnel.iotdbv2.source.IoTDBSourceSplit;
+import org.apache.seatunnel.connectors.seatunnel.iotdbv2.source.IoTDBv2SourceSplit;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -32,5 +32,5 @@ public class IoTDBSourceState implements Serializable {
 
     private static final long serialVersionUID = 7142773921678153583L;
     private boolean shouldEnumerate;
-    private Map<Integer, List<IoTDBSourceSplit>> pendingSplit;
+    private Map<Integer, List<IoTDBv2SourceSplit>> pendingSplit;
 }

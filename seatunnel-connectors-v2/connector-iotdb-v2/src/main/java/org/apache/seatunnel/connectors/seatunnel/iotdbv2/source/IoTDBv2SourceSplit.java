@@ -22,7 +22,7 @@ import org.apache.seatunnel.api.source.SourceSplit;
 import lombok.ToString;
 
 @ToString
-public class IoTDBSourceSplit implements SourceSplit {
+public class IoTDBv2SourceSplit implements SourceSplit {
 
     private static final long serialVersionUID = -1L;
 
@@ -40,7 +40,7 @@ public class IoTDBSourceSplit implements SourceSplit {
         return query;
     }
 
-    public IoTDBSourceSplit(String splitId, String query) {
+    public IoTDBv2SourceSplit(String splitId, String query) {
         this.splitId = splitId;
         this.query = query;
     }

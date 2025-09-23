@@ -39,7 +39,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Slf4j
-public class IoTDBRelationalSinkClient {
+public class IoTDBv2RelationalSinkClient {
 
     private final SinkConfig sinkConfig;
     private final List<Tablet> batchList;
@@ -55,7 +55,7 @@ public class IoTDBRelationalSinkClient {
     private final List<ColumnCategory> columnCategories;
     private final List<TSDataType> columnDataTypes;
 
-    public IoTDBRelationalSinkClient(
+    public IoTDBv2RelationalSinkClient(
             SinkConfig sinkConfig,
             List<String> tagKeys,
             List<String> attributeKeys,

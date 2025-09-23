@@ -32,12 +32,12 @@ import java.util.List;
 import java.util.Queue;
 
 @Slf4j
-public abstract class IoTDBAbstractSourceReader
-        implements SourceReader<SeaTunnelRow, IoTDBSourceSplit> {
+public abstract class IoTDBv2AbstractSourceReader
+        implements SourceReader<SeaTunnelRow, IoTDBv2SourceSplit> {
 
     protected final ReadonlyConfig conf;
 
-    private final Queue<IoTDBSourceSplit> pendingSplits;
+    private final Queue<IoTDBv2SourceSplit> pendingSplits;
 
     private final SourceReader.Context context;
 
@@ -45,7 +45,7 @@ public abstract class IoTDBAbstractSourceReader
 
     private volatile boolean noMoreSplitsAssignment;
 
-    public IoTDBAbstractSourceReader(ReadonlyConfig conf, SourceReader.Context readerContext) {
+    public IoTDBv2AbstractSourceReader(ReadonlyConfig conf, SourceReader.Context readerContext) {
         this.conf = conf;
         this.pendingSplits = new LinkedList<>();
         this.context = readerContext;
@@ -55,7 +55,7 @@ public abstract class IoTDBAbstractSourceReader
     public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
         while (!pendingSplits.isEmpty()) {
             synchronized (output.getCheckpointLock()) {
-                IoTDBSourceSplit split = pendingSplits.poll();
+                IoTDBv2SourceSplit split = pendingSplits.poll();
                 read(split, output);
             }
         }
@@ -67,16 +67,16 @@ public abstract class IoTDBAbstractSourceReader
         }
     }
 
-    public abstract void read(IoTDBSourceSplit split, Collector<SeaTunnelRow> output)
+    public abstract void read(IoTDBv2SourceSplit split, Collector<SeaTunnelRow> output)
             throws Exception;
 
     @Override
-    public List<IoTDBSourceSplit> snapshotState(long checkpointId) {
+    public List<IoTDBv2SourceSplit> snapshotState(long checkpointId) {
         return new ArrayList<>(pendingSplits);
     }
 
     @Override
-    public void addSplits(List<IoTDBSourceSplit> splits) {
+    public void addSplits(List<IoTDBv2SourceSplit> splits) {
         pendingSplits.addAll(splits);
     }
 
