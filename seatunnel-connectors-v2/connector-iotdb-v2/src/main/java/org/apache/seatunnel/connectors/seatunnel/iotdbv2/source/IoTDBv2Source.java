@@ -42,7 +42,8 @@ public class IoTDBv2Source
     private ReadonlyConfig pluginConfig;
     private String sqlDialect;
 
-    public IoTDBv2Source(CatalogTable catalogTable, ReadonlyConfig pluginConfig, String sqlDialect) {
+    public IoTDBv2Source(
+            CatalogTable catalogTable, ReadonlyConfig pluginConfig, String sqlDialect) {
         this.catalogTable = catalogTable;
         this.pluginConfig = pluginConfig;
         this.sqlDialect = sqlDialect;
