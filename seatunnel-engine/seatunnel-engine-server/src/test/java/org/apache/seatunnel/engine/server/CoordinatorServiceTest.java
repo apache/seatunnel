@@ -79,11 +79,8 @@ public class CoordinatorServiceTest {
         CoordinatorService coordinatorService1 = server1.getCoordinatorService();
         Assertions.assertTrue(coordinatorService1.isCoordinatorActive());
 
-        try {
-            server2.getCoordinatorService();
-        } catch (Exception e) {
-            Assertions.assertInstanceOf(SeaTunnelEngineException.class, e);
-        }
+        Assertions.assertThrows(
+                SeaTunnelEngineException.class, () -> server2.getCoordinatorService());
 
         // shutdown instance1
         instance1.shutdown();

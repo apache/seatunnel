@@ -249,20 +249,12 @@ public class CoordinatorService {
             Thread.sleep(3000);
             return;
         }
-
         Long jobId = pendingJobInfo.getJobId();
         final JobMaster jobMaster = pendingJobInfo.getJobMaster();
-
-        if (!pendingJobQueue.contains(jobId)) {
-            logger.fine(String.format("Job ID : %s already cancelled", jobId));
-            return;
-        }
-
         logger.fine(
                 String.format(
                         "Start pending job schedule, pendingJob Size : %s",
                         pendingJobQueue.size()));
-
         logger.fine(
                 String.format(
                         "Start calculating whether pending task resources are enough: %s", jobId));
