@@ -98,7 +98,6 @@ public class JobStateEventTest extends AbstractSeaTunnelServerTest {
 
         await().atMost(10, TimeUnit.SECONDS)
                 .untilAsserted(() -> Assertions.assertEquals(2, accessCounter.get()));
-        Assertions.assertEquals(2, accessCounter.get());
         JobStateEvent jobStateEventFailed = jobStateEventReference.get();
         Assertions.assertEquals(String.valueOf(jobId_failed), jobStateEventFailed.getJobId());
         Assertions.assertEquals(JobStatus.FAILED, jobStateEventFailed.getJobStatus());
