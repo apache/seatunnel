@@ -34,6 +34,7 @@ import org.apache.seatunnel.connectors.seatunnel.file.source.reader.BinaryReadSt
 import org.apache.seatunnel.connectors.seatunnel.file.source.reader.CsvReadStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.source.reader.ExcelReadStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.source.reader.JsonReadStrategy;
+import org.apache.seatunnel.connectors.seatunnel.file.source.reader.MarkdownReadStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.source.reader.OrcReadStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.source.reader.ParquetReadStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.source.reader.ReadStrategy;
@@ -167,7 +168,20 @@ public enum FileFormat implements Serializable {
             throw new UnsupportedOperationException(
                     "File format 'maxwell_json' does not support reading.");
         }
-    };
+    },
+    MARKDOWN("md", "markdown") {
+        @Override
+        public WriteStrategy getWriteStrategy(FileSinkConfig fileSinkConfig) {
+            throw new UnsupportedOperationException(
+                    "File format 'markdown' does not support writing.");
+        }
+
+        @Override
+        public ReadStrategy getReadStrategy() {
+            return new MarkdownReadStrategy();
+        }
+    },
+    ;
 
     private final String[] suffix;
 

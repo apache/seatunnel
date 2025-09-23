@@ -2,6 +2,12 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
+|[Fix][Connectors-v2] Fix UT for connector-http (#9821)|https://github.com/apache/seatunnel/commit/2653f6798e| dev |
+|[Fix][connector-http] fix parsing httpjson, the number of two fields is inconsistent with the import failure (#9103)|https://github.com/apache/seatunnel/commit/c8ade098ee|2.3.12|
+|[Fix][Connector-HTTP] Add default content-type when user not set (#9497)|https://github.com/apache/seatunnel/commit/8da0a78c1d|2.3.12|
+|[Bug][connector-http] Fix paging request running infinitely (#9504)|https://github.com/apache/seatunnel/commit/1844e04c97|2.3.12|
+|[Bug] [seatunnel-connector-http-base] An NPE (NullPointerException) will occur when the pageField is null  (#9498)|https://github.com/apache/seatunnel/commit/b898a3225c|2.3.12|
+|[Fix][Connector-Http] fix Invalid mime type (#9363)|https://github.com/apache/seatunnel/commit/4d7d765a26|2.3.12|
 |[Feature][http-Sink] Implementing http batch writes (#9292)|https://github.com/apache/seatunnel/commit/04ee8aca04|2.3.11|
 |[Feature][connector-http] Parameters support placeholder replacement (#9184)|https://github.com/apache/seatunnel/commit/8617014edc|2.3.11|
 |[Improve][Connector-V2][Http] Supports Cursor-based Pagination (#9109) (#9138)|https://github.com/apache/seatunnel/commit/879b1e2d5b|2.3.11|

@@ -2,7 +2,12 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
-|[Improve][Connector-V2] Support maxcompute sink writer with timestamp field type (#9234)|https://github.com/apache/seatunnel/commit/a513c495e3| dev |
+|[Improve][API] Optimize the enumerator API semantics and reduce lock calls at the connector level (#9671)|https://github.com/apache/seatunnel/commit/9212a77140|2.3.12|
+|[Bug][Connector-V2] NoSuchMethodError caused by Netty version conflict on Spark 3.3.0 (#9632)|https://github.com/apache/seatunnel/commit/4d2b55ce3c|2.3.12|
+|[Improve][Connector-V2] Replace deprecated createDownloadSession by buildDownloadSession (#9555)|https://github.com/apache/seatunnel/commit/6862945eef|2.3.12|
+|[Improve][Connector-V2] Add tunnel_endpoint option to MaxCompute source for emulator test (#9548)|https://github.com/apache/seatunnel/commit/b3f3c527ca|2.3.12|
+|[Improve][Connector-V2] Support maxcompute sink writer upsert/delete action with upsert session mode (#9462)|https://github.com/apache/seatunnel/commit/eb9c8704b9|2.3.12|
+|[Improve][Connector-V2] Support maxcompute sink writer with timestamp field type (#9234)|https://github.com/apache/seatunnel/commit/a513c495e3|2.3.12|
 |[Feature][Transform] Support define sink column type (#9114)|https://github.com/apache/seatunnel/commit/ab7119e507|2.3.11|
 |[Feature][Checkpoint] Add check script for source/sink state class serialVersionUID missing (#9118)|https://github.com/apache/seatunnel/commit/4f5adeb1c7|2.3.11|
 |[Improve] maxcompute options (#9163)|https://github.com/apache/seatunnel/commit/fdacbae1af|2.3.11|

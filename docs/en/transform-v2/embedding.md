@@ -4,8 +4,8 @@
 
 ## Description
 
-The `Embedding` transform plugin leverages embedding models to convert text data into vectorized representations. This
-transformation can be applied to various fields. The plugin supports multiple model providers and can be integrated with
+The `Embedding` transform plugin leverages embedding models to convert text and multimodal data into vectorized representations. This
+transformation can be applied to various fields including text, images, and videos. The plugin supports multiple model providers and can be integrated with
 different API endpoints.
 
 > **Important Note:** The current embedding precision only supports float32 format.
@@ -59,14 +59,68 @@ capacity and the model provider's API limitations.
 ### vectorization_fields
 
 A mapping between input fields and their respective output vector fields. This allows the plugin to understand which
-text fields to vectorize and how to store the resulting vectors.
+fields to vectorize and how to store the resulting vectors. The plugin supports multimodal data by allowing you to specify
+the modality type for each field.
 
+**Basic Text Vectorization:**
 ```hocon
 vectorization_fields {
     book_intro_vector = book_intro
-    author_biography_vector  = author_biography
+    author_biography_vector = author_biography
 }
 ```
+
+**Multimodal Vectorization:**
+```hocon
+vectorization_fields {
+    # Basic text field
+    text_vector = text_field
+
+    # Explicit modality type configuration
+    product_image_vector = {
+        field = product_image_url
+        modality = jpeg
+        format = url
+    }
+
+    # Auto-detect modality type (based on file suffix)
+    thumbnail_vector = {
+        field = thumbnail_image  # If value is "image.png", auto-detects as PNG modality
+        format = url
+    }
+
+    # Video field configuration
+    demo_video_vector = {
+        field = product_video_url
+        modality = mp4
+        format = url
+    }
+
+    # Binary data configuration
+    binary_image_vector = {
+        field = image_data
+        modality = jpeg
+        format = binary
+    }
+}
+```
+
+**Field Specification Formats:**
+
+**Supported Modality Types:**
+- **Images:** `jpeg` (jpg, jpeg), `png` (png, apng), `gif`, `webp`, `bmp` (bmp, dib), `tiff` (tiff, tif), `ico`, `icns`, `sgi`, `jpeg2000` (j2c, j2k, jp2, jpc, jpf, jpx)
+- **Videos:** `mp4`, `avi`, `mov`
+- **Text:** `text` (default)
+
+**Payload Formats:**
+- `text` - Text format (default)
+- `url` - URL format
+- `binary` - Binary data format
+
+**Automatic Modality Detection:**
+When `modality` is not explicitly specified and `format` is not `binary`, the system automatically detects the modality type based on the file suffix of the field value:
+
+> **Important:** When using multimodal fields (image or video), ensure your model provider supports multimodal embedding. Image and video fields must contain valid URLs or binary data. Currently, `DOUBAO` provider supports multimodal data processing.
 
 ### model
 
@@ -137,7 +191,9 @@ The `custom_request_body` option supports placeholders:
 
 Transform plugin common parameters, please refer to [Transform Plugin](common-options.md) for details.
 
-## Example Configuration
+## Example Configurations
+
+### Basic Text Embedding
 
 ```hocon
 env {
@@ -262,6 +318,243 @@ sink {
     }
 }
 ```
+
+### Multimodal Embedding (Volcengine Doubao)
+
+Multimodal Embedding supports input as accessible URL or Binary data formats to process multimodal data.
+
+#### URL
+
+```hocon
+env {
+  job.mode = "BATCH"
+}
+
+source {
+  FakeSource {
+    row.num = 5
+    schema = {
+      fields {
+        id = "int"
+        product_name = "string"
+        description = "string"
+        product_image_url = "string"
+        product_video_url = "string"
+        thumbnail_image = "string"
+        promotional_video = "string"
+        category = "string"
+        price = "decimal(10,2)"
+        created_at = "timestamp"
+      }
+    }
+    rows = [
+      {
+        fields = [
+          1,
+          "iPhone 15 Pro",
+          "Latest iPhone with advanced camera system and A17 Pro chip",
+          "https://example.com/images/iphone15pro.jpg",
+          "https://example.com/videos/iphone15pro_demo.mp4",
+          "https://example.com/thumbnails/iphone15pro_thumb.png",
+          "https://example.com/videos/iphone15pro_promo.mov",
+          "Electronics",
+          999.99,
+          "2024-01-15T10:30:00"
+        ],
+        kind = INSERT
+      },
+      {
+        fields = [
+          2,
+          "MacBook Air M3",
+          "Ultra-thin laptop with M3 chip for incredible performance",
+          "https://example.com/images/macbook_air_m3.jpeg",
+          "https://example.com/videos/macbook_air_review.avi",
+          "https://example.com/thumbnails/macbook_thumb.webp",
+          "https://example.com/videos/macbook_commercial.mp4",
+          "Computers",
+          1299.99,
+          "2024-02-20T14:15:00"
+        ],
+        kind = INSERT
+      }
+    ]
+    plugin_output = "fake"
+  }
+}
+
+transform {
+  Embedding {
+    plugin_input = "fake"
+    model_provider = DOUBAO
+    model = "doubao-embedding-vision"
+    api_key = "your-api-key"
+    api_path = "https://ark.cn-beijing.volces.com/api/v3/embeddings/multimodal"
+    single_vectorized_input_number = 1
+
+    vectorization_fields {
+      # Text field - defaults to text modality
+      description_vector = description
+
+      product_image_vector = {
+        field = product_image_url
+        modality = jpeg
+        format = url
+      }
+
+      thumbnail_vector = {
+        field = thumbnail_image  # If value is "thumb.png", auto-detects as PNG
+        format = url
+      }
+
+      demo_video_vector = {
+        field = product_video_url
+        modality = mp4
+        format = url
+      }
+
+      promo_video_vector = {
+        field = promotional_video  # If value is "promo.mov", auto-detects as MOV
+        format = url
+      }
+
+      # Mixed content - product name
+      product_name_vector = product_name
+    }
+
+    plugin_output = "multimodal_embedding_output"
+  }
+}
+
+sink {
+  Assert {
+    plugin_input = "multimodal_embedding_output"
+    rules = {
+      field_rules = [
+        {
+          field_name = id
+          field_type = int
+          field_value = [
+            {
+              rule_type = NOT_NULL
+            }
+          ]
+        },
+        {
+          field_name = description_vector
+          field_type = float_vector
+          field_value = [
+            {
+              rule_type = NOT_NULL
+            }
+          ]
+        },
+        {
+          field_name = product_image_vector
+          field_type = float_vector
+          field_value = [
+            {
+              rule_type = NOT_NULL
+            }
+          ]
+        },
+        {
+          field_name = thumbnail_vector
+          field_type = float_vector
+          field_value = [
+            {
+              rule_type = NOT_NULL
+            }
+          ]
+        },
+        {
+          field_name = demo_video_vector
+          field_type = float_vector
+          field_value = [
+            {
+              rule_type = NOT_NULL
+            }
+          ]
+        }
+      ]
+    }
+  }
+}
+```
+
+#### Binary
+
+```hocon
+env {
+  job.mode = "BATCH"
+}
+
+source {
+  LocalFile {
+    path = "/seatunnel/read/binary/"
+    file_format_type = "binary"
+    binary_complete_file_mode = false
+    binary_chunk_size = 1024
+    plugin_output = "binary_source"
+  }
+}
+
+transform {
+  Embedding {
+    plugin_input = "binary_source"
+    model_provider = DOUBAO
+    model = "doubao-embedding-vision-250615"
+    api_key = "test-api-key"
+    api_path = "http://mockserver:1080/api/v3/embeddings/multimodal"
+    single_vectorized_input_number = 1
+
+    vectorization_fields = {
+      image_embedding = {
+        field = "data"
+        modality = "jpeg"
+        format = "binary"
+      }
+    }
+
+    plugin_output = "binary_embedding_output"
+  }
+}
+
+sink {
+  Assert {
+    plugin_input = "binary_embedding_output"
+    rules = {
+      row_rules = [
+        {
+          rule_type = MAX_ROW
+          rule_value = 1
+        }
+      ],
+      field_rules = [
+        {
+          field_name = image_embedding
+          field_type = float_vector
+          field_value = [
+            {
+              rule_type = NOT_NULL
+            }
+          ]
+        },
+        {
+          field_name = relativePath
+          field_type = string
+          field_value = [
+            {
+              rule_type = NOT_NULL
+            }
+          ]
+        }
+      ]
+    }
+  }
+}
+```
+
 
 ### Customize the embedding model
 

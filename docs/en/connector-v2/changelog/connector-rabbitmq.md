@@ -2,6 +2,7 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
+|[Fix][connector-rabbitmq] Set default value for durable, exclusive and auto-delete (#9631)|https://github.com/apache/seatunnel/commit/5f9492e62a|2.3.12|
 |[Feature][Checkpoint] Add check script for source/sink state class serialVersionUID missing (#9118)|https://github.com/apache/seatunnel/commit/4f5adeb1c7|2.3.11|
 |[Improve] rabbit mq options (#8740)|https://github.com/apache/seatunnel/commit/4eec9be012|2.3.10|
 |[Improve] restruct connector common options (#8634)|https://github.com/apache/seatunnel/commit/f3499a6eeb|2.3.10|
