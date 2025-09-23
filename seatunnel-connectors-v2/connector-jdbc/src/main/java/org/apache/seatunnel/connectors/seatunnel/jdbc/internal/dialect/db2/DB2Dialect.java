@@ -70,7 +70,7 @@ public class DB2Dialect implements JdbcDialect {
 
     @Override
     public String tableIdentifier(String database, String tableName) {
-        return quoteIdentifier(tableName);
+        return quoteIdentifier(database) + "." + quoteIdentifier(tableName);
     }
 
     @Override
