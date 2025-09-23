@@ -29,7 +29,7 @@ import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
-import org.apache.seatunnel.connectors.seatunnel.iotdbv2.config.IoTDBSourceOptions;
+import org.apache.seatunnel.connectors.seatunnel.iotdbv2.config.IoTDBv2SourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.iotdbv2.constant.SourceConstants;
 import org.apache.seatunnel.connectors.seatunnel.iotdbv2.exception.IotdbConnectorException;
 
@@ -48,22 +48,22 @@ public class IoTDBv2SourceFactory implements TableSourceFactory {
     public OptionRule optionRule() {
         return OptionRule.builder()
                 .required(
-                        IoTDBSourceOptions.NODE_URLS,
-                        IoTDBSourceOptions.USERNAME,
-                        IoTDBSourceOptions.PASSWORD,
-                        IoTDBSourceOptions.SQL,
+                        IoTDBv2SourceOptions.NODE_URLS,
+                        IoTDBv2SourceOptions.USERNAME,
+                        IoTDBv2SourceOptions.PASSWORD,
+                        IoTDBv2SourceOptions.SQL,
                         ConnectorCommonOptions.SCHEMA)
                 .optional(
-                        IoTDBSourceOptions.SQL_DIALECT,
-                        IoTDBSourceOptions.DATABASE,
-                        IoTDBSourceOptions.FETCH_SIZE,
-                        IoTDBSourceOptions.THRIFT_DEFAULT_BUFFER_SIZE,
-                        IoTDBSourceOptions.THRIFT_MAX_FRAME_SIZE,
-                        IoTDBSourceOptions.ENABLE_CACHE_LEADER,
-                        IoTDBSourceOptions.VERSION,
-                        IoTDBSourceOptions.LOWER_BOUND,
-                        IoTDBSourceOptions.UPPER_BOUND,
-                        IoTDBSourceOptions.NUM_PARTITIONS)
+                        IoTDBv2SourceOptions.SQL_DIALECT,
+                        IoTDBv2SourceOptions.DATABASE,
+                        IoTDBv2SourceOptions.FETCH_SIZE,
+                        IoTDBv2SourceOptions.THRIFT_DEFAULT_BUFFER_SIZE,
+                        IoTDBv2SourceOptions.THRIFT_MAX_FRAME_SIZE,
+                        IoTDBv2SourceOptions.ENABLE_CACHE_LEADER,
+                        IoTDBv2SourceOptions.VERSION,
+                        IoTDBv2SourceOptions.LOWER_BOUND,
+                        IoTDBv2SourceOptions.UPPER_BOUND,
+                        IoTDBv2SourceOptions.NUM_PARTITIONS)
                 .build();
     }
 
@@ -73,8 +73,8 @@ public class IoTDBv2SourceFactory implements TableSourceFactory {
         CatalogTable catalogTable = CatalogTableUtil.buildWithConfig(context.getOptions());
         ReadonlyConfig conf = context.getOptions();
         String targetSqlDialect;
-        if (conf.get(IoTDBSourceOptions.SQL_DIALECT) != null) {
-            String sqlDialect = conf.get(IoTDBSourceOptions.SQL_DIALECT);
+        if (conf.get(IoTDBv2SourceOptions.SQL_DIALECT) != null) {
+            String sqlDialect = conf.get(IoTDBv2SourceOptions.SQL_DIALECT);
             if (SourceConstants.TABLE.equalsIgnoreCase(sqlDialect)) {
                 targetSqlDialect = SourceConstants.TABLE;
             } else {

@@ -20,7 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.iotdbv2.config;
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 
-public class IoTDBCommonOptions {
+public class IoTDBv2CommonOptions {
 
     public static final Option<String> NODE_URLS =
             Options.key("node_urls").stringType().noDefaultValue().withDescription("node urls");

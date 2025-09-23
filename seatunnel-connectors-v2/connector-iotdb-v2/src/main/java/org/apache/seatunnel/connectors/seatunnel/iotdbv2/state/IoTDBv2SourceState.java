@@ -15,23 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.iotdbv2.serialize;
+package org.apache.seatunnel.connectors.seatunnel.iotdbv2.state;
+
+import org.apache.seatunnel.connectors.seatunnel.iotdbv2.source.IoTDBv2SourceSplit;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;
-import lombok.ToString;
-import shaded.org.apache.tsfile.enums.TSDataType;
 
+import java.io.Serializable;
 import java.util.List;
+import java.util.Map;
 
-@Getter
-@ToString
 @AllArgsConstructor
-public class IoTDBRecord {
+@Getter
+public class IoTDBv2SourceState implements Serializable {
 
-    private String device;
-    private Long timestamp;
-    private List<String> measurements;
-    private List<TSDataType> types;
-    private List<Object> values;
+    private static final long serialVersionUID = 7142773921678153583L;
+    private boolean shouldEnumerate;
+    private Map<Integer, List<IoTDBv2SourceSplit>> pendingSplit;
 }

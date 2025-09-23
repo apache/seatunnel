@@ -23,7 +23,7 @@ import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.iotdbv2.exception.IotdbConnectorException;
-import org.apache.seatunnel.connectors.seatunnel.iotdbv2.state.IoTDBSourceState;
+import org.apache.seatunnel.connectors.seatunnel.iotdbv2.state.IoTDBv2SourceState;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -36,10 +36,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import static org.apache.seatunnel.connectors.seatunnel.iotdbv2.config.IoTDBSourceOptions.LOWER_BOUND;
-import static org.apache.seatunnel.connectors.seatunnel.iotdbv2.config.IoTDBSourceOptions.NUM_PARTITIONS;
-import static org.apache.seatunnel.connectors.seatunnel.iotdbv2.config.IoTDBSourceOptions.SQL;
-import static org.apache.seatunnel.connectors.seatunnel.iotdbv2.config.IoTDBSourceOptions.UPPER_BOUND;
+import static org.apache.seatunnel.connectors.seatunnel.iotdbv2.config.IoTDBv2SourceOptions.LOWER_BOUND;
+import static org.apache.seatunnel.connectors.seatunnel.iotdbv2.config.IoTDBv2SourceOptions.NUM_PARTITIONS;
+import static org.apache.seatunnel.connectors.seatunnel.iotdbv2.config.IoTDBv2SourceOptions.SQL;
+import static org.apache.seatunnel.connectors.seatunnel.iotdbv2.config.IoTDBv2SourceOptions.UPPER_BOUND;
 import static org.apache.seatunnel.connectors.seatunnel.iotdbv2.constant.SourceConstants.DEFAULT_PARTITIONS;
 import static org.apache.seatunnel.connectors.seatunnel.iotdbv2.constant.SourceConstants.SQL_ALIGN;
 import static org.apache.seatunnel.connectors.seatunnel.iotdbv2.constant.SourceConstants.SQL_WHERE;
@@ -47,7 +47,7 @@ import static shaded.org.apache.tsfile.common.constant.QueryConstant.RESERVED_TI
 
 @Slf4j
 public class IoTDBv2SourceSplitEnumerator
-        implements SourceSplitEnumerator<IoTDBv2SourceSplit, IoTDBSourceState> {
+        implements SourceSplitEnumerator<IoTDBv2SourceSplit, IoTDBv2SourceState> {
 
     /**
      * A SQL statement can contain at most one where We split the SQL using the where keyword
@@ -69,7 +69,7 @@ public class IoTDBv2SourceSplitEnumerator
     public IoTDBv2SourceSplitEnumerator(
             SourceSplitEnumerator.Context<IoTDBv2SourceSplit> context,
             ReadonlyConfig conf,
-            IoTDBSourceState sourceState) {
+            IoTDBv2SourceState sourceState) {
         this.context = context;
         this.conf = conf;
         this.pendingSplit = new HashMap<>();
@@ -232,9 +232,9 @@ public class IoTDBv2SourceSplitEnumerator
     }
 
     @Override
-    public IoTDBSourceState snapshotState(long checkpointId) throws Exception {
+    public IoTDBv2SourceState snapshotState(long checkpointId) throws Exception {
         synchronized (stateLock) {
-            return new IoTDBSourceState(shouldEnumerate, pendingSplit);
+            return new IoTDBv2SourceState(shouldEnumerate, pendingSplit);
         }
     }
 

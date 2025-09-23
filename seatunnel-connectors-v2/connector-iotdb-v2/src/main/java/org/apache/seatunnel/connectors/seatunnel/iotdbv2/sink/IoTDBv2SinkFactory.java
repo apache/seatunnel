@@ -24,7 +24,7 @@ import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
-import org.apache.seatunnel.connectors.seatunnel.iotdbv2.config.IoTDBSinkOptions;
+import org.apache.seatunnel.connectors.seatunnel.iotdbv2.config.IoTDBv2SinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.iotdbv2.constant.SinkConstants;
 import org.apache.seatunnel.connectors.seatunnel.iotdbv2.exception.IotdbConnectorException;
 
@@ -43,26 +43,26 @@ public class IoTDBv2SinkFactory implements TableSinkFactory {
     public OptionRule optionRule() {
         return OptionRule.builder()
                 .required(
-                        IoTDBSinkOptions.NODE_URLS,
-                        IoTDBSinkOptions.USERNAME,
-                        IoTDBSinkOptions.PASSWORD,
-                        IoTDBSinkOptions.STORAGE_GROUP,
-                        IoTDBSinkOptions.KEY_DEVICE)
+                        IoTDBv2SinkOptions.NODE_URLS,
+                        IoTDBv2SinkOptions.USERNAME,
+                        IoTDBv2SinkOptions.PASSWORD,
+                        IoTDBv2SinkOptions.STORAGE_GROUP,
+                        IoTDBv2SinkOptions.KEY_DEVICE)
                 .optional(
-                        IoTDBSinkOptions.SQL_DIALECT,
-                        IoTDBSinkOptions.KEY_TIMESTAMP,
-                        IoTDBSinkOptions.KEY_TAG_FIELDS,
-                        IoTDBSinkOptions.KEY_ATTRIBUTE_FIELDS,
-                        IoTDBSinkOptions.KEY_MEASUREMENT_FIELDS,
-                        IoTDBSinkOptions.BATCH_SIZE,
-                        IoTDBSinkOptions.MAX_RETRIES,
-                        IoTDBSinkOptions.RETRY_BACKOFF_MULTIPLIER_MS,
-                        IoTDBSinkOptions.MAX_RETRY_BACKOFF_MS,
-                        IoTDBSinkOptions.DEFAULT_THRIFT_BUFFER_SIZE,
-                        IoTDBSinkOptions.MAX_THRIFT_FRAME_SIZE,
-                        IoTDBSinkOptions.ZONE_ID,
-                        IoTDBSinkOptions.ENABLE_RPC_COMPRESSION,
-                        IoTDBSinkOptions.CONNECTION_TIMEOUT_IN_MS)
+                        IoTDBv2SinkOptions.SQL_DIALECT,
+                        IoTDBv2SinkOptions.KEY_TIMESTAMP,
+                        IoTDBv2SinkOptions.KEY_TAG_FIELDS,
+                        IoTDBv2SinkOptions.KEY_ATTRIBUTE_FIELDS,
+                        IoTDBv2SinkOptions.KEY_MEASUREMENT_FIELDS,
+                        IoTDBv2SinkOptions.BATCH_SIZE,
+                        IoTDBv2SinkOptions.MAX_RETRIES,
+                        IoTDBv2SinkOptions.RETRY_BACKOFF_MULTIPLIER_MS,
+                        IoTDBv2SinkOptions.MAX_RETRY_BACKOFF_MS,
+                        IoTDBv2SinkOptions.DEFAULT_THRIFT_BUFFER_SIZE,
+                        IoTDBv2SinkOptions.MAX_THRIFT_FRAME_SIZE,
+                        IoTDBv2SinkOptions.ZONE_ID,
+                        IoTDBv2SinkOptions.ENABLE_RPC_COMPRESSION,
+                        IoTDBv2SinkOptions.CONNECTION_TIMEOUT_IN_MS)
                 .build();
     }
 
@@ -70,8 +70,8 @@ public class IoTDBv2SinkFactory implements TableSinkFactory {
     public TableSink createSink(TableSinkFactoryContext context) {
         ReadonlyConfig conf = context.getOptions();
         String targetSqlDialect;
-        if (conf.get(IoTDBSinkOptions.SQL_DIALECT) != null) {
-            String sqlDialect = conf.get(IoTDBSinkOptions.SQL_DIALECT);
+        if (conf.get(IoTDBv2SinkOptions.SQL_DIALECT) != null) {
+            String sqlDialect = conf.get(IoTDBv2SinkOptions.SQL_DIALECT);
             if (SinkConstants.TABLE.equalsIgnoreCase(sqlDialect)) {
                 targetSqlDialect = SinkConstants.TABLE;
             } else {

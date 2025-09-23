@@ -24,7 +24,7 @@ import java.util.List;
 
 @Getter
 @AllArgsConstructor
-public class IoTDBRelationalRecord {
+public class IoTDBv2RelationalRecord {
 
     String tableName;
     Long timestamp;

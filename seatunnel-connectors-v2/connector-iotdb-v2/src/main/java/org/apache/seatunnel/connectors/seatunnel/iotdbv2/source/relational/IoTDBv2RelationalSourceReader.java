@@ -41,14 +41,14 @@ import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import static org.apache.seatunnel.connectors.seatunnel.iotdbv2.config.IoTDBSourceOptions.DATABASE;
-import static org.apache.seatunnel.connectors.seatunnel.iotdbv2.config.IoTDBSourceOptions.FETCH_SIZE;
-import static org.apache.seatunnel.connectors.seatunnel.iotdbv2.config.IoTDBSourceOptions.NODE_URLS;
-import static org.apache.seatunnel.connectors.seatunnel.iotdbv2.config.IoTDBSourceOptions.PASSWORD;
-import static org.apache.seatunnel.connectors.seatunnel.iotdbv2.config.IoTDBSourceOptions.THRIFT_DEFAULT_BUFFER_SIZE;
-import static org.apache.seatunnel.connectors.seatunnel.iotdbv2.config.IoTDBSourceOptions.THRIFT_MAX_FRAME_SIZE;
-import static org.apache.seatunnel.connectors.seatunnel.iotdbv2.config.IoTDBSourceOptions.USERNAME;
-import static org.apache.seatunnel.connectors.seatunnel.iotdbv2.config.IoTDBSourceOptions.VERSION;
+import static org.apache.seatunnel.connectors.seatunnel.iotdbv2.config.IoTDBv2SourceOptions.DATABASE;
+import static org.apache.seatunnel.connectors.seatunnel.iotdbv2.config.IoTDBv2SourceOptions.FETCH_SIZE;
+import static org.apache.seatunnel.connectors.seatunnel.iotdbv2.config.IoTDBv2SourceOptions.NODE_URLS;
+import static org.apache.seatunnel.connectors.seatunnel.iotdbv2.config.IoTDBv2SourceOptions.PASSWORD;
+import static org.apache.seatunnel.connectors.seatunnel.iotdbv2.config.IoTDBv2SourceOptions.THRIFT_DEFAULT_BUFFER_SIZE;
+import static org.apache.seatunnel.connectors.seatunnel.iotdbv2.config.IoTDBv2SourceOptions.THRIFT_MAX_FRAME_SIZE;
+import static org.apache.seatunnel.connectors.seatunnel.iotdbv2.config.IoTDBv2SourceOptions.USERNAME;
+import static org.apache.seatunnel.connectors.seatunnel.iotdbv2.config.IoTDBv2SourceOptions.VERSION;
 import static org.apache.seatunnel.connectors.seatunnel.iotdbv2.constant.SourceConstants.NODES_SPLIT;
 
 public class IoTDBv2RelationalSourceReader extends IoTDBv2AbstractSourceReader {

@@ -21,7 +21,7 @@ import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.iotdbv2.config.SinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.iotdbv2.exception.IotdbConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.iotdbv2.exception.IotdbConnectorException;
-import org.apache.seatunnel.connectors.seatunnel.iotdbv2.serialize.IoTDBRecord;
+import org.apache.seatunnel.connectors.seatunnel.iotdbv2.serialize.IoTDBv2Record;
 
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
@@ -38,7 +38,7 @@ import java.util.List;
 public class IoTDBv2SinkClient {
 
     private final SinkConfig sinkConfig;
-    private final List<IoTDBRecord> batchList;
+    private final List<IoTDBv2Record> batchList;
 
     private Session session;
     private volatile boolean initialize;
@@ -90,7 +90,7 @@ public class IoTDBv2SinkClient {
         initialize = true;
     }
 
-    public synchronized void write(IoTDBRecord record) throws IOException {
+    public synchronized void write(IoTDBv2Record record) throws IOException {
         tryInit();
         checkFlushException();
 
@@ -183,7 +183,7 @@ public class IoTDBv2SinkClient {
         private final List<List<TSDataType>> typesList;
         private final List<List<Object>> valuesList;
 
-        public BatchRecords(List<IoTDBRecord> batchList) {
+        public BatchRecords(List<IoTDBv2Record> batchList) {
             int batchSize = batchList.size();
             this.deviceIds = new ArrayList<>(batchSize);
             this.timestamps = new ArrayList<>(batchSize);
@@ -191,7 +191,7 @@ public class IoTDBv2SinkClient {
             this.typesList = new ArrayList<>(batchSize);
             this.valuesList = new ArrayList<>(batchSize);
 
-            for (IoTDBRecord record : batchList) {
+            for (IoTDBv2Record record : batchList) {
                 deviceIds.add(record.getDevice());
                 timestamps.add(record.getTimestamp());
                 measurementsList.add(record.getMeasurements());

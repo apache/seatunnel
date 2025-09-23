@@ -56,49 +56,49 @@ public class SinkConfig extends CommonConfig {
     public static SinkConfig loadConfig(ReadonlyConfig pluginConfig) {
         SinkConfig sinkConfig =
                 new SinkConfig(
-                        pluginConfig.toConfig().getStringList(IoTDBSinkOptions.NODE_URLS.key()),
-                        pluginConfig.get(IoTDBSinkOptions.USERNAME),
-                        pluginConfig.get(IoTDBSinkOptions.PASSWORD));
+                        pluginConfig.toConfig().getStringList(IoTDBv2SinkOptions.NODE_URLS.key()),
+                        pluginConfig.get(IoTDBv2SinkOptions.USERNAME),
+                        pluginConfig.get(IoTDBv2SinkOptions.PASSWORD));
 
-        sinkConfig.setKeyDevice(pluginConfig.get(IoTDBSinkOptions.KEY_DEVICE));
-        sinkConfig.setKeyTimestamp(pluginConfig.get(IoTDBSinkOptions.KEY_TIMESTAMP));
+        sinkConfig.setKeyDevice(pluginConfig.get(IoTDBv2SinkOptions.KEY_DEVICE));
+        sinkConfig.setKeyTimestamp(pluginConfig.get(IoTDBv2SinkOptions.KEY_TIMESTAMP));
         sinkConfig.setKeyMeasurementFields(
-                pluginConfig.get(IoTDBSinkOptions.KEY_MEASUREMENT_FIELDS));
-        sinkConfig.setKeyTagFields(pluginConfig.get(IoTDBSinkOptions.KEY_TAG_FIELDS));
-        sinkConfig.setKeyAttributeFields(pluginConfig.get(IoTDBSinkOptions.KEY_ATTRIBUTE_FIELDS));
-        sinkConfig.setStorageGroup(pluginConfig.get(IoTDBSinkOptions.STORAGE_GROUP));
-        if (pluginConfig.getOptional(IoTDBSinkOptions.BATCH_SIZE).isPresent()) {
-            sinkConfig.setBatchSize(pluginConfig.get(IoTDBSinkOptions.BATCH_SIZE));
+                pluginConfig.get(IoTDBv2SinkOptions.KEY_MEASUREMENT_FIELDS));
+        sinkConfig.setKeyTagFields(pluginConfig.get(IoTDBv2SinkOptions.KEY_TAG_FIELDS));
+        sinkConfig.setKeyAttributeFields(pluginConfig.get(IoTDBv2SinkOptions.KEY_ATTRIBUTE_FIELDS));
+        sinkConfig.setStorageGroup(pluginConfig.get(IoTDBv2SinkOptions.STORAGE_GROUP));
+        if (pluginConfig.getOptional(IoTDBv2SinkOptions.BATCH_SIZE).isPresent()) {
+            sinkConfig.setBatchSize(pluginConfig.get(IoTDBv2SinkOptions.BATCH_SIZE));
         }
-        if (pluginConfig.getOptional(IoTDBSinkOptions.MAX_RETRIES).isPresent()) {
-            sinkConfig.setMaxRetries(pluginConfig.get(IoTDBSinkOptions.MAX_RETRIES));
+        if (pluginConfig.getOptional(IoTDBv2SinkOptions.MAX_RETRIES).isPresent()) {
+            sinkConfig.setMaxRetries(pluginConfig.get(IoTDBv2SinkOptions.MAX_RETRIES));
         }
-        if (pluginConfig.getOptional(IoTDBSinkOptions.RETRY_BACKOFF_MULTIPLIER_MS).isPresent()) {
+        if (pluginConfig.getOptional(IoTDBv2SinkOptions.RETRY_BACKOFF_MULTIPLIER_MS).isPresent()) {
             sinkConfig.setRetryBackoffMultiplierMs(
-                    pluginConfig.get(IoTDBSinkOptions.RETRY_BACKOFF_MULTIPLIER_MS));
+                    pluginConfig.get(IoTDBv2SinkOptions.RETRY_BACKOFF_MULTIPLIER_MS));
         }
-        if (pluginConfig.getOptional(IoTDBSinkOptions.MAX_RETRY_BACKOFF_MS).isPresent()) {
+        if (pluginConfig.getOptional(IoTDBv2SinkOptions.MAX_RETRY_BACKOFF_MS).isPresent()) {
             sinkConfig.setMaxRetryBackoffMs(
-                    pluginConfig.get(IoTDBSinkOptions.MAX_RETRY_BACKOFF_MS));
+                    pluginConfig.get(IoTDBv2SinkOptions.MAX_RETRY_BACKOFF_MS));
         }
-        if (pluginConfig.getOptional(IoTDBSinkOptions.DEFAULT_THRIFT_BUFFER_SIZE).isPresent()) {
+        if (pluginConfig.getOptional(IoTDBv2SinkOptions.DEFAULT_THRIFT_BUFFER_SIZE).isPresent()) {
             sinkConfig.setThriftDefaultBufferSize(
-                    pluginConfig.get(IoTDBSinkOptions.DEFAULT_THRIFT_BUFFER_SIZE));
+                    pluginConfig.get(IoTDBv2SinkOptions.DEFAULT_THRIFT_BUFFER_SIZE));
         }
-        if (pluginConfig.getOptional(IoTDBSinkOptions.MAX_THRIFT_FRAME_SIZE).isPresent()) {
+        if (pluginConfig.getOptional(IoTDBv2SinkOptions.MAX_THRIFT_FRAME_SIZE).isPresent()) {
             sinkConfig.setThriftMaxFrameSize(
-                    pluginConfig.get(IoTDBSinkOptions.MAX_THRIFT_FRAME_SIZE));
+                    pluginConfig.get(IoTDBv2SinkOptions.MAX_THRIFT_FRAME_SIZE));
         }
-        if (pluginConfig.getOptional(IoTDBSinkOptions.ZONE_ID).isPresent()) {
-            sinkConfig.setZoneId(ZoneId.of(pluginConfig.get(IoTDBSinkOptions.ZONE_ID)));
+        if (pluginConfig.getOptional(IoTDBv2SinkOptions.ZONE_ID).isPresent()) {
+            sinkConfig.setZoneId(ZoneId.of(pluginConfig.get(IoTDBv2SinkOptions.ZONE_ID)));
         }
-        if (pluginConfig.getOptional(IoTDBSinkOptions.ENABLE_RPC_COMPRESSION).isPresent()) {
+        if (pluginConfig.getOptional(IoTDBv2SinkOptions.ENABLE_RPC_COMPRESSION).isPresent()) {
             sinkConfig.setEnableRPCCompression(
-                    pluginConfig.get(IoTDBSinkOptions.ENABLE_RPC_COMPRESSION));
+                    pluginConfig.get(IoTDBv2SinkOptions.ENABLE_RPC_COMPRESSION));
         }
-        if (pluginConfig.getOptional(IoTDBSinkOptions.CONNECTION_TIMEOUT_IN_MS).isPresent()) {
+        if (pluginConfig.getOptional(IoTDBv2SinkOptions.CONNECTION_TIMEOUT_IN_MS).isPresent()) {
             sinkConfig.setConnectionTimeoutInMs(
-                    pluginConfig.get(IoTDBSinkOptions.CONNECTION_TIMEOUT_IN_MS));
+                    pluginConfig.get(IoTDBv2SinkOptions.CONNECTION_TIMEOUT_IN_MS));
         }
         return sinkConfig;
     }

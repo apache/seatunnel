@@ -22,7 +22,7 @@ import org.apache.seatunnel.api.configuration.Options;
 
 import java.util.List;
 
-public class IoTDBSinkOptions extends IoTDBCommonOptions {
+public class IoTDBv2SinkOptions extends IoTDBv2CommonOptions {
 
     private static final int DEFAULT_BATCH_SIZE = 1024;
 

@@ -28,13 +28,13 @@ import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.iotdbv2.constant.SourceConstants;
 import org.apache.seatunnel.connectors.seatunnel.iotdbv2.source.relational.IoTDBv2RelationalSourceReader;
-import org.apache.seatunnel.connectors.seatunnel.iotdbv2.state.IoTDBSourceState;
+import org.apache.seatunnel.connectors.seatunnel.iotdbv2.state.IoTDBv2SourceState;
 
 import java.util.Collections;
 import java.util.List;
 
 public class IoTDBv2Source
-        implements SeaTunnelSource<SeaTunnelRow, IoTDBv2SourceSplit, IoTDBSourceState>,
+        implements SeaTunnelSource<SeaTunnelRow, IoTDBv2SourceSplit, IoTDBv2SourceState>,
                 SupportParallelism,
                 SupportColumnProjection {
 
@@ -71,15 +71,15 @@ public class IoTDBv2Source
     }
 
     @Override
-    public SourceSplitEnumerator<IoTDBv2SourceSplit, IoTDBSourceState> createEnumerator(
+    public SourceSplitEnumerator<IoTDBv2SourceSplit, IoTDBv2SourceState> createEnumerator(
             SourceSplitEnumerator.Context<IoTDBv2SourceSplit> enumeratorContext) throws Exception {
         return new IoTDBv2SourceSplitEnumerator(enumeratorContext, pluginConfig);
     }
 
     @Override
-    public SourceSplitEnumerator<IoTDBv2SourceSplit, IoTDBSourceState> restoreEnumerator(
+    public SourceSplitEnumerator<IoTDBv2SourceSplit, IoTDBv2SourceState> restoreEnumerator(
             SourceSplitEnumerator.Context<IoTDBv2SourceSplit> enumeratorContext,
-            IoTDBSourceState checkpointState)
+            IoTDBv2SourceState checkpointState)
             throws Exception {
         return new IoTDBv2SourceSplitEnumerator(enumeratorContext, pluginConfig, checkpointState);
     }

@@ -23,7 +23,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 import org.apache.seatunnel.connectors.seatunnel.iotdbv2.config.SinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.iotdbv2.serialize.DefaultSeaTunnelRowSerializer;
-import org.apache.seatunnel.connectors.seatunnel.iotdbv2.serialize.IoTDBRecord;
+import org.apache.seatunnel.connectors.seatunnel.iotdbv2.serialize.IoTDBv2Record;
 import org.apache.seatunnel.connectors.seatunnel.iotdbv2.serialize.SeaTunnelRowSerializer;
 
 import lombok.SneakyThrows;
@@ -35,7 +35,7 @@ import java.util.Optional;
 @Slf4j
 public class IoTDBv2SinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
 
-    private final SeaTunnelRowSerializer<IoTDBRecord> serializer;
+    private final SeaTunnelRowSerializer<IoTDBv2Record> serializer;
     private final IoTDBv2SinkClient sinkClient;
 
     public IoTDBv2SinkWriter(ReadonlyConfig pluginConfig, SeaTunnelRowType seaTunnelRowType) {
@@ -52,7 +52,7 @@ public class IoTDBv2SinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
 
     @Override
     public void write(SeaTunnelRow element) throws IOException {
-        IoTDBRecord record = serializer.serialize(element);
+        IoTDBv2Record record = serializer.serialize(element);
         sinkClient.write(record);
     }
 

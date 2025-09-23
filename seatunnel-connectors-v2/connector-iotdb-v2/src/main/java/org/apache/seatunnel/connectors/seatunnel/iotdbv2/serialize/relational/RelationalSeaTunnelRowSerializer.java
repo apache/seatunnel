@@ -38,7 +38,7 @@ import java.util.function.Function;
 
 @Slf4j
 public class RelationalSeaTunnelRowSerializer
-        implements SeaTunnelRowSerializer<IoTDBRelationalRecord> {
+        implements SeaTunnelRowSerializer<IoTDBv2RelationalRecord> {
 
     private final Function<SeaTunnelRow, String> tableNameExtractor;
     private final Function<SeaTunnelRow, Long> timestampExtractor;
@@ -63,13 +63,13 @@ public class RelationalSeaTunnelRowSerializer
     }
 
     @Override
-    public IoTDBRelationalRecord serialize(SeaTunnelRow seaTunnelRow) {
+    public IoTDBv2RelationalRecord serialize(SeaTunnelRow seaTunnelRow) {
         String tableName = tableNameExtractor.apply(seaTunnelRow);
         Long timestamp = timestampExtractor.apply(seaTunnelRow);
         List<String> tags = tagsExtractor.apply(seaTunnelRow);
         List<String> attributes = attributesExtractor.apply(seaTunnelRow);
         List<Object> fields = fieldsExtractor.apply(seaTunnelRow);
-        return new IoTDBRelationalRecord(tableName, timestamp, tags, attributes, fields);
+        return new IoTDBv2RelationalRecord(tableName, timestamp, tags, attributes, fields);
     }
 
     private Function<SeaTunnelRow, String> createTableNameExtractor(

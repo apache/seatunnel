@@ -36,7 +36,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer<IoTDBRecord> {
+public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer<IoTDBv2Record> {
 
     private final Function<SeaTunnelRow, Long> timestampExtractor;
     private final Function<SeaTunnelRow, String> deviceExtractor;
@@ -60,11 +60,11 @@ public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer<IoT
     }
 
     @Override
-    public IoTDBRecord serialize(SeaTunnelRow seaTunnelRow) {
+    public IoTDBv2Record serialize(SeaTunnelRow seaTunnelRow) {
         Long timestamp = timestampExtractor.apply(seaTunnelRow);
         String device = deviceExtractor.apply(seaTunnelRow);
         List<Object> values = valuesExtractor.apply(seaTunnelRow);
-        return new IoTDBRecord(device, timestamp, measurements, measurementsType, values);
+        return new IoTDBv2Record(device, timestamp, measurements, measurementsType, values);
     }
 
     private Function<SeaTunnelRow, Long> createTimestampExtractor(

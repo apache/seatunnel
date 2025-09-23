@@ -22,7 +22,7 @@ import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.iotdbv2.config.SinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.iotdbv2.exception.IotdbConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.iotdbv2.exception.IotdbConnectorException;
-import org.apache.seatunnel.connectors.seatunnel.iotdbv2.serialize.relational.IoTDBRelationalRecord;
+import org.apache.seatunnel.connectors.seatunnel.iotdbv2.serialize.relational.IoTDBv2RelationalRecord;
 
 import lombok.extern.slf4j.Slf4j;
 import shaded.org.apache.iotdb.isession.ITableSession;
@@ -123,7 +123,7 @@ public class IoTDBv2RelationalSinkClient {
         curBatchSize = 0;
     }
 
-    public synchronized void write(IoTDBRelationalRecord record) throws IOException {
+    public synchronized void write(IoTDBv2RelationalRecord record) throws IOException {
         tryInit();
         checkFlushException();
 
@@ -147,7 +147,7 @@ public class IoTDBv2RelationalSinkClient {
         }
     }
 
-    public void addValuesToTablet(IoTDBRelationalRecord record, Tablet tablet, int rowIndex) {
+    public void addValuesToTablet(IoTDBv2RelationalRecord record, Tablet tablet, int rowIndex) {
         tablet.addTimestamp(rowIndex, record.getTimestamp());
         int columnIndex = 0;
         for (String tag : record.getTags()) {
