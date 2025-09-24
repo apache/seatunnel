@@ -78,6 +78,19 @@ public class SinkFlowTestUtils {
         runWithContext(catalogTable, options, factory, rows, context, parallelism);
     }
 
+    public static void runBatchWithMultiTableSink(
+            TableSinkFactory<SeaTunnelRow, ?, ?, ?> factory,
+            TableSinkFactoryContext tableSinkFactoryContext,
+            List<SeaTunnelRow> rows,
+            boolean checkpointEnabled,
+            int parallelism)
+            throws IOException {
+        JobContext context = new JobContext(System.currentTimeMillis());
+        context.setJobMode(JobMode.BATCH);
+        context.setEnableCheckpoint(checkpointEnabled);
+        runWithContext(factory, tableSinkFactoryContext, rows, context, parallelism);
+    }
+
     private static void runWithContext(
             CatalogTable catalogTable,
             ReadonlyConfig options,
@@ -86,13 +99,23 @@ public class SinkFlowTestUtils {
             JobContext context,
             int parallelism)
             throws IOException {
+
+        TableSinkFactoryContext tableSinkFactoryContext =
+                new TableSinkFactoryContext(
+                        catalogTable, options, Thread.currentThread().getContextClassLoader());
+
+        runWithContext(factory, tableSinkFactoryContext, rows, context, parallelism);
+    }
+
+    private static void runWithContext(
+            TableSinkFactory<SeaTunnelRow, ?, ?, ?> factory,
+            TableSinkFactoryContext tableSinkFactoryContext,
+            List<SeaTunnelRow> rows,
+            JobContext context,
+            int parallelism)
+            throws IOException {
         SeaTunnelSink<SeaTunnelRow, ?, ?, ?> sink =
-                factory.createSink(
-                                new TableSinkFactoryContext(
-                                        catalogTable,
-                                        options,
-                                        Thread.currentThread().getContextClassLoader()))
-                        .createSink();
+                factory.createSink(tableSinkFactoryContext).createSink();
         sink.setJobContext(context);
         List<Object> commitInfos = new ArrayList<>();
         for (int i = 0; i < parallelism; i++) {

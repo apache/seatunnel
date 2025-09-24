@@ -12,9 +12,9 @@ import ChangeLog from '../changelog/connector-databend.md';
 
 ## Key Features
 
-- [ ] [Exactly-Once](../../concept/connector-v2-features.md)
 - [ ] [Support Multi-table Writing](../../concept/connector-v2-features.md)
-- [ ] [CDC](../../concept/connector-v2-features.md)
+- [x] [Exactly-Once](../../concept/connector-v2-features.md)
+- [x] [CDC](../../concept/connector-v2-features.md)
 - [x] [Parallelism](../../concept/connector-v2-features.md)
 
 ## Description
@@ -34,23 +34,25 @@ The Databend sink internally implements bulk data import through stage attachmen
 
 ## Sink Options
 
-| Name | Type | Required | Default Value | Description                                 |
-|------|------|----------|---------------|---------------------------------------------|
-| url | String | Yes | - | Databend JDBC connection URL               |
-| username | String | Yes | - | Databend database username                    |
-| password | String | Yes | - | Databend database password                     |
-| database | String | No | - | Databend database name, defaults to the database name specified in the connection URL |
-| table | String | No | - | Databend table name                       |
-| batch_size | Integer | No | 1000 | Number of records for batch writing                           |
-| auto_commit | Boolean | No | true | Whether to auto-commit transactions                           |
-| max_retries | Integer | No | 3 | Maximum retry attempts on write failure                       |
-| schema_save_mode | Enum | No | CREATE_SCHEMA_WHEN_NOT_EXIST | Schema save mode                      |
-| data_save_mode | Enum | No | APPEND_DATA | Data save mode                            |
-| custom_sql | String | No | - | Custom write SQL, typically used for complex write scenarios              |
+| Name                | Type | Required | Default Value | Description                                 |
+|---------------------|------|----------|---------------|---------------------------------------------|
+| url                 | String | Yes | - | Databend JDBC connection URL               |
+| username            | String | Yes | - | Databend database username                    |
+| password            | String | Yes | - | Databend database password                     |
+| database            | String | No | - | Databend database name, defaults to the database name specified in the connection URL |
+| table               | String | No | - | Databend table name                       |
+| batch_size          | Integer | No | 1000 | Number of records for batch writing                           |
+| auto_commit         | Boolean | No | true | Whether to auto-commit transactions                           |
+| max_retries         | Integer | No | 3 | Maximum retry attempts on write failure                       |
+| schema_save_mode    | Enum | No | CREATE_SCHEMA_WHEN_NOT_EXIST | Schema save mode                      |
+| data_save_mode      | Enum | No | APPEND_DATA | Data save mode                            |
+| custom_sql          | String | No | - | Custom write SQL, typically used for complex write scenarios              |
 | execute_timeout_sec | Integer | No | 300 | SQL execution timeout (seconds)                      |
-| jdbc_config | Map | No | - | Additional JDBC connection configuration, such as connection timeout parameters             |
+| jdbc_config         | Map | No | - | Additional JDBC connection configuration, such as connection timeout parameters             |
+| conflict_key        | String | No | - | Conflict key for CDC mode, used to determine the primary key for conflict resolution |
+| enable_delete       | Boolean | No | false | Whether to allow delete operations in CDC mode |
 
-### schema_save_mode[Enum]
+### schema_save_mode [Enum]
 
 Before starting the synchronization task, choose different processing schemes for existing table structures.
 Option descriptions:  
@@ -59,7 +61,7 @@ Option descriptions:
 `ERROR_WHEN_SCHEMA_NOT_EXIST`: Report error when table doesn't exist.  
 `IGNORE`: Ignore table processing.
 
-### data_save_mode[Enum]
+### data_save_mode [Enum]
 
 Before starting the synchronization task, choose different processing schemes for existing data on the target side.
 Option descriptions:  
@@ -148,6 +150,25 @@ sink {
     table = "target_table"
     schema_save_mode = "RECREATE_SCHEMA"
     data_save_mode = "APPEND_DATA"
+  }
+}
+```
+
+### CDC mode
+
+```hocon
+sink {
+  Databend {
+    url = "jdbc:databend://databend:8000/default?ssl=false"
+    username = "root"
+    password = ""
+    database = "default"
+    table = "sink_table"
+    
+    # Enable CDC mode
+    batch_size = 1
+    conflict_key = "id"
+    enable_delete = true
   }
 }
 ```

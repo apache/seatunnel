@@ -30,7 +30,7 @@ import org.apache.seatunnel.api.table.catalog.exception.TableAlreadyExistExcepti
 import org.apache.seatunnel.api.table.catalog.exception.TableNotExistException;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.VectorType;
-import org.apache.seatunnel.common.utils.BufferUtils;
+import org.apache.seatunnel.common.utils.VectorUtils;
 import org.apache.seatunnel.connectors.seatunnel.milvus.catalog.MilvusCatalog;
 import org.apache.seatunnel.connectors.seatunnel.milvus.config.MilvusSinkOptions;
 import org.apache.seatunnel.e2e.common.TestResource;
@@ -53,7 +53,10 @@ import com.google.gson.JsonObject;
 import io.milvus.client.MilvusServiceClient;
 import io.milvus.grpc.DataType;
 import io.milvus.grpc.DescribeCollectionResponse;
+import io.milvus.grpc.DescribeIndexResponse;
 import io.milvus.grpc.FieldSchema;
+import io.milvus.grpc.IndexDescription;
+import io.milvus.grpc.KeyValuePair;
 import io.milvus.grpc.MutationResult;
 import io.milvus.param.ConnectParam;
 import io.milvus.param.IndexType;
@@ -67,6 +70,7 @@ import io.milvus.param.collection.HasCollectionParam;
 import io.milvus.param.collection.LoadCollectionParam;
 import io.milvus.param.dml.InsertParam;
 import io.milvus.param.index.CreateIndexParam;
+import io.milvus.param.index.DescribeIndexParam;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
@@ -360,7 +364,7 @@ public class MilvusIT extends TestSuiteBase implements TestResource {
             List<Float> vector = Arrays.asList((float) i, (float) i, (float) i, (float) i);
             row.add(VECTOR_FIELD, gson.toJsonTree(vector));
             Short[] shorts = {(short) i, (short) i, (short) i, (short) i};
-            ByteBuffer shortByteBuffer = BufferUtils.toByteBuffer(shorts);
+            ByteBuffer shortByteBuffer = VectorUtils.toByteBuffer(shorts);
             row.add(VECTOR_FIELD2, gson.toJsonTree(shortByteBuffer.array()));
             ByteBuffer binaryByteBuffer = ByteBuffer.wrap(new byte[] {16});
             row.add(VECTOR_FIELD3, gson.toJsonTree(binaryByteBuffer.array()));
@@ -427,16 +431,16 @@ public class MilvusIT extends TestSuiteBase implements TestResource {
                                 .build());
 
         DescribeCollectionResponse data = describeCollectionResponseR.getData();
-        List<String> fileds =
+        List<String> fields =
                 data.getSchema().getFieldsList().stream()
                         .map(FieldSchema::getName)
                         .collect(Collectors.toList());
-        Assertions.assertTrue(fileds.contains(ID_FIELD));
-        Assertions.assertTrue(fileds.contains(VECTOR_FIELD));
-        Assertions.assertTrue(fileds.contains(VECTOR_FIELD2));
-        Assertions.assertTrue(fileds.contains(VECTOR_FIELD3));
-        Assertions.assertTrue(fileds.contains(VECTOR_FIELD4));
-        Assertions.assertTrue(fileds.contains(TITLE_FIELD));
+        Assertions.assertTrue(fields.contains(ID_FIELD));
+        Assertions.assertTrue(fields.contains(VECTOR_FIELD));
+        Assertions.assertTrue(fields.contains(VECTOR_FIELD2));
+        Assertions.assertTrue(fields.contains(VECTOR_FIELD3));
+        Assertions.assertTrue(fields.contains(VECTOR_FIELD4));
+        Assertions.assertTrue(fields.contains(TITLE_FIELD));
     }
 
     @TestTemplate
@@ -464,16 +468,16 @@ public class MilvusIT extends TestSuiteBase implements TestResource {
                                 .build());
 
         DescribeCollectionResponse data = describeCollectionResponseR.getData();
-        List<String> fileds =
+        List<String> fields =
                 data.getSchema().getFieldsList().stream()
                         .map(FieldSchema::getName)
                         .collect(Collectors.toList());
-        Assertions.assertTrue(fileds.contains(ID_FIELD));
-        Assertions.assertTrue(fileds.contains(VECTOR_FIELD));
-        Assertions.assertTrue(fileds.contains(VECTOR_FIELD2));
-        Assertions.assertTrue(fileds.contains(VECTOR_FIELD3));
-        Assertions.assertTrue(fileds.contains(VECTOR_FIELD4));
-        Assertions.assertTrue(fileds.contains(TITLE_FIELD));
+        Assertions.assertTrue(fields.contains(ID_FIELD));
+        Assertions.assertTrue(fields.contains(VECTOR_FIELD));
+        Assertions.assertTrue(fields.contains(VECTOR_FIELD2));
+        Assertions.assertTrue(fields.contains(VECTOR_FIELD3));
+        Assertions.assertTrue(fields.contains(VECTOR_FIELD4));
+        Assertions.assertTrue(fields.contains(TITLE_FIELD));
     }
 
     @TestTemplate
@@ -499,13 +503,13 @@ public class MilvusIT extends TestSuiteBase implements TestResource {
                                 .build());
 
         DescribeCollectionResponse data = describeCollectionResponseR.getData();
-        List<String> fileds =
+        List<String> fields =
                 data.getSchema().getFieldsList().stream()
                         .map(FieldSchema::getName)
                         .collect(Collectors.toList());
-        Assertions.assertTrue(fileds.contains(ID_FIELD));
-        Assertions.assertTrue(fileds.contains(VECTOR_FIELD));
-        Assertions.assertTrue(fileds.contains(TITLE_FIELD));
+        Assertions.assertTrue(fields.contains(ID_FIELD));
+        Assertions.assertTrue(fields.contains(VECTOR_FIELD));
+        Assertions.assertTrue(fields.contains(TITLE_FIELD));
     }
 
     @TestTemplate
@@ -532,17 +536,17 @@ public class MilvusIT extends TestSuiteBase implements TestResource {
                                 .build());
 
         DescribeCollectionResponse data = describeCollectionResponseR.getData();
-        List<String> fileds =
+        List<String> fields =
                 data.getSchema().getFieldsList().stream()
                         .map(FieldSchema::getName)
                         .collect(Collectors.toList());
 
         // assert table fields
-        Assertions.assertTrue(fileds.contains(ID_FIELD));
-        Assertions.assertTrue(fileds.contains("book_intro_1"));
-        Assertions.assertTrue(fileds.contains("book_intro_2"));
-        Assertions.assertTrue(fileds.contains("book_intro_3"));
-        Assertions.assertTrue(fileds.contains("book_intro_4"));
+        Assertions.assertTrue(fields.contains(ID_FIELD));
+        Assertions.assertTrue(fields.contains("book_intro_1"));
+        Assertions.assertTrue(fields.contains("book_intro_2"));
+        Assertions.assertTrue(fields.contains("book_intro_3"));
+        Assertions.assertTrue(fields.contains("book_intro_4"));
     }
 
     @TestTemplate
@@ -604,5 +608,111 @@ public class MilvusIT extends TestSuiteBase implements TestResource {
                 () -> catalog.createDatabase(TablePath.of("new_db.table"), false));
         Assertions.assertDoesNotThrow(
                 () -> catalog.dropDatabase(TablePath.of("new_db.table"), false));
+    }
+
+    @TestTemplate
+    public void testIndexPreservation(TestContainer container)
+            throws IOException, InterruptedException {
+        String targetDatabase = "test_index_preservation";
+        String targetCollection = "simple_example_preservation";
+
+        Container.ExecResult execResult =
+                container.executeJob("/milvus-to-milvus-index-preservation.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+
+        // Verify the target collection exists
+        R<Boolean> hasCollectionResponse =
+                this.milvusClient.hasCollection(
+                        HasCollectionParam.newBuilder()
+                                .withDatabaseName(targetDatabase)
+                                .withCollectionName(targetCollection)
+                                .build());
+        Assertions.assertTrue(
+                hasCollectionResponse.getData(),
+                "Target collection should exist after data migration");
+
+        // Verify that all vector indexes are preserved
+        verifyIndexesExist(targetDatabase, targetCollection);
+
+        log.info(
+                "Index preservation test passed - all vector indexes correctly transferred from source to sink");
+    }
+
+    private void verifyIndexesExist(String database, String collection) {
+        R<DescribeIndexResponse> describeIndexResponseR =
+                this.milvusClient.describeIndex(
+                        DescribeIndexParam.newBuilder()
+                                .withDatabaseName(database)
+                                .withCollectionName(collection)
+                                .build());
+
+        Assertions.assertEquals(
+                R.Status.Success.getCode(),
+                describeIndexResponseR.getStatus(),
+                "Failed to describe indexes for collection: " + collection);
+
+        DescribeIndexResponse indexResponse = describeIndexResponseR.getData();
+        List<IndexDescription> indexes = indexResponse.getIndexDescriptionsList();
+
+        // Verify that indexes exist for all vector fields
+        List<String> indexedFields =
+                indexes.stream().map(IndexDescription::getFieldName).collect(Collectors.toList());
+
+        // Check that each vector field has an index
+        Assertions.assertTrue(
+                indexedFields.contains(VECTOR_FIELD), "Index missing for field: " + VECTOR_FIELD);
+        Assertions.assertTrue(
+                indexedFields.contains(VECTOR_FIELD2), "Index missing for field: " + VECTOR_FIELD2);
+        Assertions.assertTrue(
+                indexedFields.contains(VECTOR_FIELD3), "Index missing for field: " + VECTOR_FIELD3);
+        Assertions.assertTrue(
+                indexedFields.contains(VECTOR_FIELD4), "Index missing for field: " + VECTOR_FIELD4);
+
+        // Verify index types are correct
+        for (IndexDescription index : indexes) {
+            String fieldName = index.getFieldName();
+            String indexType =
+                    index.getParamsList().stream()
+                            .filter(param -> "index_type".equals(param.getKey()))
+                            .map(KeyValuePair::getValue)
+                            .findFirst()
+                            .orElse("");
+
+            String metricType =
+                    index.getParamsList().stream()
+                            .filter(param -> "metric_type".equals(param.getKey()))
+                            .map(KeyValuePair::getValue)
+                            .findFirst()
+                            .orElse("");
+
+            log.info(
+                    "Field: {}, Index: {}, Type: {}, Metric: {}",
+                    fieldName,
+                    index.getIndexName(),
+                    indexType,
+                    metricType);
+
+            // Verify expected index types based on field
+            if (VECTOR_FIELD.equals(fieldName) || VECTOR_FIELD2.equals(fieldName)) {
+                Assertions.assertEquals(
+                        "FLAT", indexType, "Unexpected index type for field: " + fieldName);
+                Assertions.assertEquals(
+                        "L2", metricType, "Unexpected metric type for field: " + fieldName);
+            } else if (VECTOR_FIELD3.equals(fieldName)) {
+                Assertions.assertEquals(
+                        "BIN_FLAT", indexType, "Unexpected index type for field: " + fieldName);
+                Assertions.assertEquals(
+                        "HAMMING", metricType, "Unexpected metric type for field: " + fieldName);
+            } else if (VECTOR_FIELD4.equals(fieldName)) {
+                Assertions.assertEquals(
+                        "SPARSE_INVERTED_INDEX",
+                        indexType,
+                        "Unexpected index type for field: " + fieldName);
+                Assertions.assertEquals(
+                        "IP", metricType, "Unexpected metric type for field: " + fieldName);
+            }
+        }
+
+        log.info("Index verification passed for collection: {}.{}", database, collection);
     }
 }

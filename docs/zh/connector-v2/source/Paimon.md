@@ -8,6 +8,33 @@ import ChangeLog from '../changelog/connector-paimon.md';
 
 用于从 `Apache Paimon` 读取数据
 
+### SeaTunnel与Paimon版本对照
+
+| Seatunnel Version | Paimon Version   |
+|-------------------|------------------|
+| 2.3.2  -  2.3.3   | 0.4-SNAPSHOT     |
+| 2.3.4             | 0.6-SNAPSHOT     |
+| 2.3.5  -  2.3.11  | 0.7.0-incubating |
+| 2.3.12  - 2.3.13  | 1.1.1            |
+
+### 从 0.7 版本升级到 1.1.1 版本的注意事项
+
+1. **备份建议**
+   尽管存在兼容性保障，但在从 0.7 版本开始升级前，仍强烈建议备份关键数据，尤其是元数据目录。
+2. **逐步升级流程**
+    - **测试环境验证**：首先在测试环境中验证（从 0.7 版本开始的）升级过程。
+    - **更新 JAR 文件**：将 Paimon 的 JAR 文件替换为 1.1.1 版本。
+    - **自动格式升级**：系统会自动识别并升级 0.7 版本中使用的文件格式。
+3. **配置检查**
+   检查配置以确认是否存在 0.7 版本适用的已弃用选项。尽管大多数配置保持向后兼容，但已弃用的设置可能需要更新以适配 1.1.1 版本。
+4. **升级后验证**
+   从 0.7 版本升级到 1.1.1 版本后，需验证以下内容：
+    - **读写操作**：确保基于 0.7 版本继承的数据结构，数据写入和读取流程正常运行。
+    - **查询性能**：考虑到 0.7 与 1.1.1 版本间底层机制（如分桶管理）的变化，确认查询响应时间符合预期。
+    - **新功能验证**：测试所有新增功能（如增强的压实机制、时间旅行等），确保其与从 0.7 版本迁移的数据兼容并正常工作。
+
+**注意**：遵循这些步骤有助于降低风险，确保从 0.7 版本平稳过渡到稳定版本 1.1.1。
+
 ## 主要功能
 
 - [x] [批处理](../../concept/connector-v2-features.md)
@@ -19,17 +46,20 @@ import ChangeLog from '../changelog/connector-paimon.md';
 
 ## 配置选项
 
-|          名称           |  类型  | 是否必须 | 默认值 |
-|-------------------------|--------|----------|---------------|
-| warehouse               | String | 是      | -             |
-| catalog_type            | String | 否       | filesystem    |
-| catalog_uri             | String | 否       | -             |
-| database                | String | 是      | -             |
-| table                   | String | 是      | -             |
-| hdfs_site_path          | String | 否       | -             |
-| query                   | String | 否       | -             |
-| paimon.hadoop.conf      | Map    | 否       | -             |
-| paimon.hadoop.conf-path | String | 否       | -             |
+| 名称                      | 类型       | 是否必须   | 默认值 |
+|-------------------------|----------|--------|---------------|
+| warehouse               | String   | 是      | -             |
+| catalog_type            | String   | 否      | filesystem    |
+| catalog_uri             | String   | 否      | -             |
+| database                | String   | 是      | -             |
+| table                   | String   | 否      | -             |
+| table_list              | array    | 否      | -             |
+| user                    | String   | 否      | -             |
+| password                | String   | 否      | -             |
+| hdfs_site_path          | String   | 否      | -             |
+| query                   | String   | 否      | -             |
+| paimon.hadoop.conf      | Map      | 否      | -             |
+| paimon.hadoop.conf-path | String   | 否      | -             |
 
 ### warehouse [string]
 
@@ -51,6 +81,10 @@ Paimon 的 catalog uri，仅当 catalog_type 为 hive 时需要
 
 需要访问的表
 
+### table_list [array]
+
+`Paimon` 表名列表，当需要同时读取多表时使用此配置代替 table
+
 ### hdfs_site_path [string]
 
 `hdfs-site.xml` 文件地址
@@ -59,7 +93,7 @@ Paimon 的 catalog uri，仅当 catalog_type 为 hive 时需要
 
 读取表格的筛选条件，例如：`select * from st_test where id > 100`。如果未指定，则将读取所有记录。 
 
-目前，`where` 支持`<, <=, >, >=, =, !=, or, and,is null, is not null, between...and, in , not in, like(pattern matching with prefix only)`，其他暂不支持。 
+目前，`where` 支持`<, <=, >, >=, =, !=, or, and,is null, is not null, between...and, in , not in, like`，其他暂不支持。 
 
 Projection 已支持,你可以选择特定的列，例如：select id, name from st_test where id > 100。
 
@@ -105,6 +139,27 @@ source {
      database = "default"
      table = "st_test"
    }
+}
+```
+
+### 读取多表
+
+```hocon
+source {
+  Paimon {
+    warehouse = "/tmp/paimon"
+    database = "default"
+    table_list = [
+      {
+        table = "table1"
+        query = "select * from table1 where id > 100"
+      },
+      {
+        table = "table2"
+        query = "select * from table2 where id > 100"
+      }
+    ]
+  }
 }
 ```
 
@@ -193,6 +248,20 @@ source {
       dfs.client.use.datanode.hostname = "true"
     }
   }
+}
+```
+
+### paimon开启权限示例
+
+```hocon
+source {
+ Paimon {
+     warehouse = "/tmp/paimon"
+     database = "default"
+     table = "st_test"
+     user = "paimon"
+     password = "******"
+   }
 }
 ```
 

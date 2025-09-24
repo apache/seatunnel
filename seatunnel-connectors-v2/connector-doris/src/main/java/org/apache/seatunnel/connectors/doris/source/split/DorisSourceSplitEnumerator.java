@@ -107,16 +107,14 @@ public class DorisSourceSplitEnumerator
     public void addSplitsBack(List<DorisSourceSplit> splits, int subtaskId) {
         log.debug("Add back splits {} to DorisSourceSplitEnumerator.", splits);
         if (!splits.isEmpty()) {
-            synchronized (stateLock) {
-                addPendingSplit(splits);
-                if (context.registeredReaders().contains(subtaskId)) {
-                    assignSplit(Collections.singletonList(subtaskId));
-                } else {
-                    log.warn(
-                            "Reader {} is not registered. Pending splits {} are not assigned.",
-                            subtaskId,
-                            splits);
-                }
+            addPendingSplit(splits);
+            if (context.registeredReaders().contains(subtaskId)) {
+                assignSplit(Collections.singletonList(subtaskId));
+            } else {
+                log.warn(
+                        "Reader {} is not registered. Pending splits {} are not assigned.",
+                        subtaskId,
+                        splits);
             }
         }
     }
@@ -137,9 +135,7 @@ public class DorisSourceSplitEnumerator
     public void registerReader(int subtaskId) {
         log.debug("Register reader {} to DorisSourceSplitEnumerator.", subtaskId);
         if (!pendingSplit.isEmpty()) {
-            synchronized (stateLock) {
-                assignSplit(Collections.singletonList(subtaskId));
-            }
+            assignSplit(Collections.singletonList(subtaskId));
         }
     }
 

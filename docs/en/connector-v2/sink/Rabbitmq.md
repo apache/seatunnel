@@ -30,6 +30,9 @@ Used to write data to Rabbitmq.
 | connection_timeout         | int     | no       | -             |
 | rabbitmq.config            | map     | no       | -             |
 | common-options             |         | no       | -             |
+| durable                    | boolean | no       | true          |
+| exclusive                  | boolean | no       | false         |
+| auto_delete                | boolean | no       | false         |
 
 ### host [string]
 
@@ -107,6 +110,22 @@ In addition to the above parameters that must be specified by the RabbitMQ clien
 ### common options
 
 Sink plugin common parameters, please refer to [Sink Common Options](../sink-common-options.md) for details
+
+### durable
+
+- true: The queue will survive on server restart.
+- false: The queue will be deleted on server restart.
+
+### exclusive
+
+- true: The queue is used only by the current connection and will be deleted when the connection closes.
+- false: The queue can be used by multiple connections.
+
+### auto-delete
+
+- true: The queue will be deleted automatically when the last consumer unsubscribes.
+- false: The queue will not be automatically deleted.
+
 
 ## Example
 

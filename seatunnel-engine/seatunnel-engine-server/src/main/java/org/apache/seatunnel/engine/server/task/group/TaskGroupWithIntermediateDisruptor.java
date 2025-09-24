@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.server.task.group;
 
+import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.engine.server.execution.Task;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.execution.TaskGroupType;
@@ -57,7 +58,7 @@ public class TaskGroupWithIntermediateDisruptor extends AbstractTaskGroupWithInt
     }
 
     @Override
-    public AbstractIntermediateQueue<?> getQueueCache(long id) {
+    public AbstractIntermediateQueue<?> getQueueCache(long id, MetricsContext metricsContext) {
         EventFactory<RecordEvent> eventFactory = new RecordEventFactory();
         Disruptor<RecordEvent> disruptor =
                 new Disruptor<>(

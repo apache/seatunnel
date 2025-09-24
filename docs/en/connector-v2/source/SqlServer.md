@@ -73,7 +73,7 @@ Read external data source data through JDBC.
 |--------------------------------------------|--------|----------|-----------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | url                                        | String | Yes      | -               | The URL of the JDBC connection. Refer to a case: jdbc:sqlserver://127.0.0.1:1434;database=TestDB                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | driver                                     | String | Yes      | -               | The jdbc class name used to connect to the remote data source,<br/> if you use SQLserver the value is `com.microsoft.sqlserver.jdbc.SQLServerDriver`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
-| user                                       | String | No       | -               | Connection instance user name                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| username                                       | String | No       | -               | Connection instance user name                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | password                                   | String | No       | -               | Connection instance password                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | query                                      | String | Yes      | -               | Query statement                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | connection_check_timeout_sec               | Int    | No       | 30              | The time in seconds to wait for the database operation used to validate the connection to complete                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
@@ -174,7 +174,7 @@ source{
     Jdbc {
         driver = com.microsoft.sqlserver.jdbc.SQLServerDriver
         url = "jdbc:sqlserver://localhost:1433;databaseName=column_type_test"
-        user = SA
+        username = SA
         password = "Y.sa123456"
         query = "select * from full_types_jdbc"
     }
@@ -204,7 +204,7 @@ source {
     Jdbc {
         driver = com.microsoft.sqlserver.jdbc.SQLServerDriver
         url = "jdbc:sqlserver://localhost:1433;databaseName=column_type_test"
-        user = SA
+        username = SA
         password = "Y.sa123456"
         # Define query logic as required
         query = "select * from full_types_jdbc"
@@ -241,7 +241,7 @@ source {
   Jdbc {
     driver = com.microsoft.sqlserver.jdbc.SQLServerDriver
     url = "jdbc:sqlserver://localhost:1433;databaseName=column_type_test"
-    user = SA
+    username = SA
     password = "Y.sa123456"
     query = "select * from column_type_test.dbo.full_types_jdbc"
     # Parallel sharding reads fields

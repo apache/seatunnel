@@ -64,7 +64,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 |------------------------------|------------|----|-----------------|-----------------------------------------------------------------------------------------------------------------------------|
 | url                          | String     | 是  | -               | JDBC连接的URL。参考示例: jdbc:hive2://localhost:10000/default                                                                       |
 | driver                       | String     | 是  | -               | 用于连接到远程数据源的jdbc类名，<br/> 如果使用Hive，则值为 `org.apache.hive.jdbc.HiveDriver`.                                                     |
-| user                         | String     | 否  | -               | 连接实例用户名                                                                                                                     |
+| username                     | String     | 否  | -               | 连接实例用户名                                                                                                                     |
 | password                     | String     | 否  | -               | 连接实例密码                                                                                                                      |
 | query                        | String     | 是  | -               | 查询sql                                                                                                                       |
 | connection_check_timeout_sec | Int        | 否  | 30              | 等待用于验证连接的数据库操作完成的时间（秒）                                                                                                      |
@@ -81,7 +81,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 ### 提示
 
->如果未设置partition_column，它将以单并发运行，如果设置了partition_coolumn，它将根据任务的并发性并行执行。当您的分片读取字段是bigint（及以上）等大数字类型并且数据分布不均匀时，建议将并行级别设置为1，以确保
+>如果未设置partition_column，它将以单并发运行，如果设置了partition_column，它将根据任务的并发性并行执行。当您的分片读取字段是bigint（及以上）等大数字类型并且数据分布不均匀时，建议将并行级别设置为1，以确保
 数据倾斜问题已得到解决
 
 ## 任务示例

@@ -77,7 +77,7 @@ semantics (using XA transaction guarantee).
 |-------------------------------------------|---------|----------|------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | url                                       | String  | Yes      | -                            | The URL of the JDBC connection. Refer to a case: jdbc:postgresql://localhost:5432/test <br/>  if you would use json or jsonb type insert please add jdbc url stringtype=unspecified option                                                                                                                                                                                                                                                                                                                                                                                        |
 | driver                                    | String  | Yes      | -                            | The jdbc class name used to connect to the remote data source,<br/> if you use PostgreSQL the value is `org.postgresql.Driver`.                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
-| user                                      | String  | No       | -                            | Connection instance user name                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| username                                      | String  | No       | -                            | Connection instance user name                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | password                                  | String  | No       | -                            | Connection instance password                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | query                                     | String  | No       | -                            | Use this sql write upstream input datas to database. e.g `INSERT ...`,`query` have the higher priority                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | database                                  | String  | No       | -                            | Use this `database` and `table-name` auto-generate sql and receive upstream input datas write to database.<br/>This option is mutually exclusive with `query` and has a higher priority.                                                                                                                                                                                                                                                                                                                                                                                          |
@@ -113,7 +113,7 @@ for example:
 2. dbo.tt_${table_name}_sink
 3. public.sink_table
 
-### schema_save_mode[Enum]
+### schema_save_mode [Enum]
 
 Before the synchronous task is turned on, different treatment schemes are selected for the existing surface structure of the target side.  
 Option introduction：  
@@ -122,7 +122,7 @@ Option introduction：
 `ERROR_WHEN_SCHEMA_NOT_EXIST` ：Error will be reported when the table does not exist  
 `IGNORE` ：Ignore the treatment of the table
 
-### data_save_mode[Enum]
+### data_save_mode [Enum]
 
 Before the synchronous task is turned on, different processing schemes are selected for data existing data on the target side.  
 Option introduction：  
@@ -131,7 +131,7 @@ Option introduction：
 `CUSTOM_PROCESSING`：User defined processing  
 `ERROR_WHEN_DATA_EXISTS`：When there is data, an error is reported
 
-### custom_sql[String]
+### custom_sql [String]
 
 When data_save_mode selects CUSTOM_PROCESSING, you should fill in the CUSTOM_SQL parameter. This parameter usually fills in a SQL that can be executed. SQL will be executed before synchronization tasks.
 
@@ -178,7 +178,7 @@ sink {
        # if you would use json or jsonb type insert please add jdbc url stringtype=unspecified option
         url = "jdbc:postgresql://localhost:5432/test"
         driver = "org.postgresql.Driver"
-        user = root
+        username = root
         password = 123456
         query = "insert into test_table(name,age) values(?,?)"
      }
@@ -197,7 +197,7 @@ sink {
         # if you would use json or jsonb type insert please add jdbc url stringtype=unspecified option
         url = "jdbc:postgresql://localhost:5432/test"
         driver = org.postgresql.Driver
-        user = root
+        username = root
         password = 123456
         
         generate_sink_sql = true
@@ -219,7 +219,7 @@ sink {
         driver = "org.postgresql.Driver"
     
         max_retries = 0
-        user = root
+        username = root
         password = 123456
         query = "insert into test_table(name,age) values(?,?)"
     
@@ -240,7 +240,7 @@ sink {
         # if you would use json or jsonb type insert please add jdbc url stringtype=unspecified option
         url = "jdbc:postgresql://localhost:5432/test"
         driver = "org.postgresql.Driver"
-        user = root
+        username = root
         password = 123456
         
         generate_sink_sql = true
@@ -261,7 +261,7 @@ sink {
         # if you would use json or jsonb type insert please add jdbc url stringtype=unspecified option
         url = "jdbc:postgresql://localhost:5432/test"
         driver = org.postgresql.Driver
-        user = root
+        username = root
         password = 123456
         
         generate_sink_sql = true

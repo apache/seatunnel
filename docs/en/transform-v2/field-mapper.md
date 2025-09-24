@@ -31,7 +31,7 @@ The data read from source is a table like this:
 | 3  | Kin Dom  | 20  | 123  |
 | 4  | Joy Dom  | 20  | 123  |
 
-We want to delete `age` field and update the filed order to `id`, `card`, `name` and rename `name` to `new_name`. We can add `FieldMapper` transform like this
+We want to delete `age` field and update the field order to `id`, `card`, `name` and rename `name` to `new_name`. We can add `FieldMapper` transform like this
 
 ```
 transform {

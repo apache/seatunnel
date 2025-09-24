@@ -70,7 +70,9 @@ public class BinaryReadStrategyTest {
 
         List<SeaTunnelRow> rows = collector.getRows();
         Assertions.assertEquals(
-                2, rows.size(), "Should have 2 chunks for 2048 bytes with default 1024 chunk size");
+                2 + 1,
+                rows.size(),
+                "Should have 3 chunks for 2048 bytes with default 1024 chunk size");
 
         // Verify first chunk
         SeaTunnelRow firstRow = rows.get(0);
@@ -102,7 +104,7 @@ public class BinaryReadStrategyTest {
 
         List<SeaTunnelRow> rows = collector.getRows();
         Assertions.assertEquals(
-                3, rows.size(), "Should have 3 chunks for 1500 bytes with 512 chunk size");
+                3 + 1, rows.size(), "Should have 4 chunks for 1500 bytes with 512 chunk size");
 
         // Verify chunk sizes: 512, 512, 476
         Assertions.assertEquals(512, ((byte[]) rows.get(0).getField(0)).length);
@@ -128,7 +130,7 @@ public class BinaryReadStrategyTest {
         binaryReadStrategy.read(testFile.getAbsolutePath(), "test_table", collector);
 
         List<SeaTunnelRow> rows = collector.getRows();
-        Assertions.assertEquals(1, rows.size(), "Should have 1 row in complete file mode");
+        Assertions.assertEquals(1 + 1, rows.size(), "Should have 2 row in complete file mode");
 
         SeaTunnelRow row = rows.get(0);
         byte[] fileData = (byte[]) row.getField(0);

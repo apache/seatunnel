@@ -8,6 +8,33 @@ import ChangeLog from '../changelog/connector-paimon.md';
 
 Read data from Apache Paimon.
 
+### Comparison between SeaTunnel and Paimon version
+
+| Seatunnel Version | Paimon Version   |
+|-------------------|------------------|
+| 2.3.2  -  2.3.3   | 0.4-SNAPSHOT     |
+| 2.3.4             | 0.6-SNAPSHOT     |
+| 2.3.5  -  2.3.11  | 0.7.0-incubating |
+| 2.3.12  - 2.3.13  | 1.1.1            |
+
+### Key Considerations for Upgrading Paimon from `0.7.0-incubating` to `1.1.1`
+
+1. **Backup Recommendations**
+   Although compatibility is ensured, it is strongly recommended to backup critical data, especially the metadata directory, before initiating the upgrade.
+2. **Gradual Upgrade Process**
+    - **Test Environment Validation**: First validate the upgrade process in a staging environment.
+    - **Update JAR Files**: Replace Paimon JAR files with version 1.1.1.
+    - **Automatic Format Upgrade**: The system will automatically detect and upgrade older file formats.
+3. **Configuration Check**
+   Review your configurations to ensure no deprecated options are in use. While most configurations remain backward-compatible, deprecated settings may require updates.
+4. **Post-Upgrade Validation**
+   Verify the following after upgrading:
+    - **Read/Write Operations**: Ensure data ingestion and retrieval workflows function normally.
+    - **Query Performance**: Confirm that query response times meet expectations.
+    - **New Feature Verification**: Test all newly introduced features (e.g., time travel, enhanced compaction) to ensure proper functionality.
+
+**Note**: These steps help minimize risks and ensure a smooth transition to the stable version 1.1.1.
+
 ## Key features
 
 - [x] [batch](../../concept/connector-v2-features.md)
@@ -19,17 +46,20 @@ Read data from Apache Paimon.
 
 ## Options
 
-|          name           |  type  | required | default value |
-|-------------------------|--------|----------|---------------|
-| warehouse               | String | Yes      | -             |
-| catalog_type            | String | No       | filesystem    |
-| catalog_uri             | String | No       | -             |
-| database                | String | Yes      | -             |
-| table                   | String | Yes      | -             |
-| hdfs_site_path          | String | No       | -             |
-| query                   | String | No       | -             |
-| paimon.hadoop.conf      | Map    | No       | -             |
-| paimon.hadoop.conf-path | String | No       | -             |
+| name                    | type     | required       | default value |
+|-------------------------|----------|----------------|---------------|
+| warehouse               | String   | Yes            | -             |
+| catalog_type            | String   | No             | filesystem    |
+| catalog_uri             | String   | No             | -             |
+| database                | String   | Yes            | -             |
+| table                   | String   | no             | -             |
+| table_list              | array    | no             | -             |
+| user                    | String   | No             | -             |
+| password                | String   | No             | -             |
+| hdfs_site_path          | String   | No             | -             |
+| query                   | String   | No             | -             |
+| paimon.hadoop.conf      | Map      | No             | -             |
+| paimon.hadoop.conf-path | String   | No             | -             |
 
 ### warehouse [string]
 
@@ -51,6 +81,10 @@ The database you want to access
 
 The table you want to access
 
+### table_list [array]
+
+The list of tables to be read, you can use this configuration instead of `table`
+
 ### hdfs_site_path [string]
 
 The file path of `hdfs-site.xml`
@@ -58,7 +92,7 @@ The file path of `hdfs-site.xml`
 ### query [string]
 
 The filter condition of the table read. For example: `select * from st_test where id > 100`. If not specified, all rows are read.
-Currently, where conditions only support <, <=, >, >=, =, !=, or, and,is null, is not null, between...and, in, not in, like(pattern matching with prefix only) ,and others are not supported.
+Currently, where conditions only support <, <=, >, >=, =, !=, or, and,is null, is not null, between...and, in, not in, like, and others are not supported.
 The Having, Group By, Order By clauses are currently unsupported, because these clauses are not supported by Paimon.
 you can also project specific columns, for example: select id, name from st_test where id > 100.
 The limit will be supported in the future.
@@ -102,6 +136,27 @@ source {
      database = "default"
      table = "st_test"
    }
+}
+```
+
+### Multiple tables
+
+```hocon
+source {
+  Paimon {
+    warehouse = "/tmp/paimon"
+    database = "default"
+    table_list = [
+      {
+        table = "table1"
+        query = "select * from table1 where id > 100"
+      },
+      {
+        table = "table2"
+        query = "select * from table2 where id > 100"
+      }
+    ]
+  }
 }
 ```
 
@@ -222,6 +277,20 @@ sink {
     table = "st_test_sink"
     paimon.table.primary-keys = "c_tinyint"
   }
+}
+```
+
+### paimon enable privilege example
+
+```hocon
+source {
+ Paimon {
+     warehouse = "/tmp/paimon"
+     database = "default"
+     table = "st_test"
+     user = "paimon"
+     password = "******"
+   }
 }
 ```
 

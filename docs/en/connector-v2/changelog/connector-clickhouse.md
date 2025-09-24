@@ -2,6 +2,11 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
+|[Improve][Connector-Clickhouse] improve ck batch parallel read by using last batch row sorting value approach, instead of limit offset. (#9801)|https://github.com/apache/seatunnel/commit/5e9990afd5| dev |
+|[Feature][Connector-Clickhouse] Support Clickhouse multi table source read (#9704)|https://github.com/apache/seatunnel/commit/6e323743ea|2.3.12|
+|[Improve][API] Optimize the enumerator API semantics and reduce lock calls at the connector level (#9671)|https://github.com/apache/seatunnel/commit/9212a77140|2.3.12|
+|[Fix][Connector-clickhouse] Fix SeaTunnelRow tableId set error (#9585)|https://github.com/apache/seatunnel/commit/01f1caa6fb|2.3.12|
+|[Improve][connector-clickhouse] Clickhouse support parallelism reading schema (#9446)|https://github.com/apache/seatunnel/commit/3ee0fab3a8|2.3.12|
 |[Feature][Connector-V2] Support multi-table sink feature for ClickHouse (#9301)|https://github.com/apache/seatunnel/commit/3524895136|2.3.11|
 |[Fix][Connector-V2] Fix the problem that missing options configuration when building ClickHouse Nodes (#9277)|https://github.com/apache/seatunnel/commit/051d19c3a9|2.3.11|
 |[Feature][Transform] Support define sink column type (#9114)|https://github.com/apache/seatunnel/commit/ab7119e507|2.3.11|

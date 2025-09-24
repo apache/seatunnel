@@ -31,6 +31,8 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.Abstrac
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.utils.JdbcFieldTypeUtils;
 
+import org.apache.commons.lang3.math.NumberUtils;
+
 import org.postgresql.util.PGobject;
 
 import javax.annotation.Nullable;
@@ -43,13 +45,19 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Time;
 import java.sql.Timestamp;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.OffsetDateTime;
 import java.util.Locale;
 import java.util.Optional;
 
+import static org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.psql.PostgresTypeConverter.PG_CIDR;
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.psql.PostgresTypeConverter.PG_INET;
+import static org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.psql.PostgresTypeConverter.PG_INTERVAL;
+import static org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.psql.PostgresTypeConverter.PG_MAC_ADDR;
+import static org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.psql.PostgresTypeConverter.PG_MAC_ADDR8;
 
 public class PostgresJdbcRowConverter extends AbstractJdbcRowConverter {
 
@@ -184,11 +192,27 @@ public class PostgresJdbcRowConverter extends AbstractJdbcRowConverter {
                 switch (seaTunnelDataType.getSqlType()) {
                     case STRING:
                         String sourceType = sourceTypes[fieldIndex];
-                        if (PG_INET.equalsIgnoreCase(sourceType)) {
-                            PGobject inetObject = new PGobject();
-                            inetObject.setType(PG_INET);
-                            inetObject.setValue(String.valueOf(row.getField(fieldIndex)));
-                            statement.setObject(statementIndex, inetObject);
+                        if (PG_INET.equalsIgnoreCase(sourceType)
+                                || PG_CIDR.equalsIgnoreCase(sourceType)
+                                || PG_MAC_ADDR.equalsIgnoreCase(sourceType)
+                                || PG_MAC_ADDR8.equalsIgnoreCase(sourceType)) {
+                            // handle network address types of postgres
+                            PGobject networkTypeObject = new PGobject();
+                            networkTypeObject.setType(sourceType);
+                            networkTypeObject.setValue(String.valueOf(row.getField(fieldIndex)));
+                            statement.setObject(statementIndex, networkTypeObject);
+                        } else if (PG_INTERVAL.equalsIgnoreCase(sourceType)) {
+                            PGobject intervalObject = new PGobject();
+                            intervalObject.setType(PG_INTERVAL);
+                            String intervalVal = String.valueOf(row.getField(fieldIndex));
+                            if (NumberUtils.isCreatable(intervalVal)) {
+                                // postgres interval types are converted to microseconds (long) in
+                                // Debezium, so if it is a number,
+                                // it is formatted as a postgres interval value.
+                                intervalVal = microsecondsToIntervalFormatVal(intervalVal);
+                            }
+                            intervalObject.setValue(intervalVal);
+                            statement.setObject(statementIndex, intervalObject);
                         } else {
                             statement.setString(statementIndex, (String) row.getField(fieldIndex));
                         }
@@ -230,6 +254,11 @@ public class PostgresJdbcRowConverter extends AbstractJdbcRowConverter {
                         statement.setTimestamp(
                                 statementIndex, java.sql.Timestamp.valueOf(localDateTime));
                         break;
+                    case TIMESTAMP_TZ:
+                        OffsetDateTime offsetDateTime = (OffsetDateTime) row.getField(fieldIndex);
+                        statement.setTimestamp(
+                                statementIndex, Timestamp.from(offsetDateTime.toInstant()));
+                        break;
                     case BYTES:
                         statement.setBytes(statementIndex, (byte[]) row.getField(fieldIndex));
                         break;
@@ -269,5 +298,22 @@ public class PostgresJdbcRowConverter extends AbstractJdbcRowConverter {
             }
         }
         return statement;
+    }
+
+    public String microsecondsToIntervalFormatVal(String intervalVal) {
+        Duration duration = Duration.ofNanos(Long.parseLong(intervalVal) * 1000);
+        int days = (int) duration.toDays();
+        duration = duration.minusDays(days);
+        int hours = (int) duration.toHours();
+        duration = duration.minusHours(hours);
+        int minutes = (int) duration.toMinutes();
+        duration = duration.minusMinutes(minutes);
+        int seconds = (int) duration.getSeconds();
+        StringBuilder sb = new StringBuilder();
+        if (days > 0) sb.append(days).append(" days ");
+        if (hours > 0) sb.append(hours).append(" hours ");
+        if (minutes > 0) sb.append(minutes).append(" minutes ");
+        if (seconds > 0) sb.append(seconds).append(" seconds");
+        return sb.toString().trim();
     }
 }

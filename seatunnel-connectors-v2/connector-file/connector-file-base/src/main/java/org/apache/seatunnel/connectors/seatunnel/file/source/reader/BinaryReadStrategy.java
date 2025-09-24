@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.file.source.reader;
 
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.MetadataUtil;
 import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -99,6 +100,12 @@ public class BinaryReadStrategy extends AbstractReadStrategy {
                 // Read file in configurable chunks
                 readFileInChunks(inputStream, relativePath, tableId, output);
             }
+            // Send an empty chunk as end-of-file marker
+            byte[] endMarker = new byte[0];
+            SeaTunnelRow endRow = new SeaTunnelRow(new Object[] {endMarker, relativePath, -1L});
+            endRow.setTableId(tableId);
+            MetadataUtil.setBinaryRowComplete(endRow);
+            output.collect(endRow);
         }
     }
 
@@ -112,6 +119,7 @@ public class BinaryReadStrategy extends AbstractReadStrategy {
         byte[] fileContent = IOUtils.toByteArray(inputStream);
         SeaTunnelRow row = new SeaTunnelRow(new Object[] {fileContent, relativePath, 0L});
         row.setTableId(tableId);
+        MetadataUtil.setBinaryFormat(row);
         output.collect(row);
     }
 
@@ -132,6 +140,7 @@ public class BinaryReadStrategy extends AbstractReadStrategy {
             SeaTunnelRow row = new SeaTunnelRow(new Object[] {buffer, relativePath, partIndex});
             buffer = new byte[binaryChunkSize];
             row.setTableId(tableId);
+            MetadataUtil.setBinaryFormat(row);
             output.collect(row);
             partIndex++;
         }

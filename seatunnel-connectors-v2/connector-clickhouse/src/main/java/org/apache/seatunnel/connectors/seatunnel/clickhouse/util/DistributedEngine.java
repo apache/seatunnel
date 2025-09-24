@@ -32,4 +32,5 @@ public class DistributedEngine implements Serializable {
     private String table;
     private String tableEngine;
     private String tableDDL;
+    private String sortingKey;
 }

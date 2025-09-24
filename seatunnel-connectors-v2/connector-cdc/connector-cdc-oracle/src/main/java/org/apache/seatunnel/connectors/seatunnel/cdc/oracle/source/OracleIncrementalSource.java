@@ -40,7 +40,7 @@ import org.apache.seatunnel.connectors.cdc.debezium.row.DebeziumJsonDeserializeS
 import org.apache.seatunnel.connectors.cdc.debezium.row.SeaTunnelRowDebeziumDeserializeSchema;
 import org.apache.seatunnel.connectors.seatunnel.cdc.oracle.config.OracleSourceConfigFactory;
 import org.apache.seatunnel.connectors.seatunnel.cdc.oracle.source.offset.RedoLogOffsetFactory;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.JdbcCatalogOptions;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcCommonOptions;
 
 import org.apache.kafka.connect.data.Struct;
 
@@ -52,6 +52,7 @@ import java.time.ZoneId;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -88,7 +89,7 @@ public class OracleIncrementalSource<T> extends IncrementalSource<T, JdbcSourceC
         configFactory.schemaList(config.get(OracleSourceOptions.SCHEMA_NAMES));
         configFactory.useSelectCount(config.get(OracleSourceOptions.USE_SELECT_COUNT));
         configFactory.skipAnalyze(config.get(OracleSourceOptions.SKIP_ANALYZE));
-        configFactory.originUrl(config.get(JdbcCatalogOptions.BASE_URL));
+        configFactory.originUrl(config.get(JdbcCommonOptions.URL));
         return configFactory;
     }
 
@@ -124,6 +125,11 @@ public class OracleIncrementalSource<T> extends IncrementalSource<T, JdbcSourceC
     public OffsetFactory createOffsetFactory(ReadonlyConfig config) {
         return new RedoLogOffsetFactory(
                 (OracleSourceConfigFactory) configFactory, (OracleDialect) dataSourceDialect);
+    }
+
+    @Override
+    public Optional<String> driverName() {
+        return Optional.of("oracle.jdbc.OracleDriver");
     }
 
     private Map<TableId, Struct> tableChanges() {

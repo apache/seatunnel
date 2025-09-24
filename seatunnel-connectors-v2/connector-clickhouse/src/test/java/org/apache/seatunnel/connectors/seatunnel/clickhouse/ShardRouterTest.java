@@ -70,7 +70,7 @@ public class ShardRouterTest {
 
         DistributedEngine distributedEngine =
                 new DistributedEngine(
-                        clusterName, database, localTable, localTableEngine, localTableDDL);
+                        clusterName, database, localTable, localTableEngine, localTableDDL, null);
         ClickhouseProxy proxy = Mockito.mock(ClickhouseProxy.class);
         Mockito.when(proxy.getClickhouseConnection(Mockito.any(Shard.class))).thenReturn(null);
         Mockito.when(

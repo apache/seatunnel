@@ -38,6 +38,7 @@ import org.apache.seatunnel.format.csv.processor.CsvLineProcessor;
 import org.apache.seatunnel.format.csv.processor.DefaultCsvLineProcessor;
 
 import org.apache.commons.csv.CSVFormat;
+import org.apache.commons.csv.CSVFormat.Builder;
 import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;
 
@@ -102,8 +103,9 @@ public class CsvReadStrategy extends AbstractReadStrategy {
                 actualInputStream = inputStream;
                 break;
         }
-
-        CSVFormat csvFormat = CSVFormat.DEFAULT;
+        Builder builder =
+                CSVFormat.EXCEL.builder().setIgnoreEmptyLines(true).setDelimiter(getDelimiter());
+        CSVFormat csvFormat = builder.build();
         if (firstLineAsHeader) {
             csvFormat = csvFormat.withFirstRecordAsHeader();
         }
@@ -200,7 +202,7 @@ public class CsvReadStrategy extends AbstractReadStrategy {
         ReadonlyConfig readonlyConfig = ReadonlyConfig.fromConfig(pluginConfig);
         CsvDeserializationSchema.Builder builder =
                 CsvDeserializationSchema.builder()
-                        .delimiter(",")
+                        .delimiter(getDelimiter())
                         .csvLineProcessor(processor)
                         .nullFormat(
                                 readonlyConfig
@@ -213,6 +215,11 @@ public class CsvReadStrategy extends AbstractReadStrategy {
             deserializationSchema = builder.seaTunnelRowType(this.seaTunnelRowType).build();
         }
         return getActualSeaTunnelRowTypeInfo();
+    }
+
+    private String getDelimiter() {
+        ReadonlyConfig readonlyConfig = ReadonlyConfig.fromConfig(pluginConfig);
+        return readonlyConfig.getOptional(FileBaseSourceOptions.FIELD_DELIMITER).orElse(",");
     }
 
     @Override
@@ -229,7 +236,7 @@ public class CsvReadStrategy extends AbstractReadStrategy {
         initFormatter();
         CsvDeserializationSchema.Builder builder =
                 CsvDeserializationSchema.builder()
-                        .delimiter(",")
+                        .delimiter(getDelimiter())
                         .csvLineProcessor(processor)
                         .nullFormat(
                                 readonlyConfig

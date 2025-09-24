@@ -45,15 +45,24 @@ public class OpenAIModel extends AbstractModel {
     private final String apiPath;
 
     public OpenAIModel(String apiKey, String model, String apiPath, Integer vectorizedNumber) {
+        this(apiKey, model, apiPath, vectorizedNumber, HttpClients.createDefault());
+    }
+
+    public OpenAIModel(
+            String apiKey,
+            String model,
+            String apiPath,
+            Integer vectorizedNumber,
+            CloseableHttpClient client) {
         super(vectorizedNumber);
         this.apiKey = apiKey;
         this.model = model;
         this.apiPath = apiPath;
-        this.client = HttpClients.createDefault();
+        this.client = client;
     }
 
     @Override
-    protected List<List<Double>> vector(Object[] fields) throws IOException {
+    protected List<List<Float>> vector(Object[] fields) throws IOException {
         if (fields.length > 1) {
             throw new IllegalArgumentException("OpenAI model only supports single input");
         }
@@ -62,10 +71,10 @@ public class OpenAIModel extends AbstractModel {
 
     @Override
     public Integer dimension() throws IOException {
-        return vectorGeneration(new Object[] {DIMENSION_EXAMPLE}).size();
+        return vectorGeneration(new Object[] {DIMENSION_EXAMPLE}).get(0).size();
     }
 
-    private List<List<Double>> vectorGeneration(Object[] fields) throws IOException {
+    private List<List<Float>> vectorGeneration(Object[] fields) throws IOException {
         HttpPost post = new HttpPost(apiPath);
         post.setHeader("Authorization", "Bearer " + apiKey);
         post.setHeader("Content-Type", "application/json");
@@ -84,14 +93,14 @@ public class OpenAIModel extends AbstractModel {
         }
 
         JsonNode data = OBJECT_MAPPER.readTree(responseStr).get("data");
-        List<List<Double>> embeddings = new ArrayList<>();
+        List<List<Float>> embeddings = new ArrayList<>();
 
         if (data.isArray()) {
             for (JsonNode node : data) {
                 JsonNode embeddingNode = node.get("embedding");
-                List<Double> embedding =
+                List<Float> embedding =
                         OBJECT_MAPPER.readValue(
-                                embeddingNode.traverse(), new TypeReference<List<Double>>() {});
+                                embeddingNode.traverse(), new TypeReference<List<Float>>() {});
                 embeddings.add(embedding);
             }
         }

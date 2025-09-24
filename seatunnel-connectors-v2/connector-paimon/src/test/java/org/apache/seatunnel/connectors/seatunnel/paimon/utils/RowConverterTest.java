@@ -76,9 +76,9 @@ public class RowConverterTest {
     private SeaTunnelRowType seaTunnelRowType;
 
     private volatile boolean isCaseSensitive = false;
-    private volatile boolean subtractOneFiledInSource = false;
+    private volatile boolean subtractOneFieldInSource = false;
     private volatile int index = 0;
-    private static final String[] filedNames = {
+    private static final String[] fieldNames = {
         "c_tinyint",
         "c_smallint",
         "c_int",
@@ -166,7 +166,7 @@ public class RowConverterTest {
 
     @BeforeEach
     public void generateTestData() {
-        initSeaTunnelRowTypeCaseSensitive(isCaseSensitive, index, subtractOneFiledInSource);
+        initSeaTunnelRowTypeCaseSensitive(isCaseSensitive, index, subtractOneFieldInSource);
         byte tinyint = 1;
         short smallint = 2;
         int intNum = 3;
@@ -247,21 +247,21 @@ public class RowConverterTest {
     }
 
     private void initSeaTunnelRowTypeCaseSensitive(
-            boolean isUpperCase, int index, boolean subtractOneFiledInSource) {
-        String[] oneUpperCaseFiledNames =
+            boolean isUpperCase, int index, boolean subtractOneFieldInSource) {
+        String[] oneUpperCaseFieldNames =
                 Arrays.copyOf(
-                        filedNames,
-                        subtractOneFiledInSource ? filedNames.length - 1 : filedNames.length);
+                        fieldNames,
+                        subtractOneFieldInSource ? fieldNames.length - 1 : fieldNames.length);
         if (isUpperCase) {
-            oneUpperCaseFiledNames[index] = oneUpperCaseFiledNames[index].toUpperCase();
+            oneUpperCaseFieldNames[index] = oneUpperCaseFieldNames[index].toUpperCase();
         }
         SeaTunnelDataType<?>[] newSeaTunnelDataTypes =
                 Arrays.copyOf(
                         seaTunnelDataTypes,
-                        subtractOneFiledInSource
+                        subtractOneFieldInSource
                                 ? seaTunnelDataTypes.length - 1
-                                : filedNames.length);
-        seaTunnelRowType = new SeaTunnelRowType(oneUpperCaseFiledNames, newSeaTunnelDataTypes);
+                                : fieldNames.length);
+        seaTunnelRowType = new SeaTunnelRowType(oneUpperCaseFieldNames, newSeaTunnelDataTypes);
     }
 
     @Test
@@ -285,32 +285,32 @@ public class RowConverterTest {
                 RowConverter.reconvert(seaTunnelRow, seaTunnelRowType, sinkTableSchema);
         Assertions.assertEquals(reconvert, internalRow);
 
-        subtractOneFiledInSource = true;
+        subtractOneFieldInSource = true;
         generateTestData();
-        SeaTunnelRuntimeException filedNumsActualException =
+        SeaTunnelRuntimeException fieldNumsActualException =
                 Assertions.assertThrows(
                         SeaTunnelRuntimeException.class,
                         () ->
                                 RowConverter.reconvert(
                                         seaTunnelRow, seaTunnelRowType, sinkTableSchema));
-        SeaTunnelRuntimeException filedNumsExceptException =
+        SeaTunnelRuntimeException fieldNumsExceptException =
                 CommonError.writeRowErrorWithFieldsCountNotMatch(
                         "Paimon",
                         seaTunnelRowType.getTotalFields(),
                         sinkTableSchema.fields().size());
         Assertions.assertEquals(
-                filedNumsExceptException.getMessage(), filedNumsActualException.getMessage());
+                fieldNumsExceptException.getMessage(), fieldNumsActualException.getMessage());
 
-        subtractOneFiledInSource = false;
+        subtractOneFieldInSource = false;
         isCaseSensitive = true;
 
-        for (int i = 0; i < filedNames.length; i++) {
+        for (int i = 0; i < fieldNames.length; i++) {
             index = i;
             generateTestData();
-            String sourceFiledname = seaTunnelRowType.getFieldName(i);
+            String sourceFieldName = seaTunnelRowType.getFieldName(i);
             DataType exceptDataType =
-                    RowTypeConverter.reconvert(sourceFiledname, seaTunnelRowType.getFieldType(i));
-            DataField exceptDataField = new DataField(i, sourceFiledname, exceptDataType);
+                    RowTypeConverter.reconvert(sourceFieldName, seaTunnelRowType.getFieldType(i));
+            DataField exceptDataField = new DataField(i, sourceFieldName, exceptDataType);
             SeaTunnelRuntimeException actualException1 =
                     Assertions.assertThrows(
                             SeaTunnelRuntimeException.class,
@@ -320,7 +320,7 @@ public class RowConverterTest {
             Assertions.assertEquals(
                     CommonError.writeRowErrorWithSchemaIncompatibleSchema(
                                     "Paimon",
-                                    sourceFiledname
+                                    sourceFieldName
                                             + StringUtils.SPACE
                                             + seaTunnelRowType.getFieldType(i).getSqlType(),
                                     exceptDataField.asSQLString(),

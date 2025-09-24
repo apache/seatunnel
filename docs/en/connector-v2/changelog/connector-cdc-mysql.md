@@ -2,7 +2,12 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
-|[Feature][Connector-V2] Jdbc mysql support read tinyint(1) to byte(tinyint) (#9373)|https://github.com/apache/seatunnel/commit/7b87aa6f12| dev |
+|[Feature][MySQL CDC] MySQL cdc support start by time (#9735)|https://github.com/apache/seatunnel/commit/b6c5d941b0|2.3.12|
+|[Feature][Core] Add plugin directory support for each connector (#9650)|https://github.com/apache/seatunnel/commit/4beb2b9336|2.3.12|
+|[Feature][Connectors-v2] Support Mysql8.4+ for mysql-cdc (#9720)|https://github.com/apache/seatunnel/commit/e338743927|2.3.12|
+|[improve] jdbc options (#9541)|https://github.com/apache/seatunnel/commit/d041e5fb32|2.3.12|
+|[Feature][Connectors-v2] Optimize the size of CDC JAR Files (#9546)|https://github.com/apache/seatunnel/commit/1dd19c6823|2.3.12|
+|[Feature][Connector-V2] Jdbc mysql support read tinyint(1) to byte(tinyint) (#9373)|https://github.com/apache/seatunnel/commit/7b87aa6f12|2.3.12|
 |[Improve][CDC] Filter ddl for snapshot phase (#8911)|https://github.com/apache/seatunnel/commit/641cc72f2f|2.3.10|
 |[Improve][CDC] Extract duplicate code (#8906)|https://github.com/apache/seatunnel/commit/b922bb90e6|2.3.10|
 |[Improve] restruct connector common options (#8634)|https://github.com/apache/seatunnel/commit/f3499a6eeb|2.3.10|

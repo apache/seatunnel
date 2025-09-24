@@ -14,6 +14,10 @@ import ChangeLog from '../changelog/connector-file-ftp.md';
 
 - [x] [batch](../../concept/connector-v2-features.md)
 - [ ] [stream](../../concept/connector-v2-features.md)
+- [x] [multimodal](../../concept/connector-v2-features.md#multimodal)
+
+  Use binary file format to read and write files in any format, such as videos, pictures, etc. In short, any files can be synchronized to the target place.
+
 - [ ] [exactly-once](../../concept/connector-v2-features.md)
 - [x] [column projection](../../concept/connector-v2-features.md)
 - [x] [parallelism](../../concept/connector-v2-features.md)
@@ -25,6 +29,7 @@ import ChangeLog from '../changelog/connector-file-ftp.md';
   - [x] excel
   - [x] xml
   - [x] binary
+  - [x] markdown
 
 ## Description
 
@@ -40,37 +45,40 @@ If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you
 
 ## Options
 
-| name                        | type    | required | default value       |
-|-----------------------------|---------|----------|---------------------|
-| host                        | string  | yes      | -                   |
-| port                        | int     | yes      | -                   |
-| user                        | string  | yes      | -                   |
-| password                    | string  | yes      | -                   |
-| path                        | string  | yes      | -                   |
-| file_format_type            | string  | yes      | -                   |
-| connection_mode             | string  | no       | active_local        |
-| remote_verification_enabled | boolean | no       | true                |
-| delimiter/field_delimiter   | string  | no       | \001                |
-| read_columns                | list    | no       | -                   |
-| parse_partition_from_path   | boolean | no       | true                |
-| date_format                 | string  | no       | yyyy-MM-dd          |
-| datetime_format             | string  | no       | yyyy-MM-dd HH:mm:ss |
-| time_format                 | string  | no       | HH:mm:ss            |
-| skip_header_row_number      | long    | no       | 0                   |
-| schema                      | config  | no       | -                   |
-| sheet_name                  | string  | no       | -                   |
-| xml_row_tag                 | string  | no       | -                   |
-| xml_use_attr_format         | boolean | no       | -                   |
-| csv_use_header_line         | boolean | no       | -                   |
-| file_filter_pattern         | string  | no       | -                   |
-| filename_extension          | string  | no       | -                   |
-| compress_codec              | string  | no       | none                |
-| archive_compress_codec      | string  | no       | none                |
-| encoding                    | string  | no       | UTF-8               |
-| null_format                 | string  | no       | -                   |
-| binary_chunk_size           | int     | no       | 1024                |
-| binary_complete_file_mode   | boolean | no       | false               |
-| common-options              |         | no       | -                   |
+| name                        | type    | required | default value               |
+|-----------------------------|---------|----------|-----------------------------|
+| host                        | string  | yes      | -                           |
+| port                        | int     | yes      | -                           |
+| user                        | string  | yes      | -                           |
+| password                    | string  | yes      | -                           |
+| path                        | string  | yes      | -                           |
+| file_format_type            | string  | yes      | -                           |
+| connection_mode             | string  | no       | active_local                |
+| remote_verification_enabled | boolean | no       | true                        |
+| delimiter/field_delimiter   | string  | no       | \001 for text and , for csv |
+| row_delimiter               | string  | no       | \n                          |
+| read_columns                | list    | no       | -                           |
+| parse_partition_from_path   | boolean | no       | true                        |
+| date_format                 | string  | no       | yyyy-MM-dd                  |
+| datetime_format             | string  | no       | yyyy-MM-dd HH:mm:ss         |
+| time_format                 | string  | no       | HH:mm:ss                    |
+| skip_header_row_number      | long    | no       | 0                           |
+| schema                      | config  | no       | -                           |
+| sheet_name                  | string  | no       | -                           |
+| xml_row_tag                 | string  | no       | -                           |
+| xml_use_attr_format         | boolean | no       | -                           |
+| csv_use_header_line         | boolean | no       | -                           |
+| file_filter_pattern         | string  | no       | -                           |
+| filename_extension          | string  | no       | -                           |
+| compress_codec              | string  | no       | none                        |
+| archive_compress_codec      | string  | no       | none                        |
+| encoding                    | string  | no       | UTF-8                       |
+| null_format                 | string  | no       | -                           |
+| binary_chunk_size           | int     | no       | 1024                        |
+| binary_complete_file_mode   | boolean | no       | false                       |
+| common-options              |         | no       | -                           |
+| file_filter_modified_start  | string  | no       | -                           | 
+| file_filter_modified_end    | string  | no       | -                           | 
 
 ### host [string]
 
@@ -252,6 +260,20 @@ such as compressed packages, pictures, etc. In short, any files can be synchroni
 Under this requirement, you need to ensure that the source and sink use `binary` format for file synchronization
 at the same time. You can find the specific usage in the example below.
 
+If you assign file type to `markdown`, SeaTunnel can parse markdown files and extract structured data.
+The markdown parser extracts various elements including headings, paragraphs, lists, code blocks, tables, and more.
+Each element is converted to a row with the following schema:
+- `element_id`: Unique identifier for the element
+- `element_type`: Type of the element (Heading, Paragraph, ListItem, etc.)
+- `heading_level`: Level of heading (1-6, null for non-heading elements)
+- `text`: Text content of the element
+- `page_number`: Page number (default: 1)
+- `position_index`: Position index within the document
+- `parent_id`: ID of the parent element
+- `child_ids`: Comma-separated list of child element IDs
+
+Note: Markdown format only supports reading, not writing.
+
 ### connection_mode [string]
 
 The target ftp connection mode , default is active mode, supported as the following modes:
@@ -267,6 +289,14 @@ Only need to be configured when file_format is text.
 Field delimiter, used to tell connector how to slice and dice fields.
 
 default `\001`, the same as hive's default delimiter
+
+### row_delimiter [string]
+
+Only need to be configured when file_format is text
+
+Row delimiter, used to tell connector how to slice and dice rows
+
+default `\n`
 
 ### parse_partition_from_path [boolean]
 
@@ -393,6 +423,14 @@ The chunk size (in bytes) for reading binary files. Default is 1024 bytes. Large
 Only used when file_format_type is binary.
 
 Whether to read the complete file as a single chunk instead of splitting into chunks. When enabled, the entire file content will be read into memory at once. Default is false.
+
+### file_filter_modified_start [string]
+
+File modification time filter. The connector will filter some files base on the last modification start time (include start time). The default data format is `yyyy-MM-dd HH:mm:ss`.
+
+### file_filter_modified_end [string]
+
+File modification time filter. The connector will filter some files base on the last modification end time (not include end time). The default data format is `yyyy-MM-dd HH:mm:ss`.
 
 ### common options
 

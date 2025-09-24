@@ -72,7 +72,9 @@ public abstract class AbstractSeaTunnelTransform<T, R> implements SeaTunnelTrans
                 tableSchema,
                 inputCatalogTable.getOptions(),
                 inputCatalogTable.getPartitionKeys(),
-                inputCatalogTable.getComment());
+                inputCatalogTable.getComment(),
+                inputCatalogTable.getTableId().getCatalogName(),
+                inputCatalogTable.getMetadataSchema());
     }
 
     public R transform(SeaTunnelRow row) {

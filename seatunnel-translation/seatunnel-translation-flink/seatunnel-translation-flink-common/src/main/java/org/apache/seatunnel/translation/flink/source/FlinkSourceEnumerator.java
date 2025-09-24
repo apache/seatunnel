@@ -33,6 +33,7 @@ import javax.annotation.Nullable;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 
 /**
@@ -56,7 +57,7 @@ public class FlinkSourceEnumerator<SplitT extends SourceSplit, EnumStateT>
 
     private final Object lock = new Object();
 
-    private volatile boolean isRun = false;
+    private AtomicBoolean isRun = new AtomicBoolean(false);
 
     private volatile int currentRegisterReaders = 0;
 
@@ -82,30 +83,33 @@ public class FlinkSourceEnumerator<SplitT extends SourceSplit, EnumStateT>
 
     @Override
     public void addSplitsBack(List<SplitWrapper<SplitT>> splits, int subtaskId) {
-        sourceSplitEnumerator.addSplitsBack(
-                splits.stream().map(SplitWrapper::getSourceSplit).collect(Collectors.toList()),
-                subtaskId);
+        synchronized (lock) {
+            sourceSplitEnumerator.addSplitsBack(
+                    splits.stream().map(SplitWrapper::getSourceSplit).collect(Collectors.toList()),
+                    subtaskId);
+        }
     }
 
     @Override
     public void addReader(int subtaskId) {
-        sourceSplitEnumerator.registerReader(subtaskId);
         synchronized (lock) {
+            sourceSplitEnumerator.registerReader(subtaskId);
             currentRegisterReaders++;
-            if (!isRun && currentRegisterReaders == parallelism) {
-                try {
-                    sourceSplitEnumerator.run();
-                } catch (Exception e) {
-                    throw new RuntimeException(e);
-                }
-                isRun = true;
+        }
+        if (currentRegisterReaders == parallelism && !isRun.getAndSet(true)) {
+            try {
+                sourceSplitEnumerator.run();
+            } catch (Exception e) {
+                throw new RuntimeException(e);
             }
         }
     }
 
     @Override
     public EnumStateT snapshotState(long checkpointId) throws Exception {
-        return sourceSplitEnumerator.snapshotState(checkpointId);
+        synchronized (lock) {
+            return sourceSplitEnumerator.snapshotState(checkpointId);
+        }
     }
 
     @Override

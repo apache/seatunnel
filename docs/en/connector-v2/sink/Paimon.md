@@ -8,6 +8,33 @@ import ChangeLog from '../changelog/connector-paimon.md';
 
 Sink connector for Apache Paimon. It can support cdc mode 、auto create table.
 
+### Comparison between SeaTunnel and Paimon version
+
+| Seatunnel Version | Paimon Version   |
+|-------------------|------------------|
+| 2.3.2  -  2.3.3   | 0.4-SNAPSHOT     |
+| 2.3.4             | 0.6-SNAPSHOT     |
+| 2.3.5  -  2.3.11  | 0.7.0-incubating |
+| 2.3.12  - 2.3.13  | 1.1.1            |
+
+### Key Considerations for Upgrading Paimon from `0.7.0-incubating` to `1.1.1`
+
+1. **Backup Recommendations**
+   Although compatibility is ensured, it is strongly recommended to backup critical data, especially the metadata directory, before initiating the upgrade.
+2. **Gradual Upgrade Process**
+   - **Test Environment Validation**: First validate the upgrade process in a staging environment.
+   - **Update JAR Files**: Replace Paimon JAR files with version 1.1.1.
+   - **Automatic Format Upgrade**: The system will automatically detect and upgrade older file formats.
+3. **Configuration Check**
+   Review your configurations to ensure no deprecated options are in use. While most configurations remain backward-compatible, deprecated settings may require updates.
+4. **Post-Upgrade Validation**
+   Verify the following after upgrading:
+   - **Read/Write Operations**: Ensure data ingestion and retrieval workflows function normally.
+   - **Query Performance**: Confirm that query response times meet expectations.
+   - **New Feature Verification**: Test all newly introduced features (e.g., time travel, enhanced compaction) to ensure proper functionality.
+
+**Note**: These steps help minimize risks and ensure a smooth transition to the stable version 1.1.1.
+
 ## Supported DataSource Info
 
 | Datasource | Dependent |                                   Maven                                   |
@@ -40,6 +67,8 @@ libfb303-xxx.jar
 | catalog_uri                  | String  | No       | -                            | Catalog uri of Paimon, only needed when catalog_type is hive                                                                                                     |
 | database                     | String  | Yes      | -                            | The database you want to access                                                                                                                                  |
 | table                        | String  | Yes      | -                            | The table you want to access                                                                                                                                     |
+| user                         | String  | No       | -                            | Paimon user to access table                                                                                                                                      |
+| password                     | String  | No      | -                            | Paimon user password to access table                                                                                                                             |
 | hdfs_site_path               | String  | No       | -                            | The path of hdfs-site.xml                                                                                                                                        |
 | schema_save_mode             | Enum    | No       | CREATE_SCHEMA_WHEN_NOT_EXIST | The schema save mode                                                                                                                                             |
 | data_save_mode               | Enum    | No       | APPEND_DATA                  | The data save mode                                                                                                                                               |
@@ -82,11 +111,12 @@ Cdc Ingestion supports a limited number of schema changes. Currently supported s
 
 * Modify column. More specifically, If you modify the column type, the following changes are supported:
 
-    * altering from a string type (char, varchar, text) to another string type with longer length,
-    * altering from a binary type (binary, varbinary, blob) to another binary type with longer length,
-    * altering from an integer type (tinyint, smallint, int, bigint) to another integer type with wider range,
-    * altering from a floating-point type (float, double) to another floating-point type with wider range,
-  
+  * altering from a string type (char, varchar, text) to another string type with longer length,
+  * altering from a binary type (binary, varbinary, blob) to another binary type with longer length,
+  * altering from an integer type (tinyint, smallint, int, bigint) to another integer type with wider range,
+  * altering from a floating-point type (float, double) to another floating-point type with wider range,
+    
+
   are supported. 
   > Note:
   > 
@@ -115,7 +145,7 @@ source {
     username = "st_user_source"
     password = "mysqlpw"
     table-names = ["shop.products"]
-    base-url = "jdbc:mysql://mysql_cdc_e2e:3306/shop"
+    url = "jdbc:mysql://mysql_cdc_e2e:3306/shop"
     
     schema-changes.enabled = true
   }
@@ -141,7 +171,7 @@ env {
 
 source {
   Mysql-CDC {
-    base-url = "jdbc:mysql://127.0.0.1:3306/seatunnel"
+    url = "jdbc:mysql://127.0.0.1:3306/seatunnel"
     username = "root"
     password = "******"
     table-names = ["seatunnel.role"]
@@ -219,7 +249,7 @@ env {
 
 source {
   Mysql-CDC {
-    base-url = "jdbc:mysql://127.0.0.1:3306/seatunnel"
+    url = "jdbc:mysql://127.0.0.1:3306/seatunnel"
     username = "root"
     password = "******"
     table-names = ["seatunnel.role"]
@@ -261,7 +291,7 @@ env {
 
 source {
   Mysql-CDC {
-    base-url = "jdbc:mysql://127.0.0.1:3306/seatunnel"
+    url = "jdbc:mysql://127.0.0.1:3306/seatunnel"
     username = "root"
     password = "******"
     table-names = ["seatunnel.role"]
@@ -389,7 +419,7 @@ env {
 
 source {
   Mysql-CDC {
-    base-url = "jdbc:mysql://127.0.0.1:3306/seatunnel"
+    url = "jdbc:mysql://127.0.0.1:3306/seatunnel"
     username = "root"
     password = "******"
     table-names = ["seatunnel.role"]
@@ -423,7 +453,7 @@ env {
 
 source {
  Mysql-CDC {
-  base-url = "jdbc:mysql://127.0.0.1:3306/seatunnel"
+  url = "jdbc:mysql://127.0.0.1:3306/seatunnel"
   username = "root"
   password = "******"
   table-names = ["seatunnel.role"]
@@ -448,6 +478,10 @@ sink {
 
 Single dynamic bucket table with write props of paimon，operates on the primary key table and bucket is -1.
 
+> Notes:
+> - Currently only the ordinary dynamic bucket mode is supported (the primary key must include all partition fields).
+> - When running in a cluster environment, `parallelism` must be set to `1`; otherwise, data duplication may occur.
+
 #### core options
 
 Please [reference](https://paimon.apache.org/docs/master/primary-key-table/data-distribution/#dynamic-bucket)
@@ -466,7 +500,7 @@ env {
 
 source {
   Mysql-CDC {
-    base-url = "jdbc:mysql://127.0.0.1:3306/seatunnel"
+    url = "jdbc:mysql://127.0.0.1:3306/seatunnel"
     username = "root"
     password = "******"
     table-names = ["seatunnel.role"]
@@ -502,7 +536,7 @@ env {
 
 source {
   Mysql-CDC {
-    base-url = "jdbc:mysql://127.0.0.1:3306/seatunnel"
+    url = "jdbc:mysql://127.0.0.1:3306/seatunnel"
     username = "root"
     password = "******"
     
@@ -558,6 +592,41 @@ sink {
     warehouse="file:///tmp/seatunnel/paimon/hadoop-sink/"
     database="${schema_name}_test"
     table="${table_name}_test"
+  }
+}
+```
+
+### paimon enable privilege
+
+#### example1
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 5000
+}
+
+source {
+  Mysql-CDC {
+    url = "jdbc:mysql://127.0.0.1:3306/seatunnel"
+    username = "root"
+    password = "******"
+    table-names = ["seatunnel.role","seatunnel.user","galileo.Bucket"]
+  }
+}
+
+transform {
+}
+
+sink {
+  Paimon {
+    catalog_name = "seatunnel_test"
+    warehouse = "file:///tmp/seatunnel/paimon/hadoop-sink/"
+    database = "${database_name}"
+    table = "${table_name}"
+    user = "paimon"
+    password = "******"
   }
 }
 ```

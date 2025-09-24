@@ -108,6 +108,12 @@ public class FileBaseSinkOptions extends FileBaseOptions {
                     .withDescription(
                             "The separator between columns in a row of data. Only needed by `text` and `csv` file format");
 
+    public static final Option<Integer> SHEET_MAX_ROWS =
+            Options.key("sheet_max_rows")
+                    .intType()
+                    .defaultValue(1048576)
+                    .withDescription("Only needed by `excel` file format");
+
     public static final Option<String> ROW_DELIMITER =
             Options.key("row_delimiter")
                     .stringType()
@@ -323,4 +329,11 @@ public class FileBaseSinkOptions extends FileBaseOptions {
                     .stringType()
                     .noDefaultValue()
                     .withDescription("When using kerberos, We should specify the keytab path");
+
+    public static final Option<Boolean> MERGE_UPDATE_EVENT =
+            Options.key("merge_update_event")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription(
+                            "Only used when file_format_type is canal_json,debezium_json,maxwell_json. set true,then when serialize data,UPDATE_AFTER and UPDATE_BEFORE event will merge into UPDATE data;if set false, when serialize data will get UPDATE_AFTER and UPDATE_BEFORE event ");
 }

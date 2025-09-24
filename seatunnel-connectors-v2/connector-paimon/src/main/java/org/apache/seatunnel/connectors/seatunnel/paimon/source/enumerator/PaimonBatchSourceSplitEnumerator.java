@@ -17,16 +17,18 @@
 
 package org.apache.seatunnel.connectors.seatunnel.paimon.source.enumerator;
 
+import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.connectors.seatunnel.paimon.source.PaimonSourceSplit;
 import org.apache.seatunnel.connectors.seatunnel.paimon.source.PaimonSourceState;
 
-import org.apache.paimon.table.source.TableScan;
+import org.apache.paimon.table.source.ReadBuilder;
 
 import lombok.extern.slf4j.Slf4j;
 
 import javax.annotation.Nullable;
 
 import java.util.Deque;
+import java.util.Map;
 import java.util.Set;
 
 /** Paimon source split enumerator, used to calculate the splits for every reader. */
@@ -37,14 +39,16 @@ public class PaimonBatchSourceSplitEnumerator extends AbstractSplitEnumerator {
             Context<PaimonSourceSplit> context,
             Deque<PaimonSourceSplit> pendingSplits,
             @Nullable Long nextSnapshotId,
-            TableScan tableScan,
+            Map<String, ReadBuilder> readBuilders,
             int splitMaxPerTask) {
-        super(context, pendingSplits, nextSnapshotId, tableScan, splitMaxPerTask);
+        super(context, pendingSplits, nextSnapshotId, readBuilders, splitMaxPerTask, JobMode.BATCH);
     }
 
     @Override
     public void run() throws Exception {
-        this.processDiscoveredSplits(this.scanNextSnapshot(), null);
+        synchronized (stateLock) {
+            this.processDiscoveredSplits(this.scanNextSnapshot(), null);
+        }
         Set<Integer> readers = context.registeredReaders();
         log.debug(
                 "No more splits to assign." + " Sending NoMoreSplitsEvent to reader {}.", readers);
@@ -53,7 +57,9 @@ public class PaimonBatchSourceSplitEnumerator extends AbstractSplitEnumerator {
 
     @Override
     public PaimonSourceState snapshotState(long checkpointId) throws Exception {
-        return new PaimonSourceState(pendingSplits, null);
+        synchronized (stateLock) {
+            return new PaimonSourceState(pendingSplits, null);
+        }
     }
 
     @Override

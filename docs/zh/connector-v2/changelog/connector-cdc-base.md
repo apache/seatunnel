@@ -2,6 +2,11 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
+|[Feature][MySQL CDC] MySQL cdc support start by time (#9735)|https://github.com/apache/seatunnel/commit/b6c5d941b0|2.3.12|
+|[Feature][Core] Add plugin directory support for each connector (#9650)|https://github.com/apache/seatunnel/commit/4beb2b9336|2.3.12|
+|[Improve][API] Add metadata schema into catalog table (#9586)|https://github.com/apache/seatunnel/commit/385814e7f1|2.3.12|
+|[Feature][Connectors-v2] Optimize the size of CDC JAR Files (#9546)|https://github.com/apache/seatunnel/commit/1dd19c6823|2.3.12|
+|[Fix][Connector-V2] Update catalog table schema of debezium json (#9525)|https://github.com/apache/seatunnel/commit/10cb84435b|2.3.12|
 |[Improve][Oracle-CDC] Fix oracle rename ddl event missing column type (#9314)|https://github.com/apache/seatunnel/commit/11a23af64c|2.3.11|
 |[Fix][JDBC] fix jdbc default connection parameter invalid (#8185)|https://github.com/apache/seatunnel/commit/f85eb78b37|2.3.11|
 |[Improve][CDC] Extract duplicate code (#8906)|https://github.com/apache/seatunnel/commit/b922bb90e6|2.3.10|

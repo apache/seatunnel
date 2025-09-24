@@ -22,15 +22,17 @@ supports query SQL and can achieve projection effect.
 
 ## Options
 
-|    name     |  type  | required | default value |
-|-------------|--------|----------|---------------|
-| url         | string | yes      | -             |
-| username    | string | yes      | -             |
-| password    | string | yes      | -             |
-| database    | string | yes      |               |
-| stable      | string | yes      | -             |
-| lower_bound | long   | yes      | -             |
-| upper_bound | long   | yes      | -             |
+| name         | type   | required | default value |
+|--------------|--------|----------|---------------|
+| url          | string | yes      | -             |
+| username     | string | yes      | -             |
+| password     | string | yes      | -             |
+| database     | string | yes      |               |
+| stable       | string | yes      | -             |
+| sub_tables   | list   | no       | -             |
+| lower_bound  | long   | yes      | -             |
+| upper_bound  | long   | yes      | -             |
+| read_columns | list   | no       | -             |
 
 ### url [string]
 
@@ -58,6 +60,9 @@ the database of the TDengine when you select
 
 the stable of the TDengine when you select
 
+### sub_tables [list]
+A list of sub_table names. If not specified, all sub-tables will be selected. If specified, only the specified sub-tables will be selected.
+
 ### lower_bound [long]
 
 the lower_bound of the migration period
@@ -65,6 +70,10 @@ the lower_bound of the migration period
 ### upper_bound [long]
 
 the upper_bound of the migration period
+
+### read_columns [list]
+A list of column names to read. If not specified, all columns will be selected. 
+When reading from a super table, please make sure to put the TAGS columns at the end of the list.
 
 ## Example
 
@@ -78,9 +87,11 @@ source {
           password : "taosdata"
           database : "power"
           stable : "meters"
+          sub_tables : ["meter_1","meter_2"]
           lower_bound : "2018-10-03 14:38:05.000"
           upper_bound : "2018-10-03 14:38:16.800"
-          plugin_output = "tdengine_result"
+          plugin_output : "tdengine_result"
+          read_columns : ["ts","voltage","current","power"]
         }
 }
 ```

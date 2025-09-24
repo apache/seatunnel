@@ -88,7 +88,8 @@ Since in the separated cluster mode, the Worker node does not store Imap data, t
 
 ### 4.2 Slot configuration (this parameter is not effective on the Master node)
 
-The number of Slots determines the number of task groups that can be run in parallel on the cluster node. The number of Slots required by a task is formulated as N = 2 + P (parallelism configured by the task). By default, the number of Slots of SeaTunnel Engine is dynamic, that is, there is no limit on the number. We recommend that the number of Slots be set to twice the number of CPU cores of the node.
+The number of Slots determines the number of task groups that can be run in parallel on the cluster node. The number of Slots required by a task is formulated as N = 2 + P (parallelism configured by the task). By default, the number of Slots of SeaTunnel Engine is dynamic, that is, there is no limit on the number.
+We recommend that the number of slots be set to twice the number of CPU cores on the node, it's a default value when `dynamic-slot` is set to false and not set `slot-num`.
 
 The configuration of dynamic slot number (default) is as follows:
 
@@ -128,6 +129,11 @@ The interval between two checkpoints, in milliseconds. If the `checkpoint.interv
 
 The timeout time of the checkpoint. If the checkpoint cannot be completed within the timeout time, it will trigger a checkpoint failure and the job fails. If the `checkpoint.timeout` parameter is configured in the `env` of the job configuration file, it will be subject to the setting in the job configuration file.
 
+
+**min-pause**
+
+The minimum pause (in milliseconds) between consecutive checkpoints. This ensures that checkpoints are not triggered too frequently.
+
 Example
 
 ```yaml
@@ -140,6 +146,7 @@ seatunnel:
         checkpoint:
             interval: 300000
             timeout: 10000
+            min-pause: 5000
 ```
 
 **checkpoint storage**
@@ -319,6 +326,32 @@ coordinator-service:
   max-thread-num: 1000
 ```
 
+### 4.9 Job Metrics Partition Count (This parameter is invalid on the Worker node)
+
+A new configuration option JOB_METRICS_PARTITION_COUNT controls the number of partitions used to store running job metrics in Hazelcast IMap.
+
+- Default: 1 (single key, backward compatible)
+
+- Usage: Increase this value to distribute metrics across multiple partitions and reduce contention when many tasks update metrics concurrently.
+
+Example:
+
+```yaml
+seatunnel:
+  engine:
+    job-metrics-partition-count: 4
+```
+This will distribute metrics across 4 partitions instead of using a single key.
+
+Increasing the partition count provides significant benefits when the number of tasks exceeds approximately 20,000.
+As a practical guideline, a partition count of around 1,000–2,000 tends to offer the best balance between reducing lock contention and minimizing overhead.
+It is recommended to start with this value and then adjust based on your cluster size and workload characteristics.
+
+Note:
+Increasing the partition count may improve concurrency under heavy contention,
+but setting it too high can introduce additional overhead in distribution and merging, which can reduce overall performance.
+The partition count should be configured before starting a job. 
+Changing the partition count after a job has started may result in metric key mismatches, so it is recommended to restart Seatunnel after modifying this option.
 
 ## 5. Configuring SeaTunnel Engine Network Services
 
