@@ -110,7 +110,7 @@ public class HiveTypeConvertor {
                     sb.append('>');
                     return sb.toString();
                 }
-                return "struct";
+                throw new UnsupportedOperationException("ROW type requires field names");
             case ARRAY:
                 if (seaTunnelType instanceof org.apache.seatunnel.api.table.type.ArrayType) {
                     org.apache.seatunnel.api.table.type.ArrayType<?, ?> arrayType =
