@@ -32,6 +32,9 @@ By default, we use 2PC commit to ensure `exactly-once`
   - [x] binary
 - [x] compress codec
   - [x] lzo
+  - [x] canal_json
+  - [x] debezium_json
+  - [x] maxwell_json
 
 ## Description
 
@@ -85,10 +88,16 @@ Output data to hdfs file
 | enable_header_write                   | boolean | no       | false                                      | Only used when file_format_type is text,csv.<br/> false:don't write header,true:write header.                                                                                                                                                                                                                                                                                                                                                                                            |
 | encoding                              | string  | no       | "UTF-8"                                    | Only used when file_format_type is json,text,csv,xml.                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | remote_user                           | string  | no       | -                                          | The remote user name of hdfs.                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| merge_update_event                    | boolean | no       | false                                      | Only used when file_format_type is canal_json,debezium_json or maxwell_json. When value is true, the UPDATE_AFTER and UPDATE_BEFORE event will be merged into UPDATE event data                                                                                                                                                                                                                                                                                                          |
 
 ### Tips
 
 > If you use spark/flink, In order to use this connector, You must ensure your spark/flink cluster already integrated hadoop. The tested hadoop version is 2.x. If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you download and install SeaTunnel Engine. You can check the jar package under ${SEATUNNEL_HOME}/lib to confirm this.
+
+### merge_update_event [boolean]
+
+Only used when file_format_type is canal_json,debezium_json or maxwell_json. 
+When value is true, the UPDATE_AFTER and UPDATE_BEFORE event will be merged into UPDATE event data
 
 ## Task Example
 

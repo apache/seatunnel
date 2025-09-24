@@ -34,6 +34,7 @@ import ChangeLog from '../changelog/connector-file-oss-jindo.md';
   - [x] excel
   - [x] xml
   - [x] binary
+  - [x] markdown
 
 ## Description
 
@@ -55,35 +56,35 @@ It only supports hadoop version **2.9.X+**.
 
 ## Options
 
-| name                      | type    | required | default value               |
-|---------------------------|---------|----------|-----------------------------|
-| path                      | string  | yes      | -                           |
-| file_format_type          | string  | yes      | -                           |
-| bucket                    | string  | yes      | -                           |
-| access_key                | string  | yes      | -                           |
-| access_secret             | string  | yes      | -                           |
-| endpoint                  | string  | yes      | -                           |
-| read_columns              | list    | no       | -                           |
-| delimiter/field_delimiter | string  | no       | \001 for text and , for csv |
-| row_delimiter             | string  | no       | \n                          |
-| parse_partition_from_path | boolean | no       | true                        |
-| date_format               | string  | no       | yyyy-MM-dd                  |
-| datetime_format           | string  | no       | yyyy-MM-dd HH:mm:ss         |
-| time_format               | string  | no       | HH:mm:ss                    |
-| skip_header_row_number    | long    | no       | 0                           |
-| schema                    | config  | no       | -                           |
-| sheet_name                | string  | no       | -                           |
-| xml_row_tag               | string  | no       | -                           |
-| xml_use_attr_format       | boolean | no       | -                           |
-| csv_use_header_line       | boolean | no       | false                       |
-| file_filter_pattern       | string  | no       |                             |
-| compress_codec            | string  | no       | none                        |
-| archive_compress_codec    | string  | no       | none                        |
-| encoding                  | string  | no       | UTF-8                       |
-| null_format               | string  | no       | -                           |
-| common-options            |         | no       | -                           |
-| file_filter_modified_start  | string  | no       | -                   | File modification time filter. The connector will filter some files base on the last modification start time (include start time). the default data format is `yyyy-MM-dd HH:mm:ss`.                                                                                                                                                       |
-| file_filter_modified_end    | string  | no       | -                   | File modification time filter. The connector will filter some files base on the last modification end time (not include end time). the default data format is `yyyy-MM-dd HH:mm:ss`.                                                                                                                                                |
+| name                       | type    | required | default value               |
+|----------------------------|---------|----------|-----------------------------|
+| path                       | string  | yes      | -                           |
+| file_format_type           | string  | yes      | -                           |
+| bucket                     | string  | yes      | -                           |
+| access_key                 | string  | yes      | -                           |
+| access_secret              | string  | yes      | -                           |
+| endpoint                   | string  | yes      | -                           |
+| read_columns               | list    | no       | -                           |
+| delimiter/field_delimiter  | string  | no       | \001 for text and , for csv |
+| row_delimiter              | string  | no       | \n                          |
+| parse_partition_from_path  | boolean | no       | true                        |
+| date_format                | string  | no       | yyyy-MM-dd                  |
+| datetime_format            | string  | no       | yyyy-MM-dd HH:mm:ss         |
+| time_format                | string  | no       | HH:mm:ss                    |
+| skip_header_row_number     | long    | no       | 0                           |
+| schema                     | config  | no       | -                           |
+| sheet_name                 | string  | no       | -                           |
+| xml_row_tag                | string  | no       | -                           |
+| xml_use_attr_format        | boolean | no       | -                           |
+| csv_use_header_line        | boolean | no       | false                       |
+| file_filter_pattern        | string  | no       |                             |
+| compress_codec             | string  | no       | none                        |
+| archive_compress_codec     | string  | no       | none                        |
+| encoding                   | string  | no       | UTF-8                       |
+| null_format                | string  | no       | -                           |
+| common-options             |         | no       | -                           |
+| file_filter_modified_start | string  | no       | -                           | 
+| file_filter_modified_end   | string  | no       | -                           | 
 
 ### path [string]
 
@@ -93,7 +94,7 @@ The source file path.
 
 File type, supported as the following file types:
 
-`text` `csv` `parquet` `orc` `json` `excel` `xml` `binary`
+`text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `markdown`
 
 If you assign file type to `json`, you should also assign schema option to tell connector how to parse data to the row you want.
 
@@ -181,6 +182,20 @@ If you assign file type to `binary`, SeaTunnel can synchronize files in any form
 such as compressed packages, pictures, etc. In short, any files can be synchronized to the target place.
 Under this requirement, you need to ensure that the source and sink use `binary` format for file synchronization
 at the same time. You can find the specific usage in the example below.
+
+If you assign file type to `markdown`, SeaTunnel can parse markdown files and extract structured data.
+The markdown parser extracts various elements including headings, paragraphs, lists, code blocks, tables, and more.
+Each element is converted to a row with the following schema:
+- `element_id`: Unique identifier for the element
+- `element_type`: Type of the element (Heading, Paragraph, ListItem, etc.)
+- `heading_level`: Level of heading (1-6, null for non-heading elements)
+- `text`: Text content of the element
+- `page_number`: Page number (default: 1)
+- `position_index`: Position index within the document
+- `parent_id`: ID of the parent element
+- `child_ids`: Comma-separated list of child element IDs
+
+Note: Markdown format only supports reading, not writing.
 
 ### bucket [string]
 
@@ -374,6 +389,14 @@ Only used when file_format_type is text.
 null_format to define which strings can be represented as null.
 
 e.g: `\N`
+
+### file_filter_modified_start [string]
+
+File modification time filter. The connector will filter some files base on the last modification start time (include start time). The default data format is `yyyy-MM-dd HH:mm:ss`.
+
+### file_filter_modified_end [string]
+
+File modification time filter. The connector will filter some files base on the last modification end time (not include end time). The default data format is `yyyy-MM-dd HH:mm:ss`.
 
 ### common options
 

@@ -2,7 +2,10 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
-|[Fix][Connecotr-kafka] Fix kafka IllegalArgumentException when offset is -1 (#9376)|https://github.com/apache/seatunnel/commit/142aca7b70| dev |
+|[Fix][Connector-V2] Optimize start mode of kafka recovery job (#9736)|https://github.com/apache/seatunnel/commit/bbde7f6339|2.3.12|
+|[Improve][API] Optimize the enumerator API semantics and reduce lock calls at the connector level (#9671)|https://github.com/apache/seatunnel/commit/9212a77140|2.3.12|
+|[Fix][Connector-V2] Add Filter for Partitions to Prevent Blocking in KafkaConsumer StreamMode (#9598)|https://github.com/apache/seatunnel/commit/bd24fa77cb|2.3.12|
+|[Fix][Connecotr-kafka] Fix kafka IllegalArgumentException when offset is -1 (#9376)|https://github.com/apache/seatunnel/commit/142aca7b70|2.3.12|
 |[Feature][Connectors-V2] Add end_timestamp for timstamp start mode (#9318)|https://github.com/apache/seatunnel/commit/68b0504da9|2.3.11|
 |[Bugifx][kafka] Fix kafka enumerator assign split NPE (#9220)|https://github.com/apache/seatunnel/commit/7ca0c0c7e4|2.3.11|
 | [Fix][Connector-V2] Fix kafka database name (#9201)|https://github.com/apache/seatunnel/commit/79d9a937ee|2.3.11|

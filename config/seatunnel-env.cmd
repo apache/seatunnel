@@ -19,3 +19,12 @@ if "%SPARK_HOME%" == "" set "SPARK_HOME=C:\Program Files\spark"
 
 REM Home directory of flink distribution.
 if "%FLINK_HOME%" == "" set "FLINK_HOME=C:\Program Files\flink"
+
+REM Whether to enable metalake (true/false).
+if "%METALAKE_ENABLED%" == "" set "META_LAKE_ENABLED=false"
+
+REM Type of metalake implementation. 
+if "%METALAKE_TYPE%" == "" set "METALAKE_TYPE=gravitino"
+
+REM Metalake service URL, format: http://host:port/api/metalakes/{metalake_name}/catalogs/
+if "%METALAKE_URL%" == "" set "METALAKE_URL=http://localhost:8090/api/metalakes/default_metalake_name/catalogs/"
