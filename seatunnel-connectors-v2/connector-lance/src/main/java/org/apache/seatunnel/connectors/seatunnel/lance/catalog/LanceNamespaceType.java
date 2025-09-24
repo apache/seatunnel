@@ -1,6 +1,6 @@
 package org.apache.seatunnel.connectors.seatunnel.lance.catalog;
 
-import com.google.common.annotations.VisibleForTesting;
+import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
 
 import java.util.Arrays;
 

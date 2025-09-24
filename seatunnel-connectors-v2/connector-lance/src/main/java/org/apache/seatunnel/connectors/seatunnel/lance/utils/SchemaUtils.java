@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.lance.utils;
 
+import org.apache.seatunnel.shade.com.google.common.collect.Lists;
+
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -31,7 +33,6 @@ import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
 
-import com.google.common.collect.Lists;
 import com.lancedb.lance.namespace.model.JsonArrowDataType;
 
 import java.util.List;
