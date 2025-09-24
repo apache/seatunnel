@@ -24,14 +24,16 @@ import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SupportMultiTableSink;
 import org.apache.seatunnel.api.sink.SupportSaveMode;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.connectors.seatunnel.lance.catalog.LanceCatalog;
 import org.apache.seatunnel.connectors.seatunnel.lance.config.LanceSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.lance.sink.commit.LanceAggregatedCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.lance.sink.commit.LanceCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.lance.state.LanceSinkState;
 
 import java.io.IOException;
-import java.util.Objects;
 import java.util.Optional;
 
 public class LanceSink
@@ -50,12 +52,6 @@ public class LanceSink
         this.readonlyConfig = pluginConfig;
         this.config = new LanceSinkConfig(pluginConfig);
         this.catalogTable = catalogTable;
-        // Reset primary keys if need
-//        if (config.getPrimaryKeys().isEmpty()
-//            && Objects.nonNull(this.catalogTable.getTableSchema().getPrimaryKey())) {
-//            this.config.setPrimaryKeys(
-//                this.catalogTable.getTableSchema().getPrimaryKey().getColumnNames());
-//        }
     }
 
     @Override
@@ -64,8 +60,12 @@ public class LanceSink
     }
 
     @Override
-    public SinkWriter createWriter(SinkWriter.Context context) throws IOException {
-        return null;
+    public LanceSinkWriter createWriter(SinkWriter.Context context) throws IOException {
+        TableSchema tableSchema = catalogTable.getTableSchema();
+        SeaTunnelRowType rowType = tableSchema.toPhysicalRowDataType();
+        LanceSinkConfig sinkConfig = new LanceSinkConfig(readonlyConfig);
+        LanceCatalog catalog = new LanceCatalog(catalogTable.getCatalogName(), readonlyConfig);
+        return new LanceSinkWriter(rowType, tableSchema, sinkConfig, catalog);
     }
 
     @Override

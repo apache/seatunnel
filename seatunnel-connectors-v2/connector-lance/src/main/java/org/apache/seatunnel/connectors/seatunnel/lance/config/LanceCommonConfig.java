@@ -20,9 +20,8 @@ package org.apache.seatunnel.connectors.seatunnel.lance.config;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.connectors.seatunnel.lance.catalog.LanceNamespaceType;
 
-import lombok.Getter;
-
 import java.io.Serializable;
+import java.util.List;
 import java.util.Map;
 
 public class LanceCommonConfig implements Serializable {
@@ -36,6 +35,8 @@ public class LanceCommonConfig implements Serializable {
     private Map<String, String> namespaceProps;
 
     private String table;
+
+    private List<String> namespaceIds;
 
     public LanceCommonConfig(LanceNamespaceType namespaceType, Map<String, String> namespaceProps) {
         this.namespaceType = namespaceType;
@@ -51,7 +52,13 @@ public class LanceCommonConfig implements Serializable {
         this.namespaceProps = namespaceProps;
     }
 
-    public LanceCommonConfig(ReadonlyConfig pluginConfig) {}
+    public LanceCommonConfig(ReadonlyConfig pluginConfig) {
+        this.namespaceIds = pluginConfig.get(LanceCommonOptions.KEY_NAMESPACE_IDS);
+        this.table = pluginConfig.get(LanceCommonOptions.KEY_TABLE);
+        this.datasetPath = pluginConfig.get(LanceCommonOptions.KEY_DATASET_PATH);
+        this.namespaceType =
+                LanceNamespaceType.valueOf(pluginConfig.get(LanceCommonOptions.KEY_NAMESPACE_TYPE));
+    }
 
     public LanceNamespaceType getNamespaceType() {
         return namespaceType;
@@ -75,5 +82,13 @@ public class LanceCommonConfig implements Serializable {
 
     public void setDatasetPath(String datasetPath) {
         this.datasetPath = datasetPath;
+    }
+
+    public String getTable() {
+        return table;
+    }
+
+    public List<String> getNamespaceIds() {
+        return namespaceIds;
     }
 }

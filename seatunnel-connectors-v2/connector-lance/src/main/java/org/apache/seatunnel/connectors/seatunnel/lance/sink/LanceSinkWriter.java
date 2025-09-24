@@ -64,12 +64,10 @@ public class LanceSinkWriter
     public LanceSinkWriter(
             SeaTunnelRowType seaTunnelRowType,
             TableSchema sourceTableSchema,
-            Schema schema,
             LanceSinkConfig config,
             LanceCatalog catalog) {
         this.seaTunnelRowType = seaTunnelRowType;
         this.sourceTableSchema = sourceTableSchema;
-        this.schema = schema;
         this.config = config;
         this.catalog = catalog;
     }

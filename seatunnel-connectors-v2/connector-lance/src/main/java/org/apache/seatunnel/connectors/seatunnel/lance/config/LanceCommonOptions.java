@@ -39,7 +39,19 @@ public class LanceCommonOptions {
 
     public static final Option<List<String>> KEY_NAMESPACE_IDS =
             Options.key("namespace_ids")
-                .listType(String.class)
-                .defaultValue(new ArrayList<>())
-                .withDescription(" the lance namespace ids");
+                    .listType(String.class)
+                    .defaultValue(new ArrayList<>())
+                    .withDescription(" the lance namespace ids");
+
+    public static final Option<String> KEY_NAMESPACE_ID =
+            Options.key("namespace_id")
+                    .stringType()
+                    .defaultValue("")
+                    .withDescription(" the lance namespace name");
+
+    public static final Option<String> KEY_TABLE =
+            Options.key("table")
+                    .stringType()
+                    .defaultValue("test")
+                    .withDescription(" the lance table");
 }

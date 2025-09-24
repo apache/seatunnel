@@ -37,8 +37,11 @@ public class LanceSinkConfig extends LanceCommonConfig {
 
     private final Map<String, String> storageOptions;
 
+    private final String namespaceId;
+
     public LanceSinkConfig(ReadonlyConfig pluginConfig) {
         super(pluginConfig);
+        this.namespaceId = pluginConfig.get(LanceSinkOptions.KEY_NAMESPACE_ID);
         this.maxBytesPerFile = pluginConfig.get(LanceSinkOptions.WRITE_MAX_BYTES_PER_FILE);
         this.maxRowsPerGroup = pluginConfig.get(LanceSinkOptions.WRITE_MAX_ROWS_PER_GROUP);
         this.maxRowsPerFile = pluginConfig.get(LanceSinkOptions.WRITE_MAX_ROWS_PER_FILE);
@@ -69,5 +72,9 @@ public class LanceSinkConfig extends LanceCommonConfig {
 
     public Map<String, String> getStorageOptions() {
         return storageOptions;
+    }
+
+    public String getNamespaceId() {
+        return namespaceId;
     }
 }
