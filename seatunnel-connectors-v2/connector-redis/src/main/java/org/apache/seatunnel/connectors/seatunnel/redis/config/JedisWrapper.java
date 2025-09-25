@@ -18,15 +18,15 @@
 package org.apache.seatunnel.connectors.seatunnel.redis.config;
 
 import org.apache.seatunnel.connectors.seatunnel.redis.exception.RedisConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.redis.exception.RedisErrorCode;
 
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 import redis.clients.jedis.ConnectionPool;
 import redis.clients.jedis.Jedis;
 import redis.clients.jedis.JedisCluster;
-import redis.clients.jedis.params.ScanParams;
-import redis.clients.jedis.resps.ScanResult;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -36,9 +36,11 @@ import static org.apache.seatunnel.connectors.seatunnel.redis.exception.RedisErr
 @Slf4j
 public class JedisWrapper extends Jedis {
     private final JedisCluster jedisCluster;
+    private final Map<String, Jedis> jedisPoolMap = new HashMap<>();
 
     public JedisWrapper(@NonNull JedisCluster jedisCluster) {
         this.jedisCluster = jedisCluster;
+        initJedisConnectionCache();
     }
 
     @Override
@@ -100,23 +102,17 @@ public class JedisWrapper extends Jedis {
         }
 
         // Traverse all nodes and try to obtain the info
-        Exception lastException = null;
-        for (Map.Entry<String, ConnectionPool> entry : nodes.entrySet()) {
-            ConnectionPool pool = entry.getValue();
+        for (Map.Entry<String, Jedis> entry : jedisPoolMap.entrySet()) {
             try {
-                try (Jedis jedis = new Jedis(pool.getResource())) {
-                    return jedis.info();
-                }
+                Jedis jedis = entry.getValue();
+                return jedis.info();
             } catch (Exception e) {
-                lastException = e;
                 log.warn("Failed to get info from node: {}", entry.getKey(), e);
             }
         }
 
         throw new RedisConnectorException(
-                GET_REDIS_INFO_ERROR,
-                "Failed to get redis info from any node in cluster",
-                lastException);
+                GET_REDIS_INFO_ERROR, "Failed to get redis info from all node in cluster");
     }
 
     @Override
@@ -129,17 +125,6 @@ public class JedisWrapper extends Jedis {
     }
 
     @Override
-    public ScanResult<String> scan(final String cursor, final ScanParams params) {
-        return jedisCluster.scan(cursor, params);
-    }
-
-    @Override
-    public ScanResult<String> scan(
-            final String cursor, final ScanParams params, final String type) {
-        return jedisCluster.scan(cursor, params, type);
-    }
-
-    @Override
     public long expire(final String key, final long seconds) {
         return jedisCluster.expire(key, seconds);
     }
@@ -147,5 +132,26 @@ public class JedisWrapper extends Jedis {
     @Override
     public void close() {
         jedisCluster.close();
+    }
+
+    public Jedis getJedis(String node) {
+        return jedisPoolMap.get(node);
+    }
+
+    /** initialize jedis cache for each node */
+    private void initJedisConnectionCache() {
+        Map<String, ConnectionPool> clusterNodes = jedisCluster.getClusterNodes();
+
+        for (Map.Entry<String, ConnectionPool> entry : clusterNodes.entrySet()) {
+            Jedis jedis;
+            try {
+                jedis = new Jedis(entry.getValue().getResource());
+                jedisPoolMap.put(entry.getKey(), jedis);
+            } catch (Exception e) {
+                throw new RedisConnectorException(
+                        RedisErrorCode.REDIS_CONNECTION_ERROR,
+                        "Redis connection error. node: " + entry.getKey());
+            }
+        }
     }
 }
