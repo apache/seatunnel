@@ -174,9 +174,9 @@ public class ConnectorPackageClientTest {
                                             Assertions.assertTrue(
                                                     StringUtils.isNotBlank(
                                                             jarIdentifier.getStoragePath()));
-                                            Assertions.assertTrue(
-                                                    jarIdentifier.getType()
-                                                            == ConnectorJarType.COMMON_PLUGIN_JAR);
+                                            Assertions.assertEquals(
+                                                    ConnectorJarType.COMMON_PLUGIN_JAR,
+                                                    jarIdentifier.getType());
                                         });
                     });
         }
@@ -231,9 +231,9 @@ public class ConnectorPackageClientTest {
                                     Assertions.assertTrue(
                                             StringUtils.isNotBlank(
                                                     connectorJarIdentifier.getStoragePath()));
-                                    Assertions.assertTrue(
-                                            connectorJarIdentifier.getType()
-                                                    == ConnectorJarType.CONNECTOR_PLUGIN_JAR);
+                                    Assertions.assertEquals(
+                                            ConnectorJarType.CONNECTOR_PLUGIN_JAR,
+                                            connectorJarIdentifier.getType());
                                 });
             }
         }
@@ -253,18 +253,15 @@ public class ConnectorPackageClientTest {
                     seaTunnelClient.createExecutionContext(filePath, jobConfig, SEATUNNEL_CONFIG);
             final ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
             CompletableFuture<JobStatus> objectCompletableFuture =
-                    CompletableFuture.supplyAsync(
-                            () -> {
-                                return clientJobProxy.waitForJobComplete();
-                            });
+                    CompletableFuture.supplyAsync(() -> clientJobProxy.waitForJobComplete());
 
             await().atMost(180000, TimeUnit.MILLISECONDS)
                     .untilAsserted(
-                            () ->
-                                    Assertions.assertTrue(
-                                            objectCompletableFuture.isDone()
-                                                    && JobStatus.FINISHED.equals(
-                                                            objectCompletableFuture.get())));
+                            () -> {
+                                Assertions.assertTrue(objectCompletableFuture.isDone());
+                                Assertions.assertEquals(
+                                        JobStatus.FINISHED, objectCompletableFuture.get());
+                            });
         } catch (ExecutionException | InterruptedException e) {
             throw new RuntimeException(e);
         } finally {
@@ -285,8 +282,9 @@ public class ConnectorPackageClientTest {
             ClientJobExecutionEnvironment jobExecutionEnv =
                     seaTunnelClient.createExecutionContext(filePath, jobConfig, SEATUNNEL_CONFIG);
             final ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
-            JobStatus jobStatus1 = clientJobProxy.getJobStatus();
-            Assertions.assertFalse(jobStatus1.isEndState());
+            JobStatus jobStatus = clientJobProxy.getJobStatus();
+            Assertions.assertFalse(
+                    jobStatus.isEndState(), "Job should not be end state, but " + jobStatus);
             CompletableFuture<JobStatus> objectCompletableFuture =
                     CompletableFuture.supplyAsync(clientJobProxy::waitForJobComplete);
             Thread.sleep(1000);
@@ -294,11 +292,11 @@ public class ConnectorPackageClientTest {
 
             await().atMost(30000, TimeUnit.MILLISECONDS)
                     .untilAsserted(
-                            () ->
-                                    Assertions.assertTrue(
-                                            objectCompletableFuture.isDone()
-                                                    && JobStatus.CANCELED.equals(
-                                                            objectCompletableFuture.get())));
+                            () -> {
+                                Assertions.assertTrue(objectCompletableFuture.isDone());
+                                Assertions.assertEquals(
+                                        JobStatus.CANCELED, objectCompletableFuture.get());
+                            });
         } catch (ExecutionException | InterruptedException e) {
             throw new RuntimeException(e);
         } finally {
