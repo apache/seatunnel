@@ -40,6 +40,12 @@ public class HbaseParameters implements Serializable {
 
     private List<String> columns;
 
+    private boolean isBinaryRowkey;
+
+    private String startRowkey;
+
+    private String endRowkey;
+
     private Map<String, String> familyNames;
 
     private String versionColumn;
