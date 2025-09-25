@@ -54,18 +54,18 @@ public class IoTDBv2SourceOptions extends IoTDBv2CommonOptions {
             Options.key("fetch_size").intType().noDefaultValue().withDescription("fetch size");
 
     /** thrift default buffer size */
-    public static final Option<Integer> THRIFT_DEFAULT_BUFFER_SIZE =
-            Options.key("thrift_default_buffer_size")
+    public static final Option<Integer> DEFAULT_THRIFT_BUFFER_SIZE =
+            Options.key("default_thrift_buffer_size")
                     .intType()
                     .noDefaultValue()
-                    .withDescription(" default thrift buffer size of iot db ");
+                    .withDescription(" default thrift buffer size");
 
     /** thrift max frame size */
-    public static final Option<Integer> THRIFT_MAX_FRAME_SIZE =
-            Options.key("thrift_max_frame_size")
+    public static final Option<Integer> MAX_THRIFT_FRAME_SIZE =
+            Options.key("max_thrift_frame_size")
                     .intType()
                     .noDefaultValue()
-                    .withDescription("thrift max frame size ");
+                    .withDescription("max thrift frame size ");
 
     /** cassandra default buffer size */
     public static final Option<Boolean> ENABLE_CACHE_LEADER =
@@ -74,17 +74,9 @@ public class IoTDBv2SourceOptions extends IoTDBv2CommonOptions {
                     .noDefaultValue()
                     .withDescription("enable cache leader ");
 
-    /**
-     * Version represents the SQL semantic version used by the client, which is used to be
-     * compatible with the SQL semantics of 0.12 when upgrading 0.13. The possible values are:
-     * V_0_12, V_0_13.
-     */
-    public static final Option<String> VERSION =
-            Options.key("version").stringType().noDefaultValue().withDescription("version");
-
     /** Query lower bound of the time range to be read. */
     public static final Option<Long> LOWER_BOUND =
-            Options.key("lower_bound").longType().noDefaultValue().withDescription("low bound");
+            Options.key("lower_bound").longType().noDefaultValue().withDescription("lower bound");
 
     /** Query upper bound of the time range to be read. */
     public static final Option<Long> UPPER_BOUND =

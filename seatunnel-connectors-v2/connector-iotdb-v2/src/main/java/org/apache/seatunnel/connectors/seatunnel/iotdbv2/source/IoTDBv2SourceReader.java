@@ -28,7 +28,6 @@ import org.apache.seatunnel.connectors.seatunnel.iotdbv2.exception.IotdbConnecto
 import org.apache.seatunnel.connectors.seatunnel.iotdbv2.serialize.DefaultSeaTunnelRowDeserializer;
 
 import shaded.org.apache.iotdb.isession.SessionDataSet;
-import shaded.org.apache.iotdb.isession.util.Version;
 import shaded.org.apache.iotdb.rpc.IoTDBConnectionException;
 import shaded.org.apache.iotdb.session.Session;
 import shaded.org.apache.tsfile.read.common.RowRecord;
@@ -38,14 +37,13 @@ import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static org.apache.seatunnel.connectors.seatunnel.iotdbv2.config.IoTDBv2SourceOptions.DEFAULT_THRIFT_BUFFER_SIZE;
 import static org.apache.seatunnel.connectors.seatunnel.iotdbv2.config.IoTDBv2SourceOptions.ENABLE_CACHE_LEADER;
 import static org.apache.seatunnel.connectors.seatunnel.iotdbv2.config.IoTDBv2SourceOptions.FETCH_SIZE;
+import static org.apache.seatunnel.connectors.seatunnel.iotdbv2.config.IoTDBv2SourceOptions.MAX_THRIFT_FRAME_SIZE;
 import static org.apache.seatunnel.connectors.seatunnel.iotdbv2.config.IoTDBv2SourceOptions.NODE_URLS;
 import static org.apache.seatunnel.connectors.seatunnel.iotdbv2.config.IoTDBv2SourceOptions.PASSWORD;
-import static org.apache.seatunnel.connectors.seatunnel.iotdbv2.config.IoTDBv2SourceOptions.THRIFT_DEFAULT_BUFFER_SIZE;
-import static org.apache.seatunnel.connectors.seatunnel.iotdbv2.config.IoTDBv2SourceOptions.THRIFT_MAX_FRAME_SIZE;
 import static org.apache.seatunnel.connectors.seatunnel.iotdbv2.config.IoTDBv2SourceOptions.USERNAME;
-import static org.apache.seatunnel.connectors.seatunnel.iotdbv2.config.IoTDBv2SourceOptions.VERSION;
 import static org.apache.seatunnel.connectors.seatunnel.iotdbv2.constant.SourceConstants.NODES_SPLIT;
 
 public class IoTDBv2SourceReader extends IoTDBv2AbstractSourceReader {
@@ -91,17 +89,13 @@ public class IoTDBv2SourceReader extends IoTDBv2AbstractSourceReader {
         if (null != conf.get(PASSWORD)) {
             sessionBuilder.password(conf.get(PASSWORD));
         }
-        if (null != conf.get(THRIFT_DEFAULT_BUFFER_SIZE)) {
+        if (null != conf.get(DEFAULT_THRIFT_BUFFER_SIZE)) {
             sessionBuilder.thriftDefaultBufferSize(
-                    Integer.parseInt(conf.get(THRIFT_DEFAULT_BUFFER_SIZE).toString()));
+                    Integer.parseInt(conf.get(DEFAULT_THRIFT_BUFFER_SIZE).toString()));
         }
-        if (null != conf.get(THRIFT_MAX_FRAME_SIZE)) {
+        if (null != conf.get(MAX_THRIFT_FRAME_SIZE)) {
             sessionBuilder.thriftMaxFrameSize(
-                    Integer.parseInt(conf.get(THRIFT_MAX_FRAME_SIZE).toString()));
-        }
-        if (null != conf.get(VERSION)) {
-            Version version = Version.valueOf(conf.get(VERSION));
-            sessionBuilder.version(version);
+                    Integer.parseInt(conf.get(MAX_THRIFT_FRAME_SIZE).toString()));
         }
         Session session = sessionBuilder.build();
         if (null != conf.get(ENABLE_CACHE_LEADER)) {

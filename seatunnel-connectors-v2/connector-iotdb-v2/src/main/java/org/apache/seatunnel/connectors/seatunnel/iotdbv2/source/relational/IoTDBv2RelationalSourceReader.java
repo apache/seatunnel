@@ -31,7 +31,6 @@ import org.apache.seatunnel.connectors.seatunnel.iotdbv2.source.IoTDBv2SourceSpl
 
 import shaded.org.apache.iotdb.isession.ITableSession;
 import shaded.org.apache.iotdb.isession.SessionDataSet;
-import shaded.org.apache.iotdb.isession.util.Version;
 import shaded.org.apache.iotdb.rpc.IoTDBConnectionException;
 import shaded.org.apache.iotdb.session.TableSessionBuilder;
 import shaded.org.apache.tsfile.read.common.RowRecord;
@@ -42,13 +41,12 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static org.apache.seatunnel.connectors.seatunnel.iotdbv2.config.IoTDBv2SourceOptions.DATABASE;
+import static org.apache.seatunnel.connectors.seatunnel.iotdbv2.config.IoTDBv2SourceOptions.DEFAULT_THRIFT_BUFFER_SIZE;
 import static org.apache.seatunnel.connectors.seatunnel.iotdbv2.config.IoTDBv2SourceOptions.FETCH_SIZE;
+import static org.apache.seatunnel.connectors.seatunnel.iotdbv2.config.IoTDBv2SourceOptions.MAX_THRIFT_FRAME_SIZE;
 import static org.apache.seatunnel.connectors.seatunnel.iotdbv2.config.IoTDBv2SourceOptions.NODE_URLS;
 import static org.apache.seatunnel.connectors.seatunnel.iotdbv2.config.IoTDBv2SourceOptions.PASSWORD;
-import static org.apache.seatunnel.connectors.seatunnel.iotdbv2.config.IoTDBv2SourceOptions.THRIFT_DEFAULT_BUFFER_SIZE;
-import static org.apache.seatunnel.connectors.seatunnel.iotdbv2.config.IoTDBv2SourceOptions.THRIFT_MAX_FRAME_SIZE;
 import static org.apache.seatunnel.connectors.seatunnel.iotdbv2.config.IoTDBv2SourceOptions.USERNAME;
-import static org.apache.seatunnel.connectors.seatunnel.iotdbv2.config.IoTDBv2SourceOptions.VERSION;
 import static org.apache.seatunnel.connectors.seatunnel.iotdbv2.constant.SourceConstants.NODES_SPLIT;
 
 public class IoTDBv2RelationalSourceReader extends IoTDBv2AbstractSourceReader {
@@ -96,16 +94,13 @@ public class IoTDBv2RelationalSourceReader extends IoTDBv2AbstractSourceReader {
         if (null != conf.get(DATABASE)) {
             sessionBuilder.database(conf.get(DATABASE));
         }
-        if (null != conf.get(THRIFT_DEFAULT_BUFFER_SIZE)) {
+        if (null != conf.get(DEFAULT_THRIFT_BUFFER_SIZE)) {
             sessionBuilder.thriftDefaultBufferSize(
-                    Integer.parseInt(conf.get(THRIFT_DEFAULT_BUFFER_SIZE).toString()));
+                    Integer.parseInt(conf.get(DEFAULT_THRIFT_BUFFER_SIZE).toString()));
         }
-        if (null != conf.get(THRIFT_MAX_FRAME_SIZE)) {
+        if (null != conf.get(MAX_THRIFT_FRAME_SIZE)) {
             sessionBuilder.thriftMaxFrameSize(
-                    Integer.parseInt(conf.get(THRIFT_MAX_FRAME_SIZE).toString()));
-        }
-        if (null != conf.get(VERSION)) {
-            sessionBuilder.version = Version.valueOf(conf.get(VERSION));
+                    Integer.parseInt(conf.get(MAX_THRIFT_FRAME_SIZE).toString()));
         }
 
         return sessionBuilder.build();

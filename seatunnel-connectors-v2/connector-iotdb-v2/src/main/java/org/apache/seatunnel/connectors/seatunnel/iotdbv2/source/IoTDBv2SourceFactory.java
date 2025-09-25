@@ -57,10 +57,9 @@ public class IoTDBv2SourceFactory implements TableSourceFactory {
                         IoTDBv2SourceOptions.SQL_DIALECT,
                         IoTDBv2SourceOptions.DATABASE,
                         IoTDBv2SourceOptions.FETCH_SIZE,
-                        IoTDBv2SourceOptions.THRIFT_DEFAULT_BUFFER_SIZE,
-                        IoTDBv2SourceOptions.THRIFT_MAX_FRAME_SIZE,
+                        IoTDBv2SourceOptions.DEFAULT_THRIFT_BUFFER_SIZE,
+                        IoTDBv2SourceOptions.MAX_THRIFT_FRAME_SIZE,
                         IoTDBv2SourceOptions.ENABLE_CACHE_LEADER,
-                        IoTDBv2SourceOptions.VERSION,
                         IoTDBv2SourceOptions.LOWER_BOUND,
                         IoTDBv2SourceOptions.UPPER_BOUND,
                         IoTDBv2SourceOptions.NUM_PARTITIONS)
