@@ -131,4 +131,49 @@ class HiveTypeConvertorTest {
                 "struct<f1:array<int>,f2:map<string,string>>",
                 HiveTypeConvertor.seatunnelToHiveType(nestedRow));
     }
+
+    @Test
+    void testArrayWithoutElementTypeThrows() {
+        org.apache.seatunnel.api.table.type.ArrayType<int[], Integer> badArray =
+                new org.apache.seatunnel.api.table.type.ArrayType<>((Class) int[].class, null);
+        Assertions.assertThrows(
+                UnsupportedOperationException.class,
+                () -> HiveTypeConvertor.seatunnelToHiveType(badArray));
+    }
+
+    @Test
+    void testMapWithoutKeyOrValueTypeThrows() {
+        // null key -> MapType constructor throws NPE before conversion
+        Assertions.assertThrows(
+                NullPointerException.class,
+                () -> new org.apache.seatunnel.api.table.type.MapType<>(null, BasicType.INT_TYPE));
+        // null value -> MapType constructor throws NPE before conversion
+        Assertions.assertThrows(
+                NullPointerException.class,
+                () ->
+                        new org.apache.seatunnel.api.table.type.MapType<>(
+                                BasicType.STRING_TYPE, null));
+    }
+
+    @Test
+    void testRowWithEmptyFieldsThrows() {
+        SeaTunnelRowType emptyRow =
+                new SeaTunnelRowType(new String[] {}, new SeaTunnelDataType<?>[] {});
+        Assertions.assertThrows(
+                UnsupportedOperationException.class,
+                () -> HiveTypeConvertor.seatunnelToHiveType(emptyRow));
+    }
+
+    @Test
+    void testRowWithMismatchedFieldsThrows() {
+        Assertions.assertThrows(
+                IllegalArgumentException.class,
+                () -> {
+                    SeaTunnelRowType badRow =
+                            new SeaTunnelRowType(
+                                    new String[] {"a", "b"},
+                                    new SeaTunnelDataType<?>[] {BasicType.INT_TYPE});
+                    HiveTypeConvertor.seatunnelToHiveType(badRow);
+                });
+    }
 }

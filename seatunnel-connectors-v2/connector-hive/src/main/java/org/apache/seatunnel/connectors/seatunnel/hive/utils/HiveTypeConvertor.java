@@ -95,10 +95,17 @@ public class HiveTypeConvertor {
                 if (seaTunnelType instanceof org.apache.seatunnel.api.table.type.SeaTunnelRowType) {
                     org.apache.seatunnel.api.table.type.SeaTunnelRowType rowType =
                             (org.apache.seatunnel.api.table.type.SeaTunnelRowType) seaTunnelType;
-                    StringBuilder sb = new StringBuilder("struct<");
                     String[] fieldNames = rowType.getFieldNames();
                     org.apache.seatunnel.api.table.type.SeaTunnelDataType<?>[] fieldTypes =
                             rowType.getFieldTypes();
+                    if (fieldNames == null
+                            || fieldTypes == null
+                            || fieldNames.length == 0
+                            || fieldNames.length != fieldTypes.length) {
+                        throw new UnsupportedOperationException(
+                                "ROW type requires non-empty field names and types with equal length");
+                    }
+                    StringBuilder sb = new StringBuilder("struct<");
                     for (int i = 0; i < fieldNames.length; i++) {
                         if (i > 0) {
                             sb.append(',');
@@ -110,25 +117,39 @@ public class HiveTypeConvertor {
                     sb.append('>');
                     return sb.toString();
                 }
-                throw new UnsupportedOperationException("ROW type requires field names");
+                throw new UnsupportedOperationException(
+                        "ROW type requires non-empty field names and types");
             case ARRAY:
                 if (seaTunnelType instanceof org.apache.seatunnel.api.table.type.ArrayType) {
                     org.apache.seatunnel.api.table.type.ArrayType<?, ?> arrayType =
                             (org.apache.seatunnel.api.table.type.ArrayType<?, ?>) seaTunnelType;
-                    return "array<" + seatunnelToHiveType(arrayType.getElementType()) + ">";
+                    org.apache.seatunnel.api.table.type.SeaTunnelDataType<?> elementType =
+                            arrayType.getElementType();
+                    if (elementType == null) {
+                        throw new UnsupportedOperationException("ARRAY type requires element type");
+                    }
+                    return "array<" + seatunnelToHiveType(elementType) + ">";
                 }
-                return "array";
+                throw new UnsupportedOperationException("ARRAY type requires element type");
             case MAP:
                 if (seaTunnelType instanceof org.apache.seatunnel.api.table.type.MapType) {
                     org.apache.seatunnel.api.table.type.MapType<?, ?> mapType =
                             (org.apache.seatunnel.api.table.type.MapType<?, ?>) seaTunnelType;
+                    org.apache.seatunnel.api.table.type.SeaTunnelDataType<?> keyType =
+                            mapType.getKeyType();
+                    org.apache.seatunnel.api.table.type.SeaTunnelDataType<?> valueType =
+                            mapType.getValueType();
+                    if (keyType == null || valueType == null) {
+                        throw new UnsupportedOperationException(
+                                "MAP type requires key and value types");
+                    }
                     return "map<"
-                            + seatunnelToHiveType(mapType.getKeyType())
+                            + seatunnelToHiveType(keyType)
                             + ","
-                            + seatunnelToHiveType(mapType.getValueType())
+                            + seatunnelToHiveType(valueType)
                             + ">";
                 }
-                return "map";
+                throw new UnsupportedOperationException("MAP type requires key and value types");
             case NULL:
                 throw new UnsupportedOperationException("Orc does not support NULL type");
             default:
