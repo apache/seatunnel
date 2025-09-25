@@ -1,0 +1,165 @@
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+# 명령 사용법
+
+## 명령 진입점
+
+<Tabs
+    groupId="engine-type"
+    defaultValue="spark2"
+    values={[
+        {label: 'Spark 2', value: 'spark2'},
+        {label: 'Spark 3', value: 'spark3'},
+        {label: 'Flink 13 14', value: 'flink13'},
+        {label: 'Flink 15 16', value: 'flink15'},
+    ]}>
+<TabItem value="spark2">
+
+```bash
+bin/start-seatunnel-spark-2-connector-v2.sh
+```
+
+</TabItem>
+<TabItem value="spark3">
+
+```bash
+bin/start-seatunnel-spark-3-connector-v2.sh
+```
+
+</TabItem>
+<TabItem value="flink13">
+
+```bash
+bin/start-seatunnel-flink-13-connector-v2.sh
+```
+
+</TabItem>
+<TabItem value="flink15">
+
+```bash
+bin/start-seatunnel-flink-15-connector-v2.sh
+```
+
+</TabItem>
+</Tabs>
+
+## 옵션
+
+<Tabs
+    groupId="engine-type"
+    defaultValue="spark2"
+    values={[
+        {label: 'Spark 2', value: 'spark2'},
+        {label: 'Spark 3', value: 'spark3'},
+        {label: 'Flink 13 14', value: 'flink13'},
+        {label: 'Flink 15 16', value: 'flink15'},
+    ]}>
+<TabItem value="spark2">
+
+```bash
+Usage: start-seatunnel-spark-2-connector-v2.sh [options]
+  Options:
+    --check           구성 검사를 수행할지 여부 (기본값: false)
+    -c, --config      구성 파일 경로
+    -e, --deploy-mode Spark 배포 모드 [cluster, client] (기본값: client)
+    -h, --help        사용법 보기
+    -m, --master      Spark master 주소. [spark://host:port, mesos://host:port,
+                      yarn, k8s://https://host:port, local] 지원 (기본값: local[*])
+    -n, --name        SeaTunnel 잡 이름 (기본값: SeaTunnel)
+    -i, --variable    변수 치환. 예: -i city=beijing 또는 -i date=20190318 (기본값: [])
+```
+
+</TabItem>
+<TabItem value="spark3">
+
+```bash
+Usage: start-seatunnel-spark-3-connector-v2.sh [options]
+  Options:
+    --check           구성 검사를 수행할지 여부 (기본값: false)
+    -c, --config      구성 파일 경로
+    -e, --deploy-mode Spark 배포 모드 [cluster, client] (기본값: client)
+    -h, --help        사용법 보기
+    -m, --master      Spark master 주소. [spark://host:port, mesos://host:port,
+                      yarn, k8s://https://host:port, local] 지원 (기본값: local[*])
+    -n, --name        SeaTunnel 잡 이름 (기본값: SeaTunnel)
+    -i, --variable    변수 치환. 예: -i city=beijing 또는 -i date=20190318 (기본값: [])
+```
+
+</TabItem>
+<TabItem value="flink13">
+
+```bash
+Usage: start-seatunnel-flink-13-connector-v2.sh [options]
+  Options:
+    --check            구성 검사를 수행할지 여부 (기본값: false)
+    -c, --config       구성 파일 경로
+    -e, --deploy-mode  Flink 잡 배포 모드 [run, run-application] (기본값: run)
+    -h, --help         사용법 보기
+    --master, --target Flink 잡 대상 마스터 설정. [local, remote, yarn-session,
+                       yarn-per-job, kubernetes-session, yarn-application,
+                       kubernetes-application] 지원
+    -n, --name         SeaTunnel 잡 이름 (기본값: SeaTunnel)
+    -i, --variable     변수 치환. 예: -i city=beijing 또는 -i date=20190318 (기본값: [])
+```
+
+</TabItem>
+<TabItem value="flink15">
+
+```bash
+Usage: start-seatunnel-flink-15-connector-v2.sh [options]
+  Options:
+    --check            구성 검사를 수행할지 여부 (기본값: false)
+    -c, --config       구성 파일 경로
+    -e, --deploy-mode  Flink 잡 배포 모드 [run, run-application] (기본값: run)
+    -h, --help         사용법 보기
+    --master, --target Flink 잡 대상 마스터 설정. [local, remote, yarn-session,
+                       yarn-per-job, kubernetes-session, yarn-application,
+                       kubernetes-application] 지원
+    -n, --name         SeaTunnel 잡 이름 (기본값: SeaTunnel)
+    -i, --variable     변수 치환. 예: -i city=beijing 또는 -i date=20190318 (기본값: [])
+```
+
+</TabItem>
+</Tabs>
+
+## 예제
+
+<Tabs
+    groupId="engine-type"
+    defaultValue="spark2"
+    values={[
+        {label: 'Spark 2', value: 'spark2'},
+        {label: 'Spark 3', value: 'spark3'},
+        {label: 'Flink 13 14', value: 'flink13'},
+        {label: 'Flink 15 16', value: 'flink15'},
+    ]}>
+<TabItem value="spark2">
+
+```bash
+bin/start-seatunnel-spark-2-connector-v2.sh --config config/v2.batch.config.template -m local -e client
+```
+
+</TabItem>
+<TabItem value="spark3">
+
+```bash
+bin/start-seatunnel-spark-3-connector-v2.sh --config config/v2.batch.config.template -m local -e client
+```
+
+</TabItem>
+<TabItem value="flink13">
+
+```bash
+bin/start-seatunnel-flink-13-connector-v2.sh --config config/v2.batch.config.template
+```
+
+</TabItem>
+<TabItem value="flink15">
+
+```bash
+bin/start-seatunnel-flink-15-connector-v2.sh --config config/v2.batch.config.template
+```
+
+</TabItem>
+</Tabs>
