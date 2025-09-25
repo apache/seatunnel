@@ -29,7 +29,9 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorErr
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.JdbcOutputFormatBuilder;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.SimpleJdbcConnectionPoolProviderProxy;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.dsql.DdsqlJdbcConnectionPoolProviderProxy;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.state.JdbcSinkState;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.state.XidInfo;
 
@@ -102,11 +104,17 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
             MultiTableResourceManager<ConnectionPoolManager> multiTableResourceManager,
             int queueIndex) {
         connectionProvider.closeConnection();
-        this.connectionProvider =
-                new SimpleJdbcConnectionPoolProviderProxy(
-                        multiTableResourceManager.getSharedResource().get(),
-                        jdbcSinkConfig.getJdbcConnectionConfig(),
-                        queueIndex);
+        if (this.dialect.dialectName().equals(DatabaseIdentifier.DSQL)) {
+            this.connectionProvider =
+                    new DdsqlJdbcConnectionPoolProviderProxy(
+                            jdbcSinkConfig.getJdbcConnectionConfig(), queueIndex);
+        } else {
+            this.connectionProvider =
+                    new SimpleJdbcConnectionPoolProviderProxy(
+                            multiTableResourceManager.getSharedResource().get(),
+                            jdbcSinkConfig.getJdbcConnectionConfig(),
+                            queueIndex);
+        }
         this.outputFormat =
                 new JdbcOutputFormatBuilder(
                                 dialect,
