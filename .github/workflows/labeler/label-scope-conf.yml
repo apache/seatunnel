@@ -327,9 +327,3 @@ sensorsdata:
       - changed-files:
           - any-glob-to-any-file: seatunnel-connectors-v2/connector-sensorsdata/**
           - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(sensorsdata)/**'
-
-dsql:
-  - all:
-      - changed-files:
-          - any-glob-to-any-file: seatunnel-connectors-v2/connector-dsql/**
-          - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(dsql)/**'
