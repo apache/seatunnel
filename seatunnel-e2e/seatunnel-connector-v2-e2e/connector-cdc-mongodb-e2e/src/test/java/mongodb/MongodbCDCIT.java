@@ -275,11 +275,11 @@ public class MongodbCDCIT extends TestSuiteBase implements TestResource {
         // insert update delete
         upsertDeleteSourceTable();
         TimeUnit.SECONDS.sleep(20);
-        await().atMost(5, TimeUnit.MINUTES)
+        await().atMost(2, TimeUnit.MINUTES)
                 .untilAsserted(
                         () -> {
                             String jobStatus = container.getJobStatus(String.valueOf(jobId));
-                            Assertions.assertNotNull(jobStatus, "Job status is null");
+                            Assertions.assertEquals("RUNNING", jobStatus);
                         });
 
         try {

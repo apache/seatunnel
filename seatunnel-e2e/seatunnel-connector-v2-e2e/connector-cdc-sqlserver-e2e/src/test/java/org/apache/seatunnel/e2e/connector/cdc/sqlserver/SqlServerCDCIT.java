@@ -340,11 +340,11 @@ public class SqlServerCDCIT extends TestSuiteBase implements TestResource {
         // insert update delete
         updateSourceTable(SOURCE_TABLE_CUSTOM_PRIMARY_KEY);
         TimeUnit.SECONDS.sleep(20);
-        await().atMost(5, TimeUnit.MINUTES)
+        await().atMost(2, TimeUnit.MINUTES)
                 .untilAsserted(
                         () -> {
                             String jobStatus = container.getJobStatus(String.valueOf(jobId));
-                            Assertions.assertNotNull(jobStatus, "Job status is null");
+                            Assertions.assertEquals("RUNNING", jobStatus);
                         });
         try {
             Container.ExecResult cancelJobResult = container.cancelJob(String.valueOf(jobId));

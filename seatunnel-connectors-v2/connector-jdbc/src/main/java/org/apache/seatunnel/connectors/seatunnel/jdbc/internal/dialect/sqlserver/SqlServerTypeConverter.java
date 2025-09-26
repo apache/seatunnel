@@ -292,7 +292,7 @@ public class SqlServerTypeConverter implements TypeConverter<BasicTypeDefine> {
             case SQLSERVER_DATETIMEOFFSET:
                 builder.sourceType(
                         String.format("%s(%s)", SQLSERVER_DATETIMEOFFSET, typeDefine.getScale()));
-                builder.dataType(LocalTimeType.OFFSET_DATE_TIME_TYPE);
+                builder.dataType(LocalTimeType.LOCAL_DATE_TIME_TYPE);
                 builder.scale(typeDefine.getScale());
                 break;
             case SQLSERVER_SMALLDATETIME:
@@ -478,19 +478,6 @@ public class SqlServerTypeConverter implements TypeConverter<BasicTypeDefine> {
                     builder.columnType(SQLSERVER_DATETIME2);
                 }
                 builder.dataType(SQLSERVER_DATETIME2);
-                break;
-            case TIMESTAMP_TZ:
-                int tzScale = column.getScale() == null ? 0 : column.getScale();
-                if (tzScale > MAX_TIMESTAMP_SCALE) {
-                    tzScale = MAX_TIMESTAMP_SCALE;
-                }
-                if (tzScale > 0) {
-                    builder.columnType(String.format("%s(%s)", SQLSERVER_DATETIMEOFFSET, tzScale));
-                } else {
-                    builder.columnType(SQLSERVER_DATETIMEOFFSET);
-                }
-                builder.dataType(SQLSERVER_DATETIMEOFFSET);
-                builder.scale(tzScale);
                 break;
             default:
                 throw CommonError.convertToConnectorTypeError(
