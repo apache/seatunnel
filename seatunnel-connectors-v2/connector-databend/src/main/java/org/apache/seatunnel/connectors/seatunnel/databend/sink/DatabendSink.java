@@ -17,12 +17,16 @@
 
 package org.apache.seatunnel.connectors.seatunnel.databend.sink;
 
+import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.serialization.DefaultSerializer;
+import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.sink.DataSaveMode;
 import org.apache.seatunnel.api.sink.DefaultSaveModeHandler;
 import org.apache.seatunnel.api.sink.SaveModeHandler;
 import org.apache.seatunnel.api.sink.SchemaSaveMode;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
+import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SupportSaveMode;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
@@ -50,19 +54,30 @@ import java.util.stream.Collectors;
 
 @Slf4j
 public class DatabendSink
-        implements SeaTunnelSink<SeaTunnelRow, Void, Void, Void>, SupportSaveMode {
+        implements SeaTunnelSink<
+                        SeaTunnelRow,
+                        Void,
+                        DatabendSinkCommitterInfo,
+                        DatabendSinkAggregatedCommitInfo>,
+                SupportSaveMode {
 
     private final CatalogTable catalogTable;
     private final SchemaSaveMode schemaSaveMode;
     private final DataSaveMode dataSaveMode;
     private final String database;
     private final String table;
+    private final String rawTableName;
+    private final String streamName;
     private final String customSql;
     private final boolean autoCommit;
     private final int batchSize;
     private final int executeTimeoutSec;
     private final DatabendSinkConfig databendSinkConfig;
     private ReadonlyConfig readonlyConfig;
+
+    // CDC infrastructure initialization fields
+    private boolean isCdcInfrastructureInitialized = false;
+    private JobContext jobContext;
 
     public DatabendSink(CatalogTable catalogTable, ReadonlyConfig options) {
         this.catalogTable = catalogTable;
@@ -82,6 +97,8 @@ public class DatabendSink
         } else {
             this.table = configuredTable;
         }
+        this.rawTableName = databendSinkConfig.getRawTableName();
+        this.streamName = databendSinkConfig.getStreamName();
         this.autoCommit = options.get(DatabendOptions.AUTO_COMMIT);
         this.batchSize = options.get(DatabendOptions.BATCH_SIZE);
         this.executeTimeoutSec = options.get(DatabendSinkOptions.EXECUTE_TIMEOUT_SEC);
@@ -111,6 +128,13 @@ public class DatabendSink
         log.info("Auto commit: {}", autoCommit);
         log.info("Batch size: {}", batchSize);
         log.info("Execute timeout: {} seconds", executeTimeoutSec);
+
+        // CDC mode info
+        if (databendSinkConfig.isCdcMode()) {
+            log.info("CDC mode enabled with conflict key: {}", databendSinkConfig.getConflictKey());
+            log.info("Enable delete: {}", databendSinkConfig.isEnableDelete());
+            log.info("Interval: {} seconds", databendSinkConfig.getInterval());
+        }
     }
 
     @Override
@@ -119,7 +143,8 @@ public class DatabendSink
     }
 
     @Override
-    public DatabendSinkWriter createWriter(@NonNull SinkWriter.Context context) throws IOException {
+    public SinkWriter<SeaTunnelRow, DatabendSinkCommitterInfo, Void> createWriter(
+            @NonNull SinkWriter.Context context) throws IOException {
         try {
             Connection connection = DatabendUtil.createConnection(databendSinkConfig);
             connection.setAutoCommit(autoCommit);
@@ -132,6 +157,8 @@ public class DatabendSink
                     customSql,
                     database,
                     table,
+                    rawTableName,
+                    streamName,
                     batchSize,
                     executeTimeoutSec);
         } catch (SQLException e) {
@@ -140,11 +167,6 @@ public class DatabendSink
                     "Failed to connect to Databend: " + e.getMessage(),
                     e);
         }
-    }
-
-    @Override
-    public Optional<CatalogTable> getWriteCatalogTable() {
-        return Optional.of(catalogTable);
     }
 
     @Override
@@ -219,5 +241,110 @@ public class DatabendSink
             default:
                 return "STRING"; // Default to STRING for complex types
         }
+    }
+
+    @Override
+    public Optional<
+                    SinkAggregatedCommitter<
+                            DatabendSinkCommitterInfo, DatabendSinkAggregatedCommitInfo>>
+            createAggregatedCommitter() throws IOException {
+        DatabendSinkAggregatedCommitter committer =
+                new DatabendSinkAggregatedCommitter(
+                        databendSinkConfig, database, table, rawTableName, streamName);
+        committer.setCatalogTable(catalogTable);
+        return Optional.of(committer);
+    }
+
+    @Override
+    public Optional<Serializer<DatabendSinkCommitterInfo>> getCommitInfoSerializer() {
+        return Optional.of(new DefaultSerializer<>());
+    }
+
+    @Override
+    public Optional<Serializer<DatabendSinkAggregatedCommitInfo>>
+            getAggregatedCommitInfoSerializer() {
+        return Optional.of(new DefaultSerializer<>());
+    }
+
+    @Override
+    public void setJobContext(JobContext jobContext) {
+        this.jobContext = jobContext;
+
+        // Only initialize CDC infrastructure on coordinator node in BATCH mode
+        // jobContext.getJobMode() == JobMode.BATCH
+        if (databendSinkConfig.isCdcMode() && !isCdcInfrastructureInitialized) {
+            initializeCdcInfrastructure();
+            isCdcInfrastructureInitialized = true;
+        }
+    }
+
+    /** Initialize CDC infrastructure (raw table and stream) only once on the coordinator node */
+    private void initializeCdcInfrastructure() {
+        log.info("Initializing CDC infrastructure for database: {}, table: {}", database, table);
+        try (Connection connection = DatabendUtil.createConnection(databendSinkConfig)) {
+            // Generate unique names for raw table and stream
+            String rawTableName = this.rawTableName;
+            String streamName = this.streamName;
+
+            // Create raw table
+            createRawTable(connection, rawTableName);
+
+            // Create stream on raw table
+            createStream(connection, database, rawTableName, streamName);
+
+            log.info(
+                    "CDC infrastructure initialized - raw table: {}, stream: {}",
+                    rawTableName,
+                    streamName);
+        } catch (SQLException e) {
+            throw new DatabendConnectorException(
+                    DatabendConnectorErrorCode.SQL_OPERATION_FAILED,
+                    "Failed to initialize CDC infrastructure: " + e.getMessage(),
+                    e);
+        }
+    }
+
+    private String getCurrentTimestamp() {
+        return java.time.LocalDateTime.now()
+                .format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMddHHmmssSSS"));
+    }
+
+    private void createRawTable(Connection connection, String rawTableName) throws SQLException {
+        String createTableSql =
+                String.format(
+                        "CREATE TABLE IF NOT EXISTS %s.%s ("
+                                + "  id VARCHAR(255),"
+                                + "  table_name VARCHAR(255),"
+                                + "  raw_data JSON,"
+                                + "  add_time TIMESTAMP,"
+                                + "  action STRING"
+                                + ")",
+                        database, rawTableName);
+
+        log.info("Creating raw table with SQL: {}", createTableSql);
+        try (java.sql.Statement stmt = connection.createStatement()) {
+            stmt.execute(createTableSql);
+            log.info("Raw table {} created successfully", rawTableName);
+        }
+    }
+
+    private void createStream(
+            Connection connection, String database, String rawTableName, String streamName)
+            throws SQLException {
+        String createStreamSql =
+                String.format(
+                        "CREATE STREAM IF NOT EXISTS %s.%s ON TABLE %s.%s",
+                        database, streamName, database, rawTableName);
+
+        log.info("Creating stream with SQL: {}", createStreamSql);
+        try (java.sql.Statement stmt = connection.createStatement()) {
+            stmt.execute(createStreamSql);
+            log.info("Stream {} created successfully", streamName);
+        }
+    }
+
+    @Override
+    public Optional<CatalogTable> getWriteCatalogTable() {
+        return Optional.of(catalogTable);
     }
 }

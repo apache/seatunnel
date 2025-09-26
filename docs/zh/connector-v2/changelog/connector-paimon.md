@@ -2,7 +2,22 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
-|[feature][connectors-v2] Support in predicate pushdown in paimon (#9379)|https://github.com/apache/seatunnel/commit/1ec43755d5| dev |
+|[Feature][Connectors-v2] Clean up temporary files for paimon sink (#9819)|https://github.com/apache/seatunnel/commit/c43d57de31| dev |
+|[Feature][Connector-v2] Support multi paimon source (#9759)|https://github.com/apache/seatunnel/commit/0d52102241|2.3.12|
+|[Chore] fix typos filed -&gt; field (#9757)|https://github.com/apache/seatunnel/commit/e3e1c67d29|2.3.12|
+|[Feature][connector-paimon] Paimon connector supports paimon privilege (#9722)|https://github.com/apache/seatunnel/commit/b2bb2f8d78|2.3.12|
+|[Improve][Core] Update apache common to apache common lang3 (#9694)|https://github.com/apache/seatunnel/commit/6e5737c1ec|2.3.12|
+|[Improve][API] Optimize the enumerator API semantics and reduce lock calls at the connector level (#9671)|https://github.com/apache/seatunnel/commit/9212a77140|2.3.12|
+|[fix][connectors-v2] repeated commit cause task exceptions (#9665)|https://github.com/apache/seatunnel/commit/085023ad0d|2.3.12|
+|[Improve][Connector-V2] Support like predicate pushdown in paimon (#9653)|https://github.com/apache/seatunnel/commit/9e01c84e76|2.3.12|
+|[Feature][Connectors-v2]Paimon version upgrade to 1.1.1 (#8074)|https://github.com/apache/seatunnel/commit/96b26a68dc|2.3.12|
+|[Fix][Connectors-v2] fix dynamic bucket  for paimon sink (#9595)|https://github.com/apache/seatunnel/commit/d29a531a48|2.3.12|
+|[Feature][Connector-V2] Support like predicate pushdown in paimon (#9484)|https://github.com/apache/seatunnel/commit/a19720ccf6|2.3.12|
+|[Fix][Connector-V2] Update waitCompaction value for batch mode and writeonly (#9479)|https://github.com/apache/seatunnel/commit/63993a6197|2.3.12|
+|[Future][Connector-V2]Support the automatic creation of non-primary key table (#9219)|https://github.com/apache/seatunnel/commit/93e539cc9f|2.3.12|
+|[Fix][Connector-V2] Optimize Paimon DECIMAL type check to prevent precision loss (#9480)|https://github.com/apache/seatunnel/commit/c114682a6b|2.3.12|
+|[Bug][Connector-V2] fix NPE when decimal type precision is incompatible for Paimon (#9452)|https://github.com/apache/seatunnel/commit/37762c93f0|2.3.12|
+|[feature][connectors-v2] Support in predicate pushdown in paimon (#9379)|https://github.com/apache/seatunnel/commit/1ec43755d5|2.3.12|
 |[Improve][Connector-V2] Fix the word misspellings for paimon connector (#9332)|https://github.com/apache/seatunnel/commit/ba7f5c9e30|2.3.11|
 |[Feature][Transform] Support define sink column type (#9114)|https://github.com/apache/seatunnel/commit/ab7119e507|2.3.11|
 |[improve] paimon options (#9167)|https://github.com/apache/seatunnel/commit/b0889305c2|2.3.11|

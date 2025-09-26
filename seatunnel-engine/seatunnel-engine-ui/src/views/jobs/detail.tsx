@@ -25,7 +25,7 @@ import {
   NDrawer,
   NDrawerContent
 } from 'naive-ui'
-import { computed, defineComponent, reactive, ref, watch } from 'vue'
+import {computed, defineComponent, onUnmounted, reactive, ref, watch} from 'vue'
 import { getJobInfo } from '@/service/job'
 import { useRoute } from 'vue-router'
 import type { Job, Vertex } from '@/service/job/types'
@@ -47,19 +47,23 @@ export default defineComponent({
     const job = reactive({} as Job)
     const duration = ref('')
     let timer: NodeJS.Timeout
+    let fetchTimer: NodeJS.Timeout
     const fetch = async () => {
       const res = await getJobInfo(jobId)
       Object.assign(job, res)
       clearInterval(timer)
       const d = parse(res.createTime, 'yyyy-MM-dd HH:mm:ss', new Date())
       duration.value = getRemainTime(Math.abs(Date.now() - d.getTime()))
-      setTimeout(fetch, 5000)
-      if (job.jobStatus !== 'RUNNING') {
+      if (isTerminalState(job.jobStatus)) {
+        clearTimeout(fetchTimer)
         return
       }
-      timer = setInterval(() => {
-        duration.value = getRemainTime(Math.abs(Date.now() - d.getTime()))
-      }, 1000)
+      fetchTimer = setTimeout(fetch, 5000)
+      if (isRunningState(job.jobStatus)) {
+        timer = setInterval(() => {
+          duration.value = getRemainTime(Math.abs(Date.now() - d.getTime()))
+        }, 1000)
+      }
     }
 
     fetch()
@@ -69,6 +73,20 @@ export default defineComponent({
       console.log(select.value)
     }
     watch(() => select.value, change)
+
+    // Clear the timer when the component is uninstalled
+    onUnmounted(() => {
+      clearInterval(timer)
+      clearTimeout(fetchTimer)
+    })
+
+    const isTerminalState = (status: string) => {
+      return ['FINISHED', 'FAILED', 'CANCELED','SAVEPOINT_DONE'].includes(status)
+    }
+
+    const isRunningState = (status: string) => {
+      return status === 'RUNNING'
+    }
 
     const tableData = computed(() => {
       return job.jobDag?.vertexInfoMap?.filter((v) => v.type !== 'transform') || []

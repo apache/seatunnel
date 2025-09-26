@@ -151,7 +151,7 @@ public class JobMaster {
     private final IMap<Object, Object> runningJobStateTimestampsIMap;
 
     // TODO add config to change value
-    private boolean isPhysicalDAGIInfo = true;
+    private boolean isPhysicalDAGInfo = true;
 
     private final EngineConfig engineConfig;
 
@@ -333,6 +333,7 @@ public class JobMaster {
         CheckpointConfig jobCheckpointConfig = new CheckpointConfig();
         jobCheckpointConfig.setCheckpointTimeout(defaultCheckpointConfig.getCheckpointTimeout());
         jobCheckpointConfig.setCheckpointInterval(defaultCheckpointConfig.getCheckpointInterval());
+        jobCheckpointConfig.setCheckpointMinPause(defaultCheckpointConfig.getCheckpointMinPause());
 
         CheckpointStorageConfig jobCheckpointStorageConfig = new CheckpointStorageConfig();
         jobCheckpointStorageConfig.setStorage(defaultCheckpointConfig.getStorage().getStorage());
@@ -356,6 +357,11 @@ public class JobMaster {
             jobCheckpointConfig.setCheckpointTimeout(
                     Long.parseLong(
                             jobEnv.get(EnvCommonOptions.CHECKPOINT_TIMEOUT.key()).toString()));
+        }
+        if (jobEnv.containsKey(EnvCommonOptions.CHECKPOINT_MIN_PAUSE.key())) {
+            jobCheckpointConfig.setCheckpointMinPause(
+                    Long.parseLong(
+                            jobEnv.get(EnvCommonOptions.CHECKPOINT_MIN_PAUSE.key()).toString()));
         }
         return jobCheckpointConfig;
     }
@@ -625,7 +631,6 @@ public class JobMaster {
                                             .getCheckpointStateImapKey();
                             runningJobStateIMap.remove(checkpointStateImapKey);
                         });
-
         runningJobStateIMap.remove(jobId);
         runningJobInfoIMap.remove(jobId);
     }
@@ -637,7 +642,7 @@ public class JobMaster {
                             logicalDag,
                             jobImmutableInformation,
                             engineConfig,
-                            isPhysicalDAGIInfo,
+                            isPhysicalDAGInfo,
                             new ExecutionAddress(
                                     this.nodeEngine.getThisAddress().getHost(),
                                     this.nodeEngine.getThisAddress().getPort()),
@@ -738,6 +743,10 @@ public class JobMaster {
         jobHistoryService.storeJobInfo(jobImmutableInformation.getJobId(), getJobDAGInfo());
         jobHistoryService.storeFinishedJobState(this);
         removeJobIMap();
+    }
+
+    public void storeJobEndState() {
+        jobHistoryService.storeFinishedJobState(this);
     }
 
     public Address queryTaskGroupAddress(TaskGroupLocation taskGroupLocation) {

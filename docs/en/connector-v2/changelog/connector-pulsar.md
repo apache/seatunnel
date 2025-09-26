@@ -2,6 +2,8 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
+|[Improve][API] Optimize the enumerator API semantics and reduce lock calls at the connector level (#9671)|https://github.com/apache/seatunnel/commit/9212a77140|2.3.12|
+|[improve] pulsar options (#9180)|https://github.com/apache/seatunnel/commit/26a2160c80|2.3.12|
 |[Feature][Checkpoint] Add check script for source/sink state class serialVersionUID missing (#9118)|https://github.com/apache/seatunnel/commit/4f5adeb1c7|2.3.11|
 |[Improve] restruct connector common options (#8634)|https://github.com/apache/seatunnel/commit/f3499a6eeb|2.3.10|
 |[Improve][dist]add shade check rule (#8136)|https://github.com/apache/seatunnel/commit/51ef800016|2.3.9|

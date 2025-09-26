@@ -449,7 +449,7 @@ public class DatabendCatalog implements Catalog {
                 return "TIME";
             case TIMESTAMP:
                 LocalTimeType timeType = (LocalTimeType) dataType;
-                return String.format("TIMESTAMP(%d)");
+                return "TIMESTAMP";
             default:
                 throw new DatabendConnectorException(
                         DatabendConnectorErrorCode.UNSUPPORTED_DATA_TYPE,

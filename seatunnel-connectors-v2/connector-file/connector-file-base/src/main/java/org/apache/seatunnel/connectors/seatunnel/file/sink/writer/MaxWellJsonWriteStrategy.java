@@ -45,6 +45,7 @@ public class MaxWellJsonWriteStrategy extends AbstractWriteStrategy<FSDataOutput
     private final LinkedHashMap<String, FSDataOutputStream> beingWrittenOutputStream;
     private final Map<String, Boolean> isFirstWrite;
     private final Charset charset;
+    private final boolean mergeUpdateEventFlag;
 
     public MaxWellJsonWriteStrategy(FileSinkConfig textFileSinkConfig) {
         super(textFileSinkConfig);
@@ -52,6 +53,7 @@ public class MaxWellJsonWriteStrategy extends AbstractWriteStrategy<FSDataOutput
         this.isFirstWrite = new HashMap<>();
         this.charset = EncodingUtils.tryParseCharset(textFileSinkConfig.getEncoding());
         this.rowDelimiter = textFileSinkConfig.getRowDelimiter().getBytes(charset);
+        this.mergeUpdateEventFlag = textFileSinkConfig.getMergeUpdateEvent();
     }
 
     @Override
@@ -61,7 +63,8 @@ public class MaxWellJsonWriteStrategy extends AbstractWriteStrategy<FSDataOutput
                 new MaxWellJsonSerializationSchema(
                         buildSchemaWithRowType(
                                 catalogTable.getSeaTunnelRowType(), sinkColumnsIndexInRow),
-                        charset);
+                        charset,
+                        mergeUpdateEventFlag);
     }
 
     @Override
@@ -76,6 +79,9 @@ public class MaxWellJsonWriteStrategy extends AbstractWriteStrategy<FSDataOutput
                                     sinkColumnsIndexInRow.stream()
                                             .mapToInt(Integer::intValue)
                                             .toArray()));
+            if (rowBytes == null) {
+                return;
+            }
             if (isFirstWrite.get(filePath)) {
                 isFirstWrite.put(filePath, false);
             } else {
