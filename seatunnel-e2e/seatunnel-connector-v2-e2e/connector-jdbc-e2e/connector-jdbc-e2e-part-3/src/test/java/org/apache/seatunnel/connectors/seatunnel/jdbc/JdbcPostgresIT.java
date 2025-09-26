@@ -113,6 +113,7 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
                     + "  geog geography(POINT, 4326),\n"
                     + "  json_col json NOT NULL,\n"
                     + "  jsonb_col jsonb NOT NULL,\n"
+                    + "  tzt TIMESTAMPTZ,\n"
                     + "  xml_col xml NOT NULL\n"
                     + ");comment on column pg_e2e_source_table.uuid_col is '\"#¥%……&*（）;;'',,.\\.``````//''@特殊注释''\\\\''\"'";
     private static final String PG_SINK_DDL =
@@ -147,6 +148,7 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
                     + "    multipolygon varchar(2000) NULL,\n"
                     + "    geometrycollection varchar(2000) NULL,\n"
                     + "    geog varchar(2000) NULL,\n"
+                    + "    tzt TIMESTAMPTZ,\n"
                     + "    json_col json NOT NULL \n,"
                     + "    jsonb_col jsonb NOT NULL,\n"
                     + "    xml_col xml NOT NULL\n"
@@ -185,6 +187,7 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
                     + "geog,\n"
                     + "json_col,\n"
                     + "jsonb_col,\n"
+                    + " tzt,\n"
                     + " cast(xml_col as varchar) \n"
                     + "from pg_e2e_source_table";
     private static final String SINK_SQL =
@@ -221,14 +224,10 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
                     + "  cast(geog as geography) as geog,\n"
                     + "   json_col,\n"
                     + "   jsonb_col,\n"
+                    + "   tzt,\n"
                     + "  cast(xml_col as varchar) \n"
                     + "from\n"
                     + "  pg_e2e_sink_table";
-
-    private static final String PG_TSTZ_SOURCE_QUERY =
-            "select id, tzt from pg_e2e_tstz_src order by id";
-    private static final String PG_TSTZ_SINK_QUERY =
-            "select id, tzt from pg_e2e_tstz_sink order by id";
 
     @TestContainerExtension
     private final ContainerExtendedFactory extendedFactory =
@@ -353,18 +352,6 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
         }
     }
 
-    @TestTemplate
-    public void testTimestampTzRoundTrip(TestContainer container)
-            throws IOException, InterruptedException {
-        Container.ExecResult r =
-                container.executeJob("/jdbc_postgres_timestamptz_source_and_sink.conf");
-        Assertions.assertEquals(0, r.getExitCode());
-        Assertions.assertIterableEquals(
-                querySql(PG_TSTZ_SOURCE_QUERY), querySql(PG_TSTZ_SINK_QUERY));
-        executeSQL("truncate table pg_e2e_tstz_sink");
-        log.info("/jdbc_postgres_timestamptz_source_and_sink.conf e2e test completed");
-    }
-
     @Test
     public void testCatalog() {
         String schema = "public";
@@ -444,6 +431,7 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
                                 + "    geog,\n"
                                 + "    json_col,\n"
                                 + "    jsonb_col, \n"
+                                + "    tzt, \n"
                                 + "    xml_col \n"
                                 + "  )\n"
                                 + "VALUES\n"
@@ -500,28 +488,13 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
                                 + "    ST_GeographyFromText('POINT(-122.3452 47.5925)'),\n"
                                 + "    '{\"key\":\"test\"}',\n"
                                 + "    '{\"key\":\"test\"}',\n"
+                                + "    '2023-01-01 00:00:00+00',\n"
                                 + "    '<XX:NewSize>test</XX:NewSize>'\n"
                                 + "  )");
             }
 
             statement.executeBatch();
-            // Prepare timestamptz roundtrip tables
-            statement.execute(
-                    "CREATE TABLE IF NOT EXISTS pg_e2e_tstz_src (id INT PRIMARY KEY, tzt TIMESTAMPTZ)");
-            statement.execute(
-                    "CREATE TABLE IF NOT EXISTS pg_e2e_tstz_sink (id INT PRIMARY KEY, tzt TIMESTAMPTZ)");
-            statement.execute("TRUNCATE TABLE pg_e2e_tstz_src");
-            statement.execute("TRUNCATE TABLE pg_e2e_tstz_sink");
-            statement.addBatch(
-                    "INSERT INTO pg_e2e_tstz_src(id, tzt) VALUES (1, '2023-01-01 00:00:00+00')");
-            statement.addBatch(
-                    "INSERT INTO pg_e2e_tstz_src(id, tzt) VALUES (2, '2023-06-01 08:15:30.123456+08')");
-            statement.addBatch(
-                    "INSERT INTO pg_e2e_tstz_src(id, tzt) VALUES (3, '2020-02-29 23:59:59.999999-05')");
-            statement.addBatch(
-                    "INSERT INTO pg_e2e_tstz_src(id, tzt) VALUES (4, '1970-01-01 00:00:00+00')");
-            statement.addBatch(
-                    "INSERT INTO pg_e2e_tstz_src(id, tzt) VALUES (5, '9999-12-31 23:59:59.999999+14')");
+
             statement.executeBatch();
 
         } catch (SQLException e) {

@@ -178,11 +178,8 @@ public class SqlServerCDCIT extends TestSuiteBase implements TestResource {
                         container.execInContainer(
                                 "bash",
                                 "-c",
-                                "set -e; "
-                                        + "mkdir -p /tmp/seatunnel/plugins/SqlServer-CDC/lib /tmp/seatunnel/plugins/Jdbc/lib && "
-                                        + "cd /tmp/seatunnel/plugins/SqlServer-CDC/lib && wget -q "
-                                        + driverUrl()
-                                        + " && cp -f *.jar /tmp/seatunnel/plugins/Jdbc/lib/");
+                                "mkdir -p /tmp/seatunnel/plugins/SqlServer-CDC/lib && cd /tmp/seatunnel/plugins/SqlServer-CDC/lib && wget "
+                                        + driverUrl());
                 Assertions.assertEquals(0, extraCommands.getExitCode(), extraCommands.getStderr());
             };
 

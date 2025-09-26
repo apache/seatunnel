@@ -182,16 +182,18 @@ public class JdbcSqlServerCreateTableIT extends TestSuiteBase implements TestRes
                         container.execInContainer(
                                 "bash",
                                 "-c",
-                                "set -e; mkdir -p /tmp/seatunnel/plugins/Jdbc/lib && cd /tmp/seatunnel/plugins/Jdbc/lib && wget -q "
+                                "mkdir -p /tmp/seatunnel/plugins/Jdbc/lib && cd /tmp/seatunnel/plugins/Jdbc/lib && curl -O "
                                         + PG_DRIVER_JAR
-                                        + " && wget -q "
+                                        + " && curl -O "
                                         + PG_JDBC_JAR
-                                        + " && wget -q "
+                                        + " && curl -O "
                                         + PG_GEOMETRY_JAR
-                                        + " && wget -q "
-                                        + driverMySqlUrl()
-                                        + " && wget -q "
-                                        + driverSqlserverUrl());
+                                        + " && curl -O "
+                                        + MYSQL_DRIVER_CLASS
+                                        + " && curl -O "
+                                        + driverSqlserverUrl()
+                                        + " && curl -O "
+                                        + driverMySqlUrl());
                 //                Assertions.assertEquals(0, extraCommands.getExitCode());
             };
 
