@@ -513,6 +513,7 @@ public class MySqlTypeConverter implements TypeConverter<BasicTypeDefine<MysqlTy
                 }
                 break;
             case TIMESTAMP:
+            case TIMESTAMP_TZ:
                 builder.nativeType(MysqlType.DATETIME);
                 builder.dataType(MYSQL_DATETIME);
                 if (version.isAtOrBefore(MySqlVersion.V_5_5)) {
