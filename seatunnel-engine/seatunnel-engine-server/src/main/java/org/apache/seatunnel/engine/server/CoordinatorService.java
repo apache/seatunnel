@@ -1079,6 +1079,10 @@ public class CoordinatorService {
         return metricsImap;
     }
 
+    public int getPendingJobCount() {
+        return pendingJobQueue.getJobIdMap().size();
+    }
+
     @VisibleForTesting
     public PeekBlockingQueue<PendingJobInfo> getPendingJobQueue() {
         return pendingJobQueue;
