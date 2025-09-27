@@ -38,6 +38,7 @@
         <module>seatunnel-hadoop-aws</module>
         <module>seatunnel-arrow</module>
         <module>seatunnel-hikari</module>
+        <module>seatunnel-commons-lang3</module>
     </modules>
 
     <build>

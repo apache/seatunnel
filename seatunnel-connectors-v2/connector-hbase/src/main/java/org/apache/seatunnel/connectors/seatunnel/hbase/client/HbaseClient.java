@@ -17,12 +17,13 @@
 
 package org.apache.seatunnel.connectors.seatunnel.hbase.client;
 
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
+
 import org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseParameters;
 import org.apache.seatunnel.connectors.seatunnel.hbase.exception.HbaseConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.hbase.exception.HbaseConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.hbase.source.HbaseSourceSplit;
 
-import org.apache.commons.lang3.StringUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.HBaseConfiguration;
 import org.apache.hadoop.hbase.NamespaceDescriptor;

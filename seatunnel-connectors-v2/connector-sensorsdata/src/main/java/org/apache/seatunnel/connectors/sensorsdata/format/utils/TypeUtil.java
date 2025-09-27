@@ -18,13 +18,12 @@
 package org.apache.seatunnel.connectors.sensorsdata.format.utils;
 
 import org.apache.seatunnel.shade.com.google.common.base.Objects;
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
+import org.apache.seatunnel.shade.org.apache.commons.lang3.math.NumberUtils;
 
 import org.apache.seatunnel.connectors.sensorsdata.format.SensorsDataTypes;
 import org.apache.seatunnel.connectors.sensorsdata.format.exception.SensorsDataErrorCode;
 import org.apache.seatunnel.connectors.sensorsdata.format.exception.SensorsDataException;
-
-import org.apache.commons.lang3.StringUtils;
-import org.apache.commons.lang3.math.NumberUtils;
 
 import lombok.experimental.UtilityClass;
 import lombok.extern.slf4j.Slf4j;

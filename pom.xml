@@ -954,6 +954,11 @@
                             <searchRegex>import\s+(static\s+)?org\.codehaus\.(janino|commons)\.([^;]+);(\r\n|\r|\n)</searchRegex>
                             <replacement>import $1org.apache.seatunnel.shade.org.codehaus.$2.$3;$4</replacement>
                         </replaceRegex>
+                        <replaceRegex>
+                            <name>Convert Apache Commons Lang3 imports to shade</name>
+                            <searchRegex>import\s+(static\s+)?org\.apache\.commons\.lang3\.([^;]+);(\r\n|\r|\n)</searchRegex>
+                            <replacement>import $1org.apache.seatunnel.shade.org.apache.commons.lang3.$2;$3</replacement>
+                        </replaceRegex>
                     </java>
                     <pom>
                         <sortPom>

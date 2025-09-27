@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.clickhouse.source;
 
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
+
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -27,8 +29,6 @@ import org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.file.Clickhouse
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.source.split.ClickhouseSourceSplit;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.util.ClickhouseProxy;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.util.ClickhouseUtil;
-
-import org.apache.commons.lang3.StringUtils;
 
 import com.clickhouse.client.ClickHouseException;
 import com.clickhouse.client.ClickHouseResponse;
