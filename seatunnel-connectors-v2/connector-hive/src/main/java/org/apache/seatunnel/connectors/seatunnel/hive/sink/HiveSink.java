@@ -144,15 +144,19 @@ public class HiveSink
                                 IS_PARTITION_FIELD_WRITE_IN_FILE.key(),
                                 ConfigValueFactory.fromAnyRef(false))
                         .withValue(
-                                FILE_NAME_EXPRESSION.key(),
-                                ConfigValueFactory.fromAnyRef("${transactionId}"))
-                        .withValue(
                                 FILE_PATH.key(),
                                 ConfigValueFactory.fromAnyRef(
                                         tableInformation.getSd().getLocation()))
                         .withValue(SINK_COLUMNS.key(), ConfigValueFactory.fromAnyRef(sinkFields))
                         .withValue(
                                 PARTITION_BY.key(), ConfigValueFactory.fromAnyRef(partitionKeys));
+        // Only set a default file_name_expression when it's not provided by user config.
+        if (!pluginConfig.hasPath(FILE_NAME_EXPRESSION.key())) {
+            pluginConfig =
+                    pluginConfig.withValue(
+                            FILE_NAME_EXPRESSION.key(),
+                            ConfigValueFactory.fromAnyRef("${transactionId}"));
+        }
 
         return new FileSinkConfig(pluginConfig, catalogTable.getSeaTunnelRowType());
     }

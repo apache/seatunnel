@@ -20,3 +20,9 @@
 SPARK_HOME=${SPARK_HOME:-/opt/spark}
 # Home directory of flink distribution.
 FLINK_HOME=${FLINK_HOME:-/opt/flink}
+# Whether to enable metalake (true/false).
+METALAKE_ENABLED=${METALAKE_ENABLED:-false}
+# Type of metalake implementation.
+METALAKE_TYPE=${METALAKE_TYPE:-gravitino}
+# Metalake service URL, format: http://host:port/api/metalakes/{metalake_name}/catalogs/.
+METALAKE_URL=${METALAKE_URL:-http://localhost:8090/api/metalakes/default_metalake_name/catalogs/}

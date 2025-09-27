@@ -2,6 +2,9 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
+|[Feature][Core] Add plugin directory support for each connector (#9650)|https://github.com/apache/seatunnel/commit/4beb2b9336|2.3.12|
+|[Feature][Connectors-v2] Optimize the size of CDC JAR Files (#9546)|https://github.com/apache/seatunnel/commit/1dd19c6823|2.3.12|
+|[Fix][Mongo-CDC] Fix the issue where mongo isExactlyOnce defaults to true, causing room to malfunction (#9454)|https://github.com/apache/seatunnel/commit/814b19537c|2.3.12|
 |[Fix] [Mongo-cdc] Fallback to timestamp startup mode when resume token has expired (#8754)|https://github.com/apache/seatunnel/commit/afc990d84e|2.3.10|
 |[Improve] restruct connector common options (#8634)|https://github.com/apache/seatunnel/commit/f3499a6eeb|2.3.10|
 |[Feature][Mongodb-CDC] Support multi-table read (#8029)|https://github.com/apache/seatunnel/commit/49cbaeb9b3|2.3.9|
