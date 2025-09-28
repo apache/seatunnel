@@ -50,35 +50,35 @@ If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you
 
 ## Options
 
-| name                      | type    | required | default value                        |
-|---------------------------|---------|----------|--------------------------------------|
-| path                      | string  | yes      | -                                    |
-| file_format_type          | string  | yes      | -                                    |
-| read_columns              | list    | no       | -                                    |
-| delimiter/field_delimiter | string  | no       | \001 for text and , for csv          |
-| parse_partition_from_path | boolean | no       | true                                 |
-| date_format               | string  | no       | yyyy-MM-dd                           |
-| datetime_format           | string  | no       | yyyy-MM-dd HH:mm:ss                  |
-| time_format               | string  | no       | HH:mm:ss                             |
-| skip_header_row_number    | long    | no       | 0                                    |
-| schema                    | config  | no       | -                                    |
-| sheet_name                | string  | no       | -                                    |
-| excel_engine              | string  | no       | POI                                  |                                             
-| xml_row_tag               | string  | no       | -                                    |
-| xml_use_attr_format       | boolean | no       | -                                    |
-| csv_use_header_line       | boolean | no       | false                                |
-| file_filter_pattern       | string  | no       | -                                    |
-| filename_extension            | string  | no       | -                                    |
-| compress_codec            | string  | no       | none                                 |
-| archive_compress_codec    | string  | no       | none                                 |
-| encoding                  | string  | no       | UTF-8                                |
-| null_format               | string  | no       | -                                    |
-| binary_chunk_size         | int     | no       | 1024                                 |
-| binary_complete_file_mode | boolean | no       | false                                |
-| common-options            |         | no       | -                                    |
-| tables_configs            | list    | no       | used to define a multiple table task |
-| file_filter_modified_start  | string  | no       | -                   | File modification time filter. The connector will filter some files base on the last modification start time (include start time). The default data format is `yyyy-MM-dd HH:mm:ss`.                                                                                                                                                       |
-| file_filter_modified_end    | string  | no       | -                   | File modification time filter. The connector will filter some files base on the last modification end time (not include end time). The default data format is `yyyy-MM-dd HH:mm:ss`.                                                                                                                                                |
+| name                       | type    | required | default value                        |
+|----------------------------|---------|----------|--------------------------------------|
+| path                       | string  | yes      | -                                    |
+| file_format_type           | string  | yes      | -                                    |
+| read_columns               | list    | no       | -                                    |
+| delimiter/field_delimiter  | string  | no       | \001 for text and , for csv          |
+| parse_partition_from_path  | boolean | no       | true                                 |
+| date_format                | string  | no       | yyyy-MM-dd                           |
+| datetime_format            | string  | no       | yyyy-MM-dd HH:mm:ss                  |
+| time_format                | string  | no       | HH:mm:ss                             |
+| skip_header_row_number     | long    | no       | 0                                    |
+| schema                     | config  | no       | -                                    |
+| sheet_name                 | string  | no       | -                                    |
+| excel_engine               | string  | no       | POI                                  |                                             
+| xml_row_tag                | string  | no       | -                                    |
+| xml_use_attr_format        | boolean | no       | -                                    |
+| csv_use_header_line        | boolean | no       | false                                |
+| file_filter_pattern        | string  | no       | -                                    |
+| filename_extension         | string  | no       | -                                    |
+| compress_codec             | string  | no       | none                                 |
+| archive_compress_codec     | string  | no       | none                                 |
+| encoding                   | string  | no       | UTF-8                                |
+| null_format                | string  | no       | -                                    |
+| binary_chunk_size          | int     | no       | 1024                                 |
+| binary_complete_file_mode  | boolean | no       | false                                |
+| common-options             |         | no       | -                                    |
+| tables_configs             | list    | no       | used to define a multiple table task |
+| file_filter_modified_start | string  | no       | -                                    |
+| file_filter_modified_end   | string  | no       | -                                    | 
 
 ### path [string]
 
@@ -397,6 +397,14 @@ The chunk size (in bytes) for reading binary files. Default is 1024 bytes. Large
 Only used when file_format_type is binary.
 
 Whether to read the complete file as a single chunk instead of splitting into chunks. When enabled, the entire file content will be read into memory at once. Default is false.
+
+### file_filter_modified_start [string]
+
+File modification time filter. The connector will filter some files base on the last modification start time (include start time). The default data format is `yyyy-MM-dd HH:mm:ss`.
+
+### file_filter_modified_end [string]
+
+File modification time filter. The connector will filter some files base on the last modification end time (not include end time). The default data format is `yyyy-MM-dd HH:mm:ss`.                                                                                                                                                
 
 ### common options
 

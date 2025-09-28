@@ -50,36 +50,36 @@ import ChangeLog from '../changelog/connector-file-local.md';
 
 ## 选项
 
-| 名称                        | 类型      | 是否必须 | 默认值                 |
-|---------------------------|---------|------|---------------------|
-| path                      | string  | 是    | -                   |
-| file_format_type          | string  | 是    | -                   |
-| read_columns              | list    | 否    | -                   |
-| delimiter/field_delimiter | string  | 否    | \001                |
-| row_delimiter             | string  | 否    | \n                  |
-| parse_partition_from_path | boolean | 否    | true                |
-| date_format               | string  | 否    | yyyy-MM-dd          |
-| datetime_format           | string  | 否    | yyyy-MM-dd HH:mm:ss |
-| time_format               | string  | 否    | HH:mm:ss            |
-| skip_header_row_number    | long    | 否    | 0                   |
-| schema                    | config  | 否    | -                   |
-| sheet_name                | string  | 否    | -                   |
-| excel_engine              | string  | 否    | POI                 |                                             
-| xml_row_tag               | string  | 否    | -                   |
-| xml_use_attr_format       | boolean | 否    | -                   |
-| csv_use_header_line       | boolean | 否    | false               |
-| file_filter_pattern       | string  | 否    | -                   |
-| filename_extension        | string  | 否    | -                   |
-| compress_codec            | string  | 否    | none                |
-| archive_compress_codec    | string  | 否    | none                |
-| encoding                  | string  | 否    | UTF-8               |
-| null_format               | string  | 否    | -                   |
-| binary_chunk_size         | int     | 否    | 1024                |
-| binary_complete_file_mode | boolean | 否    | false               |
-| common-options            |         | 否    | -                   |
-| tables_configs            | list    | 否    | 用于定义多表任务            |
-| file_filter_modified_start | string  | 否    | -                   | 按照最后修改时间过滤文件。 要过滤的开始时间(包括改时间),时间格式是：`yyyy-MM-dd HH:mm:ss`                                                                                 |
-| file_filter_modified_end  | string  | 否    | -                   | 按照最后修改时间过滤文件。 要过滤的结束时间(不包括改时间),时间格式是：`yyyy-MM-dd HH:mm:ss`                                                                                                                     |
+| 名称                         | 类型      | 是否必须 | 默认值                 |
+|----------------------------|---------|------|---------------------|
+| path                       | string  | 是    | -                   |
+| file_format_type           | string  | 是    | -                   |
+| read_columns               | list    | 否    | -                   |
+| delimiter/field_delimiter  | string  | 否    | \001                |
+| row_delimiter              | string  | 否    | \n                  |
+| parse_partition_from_path  | boolean | 否    | true                |
+| date_format                | string  | 否    | yyyy-MM-dd          |
+| datetime_format            | string  | 否    | yyyy-MM-dd HH:mm:ss |
+| time_format                | string  | 否    | HH:mm:ss            |
+| skip_header_row_number     | long    | 否    | 0                   |
+| schema                     | config  | 否    | -                   |
+| sheet_name                 | string  | 否    | -                   |
+| excel_engine               | string  | 否    | POI                 |                                             
+| xml_row_tag                | string  | 否    | -                   |
+| xml_use_attr_format        | boolean | 否    | -                   |
+| csv_use_header_line        | boolean | 否    | false               |
+| file_filter_pattern        | string  | 否    | -                   |
+| filename_extension         | string  | 否    | -                   |
+| compress_codec             | string  | 否    | none                |
+| archive_compress_codec     | string  | 否    | none                |
+| encoding                   | string  | 否    | UTF-8               |
+| null_format                | string  | 否    | -                   |
+| binary_chunk_size          | int     | 否    | 1024                |
+| binary_complete_file_mode  | boolean | 否    | false               |
+| common-options             |         | 否    | -                   |
+| tables_configs             | list    | 否    | 用于定义多表任务            |
+| file_filter_modified_start | string  | 否    | -                   | 
+| file_filter_modified_end   | string  | 否    | -                   |
 
 ### path [string]
 
@@ -406,6 +406,14 @@ null_format 定义哪些字符串可以表示为 null。
 仅在 file_format_type 为 binary 时使用。
 
 是否将完整文件作为单个块读取，而不是分割成块。启用时，整个文件内容将一次性读入内存。默认为 false。
+
+### file_filter_modified_start
+
+按照最后修改时间过滤文件。 要过滤的开始时间(包括改时间),时间格式是：`yyyy-MM-dd HH:mm:ss`。
+
+### file_filter_modified_end
+
+按照最后修改时间过滤文件。 要过滤的结束时间(不包括改时间),时间格式是：`yyyy-MM-dd HH:mm:ss`。
 
 ### 通用选项
 
