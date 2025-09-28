@@ -4,6 +4,12 @@ import ChangeLog from '../changelog/connector-iotdb.md';
 
 > IoTDB 数据读取器
 
+## 支持引擎
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
 ## 描述
 
 用于从 IoTDB 中读取数据。
@@ -57,10 +63,9 @@ import ChangeLog from '../changelog/connector-iotdb.md';
 | lower_bound                | long    | 否    | -    | 时间范围下界（通过时间列进行数据分片时使用）                                                           |
 | upper_bound                | long    | 否    | -    | 时间范围上界（通过时间列进行数据分片时使用）                                                           |
 | num_partitions             | int     | 否    | -    | 分区数量（通过时间列进行数据分片时使用）：<br/> - 1 个分区：使用完整时间范围 <br/> - 若分区数 < (上界 -下界)，则使用差值作为实际分区数 |
-| thrift_default_buffer_size | int     | 否    | -    | Thrift 协议缓冲区大小                                                                   |
-| thrift_max_frame_size      | int     | 否    | -    | Thrift 最大帧尺寸                                                                     |
+| default_thrift_buffer_size | int     | 否    | -    | Thrift 协议缓冲区大小                                                                   |
+| max_thrift_frame_size      | int     | 否    | -    | Thrift 最大帧尺寸                                                                     |
 | enable_cache_leader        | boolean | 否    | -    | 是否启用 Leader 节点缓存                                                                 |
-| version                    | string  | 否    | -    | 客户端 SQL 语义版本（`V_0_12` / `V_0_13`）                                                |
 | common-options             |         | 否    | -    | Source 插件常用参数，详见 [Source common Options](../Source common Options.md)            |
 
 我们可以使用时间列进行分区查询。

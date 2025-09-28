@@ -3,6 +3,12 @@ import ChangeLog from '../changelog/connector-iotdb.md';
 # IoTDB
 
 > IoTDB source connector
+ 
+## Support Those Engines
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
 
 ## Description
 
@@ -73,7 +79,7 @@ the lower bound of the time range
 ```
      split the time range into numPartitions parts
      if numPartitions = 1, the whole time range will be used
-     if numPartitions < (upper_bound - lower_bound), (upper_bound - lower_bound) partitions will be used
+     if numPartitions < (upper_bound - lower_bound), will use (upper_bound - lower_bound) as numPartitions
      
      eg: lower_bound = 1, upper_bound = 10, numPartitions = 2
      sql = "select * from test where age > 0 and age < 10"

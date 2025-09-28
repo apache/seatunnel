@@ -4,6 +4,12 @@ import ChangeLog from '../changelog/connector-iotdb.md';
 
 > IoTDB source connector
 
+## Support Those Engines
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
 ## Description
 
 Used to read data from IoTDB.
@@ -57,10 +63,9 @@ Used to read data from IoTDB.
 | lower_bound                | long    | No       | -             | The lower_bound of the IoTDB when you select                                                                      |
 | upper_bound                | long    | No       | -             | The upper_bound of the IoTDB when you select                                                                      |
 | num_partitions             | int     | No       | -             | The num_partitions of the IoTDB when you select                                                                   |
-| thrift_default_buffer_size | int     | No       | -             | The thrift_default_buffer_size of the IoTDB when you select                                                       |
-| thrift_max_frame_size      | int     | No       | -             | The thrift max frame size                                                                                         |
+| default_thrift_buffer_size | int     | No       | -             | The thrift_default_buffer_size of the IoTDB when you select                                                       |
+| max_thrift_frame_size      | int     | No       | -             | The thrift max frame size                                                                                         |
 | enable_cache_leader        | boolean | No       | -             | Enable_cache_leader of the IoTDB when you select                                                                  |
-| version                    | string  | No       | -             | SQL semantic version used by the client, The possible values are: `V_0_12`, `V_0_13`                              |
 | common-options             |         | no       | -             | Source plugin common parameters, please refer to [Source Common Options](../source-common-options.md) for details |
 
 We can use time column as a partition key in SQL queries.
@@ -80,7 +85,7 @@ the lower bound of the time range
 ```
      split the time range into numPartitions parts
      if numPartitions = 1, the whole time range will be used
-     if numPartitions < (upper_bound - lower_bound), (upper_bound - lower_bound) partitions will be used
+     if numPartitions < (upper_bound - lower_bound), will use (upper_bound - lower_bound) as numPartitions
      
      eg: lower_bound = 1, upper_bound = 10, numPartitions = 2
      sql = "select * from test where age > 0 and age < 10"

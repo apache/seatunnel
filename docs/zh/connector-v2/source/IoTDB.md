@@ -4,6 +4,12 @@ import ChangeLog from '../changelog/connector-iotdb.md';
 
 > IoTDB 数据读取器
 
+## 支持引擎
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
 ## 描述
 
 用于从 IoTDB 中读取数据。

@@ -202,30 +202,34 @@ public class IoTDBv2SourceSplitEnumerator
     }
 
     private void addPendingSplit(Collection<IoTDBv2SourceSplit> splits) {
-        int readerCount = context.currentParallelism();
-        for (IoTDBv2SourceSplit split : splits) {
-            int ownerReader = getSplitOwner(split.splitId(), readerCount);
-            log.info("Assigning {} to {} reader.", split, ownerReader);
-            pendingSplit.computeIfAbsent(ownerReader, r -> new ArrayList<>()).add(split);
+        synchronized (stateLock) {
+            int readerCount = context.currentParallelism();
+            for (IoTDBv2SourceSplit split : splits) {
+                int ownerReader = getSplitOwner(split.splitId(), readerCount);
+                log.info("Assigning {} to {} reader.", split, ownerReader);
+                pendingSplit.computeIfAbsent(ownerReader, r -> new ArrayList<>()).add(split);
+            }
         }
     }
 
     private void assignSplit(Collection<Integer> readers) {
         log.debug("Assign pendingSplits to readers {}", readers);
 
-        for (int reader : readers) {
-            List<IoTDBv2SourceSplit> assignmentForReader = pendingSplit.remove(reader);
-            if (assignmentForReader != null && !assignmentForReader.isEmpty()) {
-                log.info("Assign splits {} to reader {}", assignmentForReader, reader);
-                try {
-                    context.assignSplit(reader, assignmentForReader);
-                } catch (Exception e) {
-                    log.error(
-                            "Failed to assign splits {} to reader {}",
-                            assignmentForReader,
-                            reader,
-                            e);
-                    pendingSplit.put(reader, assignmentForReader);
+        synchronized (stateLock) {
+            for (int reader : readers) {
+                List<IoTDBv2SourceSplit> assignmentForReader = pendingSplit.remove(reader);
+                if (assignmentForReader != null && !assignmentForReader.isEmpty()) {
+                    log.info("Assign splits {} to reader {}", assignmentForReader, reader);
+                    try {
+                        context.assignSplit(reader, assignmentForReader);
+                    } catch (Exception e) {
+                        log.error(
+                                "Failed to assign splits {} to reader {}",
+                                assignmentForReader,
+                                reader,
+                                e);
+                        pendingSplit.put(reader, assignmentForReader);
+                    }
                 }
             }
         }

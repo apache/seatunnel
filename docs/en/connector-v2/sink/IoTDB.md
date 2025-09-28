@@ -4,6 +4,12 @@ import ChangeLog from '../changelog/connector-iotdb.md';
 
 > IoTDB sink connector
 
+## Support Those Engines
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
 ## Description
 
 Used to write data to IoTDB.
