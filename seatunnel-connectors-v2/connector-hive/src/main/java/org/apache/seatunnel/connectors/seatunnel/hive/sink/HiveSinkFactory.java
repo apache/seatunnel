@@ -55,6 +55,8 @@ public class HiveSinkFactory
                 .optional(FileBaseSinkOptions.PARQUET_AVRO_WRITE_TIMESTAMP_AS_INT96)
                 // SaveMode related options
                 .optional(HiveSinkOptions.SCHEMA_SAVE_MODE)
+                .optional(HiveSinkOptions.DATA_SAVE_MODE)
+                .optional(HiveSinkOptions.OVERWRITE)
                 .optional(HiveSinkOptions.SAVE_MODE_CREATE_TEMPLATE)
                 .build();
     }
@@ -67,7 +69,17 @@ public class HiveSinkFactory
 
         return () -> {
             try {
-                return new HiveSink(readonlyConfig, catalogTable);
+                java.util.Map<String, Object> conf =
+                        new java.util.LinkedHashMap<>(readonlyConfig.getSourceMap());
+                java.util.Optional<Boolean> overwriteOptional =
+                        readonlyConfig.getOptional(HiveSinkOptions.OVERWRITE);
+                if (overwriteOptional.isPresent() && overwriteOptional.get()) {
+                    conf.put(
+                            HiveSinkOptions.DATA_SAVE_MODE.key(),
+                            org.apache.seatunnel.api.sink.DataSaveMode.DROP_DATA);
+                }
+                ReadonlyConfig adjusted = ReadonlyConfig.fromMap(conf);
+                return new HiveSink(adjusted, catalogTable);
             } catch (Exception e) {
                 throw new HiveConnectorException(
                         HiveConnectorErrorCode.CREATE_HIVE_TABLE_FAILED,

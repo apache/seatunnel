@@ -96,9 +96,7 @@ public class HiveSaveModeHandler implements SaveModeHandler, AutoCloseable {
 
     @Override
     public DataSaveMode getDataSaveMode() {
-        DataSaveMode configured = readonlyConfig.get(HiveSinkOptions.DATA_SAVE_MODE);
-        boolean overwrite = readonlyConfig.get(HiveSinkOptions.OVERWRITE);
-        return overwrite ? DataSaveMode.DROP_DATA : configured;
+        return readonlyConfig.get(HiveSinkOptions.DATA_SAVE_MODE);
     }
 
     @Override
