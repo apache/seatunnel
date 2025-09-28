@@ -533,7 +533,7 @@ public class ZetaSQLType {
         }
 
         List<Expression> expressions = new ArrayList<>();
-        if (function.getParameters() != null) {
+        if (parameters != null) {
             for (Expression expression : parameters) {
                 expressions.add(expression);
             }
