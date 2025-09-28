@@ -22,6 +22,7 @@ public enum SqlType {
     ARRAY,
     MAP,
     STRING,
+    JSON,
     BOOLEAN,
     TINYINT,
     SMALLINT,

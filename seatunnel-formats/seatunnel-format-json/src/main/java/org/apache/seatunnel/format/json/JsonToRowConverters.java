@@ -171,6 +171,7 @@ public class JsonToRowConverters implements Serializable {
                     }
                 };
             case STRING:
+            case JSON:
                 return new JsonToObjectConverter() {
                     @Override
                     public Object convert(JsonNode jsonNode, String fieldName) {

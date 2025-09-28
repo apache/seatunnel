@@ -653,21 +653,35 @@ public class FieldNamedPreparedStatement implements PreparedStatement {
         int length = sql.length();
         for (int i = 0; i < length; i++) {
             char c = sql.charAt(i);
-            if (':' == c) {
-                int j = i + 1;
+            // detection type prefix parameter {Type}:name
+            if ('{' == c) {
+                int typeEnd = i + 1;
+                while (typeEnd < length && sql.charAt(typeEnd) != '}') {
+                    typeEnd++;
+                }
+                checkArgument(typeEnd < length, "Unclosed type prefix at position " + typeEnd);
+
+                String type = sql.substring(i + 1, typeEnd);
+                checkArgument(
+                        typeEnd + 1 < length && sql.charAt(typeEnd + 1) == ':',
+                        "Expected ':' after type prefix at position " + typeEnd);
+                int nameStart = typeEnd + 2;
+                int j = nameStart;
                 while (j < length
                         && (Character.isJavaIdentifierPart(sql.charAt(j))
-                                || ".".equals(String.valueOf(sql.charAt(j))))) {
+                                || sql.charAt(j) == '.')) {
                     j++;
                 }
-                String parameterName = sql.substring(i + 1, j);
+
+                String parameterName = sql.substring(nameStart, j);
                 checkArgument(
                         !parameterName.isEmpty(),
                         "Named parameters in SQL statement must not be empty.");
                 paramMap.computeIfAbsent(parameterName, n -> new ArrayList<>()).add(fieldIndex);
                 fieldIndex++;
                 i = j - 1;
-                parsedSql.append('?');
+
+                parsedSql.append(SqlUtils.getTypeCast(type));
             } else {
                 parsedSql.append(c);
             }

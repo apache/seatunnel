@@ -17,24 +17,48 @@
 
 package org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.client.executor;
 
+import org.apache.seatunnel.shade.com.google.common.collect.Streams;
+
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+
+import com.clickhouse.client.ClickHouseDataType;
+
 import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 import static java.lang.String.format;
 
 public class SqlUtils {
+    private static final Map<String, String> TYPE_CASTS =
+            new HashMap<String, String>() {
+                {
+                    String CAST_TEMPLATE = "CAST(? AS %s)";
+                    put(ClickHouseDataType.JSON.name(), String.format(CAST_TEMPLATE, "String"));
+                }
+            };
+
+    public static String getTypeCast(String clickHouseDataType) {
+        return TYPE_CASTS.getOrDefault(clickHouseDataType, "?");
+    }
+
     public static String quoteIdentifier(String identifier) {
         return "\"" + identifier + "\"";
     }
 
-    public static String getInsertIntoStatement(String tableName, String[] fieldNames) {
+    public static String getInsertIntoStatement(
+            String tableName, String[] fieldNames, SeaTunnelDataType<?>[] typeNames) {
         String columns =
                 Arrays.stream(fieldNames)
                         .map(SqlUtils::quoteIdentifier)
                         .collect(Collectors.joining(", "));
         String placeholders =
-                Arrays.stream(fieldNames)
-                        .map(fieldName -> ":" + fieldName)
+                Streams.zip(
+                                Arrays.stream(typeNames),
+                                Arrays.stream(fieldNames),
+                                (typeName, fieldName) ->
+                                        String.format("{%s}:%s", typeName, fieldName))
                         .collect(Collectors.joining(", "));
         return String.format("INSERT INTO %s (%s) VALUES (%s)", tableName, columns, placeholders);
     }
