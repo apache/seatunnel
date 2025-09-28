@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.hive.sink;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.sink.DataSaveMode;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
@@ -74,9 +75,7 @@ public class HiveSinkFactory
                 java.util.Optional<Boolean> overwriteOptional =
                         readonlyConfig.getOptional(HiveSinkOptions.OVERWRITE);
                 if (overwriteOptional.isPresent() && overwriteOptional.get()) {
-                    conf.put(
-                            HiveSinkOptions.DATA_SAVE_MODE.key(),
-                            org.apache.seatunnel.api.sink.DataSaveMode.DROP_DATA);
+                    conf.put(HiveSinkOptions.DATA_SAVE_MODE.key(), DataSaveMode.DROP_DATA.name());
                 }
                 ReadonlyConfig adjusted = ReadonlyConfig.fromMap(conf);
                 return new HiveSink(adjusted, catalogTable);
