@@ -134,7 +134,6 @@ public final class SeaTunnelRow implements Serializable {
         SqlType sqlType = dataType.getSqlType();
         switch (sqlType) {
             case STRING:
-            case JSON:
                 return ((String) v).length();
             case BOOLEAN:
             case TINYINT:

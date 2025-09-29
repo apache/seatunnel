@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.client.executo
 import org.apache.seatunnel.shade.com.google.common.collect.Streams;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 
 import com.clickhouse.client.ClickHouseDataType;
 
@@ -27,6 +28,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import static java.lang.String.format;
 
@@ -48,11 +50,28 @@ public class SqlUtils {
     }
 
     public static String getInsertIntoStatement(
-            String tableName, String[] fieldNames, SeaTunnelDataType<?>[] typeNames) {
+            String tableName, SeaTunnelRowType rowType, Map<String, String> tableSchema) {
+        String[] fieldNames = rowType.getFieldNames();
+        SeaTunnelDataType<?>[] fieldTypes = rowType.getFieldTypes();
         String columns =
                 Arrays.stream(fieldNames)
                         .map(SqlUtils::quoteIdentifier)
                         .collect(Collectors.joining(", "));
+
+        String[] typeNames =
+                IntStream.range(0, fieldNames.length)
+                        .mapToObj(
+                                i ->
+                                        tableSchema.containsKey(fieldNames[i])
+                                                        && ClickHouseDataType.JSON
+                                                                .name()
+                                                                .equalsIgnoreCase(
+                                                                        tableSchema.get(
+                                                                                fieldNames[i]))
+                                                ? ClickHouseDataType.JSON.name()
+                                                : fieldTypes[i].getSqlType().name())
+                        .toArray(String[]::new);
+
         String placeholders =
                 Streams.zip(
                                 Arrays.stream(typeNames),

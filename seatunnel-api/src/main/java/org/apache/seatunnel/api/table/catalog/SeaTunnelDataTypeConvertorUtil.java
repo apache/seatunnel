@@ -55,8 +55,6 @@ public class SeaTunnelDataTypeConvertorUtil {
         switch (sqlType) {
             case STRING:
                 return BasicType.STRING_TYPE;
-            case JSON:
-                return BasicType.JSON_TYPE;
             case BOOLEAN:
                 return BasicType.BOOLEAN_TYPE;
             case TINYINT:

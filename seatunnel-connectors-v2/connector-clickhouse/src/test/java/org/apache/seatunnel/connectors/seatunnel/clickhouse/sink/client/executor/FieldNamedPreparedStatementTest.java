@@ -19,22 +19,33 @@ package org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.client.executo
 
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.util.HashMap;
+import java.util.Map;
 
 public class FieldNamedPreparedStatementTest {
     @Test
     public void testParseBasicNamedInsertStatement() {
         String tableName = "users";
         String[] fieldNames = {"id", "name", "age"};
-        SeaTunnelDataType<?>[] typeNames =
+        SeaTunnelDataType<?>[] dataTypes =
                 new SeaTunnelDataType<?>[] {
                     BasicType.INT_TYPE, BasicType.STRING_TYPE, BasicType.INT_TYPE
                 };
-        String sql = SqlUtils.getInsertIntoStatement(tableName, fieldNames, typeNames);
+        SeaTunnelRowType rowType = new SeaTunnelRowType(fieldNames, dataTypes);
+        Map<String, String> clickhouseTableSchema =
+                new HashMap<String, String>() {
+                    {
+                        put("id", "UInt32");
+                        put("name", "String");
+                        put("age", "UInt32");
+                    }
+                };
+        String sql = SqlUtils.getInsertIntoStatement(tableName, rowType, clickhouseTableSchema);
         String expectedSql =
                 "INSERT INTO users (\"id\", \"name\", \"age\") "
                         + "VALUES ({INT}:id, {STRING}:name, {INT}:age)";
@@ -50,14 +61,24 @@ public class FieldNamedPreparedStatementTest {
     public void testParseMultiNamedInsertStatement() {
         String tableName = "users";
         String[] fieldNames = {"id", "name", "age", "subject_scores"};
-        SeaTunnelDataType<?>[] typeNames =
+        SeaTunnelDataType<?>[] dataTypes =
                 new SeaTunnelDataType<?>[] {
                     BasicType.INT_TYPE,
                     BasicType.STRING_TYPE,
                     BasicType.INT_TYPE,
-                    BasicType.JSON_TYPE
+                    BasicType.STRING_TYPE
                 };
-        String sql = SqlUtils.getInsertIntoStatement(tableName, fieldNames, typeNames);
+        SeaTunnelRowType rowType = new SeaTunnelRowType(fieldNames, dataTypes);
+        Map<String, String> clickhouseTableSchema =
+                new HashMap<String, String>() {
+                    {
+                        put("id", "UInt32");
+                        put("name", "String");
+                        put("age", "UInt32");
+                        put("subject_scores", "JSON");
+                    }
+                };
+        String sql = SqlUtils.getInsertIntoStatement(tableName, rowType, clickhouseTableSchema);
         String expectedSql =
                 "INSERT INTO users (\"id\", \"name\", \"age\", \"subject_scores\") "
                         + "VALUES ({INT}:id, {STRING}:name, {INT}:age, {JSON}:subject_scores)";

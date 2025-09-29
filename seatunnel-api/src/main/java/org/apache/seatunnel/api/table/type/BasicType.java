@@ -24,7 +24,6 @@ public class BasicType<T> implements SeaTunnelDataType<T> {
 
     public static final BasicType<String> STRING_TYPE =
             new BasicType<>(String.class, SqlType.STRING);
-    public static final BasicType<String> JSON_TYPE = new BasicType<>(String.class, SqlType.JSON);
     public static final BasicType<Boolean> BOOLEAN_TYPE =
             new BasicType<>(Boolean.class, SqlType.BOOLEAN);
     public static final BasicType<Byte> BYTE_TYPE = new BasicType<>(Byte.class, SqlType.TINYINT);

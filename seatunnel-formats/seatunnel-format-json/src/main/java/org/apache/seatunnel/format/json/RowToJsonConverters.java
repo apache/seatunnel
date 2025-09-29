@@ -153,7 +153,6 @@ public class RowToJsonConverters implements Serializable {
                     }
                 };
             case STRING:
-            case JSON:
                 return new RowToJsonConverter() {
                     @Override
                     public JsonNode convert(ObjectMapper mapper, JsonNode reuse, Object value) {
