@@ -233,15 +233,17 @@ public final class SeaTunnelRow implements Serializable {
                 return getArrayNotNullSize((Long[]) v) * 8;
             case DOUBLE:
                 return getArrayNotNullSize((Double[]) v) * 8;
-            case MAP:
-                return getArrayMapNotNullSize(v);
-            case NULL:
-            default:
+            case ARRAY:
                 int total = 0;
                 for (Object elem : (Object[]) v) {
                     total += getBytesForValue(elem, dataType);
                 }
                 return total;
+            case MAP:
+                return getArrayMapNotNullSize(v);
+            case NULL:
+            default:
+                return 0;
         }
     }
 

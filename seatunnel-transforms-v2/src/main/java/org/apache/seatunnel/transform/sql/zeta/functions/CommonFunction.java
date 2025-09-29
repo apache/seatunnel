@@ -39,7 +39,8 @@ import java.util.List;
 public class CommonFunction {
     private CommonFunction() {}
 
-    public static SeaTunnelDataType toType(Expression expression, SeaTunnelRowType rowType) {
+    public static SeaTunnelDataType resolveExpressionType(
+            Expression expression, SeaTunnelRowType rowType) {
         if (expression instanceof NullValue) {
             return null;
         }

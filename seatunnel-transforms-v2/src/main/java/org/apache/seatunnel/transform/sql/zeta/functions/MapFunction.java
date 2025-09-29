@@ -65,8 +65,10 @@ public class MapFunction {
         SeaTunnelDataType keyType = null;
         SeaTunnelDataType valType = null;
         for (int i = 0; i < expressions.size(); i += 2) {
-            SeaTunnelDataType kt = CommonFunction.toType(expressions.get(i), rowType);
-            SeaTunnelDataType vt = CommonFunction.toType(expressions.get(i + 1), rowType);
+            SeaTunnelDataType kt =
+                    CommonFunction.resolveExpressionType(expressions.get(i), rowType);
+            SeaTunnelDataType vt =
+                    CommonFunction.resolveExpressionType(expressions.get(i + 1), rowType);
             keyType = CommonFunction.unifyCollectionType(keyType, kt);
             valType = CommonFunction.unifyCollectionType(valType, vt);
         }

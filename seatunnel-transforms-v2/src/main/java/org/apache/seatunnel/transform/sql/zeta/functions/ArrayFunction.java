@@ -102,8 +102,8 @@ public class ArrayFunction {
         }
 
         SeaTunnelDataType<?> elementType = null;
-        for (Expression expr : expressions) {
-            SeaTunnelDataType<?> t = CommonFunction.toType(expr, inputRowType);
+        for (Expression expression : expressions) {
+            SeaTunnelDataType<?> t = CommonFunction.resolveExpressionType(expression, inputRowType);
             elementType = CommonFunction.unifyCollectionType(elementType, t);
         }
         if (elementType == null) {
@@ -113,13 +113,9 @@ public class ArrayFunction {
     }
 
     static ArrayType createArrayType(SeaTunnelDataType<?> elementType) {
-        if (elementType == BasicType.INT_TYPE) return ArrayType.INT_ARRAY_TYPE;
-        if (elementType == BasicType.LONG_TYPE) return ArrayType.LONG_ARRAY_TYPE;
-        if (elementType == BasicType.DOUBLE_TYPE) return ArrayType.DOUBLE_ARRAY_TYPE;
-        if (elementType == BasicType.FLOAT_TYPE) return ArrayType.FLOAT_ARRAY_TYPE;
-        if (elementType == BasicType.SHORT_TYPE) return ArrayType.SHORT_ARRAY_TYPE;
-        if (elementType == BasicType.BOOLEAN_TYPE) return ArrayType.BOOLEAN_ARRAY_TYPE;
-        return ArrayType.STRING_ARRAY_TYPE;
+        if (elementType == BasicType.BYTE_TYPE || elementType == BasicType.VOID_TYPE)
+            return ArrayType.STRING_ARRAY_TYPE;
+        return ArrayType.of(elementType);
     }
 
     private static Class<?> getArrayType(Class<?> type1, Class<?> type2) {
