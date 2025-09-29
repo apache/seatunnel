@@ -135,8 +135,6 @@ public class MultiTableManagerTest {
         MultiTableManager multiTableManager2 =
                 new MultiTableManager(new CatalogTable[] {catalogTable3, catalogTable1});
         StructType tableSchema2 = multiTableManager2.getTableSchema();
-        System.out.println(tableSchema1);
-        System.out.println(tableSchema2);
         Assertions.assertEquals(tableSchema1, tableSchema2);
     }
 
