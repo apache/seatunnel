@@ -42,7 +42,7 @@ public class IoTDBv2SinkOptions extends IoTDBv2CommonOptions {
             Options.key("storage_group")
                     .stringType()
                     .noDefaultValue()
-                    .withDescription("store group");
+                    .withDescription("storage group");
     public static final Option<Integer> BATCH_SIZE =
             Options.key("batch_size")
                     .intType()
@@ -54,7 +54,7 @@ public class IoTDBv2SinkOptions extends IoTDBv2CommonOptions {
             Options.key("retry_backoff_multiplier_ms")
                     .intType()
                     .noDefaultValue()
-                    .withDescription("retry backoff multiplier ms ");
+                    .withDescription("retry backoff multiplier ms");
     public static final Option<Integer> MAX_RETRY_BACKOFF_MS =
             Options.key("max_retry_backoff_ms")
                     .intType()
@@ -76,13 +76,12 @@ public class IoTDBv2SinkOptions extends IoTDBv2CommonOptions {
             Options.key("enable_rpc_compression")
                     .booleanType()
                     .noDefaultValue()
-                    .withDescription("enable rpc comm");
+                    .withDescription("enable rpc compression");
     public static final Option<Integer> CONNECTION_TIMEOUT_IN_MS =
             Options.key("connection_timeout_in_ms")
                     .intType()
                     .noDefaultValue()
-                    .withDescription("connection timeout ms");
-    // --------------------------------------------------------------
+                    .withDescription("connection timeout in ms");
     public static final Option<List<String>> KEY_TAG_FIELDS =
             Options.key("key_tag_fields")
                     .listType()

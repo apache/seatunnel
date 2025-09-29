@@ -20,10 +20,12 @@ package org.apache.seatunnel.connectors.seatunnel.iotdbv2.config;
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 
+import java.util.List;
+
 public class IoTDBv2CommonOptions {
 
-    public static final Option<String> NODE_URLS =
-            Options.key("node_urls").stringType().noDefaultValue().withDescription("node urls");
+    public static final Option<List<String>> NODE_URLS =
+            Options.key("node_urls").listType().noDefaultValue().withDescription("node urls");
     public static final Option<String> USERNAME =
             Options.key("username").stringType().noDefaultValue().withDescription("username");
     public static final Option<String> PASSWORD =

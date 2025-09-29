@@ -56,7 +56,7 @@ public class SinkConfig extends CommonConfig {
     public static SinkConfig loadConfig(ReadonlyConfig pluginConfig) {
         SinkConfig sinkConfig =
                 new SinkConfig(
-                        pluginConfig.toConfig().getStringList(IoTDBv2SinkOptions.NODE_URLS.key()),
+                        pluginConfig.get(IoTDBv2SinkOptions.NODE_URLS),
                         pluginConfig.get(IoTDBv2SinkOptions.USERNAME),
                         pluginConfig.get(IoTDBv2SinkOptions.PASSWORD));
 

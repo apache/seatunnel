@@ -52,20 +52,20 @@ Used to read data from IoTDB.
 
 | Name                       | Type    | Required | Default Value | Description                                                                                                       |
 |----------------------------|---------|----------|---------------|-------------------------------------------------------------------------------------------------------------------|
-| node_urls                  | string  | Yes      | -             | IoTDB cluster address, the format is `"host1:port"` or `"host1:port,host2:port"`                                  |
-| username                   | string  | Yes      | -             | IoTDB username                                                                                                    |
-| password                   | string  | Yes      | -             | IoTDB user password                                                                                               |
-| sql_dialect                | string  | No       | tree          | The sql dialect of IoTDB, options available is `"tree"` or `"table"`                                              |
-| database                   | string  | No       | -             | The database selected (only valid when `sql_dielct` is `"table"`)                                                 |
-| sql                        | string  | Yes      | -             | The sql statement to be executed                                                                                  |
-| schema                     | config  | Yes      | -             | The data schema                                                                                                   |
-| fetch_size                 | int     | No       | -             | The fetch_size of the IoTDB when you select                                                                       |
-| lower_bound                | long    | No       | -             | The lower_bound of the IoTDB when you select                                                                      |
-| upper_bound                | long    | No       | -             | The upper_bound of the IoTDB when you select                                                                      |
-| num_partitions             | int     | No       | -             | The num_partitions of the IoTDB when you select                                                                   |
-| default_thrift_buffer_size | int     | No       | -             | The thrift_default_buffer_size of the IoTDB when you select                                                       |
-| max_thrift_frame_size      | int     | No       | -             | The thrift max frame size                                                                                         |
-| enable_cache_leader        | boolean | No       | -             | Enable_cache_leader of the IoTDB when you select                                                                  |
+| node_urls                  | Array   | Yes      | -             | IoTDB cluster address, the format is `["host1:port"]` or `["host1:port","host2:port"]`                            |
+| username                   | String  | Yes      | -             | IoTDB username                                                                                                    |
+| password                   | String  | Yes      | -             | IoTDB user password                                                                                               |
+| sql_dialect                | String  | No       | tree          | The sql dialect of IoTDB, options available is `"tree"` or `"table"`                                              |
+| database                   | String  | No       | -             | The database selected (only valid when `sql_dielct` is `"table"`)                                                 |
+| sql                        | String  | Yes      | -             | The sql statement to be executed                                                                                  |
+| schema                     | Config  | Yes      | -             | The data schema                                                                                                   |
+| fetch_size                 | Integer | No       | -             | The fetch_size of the IoTDB when you select                                                                       |
+| lower_bound                | Long    | No       | -             | The lower_bound of the IoTDB when you select                                                                      |
+| upper_bound                | Long    | No       | -             | The upper_bound of the IoTDB when you select                                                                      |
+| num_partitions             | Integer | No       | -             | The num_partitions of the IoTDB when you select                                                                   |
+| default_thrift_buffer_size | Integer | No       | -             | The thrift_default_buffer_size of the IoTDB when you select                                                       |
+| max_thrift_frame_size      | Integer | No       | -             | The thrift max frame size                                                                                         |
+| enable_cache_leader        | Boolean | No       | -             | Enable_cache_leader of the IoTDB when you select                                                                  |
 | common-options             |         | no       | -             | Source plugin common parameters, please refer to [Source Common Options](../source-common-options.md) for details |
 
 We can use time column as a partition key in SQL queries.
@@ -107,7 +107,7 @@ env {
 
 source {
   IoTDB {
-    node_urls = "localhost:6667"
+    node_urls = ["localhost:6667"]
     username = "root"
     password = "root"
     sql = "SELECT temperature, moisture, c_int, c_bigint, c_float, c_double, c_string, c_boolean FROM root.test_group.* WHERE time < 4102329600000 align by device"
@@ -165,7 +165,7 @@ env {
 
 source {
   IoTDB {
-    node_urls = "localhost:6667"
+    node_urls = ["localhost:6667"]
     username = "root"
     password = "root"
     sql_dialect = "table"

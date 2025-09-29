@@ -37,8 +37,6 @@ import shaded.org.apache.tsfile.read.common.RowRecord;
 
 import java.io.IOException;
 import java.util.List;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 import static org.apache.seatunnel.connectors.seatunnel.iotdbv2.config.IoTDBv2SourceOptions.DATABASE;
 import static org.apache.seatunnel.connectors.seatunnel.iotdbv2.config.IoTDBv2SourceOptions.DEFAULT_THRIFT_BUFFER_SIZE;
@@ -47,7 +45,6 @@ import static org.apache.seatunnel.connectors.seatunnel.iotdbv2.config.IoTDBv2So
 import static org.apache.seatunnel.connectors.seatunnel.iotdbv2.config.IoTDBv2SourceOptions.NODE_URLS;
 import static org.apache.seatunnel.connectors.seatunnel.iotdbv2.config.IoTDBv2SourceOptions.PASSWORD;
 import static org.apache.seatunnel.connectors.seatunnel.iotdbv2.config.IoTDBv2SourceOptions.USERNAME;
-import static org.apache.seatunnel.connectors.seatunnel.iotdbv2.constant.SourceConstants.NODES_SPLIT;
 
 public class IoTDBv2RelationalSourceReader extends IoTDBv2AbstractSourceReader {
 
@@ -78,9 +75,7 @@ public class IoTDBv2RelationalSourceReader extends IoTDBv2AbstractSourceReader {
 
     private ITableSession buildTableSession(ReadonlyConfig conf) throws IoTDBConnectionException {
         TableSessionBuilder sessionBuilder = new TableSessionBuilder().enableCompression(false);
-        String nodeUrlsString = conf.get(NODE_URLS);
-        List<String> nodes =
-                Stream.of(nodeUrlsString.split(NODES_SPLIT)).collect(Collectors.toList());
+        List<String> nodes = conf.get(NODE_URLS);
         sessionBuilder.nodeUrls(nodes);
         if (null != conf.get(FETCH_SIZE)) {
             sessionBuilder.fetchSize(Integer.parseInt(conf.get(FETCH_SIZE).toString()));

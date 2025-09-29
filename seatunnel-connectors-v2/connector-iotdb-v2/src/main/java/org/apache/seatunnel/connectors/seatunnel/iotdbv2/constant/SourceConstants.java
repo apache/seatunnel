@@ -19,12 +19,6 @@ package org.apache.seatunnel.connectors.seatunnel.iotdbv2.constant;
 
 public class SourceConstants {
 
-    public static final String FIELDS_K_V_SPLIT = ":";
-
-    public static final String FIELDS_SPLIT = ",";
-
-    public static final String NODES_SPLIT = ",";
-
     public static final String SQL_WHERE = "where";
 
     public static final String SQL_ALIGN = "align by";

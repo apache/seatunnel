@@ -52,20 +52,20 @@ import ChangeLog from '../changelog/connector-iotdb.md';
 
 | 名称                         | 类型      | 是否必填 | 默认值  | 描述                                                                               |
 |----------------------------|---------|------|------|----------------------------------------------------------------------------------|
-| node_urls                  | string  | 是    | -    | IoTDB 集群地址，格式为 `"host1:port"` 或 `"host1:port,host2:port"`                        |
-| username                   | string  | 是    | -    | IoTDB 用户名                                                                        |
-| password                   | string  | 是    | -    | IoTDB 用户密码                                                                       |
-| sql_dialect                | string  | 否    | tree | IoTDB 模型，tree：树模型；table：表模型                                                      |
-| database                   | string  | 否    | -    | 要查询的数据库名，只在表模型中生效                                                                |
-| sql                        | string  | 是    | -    | 要执行的 SQL 查询语句                                                                    |
-| schema                     | config  | 是    | -    | 数据模式定义                                                                           |
-| fetch_size                 | int     | 否    | -    | 单次获取数据量：查询时每次从 IoTDB 获取的数据量                                                      |
-| lower_bound                | long    | 否    | -    | 时间范围下界（通过时间列进行数据分片时使用）                                                           |
-| upper_bound                | long    | 否    | -    | 时间范围上界（通过时间列进行数据分片时使用）                                                           |
-| num_partitions             | int     | 否    | -    | 分区数量（通过时间列进行数据分片时使用）：<br/> - 1 个分区：使用完整时间范围 <br/> - 若分区数 < (上界 -下界)，则使用差值作为实际分区数 |
-| default_thrift_buffer_size | int     | 否    | -    | Thrift 协议缓冲区大小                                                                   |
-| max_thrift_frame_size      | int     | 否    | -    | Thrift 最大帧尺寸                                                                     |
-| enable_cache_leader        | boolean | 否    | -    | 是否启用 Leader 节点缓存                                                                 |
+| node_urls                  | Array   | 是    | -    | IoTDB 集群地址，格式为 `["host1:port"]` 或 `["host1:port","host2:port"]`                  |
+| username                   | String  | 是    | -    | IoTDB 用户名                                                                        |
+| password                   | String  | 是    | -    | IoTDB 用户密码                                                                       |
+| sql_dialect                | String  | 否    | tree | IoTDB 模型，tree：树模型；table：表模型                                                      |
+| database                   | String  | 否    | -    | 要查询的数据库名，只在表模型中生效                                                                |
+| sql                        | String  | 是    | -    | 要执行的 SQL 查询语句                                                                    |
+| schema                     | Config  | 是    | -    | 数据模式定义                                                                           |
+| fetch_size                 | Integer | 否    | -    | 单次获取数据量：查询时每次从 IoTDB 获取的数据量                                                      |
+| lower_bound                | Long    | 否    | -    | 时间范围下界（通过时间列进行数据分片时使用）                                                           |
+| upper_bound                | Long    | 否    | -    | 时间范围上界（通过时间列进行数据分片时使用）                                                           |
+| num_partitions             | Integer | 否    | -    | 分区数量（通过时间列进行数据分片时使用）：<br/> - 1 个分区：使用完整时间范围 <br/> - 若分区数 < (上界 -下界)，则使用差值作为实际分区数 |
+| default_thrift_buffer_size | Integer | 否    | -    | Thrift 协议缓冲区大小                                                                   |
+| max_thrift_frame_size      | Integer | 否    | -    | Thrift 最大帧尺寸                                                                     |
+| enable_cache_leader        | Boolean | 否    | -    | 是否启用 Leader 节点缓存                                                                 |
 | common-options             |         | 否    | -    | Source 插件常用参数，详见 [Source common Options](../Source common Options.md)            |
 
 我们可以使用时间列进行分区查询。
@@ -108,7 +108,7 @@ env {
 
 source {
   IoTDB {
-    node_urls = "localhost:6667"
+    node_urls = ["localhost:6667"]
     username = "root"
     password = "root"
     sql = "SELECT temperature, moisture, c_int, c_bigint, c_float, c_double, c_string, c_boolean FROM root.test_group.* WHERE time < 4102329600000 align by device"
@@ -166,7 +166,7 @@ env {
 
 source {
   IoTDB {
-    node_urls = "localhost:6667"
+    node_urls = ["localhost:6667"]
     username = "root"
     password = "root"
     sql_dialect = "table"

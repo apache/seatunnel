@@ -28,26 +28,13 @@ import org.apache.seatunnel.api.configuration.Options;
  */
 public class IoTDBv2SourceOptions extends IoTDBv2CommonOptions {
 
+    /** Sql query */
     public static final Option<String> SQL =
             Options.key("sql").stringType().noDefaultValue().withDescription("sql");
-
-    /** Username for the source. */
-    public static final Option<String> USERNAME =
-            Options.key("username").stringType().noDefaultValue().withDescription("usernam");
-
-    /** Password for the source. */
-    public static final Option<String> PASSWORD =
-            Options.key("password").stringType().noDefaultValue().withDescription("password");
-
-    /** node urls */
-    public static final Option<String> NODE_URLS =
-            Options.key("node_urls").stringType().noDefaultValue().withDescription("node urls");
 
     /** Database (only valid when sql_dialect is table) */
     public static final Option<String> DATABASE =
             Options.key("database").stringType().noDefaultValue().withDescription("database");
-
-    /*---------------------- other configurations -------------------------*/
 
     /** Fetches the next batch of data from the source. */
     public static final Option<Integer> FETCH_SIZE =
