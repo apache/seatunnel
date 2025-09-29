@@ -70,6 +70,43 @@ public class PostgresJdbcRowConverter extends AbstractJdbcRowConverter {
     }
 
     @Override
+    protected void setValueToStatementByDataType(
+            Object value,
+            PreparedStatement statement,
+            SeaTunnelDataType<?> seaTunnelDataType,
+            int statementIndex,
+            @Nullable String sourceType)
+            throws SQLException {
+        if (seaTunnelDataType.getSqlType().equals(SqlType.TIMESTAMP_TZ)) {
+            OffsetDateTime offsetDateTime = (OffsetDateTime) value;
+            try {
+                statement.setObject(statementIndex, offsetDateTime);
+                return;
+            } catch (AbstractMethodError | SQLException e) {
+                try {
+                    PGobject timestampTzObject = new PGobject();
+                    timestampTzObject.setType("timestamptz");
+                    timestampTzObject.setValue(offsetDateTime.toString());
+                    statement.setObject(statementIndex, timestampTzObject);
+                    return;
+                } catch (SQLException pge) {
+                    try {
+                        statement.setTimestamp(
+                                statementIndex, Timestamp.from(offsetDateTime.toInstant()));
+                        return;
+                    } catch (SQLException se) {
+                        throw new SQLException(
+                                "Failed to set TIMESTAMP_TZ value for PostgreSQL using all methods",
+                                se);
+                    }
+                }
+            }
+        }
+        super.setValueToStatementByDataType(
+                value, statement, seaTunnelDataType, statementIndex, sourceType);
+    }
+
+    @Override
     public SeaTunnelRow toInternal(ResultSet rs, TableSchema tableSchema) throws SQLException {
         SeaTunnelRowType typeInfo = tableSchema.toPhysicalRowDataType();
         Object[] fields = new Object[typeInfo.getTotalFields()];
@@ -258,13 +295,12 @@ public class PostgresJdbcRowConverter extends AbstractJdbcRowConverter {
                                 statementIndex, java.sql.Timestamp.valueOf(localDateTime));
                         break;
                     case TIMESTAMP_TZ:
-                        OffsetDateTime offsetDateTime = (OffsetDateTime) row.getField(fieldIndex);
-                        try {
-                            statement.setObject(statementIndex, offsetDateTime);
-                        } catch (AbstractMethodError | SQLException e) {
-                            statement.setTimestamp(
-                                    statementIndex, Timestamp.from(offsetDateTime.toInstant()));
-                        }
+                        setValueToStatementByDataType(
+                                row.getField(fieldIndex),
+                                statement,
+                                seaTunnelDataType,
+                                statementIndex,
+                                sourceTypes[fieldIndex]);
                         break;
                     case BYTES:
                         statement.setBytes(statementIndex, (byte[]) row.getField(fieldIndex));
