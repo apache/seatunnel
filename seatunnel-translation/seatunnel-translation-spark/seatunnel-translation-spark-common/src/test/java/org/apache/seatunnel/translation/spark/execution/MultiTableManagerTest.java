@@ -127,7 +127,7 @@ public class MultiTableManagerTest {
     }
 
     @Test
-    public void testMergeSchemaWithDifferentOrder() {
+    void testMergeSchemaWithDifferentOrder() {
         initSchema();
         MultiTableManager multiTableManager1 =
                 new MultiTableManager(new CatalogTable[] {catalogTable1, catalogTable3});
