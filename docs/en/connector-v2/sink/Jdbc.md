@@ -494,7 +494,7 @@ transform {
 
 sink {
     Jdbc {
-        dialect="dsql"
+        dialect="Dsql"
         driver = "org.postgresql.Driver"
         url="jdbc:postgresql://ixxxxxxxxxxxxx.dsql.us-east-1.on.aws:5432/postgres"
         username = "admin"
