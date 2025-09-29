@@ -25,8 +25,13 @@ import com.google.auto.service.AutoService;
 
 import javax.annotation.Nonnull;
 
+import java.util.regex.Pattern;
+
 @AutoService(JdbcDialectFactory.class)
 public class DsqlDialectFactory implements JdbcDialectFactory {
+
+    private static final Pattern DSQL_PATTERN = Pattern.compile(".*dsql\\.[a-z0-9-]+\\.on\\.aws.*");
+
     @Override
     public String dialectFactoryName() {
         return DatabaseIdentifier.DSQL;
@@ -34,7 +39,7 @@ public class DsqlDialectFactory implements JdbcDialectFactory {
 
     @Override
     public boolean acceptsURL(String url) {
-        return url.startsWith("jdbc:postgresql:");
+        return url.startsWith("jdbc:postgresql:") && containsDsql(url);
     }
 
     @Override
@@ -47,5 +52,9 @@ public class DsqlDialectFactory implements JdbcDialectFactory {
     public JdbcDialect create(@Nonnull String compatibleMode, String fieldIde) {
 
         return new DsqlDialect(fieldIde);
+    }
+
+    private boolean containsDsql(String url) {
+        return DSQL_PATTERN.matcher(url).matches();
     }
 }

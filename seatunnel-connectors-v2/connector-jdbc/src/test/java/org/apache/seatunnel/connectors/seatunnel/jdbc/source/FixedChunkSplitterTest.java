@@ -41,7 +41,6 @@ public class FixedChunkSplitterTest {
                                 JdbcConnectionConfig.builder()
                                         .url("jdbc:postgresql://localhost:5432/test")
                                         .driverName("org.postgresql.Driver")
-                                        .dialect("Postgres")
                                         .build())
                         .build();
 
