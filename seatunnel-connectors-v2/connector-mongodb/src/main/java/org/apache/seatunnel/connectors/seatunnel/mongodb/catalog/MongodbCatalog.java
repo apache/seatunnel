@@ -27,8 +27,11 @@ import org.apache.seatunnel.api.table.catalog.exception.TableAlreadyExistExcepti
 import org.apache.seatunnel.api.table.catalog.exception.TableNotExistException;
 import org.apache.seatunnel.common.exception.CommonError;
 
+import org.bson.Document;
+
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoClients;
+import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoDatabase;
 
 import java.util.ArrayList;
@@ -163,6 +166,39 @@ public class MongodbCatalog implements Catalog {
     public void dropDatabase(TablePath tablePath, boolean ignoreIfNotExists)
             throws DatabaseNotExistException, CatalogException {
         throw CommonError.unsupportedOperation(name(), "drop database ");
+    }
+
+    @Override
+    public void truncateTable(TablePath tablePath, boolean ignoreIfNotExists)
+            throws TableNotExistException, CatalogException {
+        try {
+            if (!tableExists(tablePath)) {
+                if (ignoreIfNotExists) {
+                    return;
+                }
+                throw new TableNotExistException(name(), tablePath);
+            }
+            MongoDatabase db = mongoClient.getDatabase(tablePath.getDatabaseName());
+            MongoCollection<Document> collection = db.getCollection(tablePath.getTableName());
+            collection.deleteMany(new Document());
+        } catch (Exception e) {
+            throw new CatalogException(
+                    "Failed to truncate collection: " + tablePath.getFullName(), e);
+        }
+    }
+
+    @Override
+    public boolean isExistsData(TablePath tablePath) {
+        try {
+            if (!tableExists(tablePath)) {
+                return false;
+            }
+            MongoDatabase db = mongoClient.getDatabase(tablePath.getDatabaseName());
+            MongoCollection<Document> collection = db.getCollection(tablePath.getTableName());
+            return collection.estimatedDocumentCount() > 0;
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     @Override

@@ -18,7 +18,6 @@
 package org.apache.seatunnel.connectors.seatunnel.mongodb.sink;
 
 import org.apache.seatunnel.api.sink.DataSaveMode;
-import org.apache.seatunnel.api.sink.SchemaSaveMode;
 
 import lombok.Getter;
 
@@ -49,8 +48,6 @@ public class MongodbWriterOptions implements Serializable {
 
     protected final boolean transaction;
 
-    protected final SchemaSaveMode schemaSaveMode;
-
     protected final DataSaveMode dataSaveMode;
 
     public MongodbWriterOptions(
@@ -64,7 +61,6 @@ public class MongodbWriterOptions implements Serializable {
             int retryMax,
             long retryInterval,
             boolean transaction,
-            SchemaSaveMode schemaSaveMode,
             DataSaveMode dataSaveMode) {
         this.connectString = connectString;
         this.database = database;
@@ -76,7 +72,6 @@ public class MongodbWriterOptions implements Serializable {
         this.retryMax = retryMax;
         this.retryInterval = retryInterval;
         this.transaction = transaction;
-        this.schemaSaveMode = schemaSaveMode;
         this.dataSaveMode = dataSaveMode;
     }
 
@@ -105,8 +100,6 @@ public class MongodbWriterOptions implements Serializable {
         protected long retryInterval;
 
         protected boolean transaction;
-
-        protected SchemaSaveMode schemaSaveMode;
 
         protected DataSaveMode dataSaveMode;
 
@@ -160,11 +153,6 @@ public class MongodbWriterOptions implements Serializable {
             return this;
         }
 
-        public Builder withSchemaSaveMode(SchemaSaveMode schemaSaveMode) {
-            this.schemaSaveMode = schemaSaveMode;
-            return this;
-        }
-
         public Builder withDataSaveMode(DataSaveMode dataSaveMode) {
             this.dataSaveMode = dataSaveMode;
             return this;
@@ -182,7 +170,6 @@ public class MongodbWriterOptions implements Serializable {
                     retryMax,
                     retryInterval,
                     transaction,
-                    schemaSaveMode,
                     dataSaveMode);
         }
     }

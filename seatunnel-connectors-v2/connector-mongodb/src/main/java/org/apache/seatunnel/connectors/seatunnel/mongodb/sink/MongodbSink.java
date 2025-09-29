@@ -111,12 +111,11 @@ public class MongodbSink
             Optional<Catalog> catalogOptional =
                     Optional.of(new MongodbCatalog(CONNECTOR_IDENTITY, url, database));
             try {
-                SchemaSaveMode schemaSaveMode = options.getSchemaSaveMode();
                 DataSaveMode dataSaveMode = options.getDataSaveMode();
                 Catalog catalog = catalogOptional.get();
                 return Optional.of(
                         new MongodbSaveModeHandler(
-                                schemaSaveMode, dataSaveMode, catalog, catalogTable, null));
+                                SchemaSaveMode.IGNORE, dataSaveMode, catalog, catalogTable));
             } catch (Exception e) {
                 throw new SeaTunnelRuntimeException(HANDLE_SAVE_MODE_FAILED, e);
             }

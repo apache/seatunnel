@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.mongodb.sink;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
@@ -46,7 +47,8 @@ public class MongodbSinkFactory implements TableSinkFactory {
                         MongodbConfig.RETRY_MAX,
                         MongodbConfig.RETRY_INTERVAL,
                         MongodbConfig.UPSERT_ENABLE,
-                        MongodbConfig.PRIMARY_KEY)
+                        MongodbConfig.PRIMARY_KEY,
+                        MongodbConfig.DATA_SAVE_MODE)
                 .build();
     }
 
@@ -84,8 +86,11 @@ public class MongodbSinkFactory implements TableSinkFactory {
         if (readonlyConfig.getOptional(MongodbConfig.TRANSACTION).isPresent()) {
             builder.withTransaction(readonlyConfig.get(MongodbConfig.TRANSACTION));
         }
-        // todo 替换库名表名
-
-        return () -> new MongodbSink(builder.build(), context.getCatalogTable());
+        if (readonlyConfig.getOptional(MongodbConfig.DATA_SAVE_MODE).isPresent()) {
+            builder.withDataSaveMode(readonlyConfig.get(MongodbConfig.DATA_SAVE_MODE));
+        }
+        CatalogTable catalogTable = context.getCatalogTable();
+        // todo sourceCatalogTable to sinkCatalogTable
+        return () -> new MongodbSink(builder.build(), catalogTable);
     }
 }

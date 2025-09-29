@@ -28,8 +28,12 @@ public class MongodbSaveModeHandler extends DefaultSaveModeHandler {
             SchemaSaveMode schemaSaveMode,
             DataSaveMode dataSaveMode,
             Catalog catalog,
-            CatalogTable catalogTable,
-            String customSql) {
-        super(schemaSaveMode, dataSaveMode, catalog, catalogTable, customSql);
+            CatalogTable catalogTable) {
+        super(schemaSaveMode, dataSaveMode, catalog, catalogTable, null);
+    }
+
+    public void handleSaveMode() {
+        // mongodb remove schema save mode,only data save mde
+        handleDataSaveMode();
     }
 }
