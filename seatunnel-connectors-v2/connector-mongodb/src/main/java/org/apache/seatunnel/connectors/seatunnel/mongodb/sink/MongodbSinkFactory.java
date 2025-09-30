@@ -92,7 +92,8 @@ public class MongodbSinkFactory implements TableSinkFactory {
         }
         CatalogTable catalogTable = context.getCatalogTable();
         // sourceCatalogTable to sinkCatalogTable
-        TableIdentifier tableIdentifier = TableIdentifier.of(connection, database, collection);
+        TableIdentifier tableIdentifier =
+                TableIdentifier.of(CONNECTOR_IDENTITY, database, collection);
         CatalogTable sinkCatalogTable = CatalogTable.of(tableIdentifier, catalogTable);
         return () -> new MongodbSink(builder.build(), sinkCatalogTable);
     }
