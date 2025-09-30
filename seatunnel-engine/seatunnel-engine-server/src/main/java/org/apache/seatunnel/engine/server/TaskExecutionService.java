@@ -649,6 +649,10 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         eventService.reportEvent(e);
     }
 
+    public SeaTunnelConfig getSeaTunnelConfig() {
+        return seaTunnelConfig;
+    }
+
     private final class BlockingWorker implements Runnable {
 
         private final TaskTracker tracker;

@@ -61,18 +61,6 @@ public class FlinkSource<SplitT extends SourceSplit, EnumStateT extends Serializ
         DriverManager.getDrivers();
     }
 
-    static {
-        // Load DriverManager first to avoid deadlock between DriverManager's
-        // static initialization block and specific driver class's static
-        // initialization block when two different driver classes are loading
-        // concurrently using Class.forName while DriverManager is uninitialized
-        // before.
-        //
-        // This could happen in JDK 8 but not above as driver loading has been
-        // moved out of DriverManager's static initialization block since JDK 9.
-        DriverManager.getDrivers();
-    }
-
     private final SeaTunnelSource<SeaTunnelRow, SplitT, EnumStateT> source;
 
     private final Config envConfig;

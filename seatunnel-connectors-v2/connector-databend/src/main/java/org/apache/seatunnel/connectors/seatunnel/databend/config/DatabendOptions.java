@@ -97,4 +97,10 @@ public class DatabendOptions {
                     .booleanType()
                     .defaultValue(true)
                     .withDescription("Whether to auto commit for sink");
+
+    public static final Option<String> CONFLICT_KEY =
+            Options.key("conflict_key")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("The conflict key for sink, used in upsert mode");
 }

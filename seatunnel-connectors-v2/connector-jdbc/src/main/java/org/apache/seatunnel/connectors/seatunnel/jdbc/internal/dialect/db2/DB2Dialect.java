@@ -21,12 +21,21 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.JdbcRow
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectTypeMapper;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.dialectenum.FieldIdeEnum;
 
 import java.util.Arrays;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
 public class DB2Dialect implements JdbcDialect {
+
+    protected String fieldIde = FieldIdeEnum.ORIGINAL.getValue();
+
+    public DB2Dialect() {}
+
+    public DB2Dialect(String fieldIde) {
+        this.fieldIde = fieldIde;
+    }
 
     @Override
     public String dialectName() {
@@ -44,11 +53,34 @@ public class DB2Dialect implements JdbcDialect {
     }
 
     @Override
+    public String quoteIdentifier(String identifier) {
+        if (identifier.contains(".")) {
+            String[] parts = identifier.split("\\.");
+            StringBuilder sb = new StringBuilder();
+            for (int i = 0; i < parts.length - 1; i++) {
+                sb.append("\"").append(parts[i]).append("\"").append(".");
+            }
+            return sb.append("\"")
+                    .append(getFieldIde(parts[parts.length - 1], fieldIde))
+                    .append("\"")
+                    .toString();
+        }
+        return "\"" + getFieldIde(identifier, fieldIde) + "\"";
+    }
+
+    @Override
+    public String tableIdentifier(String database, String tableName) {
+        return quoteIdentifier(database) + "." + quoteIdentifier(tableName);
+    }
+
+    @Override
     public Optional<String> getUpsertStatement(
             String database, String tableName, String[] fieldNames, String[] uniqueKeyFields) {
         // Generate field list for USING and INSERT clauses
-        String fieldList = String.join(", ", fieldNames);
-
+        String fieldList =
+                Arrays.stream(fieldNames)
+                        .map(this::quoteIdentifier)
+                        .collect(Collectors.joining(", "));
         // Generate placeholder list for VALUES clause
         String placeholderList =
                 Arrays.stream(fieldNames).map(field -> "?").collect(Collectors.joining(", "));
@@ -56,19 +88,34 @@ public class DB2Dialect implements JdbcDialect {
         // Generate ON clause
         String onClause =
                 Arrays.stream(uniqueKeyFields)
-                        .map(field -> "target." + field + " = source." + field)
+                        .map(
+                                field ->
+                                        "target."
+                                                + quoteIdentifier(field)
+                                                + " = source."
+                                                + quoteIdentifier(field))
                         .collect(Collectors.joining(" AND "));
 
         // Generate WHEN MATCHED clause
         String whenMatchedClause =
                 Arrays.stream(fieldNames)
-                        .map(field -> "target." + field + " <> source." + field)
+                        .map(
+                                field ->
+                                        "target."
+                                                + quoteIdentifier(field)
+                                                + " <> source."
+                                                + quoteIdentifier(field))
                         .collect(Collectors.joining(" OR "));
 
         // Generate UPDATE SET clause
         String updateSetClause =
                 Arrays.stream(fieldNames)
-                        .map(field -> "target." + field + " = source." + field)
+                        .map(
+                                field ->
+                                        "target."
+                                                + quoteIdentifier(field)
+                                                + " = source."
+                                                + quoteIdentifier(field))
                         .collect(Collectors.joining(", "));
 
         // Generate WHEN NOT MATCHED clause
@@ -77,7 +124,7 @@ public class DB2Dialect implements JdbcDialect {
                         + fieldList
                         + ") VALUES ("
                         + Arrays.stream(fieldNames)
-                                .map(field -> "source." + field)
+                                .map(field -> "source." + quoteIdentifier(field))
                                 .collect(Collectors.joining(", "))
                         + ")";
 
@@ -86,9 +133,9 @@ public class DB2Dialect implements JdbcDialect {
                 String.format(
                         "MERGE INTO %s.%s AS target USING (VALUES (%s)) AS source (%s) ON %s "
                                 + "WHEN MATCHED AND (%s) THEN UPDATE SET %s "
-                                + "WHEN NOT MATCHED THEN %s;",
-                        database,
-                        tableName,
+                                + "WHEN NOT MATCHED THEN %s",
+                        quoteIdentifier(database),
+                        quoteIdentifier(tableName),
                         placeholderList,
                         fieldList,
                         onClause,

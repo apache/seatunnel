@@ -151,7 +151,7 @@ public class JobMaster {
     private final IMap<Object, Object> runningJobStateTimestampsIMap;
 
     // TODO add config to change value
-    private boolean isPhysicalDAGIInfo = true;
+    private boolean isPhysicalDAGInfo = true;
 
     private final EngineConfig engineConfig;
 
@@ -631,7 +631,6 @@ public class JobMaster {
                                             .getCheckpointStateImapKey();
                             runningJobStateIMap.remove(checkpointStateImapKey);
                         });
-
         runningJobStateIMap.remove(jobId);
         runningJobInfoIMap.remove(jobId);
     }
@@ -643,7 +642,7 @@ public class JobMaster {
                             logicalDag,
                             jobImmutableInformation,
                             engineConfig,
-                            isPhysicalDAGIInfo,
+                            isPhysicalDAGInfo,
                             new ExecutionAddress(
                                     this.nodeEngine.getThisAddress().getHost(),
                                     this.nodeEngine.getThisAddress().getPort()),
@@ -744,6 +743,10 @@ public class JobMaster {
         jobHistoryService.storeJobInfo(jobImmutableInformation.getJobId(), getJobDAGInfo());
         jobHistoryService.storeFinishedJobState(this);
         removeJobIMap();
+    }
+
+    public void storeJobEndState() {
+        jobHistoryService.storeFinishedJobState(this);
     }
 
     public Address queryTaskGroupAddress(TaskGroupLocation taskGroupLocation) {

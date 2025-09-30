@@ -93,9 +93,10 @@ public class JobClientJobProxyIT extends SeaTunnelEngineContainer {
                     }
                 });
 
-        given().pollDelay(10, TimeUnit.SECONDS)
-                .await()
-                .pollDelay(5000L, TimeUnit.MILLISECONDS)
+        given().await()
+                .pollDelay(5, TimeUnit.SECONDS)
+                .atMost(10, TimeUnit.SECONDS)
+                .pollDelay(2, TimeUnit.SECONDS)
                 .untilAsserted(
                         () -> {
                             Assertions.assertEquals("RUNNING", this.getJobStatus(jobId));

@@ -39,6 +39,7 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.datatype.jsr310.JavaTime
 import org.apache.commons.lang3.StringUtils;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -87,6 +88,10 @@ public class JsonUtils {
     }
 
     public static JsonNode readTree(byte[] obj) throws IOException {
+        return OBJECT_MAPPER.readTree(obj);
+    }
+
+    public static JsonNode readTree(InputStream obj) throws IOException {
         return OBJECT_MAPPER.readTree(obj);
     }
 
