@@ -286,6 +286,7 @@ public class MongodbIT extends AbstractMongodbIT {
             final SaveModeHandler saveModeHandler = saveModeHandlerOptional.get();
             saveModeHandler.open();
             saveModeHandler.handleSaveMode();
+            saveModeHandler.close();
         }
         // do write
         writer.write(getSeaTunnelRowOne());
@@ -314,6 +315,7 @@ public class MongodbIT extends AbstractMongodbIT {
             final SaveModeHandler saveModeHandler = saveModeHandlerOptional.get();
             saveModeHandler.open();
             saveModeHandler.handleSaveMode();
+            saveModeHandler.close();
         }
         // do write
         writer.write(getSeaTunnelRowOne());
@@ -346,6 +348,7 @@ public class MongodbIT extends AbstractMongodbIT {
                     SeaTunnelRuntimeException.class,
                     saveModeHandler::handleDataSaveMode,
                     "When there exist data, an error will be reported");
+            saveModeHandler.close();
         }
         Assertions.assertEquals(2L, collection.countDocuments());
         // clear
@@ -387,8 +390,11 @@ public class MongodbIT extends AbstractMongodbIT {
 
     private MongodbWriterOptions getMongodbWriterOptions(
             String collection, DataSaveMode dataSaveMode) {
+        String host = mongodbContainer.getContainerIpAddress();
+        int port = mongodbContainer.getFirstMappedPort();
+        String url = String.format("mongodb://%s:%d/%s", host, port, MONGODB_DATABASE);
         return MongodbWriterOptions.builder()
-                .withConnectString("mongodb://e2e_mongodb:27017/test_db")
+                .withConnectString(url)
                 .withDatabase(MONGODB_DATABASE)
                 .withCollection(collection)
                 .withDataSaveMode(dataSaveMode)
@@ -413,7 +419,7 @@ public class MongodbIT extends AbstractMongodbIT {
         List<Column> columns = new ArrayList<>();
         columns.add(new PhysicalColumn("c_int", BasicType.LONG_TYPE, 64L, 0, true, "", ""));
         columns.add(new PhysicalColumn("name", BasicType.STRING_TYPE, 100L, 0, true, "", ""));
-        columns.add(new PhysicalColumn("c_int", BasicType.INT_TYPE, 32L, 0, true, "", ""));
+        columns.add(new PhysicalColumn("score", BasicType.INT_TYPE, 32L, 0, true, "", ""));
         return columns;
     }
 }
