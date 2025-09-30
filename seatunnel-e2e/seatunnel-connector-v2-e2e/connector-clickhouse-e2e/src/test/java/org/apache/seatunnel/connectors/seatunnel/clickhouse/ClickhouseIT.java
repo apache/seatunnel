@@ -93,6 +93,8 @@ public class ClickhouseIT extends TestSuiteBase implements TestResource {
     private static final String INSERT_SQL = "insert_sql";
     private static final String INSERT_MERGE_TREE_SQL = "insert_merge_tree_sql";
     private static final String COMPARE_SQL = "compare_sql";
+    // Enables the use of the experimental `Object('json')` type for the current session
+    private static final String SETTING = "SET allow_experimental_object_type = 1;\n";
     private static final Pair<SeaTunnelRowType, List<SeaTunnelRow>> TEST_DATASET =
             generateTestDataSet();
     private static final Config CONFIG = getInitClickhouseConfig();
@@ -100,6 +102,7 @@ public class ClickhouseIT extends TestSuiteBase implements TestResource {
     private Connection connection;
 
     private static final String FIX_PARTITION_DATE = "2025-06-17";
+    private static final String JSON_COLUMN_NAME = "c_json";
 
     @TestTemplate
     public void testClickhouse(TestContainer container) throws Exception {
@@ -214,6 +217,7 @@ public class ClickhouseIT extends TestSuiteBase implements TestResource {
         Assertions.assertEquals(0, execResult.getExitCode());
         for (String tableName : MULTI_SINK_TABLES) {
             Assertions.assertEquals(100, countData(tableName));
+            assertFieldHasValue(tableName, JSON_COLUMN_NAME, "String");
             clearTable(tableName);
         }
     }
@@ -274,6 +278,19 @@ public class ClickhouseIT extends TestSuiteBase implements TestResource {
         MULTI_SOURCE_SINK_TABLES.forEach(this::clearTable);
     }
 
+    @TestTemplate
+    public void testClickhouseWithJsonTypeTableSource(TestContainer testContainer)
+            throws IOException, InterruptedException {
+        Assertions.assertEquals(0, countData(MULTI_SINK_TABLES.get(0)));
+        Container.ExecResult execResult =
+                testContainer.executeJob("/fake_to_clickhouse_with_json_type.conf");
+
+        Assertions.assertEquals(0, execResult.getExitCode());
+        Assertions.assertEquals(5, countData(MULTI_SINK_TABLES.get(0)));
+        assertFieldHasValue(MULTI_SINK_TABLES.get(0), JSON_COLUMN_NAME, "String");
+        clearTable(MULTI_SINK_TABLES.get(0));
+    }
+
     @BeforeAll
     @Override
     public void startUp() throws Exception {
@@ -298,17 +315,17 @@ public class ClickhouseIT extends TestSuiteBase implements TestResource {
     private void initializeClickhouseTable() {
         try {
             Statement statement = this.connection.createStatement();
-            statement.execute(CONFIG.getString(SOURCE_TABLE));
-            statement.execute(CONFIG.getString(SINK_TABLE));
-            statement.execute(CONFIG.getString(SOURCE_MERGE_TREE_TABLE));
+            statement.execute(SETTING + CONFIG.getString(SOURCE_TABLE));
+            statement.execute(SETTING + CONFIG.getString(SINK_TABLE));
+            statement.execute(SETTING + CONFIG.getString(SOURCE_MERGE_TREE_TABLE));
 
             // table for multi-table sink test
             for (String tableName : MULTI_SINK_TABLES) {
-                statement.execute(CONFIG.getString(tableName));
+                statement.execute(SETTING + CONFIG.getString(tableName));
             }
 
             for (String tableName : MULTI_SOURCE_SINK_TABLES) {
-                statement.execute(CONFIG.getString(tableName));
+                statement.execute(SETTING + CONFIG.getString(tableName));
             }
         } catch (SQLException e) {
             throw new RuntimeException("Initializing Clickhouse table failed!", e);
@@ -617,6 +634,23 @@ public class ClickhouseIT extends TestSuiteBase implements TestResource {
             Assertions.assertTrue(source.next());
         } catch (SQLException e) {
             throw new RuntimeException("test clickhouse server image error", e);
+        }
+    }
+
+    private void assertFieldHasValue(String table, String fieldName, String fieldType) {
+        String sql =
+                String.format(
+                        "select cast(%s as %s) as %s from %s.%s where %s is not null and %s != '' LIMIT 1",
+                        fieldName, fieldType, fieldName, DATABASE, table, fieldName, fieldName);
+        try (Statement statement = connection.createStatement();
+                ResultSet resultSet = statement.executeQuery(sql)) {
+            Assertions.assertTrue(
+                    resultSet.next(),
+                    String.format(
+                            "Field '%s' in table '%s' has no valid value (NULL or empty)",
+                            fieldName, table));
+        } catch (SQLException e) {
+            throw new RuntimeException("Failed to validate field value in ClickHouse", e);
         }
     }
 

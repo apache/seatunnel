@@ -30,8 +30,6 @@ import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
-import static java.lang.String.format;
-
 public class SqlUtils {
     private static final Map<String, String> TYPE_CASTS =
             new HashMap<String, String>() {
@@ -88,10 +86,15 @@ public class SqlUtils {
             boolean enableExperimentalLightweightDelete) {
         String conditionClause =
                 Arrays.stream(conditionFields)
-                        .map(fieldName -> format("%s = :%s", quoteIdentifier(fieldName), fieldName))
+                        .map(
+                                fieldName ->
+                                        String.format(
+                                                "%s = {}:%s",
+                                                quoteIdentifier(fieldName), fieldName))
                         .collect(Collectors.joining(" AND "));
         String deleteStatement =
-                format("DELETE FROM %s WHERE %s", quoteIdentifier(tableName), conditionClause);
+                String.format(
+                        "DELETE FROM %s WHERE %s", quoteIdentifier(tableName), conditionClause);
         if (enableExperimentalLightweightDelete) {
             deleteStatement += " settings allow_experimental_lightweight_delete = true";
         }
@@ -106,14 +109,16 @@ public class SqlUtils {
                         .map(
                                 fieldName ->
                                         String.format(
-                                                "%s = :%s", quoteIdentifier(fieldName), fieldName))
+                                                "%s = {}:%s",
+                                                quoteIdentifier(fieldName), fieldName))
                         .collect(Collectors.joining(", "));
         String conditionClause =
                 Arrays.stream(conditionFields)
                         .map(
                                 fieldName ->
                                         String.format(
-                                                "%s = :%s", quoteIdentifier(fieldName), fieldName))
+                                                "%s = {}:%s",
+                                                quoteIdentifier(fieldName), fieldName))
                         .collect(Collectors.joining(" AND "));
         return String.format(
                 "ALTER TABLE %s UPDATE %s WHERE %s settings mutations_sync = 1",
@@ -123,7 +128,11 @@ public class SqlUtils {
     public static String getAlterTableDeleteStatement(String tableName, String[] conditionFields) {
         String conditionClause =
                 Arrays.stream(conditionFields)
-                        .map(fieldName -> format("%s = :%s", quoteIdentifier(fieldName), fieldName))
+                        .map(
+                                fieldName ->
+                                        String.format(
+                                                "%s = {}:%s",
+                                                quoteIdentifier(fieldName), fieldName))
                         .collect(Collectors.joining(" AND "));
         return String.format(
                 "ALTER TABLE %s DELETE WHERE %s settings mutations_sync = 1",
@@ -133,7 +142,7 @@ public class SqlUtils {
     public static String getRowExistsStatement(String tableName, String[] conditionFields) {
         String fieldExpressions =
                 Arrays.stream(conditionFields)
-                        .map(field -> format("%s = :%s", quoteIdentifier(field), field))
+                        .map(field -> String.format("%s = {}:%s", quoteIdentifier(field), field))
                         .collect(Collectors.joining(" AND "));
         return String.format(
                 "SELECT 1 FROM %s WHERE %s", quoteIdentifier(tableName), fieldExpressions);

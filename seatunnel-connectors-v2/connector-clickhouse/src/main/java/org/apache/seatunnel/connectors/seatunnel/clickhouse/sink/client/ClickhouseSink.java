@@ -101,6 +101,10 @@ public class ClickhouseSink
         ClickhouseProxy proxy = new ClickhouseProxy(nodes.get(0));
 
         Map<String, String> tableSchema = proxy.getClickhouseTableSchema(readonlyConfig.get(TABLE));
+        // ClickHouse has transitioned from the experimental `Object('json')` type to the official
+        // `JSON` type.To ensure compatibility and support both older and newer versions,
+        // we normalize the type name to 'JSON' here
+        tableSchema.replaceAll((key, value) -> "Object('json')".equals(value) ? "JSON" : value);
         String shardKey = null;
         String shardKeyType = null;
         ClickhouseTable table =

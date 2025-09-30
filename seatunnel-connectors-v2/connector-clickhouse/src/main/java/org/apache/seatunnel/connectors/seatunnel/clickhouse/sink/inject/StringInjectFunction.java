@@ -46,6 +46,12 @@ public class StringInjectFunction implements ClickhouseFieldInjectFunction {
             } else if ("MultiPolygon".equals(fieldType)) {
                 statement.setObject(
                         index, MAPPER.readValue(replace(value.toString()), double[][][][].class));
+            } else if ("JSON".equals(fieldType)) {
+                statement.setString(
+                        index,
+                        value instanceof String
+                                ? value.toString()
+                                : MAPPER.writeValueAsString(value));
             } else {
                 statement.setString(index, value.toString());
             }
@@ -64,7 +70,8 @@ public class StringInjectFunction implements ClickhouseFieldInjectFunction {
                 || "Point".equals(fieldType)
                 || "Ring".equals(fieldType)
                 || "Polygon".equals(fieldType)
-                || "MultiPolygon".equals(fieldType)) {
+                || "MultiPolygon".equals(fieldType)
+                || "JSON".equals(fieldType)) {
             this.fieldType = fieldType;
             return true;
         }

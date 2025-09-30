@@ -25,11 +25,13 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 public class FieldNamedPreparedStatementTest {
+
     @Test
-    public void testParseBasicNamedInsertStatement() {
+    public void testParseNamedInsertStatementWithBasicType() {
         String tableName = "users";
         String[] fieldNames = {"id", "name", "age"};
         SeaTunnelDataType<?>[] dataTypes =
@@ -46,19 +48,17 @@ public class FieldNamedPreparedStatementTest {
                     }
                 };
         String sql = SqlUtils.getInsertIntoStatement(tableName, rowType, clickhouseTableSchema);
-        String expectedSql =
-                "INSERT INTO users (\"id\", \"name\", \"age\") "
-                        + "VALUES ({INT}:id, {STRING}:name, {INT}:age)";
-        Assertions.assertEquals(expectedSql, sql);
 
-        String statement = FieldNamedPreparedStatement.parseNamedStatement(sql, new HashMap<>());
+        HashMap<String, List<Integer>> parameterMap = new HashMap<>();
+        String statement = FieldNamedPreparedStatement.parseNamedStatement(sql, parameterMap);
         String expectedStatement =
                 "INSERT INTO users (\"id\", \"name\", \"age\") " + "VALUES (?, ?, ?)";
         Assertions.assertEquals(expectedStatement, statement);
+        validateParameterMap(parameterMap, fieldNames, sql);
     }
 
     @Test
-    public void testParseMultiNamedInsertStatement() {
+    public void testParseNamedInsertStatementWithJsonType() {
         String tableName = "users";
         String[] fieldNames = {"id", "name", "age", "subject_scores"};
         SeaTunnelDataType<?>[] dataTypes =
@@ -79,15 +79,85 @@ public class FieldNamedPreparedStatementTest {
                     }
                 };
         String sql = SqlUtils.getInsertIntoStatement(tableName, rowType, clickhouseTableSchema);
-        String expectedSql =
-                "INSERT INTO users (\"id\", \"name\", \"age\", \"subject_scores\") "
-                        + "VALUES ({INT}:id, {STRING}:name, {INT}:age, {JSON}:subject_scores)";
-        Assertions.assertEquals(expectedSql, sql);
 
-        String statement = FieldNamedPreparedStatement.parseNamedStatement(sql, new HashMap<>());
+        HashMap<String, List<Integer>> parameterMap = new HashMap<>();
+        String statement = FieldNamedPreparedStatement.parseNamedStatement(sql, parameterMap);
         String expectedStatement =
                 "INSERT INTO users (\"id\", \"name\", \"age\", \"subject_scores\") "
                         + "VALUES (?, ?, ?, CAST(? AS String))";
         Assertions.assertEquals(expectedStatement, statement);
+        validateParameterMap(parameterMap, fieldNames, sql);
+    }
+
+    @Test
+    public void testParseNamedDeleteStatement() {
+        String tableName = "users";
+        String[] fieldNames = {"id", "name", "age"};
+        String sql = SqlUtils.getDeleteStatement(tableName, fieldNames, true);
+
+        HashMap<String, List<Integer>> parameterMap = new HashMap<>();
+        String statement = FieldNamedPreparedStatement.parseNamedStatement(sql, parameterMap);
+        String expectedStatement =
+                "DELETE FROM \"users\" WHERE \"id\" = ? AND \"name\" = ? AND \"age\" = ? "
+                        + "settings allow_experimental_lightweight_delete = true";
+        Assertions.assertEquals(expectedStatement, statement);
+        validateParameterMap(parameterMap, fieldNames, sql);
+    }
+
+    @Test
+    public void testParseNamedAlterTableUpdateStatement() {
+        String tableName = "users";
+        String[] fieldNames = {"id", "name", "age"};
+        String[] conditionFields = {"id", "name"};
+        String sql = SqlUtils.getAlterTableUpdateStatement(tableName, fieldNames, conditionFields);
+
+        HashMap<String, List<Integer>> parameterMap = new HashMap<>();
+        String statement = FieldNamedPreparedStatement.parseNamedStatement(sql, parameterMap);
+        String expectedStatement =
+                "ALTER TABLE users UPDATE \"age\" = ? WHERE \"id\" = ? AND \"name\" = ? "
+                        + "settings mutations_sync = 1";
+        Assertions.assertEquals(expectedStatement, statement);
+        validateParameterMap(parameterMap, fieldNames, sql);
+    }
+
+    @Test
+    public void testParseNamedAlterTableDeleteStatement() {
+        String tableName = "users";
+        String[] conditionFields = {"id", "name"};
+        String sql = SqlUtils.getAlterTableDeleteStatement(tableName, conditionFields);
+
+        HashMap<String, List<Integer>> parameterMap = new HashMap<>();
+        String statement = FieldNamedPreparedStatement.parseNamedStatement(sql, parameterMap);
+        String expectedStatement =
+                "ALTER TABLE users DELETE WHERE \"id\" = ? AND \"name\" = ? "
+                        + "settings mutations_sync = 1";
+        Assertions.assertEquals(expectedStatement, statement);
+        validateParameterMap(parameterMap, conditionFields, sql);
+    }
+
+    @Test
+    public void testParseNamedRowExistsStatement() {
+        String tableName = "users";
+        String[] conditionFields = {"id", "name"};
+        String sql = SqlUtils.getRowExistsStatement(tableName, conditionFields);
+
+        HashMap<String, List<Integer>> parameterMap = new HashMap<>();
+        String statement = FieldNamedPreparedStatement.parseNamedStatement(sql, parameterMap);
+        String expectedStatement = "SELECT 1 FROM \"users\" WHERE \"id\" = ? AND \"name\" = ?";
+        Assertions.assertEquals(expectedStatement, statement);
+        validateParameterMap(parameterMap, conditionFields, sql);
+    }
+
+    private void validateParameterMap(
+            Map<String, List<Integer>> parameterMap, String[] fieldNames, String sql) {
+        Assertions.assertTrue(
+                parameterMap.size() >= fieldNames.length,
+                "the statements must contain all the field parameters");
+        for (int i = 0; i < fieldNames.length; i++) {
+            String fieldName = fieldNames[i];
+            Assertions.assertTrue(
+                    parameterMap.containsKey(fieldName),
+                    fieldName + " doesn't exist in the parameters of SQL statement: " + sql);
+        }
     }
 }
