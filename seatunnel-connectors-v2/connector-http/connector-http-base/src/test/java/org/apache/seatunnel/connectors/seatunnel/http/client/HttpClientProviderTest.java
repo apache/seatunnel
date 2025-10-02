@@ -85,26 +85,29 @@ class HttpClientProviderTest {
         // ensure no manually set content type or encoding
         Assertions.assertNull(post.getEntity().getContentEncoding());
     }
+
     @Test
     void testFixedBodyParsingPreservesNestedJsonStructure() throws Exception {
         // Given: a nested JSON body with object, array, and primitive
-        String body = "{\n" +
-                "          \"user\": {\n" +
-                "            \"name\": \"Alice\",\n" +
-                "            \"age\": 30,\n" +
-                "            \"address\": {\n" +
-                "              \"city\": \"Beijing\",\n" +
-                "              \"country\": \"China\"\n" +
-                "            }\n" +
-                "          },\n" +
-                "          \"active\": true,\n" +
-                "          \"scores\": [95, 87, 92]\n" +
-                "        }";
+        String body =
+                "{\n"
+                        + "          \"user\": {\n"
+                        + "            \"name\": \"Alice\",\n"
+                        + "            \"age\": 30,\n"
+                        + "            \"address\": {\n"
+                        + "              \"city\": \"Beijing\",\n"
+                        + "              \"country\": \"China\"\n"
+                        + "            }\n"
+                        + "          },\n"
+                        + "          \"active\": true,\n"
+                        + "          \"scores\": [95, 87, 92]\n"
+                        + "        }";
 
         ;
 
         // When: parsing using the FIXED logic
-        Method parseMethod = HttpClientProvider.class.getDeclaredMethod("parseBodyToMap", String.class);
+        Method parseMethod =
+                HttpClientProvider.class.getDeclaredMethod("parseBodyToMap", String.class);
         parseMethod.setAccessible(true);
         @SuppressWarnings("unchecked")
         Map<String, Object> result = (Map<String, Object>) parseMethod.invoke(null, body);

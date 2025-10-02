@@ -68,7 +68,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
 
 @Slf4j
 public class HttpClientProvider implements AutoCloseable {
@@ -521,15 +520,14 @@ public class HttpClientProvider implements AutoCloseable {
         if (Strings.isNullOrEmpty(body)) {
             return Collections.emptyMap();
         }
-        // ORIGINAL (BUGGY) IMPLEMENTATION:
         try {
             return JsonUtils.parseObject(body, new TypeReference<Map<String, Object>>() {});
         } catch (Exception e) {
             log.warn("Failed to parse body as JSON, treating as empty map. Body: {}", body, e);
             return Collections.emptyMap();
         }
-
     }
+
     @Override
     public void close() throws IOException {
         if (Objects.nonNull(httpClient)) {
