@@ -128,13 +128,7 @@ public class HttpClientProvider implements AutoCloseable {
         Map<String, Object> bodyMap = new HashMap<>();
         // If body is set but bodyMap is not, convert body to bodyMap
         if (!Strings.isNullOrEmpty(body)) {
-            bodyMap =
-                    ConfigFactory.parseString(body).entrySet().stream()
-                            .collect(
-                                    Collectors.toMap(
-                                            Map.Entry::getKey,
-                                            entry -> entry.getValue().unwrapped(),
-                                            (v1, v2) -> v2));
+            bodyMap = parseBodyToMap(body);
         }
 
         // convert method option to uppercase
@@ -522,6 +516,18 @@ public class HttpClientProvider implements AutoCloseable {
         request.setEntity(entity);
     }
 
+    private static Map<String, Object> parseBodyToMap(String body) {
+        if (Strings.isNullOrEmpty(body)) {
+            return Collections.emptyMap();
+        }
+        // ORIGINAL (BUGGY) IMPLEMENTATION:
+        return ConfigFactory.parseString(body).entrySet().stream()
+                .collect(Collectors.toMap(
+                        Map.Entry::getKey,
+                        entry -> entry.getValue().unwrapped(),
+                        (v1, v2) -> v2));
+
+    }
     @Override
     public void close() throws IOException {
         if (Objects.nonNull(httpClient)) {

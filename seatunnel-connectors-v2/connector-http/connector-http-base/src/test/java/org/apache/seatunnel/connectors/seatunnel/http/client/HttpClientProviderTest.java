@@ -23,6 +23,7 @@ import org.apache.http.message.BasicHeader;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.lang.reflect.Method;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -83,5 +84,58 @@ class HttpClientProviderTest {
         }
         // ensure no manually set content type or encoding
         Assertions.assertNull(post.getEntity().getContentEncoding());
+    }
+    @Test
+    void testFixedBodyParsingPreservesNestedJsonStructure() throws Exception {
+        // Given: a nested JSON body with object, array, and primitive
+        String body = "{\n" +
+                "          \"user\": {\n" +
+                "            \"name\": \"Alice\",\n" +
+                "            \"age\": 30,\n" +
+                "            \"address\": {\n" +
+                "              \"city\": \"Beijing\",\n" +
+                "              \"country\": \"China\"\n" +
+                "            }\n" +
+                "          },\n" +
+                "          \"active\": true,\n" +
+                "          \"scores\": [95, 87, 92]\n" +
+                "        }";
+
+        ;
+
+        // When: parsing using the FIXED logic
+        Method parseMethod = HttpClientProvider.class.getDeclaredMethod("parseBodyToMap", String.class);
+        parseMethod.setAccessible(true);
+        @SuppressWarnings("unchecked")
+        Map<String, Object> result = (Map<String, Object>) parseMethod.invoke(null, body);
+
+        // Then: nested structure is fully preserved
+        Assertions.assertTrue(result.containsKey("user"));
+        Assertions.assertTrue(result.containsKey("active"));
+        Assertions.assertTrue(result.containsKey("scores"));
+
+        // Ensure NO flattened keys exist
+        Assertions.assertFalse(result.containsKey("user.name"));
+        Assertions.assertFalse(result.containsKey("user.age"));
+        Assertions.assertFalse(result.containsKey("user.address.city"));
+
+        // Validate nested objects
+        @SuppressWarnings("unchecked")
+        Map<String, Object> user = (Map<String, Object>) result.get("user");
+        Assertions.assertEquals("Alice", user.get("name"));
+        Assertions.assertEquals(30, user.get("age"));
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> address = (Map<String, Object>) user.get("address");
+        Assertions.assertEquals("Beijing", address.get("city"));
+        Assertions.assertEquals("China", address.get("country"));
+
+        // Validate array
+        @SuppressWarnings("unchecked")
+        java.util.List<Integer> scores = (java.util.List<Integer>) result.get("scores");
+        Assertions.assertEquals(java.util.Arrays.asList(95, 87, 92), scores);
+
+        // Validate primitive
+        Assertions.assertEquals(true, result.get("active"));
     }
 }
