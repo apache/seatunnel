@@ -27,7 +27,7 @@
 
     <properties>
         <!--  SeaTunnel Engine use     -->
-        <hazelcast.version>5.1</hazelcast.version>
+        <hazelcast.version>5.2.5</hazelcast.version>
     </properties>
 
     <dependencies>
