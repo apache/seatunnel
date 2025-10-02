@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.http.client;
 
+import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
 import org.apache.seatunnel.shade.com.google.common.base.Strings;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
@@ -521,11 +522,12 @@ public class HttpClientProvider implements AutoCloseable {
             return Collections.emptyMap();
         }
         // ORIGINAL (BUGGY) IMPLEMENTATION:
-        return ConfigFactory.parseString(body).entrySet().stream()
-                .collect(Collectors.toMap(
-                        Map.Entry::getKey,
-                        entry -> entry.getValue().unwrapped(),
-                        (v1, v2) -> v2));
+        try {
+            return JsonUtils.parseObject(body, new TypeReference<Map<String, Object>>() {});
+        } catch (Exception e) {
+            log.warn("Failed to parse body as JSON, treating as empty map. Body: {}", body, e);
+            return Collections.emptyMap();
+        }
 
     }
     @Override
