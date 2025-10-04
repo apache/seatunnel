@@ -17,11 +17,11 @@
 
 package org.apache.seatunnel.plugin.discovery;
 
+import org.apache.seatunnel.shade.org.apache.commons.lang3.tuple.ImmutableTriple;
+
 import org.apache.seatunnel.api.common.PluginIdentifier;
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
-
-import org.apache.commons.lang3.tuple.ImmutableTriple;
 
 import java.net.URL;
 import java.util.Collection;

@@ -162,8 +162,8 @@ public class SeaTunnelEngineClusterRoleTest {
             final ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
             PassiveCompletableFuture<JobResult> jobResultPassiveCompletableFuture =
                     clientJobProxy.doWaitForJobComplete();
-            await().pollDelay(30, TimeUnit.SECONDS)
-                    .atMost(60000, TimeUnit.MILLISECONDS)
+            await().atMost(60000, TimeUnit.MILLISECONDS)
+                    .pollInterval(2000, TimeUnit.MILLISECONDS)
                     .untilAsserted(
                             () -> {
                                 String mes = "";
@@ -295,18 +295,19 @@ public class SeaTunnelEngineClusterRoleTest {
                     .untilAsserted(
                             () ->
                                     Assertions.assertEquals(
-                                            clientJobProxy.getJobStatus(), JobStatus.PENDING));
+                                            JobStatus.PENDING, clientJobProxy.getJobStatus()));
             String status = seaTunnelClient.listJobStatus();
             status.contains("PENDING");
 
-            // Cancel the job in the pending state
+            // Cancel the job in the pending state, The task is canceled from the Pending queue, the
+            // task itself is not running, and the job status should be CANCELED
             seaTunnelClient.getJobClient().cancelJob(clientJobProxy.getJobId());
             Awaitility.await()
                     .atMost(60000, TimeUnit.MILLISECONDS)
                     .untilAsserted(
                             () ->
-                                    Assertions.assertNotEquals(
-                                            clientJobProxy.getJobStatus(), JobStatus.CANCELED));
+                                    Assertions.assertEquals(
+                                            JobStatus.CANCELED, clientJobProxy.getJobStatus()));
 
         } catch (ExecutionException | InterruptedException e) {
             throw new RuntimeException(e);
@@ -453,7 +454,8 @@ public class SeaTunnelEngineClusterRoleTest {
                                                             .listJobStatus(true)
                                                             .contains("RUNNING")));
             jobClient.cancelJob(jobId);
-            await().atMost(30000, TimeUnit.MILLISECONDS)
+            await().pollDelay(10000, TimeUnit.MILLISECONDS)
+                    .atMost(60000, TimeUnit.MILLISECONDS)
                     .untilAsserted(
                             () ->
                                     Assertions.assertEquals(

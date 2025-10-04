@@ -32,7 +32,7 @@ import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.core.job.PipelineStatus;
 import org.apache.seatunnel.engine.server.dag.physical.PipelineLocation;
 import org.apache.seatunnel.engine.server.execution.ExecutionState;
-import org.apache.seatunnel.engine.server.execution.PendingSourceState;
+import org.apache.seatunnel.engine.server.execution.PendingJobInfo;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.telemetry.log.operation.CleanLogOperation;
 import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
@@ -46,7 +46,6 @@ import com.hazelcast.spi.impl.NodeEngine;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.Getter;
-import scala.Tuple2;
 
 import java.io.Serializable;
 import java.net.UnknownHostException;
@@ -54,6 +53,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -84,7 +84,11 @@ public class JobHistoryService {
      */
     private final Map<Long, JobMaster> runningJobMasterMap;
 
-    private final Map<Long, Tuple2<PendingSourceState, JobMaster>> pendingJobMasterMap;
+    /**
+     * key: job id; <br>
+     * value: PendingJobInfo;
+     */
+    private final Map<Long, PendingJobInfo> pendingJobInfoMap;
 
     /** finishedJobVertexInfoImap key is jobId and value is JobDAGInfo */
     private final IMap<Long, JobDAGInfo> finishedJobDAGInfoImap;
@@ -105,7 +109,7 @@ public class JobHistoryService {
             NodeEngine nodeEngine,
             IMap<Object, Object> runningJobStateIMap,
             ILogger logger,
-            Map<Long, Tuple2<PendingSourceState, JobMaster>> pendingJobMasterMap,
+            Map<Long, PendingJobInfo> pendingJobMasterMap,
             Map<Long, JobMaster> runningJobMasterMap,
             IMap<Long, JobState> finishedJobStateImap,
             IMap<Long, JobMetrics> finishedJobMetricsImap,
@@ -114,7 +118,7 @@ public class JobHistoryService {
         this.nodeEngine = nodeEngine;
         this.runningJobStateIMap = runningJobStateIMap;
         this.logger = logger;
-        this.pendingJobMasterMap = pendingJobMasterMap;
+        this.pendingJobInfoMap = pendingJobMasterMap;
         this.runningJobMasterMap = runningJobMasterMap;
         this.finishedJobStateImap = finishedJobStateImap;
         this.finishedJobMetricsImap = finishedJobMetricsImap;
@@ -146,12 +150,14 @@ public class JobHistoryService {
                 runningJobStateList.stream().map(JobState::getJobId).collect(Collectors.toSet());
 
         List<JobState> pendingJobStateList =
-                pendingJobMasterMap.entrySet().stream()
+                pendingJobInfoMap.entrySet().stream()
                         .map(
                                 entry -> {
                                     Long jobId = entry.getKey();
                                     JobImmutableInformation jobImmutableInformation =
-                                            entry.getValue()._2.getJobImmutableInformation();
+                                            entry.getValue()
+                                                    .getJobMaster()
+                                                    .getJobImmutableInformation();
                                     return new JobState(
                                             jobId,
                                             jobImmutableInformation.getJobName(),
@@ -191,10 +197,10 @@ public class JobHistoryService {
 
     // Get detailed status of a single job
     public JobState getJobDetailState(Long jobId) {
-        if (pendingJobMasterMap.containsKey(jobId)) {
+        if (pendingJobInfoMap.containsKey(jobId)) {
             // return pending job state
             JobImmutableInformation jobImmutableInformation =
-                    pendingJobMasterMap.get(jobId)._2.getJobImmutableInformation();
+                    pendingJobInfoMap.get(jobId).getJobMaster().getJobImmutableInformation();
             return new JobState(
                     jobId,
                     jobImmutableInformation.getJobName(),
@@ -238,8 +244,6 @@ public class JobHistoryService {
 
     public void storeFinishedJobState(JobMaster jobMaster) {
         JobState jobState = toJobStateMapper(jobMaster, false);
-        jobState.setStartTime(jobMaster.getStateTimestamp(JobStatus.SCHEDULED));
-        jobState.setFinishTime(System.currentTimeMillis());
         jobState.setErrorMessage(jobMaster.getErrorMessage());
         finishedJobStateImap.put(jobState.jobId, jobState, finishedJobExpireTime, TimeUnit.MINUTES);
     }
@@ -251,7 +255,6 @@ public class JobHistoryService {
     }
 
     private JobState toJobStateMapper(JobMaster jobMaster, boolean simple) {
-
         Long jobId = jobMaster.getJobImmutableInformation().getJobId();
         Map<PipelineLocation, PipelineStateData> pipelineStateMapperMap = new HashMap<>();
         if (!simple) {
@@ -299,17 +302,24 @@ public class JobHistoryService {
                 logger.warning("get job pipeline state err", e);
             }
         }
-        JobStatus jobStatus = (JobStatus) runningJobStateIMap.get(jobId);
+        JobStatus jobStatus =
+                Optional.ofNullable(runningJobStateIMap.get(jobId))
+                        .map(status -> ((JobStatus) status))
+                        .orElse(jobMaster.getJobStatus());
         String jobName = jobMaster.getJobImmutableInformation().getJobName();
         long submitTime = jobMaster.getJobImmutableInformation().getCreateTime();
         Long startTime = jobMaster.getStateTimestamp(JobStatus.SCHEDULED);
+        Long finishTime = null;
+        if (jobStatus != null && jobStatus.isEndState()) {
+            finishTime = jobMaster.getStateTimestamp(jobStatus);
+        }
         return new JobState(
                 jobId,
                 jobName,
                 jobStatus,
                 submitTime,
                 startTime,
-                null,
+                finishTime,
                 pipelineStateMapperMap,
                 null);
     }

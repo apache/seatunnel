@@ -17,14 +17,15 @@
 
 package org.apache.seatunnel.connectors.seatunnel.fake.utils;
 
+import org.apache.seatunnel.shade.org.apache.commons.lang3.RandomStringUtils;
+import org.apache.seatunnel.shade.org.apache.commons.lang3.RandomUtils;
+
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.common.utils.VectorUtils;
 import org.apache.seatunnel.connectors.seatunnel.fake.config.FakeConfig;
 
 import org.apache.commons.collections4.CollectionUtils;
-import org.apache.commons.lang3.RandomStringUtils;
-import org.apache.commons.lang3.RandomUtils;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;

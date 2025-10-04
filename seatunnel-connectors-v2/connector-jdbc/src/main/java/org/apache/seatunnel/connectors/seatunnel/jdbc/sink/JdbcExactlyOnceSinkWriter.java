@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.jdbc.sink;
 
 import org.apache.seatunnel.shade.com.google.common.base.Throwables;
+import org.apache.seatunnel.shade.org.apache.commons.lang3.SerializationUtils;
 
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.sink.SinkWriter;
@@ -36,8 +37,6 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.xa.XaGroupOpsImpl
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.xa.XidGenerator;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.state.JdbcSinkState;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.state.XidInfo;
-
-import org.apache.commons.lang3.SerializationUtils;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
