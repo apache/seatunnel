@@ -26,8 +26,6 @@ import org.apache.seatunnel.connectors.seatunnel.redis.client.RedisClusterClient
 import org.apache.seatunnel.connectors.seatunnel.redis.client.RedisSingleClient;
 import org.apache.seatunnel.connectors.seatunnel.redis.exception.RedisConnectorException;
 
-import org.apache.commons.lang3.StringUtils;
-
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import redis.clients.jedis.ConnectionPoolConfig;
