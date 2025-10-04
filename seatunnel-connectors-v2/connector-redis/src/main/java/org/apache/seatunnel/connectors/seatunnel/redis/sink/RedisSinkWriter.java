@@ -53,7 +53,9 @@ import java.util.regex.Pattern;
 @Slf4j
 public class RedisSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
         implements SupportMultiTableSinkWriter<Void> {
-    private static final Pattern PLACEHOLDER_PATTERN = Pattern.compile("\\{([^}]+)\\}");
+    private static final Pattern LEGACY_PLACEHOLDER_PATTERN =
+            Pattern.compile("(?<!\\$)\\{([^}]+)\\}");
+    private static final Pattern PLACEHOLDER_PATTERN = Pattern.compile("\\$\\{([^}]+)\\}");
     private final SeaTunnelRowType seaTunnelRowType;
     private final RedisParameters redisParameters;
     private final SerializationSchema serializationSchema;
@@ -110,7 +112,10 @@ public class RedisSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
     }
 
     protected String getCustomKey(SeaTunnelRow element, List<String> fields, String keyField) {
-        Matcher matcher = PLACEHOLDER_PATTERN.matcher(keyField);
+        // First, detect and convert the old format placeholders to the new format
+        String normalizedKeyField = normalizePlaceholders(keyField);
+
+        Matcher matcher = PLACEHOLDER_PATTERN.matcher(normalizedKeyField);
 
         Map<String, String> placeholderValues = new HashMap<>();
 
@@ -122,7 +127,7 @@ public class RedisSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
 
         return placeholderValues.keySet().stream()
                 .reduce(
-                        keyField,
+                        normalizedKeyField,
                         (result, placeholderName) -> {
                             return PlaceholderUtils.replacePlaceholders(
                                     result,
@@ -259,6 +264,20 @@ public class RedisSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
                                 PluginType.SINK,
                                 "Unsupported format: " + format));
         }
+    }
+
+    private String normalizePlaceholders(String input) {
+        if (input == null) {
+            return input;
+        }
+
+        Matcher legacyMatcher = LEGACY_PLACEHOLDER_PATTERN.matcher(input);
+        if (legacyMatcher.find()) {
+            // Convert legacy format {fieldName} to ${fieldName}
+            return legacyMatcher.replaceAll("\\$\\{$1\\}");
+        }
+
+        return input;
     }
 
     @Override

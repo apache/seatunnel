@@ -88,4 +88,27 @@ public class RedisSinkWriterTest {
 
         Assertions.assertEquals("user:1:profile", customKey);
     }
+
+    @Test
+    public void testLegacyCustomKey() {
+        when(mockRedisParameters.getKeyField()).thenReturn("user:{id}:profile");
+
+        when(mockRedisParameters.getSupportCustomKey()).thenReturn(true);
+        when(mockRedisParameters.getRedisDataType()).thenReturn(RedisDataType.STRING);
+        when(mockRedisParameters.getExpire()).thenReturn(3600L);
+
+        redisSinkWriter = new RedisSinkWriter(rowType, mockRedisParameters);
+
+        // create test data
+        SeaTunnelRow row = new SeaTunnelRow(new Object[] {1, "Alice", 25, "alice@test.com"});
+        row.setRowKind(RowKind.INSERT);
+
+        String customKey =
+                redisSinkWriter.getCustomKey(
+                        row,
+                        Arrays.asList(rowType.getFieldNames()),
+                        mockRedisParameters.getKeyField());
+
+        Assertions.assertEquals("user:1:profile", customKey);
+    }
 }

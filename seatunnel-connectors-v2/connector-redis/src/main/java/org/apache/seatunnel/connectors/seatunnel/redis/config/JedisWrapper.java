@@ -26,21 +26,20 @@ import redis.clients.jedis.ConnectionPool;
 import redis.clients.jedis.Jedis;
 import redis.clients.jedis.JedisCluster;
 
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 import static org.apache.seatunnel.connectors.seatunnel.redis.exception.RedisErrorCode.GET_REDIS_INFO_ERROR;
 
 @Slf4j
 public class JedisWrapper extends Jedis {
     private final JedisCluster jedisCluster;
-    private final Map<String, Jedis> jedisPoolMap = new HashMap<>();
+    private final Map<String, Jedis> jedisPoolMap = new ConcurrentHashMap<>();
 
     public JedisWrapper(@NonNull JedisCluster jedisCluster) {
         this.jedisCluster = jedisCluster;
-        initJedisConnectionCache();
     }
 
     @Override
@@ -102,9 +101,9 @@ public class JedisWrapper extends Jedis {
         }
 
         // Traverse all nodes and try to obtain the info
-        for (Map.Entry<String, Jedis> entry : jedisPoolMap.entrySet()) {
+        for (Map.Entry<String, ConnectionPool> entry : nodes.entrySet()) {
             try {
-                Jedis jedis = entry.getValue();
+                Jedis jedis = getJedis(entry.getKey());
                 return jedis.info();
             } catch (Exception e) {
                 log.warn("Failed to get info from node: {}", entry.getKey(), e);
@@ -132,26 +131,38 @@ public class JedisWrapper extends Jedis {
     @Override
     public void close() {
         jedisCluster.close();
+        jedisPoolMap.values().forEach(Jedis::close);
+        jedisPoolMap.clear();
     }
 
     public Jedis getJedis(String node) {
-        return jedisPoolMap.get(node);
+        Jedis jedis = jedisPoolMap.get(node);
+        if (jedis != null) {
+            return jedis;
+        }
+
+        // Lazy initialization
+        Map<String, ConnectionPool> clusterNodes = jedisCluster.getClusterNodes();
+        ConnectionPool connectionPool = clusterNodes.get(node);
+        if (connectionPool == null) {
+            throw new RedisConnectorException(
+                    RedisErrorCode.REDIS_CONNECTION_ERROR, "Node not found in cluster: " + node);
+        }
+
+        return getOrCreateJedis(node, connectionPool);
     }
 
-    /** initialize jedis cache for each node */
-    private void initJedisConnectionCache() {
-        Map<String, ConnectionPool> clusterNodes = jedisCluster.getClusterNodes();
-
-        for (Map.Entry<String, ConnectionPool> entry : clusterNodes.entrySet()) {
-            Jedis jedis;
-            try {
-                jedis = new Jedis(entry.getValue().getResource());
-                jedisPoolMap.put(entry.getKey(), jedis);
-            } catch (Exception e) {
-                throw new RedisConnectorException(
-                        RedisErrorCode.REDIS_CONNECTION_ERROR,
-                        "Redis connection error. node: " + entry.getKey());
-            }
-        }
+    private Jedis getOrCreateJedis(String node, ConnectionPool connectionPool) {
+        return jedisPoolMap.computeIfAbsent(
+                node,
+                k -> {
+                    try {
+                        return new Jedis(connectionPool.getResource());
+                    } catch (Exception e) {
+                        throw new RedisConnectorException(
+                                RedisErrorCode.REDIS_CONNECTION_ERROR,
+                                "Redis connection error. node: " + node);
+                    }
+                });
     }
 }
