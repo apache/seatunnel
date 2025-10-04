@@ -17,7 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.utils;
 
-import org.apache.commons.lang3.StringUtils;
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
+
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaAndValue;
 import org.apache.kafka.connect.data.Struct;

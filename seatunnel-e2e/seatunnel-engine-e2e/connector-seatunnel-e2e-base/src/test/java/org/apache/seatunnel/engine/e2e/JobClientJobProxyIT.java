@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.engine.e2e;
 
-import org.apache.commons.lang3.StringUtils;
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;

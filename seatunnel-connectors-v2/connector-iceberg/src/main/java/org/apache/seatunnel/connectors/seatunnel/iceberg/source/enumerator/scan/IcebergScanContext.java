@@ -17,12 +17,13 @@
 
 package org.apache.seatunnel.connectors.seatunnel.iceberg.source.enumerator.scan;
 
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
+
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.config.SourceTableConfig;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.utils.ExpressionUtils;
 
-import org.apache.commons.lang3.StringUtils;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.expressions.Expression;
 import org.apache.iceberg.expressions.Expressions;
