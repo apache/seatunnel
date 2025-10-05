@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.doris.source;
 
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
+
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceSplit;
@@ -31,8 +33,6 @@ import org.apache.seatunnel.connectors.doris.catalog.DorisCatalogFactory;
 import org.apache.seatunnel.connectors.doris.config.DorisSourceConfig;
 import org.apache.seatunnel.connectors.doris.config.DorisSourceOptions;
 import org.apache.seatunnel.connectors.doris.config.DorisTableConfig;
-
-import org.apache.commons.lang3.StringUtils;
 
 import com.google.auto.service.AutoService;
 import lombok.extern.slf4j.Slf4j;

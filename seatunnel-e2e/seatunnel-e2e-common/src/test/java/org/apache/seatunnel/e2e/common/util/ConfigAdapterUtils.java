@@ -17,10 +17,10 @@
 
 package org.apache.seatunnel.e2e.common.util;
 
-import org.apache.seatunnel.api.configuration.ConfigAdapter;
+import org.apache.seatunnel.shade.org.apache.commons.lang3.ArrayUtils;
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
-import org.apache.commons.lang3.ArrayUtils;
-import org.apache.commons.lang3.StringUtils;
+import org.apache.seatunnel.api.configuration.ConfigAdapter;
 
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;

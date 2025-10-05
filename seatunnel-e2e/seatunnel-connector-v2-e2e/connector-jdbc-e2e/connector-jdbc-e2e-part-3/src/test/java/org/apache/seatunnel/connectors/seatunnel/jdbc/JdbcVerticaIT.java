@@ -19,10 +19,9 @@
 package org.apache.seatunnel.connectors.seatunnel.jdbc;
 
 import org.apache.seatunnel.shade.com.google.common.collect.Lists;
+import org.apache.seatunnel.shade.org.apache.commons.lang3.tuple.Pair;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-
-import org.apache.commons.lang3.tuple.Pair;
 
 import org.junit.jupiter.api.Disabled;
 import org.testcontainers.containers.GenericContainer;
