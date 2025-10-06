@@ -4,9 +4,11 @@
 
 ## 描述
 
-`TikaDocument` 转换插件使用 Apache Tika 从各种文档格式中提取文本内容和元数据，包括 PDF、Microsoft Office 文档（Word、Excel、PowerPoint）、纯文本、HTML、XML 和许多其他文件格式。该转换将二进制文档数据转换为结构化的文本内容和元数据字段。
+`TikaDocument` 转换插件使用 [Apache Tika](https://tika.apache.org/) 从各种文档格式中提取文本内容和元数据，包括 PDF、Microsoft Office 文档（Word、Excel、PowerPoint）、纯文本、HTML、XML 和许多其他文件格式。该转换将二进制文档数据转换为结构化的文本内容和元数据字段。
 
 该插件支持全面的错误处理、内容处理选项，并可以处理二进制数据和 Base64 编码的文档内容。
+
+有关 Apache Tika 和支持的格式的更多信息，请参见 [Apache Tika 文档](https://tika.apache.org/2.9.2/index.html)。
 
 ## 属性
 
@@ -216,9 +218,57 @@ transform {
 - `subject`：STRING（文档主题）
 - `keywords`：STRING（文档关键词）
 - `language`：STRING（文档语言）
-- `created_date`：STRING（ISO 格式的创建日期）
-- `modified_date`：STRING（ISO 格式的修改日期）
+- `created_date`：TIMESTAMP（创建日期）
+- `modified_date`：TIMESTAMP（修改日期）
+- `page_count`：INT（页数）
+- `file_size`：LONG（文档大小，字节）
 - `metadata`：MAP<STRING, STRING>（所有元数据作为键值对）
+
+## 元数据架构集成
+
+TikaDocument 转换会自动将所有提取的文档元数据字段添加到输出目录表的**元数据架构**中。这允许下游转换使用 `Metadata` 转换以元数据的形式访问这些字段。
+
+**可用的元数据字段：**
+- `content` - 提取的文本内容
+- `content_type` - 文档的 MIME 类型
+- `title` - 文档标题
+- `author` - 文档作者/创建者
+- `subject` - 文档主题
+- `keywords` - 文档关键词
+- `language` - 检测到的语言
+- `created_date` - 创建日期
+- `modified_date` - 修改日期
+- `page_count` - 页数
+- `file_size` - 文档大小（字节）
+- `metadata` - 所有元数据作为键值对
+
+**注意：** 在特定文档中不存在的字段将设置为 `null`。例如，纯文本文件可能没有 `author` 或 `title` 元数据。
+
+### 在下游转换中使用元数据
+
+您可以使用 `Metadata` 转换将这些文档元数据字段映射到输出列：
+
+```hocon
+transform {
+  # 首先，提取文档内容
+  TikaDocument {
+    source_field = "document_data"
+    output_fields = {
+      content = "extracted_text"
+    }
+  }
+  
+  # 然后，使用 Metadata 转换访问文档元数据
+  Metadata {
+    metadata_fields = {
+      title = "doc_title"
+      author = "doc_author"
+      content_type = "mime_type"
+      created_date = "creation_timestamp"
+    }
+  }
+}
+```
 
 ## 性能考虑
 

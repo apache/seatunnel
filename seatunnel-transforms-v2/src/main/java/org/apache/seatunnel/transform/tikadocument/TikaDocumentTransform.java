@@ -19,9 +19,12 @@ package org.apache.seatunnel.transform.tikadocument;
 
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
+import org.apache.seatunnel.api.table.catalog.MetadataColumn;
+import org.apache.seatunnel.api.table.catalog.MetadataSchema;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
+import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowAccessor;
 import org.apache.seatunnel.transform.common.ErrorHandleWay;
@@ -279,5 +282,146 @@ public class TikaDocumentTransform extends MultipleFieldOutputTransform {
         if (extractor != null) {
             extractor.close();
         }
+    }
+
+    /**
+     * Override to add document metadata fields to the output catalog table's metadata schema. This
+     * allows downstream transforms to access these fields as metadata.
+     */
+    @Override
+    public CatalogTable getProducedCatalogTable() {
+        // Get the base catalog table with physical columns
+        CatalogTable baseCatalogTable = super.getProducedCatalogTable();
+
+        // Build metadata schema with document extraction fields
+        MetadataSchema.Builder metadataBuilder = MetadataSchema.builder();
+
+        // Copy existing metadata from input if any
+        if (inputCatalogTable.getMetadataSchema() != null
+                && inputCatalogTable.getMetadataSchema().getColumns() != null) {
+            for (Column column : inputCatalogTable.getMetadataSchema().getColumns()) {
+                metadataBuilder.column((MetadataColumn) column);
+            }
+        }
+
+        // Add document metadata fields to metadata schema
+        addDocumentMetadataFields(metadataBuilder);
+
+        MetadataSchema documentMetadataSchema = metadataBuilder.build();
+
+        // Return catalog table with updated metadata schema
+        return CatalogTable.withMetadata(baseCatalogTable, documentMetadataSchema);
+    }
+
+    /**
+     * Add document extraction metadata fields to the metadata schema. These fields represent all
+     * possible document metadata that can be extracted. Fields that don't exist in a particular
+     * document will be null.
+     */
+    private void addDocumentMetadataFields(MetadataSchema.Builder metadataBuilder) {
+        // Content field
+        metadataBuilder.column(
+                MetadataColumn.of(
+                        "content",
+                        BasicType.STRING_TYPE,
+                        null,
+                        true,
+                        null,
+                        "Extracted text content from the document"));
+
+        // Content type / MIME type
+        metadataBuilder.column(
+                MetadataColumn.of(
+                        "content_type",
+                        BasicType.STRING_TYPE,
+                        null,
+                        true,
+                        null,
+                        "MIME type of the document"));
+
+        // Title
+        metadataBuilder.column(
+                MetadataColumn.of(
+                        "title", BasicType.STRING_TYPE, null, true, null, "Document title"));
+
+        // Author
+        metadataBuilder.column(
+                MetadataColumn.of(
+                        "author",
+                        BasicType.STRING_TYPE,
+                        null,
+                        true,
+                        null,
+                        "Document author/creator"));
+
+        // Subject
+        metadataBuilder.column(
+                MetadataColumn.of(
+                        "subject", BasicType.STRING_TYPE, null, true, null, "Document subject"));
+
+        // Keywords
+        metadataBuilder.column(
+                MetadataColumn.of(
+                        "keywords", BasicType.STRING_TYPE, null, true, null, "Document keywords"));
+
+        // Language
+        metadataBuilder.column(
+                MetadataColumn.of(
+                        "language",
+                        BasicType.STRING_TYPE,
+                        null,
+                        true,
+                        null,
+                        "Detected language of the document"));
+
+        // Creation date
+        metadataBuilder.column(
+                MetadataColumn.of(
+                        "created_date",
+                        LocalTimeType.LOCAL_DATE_TIME_TYPE,
+                        null,
+                        true,
+                        null,
+                        "Document creation date"));
+
+        // Modification date
+        metadataBuilder.column(
+                MetadataColumn.of(
+                        "modified_date",
+                        LocalTimeType.LOCAL_DATE_TIME_TYPE,
+                        null,
+                        true,
+                        null,
+                        "Document modification date"));
+
+        // Page count
+        metadataBuilder.column(
+                MetadataColumn.of(
+                        "page_count",
+                        BasicType.INT_TYPE,
+                        null,
+                        true,
+                        null,
+                        "Number of pages in the document"));
+
+        // File size
+        metadataBuilder.column(
+                MetadataColumn.of(
+                        "file_size",
+                        BasicType.LONG_TYPE,
+                        null,
+                        true,
+                        null,
+                        "Document size in bytes"));
+
+        // All metadata as a map
+        metadataBuilder.column(
+                MetadataColumn.of(
+                        "metadata",
+                        new MapType<>(BasicType.STRING_TYPE, BasicType.STRING_TYPE),
+                        null,
+                        true,
+                        null,
+                        "All document metadata as key-value pairs"));
     }
 }

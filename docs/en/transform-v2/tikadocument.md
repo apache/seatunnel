@@ -4,9 +4,11 @@
 
 ## Description
 
-The `TikaDocument` transform plugin uses Apache Tika to extract text content and metadata from various document formats including PDF, Microsoft Office documents (Word, Excel, PowerPoint), plain text, HTML, XML, and many other file formats. This transform converts binary document data into structured text content and metadata fields.
+The `TikaDocument` transform plugin uses [Apache Tika](https://tika.apache.org/) to extract text content and metadata from various document formats including PDF, Microsoft Office documents (Word, Excel, PowerPoint), plain text, HTML, XML, and many other file formats. This transform converts binary document data into structured text content and metadata fields.
 
 The plugin supports comprehensive error handling, content processing options, and can handle both binary data and Base64-encoded document content.
+
+For more information about Apache Tika and supported formats, see the [Apache Tika documentation](https://tika.apache.org/2.9.2/index.html).
 
 ## Options
 
@@ -216,9 +218,57 @@ Output fields data types:
 - `subject`: STRING (document subject)
 - `keywords`: STRING (document keywords)
 - `language`: STRING (document language)
-- `created_date`: STRING (creation date in ISO format)
-- `modified_date`: STRING (modification date in ISO format)
+- `created_date`: TIMESTAMP (creation date)
+- `modified_date`: TIMESTAMP (modification date)
+- `page_count`: INT (number of pages)
+- `file_size`: LONG (document size in bytes)
 - `metadata`: MAP<STRING, STRING> (all metadata as key-value pairs)
+
+## Metadata Schema Integration
+
+The TikaDocument transform automatically adds all extracted document metadata fields to the output catalog table's **metadata schema**. This allows downstream transforms to access these fields as metadata using the `Metadata` transform.
+
+**Available metadata fields:**
+- `content` - Extracted text content
+- `content_type` - MIME type of the document
+- `title` - Document title
+- `author` - Document author/creator
+- `subject` - Document subject
+- `keywords` - Document keywords
+- `language` - Detected language
+- `created_date` - Creation date
+- `modified_date` - Modification date
+- `page_count` - Number of pages
+- `file_size` - Document size in bytes
+- `metadata` - All metadata as key-value pairs
+
+**Note:** Fields that don't exist in a particular document will be set to `null`. For example, a plain text file may not have `author` or `title` metadata.
+
+### Using Metadata in Downstream Transforms
+
+You can use the `Metadata` transform to map these document metadata fields to output columns:
+
+```hocon
+transform {
+  # First, extract document content
+  TikaDocument {
+    source_field = "document_data"
+    output_fields = {
+      content = "extracted_text"
+    }
+  }
+  
+  # Then, use Metadata transform to access document metadata
+  Metadata {
+    metadata_fields = {
+      title = "doc_title"
+      author = "doc_author"
+      content_type = "mime_type"
+      created_date = "creation_timestamp"
+    }
+  }
+}
+```
 
 ## Performance Considerations
 

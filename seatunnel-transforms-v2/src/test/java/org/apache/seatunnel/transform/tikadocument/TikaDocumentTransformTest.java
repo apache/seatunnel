@@ -213,4 +213,54 @@ public class TikaDocumentTransformTest {
         // Should have original columns plus new output columns
         Assertions.assertTrue(producedTable.getTableSchema().getColumns().size() >= 6);
     }
+
+    @Test
+    public void testMetadataSchemaIntegration() {
+        TikaDocumentTransform transform = new TikaDocumentTransform(config, catalogTable);
+        CatalogTable producedTable = transform.getProducedCatalogTable();
+
+        // Verify metadata schema is not null
+        Assertions.assertNotNull(
+                producedTable.getMetadataSchema(), "Metadata schema should not be null");
+
+        // Verify that document metadata fields are present in the metadata schema
+        Set<String> expectedMetadataFields =
+                new HashSet<>(
+                        Arrays.asList(
+                                "content",
+                                "content_type",
+                                "title",
+                                "author",
+                                "subject",
+                                "keywords",
+                                "language",
+                                "created_date",
+                                "modified_date",
+                                "page_count",
+                                "file_size",
+                                "metadata"));
+
+        Set<String> actualMetadataFields = new HashSet<>();
+        if (producedTable.getMetadataSchema().getColumns() != null) {
+            for (Column column : producedTable.getMetadataSchema().getColumns()) {
+                actualMetadataFields.add(column.getName());
+            }
+        }
+
+        // Verify all expected metadata fields are present
+        for (String expectedField : expectedMetadataFields) {
+            Assertions.assertTrue(
+                    actualMetadataFields.contains(expectedField),
+                    "Metadata schema should contain field: " + expectedField);
+        }
+
+        // Verify metadata fields are nullable (documents may not have all fields)
+        for (Column column : producedTable.getMetadataSchema().getColumns()) {
+            if (expectedMetadataFields.contains(column.getName())) {
+                Assertions.assertTrue(
+                        column.isNullable(),
+                        "Metadata field " + column.getName() + " should be nullable");
+            }
+        }
+    }
 }
