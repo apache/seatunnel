@@ -24,6 +24,7 @@ import lombok.Data;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Data
@@ -46,5 +47,11 @@ public class Pipeline {
         return vertexes.values().stream()
                 .map(ExecutionVertex::getAction)
                 .collect(Collectors.toMap(ActionStateKey::of, Action::getParallelism));
+    }
+
+    public Set<Long> getActionsId() {
+        return vertexes.values().stream()
+                .map(v -> v.getAction().getId())
+                .collect(Collectors.toSet());
     }
 }

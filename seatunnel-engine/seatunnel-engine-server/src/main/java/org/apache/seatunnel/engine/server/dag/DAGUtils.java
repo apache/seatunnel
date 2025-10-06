@@ -175,10 +175,10 @@ public class DAGUtils {
                                                 return pipelines.stream()
                                                         .filter(
                                                                 p ->
-                                                                        p.getVertexes()
-                                                                                .containsKey(
-                                                                                        info
-                                                                                                .getVertexId()))
+                                                                        p.getActionsId()
+                                                                                .contains(
+                                                                                        info.getAction()
+                                                                                                .getId()))
                                                         .findFirst()
                                                         .orElseThrow(
                                                                 () ->
