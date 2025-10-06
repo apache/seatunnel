@@ -213,8 +213,8 @@ Changing the partition count after a job has started may result in metric key mi
 
 A configuration option `physical-dag-enabled` controls whether the engine generates and executes a physical DAG (Directed Acyclic Graph) or uses the logical DAG as defined by the user.
 
-- **Default:** true (physical DAG enabled)
-- **Usage:** Set this to `false` to disable physical DAG generation and rely on the logical DAG structure.
+- Default: true (physical DAG enabled)
+- Usage: Set this to `false` to disable physical DAG generation and rely on the logical DAG structure.
 
 Example:
 

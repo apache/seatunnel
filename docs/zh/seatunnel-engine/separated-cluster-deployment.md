@@ -357,8 +357,8 @@ job-metrics-partition-count: 4
 
 配置选项 `physical-dag-enabled` 用于控制引擎是生成并执行物理 DAG（有向无环图），还是使用用户定义的逻辑 DAG。
 
-- **默认值：** true（启用物理 DAG）
-- **用法：** 设置为 `false` 以禁用物理 DAG 的生成，转而采用逻辑 DAG 结构。
+- 默认值： true（启用物理 DAG）
+- 用法： 设置为 `false` 以禁用物理 DAG 的生成，转而采用逻辑 DAG 结构。
 
 示例：
 
