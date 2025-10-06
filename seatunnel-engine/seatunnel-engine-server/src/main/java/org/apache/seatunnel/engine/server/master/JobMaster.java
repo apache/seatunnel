@@ -631,7 +631,6 @@ public class JobMaster {
                                             .getCheckpointStateImapKey();
                             runningJobStateIMap.remove(checkpointStateImapKey);
                         });
-
         runningJobStateIMap.remove(jobId);
         runningJobInfoIMap.remove(jobId);
     }
@@ -744,6 +743,10 @@ public class JobMaster {
         jobHistoryService.storeJobInfo(jobImmutableInformation.getJobId(), getJobDAGInfo());
         jobHistoryService.storeFinishedJobState(this);
         removeJobIMap();
+    }
+
+    public void storeJobEndState() {
+        jobHistoryService.storeFinishedJobState(this);
     }
 
     public Address queryTaskGroupAddress(TaskGroupLocation taskGroupLocation) {

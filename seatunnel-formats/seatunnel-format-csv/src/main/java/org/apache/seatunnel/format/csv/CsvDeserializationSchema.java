@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.format.csv;
 
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
+
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.ArrayType;
@@ -34,8 +36,6 @@ import org.apache.seatunnel.format.csv.constant.CsvFormatConstant;
 import org.apache.seatunnel.format.csv.exception.SeaTunnelCsvFormatException;
 import org.apache.seatunnel.format.csv.processor.CsvLineProcessor;
 import org.apache.seatunnel.format.csv.processor.DefaultCsvLineProcessor;
-
-import org.apache.commons.lang3.StringUtils;
 
 import lombok.NonNull;
 

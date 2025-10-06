@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.api.table.schema.handler;
 
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
+
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.schema.event.AlterTableAddColumnEvent;
@@ -29,8 +31,6 @@ import org.apache.seatunnel.api.table.schema.event.AlterTableModifyColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableNameEvent;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
-
-import org.apache.commons.lang3.StringUtils;
 
 import java.util.Arrays;
 import java.util.LinkedList;

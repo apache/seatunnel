@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.engine.server.rest;
 
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
+
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.common.utils.FileUtils;
 import org.apache.seatunnel.common.utils.JsonUtils;
@@ -29,8 +31,6 @@ import org.apache.seatunnel.engine.server.rest.service.OverviewService;
 import org.apache.seatunnel.engine.server.rest.service.RunningThreadService;
 import org.apache.seatunnel.engine.server.rest.service.SystemMonitoringService;
 import org.apache.seatunnel.engine.server.rest.service.ThreadDumpService;
-
-import org.apache.commons.lang3.StringUtils;
 
 import com.hazelcast.internal.ascii.TextCommandService;
 import com.hazelcast.internal.ascii.rest.HttpCommandProcessor;

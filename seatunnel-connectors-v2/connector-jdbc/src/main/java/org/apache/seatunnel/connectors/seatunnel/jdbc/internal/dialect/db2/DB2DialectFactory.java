@@ -41,4 +41,9 @@ public class DB2DialectFactory implements JdbcDialectFactory {
     public JdbcDialect create() {
         return new DB2Dialect();
     }
+
+    @Override
+    public JdbcDialect create(String compatibleMode, String fieldIde) {
+        return new DB2Dialect(fieldIde);
+    }
 }

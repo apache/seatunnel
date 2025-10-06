@@ -18,12 +18,11 @@
 package org.apache.seatunnel.connectors.sensorsdata.format.record;
 
 import org.apache.seatunnel.shade.com.fasterxml.jackson.core.JsonProcessingException;
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.sensorsdata.format.exception.SensorsDataErrorCode;
 import org.apache.seatunnel.connectors.sensorsdata.format.exception.SensorsDataException;
-
-import org.apache.commons.lang3.StringUtils;
 
 import com.sensorsdata.analytics.javasdk.SensorsConst;
 import com.sensorsdata.analytics.javasdk.bean.ItemRecord;

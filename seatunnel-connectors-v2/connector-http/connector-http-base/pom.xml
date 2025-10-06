@@ -31,7 +31,7 @@
 
     <properties>
         <httpclient.version>4.5.13</httpclient.version>
-        <httpcore.version>4.4.4</httpcore.version>
+        <httpcore.version>4.4.16</httpcore.version>
         <guava-retrying.version>2.0.0</guava-retrying.version>
         <mockito.version>3.12.4</mockito.version>
     </properties>

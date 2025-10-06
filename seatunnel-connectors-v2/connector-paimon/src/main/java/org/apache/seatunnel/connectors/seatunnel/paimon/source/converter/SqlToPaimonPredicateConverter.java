@@ -17,10 +17,11 @@
 
 package org.apache.seatunnel.connectors.seatunnel.paimon.source.converter;
 
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
+
 import org.apache.seatunnel.common.utils.DateUtils;
 import org.apache.seatunnel.common.utils.TimeUtils;
 
-import org.apache.commons.lang3.StringUtils;
 import org.apache.paimon.data.BinaryString;
 import org.apache.paimon.data.Decimal;
 import org.apache.paimon.data.Timestamp;

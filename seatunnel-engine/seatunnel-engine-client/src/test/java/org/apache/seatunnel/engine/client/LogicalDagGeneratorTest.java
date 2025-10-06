@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.engine.client;
 
+import org.apache.seatunnel.shade.org.apache.commons.lang3.tuple.ImmutablePair;
+
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.config.DeployMode;
@@ -26,8 +28,6 @@ import org.apache.seatunnel.engine.core.dag.actions.Action;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalDagGenerator;
 import org.apache.seatunnel.engine.core.parse.MultipleTableJobConfigParser;
-
-import org.apache.commons.lang3.tuple.ImmutablePair;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;

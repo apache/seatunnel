@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.iceberg.source.reader;
 
+import org.apache.seatunnel.shade.org.apache.commons.lang3.tuple.Pair;
+
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.source.SourceReader;
@@ -30,7 +32,6 @@ import org.apache.seatunnel.connectors.seatunnel.iceberg.data.DefaultDeserialize
 import org.apache.seatunnel.connectors.seatunnel.iceberg.data.Deserializer;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.source.split.IcebergFileScanTaskSplit;
 
-import org.apache.commons.lang3.tuple.Pair;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.catalog.Catalog;

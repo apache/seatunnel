@@ -12,9 +12,9 @@ import ChangeLog from '../changelog/connector-databend.md';
 
 ## 主要特性
 
-- [ ] [精确一次](../../concept/connector-v2-features.md)
 - [ ] [支持多表写入](../../concept/connector-v2-features.md)
-- [ ] [cdc](../../concept/connector-v2-features.md)
+- [x] [精确一次](../../concept/connector-v2-features.md)
+- [x] [cdc](../../concept/connector-v2-features.md)
 - [x] [并行度](../../concept/connector-v2-features.md)
 
 ## 描述
@@ -34,21 +34,23 @@ Databend sink 内部通过 stage attachment 实现数据的批量导入。
 
 ## Sink 选项
 
-| 名称 | 类型 | 是否必须 | 默认值 | 描述                                 |
-|------|------|----------|--------|------------------------------------|
-| url | String | 是 | - | Databend JDBC 连接 URL               |
-| username | String | 是 | - | Databend 数据库用户名                    |
-| password | String | 是 | - | Databend 数据库密码                     |
-| database | String | 否 | - | Databend 数据库名称，默认使用连接 URL 中指定的数据库名 |
-| table | String | 否 | - | Databend 表名称                       |
-| batch_size | Integer | 否 | 1000 | 批量写入的记录数                           |
-| auto_commit | Boolean | 否 | true | 是否自动提交事务                           |
-| max_retries | Integer | 否 | 3 | 写入失败时的最大重试次数                       |
-| schema_save_mode | Enum | 否 | CREATE_SCHEMA_WHEN_NOT_EXIST | 保存 Schema 的模式                      |
-| data_save_mode | Enum | 否 | APPEND_DATA | 保存数据的模式                            |
-| custom_sql | String | 否 | - | 自定义写入 SQL，通常用于复杂的写入场景              |
+| 名称                  | 类型 | 是否必须 | 默认值 | 描述                                 |
+|---------------------|------|----------|--------|------------------------------------|
+| url                 | String | 是 | - | Databend JDBC 连接 URL               |
+| username            | String | 是 | - | Databend 数据库用户名                    |
+| password            | String | 是 | - | Databend 数据库密码                     |
+| database            | String | 否 | - | Databend 数据库名称，默认使用连接 URL 中指定的数据库名 |
+| table               | String | 否 | - | Databend 表名称                       |
+| batch_size          | Integer | 否 | 1000 | 批量写入的记录数                           |
+| auto_commit         | Boolean | 否 | true | 是否自动提交事务                           |
+| max_retries         | Integer | 否 | 3 | 写入失败时的最大重试次数                       |
+| schema_save_mode    | Enum | 否 | CREATE_SCHEMA_WHEN_NOT_EXIST | 保存 Schema 的模式                      |
+| data_save_mode      | Enum | 否 | APPEND_DATA | 保存数据的模式                            |
+| custom_sql          | String | 否 | - | 自定义写入 SQL，通常用于复杂的写入场景              |
 | execute_timeout_sec | Integer | 否 | 300 | 执行SQL的超时时间（秒）                      |
-| jdbc_config | Map | 否 | - | 额外的 JDBC 连接配置，如连接超时参数等             |
+| jdbc_config         | Map | 否 | - | 额外的 JDBC 连接配置，如连接超时参数等             |
+| conflict_key        | String | 否 | - | cdc 模式下的冲突键，用于确定冲突解决的主键 |
+| enable_delete       | Boolean | 否 | false | cdc 模式下是否允许删除操作 |
 
 ### schema_save_mode [Enum]
 
@@ -148,6 +150,26 @@ sink {
     table = "target_table"
     schema_save_mode = "RECREATE_SCHEMA"
     data_save_mode = "APPEND_DATA"
+  }
+}
+```
+
+### CDC mode
+
+```hocon
+sink {
+  Databend {
+    url = "jdbc:databend://databend:8000/default?ssl=false"
+    username = "root"
+    password = ""
+    database = "default"
+    table = "sink_table"
+    
+    # Enable CDC mode
+    batch_size = 1
+    interval = 3
+    conflict_key = "id"
+    enable_delete = true
   }
 }
 ```

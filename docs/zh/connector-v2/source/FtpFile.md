@@ -73,8 +73,8 @@ import ChangeLog from '../changelog/connector-file-ftp.md';
 | binary_chunk_size           | int     | 否    | 1024                |
 | binary_complete_file_mode   | boolean | 否    | false               |
 | common-options              |         | 否    | -                   |
-| file_filter_modified_start  | string  | 否    | -                   | 按照最后修改时间过滤文件。 要过滤的开始时间(包括改时间),时间格式是：`yyyy-MM-dd HH:mm:ss`                                                                                  |
-| file_filter_modified_end    | string  | 否    | -                   | 按照最后修改时间过滤文件。 要过滤的结束时间(不包括改时间),时间格式是：`yyyy-MM-dd HH:mm:ss`                                                                                                                |
+| file_filter_modified_start  | string  | 否    | -                   | 
+| file_filter_modified_end    | string  | 否    | -                   | 
 
 ### host [string]
 
@@ -393,6 +393,14 @@ SeaTunnel 将从源文件中跳过前 2 行。
 仅在 file_format_type 为 binary 时使用。
 
 是否将完整文件作为单个块读取，而不是分割成块。启用时，整个文件内容将一次性读入内存。默认为 false。
+
+### file_filter_modified_start
+
+按照最后修改时间过滤文件。 要过滤的开始时间(包括改时间),时间格式是：`yyyy-MM-dd HH:mm:ss`。
+
+### file_filter_modified_end
+
+按照最后修改时间过滤文件。 要过滤的结束时间(不包括改时间),时间格式是：`yyyy-MM-dd HH:mm:ss`。
 
 ### 通用选项
 
