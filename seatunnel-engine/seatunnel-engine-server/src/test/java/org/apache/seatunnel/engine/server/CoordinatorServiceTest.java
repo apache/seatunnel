@@ -425,8 +425,7 @@ public class CoordinatorServiceTest {
         coordinatorService
                 .submitJob(jobId, data, jobImmutableInformation.isStartWithSavePoint())
                 .join();
-        return new JobInformation(
-                coordinatorServiceTest, coordinatorService, jobId, testLogicalDag);
+        return new JobInformation(coordinatorServiceTest, coordinatorService, jobId);
     }
 
     @Test
@@ -705,17 +704,14 @@ public class CoordinatorServiceTest {
         public final HazelcastInstanceImpl coordinatorServiceTest;
         public final CoordinatorService coordinatorService;
         public final Long jobId;
-        public final LogicalDag logicalDag;
 
         public JobInformation(
                 HazelcastInstanceImpl coordinatorServiceTest,
                 CoordinatorService coordinatorService,
-                Long jobId,
-                LogicalDag logicalDag) {
+                Long jobId) {
             this.coordinatorServiceTest = coordinatorServiceTest;
             this.coordinatorService = coordinatorService;
             this.jobId = jobId;
-            this.logicalDag = logicalDag;
         }
     }
 }

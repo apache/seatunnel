@@ -45,8 +45,6 @@ public class Pipeline {
     public Map<ActionStateKey, Integer> getActions() {
         return vertexes.values().stream()
                 .map(ExecutionVertex::getAction)
-                .collect(
-                        Collectors.toMap(
-                                ActionStateKey::of, Action::getParallelism));
+                .collect(Collectors.toMap(ActionStateKey::of, Action::getParallelism));
     }
 }

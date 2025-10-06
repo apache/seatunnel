@@ -54,8 +54,7 @@ import java.util.stream.Collectors;
 
 @Slf4j
 public class DAGUtils {
-    private DAGUtils(){
-    }
+    private DAGUtils() {}
 
     public static LogicalDag restoreLogicalDag(
             JobImmutableInformation jobImmutableInformation,
