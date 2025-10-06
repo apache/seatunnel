@@ -24,6 +24,7 @@ import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 import org.apache.seatunnel.engine.common.job.JobStatus;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
+import org.apache.seatunnel.engine.core.job.JobDAGInfo;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.core.job.PipelineStatus;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
@@ -45,8 +46,6 @@ import com.hazelcast.map.IMap;
 import com.hazelcast.spi.impl.NodeEngineImpl;
 import lombok.extern.slf4j.Slf4j;
 
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -163,7 +162,7 @@ public class CoordinatorServiceTest {
 
     @Test
     void testCleanupPendingJobMasterMapAfterJobFailed() {
-        setConfigFile("seatunnel_fixed_slots.yaml");
+        TestUtils.setConfigFile("seatunnel_fixed_slots.yaml");
 
         JobInformation jobInformation =
                 submitJob(
@@ -189,7 +188,7 @@ public class CoordinatorServiceTest {
         jobInformation.coordinatorService.clearCoordinatorService();
         jobInformation.coordinatorServiceTest.shutdown();
 
-        setDefaultConfigFile();
+        TestUtils.setDefaultConfigFile();
     }
 
     @Test
@@ -256,7 +255,7 @@ public class CoordinatorServiceTest {
 
     @Test
     void testCleanupMetricsImapWithPartitionConfig() {
-        setConfigFile("seatunnel_multiple_metrics_key.yaml");
+        TestUtils.setConfigFile("seatunnel_multiple_metrics_key.yaml");
 
         JobInformation jobInformation =
                 submitJob(
@@ -273,12 +272,12 @@ public class CoordinatorServiceTest {
 
         jobInformation.coordinatorService.clearCoordinatorService();
         jobInformation.coordinatorServiceTest.shutdown();
-        setDefaultConfigFile();
+        TestUtils.setDefaultConfigFile();
     }
 
     @Test
     void testMetricsImapSizeWithPartitionConfig() {
-        setConfigFile("seatunnel_multiple_metrics_key.yaml");
+        TestUtils.setConfigFile("seatunnel_multiple_metrics_key.yaml");
 
         String clusterName = TestUtils.getClusterName("testMetricsImapSizeWithPartitionConfig");
         HazelcastInstanceImpl instance1 =
@@ -315,7 +314,7 @@ public class CoordinatorServiceTest {
                     .untilAsserted(() -> Assertions.assertEquals(10, metricsImap.size()));
         } finally {
             instance1.shutdown();
-            setDefaultConfigFile();
+            TestUtils.setDefaultConfigFile();
         }
     }
 
@@ -336,22 +335,61 @@ public class CoordinatorServiceTest {
                                                 .contains(jobInformation.jobId)));
     }
 
-    private void setDefaultConfigFile() {
-        setConfigFile("seatunnel.yaml");
-    }
+    @Test
+    void testLogicalDAGConfig() {
+        TestUtils.setConfigFile("seatunnel_logical_dag.yaml");
+        JobInformation jobInformation1 =
+                submitJob(
+                        "test_logical_dag_config",
+                        "stream_fakesource_to_file.conf",
+                        "test_logical_dag_config_1");
+        CoordinatorService coordinatorService1 = jobInformation1.coordinatorService;
+        await().atMost(10000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> {
+                            Assertions.assertEquals(
+                                    JobStatus.RUNNING,
+                                    coordinatorService1.getJobStatus(jobInformation1.jobId));
+                            JobMaster jobMaster =
+                                    coordinatorService1.getJobMaster(jobInformation1.jobId);
+                            Assertions.assertNotNull(jobMaster);
+                            Assertions.assertTrue(
+                                    jobMaster
+                                            .getRunningJobStateIMap()
+                                            .containsKey(jobInformation1.jobId));
+                        });
 
-    private void setConfigFile(String fileName) {
-        String rootModuleDir = "seatunnel-engine";
-        Path path = Paths.get(System.getProperty("user.dir"));
-        while (!path.endsWith(Paths.get(rootModuleDir))) {
-            path = path.getParent();
-        }
-        String rootPath = path.getParent().toString();
-        System.setProperty(
-                "seatunnel.config",
-                rootPath
-                        + "/seatunnel-engine/seatunnel-engine-server/src/test/resources/"
-                        + fileName);
+        JobDAGInfo jobInfo1 = coordinatorService1.getJobInfo(jobInformation1.jobId);
+
+        coordinatorService1.clearCoordinatorService();
+        jobInformation1.coordinatorServiceTest.shutdown();
+        TestUtils.setDefaultConfigFile();
+
+        JobInformation jobInformation2 =
+                submitJob(
+                        "test_logical_dag_config",
+                        "stream_fakesource_to_file.conf",
+                        "test_logical_dag_config_2");
+        CoordinatorService coordinatorService2 = jobInformation2.coordinatorService;
+        await().atMost(10000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> {
+                            Assertions.assertEquals(
+                                    JobStatus.RUNNING,
+                                    coordinatorService2.getJobStatus(jobInformation2.jobId));
+                            JobMaster jobMaster =
+                                    coordinatorService2.getJobMaster(jobInformation2.jobId);
+                            Assertions.assertNotNull(jobMaster);
+                            Assertions.assertTrue(
+                                    jobMaster
+                                            .getRunningJobStateIMap()
+                                            .containsKey(jobInformation2.jobId));
+                        });
+        JobDAGInfo jobInfo2 = coordinatorService2.getJobInfo(jobInformation2.jobId);
+        Assertions.assertNotEquals(jobInfo1.getPipelineEdges(), jobInfo2.getPipelineEdges());
+
+        coordinatorService2.clearCoordinatorService();
+        jobInformation2.coordinatorServiceTest.shutdown();
     }
 
     private JobInformation submitJob(String testClassName, String jobConfigFile, String jobName) {
@@ -387,7 +425,8 @@ public class CoordinatorServiceTest {
         coordinatorService
                 .submitJob(jobId, data, jobImmutableInformation.isStartWithSavePoint())
                 .join();
-        return new JobInformation(coordinatorServiceTest, coordinatorService, jobId);
+        return new JobInformation(
+                coordinatorServiceTest, coordinatorService, jobId, testLogicalDag);
     }
 
     @Test
@@ -666,14 +705,17 @@ public class CoordinatorServiceTest {
         public final HazelcastInstanceImpl coordinatorServiceTest;
         public final CoordinatorService coordinatorService;
         public final Long jobId;
+        public final LogicalDag logicalDag;
 
         public JobInformation(
                 HazelcastInstanceImpl coordinatorServiceTest,
                 CoordinatorService coordinatorService,
-                Long jobId) {
+                Long jobId,
+                LogicalDag logicalDag) {
             this.coordinatorServiceTest = coordinatorServiceTest;
             this.coordinatorService = coordinatorService;
             this.jobId = jobId;
+            this.logicalDag = logicalDag;
         }
     }
 }

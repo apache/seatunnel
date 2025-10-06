@@ -49,6 +49,8 @@ import org.apache.seatunnel.engine.core.parse.MultipleTableJobConfigParser;
 
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -135,5 +137,23 @@ public class TestUtils {
         LogicalDagGenerator logicalDagGenerator =
                 new LogicalDagGenerator(immutablePair.getLeft(), jobConfig, idGenerator);
         return logicalDagGenerator.generate();
+    }
+
+    public static void setDefaultConfigFile() {
+        setConfigFile("seatunnel.yaml");
+    }
+
+    public static void setConfigFile(String fileName) {
+        String rootModuleDir = "seatunnel-engine";
+        Path path = Paths.get(System.getProperty("user.dir"));
+        while (!path.endsWith(Paths.get(rootModuleDir))) {
+            path = path.getParent();
+        }
+        String rootPath = path.getParent().toString();
+        System.setProperty(
+                "seatunnel.config",
+                rootPath
+                        + "/seatunnel-engine/seatunnel-engine-server/src/test/resources/"
+                        + fileName);
     }
 }
