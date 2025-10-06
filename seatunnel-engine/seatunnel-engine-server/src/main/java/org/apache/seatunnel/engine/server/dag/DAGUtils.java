@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.multitablesink.MultiTableSink;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.engine.common.config.EngineConfig;
 import org.apache.seatunnel.engine.core.classloader.ClassLoaderService;
 import org.apache.seatunnel.engine.core.dag.actions.Action;
@@ -53,6 +54,8 @@ import java.util.stream.Collectors;
 
 @Slf4j
 public class DAGUtils {
+    private DAGUtils(){
+    }
 
     public static LogicalDag restoreLogicalDag(
             JobImmutableInformation jobImmutableInformation,
@@ -173,12 +176,19 @@ public class DAGUtils {
                                                 return pipelines.stream()
                                                         .filter(
                                                                 p ->
-                                                                        p.getActions()
+                                                                        p.getVertexes()
                                                                                 .containsKey(
-                                                                                        info.getAction()
-                                                                                                .getId()))
+                                                                                        info
+                                                                                                .getVertexId()))
                                                         .findFirst()
-                                                        .get()
+                                                        .orElseThrow(
+                                                                () ->
+                                                                        CommonError.illegalArgument(
+                                                                                pipelines
+                                                                                        .toString(),
+                                                                                "Can't find pipeline for vertex "
+                                                                                        + info.getAction()
+                                                                                                .getId()))
                                                         .getId();
                                             },
                                             Collectors.toList()));

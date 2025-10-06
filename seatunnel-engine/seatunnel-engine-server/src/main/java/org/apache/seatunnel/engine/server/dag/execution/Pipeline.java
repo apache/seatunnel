@@ -20,10 +20,13 @@ package org.apache.seatunnel.engine.server.dag.execution;
 import org.apache.seatunnel.engine.core.dag.actions.Action;
 import org.apache.seatunnel.engine.server.checkpoint.ActionStateKey;
 
+import lombok.Data;
+
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+@Data
 public class Pipeline {
 
     /** The ID of the pipeline. */
@@ -39,23 +42,11 @@ public class Pipeline {
         this.vertexes = vertexes;
     }
 
-    public Integer getId() {
-        return id;
-    }
-
-    public List<ExecutionEdge> getEdges() {
-        return edges;
-    }
-
-    public Map<Long, ExecutionVertex> getVertexes() {
-        return vertexes;
-    }
-
     public Map<ActionStateKey, Integer> getActions() {
         return vertexes.values().stream()
                 .map(ExecutionVertex::getAction)
                 .collect(
                         Collectors.toMap(
-                                action -> ActionStateKey.of(action), Action::getParallelism));
+                                ActionStateKey::of, Action::getParallelism));
     }
 }
