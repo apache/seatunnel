@@ -18,7 +18,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.hbase.util;
 
-import org.apache.commons.lang3.StringUtils;
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
+
 import org.apache.hadoop.hbase.util.Bytes;
 
 public class HBaseUtil {

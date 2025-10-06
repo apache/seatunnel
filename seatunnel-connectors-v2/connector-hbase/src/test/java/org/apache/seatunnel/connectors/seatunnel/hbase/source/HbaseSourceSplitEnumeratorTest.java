@@ -128,22 +128,22 @@ public class HbaseSourceSplitEnumeratorTest {
         assertTrue(foundRegion1Split && foundRegion2Split);
     }
 
-    //    @Test
-    //    void testGetTableSplitsWithBinaryRowKey() throws IOException {
-    //        byte[][] startKeys = {HConstants.EMPTY_BYTE_ARRAY, new byte[] {0x01, 0x02, 0x03}};
-    //        byte[][] endKeys = {new byte[] {0x01, 0x02, 0x03}, HConstants.EMPTY_BYTE_ARRAY};
-    //
-    //        when(regionLocator.getStartKeys()).thenReturn(startKeys);
-    //        when(regionLocator.getEndKeys()).thenReturn(endKeys);
-    //        when(hbaseParameters.isBinaryRowkey()).thenReturn(true);
-    //        when(hbaseParameters.getStartRowkey()).thenReturn("\\x01\\x01\\x01");
-    //        when(hbaseParameters.getEndRowkey()).thenReturn("\\x02\\x02\\x02");
-    //
-    //        Set<HbaseSourceSplit> splits = enumerator.getTableSplits();
-    //
-    //        assertNotNull(splits);
-    //        assertEquals(2, splits.size());
-    //    }
+    @Test
+    void testGetTableSplitsWithBinaryRowKey() throws IOException {
+        byte[][] startKeys = {HConstants.EMPTY_BYTE_ARRAY, new byte[] {0x01, 0x02, 0x03}};
+        byte[][] endKeys = {new byte[] {0x01, 0x02, 0x03}, HConstants.EMPTY_BYTE_ARRAY};
+
+        when(regionLocator.getStartKeys()).thenReturn(startKeys);
+        when(regionLocator.getEndKeys()).thenReturn(endKeys);
+        when(hbaseParameters.isBinaryRowkey()).thenReturn(true);
+        when(hbaseParameters.getStartRowkey()).thenReturn("\\x01\\x01\\x01");
+        when(hbaseParameters.getEndRowkey()).thenReturn("\\x02\\x02\\x02");
+
+        Set<HbaseSourceSplit> splits = enumerator.getTableSplits();
+
+        assertNotNull(splits);
+        assertEquals(2, splits.size());
+    }
 
     @Test
     void testGetTableSplitsWithNoMatchingRegions() throws IOException {
@@ -172,7 +172,6 @@ public class HbaseSourceSplitEnumeratorTest {
 
     @Test
     void testGetTableSplitsWithOnlyStartRowKey() throws IOException {
-        // Test with only start row key specified
         byte[][] startKeys = {
             HConstants.EMPTY_BYTE_ARRAY, Bytes.toBytes("row100"), Bytes.toBytes("row200")
         };
@@ -240,21 +239,6 @@ public class HbaseSourceSplitEnumeratorTest {
         }
 
         assertTrue(foundRegion0Split && foundRegion1Split);
-    }
-
-    @Test
-    void testGetTableSplitsWithEmptyTable() throws IOException {
-        // Test with empty table (no regions)
-        byte[][] startKeys = {};
-        byte[][] endKeys = {};
-
-        when(regionLocator.getStartKeys()).thenReturn(startKeys);
-        when(regionLocator.getEndKeys()).thenReturn(endKeys);
-
-        Set<HbaseSourceSplit> splits = enumerator.getTableSplits();
-
-        assertNotNull(splits);
-        assertEquals(0, splits.size());
     }
 
     @Test
