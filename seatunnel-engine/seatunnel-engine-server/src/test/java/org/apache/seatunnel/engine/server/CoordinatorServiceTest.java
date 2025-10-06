@@ -343,7 +343,7 @@ public class CoordinatorServiceTest {
         JobInformation jobInformation1 =
                 submitJob(
                         "test_logical_dag_config",
-                        "stream_fakesource_to_file.conf",
+                        "batch_fake_to_inmemory.conf",
                         "test_logical_dag_config_1");
         CoordinatorService coordinatorService1 = jobInformation1.coordinatorService;
         await().atMost(10000, TimeUnit.MILLISECONDS)
@@ -370,7 +370,7 @@ public class CoordinatorServiceTest {
         JobInformation jobInformation2 =
                 submitJob(
                         "test_logical_dag_config",
-                        "stream_fakesource_to_file.conf",
+                        "batch_fake_to_inmemory.conf",
                         "test_logical_dag_config_2");
         CoordinatorService coordinatorService2 = jobInformation2.coordinatorService;
         await().atMost(10000, TimeUnit.MILLISECONDS)
