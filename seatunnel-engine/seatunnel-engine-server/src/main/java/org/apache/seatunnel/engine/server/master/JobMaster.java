@@ -150,8 +150,7 @@ public class JobMaster {
 
     private final IMap<Object, Object> runningJobStateTimestampsIMap;
 
-    // TODO add config to change value
-    private boolean isPhysicalDAGInfo = true;
+    private final boolean isPhysicalDAGInfo;
 
     private final EngineConfig engineConfig;
 
@@ -204,6 +203,7 @@ public class JobMaster {
         this.jobHistoryService = jobHistoryService;
         this.runningJobStateIMap = runningJobStateIMap;
         this.runningJobStateTimestampsIMap = runningJobStateTimestampsIMap;
+        this.isPhysicalDAGInfo = engineConfig.isPhysicalDAGEnabled();
         this.runningJobInfoIMap = runningJobInfoIMap;
         this.engineConfig = engineConfig;
         this.seaTunnelServer = seaTunnelServer;

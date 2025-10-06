@@ -96,6 +96,15 @@ public class ServerConfigOptions {
                         .intType()
                         .defaultValue(1)
                         .withDescription("Number of partitions for storing job metrics in IMap.");
+
+        public static final Option<Boolean> PHYSICAL_DAG_ENABLED =
+                Options.key("physical-dag-enabled")
+                        .booleanType()
+                        .defaultValue(true)
+                        .withDescription(
+                                "Whether to use the physical DAG execution plan. "
+                                        + "If set to false, the system will use the logical DAG, "
+                                        + "which may be less optimized for execution but more closely reflects the user-designed workflow.");
         /////////////////////////////////////////////////
         // The options about Hazelcast IMAP store start
         public static final Option<Integer> BACKUP_COUNT =

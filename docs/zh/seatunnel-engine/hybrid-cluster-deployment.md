@@ -205,6 +205,23 @@ job-metrics-partition-count: 4
 在高并发竞争的情况下，增加分区数量可能会提高并行度；但如果设置过大，会引入额外的分布与合并开销，从而降低整体性能。
 分区数量应在作业启动前进行配置。如果在作业已启动后更改，可能导致指标键不匹配，因此建议在修改此选项后重启 SeaTunnel。
 
+### 4.9 启用物理 DAG（该参数在 Worker 节点无效）
+
+配置选项 `physical-dag-enabled` 用于控制引擎是生成并执行物理 DAG（有向无环图），还是使用用户定义的逻辑 DAG。
+
+- **默认值：** true（启用物理 DAG）
+- **用法：** 设置为 `false` 以禁用物理 DAG 的生成，转而采用逻辑 DAG 结构。
+
+示例：
+
+```yaml
+seatunnel:
+  engine:
+    physical-dag-enabled: false
+```
+
+通过此配置，系统将使用用户定义的逻辑 DAG，而不是生成经过执行优化的物理 DAG。
+
 ## 5. 配置 SeaTunnel Engine 网络服务
 
 所有 SeaTunnel Engine 网络相关的配置都在 `hazelcast.yaml` 文件中.

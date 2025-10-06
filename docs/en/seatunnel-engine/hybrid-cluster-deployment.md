@@ -209,6 +209,22 @@ but setting it too high can introduce additional overhead in distribution and me
 The partition count should be configured before starting a job.
 Changing the partition count after a job has started may result in metric key mismatches, so it is recommended to restart Seatunnel after modifying this option.
 
+### 4.9 Physical DAG Enable (This parameter is invalid on the Worker node)
+
+A configuration option `physical-dag-enabled` controls whether the engine generates and executes a physical DAG (Directed Acyclic Graph) or uses the logical DAG as defined by the user.
+
+- **Default:** true (physical DAG enabled)
+- **Usage:** Set this to `false` to disable physical DAG generation and rely on the logical DAG structure.
+
+Example:
+
+```yaml
+seatunnel:
+  engine:
+    physical-dag-enabled: false
+```
+With this configuration, the system will use the logical DAG defined by the user, rather than generating a physical DAG optimized for execution.
+
 ## 5. Configure The SeaTunnel Engine Network Service
 
 All SeaTunnel Engine network-related configurations are in the `hazelcast.yaml` file.
