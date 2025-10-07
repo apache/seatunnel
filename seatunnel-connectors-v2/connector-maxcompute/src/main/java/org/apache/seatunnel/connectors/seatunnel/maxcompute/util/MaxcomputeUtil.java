@@ -17,13 +17,13 @@
 
 package org.apache.seatunnel.connectors.seatunnel.maxcompute.util;
 
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
+
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeBaseOptions;
 import org.apache.seatunnel.connectors.seatunnel.maxcompute.exception.MaxcomputeConnectorException;
-
-import org.apache.commons.lang3.StringUtils;
 
 import com.aliyun.odps.Odps;
 import com.aliyun.odps.PartitionSpec;

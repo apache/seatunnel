@@ -18,11 +18,11 @@
 package org.apache.seatunnel.connectors.seatunnel.iceberg;
 
 import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergCommonConfig;
 
-import org.apache.commons.lang3.StringUtils;
 import org.apache.iceberg.CachingCatalog;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.catalog.Catalog;

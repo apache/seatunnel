@@ -16,6 +16,8 @@
 
 package org.apache.seatunnel.engine.common.utils;
 
+import org.apache.seatunnel.shade.org.apache.commons.lang3.tuple.ImmutableTriple;
+
 import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.common.utils.function.ConsumerWithException;
 import org.apache.seatunnel.common.utils.function.RunnableWithException;
@@ -23,8 +25,6 @@ import org.apache.seatunnel.common.utils.function.SupplierWithException;
 import org.apache.seatunnel.engine.common.exception.JobDefineCheckException;
 import org.apache.seatunnel.engine.common.exception.JobNotFoundException;
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
-
-import org.apache.commons.lang3.tuple.ImmutableTriple;
 
 import com.hazelcast.client.impl.protocol.ClientExceptionFactory;
 import com.hazelcast.client.impl.protocol.ClientProtocolErrorCodes;

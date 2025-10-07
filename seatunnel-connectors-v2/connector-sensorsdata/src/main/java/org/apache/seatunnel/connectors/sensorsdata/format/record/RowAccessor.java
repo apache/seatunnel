@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.sensorsdata.format.record;
 
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
+
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.sensorsdata.format.SensorsDataTypes;
@@ -25,8 +27,6 @@ import org.apache.seatunnel.connectors.sensorsdata.format.config.TargetColumnCon
 import org.apache.seatunnel.connectors.sensorsdata.format.exception.SensorsDataErrorCode;
 import org.apache.seatunnel.connectors.sensorsdata.format.exception.SensorsDataException;
 import org.apache.seatunnel.connectors.sensorsdata.format.utils.TypeUtil;
-
-import org.apache.commons.lang3.StringUtils;
 
 import com.sensorsdata.analytics.javasdk.SensorsConst;
 
