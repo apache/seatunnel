@@ -19,7 +19,6 @@ package org.apache.seatunnel.engine.server.checkpoint;
 
 import org.apache.seatunnel.common.utils.ReflectionUtils;
 import org.apache.seatunnel.engine.checkpoint.storage.api.CheckpointStorage;
-import org.apache.seatunnel.engine.checkpoint.storage.exception.CheckpointStorageException;
 import org.apache.seatunnel.engine.common.config.server.CheckpointConfig;
 import org.apache.seatunnel.engine.common.config.server.CheckpointStorageConfig;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
@@ -90,8 +89,7 @@ public class CheckpointCoordinatorTest
 
     @Test
     void testSchedulerThreadShouldNotBeInterruptedBeforeJobMasterCleaned()
-            throws ExecutionException, InterruptedException,
-                    TimeoutException {
+            throws ExecutionException, InterruptedException, TimeoutException {
         CheckpointConfig checkpointConfig = new CheckpointConfig();
         // quickly fail the checkpoint
         checkpointConfig.setCheckpointTimeout(5000);
@@ -132,8 +130,7 @@ public class CheckpointCoordinatorTest
 
     @Test
     void testCheckpointContinuesWorkAfterClockDrift()
-            throws ExecutionException, InterruptedException,
-                    TimeoutException {
+            throws ExecutionException, InterruptedException, TimeoutException {
         CheckpointConfig checkpointConfig = new CheckpointConfig();
         checkpointConfig.setStorage(new CheckpointStorageConfig());
         checkpointConfig.setCheckpointTimeout(5000);
