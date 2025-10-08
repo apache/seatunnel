@@ -826,7 +826,7 @@ public class CheckpointCoordinator {
         return plan.getStartingSubtasks().stream()
                 .filter(
                         taskLocation ->
-                                SeaTunnelTaskState.CLOSED.equals(
+                                !SeaTunnelTaskState.CLOSED.equals(
                                         this.pipelineTaskStatus.get(taskLocation.getTaskID())))
                 .map(
                         taskLocation ->
