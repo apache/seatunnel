@@ -38,7 +38,7 @@ public class RabbitmqConfig implements Serializable {
     private String virtualHost;
     private String username;
     private String password;
-    private String uri;
+    private String url;
     private Integer networkRecoveryInterval;
     private Boolean automaticRecovery;
     private Boolean topologyRecovery;
@@ -58,6 +58,7 @@ public class RabbitmqConfig implements Serializable {
 
     private boolean forE2ETesting = false;
     private boolean usesCorrelationId = false;
+    private boolean passive = true;
 
     private Map<String, String> sinkOptionProps = new HashMap<>();
 
@@ -113,6 +114,12 @@ public class RabbitmqConfig implements Serializable {
         }
         if (config.getOptional(RabbitmqSourceOptions.USE_CORRELATION_ID).isPresent()) {
             this.usesCorrelationId = config.get(RabbitmqSourceOptions.USE_CORRELATION_ID);
+        }
+        if (config.getOptional(RabbitmqBaseOptions.URL).isPresent()) {
+            this.url = config.get(RabbitmqBaseOptions.URL);
+        }
+        if (config.getOptional(RabbitmqSourceOptions.PASSIVE).isPresent()) {
+            this.passive = config.get(RabbitmqSourceOptions.PASSIVE);
         }
         this.durable = config.get(RabbitmqBaseOptions.DURABLE);
         this.exclusive = config.get(RabbitmqBaseOptions.EXCLUSIVE);

@@ -84,9 +84,9 @@ public class RabbitmqClient {
 
     public ConnectionFactory getConnectionFactory() {
         ConnectionFactory factory = new ConnectionFactory();
-        if (!StringUtils.isEmpty(config.getUri())) {
+        if (!StringUtils.isEmpty(config.getUrl())) {
             try {
-                factory.setUri(config.getUri());
+                factory.setUri(config.getUrl());
             } catch (URISyntaxException e) {
                 throw new RabbitmqConnectorException(PARSE_URI_FAILED, e);
             } catch (KeyManagementException e) {
@@ -194,11 +194,17 @@ public class RabbitmqClient {
     }
 
     private void declareQueueDefaults(Channel channel, RabbitmqConfig config) throws IOException {
-        channel.queueDeclare(
-                config.getQueueName(),
-                config.getDurable(),
-                config.getExclusive(),
-                config.getAutoDelete(),
-                null);
+        if (config.isPassive()) {
+            channel.queueDeclarePassive(config.getQueueName());
+            log.info("Queue' {}' declared passively.", config.getQueueName());
+        } else {
+            channel.queueDeclare(
+                    config.getQueueName(),
+                    config.getDurable(),
+                    config.getExclusive(),
+                    config.getAutoDelete(),
+                    null);
+            log.info("Queue '{}' declared actively.", config.getQueueName());
+        }
     }
 }

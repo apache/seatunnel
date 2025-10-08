@@ -60,4 +60,13 @@ public class RabbitmqSourceOptions extends RabbitmqBaseOptions {
                     .withDescription(
                             "Whether the messages received are supplied with a unique"
                                     + "id to deduplicate messages (in case of failed acknowledgments).");
+    public static final Option<Boolean> PASSIVE =
+            Options.key("passive")
+                    .booleanType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "Whether to declare the RabbitMQ queue in passive mode. If true, the connector " +
+                                    "uses AMQP passive declaration (queueDeclarePassive) to verify the queue exists " +
+                                    "and is accessible; it will not create or modify the queue. If false, the connector " +
+                                    "may actively declare the queue using the provided durable/exclusive/autoDelete settings.");
 }
