@@ -1121,4 +1121,9 @@ public class CheckpointCoordinator {
     public PendingCheckpoint getSavepointPendingCheckpoint() {
         return savepointPendingCheckpoint;
     }
+
+    @VisibleForTesting
+    public Map<Long, SeaTunnelTaskState> getPipelineTaskStatus() {
+        return pipelineTaskStatus;
+    }
 }
