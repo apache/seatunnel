@@ -18,13 +18,12 @@
 package org.apache.seatunnel.connectors.seatunnel.jdbc;
 
 import org.apache.seatunnel.shade.com.google.common.collect.Lists;
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
+import org.apache.seatunnel.shade.org.apache.commons.lang3.tuple.Pair;
 
 import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.e2e.common.container.seatunnel.SeaTunnelContainer;
-
-import org.apache.commons.lang3.StringUtils;
-import org.apache.commons.lang3.tuple.Pair;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
@@ -191,11 +190,6 @@ public class MetalakeIT extends SeaTunnelContainer {
 
         if (dbServer != null) {
             dbServer.close();
-            try {
-                dockerClient.removeImageCmd(dbServer.getDockerImageName()).exec();
-            } catch (Exception ignored) {
-                ignored.printStackTrace();
-            }
         }
 
         super.tearDown();

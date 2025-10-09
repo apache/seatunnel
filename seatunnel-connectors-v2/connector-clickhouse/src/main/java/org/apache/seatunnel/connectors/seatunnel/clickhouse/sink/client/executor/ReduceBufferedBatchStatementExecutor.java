@@ -17,10 +17,10 @@
 
 package org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.client.executor;
 
+import org.apache.seatunnel.shade.org.apache.commons.lang3.tuple.Pair;
+
 import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-
-import org.apache.commons.lang3.tuple.Pair;
 
 import lombok.AllArgsConstructor;
 import lombok.NonNull;

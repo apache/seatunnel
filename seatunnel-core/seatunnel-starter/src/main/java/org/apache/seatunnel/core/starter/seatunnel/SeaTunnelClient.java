@@ -17,13 +17,13 @@
 
 package org.apache.seatunnel.core.starter.seatunnel;
 
+import org.apache.seatunnel.shade.org.apache.commons.lang3.exception.ExceptionUtils;
+
 import org.apache.seatunnel.common.constants.EngineType;
 import org.apache.seatunnel.core.starter.SeaTunnel;
 import org.apache.seatunnel.core.starter.exception.CommandException;
 import org.apache.seatunnel.core.starter.seatunnel.args.ClientCommandArgs;
 import org.apache.seatunnel.core.starter.utils.CommandLineUtils;
-
-import org.apache.commons.lang3.exception.ExceptionUtils;
 
 import lombok.extern.slf4j.Slf4j;
 

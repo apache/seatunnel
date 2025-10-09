@@ -17,9 +17,9 @@
 
 package org.apache.seatunnel.engine.client.util;
 
-import org.apache.seatunnel.engine.common.job.JobStatusData;
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
-import org.apache.commons.lang3.StringUtils;
+import org.apache.seatunnel.engine.common.job.JobStatusData;
 
 import java.sql.Timestamp;
 import java.util.List;

@@ -19,14 +19,13 @@ package org.apache.seatunnel.connectors.seatunnel.typesense.serialize.sink;
 
 import org.apache.seatunnel.shade.com.fasterxml.jackson.core.JsonProcessingException;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.connectors.seatunnel.typesense.dto.CollectionInfo;
 import org.apache.seatunnel.connectors.seatunnel.typesense.serialize.KeyExtractor;
-
-import org.apache.commons.lang3.StringUtils;
 
 import java.time.temporal.Temporal;
 import java.util.HashMap;
