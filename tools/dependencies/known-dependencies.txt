@@ -31,7 +31,6 @@ scala-reflect-2.13.11.jar
 seatunnel-scala-compiler-2.3.13-SNAPSHOT-optional.jar
 seatunnel-jackson-2.3.13-SNAPSHOT-optional.jar
 seatunnel-guava-2.3.13-SNAPSHOT-optional.jar
-seatunnel-hazelcast-shade-2.3.13-SNAPSHOT-optional.jar
 seatunnel-commons-lang3-2.3.13-SNAPSHOT-optional.jar
 seatunnel-hazelcast-2.3.13-SNAPSHOT-optional.jar
 slf4j-api-1.7.36.jar
