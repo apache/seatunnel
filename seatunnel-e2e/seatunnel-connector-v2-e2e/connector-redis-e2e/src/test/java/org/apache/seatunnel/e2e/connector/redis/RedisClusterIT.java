@@ -169,7 +169,7 @@ public class RedisClusterIT extends TestSuiteBase implements TestResource {
     private void waitForRedisClusterReady() {
         log.info("Waiting for Redis cluster to be ready...");
 
-        int maxRetries = 30;
+        int maxRetries = 10;
         int retryCount = 0;
 
         while (retryCount < maxRetries) {
