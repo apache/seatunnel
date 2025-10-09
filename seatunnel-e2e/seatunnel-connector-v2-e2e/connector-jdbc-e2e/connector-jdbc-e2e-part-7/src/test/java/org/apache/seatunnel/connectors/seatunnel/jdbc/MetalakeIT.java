@@ -190,11 +190,6 @@ public class MetalakeIT extends SeaTunnelContainer {
 
         if (dbServer != null) {
             dbServer.close();
-            try {
-                dockerClient.removeImageCmd(dbServer.getDockerImageName()).exec();
-            } catch (Exception ignored) {
-                ignored.printStackTrace();
-            }
         }
 
         super.tearDown();
