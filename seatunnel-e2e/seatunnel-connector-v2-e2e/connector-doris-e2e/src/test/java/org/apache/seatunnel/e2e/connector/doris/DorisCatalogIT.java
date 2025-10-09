@@ -19,6 +19,7 @@ package org.apache.seatunnel.e2e.connector.doris;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.sink.SaveModeHandler;
+import org.apache.seatunnel.api.sink.SaveModePlaceHolder;
 import org.apache.seatunnel.api.sink.SupportSaveMode;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
@@ -28,6 +29,7 @@ import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.catalog.exception.CatalogException;
 import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.api.table.type.BasicType;
@@ -84,7 +86,7 @@ public class DorisCatalogIT extends AbstractDorisIT {
     @BeforeAll
     public void init() {
         initCatalogFactory();
-        initCatalog();
+        initDefaultCatalog();
     }
 
     private void initCatalogFactory() {
@@ -93,26 +95,66 @@ public class DorisCatalogIT extends AbstractDorisIT {
         }
     }
 
-    private void initCatalog() {
-        String catalogName = "doris";
+    private void initDefaultCatalog() {
         String frontEndNodes = container.getHost() + ":" + HTTP_PORT;
+        Map<String, Object> map = new HashMap<>();
+        map.put(DorisBaseOptions.FENODES.key(), frontEndNodes);
+        map.put(DorisBaseOptions.QUERY_PORT.key(), QUERY_PORT);
+        map.put(DorisBaseOptions.USERNAME.key(), USERNAME);
+        map.put(DorisBaseOptions.PASSWORD.key(), PASSWORD);
+        initCatalog(map);
+    }
+
+    private void initCatalog(Map<String, Object> map) {
+        close();
+        String catalogName = "doris";
         factory = new DorisCatalogFactory();
+        catalog = (DorisCatalog) factory.createCatalog(catalogName, ReadonlyConfig.fromMap(map));
+        catalog.open();
+        catalog.createDatabase(tablePath, false);
+    }
+
+    private void initCatalogWithSaveModeCreateTemplate() {
+        String frontEndNodes = container.getHost() + ":" + HTTP_PORT;
+        String createTableWithCreateTemplate =
+                "CREATE TABLE `"
+                        + SaveModePlaceHolder.DATABASE.getPlaceHolder()
+                        + "`.`"
+                        + SaveModePlaceHolder.TABLE.getPlaceHolder()
+                        + "` (\n"
+                        + SaveModePlaceHolder.ROWTYPE_PRIMARY_KEY.getPlaceHolder()
+                        + ",\n"
+                        + SaveModePlaceHolder.ROWTYPE_FIELDS.getPlaceHolder()
+                        + "\n"
+                        + ") ENGINE=OLAP\n"
+                        + " UNIQUE KEY ("
+                        + SaveModePlaceHolder.ROWTYPE_PRIMARY_KEY.getPlaceHolder()
+                        + ")\n"
+                        + "COMMENT '"
+                        + SaveModePlaceHolder.COMMENT.getPlaceHolder()
+                        + "'\n"
+                        + "DISTRIBUTED BY HASH ("
+                        + SaveModePlaceHolder.ROWTYPE_PRIMARY_KEY.getPlaceHolder()
+                        + ")\n "
+                        + "PROPERTIES (\n"
+                        + "\"replication_allocation\" = \"tag.location.default: 1\",\n"
+                        + "\"in_memory\" = \"false\",\n"
+                        + "\"storage_format\" = \"V2\",\n"
+                        + "\"disable_auto_compaction\" = \"false\"\n"
+                        + ")";
 
         Map<String, Object> map = new HashMap<>();
         map.put(DorisBaseOptions.FENODES.key(), frontEndNodes);
         map.put(DorisBaseOptions.QUERY_PORT.key(), QUERY_PORT);
         map.put(DorisBaseOptions.USERNAME.key(), USERNAME);
         map.put(DorisBaseOptions.PASSWORD.key(), PASSWORD);
-
-        catalog = (DorisCatalog) factory.createCatalog(catalogName, ReadonlyConfig.fromMap(map));
-
-        catalog.open();
-        catalog.createDatabase(tablePath, false);
+        map.put(DorisSinkOptions.SAVE_MODE_CREATE_TEMPLATE.key(), createTableWithCreateTemplate);
+        initCatalog(map);
     }
 
     @Test
     void factoryIdentifier() {
-        Assertions.assertEquals(factory.factoryIdentifier(), "Doris");
+        Assertions.assertEquals("Doris", factory.factoryIdentifier());
     }
 
     @Test
@@ -144,13 +186,27 @@ public class DorisCatalogIT extends AbstractDorisIT {
         List<String> tables = catalog.listTables(tablePath.getDatabaseName());
         Assertions.assertFalse(tables.isEmpty());
 
+        // Whether the ignoreIfExists flag should depend on the SAVE_MODE_CREATE_TEMPLATE SQL script
+        // when creating tables in Doris Catalog
+        Assertions.assertDoesNotThrow(() -> catalog.createTable(tablePath, catalogTable, false));
+        Assertions.assertDoesNotThrow(() -> catalog.createTable(tablePath, catalogTable, true));
+
+        initCatalogWithSaveModeCreateTemplate();
+        catalog.createTable(tablePath, catalogTable, false);
+        Assertions.assertTrue(catalog.tableExists(tablePath));
+        Assertions.assertThrows(
+                CatalogException.class, () -> catalog.createTable(tablePath, catalogTable, false));
+        Assertions.assertThrows(
+                CatalogException.class, () -> catalog.createTable(tablePath, catalogTable, true));
+
         catalog.dropTable(tablePath, false);
         Assertions.assertFalse(catalog.tableExists(tablePath));
-
         if (dbCreated) {
             catalog.dropDatabase(tablePath, false);
             Assertions.assertFalse(catalog.databaseExists(tablePath.getDatabaseName()));
         }
+
+        initDefaultCatalog();
     }
 
     @Test
@@ -333,6 +389,7 @@ public class DorisCatalogIT extends AbstractDorisIT {
     @AfterAll
     public void close() {
         if (catalog != null) {
+            catalog.dropDatabase(tablePath, false);
             catalog.close();
         }
     }
