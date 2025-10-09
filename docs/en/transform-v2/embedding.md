@@ -124,7 +124,7 @@ When `modality` is not explicitly specified and `format` is not `binary`, the sy
 
 ### model
 
-The specific embedding model to use. This depends on the `embedding_model_provider`. For example, if using OPENAI, you
+The specific embedding model to use. This depends on the `model_provider`. For example, if using OPENAI, you
 might specify `text-embedding-3-small`.
 
 ### api_path
@@ -240,7 +240,7 @@ source {
 transform {
   Embedding {
     plugin_input = "fake"
-    embedding_model_provider = QIANFAN
+    model_provider = QIANFAN
     model = bge_large_en
     api_key = xxxxxxxxxx
     secret_key = xxxxxxxxxx
