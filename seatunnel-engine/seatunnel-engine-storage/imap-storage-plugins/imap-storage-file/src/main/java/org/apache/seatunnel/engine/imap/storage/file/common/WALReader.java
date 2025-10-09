@@ -20,6 +20,8 @@
 
 package org.apache.seatunnel.engine.imap.storage.file.common;
 
+import org.apache.seatunnel.shade.org.apache.commons.lang3.ClassUtils;
+
 import org.apache.seatunnel.engine.imap.storage.api.exception.IMapStorageException;
 import org.apache.seatunnel.engine.imap.storage.file.bean.IMapFileData;
 import org.apache.seatunnel.engine.imap.storage.file.config.FileConfiguration;
@@ -28,7 +30,6 @@ import org.apache.seatunnel.engine.imap.storage.file.wal.reader.IFileReader;
 import org.apache.seatunnel.engine.serializer.api.Serializer;
 
 import org.apache.commons.collections.CollectionUtils;
-import org.apache.commons.lang3.ClassUtils;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 

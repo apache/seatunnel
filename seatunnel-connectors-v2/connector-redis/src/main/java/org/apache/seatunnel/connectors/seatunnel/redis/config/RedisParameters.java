@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.redis.config;
 
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
+
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.redis.client.RedisClient;
@@ -24,7 +26,6 @@ import org.apache.seatunnel.connectors.seatunnel.redis.client.RedisClusterClient
 import org.apache.seatunnel.connectors.seatunnel.redis.client.RedisSingleClient;
 import org.apache.seatunnel.connectors.seatunnel.redis.exception.RedisConnectorException;
 
-import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.core.util.Assert;
 
 import lombok.Data;
