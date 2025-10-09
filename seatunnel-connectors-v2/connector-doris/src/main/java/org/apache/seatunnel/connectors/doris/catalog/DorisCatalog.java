@@ -396,21 +396,6 @@ public class DorisCatalog implements Catalog {
     @Override
     public void createTable(TablePath tablePath, CatalogTable table, boolean ignoreIfExists)
             throws TableAlreadyExistException, DatabaseNotExistException, CatalogException {
-
-        if (!databaseExists(tablePath.getDatabaseName())) {
-            throw new DatabaseNotExistException(catalogName, tablePath.getDatabaseName());
-        }
-
-        boolean tableExists = tableExists(tablePath);
-        if (ignoreIfExists && tableExists) {
-            LOG.info("table {} is exists, skip create", tablePath.getFullName());
-            return;
-        }
-
-        if (tableExists) {
-            throw new TableAlreadyExistException(catalogName, tablePath);
-        }
-
         String stmt =
                 DorisCatalogUtil.getCreateTableStatement(
                         createTableTemplate, tablePath, table, typeConverter);
