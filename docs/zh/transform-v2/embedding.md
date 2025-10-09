@@ -34,7 +34,7 @@
 - 所有生成的 embedding 向量将以 float32 格式存储
 - 如果您的模型或API返回其他精度格式（如 float64），插件会自动转换为 float32
 
-### embedding_model_provider
+### model_provider
 
 用于生成 embedding 的模型提供商。常见选项包括 `AMAZON`、 `DOUBAO`、`QIANFAN`、`OPENAI` 等，同时可选择 `CUSTOM` 实现自定义 embedding
 模型的请求以及获取。
@@ -117,7 +117,7 @@ vectorization_fields {
 
 ### model
 
-要使用的具体 embedding 模型。这取决于`embedding_model_provider`。例如，如果使用 OPENAI ，可以指定 `text-embedding-3-small`。
+要使用的具体 embedding 模型。这取决于`model_provider`。例如，如果使用 OPENAI ，可以指定 `text-embedding-3-small`。
 
 ### api_path
 
@@ -227,7 +227,7 @@ source {
 transform {
   Embedding {
     plugin_input = "fake"
-    embedding_model_provider = QIANFAN
+    model_provider = QIANFAN
     model = bge_large_en
     api_key = xxxxxxxxxx
     secret_key = xxxxxxxxxx
