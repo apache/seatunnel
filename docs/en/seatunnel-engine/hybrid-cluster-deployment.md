@@ -211,10 +211,10 @@ Changing the partition count after a job has started may result in metric key mi
 
 ### 4.9 Physical DAG Enable (This parameter is invalid on the Worker node)
 
-A configuration option `physical-dag-enabled` controls whether the engine generates and executes a physical DAG (Directed Acyclic Graph) or uses the logical DAG as defined by the user.
+The configuration option `physical-dag-enabled` determines which type of DAG information (physical or logical) is displayed to the user for visualization.
 
-- Default: true (physical DAG enabled)
-- Usage: Set this to `false` to disable physical DAG generation and rely on the logical DAG structure.
+- Default: `true` (physical DAG info is displayed)
+- Usage: Set this to `false` to display the logical DAG info (the structure as defined by the user) instead of the physical DAG info.
 
 Example:
 
@@ -223,7 +223,9 @@ seatunnel:
   engine:
     physical-dag-enabled: false
 ```
-With this configuration, the system will use the logical DAG defined by the user, rather than generating a physical DAG optimized for execution.
+
+> **Note:** This parameter only affects which DAG info is exposed for display.  
+> It does **not** change the execution plan, which is always based on the physical DAG.
 
 ## 5. Configure The SeaTunnel Engine Network Service
 

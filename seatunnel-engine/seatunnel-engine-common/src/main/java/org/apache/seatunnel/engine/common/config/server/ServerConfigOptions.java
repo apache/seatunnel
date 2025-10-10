@@ -102,8 +102,8 @@ public class ServerConfigOptions {
                         .booleanType()
                         .defaultValue(true)
                         .withDescription(
-                                "Whether to use the physical DAG execution plan. "
-                                        + "If set to false, the system will use the logical DAG.");
+                                "Whether to display the physical DAG execution plan. "
+                                        + "If set to false, the system will display the logical DAG.");
         /////////////////////////////////////////////////
         // The options about Hazelcast IMAP store start
         public static final Option<Integer> BACKUP_COUNT =

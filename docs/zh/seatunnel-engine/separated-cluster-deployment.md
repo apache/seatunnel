@@ -355,10 +355,10 @@ job-metrics-partition-count: 4
 
 ### 4.10 启用物理 DAG（该参数在 Worker 节点无效）
 
-配置选项 `physical-dag-enabled` 用于控制引擎是生成并执行物理 DAG（有向无环图），还是使用用户定义的逻辑 DAG。
+配置项 `physical-dag-enabled` 用于决定在可视化时向用户展示哪种类型的 DAG 信息（物理 DAG 或逻辑 DAG）。
 
-- 默认值： true（启用物理 DAG）
-- 用法： 设置为 `false` 以禁用物理 DAG 的生成，转而采用逻辑 DAG 结构。
+- 默认值：`true`（显示物理 DAG 信息）
+- 使用方法：将其设置为 `false`，则会展示逻辑 DAG 信息（即用户定义的 DAG 结构），而不是物理 DAG 信息。
 
 示例：
 
@@ -368,7 +368,7 @@ seatunnel:
     physical-dag-enabled: false
 ```
 
-通过此配置，系统将使用用户定义的逻辑 DAG，而不是生成经过执行优化的物理 DAG。
+> **注意：** 该参数仅影响对外展示的 DAG 信息类型，**不会影响实际执行计划，作业始终基于物理 DAG 运行**。
 
 ## 5. 配置 SeaTunnel Engine 网络服务
 
