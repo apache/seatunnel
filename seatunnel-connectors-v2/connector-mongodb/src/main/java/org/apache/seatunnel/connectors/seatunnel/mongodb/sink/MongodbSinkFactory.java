@@ -87,9 +87,7 @@ public class MongodbSinkFactory implements TableSinkFactory {
         if (readonlyConfig.getOptional(MongodbConfig.TRANSACTION).isPresent()) {
             builder.withTransaction(readonlyConfig.get(MongodbConfig.TRANSACTION));
         }
-        if (readonlyConfig.getOptional(MongodbConfig.DATA_SAVE_MODE).isPresent()) {
-            builder.withDataSaveMode(readonlyConfig.get(MongodbConfig.DATA_SAVE_MODE));
-        }
+        builder.withDataSaveMode(readonlyConfig.get(MongodbConfig.DATA_SAVE_MODE));
         CatalogTable catalogTable = context.getCatalogTable();
         // sourceCatalogTable to sinkCatalogTable
         TableIdentifier tableIdentifier =
