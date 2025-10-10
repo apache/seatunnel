@@ -46,6 +46,7 @@ import org.slf4j.LoggerFactory;
 import org.testcontainers.containers.MySQLContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.containers.wait.strategy.Wait;
+import org.testcontainers.images.PullPolicy;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.DockerLoggerFactory;
@@ -57,6 +58,7 @@ import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.Timestamp;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -74,7 +76,7 @@ import static org.awaitility.Awaitility.given;
 public class JdbcMysqlSplitIT extends TestSuiteBase implements TestResource {
     private static final Logger LOG = LoggerFactory.getLogger(JdbcMysqlSplitIT.class);
 
-    private static final String MYSQL_IMAGE = "mysql:8.0";
+    private static final String MYSQL_IMAGE = "mysql:8.0.43";
     private static final String MYSQL_CONTAINER_HOST = "mysql-e2e";
     private static final String MYSQL_DATABASE = "auto";
     private static final String MYSQL_TABLE = "split_test";
@@ -145,6 +147,7 @@ public class JdbcMysqlSplitIT extends TestSuiteBase implements TestResource {
         DockerImageName imageName = DockerImageName.parse(MYSQL_IMAGE);
         mysql_container =
                 new MySQLContainer<>(imageName)
+                        .withImagePullPolicy(PullPolicy.ageBased(Duration.ofDays(7)))
                         .withUsername(MYSQL_USERNAME)
                         .withPassword(MYSQL_PASSWORD)
                         .withDatabaseName(MYSQL_DATABASE)
@@ -488,14 +491,14 @@ public class JdbcMysqlSplitIT extends TestSuiteBase implements TestResource {
     private void assertNumSplit(JdbcSourceSplit[] splitArray, String info) {
         for (int i = 0; i < splitArray.length; i++) {
             if (i == 0) {
-                Assertions.assertEquals(null, splitArray[i].getSplitStart());
+                Assertions.assertNull(splitArray[i].getSplitStart());
                 Assertions.assertEquals("10" + info, splitArray[i].getSplitEnd().toString());
                 continue;
             }
 
             if (i == splitArray.length - 1 && i != 0) {
                 Assertions.assertEquals(10 * i + info, splitArray[i].getSplitStart().toString());
-                Assertions.assertEquals(null, splitArray[i].getSplitEnd());
+                Assertions.assertNull(splitArray[i].getSplitEnd());
                 continue;
             }
 
@@ -507,7 +510,7 @@ public class JdbcMysqlSplitIT extends TestSuiteBase implements TestResource {
     private void assertDateSplit(JdbcSourceSplit[] splitArray) {
         for (int i = 0; i < splitArray.length; i++) {
             if (i == 0) {
-                Assertions.assertEquals(null, splitArray[i].getSplitStart());
+                Assertions.assertNull(splitArray[i].getSplitStart());
                 Assertions.assertEquals(
                         currentDateOld.plusDays(i * 9).toString(),
                         splitArray[i].getSplitEnd().toString());
@@ -518,7 +521,7 @@ public class JdbcMysqlSplitIT extends TestSuiteBase implements TestResource {
                 Assertions.assertEquals(
                         currentDateOld.plusDays((i - 1) * 9).toString(),
                         splitArray[i].getSplitStart().toString());
-                Assertions.assertEquals(null, splitArray[i].getSplitEnd());
+                Assertions.assertNull(splitArray[i].getSplitEnd());
                 continue;
             }
 
@@ -549,7 +552,6 @@ public class JdbcMysqlSplitIT extends TestSuiteBase implements TestResource {
     public void tearDown() throws Exception {
         if (mysql_container != null) {
             mysql_container.close();
-            dockerClient.removeContainerCmd(mysql_container.getContainerId()).exec();
         }
     }
 

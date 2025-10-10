@@ -127,6 +127,18 @@ public class MultiTableManagerTest {
     }
 
     @Test
+    void testMergeSchemaWithDifferentOrder() {
+        initSchema();
+        MultiTableManager multiTableManager1 =
+                new MultiTableManager(new CatalogTable[] {catalogTable1, catalogTable3});
+        StructType tableSchema1 = multiTableManager1.getTableSchema();
+        MultiTableManager multiTableManager2 =
+                new MultiTableManager(new CatalogTable[] {catalogTable3, catalogTable1});
+        StructType tableSchema2 = multiTableManager2.getTableSchema();
+        Assertions.assertEquals(tableSchema1, tableSchema2);
+    }
+
+    @Test
     public void testWriteConverter() throws IOException {
         initSchema();
         initData();
