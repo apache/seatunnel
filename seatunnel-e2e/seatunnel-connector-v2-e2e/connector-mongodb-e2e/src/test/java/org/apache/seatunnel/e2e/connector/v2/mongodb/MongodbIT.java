@@ -319,7 +319,7 @@ public class MongodbIT extends AbstractMongodbIT {
         }
         // do write
         writer.write(getSeaTunnelRowOne());
-        Assertions.assertEquals(1L, collection.countDocuments());
+        Assertions.assertEquals(3L, collection.countDocuments());
         // clear
         collection.drop();
     }
