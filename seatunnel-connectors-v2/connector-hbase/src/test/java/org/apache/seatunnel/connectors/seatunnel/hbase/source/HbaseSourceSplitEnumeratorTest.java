@@ -146,7 +146,32 @@ public class HbaseSourceSplitEnumeratorTest {
     }
 
     @Test
-    void testGetTableSplitsWithNoMatchingRegions() throws IOException {
+    void testNoMatchingRegionsOfUserEndRowkeyLtRegionStartKey() throws IOException {
+        byte[][] startKeys = {
+            HConstants.EMPTY_BYTE_ARRAY, Bytes.toBytes("row200"), Bytes.toBytes("row400")
+        };
+        byte[][] endKeys = {
+            Bytes.toBytes("row200"), Bytes.toBytes("row400"), HConstants.EMPTY_BYTE_ARRAY
+        };
+
+        when(regionLocator.getStartKeys()).thenReturn(startKeys);
+        when(regionLocator.getEndKeys()).thenReturn(endKeys);
+        when(hbaseParameters.getStartRowkey()).thenReturn("row10");
+        when(hbaseParameters.getEndRowkey()).thenReturn("row15");
+
+        Set<HbaseSourceSplit> splits = enumerator.getTableSplits();
+
+        assertNotNull(splits);
+        assertEquals(1, splits.size()); // Should include the first region
+
+        HbaseSourceSplit split = splits.iterator().next();
+        assertEquals("hbase_source_split_0", split.splitId());
+        assertArrayEquals(Bytes.toBytes("row10"), split.getStartRow());
+        assertArrayEquals(Bytes.toBytes("row15"), split.getEndRow());
+    }
+
+    @Test
+    void testNoMatchingRegionsOfUserStartRowkeyGtRegionEndKey() throws IOException {
         byte[][] startKeys = {
             HConstants.EMPTY_BYTE_ARRAY, Bytes.toBytes("row200"), Bytes.toBytes("row400")
         };
@@ -182,7 +207,6 @@ public class HbaseSourceSplitEnumeratorTest {
         when(regionLocator.getStartKeys()).thenReturn(startKeys);
         when(regionLocator.getEndKeys()).thenReturn(endKeys);
         when(hbaseParameters.getStartRowkey()).thenReturn("row150");
-        when(hbaseParameters.getEndRowkey()).thenReturn(""); // No end key
 
         Set<HbaseSourceSplit> splits = enumerator.getTableSplits();
 
@@ -217,7 +241,6 @@ public class HbaseSourceSplitEnumeratorTest {
 
         when(regionLocator.getStartKeys()).thenReturn(startKeys);
         when(regionLocator.getEndKeys()).thenReturn(endKeys);
-        when(hbaseParameters.getStartRowkey()).thenReturn(""); // No start key
         when(hbaseParameters.getEndRowkey()).thenReturn("row150");
 
         Set<HbaseSourceSplit> splits = enumerator.getTableSplits();

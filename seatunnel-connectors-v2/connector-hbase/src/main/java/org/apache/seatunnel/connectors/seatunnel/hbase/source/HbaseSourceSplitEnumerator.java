@@ -206,7 +206,12 @@ public class HbaseSourceSplitEnumerator
                 }
                 byte[] splitStartKey =
                         userStartRowkey.length > 0
-                                        && Bytes.compareTo(userStartRowkey, regionStartKey) > 0
+                                        && (Bytes.compareTo(
+                                                                regionStartKey,
+                                                                HConstants.EMPTY_BYTE_ARRAY)
+                                                        == 0
+                                                || Bytes.compareTo(userStartRowkey, regionStartKey)
+                                                        > 0)
                                 ? userStartRowkey
                                 : regionStartKey;
 

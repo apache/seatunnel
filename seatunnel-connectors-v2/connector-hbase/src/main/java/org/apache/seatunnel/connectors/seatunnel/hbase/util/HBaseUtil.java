@@ -20,13 +20,14 @@ package org.apache.seatunnel.connectors.seatunnel.hbase.util;
 
 import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
+import org.apache.hadoop.hbase.HConstants;
 import org.apache.hadoop.hbase.util.Bytes;
 
 public class HBaseUtil {
-    /** Convert rowkey string to byte array based on binary flag */
+
     public static byte[] convertRowKey(String rowKey, boolean isBinary) {
         if (StringUtils.isEmpty(rowKey)) {
-            return new byte[0];
+            return HConstants.EMPTY_BYTE_ARRAY;
         }
 
         if (isBinary) {
@@ -36,7 +37,6 @@ public class HBaseUtil {
         }
     }
 
-    /** Validate start and end rowkey range */
     public static void validateRowKeyRange(byte[] startRowKey, byte[] endRowKey) {
         if (startRowKey.length > 0 && endRowKey.length > 0) {
             if (Bytes.compareTo(startRowKey, endRowKey) > 0) {
