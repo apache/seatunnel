@@ -27,10 +27,10 @@ public class OverviewInfo implements Serializable {
     private String gitCommitAbbrev;
     private int totalSlot;
     private int unassignedSlot;
-    private long pendingJobs;
     private long runningJobs;
     private long finishedJobs;
     private long failedJobs;
+    private long pendingJobs;
     private long cancelledJobs;
     private int workers;
 }

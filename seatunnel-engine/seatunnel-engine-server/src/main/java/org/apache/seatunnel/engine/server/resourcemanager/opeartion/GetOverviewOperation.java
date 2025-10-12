@@ -89,7 +89,6 @@ public class GetOverviewOperation extends Operation implements IdentifiedDataSer
         overviewInfo.setTotalSlot(assignedSlots.size() + unassignedSlots.size());
         overviewInfo.setUnassignedSlot(unassignedSlots.size());
         overviewInfo.setWorkers(resourceManager.workerCount(tags));
-        overviewInfo.setPendingJobs(server.getCoordinatorService().getPendingJobCount());
         overviewInfo.setRunningJobs(
                 nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_INFO).size());
         overviewInfo.setFailedJobs(
@@ -116,6 +115,7 @@ public class GetOverviewOperation extends Operation implements IdentifiedDataSer
                                                 .name()
                                                 .equals(JobStatus.FINISHED.toString()))
                         .count());
+        overviewInfo.setPendingJobs(server.getCoordinatorService().getPendingJobCount());
 
         return overviewInfo;
     }
