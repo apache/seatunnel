@@ -73,7 +73,7 @@ public class MetalakeIT extends SeaTunnelContainer {
 
     protected static final String HOST = "HOST";
 
-    private static final String MYSQL_IMAGE = "mysql:8.0";
+    private static final String MYSQL_IMAGE = "mysql:8.0.43";
     private static final String MYSQL_CONTAINER_HOST = "mysql-e2e";
     private static final String MYSQL_DATABASE = "seatunnel";
     private static final String MYSQL_SOURCE = "source";
@@ -174,15 +174,12 @@ public class MetalakeIT extends SeaTunnelContainer {
         if (catalog != null) {
             catalog.close();
         }
-
         if (connection != null) {
             connection.close();
         }
-
         if (dbServer != null) {
             dbServer.close();
         }
-
         super.tearDown();
     }
 

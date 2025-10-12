@@ -74,7 +74,7 @@ public class JdbcMySqlCreateTableIT extends TestSuiteBase implements TestResourc
     private static final String PG_GEOMETRY_JAR =
             "https://repo1.maven.org/maven2/net/postgis/postgis-geometry/2.5.1/postgis-geometry-2.5.1.jar";
 
-    private static final String MYSQL_IMAGE = "mysql:8.0";
+    private static final String MYSQL_IMAGE = "mysql:8.0.43";
     private static final String MYSQL_CONTAINER_HOST = "mysql-e2e";
     private static final String MYSQL_DATABASE = "auto";
 
@@ -304,13 +304,18 @@ public class JdbcMySqlCreateTableIT extends TestSuiteBase implements TestResourc
 
     @Override
     public void tearDown() throws Exception {
-
-        sqlserver_container.close();
-        mysql_container.close();
-        POSTGRESQL_CONTAINER.close();
-        dockerClient.removeContainerCmd(sqlserver_container.getContainerId()).exec();
-        dockerClient.removeContainerCmd(mysql_container.getContainerId()).exec();
-        dockerClient.removeContainerCmd(POSTGRESQL_CONTAINER.getContainerId()).exec();
+        if (sqlserver_container != null) {
+            sqlserver_container.close();
+            dockerClient.removeContainerCmd(sqlserver_container.getContainerId()).exec();
+        }
+        if (mysql_container != null) {
+            mysql_container.close();
+            dockerClient.removeContainerCmd(mysql_container.getContainerId()).exec();
+        }
+        if (POSTGRESQL_CONTAINER != null) {
+            POSTGRESQL_CONTAINER.close();
+            dockerClient.removeContainerCmd(POSTGRESQL_CONTAINER.getContainerId()).exec();
+        }
     }
 
     private Connection getJdbcSqlServerConnection() throws SQLException {
