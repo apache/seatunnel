@@ -35,10 +35,10 @@ public class HbaseSourceOptions extends HbaseBaseOptions {
                     .withDescription("Hbase scan end rowkey");
 
     public static final Option<Boolean> IS_BINARY_ROW_KEY =
-            Options.key("is-binary-row-key")
+            Options.key("is_binary_rowkey")
                     .booleanType()
                     .defaultValue(false)
-                    .withDescription("is binary row key");
+                    .withDescription("is binary rowkey");
 
     public static final Option<Boolean> HBASE_CACHE_BLOCKS_CONFIG =
             Options.key("cache_blocks")
