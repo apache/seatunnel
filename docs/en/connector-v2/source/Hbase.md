@@ -28,9 +28,9 @@ Reads data from Apache Hbase.
 | caching              | int       | No        | -1      |
 | batch                | int       | No        | -1      |
 | cache_blocks         | boolean   | No        | false   |
-| is_binary_rowkey     | boolean   | 否         | false   |
-| start_rowkey         | string    | 否         | -       |
-| end_rowkey           | string    | 否         | -       |
+| is_binary_rowkey     | boolean   | No        | false   |
+| start_rowkey         | string    | No        | -       |
+| end_rowkey           | string    | No        | -       |
 | common-options       |           | No        | -       |
 
 ### zookeeper_quorum [string]
