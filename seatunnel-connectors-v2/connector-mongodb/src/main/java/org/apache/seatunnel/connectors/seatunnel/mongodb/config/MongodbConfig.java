@@ -166,5 +166,5 @@ public class MongodbConfig {
                             DataSaveMode.class,
                             Arrays.asList(DROP_DATA, APPEND_DATA, ERROR_WHEN_DATA_EXISTS))
                     .defaultValue(APPEND_DATA)
-                    .withDescription("data_save_mode");
+                    .withDescription("The save mode of collection data");
 }
