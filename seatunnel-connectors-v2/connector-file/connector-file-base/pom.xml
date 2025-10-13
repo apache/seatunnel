@@ -32,7 +32,7 @@
     <properties>
         <orc.version>1.5.6</orc.version>
         <commons.collecton4.version>4.4</commons.collecton4.version>
-        <commons.lang3.version>3.4</commons.lang3.version>
+        <commons.lang3.version>3.18.0</commons.lang3.version>
         <parquet-avro.version>1.12.3</parquet-avro.version>
         <poi.version>4.1.2</poi.version>
         <poi-ooxml.version>4.1.2</poi-ooxml.version>
