@@ -17,12 +17,12 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.executor;
 
-import lombok.extern.slf4j.Slf4j;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
+import lombok.extern.slf4j.Slf4j;
 
 import java.sql.Connection;
 import java.sql.SQLException;
