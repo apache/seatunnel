@@ -26,6 +26,7 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorExc
 
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 import java.sql.Connection;
 import java.sql.SQLException;
@@ -35,6 +36,7 @@ import java.util.Set;
 import java.util.function.Function;
 
 @RequiredArgsConstructor
+@Slf4j
 public class BufferReducedBatchStatementExecutor
         implements JdbcBatchStatementExecutor<SeaTunnelRow> {
     @NonNull private final JdbcBatchStatementExecutor<SeaTunnelRow> upsertExecutor;
@@ -100,6 +102,8 @@ public class BufferReducedBatchStatementExecutor
             if (!buffer.isEmpty()) {
                 executeBatch();
             }
+        } catch (JdbcConnectorException e) {
+            log.error("Failed to execute remaining batch", e);
         } finally {
             upsertExecutor.closeStatements();
             deleteExecutor.closeStatements();
