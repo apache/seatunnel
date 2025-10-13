@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.executor;
 
+import lombok.extern.slf4j.Slf4j;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
@@ -36,6 +37,7 @@ import java.util.Arrays;
 import java.util.function.Function;
 
 @RequiredArgsConstructor
+@Slf4j
 public class InsertOrUpdateBatchStatementExecutor
         implements JdbcBatchStatementExecutor<SeaTunnelRow> {
     private final StatementFactory existStmtFactory;
@@ -121,6 +123,8 @@ public class InsertOrUpdateBatchStatementExecutor
             if (!submitted) {
                 executeBatch();
             }
+        } catch (JdbcConnectorException e) {
+            log.error("Failed to execute remaining batch", e);
         } finally {
             for (PreparedStatement statement :
                     Arrays.asList(existStatement, insertStatement, updateStatement)) {

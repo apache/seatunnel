@@ -17,10 +17,12 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.executor;
 
+import lombok.extern.slf4j.Slf4j;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 
 import java.sql.Connection;
 import java.sql.SQLException;
@@ -29,6 +31,7 @@ import java.util.List;
 import java.util.function.Function;
 
 @RequiredArgsConstructor
+@Slf4j
 public class BufferedBatchStatementExecutor implements JdbcBatchStatementExecutor<SeaTunnelRow> {
     @NonNull private final JdbcBatchStatementExecutor<SeaTunnelRow> statementExecutor;
     @NonNull private final Function<SeaTunnelRow, SeaTunnelRow> valueTransform;
@@ -61,6 +64,8 @@ public class BufferedBatchStatementExecutor implements JdbcBatchStatementExecuto
             if (!buffer.isEmpty()) {
                 executeBatch();
             }
+        } catch (JdbcConnectorException e) {
+            log.error("Failed to execute remaining batch", e);
         } finally {
             statementExecutor.closeStatements();
         }
