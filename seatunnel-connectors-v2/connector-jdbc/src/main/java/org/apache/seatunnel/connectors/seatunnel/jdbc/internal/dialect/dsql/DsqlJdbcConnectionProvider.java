@@ -96,7 +96,7 @@ public class DsqlJdbcConnectionProvider extends SimpleJdbcConnectionProvider {
                         .credentialsProvider(this.provider)
                         .build();
 
-        if ("admin".equals(jdbcConfig.getUsername())) {
+        if ("admin".equals(jdbcConfig.getUsername().get())) {
             return dsqlUtilities.generateDbConnectAdminAuthToken(tokenGenerator);
         } else {
             return dsqlUtilities.generateDbConnectAuthToken(tokenGenerator);
