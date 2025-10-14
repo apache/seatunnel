@@ -2,6 +2,12 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
+|[Chore] fix typos filed -&gt; field (#9757)|https://github.com/apache/seatunnel/commit/e3e1c67d29|2.3.12|
+|[Improve][Core] Unify the aws-sdk-v2 version to 2.31.30 (#9698)|https://github.com/apache/seatunnel/commit/41c251cc8a|2.3.12|
+|[Improve][API] Optimize the enumerator API semantics and reduce lock calls at the connector level (#9671)|https://github.com/apache/seatunnel/commit/9212a77140|2.3.12|
+|[Bug] [Connector-V2] Fix the issue of writing the ORC format Iceberg report &quot;Illegal provider-class name&quot; (#6754) (#9588)|https://github.com/apache/seatunnel/commit/74b193dd5a|2.3.12|
+|[Bug] [Connector-V2] Updates Iceberg version to 1.6.1 (#9387) (#9451)|https://github.com/apache/seatunnel/commit/7b92a6c5c1|2.3.12|
+|[Fix][Connector-Iceberg] Fix Time Zone Issue for Iceberg Timestamp Type (#9460)|https://github.com/apache/seatunnel/commit/60cd497610|2.3.12|
 |[Feature][Connector-V2] Iceberg add glue catalog support (#9247)|https://github.com/apache/seatunnel/commit/ecff2e8618|2.3.11|
 |[Improve] Remove useless iceberg sink config `iceberg.table.config` (#9307)|https://github.com/apache/seatunnel/commit/fbdf39ebf2|2.3.11|
 |[Improve][connector-iceberg] fix schema change event (#9217)|https://github.com/apache/seatunnel/commit/56669095b7|2.3.11|

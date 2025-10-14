@@ -8,6 +8,18 @@ import ChangeLog from '../changelog/connector-hive.md';
 
 Read data from Hive.
 
+When using markdown format, SeaTunnel can parse markdown files stored in Hive tables and extract structured data with elements like headings, paragraphs, lists, code blocks, and tables. Each element is converted to a row with the following schema:
+- `element_id`: Unique identifier for the element
+- `element_type`: Type of the element (Heading, Paragraph, ListItem, etc.)
+- `heading_level`: Level of heading (1-6, null for non-heading elements)
+- `text`: Text content of the element
+- `page_number`: Page number (default: 1)
+- `position_index`: Position index within the document
+- `parent_id`: ID of the parent element
+- `child_ids`: Comma-separated list of child element IDs
+
+Note: Markdown format only supports reading, not writing.
+
 :::tip
 
 In order to use this connector, You must ensure your spark/flink cluster already integrated hive. The tested hive version is 2.3.9 and 3.1.3 .
@@ -32,6 +44,7 @@ Read all the data in a split in a pollNext call. What splits are read will be sa
   - [x] parquet
   - [x] orc
   - [x] json
+  - [x] markdown
 
 ## Options
 

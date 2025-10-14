@@ -91,6 +91,11 @@ public class ServerConfigOptions {
                         .defaultValue(10)
                         .withDescription("The interval (in seconds) of job metrics backups");
 
+        public static final Option<Integer> JOB_METRICS_PARTITION_COUNT =
+                Options.key("job-metrics-partition-count")
+                        .intType()
+                        .defaultValue(1)
+                        .withDescription("Number of partitions for storing job metrics in IMap.");
         /////////////////////////////////////////////////
         // The options about Hazelcast IMAP store start
         public static final Option<Integer> BACKUP_COUNT =

@@ -51,6 +51,7 @@
         <module>connector-fake-e2e</module>
         <module>connector-elasticsearch-e2e</module>
         <module>connector-iotdb-e2e</module>
+        <module>connector-iotdb-v2-e2e</module>
         <module>connector-cdc-mysql-e2e</module>
         <module>connector-cdc-mongodb-e2e</module>
         <module>connector-iceberg-e2e</module>

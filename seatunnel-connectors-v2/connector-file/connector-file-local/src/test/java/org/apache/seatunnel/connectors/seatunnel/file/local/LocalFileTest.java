@@ -391,22 +391,53 @@ public class LocalFileTest {
         String dataStr = FileUtils.readFileToStr(path);
         Assertions.assertTrue(
                 dataStr.contains(
-                        "{\"data\":[{\"a\":1,\"b\":\"A\",\"c\":100}],\"type\":\"INSERT\",\"database\":\"default\",\"table\":\"default\",\"ts\":1}"));
+                        "{\"old\":null,\"data\":[{\"a\":1,\"b\":\"A\",\"c\":100}],\"type\":\"INSERT\",\"database\":\"default\",\"table\":\"default\",\"ts\":1}"));
         Assertions.assertTrue(
                 dataStr.contains(
-                        "{\"data\":[{\"a\":2,\"b\":\"B\",\"c\":100}],\"type\":\"INSERT\",\"database\":\"default\",\"table\":\"default\",\"ts\":1}"));
+                        "{\"old\":null,\"data\":[{\"a\":2,\"b\":\"B\",\"c\":100}],\"type\":\"INSERT\",\"database\":\"default\",\"table\":\"default\",\"ts\":1}"));
         Assertions.assertTrue(
                 dataStr.contains(
-                        "{\"data\":[{\"a\":3,\"b\":\"C\",\"c\":100}],\"type\":\"INSERT\",\"database\":\"default\",\"table\":\"default\",\"ts\":1}"));
+                        "{\"old\":null,\"data\":[{\"a\":3,\"b\":\"C\",\"c\":100}],\"type\":\"INSERT\",\"database\":\"default\",\"table\":\"default\",\"ts\":1}"));
         Assertions.assertTrue(
                 dataStr.contains(
-                        "{\"data\":[{\"a\":1,\"b\":\"A\",\"c\":100}],\"type\":\"DELETE\",\"database\":\"default\",\"table\":\"default\",\"ts\":1}"));
+                        "{\"old\":null,\"data\":[{\"a\":1,\"b\":\"A\",\"c\":100}],\"type\":\"DELETE\",\"database\":\"default\",\"table\":\"default\",\"ts\":1}"));
         Assertions.assertTrue(
                 dataStr.contains(
-                        "{\"data\":[{\"a\":1,\"b\":\"A_1\",\"c\":100}],\"type\":\"INSERT\",\"database\":\"default\",\"table\":\"default\",\"ts\":1}"));
+                        "{\"old\":null,\"data\":[{\"a\":1,\"b\":\"A_1\",\"c\":100}],\"type\":\"INSERT\",\"database\":\"default\",\"table\":\"default\",\"ts\":1}"));
         Assertions.assertTrue(
                 dataStr.contains(
-                        "{\"data\":[{\"a\":2,\"b\":\"B\",\"c\":100}],\"type\":\"DELETE\",\"database\":\"default\",\"table\":\"default\",\"ts\":1}"));
+                        "{\"old\":null,\"data\":[{\"a\":2,\"b\":\"B\",\"c\":100}],\"type\":\"DELETE\",\"database\":\"default\",\"table\":\"default\",\"ts\":1}"));
+
+        // test merge_update_event
+        options.put("merge_update_event", true);
+        FileUtils.deleteFile("/tmp/seatunnel/LocalFileTest");
+        SinkFlowTestUtils.runBatchWithCheckpointDisabled(
+                catalogTable,
+                ReadonlyConfig.fromMap(options),
+                new LocalFileSinkFactory(),
+                Arrays.asList(row1, row2, row3, row1UpdateBefore, row1UpdateAfter, row2Delete));
+        Assertions.assertEquals(
+                5,
+                (long)
+                        FileUtils.getFileLineNumber(
+                                "/tmp/seatunnel/LocalFileTest/canal_json_file.canal_json"));
+        path = Paths.get("/tmp/seatunnel/LocalFileTest/canal_json_file.canal_json");
+        dataStr = FileUtils.readFileToStr(path);
+        Assertions.assertTrue(
+                dataStr.contains(
+                        "{\"old\":null,\"data\":[{\"a\":1,\"b\":\"A\",\"c\":100}],\"type\":\"INSERT\",\"database\":\"default\",\"table\":\"default\",\"ts\":1}"));
+        Assertions.assertTrue(
+                dataStr.contains(
+                        "{\"old\":null,\"data\":[{\"a\":2,\"b\":\"B\",\"c\":100}],\"type\":\"INSERT\",\"database\":\"default\",\"table\":\"default\",\"ts\":1}"));
+        Assertions.assertTrue(
+                dataStr.contains(
+                        "{\"old\":null,\"data\":[{\"a\":3,\"b\":\"C\",\"c\":100}],\"type\":\"INSERT\",\"database\":\"default\",\"table\":\"default\",\"ts\":1}"));
+        Assertions.assertTrue(
+                dataStr.contains(
+                        "{\"old\":[{\"a\":1,\"b\":\"A\",\"c\":100}],\"data\":[{\"a\":1,\"b\":\"A_1\",\"c\":100}],\"type\":\"UPDATE\",\"database\":\"default\",\"table\":\"default\",\"ts\":1}"));
+        Assertions.assertTrue(
+                dataStr.contains(
+                        "{\"old\":null,\"data\":[{\"a\":2,\"b\":\"B\",\"c\":100}],\"type\":\"DELETE\",\"database\":\"default\",\"table\":\"default\",\"ts\":1}"));
     }
 
     @Test
@@ -501,6 +532,37 @@ public class LocalFileTest {
         Assertions.assertTrue(
                 dataStr.contains(
                         "{\"before\":{\"a\":2,\"b\":\"B\",\"c\":100},\"after\":null,\"op\":\"d\",\"source\":{\"schema\":\"default\",\"database\":\"default\",\"table\":\"default\"},\"ts_ms\":1}"));
+
+        // test merge_update_event
+        options.put("merge_update_event", true);
+        FileUtils.deleteFile("/tmp/seatunnel/LocalFileTest");
+        SinkFlowTestUtils.runBatchWithCheckpointDisabled(
+                catalogTable,
+                ReadonlyConfig.fromMap(options),
+                new LocalFileSinkFactory(),
+                Arrays.asList(row1, row2, row3, row1UpdateBefore, row1UpdateAfter, row2Delete));
+        Assertions.assertEquals(
+                5,
+                (long)
+                        FileUtils.getFileLineNumber(
+                                "/tmp/seatunnel/LocalFileTest/debezium_json_file.debezium_json"));
+        path = Paths.get("/tmp/seatunnel/LocalFileTest/debezium_json_file.debezium_json");
+        dataStr = FileUtils.readFileToStr(path);
+        Assertions.assertTrue(
+                dataStr.contains(
+                        "{\"before\":null,\"after\":{\"a\":1,\"b\":\"A\",\"c\":100},\"op\":\"c\",\"source\":{\"schema\":\"default\",\"database\":\"default\",\"table\":\"default\"},\"ts_ms\":1}"));
+        Assertions.assertTrue(
+                dataStr.contains(
+                        "{\"before\":null,\"after\":{\"a\":2,\"b\":\"B\",\"c\":100},\"op\":\"c\",\"source\":{\"schema\":\"default\",\"database\":\"default\",\"table\":\"default\"},\"ts_ms\":1}"));
+        Assertions.assertTrue(
+                dataStr.contains(
+                        "{\"before\":null,\"after\":{\"a\":3,\"b\":\"C\",\"c\":100},\"op\":\"c\",\"source\":{\"schema\":\"default\",\"database\":\"default\",\"table\":\"default\"},\"ts_ms\":1}"));
+        Assertions.assertTrue(
+                dataStr.contains(
+                        "{\"before\":{\"a\":1,\"b\":\"A\",\"c\":100},\"after\":{\"a\":1,\"b\":\"A_1\",\"c\":100},\"op\":\"u\",\"source\":{\"schema\":\"default\",\"database\":\"default\",\"table\":\"default\"},\"ts_ms\":1}"));
+        Assertions.assertTrue(
+                dataStr.contains(
+                        "{\"before\":{\"a\":2,\"b\":\"B\",\"c\":100},\"after\":null,\"op\":\"d\",\"source\":{\"schema\":\"default\",\"database\":\"default\",\"table\":\"default\"},\"ts_ms\":1}"));
     }
 
     @Test
@@ -578,22 +640,53 @@ public class LocalFileTest {
         String dataStr = FileUtils.readFileToStr(path);
         Assertions.assertTrue(
                 dataStr.contains(
-                        "{\"data\":{\"a\":1,\"b\":\"A\",\"c\":100},\"type\":\"INSERT\",\"database\":\"default\",\"table\":\"default\",\"ts\":1}"));
+                        "{\"old\":null,\"data\":{\"a\":1,\"b\":\"A\",\"c\":100},\"type\":\"insert\",\"database\":\"default\",\"table\":\"default\",\"ts\":1}"));
         Assertions.assertTrue(
                 dataStr.contains(
-                        "{\"data\":{\"a\":2,\"b\":\"B\",\"c\":100},\"type\":\"INSERT\",\"database\":\"default\",\"table\":\"default\",\"ts\":1}"));
+                        "{\"old\":null,\"data\":{\"a\":2,\"b\":\"B\",\"c\":100},\"type\":\"insert\",\"database\":\"default\",\"table\":\"default\",\"ts\":1}"));
         Assertions.assertTrue(
                 dataStr.contains(
-                        "{\"data\":{\"a\":3,\"b\":\"C\",\"c\":100},\"type\":\"INSERT\",\"database\":\"default\",\"table\":\"default\",\"ts\":1}"));
+                        "{\"old\":null,\"data\":{\"a\":3,\"b\":\"C\",\"c\":100},\"type\":\"insert\",\"database\":\"default\",\"table\":\"default\",\"ts\":1}"));
         Assertions.assertTrue(
                 dataStr.contains(
-                        "{\"data\":{\"a\":1,\"b\":\"A\",\"c\":100},\"type\":\"DELETE\",\"database\":\"default\",\"table\":\"default\",\"ts\":1}"));
+                        "{\"old\":null,\"data\":{\"a\":1,\"b\":\"A\",\"c\":100},\"type\":\"delete\",\"database\":\"default\",\"table\":\"default\",\"ts\":1}"));
         Assertions.assertTrue(
                 dataStr.contains(
-                        "{\"data\":{\"a\":1,\"b\":\"A_1\",\"c\":100},\"type\":\"INSERT\",\"database\":\"default\",\"table\":\"default\",\"ts\":1}"));
+                        "{\"old\":null,\"data\":{\"a\":1,\"b\":\"A_1\",\"c\":100},\"type\":\"insert\",\"database\":\"default\",\"table\":\"default\",\"ts\":1}"));
         Assertions.assertTrue(
                 dataStr.contains(
-                        "{\"data\":{\"a\":2,\"b\":\"B\",\"c\":100},\"type\":\"DELETE\",\"database\":\"default\",\"table\":\"default\",\"ts\":1}"));
+                        "{\"old\":null,\"data\":{\"a\":2,\"b\":\"B\",\"c\":100},\"type\":\"delete\",\"database\":\"default\",\"table\":\"default\",\"ts\":1}"));
+
+        // test merge_update_event
+        options.put("merge_update_event", true);
+        FileUtils.deleteFile("/tmp/seatunnel/LocalFileTest");
+        SinkFlowTestUtils.runBatchWithCheckpointDisabled(
+                catalogTable,
+                ReadonlyConfig.fromMap(options),
+                new LocalFileSinkFactory(),
+                Arrays.asList(row1, row2, row3, row1UpdateBefore, row1UpdateAfter, row2Delete));
+        Assertions.assertEquals(
+                5,
+                (long)
+                        FileUtils.getFileLineNumber(
+                                "/tmp/seatunnel/LocalFileTest/maxwell_json_file.maxwell_json"));
+        path = Paths.get("/tmp/seatunnel/LocalFileTest/maxwell_json_file.maxwell_json");
+        dataStr = FileUtils.readFileToStr(path);
+        Assertions.assertTrue(
+                dataStr.contains(
+                        "{\"old\":null,\"data\":{\"a\":1,\"b\":\"A\",\"c\":100},\"type\":\"insert\",\"database\":\"default\",\"table\":\"default\",\"ts\":1}"));
+        Assertions.assertTrue(
+                dataStr.contains(
+                        "{\"old\":null,\"data\":{\"a\":2,\"b\":\"B\",\"c\":100},\"type\":\"insert\",\"database\":\"default\",\"table\":\"default\",\"ts\":1}"));
+        Assertions.assertTrue(
+                dataStr.contains(
+                        "{\"old\":null,\"data\":{\"a\":3,\"b\":\"C\",\"c\":100},\"type\":\"insert\",\"database\":\"default\",\"table\":\"default\",\"ts\":1}"));
+        Assertions.assertTrue(
+                dataStr.contains(
+                        "{\"old\":{\"a\":1,\"b\":\"A\",\"c\":100},\"data\":{\"a\":1,\"b\":\"A_1\",\"c\":100},\"type\":\"update\",\"database\":\"default\",\"table\":\"default\",\"ts\":1}"));
+        Assertions.assertTrue(
+                dataStr.contains(
+                        "{\"old\":null,\"data\":{\"a\":2,\"b\":\"B\",\"c\":100},\"type\":\"delete\",\"database\":\"default\",\"table\":\"default\",\"ts\":1}"));
     }
 
     @Test

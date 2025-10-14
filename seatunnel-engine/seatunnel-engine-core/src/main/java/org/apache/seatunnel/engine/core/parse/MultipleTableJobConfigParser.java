@@ -20,10 +20,13 @@ package org.apache.seatunnel.engine.core.parse;
 import org.apache.seatunnel.shade.com.google.common.base.Preconditions;
 import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
+import org.apache.seatunnel.shade.org.apache.commons.lang3.tuple.ImmutablePair;
 
 import org.apache.seatunnel.api.common.PluginIdentifier;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.ConfigValidator;
+import org.apache.seatunnel.api.metalake.MetalakeConfigUtils;
 import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.options.EnvCommonOptions;
 import org.apache.seatunnel.api.options.EnvOptionRule;
@@ -67,8 +70,6 @@ import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelSourcePluginDisc
 import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelTransformPluginDiscovery;
 
 import org.apache.commons.collections4.CollectionUtils;
-import org.apache.commons.lang3.StringUtils;
-import org.apache.commons.lang3.tuple.ImmutablePair;
 
 import lombok.extern.slf4j.Slf4j;
 import scala.Tuple2;
@@ -172,7 +173,9 @@ public class MultipleTableJobConfigParser {
         this.jobConfig = jobConfig;
         this.commonPluginJars = commonPluginJars;
         this.isStartWithSavePoint = isStartWithSavePoint;
-        this.seaTunnelJobConfig = ConfigBuilder.of(Paths.get(jobDefineFilePath), variables);
+        this.seaTunnelJobConfig =
+                MetalakeConfigUtils.getMetalakeConfig(
+                        ConfigBuilder.of(Paths.get(jobDefineFilePath), variables));
         this.envOptions = ReadonlyConfig.fromConfig(seaTunnelJobConfig.getConfig("env"));
         this.pipelineCheckpoints = pipelineCheckpoints;
         ConfigValidator.of(this.envOptions).validate(new EnvOptionRule().optionRule());

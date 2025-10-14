@@ -17,10 +17,10 @@
 
 package org.apache.seatunnel.engine.server.execution;
 
-import org.apache.seatunnel.engine.server.dag.physical.PipelineLocation;
+import org.apache.seatunnel.shade.org.apache.commons.lang3.builder.EqualsBuilder;
+import org.apache.seatunnel.shade.org.apache.commons.lang3.builder.HashCodeBuilder;
 
-import org.apache.commons.lang3.builder.EqualsBuilder;
-import org.apache.commons.lang3.builder.HashCodeBuilder;
+import org.apache.seatunnel.engine.server.dag.physical.PipelineLocation;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;

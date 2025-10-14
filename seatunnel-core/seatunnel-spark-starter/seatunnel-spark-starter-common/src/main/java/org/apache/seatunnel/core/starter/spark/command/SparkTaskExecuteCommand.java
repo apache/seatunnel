@@ -21,6 +21,7 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigUtil;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigValueFactory;
 
+import org.apache.seatunnel.api.metalake.MetalakeConfigUtils;
 import org.apache.seatunnel.common.Constants;
 import org.apache.seatunnel.core.starter.command.Command;
 import org.apache.seatunnel.core.starter.exception.CommandExecuteException;
@@ -48,7 +49,9 @@ public class SparkTaskExecuteCommand implements Command<SparkCommandArgs> {
     public void execute() throws CommandExecuteException {
         Path configFile = FileUtils.getConfigPath(sparkCommandArgs);
         checkConfigExist(configFile);
-        Config config = ConfigBuilder.of(configFile, sparkCommandArgs.getVariables());
+        Config config =
+                MetalakeConfigUtils.getMetalakeConfig(
+                        ConfigBuilder.of(configFile, sparkCommandArgs.getVariables()));
         if (!sparkCommandArgs.getJobName().equals(Constants.LOGO)) {
             config =
                     config.withValue(

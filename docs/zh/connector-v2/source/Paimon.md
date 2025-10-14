@@ -8,14 +8,14 @@ import ChangeLog from '../changelog/connector-paimon.md';
 
 用于从 `Apache Paimon` 读取数据
 
-### Seatunnmel与Paimon版本对照
+### SeaTunnel与Paimon版本对照
 
 | Seatunnel Version | Paimon Version   |
 |-------------------|------------------|
 | 2.3.2  -  2.3.3   | 0.4-SNAPSHOT     |
 | 2.3.4             | 0.6-SNAPSHOT     |
 | 2.3.5  -  2.3.11  | 0.7.0-incubating |
-| 2.3.12            | 1.1.1            |
+| 2.3.12  - 2.3.13  | 1.1.1            |
 
 ### 从 0.7 版本升级到 1.1.1 版本的注意事项
 

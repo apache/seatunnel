@@ -17,12 +17,12 @@
 
 package org.apache.seatunnel.connectors.seatunnel.influxdb.client;
 
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
+
 import org.apache.seatunnel.connectors.seatunnel.influxdb.config.InfluxDBConfig;
 import org.apache.seatunnel.connectors.seatunnel.influxdb.config.SinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.influxdb.exception.InfluxdbConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.influxdb.exception.InfluxdbConnectorException;
-
-import org.apache.commons.lang3.StringUtils;
 
 import org.influxdb.InfluxDB;
 import org.influxdb.impl.InfluxDBImpl;

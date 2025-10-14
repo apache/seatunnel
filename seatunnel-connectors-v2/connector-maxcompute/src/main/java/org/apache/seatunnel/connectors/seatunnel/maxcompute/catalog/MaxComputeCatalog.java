@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.maxcompute.catalog;
 
 import org.apache.seatunnel.shade.com.google.common.collect.Lists;
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.Catalog;
@@ -37,8 +38,6 @@ import org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeBas
 import org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.maxcompute.datatype.MaxComputeTypeConverter;
 import org.apache.seatunnel.connectors.seatunnel.maxcompute.util.MaxcomputeUtil;
-
-import org.apache.commons.lang3.StringUtils;
 
 import com.aliyun.odps.Odps;
 import com.aliyun.odps.OdpsException;
