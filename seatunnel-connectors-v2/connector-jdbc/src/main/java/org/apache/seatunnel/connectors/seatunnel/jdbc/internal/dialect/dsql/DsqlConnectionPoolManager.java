@@ -145,5 +145,8 @@ public class DsqlConnectionPoolManager {
         if (!connectionPool.isClosed()) {
             connectionPool.close();
         }
+        if (!tokenRefreshExecutor.isShutdown()) {
+            tokenRefreshExecutor.shutdownNow();
+        }
     }
 }
