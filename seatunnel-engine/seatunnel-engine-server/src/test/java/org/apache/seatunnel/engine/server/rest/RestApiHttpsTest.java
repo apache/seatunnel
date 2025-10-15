@@ -32,6 +32,9 @@ import org.junit.jupiter.api.condition.DisabledOnOs;
 import org.junit.jupiter.api.condition.OS;
 
 import com.hazelcast.config.Config;
+import com.hazelcast.internal.json.Json;
+import com.hazelcast.internal.json.JsonArray;
+import com.hazelcast.internal.json.JsonObject;
 
 import javax.net.ssl.HttpsURLConnection;
 import javax.net.ssl.SSLContext;
@@ -81,18 +84,11 @@ public class RestApiHttpsTest extends AbstractSeaTunnelServerTest {
 
     @Test
     public void testRestApiHttp() throws Exception {
-        HttpURLConnection conn =
-                (HttpURLConnection)
-                        new java.net.URL("http://localhost:" + HTTP_PORT + "/overview")
-                                .openConnection();
-        try (BufferedReader in = new BufferedReader(new InputStreamReader(conn.getInputStream()))) {
-
-            Assertions.assertEquals(200, conn.getResponseCode());
-            String response = in.lines().collect(Collectors.joining());
-            Assertions.assertTrue(response.contains("projectVersion"));
-        } finally {
-            conn.disconnect();
-        }
+        restApiRequestHttp(
+                "http://localhost:" + HTTP_PORT + "/overview",
+                response -> {
+                    Assertions.assertTrue(response.contains("projectVersion"));
+                });
     }
 
     @Test
@@ -125,5 +121,55 @@ public class RestApiHttpsTest extends AbstractSeaTunnelServerTest {
                     HttpURLConnection conn = (HttpURLConnection) url.openConnection();
                     conn.getResponseCode();
                 });
+    }
+
+    @Test
+    public void testFinishedJobsApi() throws Exception {
+        // pagination test
+        restApiRequestHttp(
+                "http://localhost:" + HTTP_PORT + "/finished-jobs?page=1&rows=5",
+                response -> {
+                    JsonObject resultJson = (JsonObject) Json.parse(response);
+                    Assertions.assertTrue(
+                            resultJson.get("data") != null && resultJson.get("total") != null);
+                });
+        // no pagination test
+        restApiRequestHttp(
+                "http://localhost:" + HTTP_PORT + "/finished-jobs",
+                response -> {
+                    JsonArray resultJson = (JsonArray) Json.parse(response);
+                    Assertions.assertTrue(resultJson != null);
+                });
+    }
+
+    @Test
+    public void testRunningJobsApi() throws Exception {
+        // pagination test
+        restApiRequestHttp(
+                "http://localhost:" + HTTP_PORT + "/running-jobs?page=1&rows=5",
+                response -> {
+                    JsonObject resultJson = (JsonObject) Json.parse(response);
+                    Assertions.assertTrue(
+                            resultJson.get("data") != null && resultJson.get("total") != null);
+                });
+        // no pagination test
+        restApiRequestHttp(
+                "http://localhost:" + HTTP_PORT + "/running-jobs",
+                response -> {
+                    JsonArray resultJson = (JsonArray) Json.parse(response);
+                    Assertions.assertTrue(resultJson != null);
+                });
+    }
+
+    private void restApiRequestHttp(String url, RestApiRequestCallback callback) throws Exception {
+        HttpURLConnection conn = (HttpURLConnection) new java.net.URL(url).openConnection();
+        try (BufferedReader in = new BufferedReader(new InputStreamReader(conn.getInputStream()))) {
+
+            Assertions.assertEquals(200, conn.getResponseCode());
+            String response = in.lines().collect(Collectors.joining());
+            callback.callback(response);
+        } finally {
+            conn.disconnect();
+        }
     }
 }
