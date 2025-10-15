@@ -63,7 +63,7 @@ public class MongodbCDCIT extends AbstractMongodbIT {
                                                 .map(Map.Entry::getValue)
                                                 .collect(Collectors.toCollection(ArrayList::new)))
                         .collect(Collectors.toList()));
-        clearDate(MONGODB_CDC_RESULT_TABLE);
+        clearData(MONGODB_CDC_RESULT_TABLE);
     }
 
     @TestTemplate
@@ -85,6 +85,6 @@ public class MongodbCDCIT extends AbstractMongodbIT {
                                                 .map(Map.Entry::getValue)
                                                 .collect(Collectors.toCollection(ArrayList::new)))
                         .collect(Collectors.toList()));
-        clearDate(MONGODB_CDC_RESULT_TABLE);
+        clearData(MONGODB_CDC_RESULT_TABLE);
     }
 }
