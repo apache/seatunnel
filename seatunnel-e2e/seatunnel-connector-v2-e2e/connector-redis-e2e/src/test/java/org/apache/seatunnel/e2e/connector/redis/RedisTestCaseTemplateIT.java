@@ -48,6 +48,7 @@ import org.apache.seatunnel.format.json.JsonSerializationSchema;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestTemplate;
 import org.junit.jupiter.api.condition.DisabledOnOs;
 import org.junit.jupiter.api.condition.OS;
@@ -632,8 +633,8 @@ public abstract class RedisTestCaseTemplateIT extends TestSuiteBase implements T
         jedis.del("custom-hash-check");
     }
 
-    @TestTemplate
-    public void testFakeToRedisDeleteHashTest(TestContainer container) throws IOException {
+    @Test
+    public void testFakeToRedisDeleteHashTest() throws IOException {
         String key = "hash_check";
         final RedisSinkWriter redisSinkWriter = getRedisSinkWriter(RedisDataType.HASH, key);
         List<SeaTunnelRow> rowList =
