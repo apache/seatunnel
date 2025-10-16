@@ -199,6 +199,9 @@ seatunnel:
           // if you used kerberos, you can config like this:
           kerberosPrincipal: your-kerberos-principal
           kerberosKeytabFilePath: your-kerberos-keytab
+          // kerberos Expiration time of certification :
+          seatunnel.hadoop.dfs.kerberos.ticket.lifetime: 86400
+
           // if you need hdfs-site config, you can config like this:
           hdfs_site_path: /path/to/your/hdfs_site_path
 ```

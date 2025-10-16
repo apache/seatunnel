@@ -175,6 +175,9 @@ seatunnel:
           // 如果您使用kerberos，您可以这样配置:
           kerberosPrincipal: your-kerberos-principal
           kerberosKeytabFilePath: your-kerberos-keytab
+          // kerberos认证过期时间 :
+          seatunnel.hadoop.dfs.kerberos.ticket.lifetime: 86400
+
 ```
 
 如果HDFS是HA模式，您可以这样配置:
