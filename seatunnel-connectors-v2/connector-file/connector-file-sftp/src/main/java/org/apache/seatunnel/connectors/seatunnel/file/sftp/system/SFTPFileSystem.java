@@ -83,6 +83,8 @@ public class SFTPFileSystem extends FileSystem {
     public static final String E_FAILED_GETHOME = "Failed to get home directory";
     public static final String E_FAILED_DISCONNECT = "Failed to disconnect";
 
+    public Path workDir;
+
     private void setConfigurationFromURI(URI uriInfo, Configuration conf) throws IOException {
 
         // get host information from URI
@@ -607,7 +609,10 @@ public class SFTPFileSystem extends FileSystem {
     @Override
     public Path getWorkingDirectory() {
         // Return home directory always since we do not maintain state.
-        return getHomeDirectory();
+        if (workDir == null) {
+            workDir = getHomeDirectory();
+        }
+        return workDir;
     }
 
     @Override
