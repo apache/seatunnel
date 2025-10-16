@@ -25,6 +25,7 @@ import org.apache.seatunnel.api.sink.SchemaSaveMode;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
 import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.sink.SupportMultiTableSink;
 import org.apache.seatunnel.api.sink.SupportSaveMode;
 import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
@@ -47,7 +48,8 @@ import static org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbCo
 public class MongodbSink
         implements SeaTunnelSink<
                         SeaTunnelRow, DocumentBulk, MongodbCommitInfo, MongodbAggregatedCommitInfo>,
-                SupportSaveMode {
+                SupportSaveMode,
+                SupportMultiTableSink {
 
     private final MongodbWriterOptions options;
 
