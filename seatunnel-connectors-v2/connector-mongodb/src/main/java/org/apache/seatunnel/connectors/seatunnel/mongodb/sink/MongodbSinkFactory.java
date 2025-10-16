@@ -61,7 +61,8 @@ public class MongodbSinkFactory implements TableSinkFactory {
         CatalogTable catalogTable = context.getCatalogTable();
         ReadonlyConfig readonlyConfig = context.getOptions();
         String connection = readonlyConfig.get(MongodbConfig.URI);
-        String database = readonlyConfig.get(MongodbConfig.DATABASE);
+        String database =
+                finalDatabaseName(catalogTable, readonlyConfig.get(MongodbConfig.DATABASE));
         String collection =
                 finalCollectionName(catalogTable, readonlyConfig.get(MongodbConfig.COLLECTION));
         MongodbWriterOptions.Builder builder =
@@ -99,15 +100,8 @@ public class MongodbSinkFactory implements TableSinkFactory {
 
     private CatalogTable renameCatalogTable(
             CatalogTable sourceCatalogTable, String database, String collection) {
-        String finalDatabase = database;
-        TableIdentifier tableId = sourceCatalogTable.getTableId();
-        String sourceDatabaseName = tableId.getDatabaseName();
         // replace database
-        if (StringUtils.isNotEmpty(sourceDatabaseName)) {
-            finalDatabase =
-                    database.replace(
-                            SinkReplaceNameConstant.REPLACE_DATABASE_NAME_KEY, sourceDatabaseName);
-        }
+        String finalDatabase = finalDatabaseName(sourceCatalogTable, database);
         // replace collection
         String finalCollection = finalCollectionName(sourceCatalogTable, collection);
         TableIdentifier newTableId =
@@ -123,19 +117,31 @@ public class MongodbSinkFactory implements TableSinkFactory {
         String finalCollection = collection;
         if (StringUtils.isNotEmpty(sourceDatabaseName)) {
             finalCollection =
-                    collection.replace(
+                    finalCollection.replace(
                             SinkReplaceNameConstant.REPLACE_DATABASE_NAME_KEY, sourceDatabaseName);
         }
         if (StringUtils.isNotEmpty(sourceSchemaName)) {
             finalCollection =
-                    collection.replace(
+                    finalCollection.replace(
                             SinkReplaceNameConstant.REPLACE_SCHEMA_NAME_KEY, sourceSchemaName);
         }
         if (StringUtils.isNotEmpty(sourceTableName)) {
             finalCollection =
-                    collection.replace(
+                    finalCollection.replace(
                             SinkReplaceNameConstant.REPLACE_TABLE_NAME_KEY, sourceTableName);
         }
         return finalCollection;
+    }
+
+    private String finalDatabaseName(CatalogTable sourceCatalogTable, String database) {
+        TableIdentifier tableId = sourceCatalogTable.getTableId();
+        String sourceDatabaseName = tableId.getDatabaseName();
+        String finalDatabase = database;
+        if (StringUtils.isNotEmpty(sourceDatabaseName)) {
+            finalDatabase =
+                    finalDatabase.replace(
+                            SinkReplaceNameConstant.REPLACE_DATABASE_NAME_KEY, sourceDatabaseName);
+        }
+        return finalDatabase;
     }
 }
