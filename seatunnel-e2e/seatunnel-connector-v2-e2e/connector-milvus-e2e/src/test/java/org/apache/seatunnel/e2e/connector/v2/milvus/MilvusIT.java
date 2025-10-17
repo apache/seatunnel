@@ -724,8 +724,8 @@ public class MilvusIT extends TestSuiteBase implements TestResource {
             throws IOException, InterruptedException {
         // collection1 not flush by batch interval
         String jobId1 = "1";
-        String database1 = "test1";
-        String collection1 = "simple_example_1";
+        String database1 = "streaming_test1";
+        String collection1 = "streaming_simple_example_1";
         String vectorField1 = "book_intro";
         new Thread(
                         () -> {
@@ -745,8 +745,8 @@ public class MilvusIT extends TestSuiteBase implements TestResource {
 
         // collection2 flush by batch interval
         String jobId2 = "2";
-        String database2 = "test2";
-        String collection2 = "simple_example_2";
+        String database2 = "streaming_test2";
+        String collection2 = "streaming_simple_example_2";
         String vectorField2 = "book_intro";
         new Thread(
                         () -> {
