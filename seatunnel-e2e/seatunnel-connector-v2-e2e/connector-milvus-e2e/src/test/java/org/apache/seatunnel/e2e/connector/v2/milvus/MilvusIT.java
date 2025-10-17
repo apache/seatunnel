@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.e2e.connector.v2.milvus;
 
+import io.milvus.grpc.QueryResults;
+import io.milvus.param.dml.QueryParam;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
@@ -714,5 +716,100 @@ public class MilvusIT extends TestSuiteBase implements TestResource {
         }
 
         log.info("Index verification passed for collection: {}.{}", database, collection);
+    }
+
+    @TestTemplate
+    public void testStreamingFakeToMilvus(TestContainer container) throws IOException, InterruptedException {
+        // collection1 not flush by batch interval
+        String jobId1 = "1";
+        String database1 = "test1";
+        String collection1 = "simple_example_1";
+        new Thread(() -> {
+            try {
+                container.executeJob("/streaming-fake-to-milvus.conf", jobId1,
+                        "database=" + database1, "collection=" + collection1, "batch_size=3", "batch_interval=0");
+            } catch (IOException | InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+        }).start();
+
+        // collection2 flush by batch interval
+        String jobId2 = "2";
+        String database2 = "test2";
+        String collection2 = "simple_example_2";
+        new Thread(() -> {
+            try {
+                container.executeJob("/streaming-fake-to-milvus.conf", jobId2,
+                        "database=" + database2, "collection=" + collection2, "batch_size=3", "batch_interval=1000");
+            } catch (IOException | InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+        }).start();
+
+        // collection2 count write records
+        long count;
+        waitCollectionReady(database2, collection2);
+        do {
+            count = countCollectionEntities(database2, collection2);
+        } while (count < 9);
+        TimeUnit.SECONDS.sleep(10);
+        count = countCollectionEntities(database2, collection2);
+        Assertions.assertEquals(10, count);
+
+        // collection1 count write records
+        waitCollectionReady(database1, collection1);
+        do {
+            count = countCollectionEntities(database1, collection1);
+        } while (count < 9);
+        TimeUnit.SECONDS.sleep(10);
+        count = countCollectionEntities(database1, collection1);
+        Assertions.assertEquals(9, count);
+
+        // cancel jobs
+        container.cancelJob(jobId1);
+        container.cancelJob(jobId2);
+    }
+
+    private void waitCollectionReady(String databaseName, String collectionName) throws InterruptedException {
+        // assert table exist
+        R<Boolean> hasCollectionResponse;
+        do {
+            TimeUnit.SECONDS.sleep(1);
+            hasCollectionResponse =
+                    this.milvusClient.hasCollection(
+                            HasCollectionParam.newBuilder()
+                                    .withDatabaseName(databaseName)
+                                    .withCollectionName(collectionName)
+                                    .build());
+            Assertions.assertEquals(R.Status.Success.getCode(), hasCollectionResponse.getStatus());
+        } while (!hasCollectionResponse.getData());
+
+        // assert index exist
+        R<DescribeIndexResponse> describeIndexResponse;
+        do {
+            TimeUnit.SECONDS.sleep(1);
+            describeIndexResponse =
+                    this.milvusClient.describeIndex(
+                            DescribeIndexParam.newBuilder()
+                                    .withDatabaseName(databaseName)
+                                    .withCollectionName(collectionName)
+                                    .build());
+            Assertions.assertEquals(R.Status.Success.getCode(), describeIndexResponse.getStatus());
+        } while (describeIndexResponse.getData() == null || describeIndexResponse.getData().getIndexDescriptionsList().isEmpty());
+
+        // load collection
+        R<RpcStatus> loadCollectionResponse = milvusClient.loadCollection(LoadCollectionParam.newBuilder()
+                .withDatabaseName(databaseName).withCollectionName(collectionName).build());
+        Assertions.assertEquals(R.Status.Success.getCode(), loadCollectionResponse.getStatus());
+    }
+
+    private long countCollectionEntities(String databaseName, String collectionName) {
+        R<QueryResults> queryResults = milvusClient.query(QueryParam.newBuilder()
+                .withDatabaseName(databaseName)
+                .withCollectionName(collectionName)
+                .withOutFields(Collections.singletonList("count(*)"))
+                .build());
+        Assertions.assertEquals(R.Status.Success.getCode(), queryResults.getStatus());
+        return queryResults.getData().getFieldsData(0).getScalars().getLongData().getDataList().get(0);
     }
 }
