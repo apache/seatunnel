@@ -17,11 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.mongodb.sink;
 
-import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
-
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
-import org.apache.seatunnel.api.sink.SinkReplaceNameConstant;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.connector.TableSink;
@@ -58,13 +55,10 @@ public class MongodbSinkFactory implements TableSinkFactory {
 
     @Override
     public TableSink createSink(TableSinkFactoryContext context) {
-        CatalogTable catalogTable = context.getCatalogTable();
         ReadonlyConfig readonlyConfig = context.getOptions();
         String connection = readonlyConfig.get(MongodbConfig.URI);
-        String database =
-                finalDatabaseName(catalogTable, readonlyConfig.get(MongodbConfig.DATABASE));
-        String collection =
-                finalCollectionName(catalogTable, readonlyConfig.get(MongodbConfig.COLLECTION));
+        String database = readonlyConfig.get(MongodbConfig.DATABASE);
+        String collection = readonlyConfig.get(MongodbConfig.COLLECTION);
         MongodbWriterOptions.Builder builder =
                 MongodbWriterOptions.builder()
                         .withConnectString(connection)
@@ -89,59 +83,16 @@ public class MongodbSinkFactory implements TableSinkFactory {
         if (readonlyConfig.getOptional(MongodbConfig.RETRY_INTERVAL).isPresent()) {
             builder.withRetryInterval(readonlyConfig.get(MongodbConfig.RETRY_INTERVAL));
         }
+
         if (readonlyConfig.getOptional(MongodbConfig.TRANSACTION).isPresent()) {
             builder.withTransaction(readonlyConfig.get(MongodbConfig.TRANSACTION));
         }
         builder.withDataSaveMode(readonlyConfig.get(MongodbConfig.DATA_SAVE_MODE));
-        return () ->
-                new MongodbSink(
-                        builder.build(), renameCatalogTable(catalogTable, database, collection));
-    }
-
-    private CatalogTable renameCatalogTable(
-            CatalogTable sourceCatalogTable, String database, String collection) {
-        // replace database
-        String finalDatabase = finalDatabaseName(sourceCatalogTable, database);
-        // replace collection
-        String finalCollection = finalCollectionName(sourceCatalogTable, collection);
-        TableIdentifier newTableId =
-                TableIdentifier.of(CONNECTOR_IDENTITY, finalDatabase, finalCollection);
-        return CatalogTable.of(newTableId, sourceCatalogTable);
-    }
-
-    private String finalCollectionName(CatalogTable sourceCatalogTable, String collection) {
-        TableIdentifier tableId = sourceCatalogTable.getTableId();
-        String sourceDatabaseName = tableId.getDatabaseName();
-        String sourceSchemaName = tableId.getSchemaName();
-        String sourceTableName = tableId.getTableName();
-        String finalCollection = collection;
-        if (StringUtils.isNotEmpty(sourceDatabaseName)) {
-            finalCollection =
-                    finalCollection.replace(
-                            SinkReplaceNameConstant.REPLACE_DATABASE_NAME_KEY, sourceDatabaseName);
-        }
-        if (StringUtils.isNotEmpty(sourceSchemaName)) {
-            finalCollection =
-                    finalCollection.replace(
-                            SinkReplaceNameConstant.REPLACE_SCHEMA_NAME_KEY, sourceSchemaName);
-        }
-        if (StringUtils.isNotEmpty(sourceTableName)) {
-            finalCollection =
-                    finalCollection.replace(
-                            SinkReplaceNameConstant.REPLACE_TABLE_NAME_KEY, sourceTableName);
-        }
-        return finalCollection;
-    }
-
-    private String finalDatabaseName(CatalogTable sourceCatalogTable, String database) {
-        TableIdentifier tableId = sourceCatalogTable.getTableId();
-        String sourceDatabaseName = tableId.getDatabaseName();
-        String finalDatabase = database;
-        if (StringUtils.isNotEmpty(sourceDatabaseName)) {
-            finalDatabase =
-                    finalDatabase.replace(
-                            SinkReplaceNameConstant.REPLACE_DATABASE_NAME_KEY, sourceDatabaseName);
-        }
-        return finalDatabase;
+        CatalogTable catalogTable = context.getCatalogTable();
+        // sourceCatalogTable to sinkCatalogTable
+        TableIdentifier tableIdentifier =
+                TableIdentifier.of(CONNECTOR_IDENTITY, database, collection);
+        CatalogTable sinkCatalogTable = CatalogTable.of(tableIdentifier, catalogTable);
+        return () -> new MongodbSink(builder.build(), sinkCatalogTable);
     }
 }
