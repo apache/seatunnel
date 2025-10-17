@@ -267,10 +267,6 @@ public class MongodbIT extends AbstractMongodbIT {
     }
 
     @TestTemplate
-    @DisabledOnContainer(
-            value = {},
-            type = {EngineType.FLINK, EngineType.SPARK},
-            disabledReason = "Currently SPARK and FLINK do not support mongodb null value write")
     public void testFakeSourceToMongodbMultipleTable(TestContainer container)
             throws IOException, InterruptedException {
         Container.ExecResult insertResult =
