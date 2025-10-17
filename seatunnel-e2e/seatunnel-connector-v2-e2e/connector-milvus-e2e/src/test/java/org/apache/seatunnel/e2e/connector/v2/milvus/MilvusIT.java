@@ -84,6 +84,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -725,6 +726,7 @@ public class MilvusIT extends TestSuiteBase implements TestResource {
         String jobId1 = "1";
         String database1 = "test1";
         String collection1 = "simple_example_1";
+        String vectorField1 = "book_intro";
         new Thread(
                         () -> {
                             try {
@@ -745,6 +747,7 @@ public class MilvusIT extends TestSuiteBase implements TestResource {
         String jobId2 = "2";
         String database2 = "test2";
         String collection2 = "simple_example_2";
+        String vectorField2 = "book_intro";
         new Thread(
                         () -> {
                             try {
@@ -763,20 +766,20 @@ public class MilvusIT extends TestSuiteBase implements TestResource {
 
         // collection2 count write records
         long count;
-        waitCollectionReady(database2, collection2);
+        waitCollectionReady(database2, collection2, vectorField2);
         do {
             count = countCollectionEntities(database2, collection2);
         } while (count < 9);
-        TimeUnit.SECONDS.sleep(10);
+        TimeUnit.SECONDS.sleep(3);
         count = countCollectionEntities(database2, collection2);
         Assertions.assertEquals(10, count);
 
         // collection1 count write records
-        waitCollectionReady(database1, collection1);
+        waitCollectionReady(database1, collection1, vectorField1);
         do {
             count = countCollectionEntities(database1, collection1);
         } while (count < 9);
-        TimeUnit.SECONDS.sleep(10);
+        TimeUnit.SECONDS.sleep(3);
         count = countCollectionEntities(database1, collection1);
         Assertions.assertEquals(9, count);
 
@@ -785,7 +788,8 @@ public class MilvusIT extends TestSuiteBase implements TestResource {
         container.cancelJob(jobId2);
     }
 
-    private void waitCollectionReady(String databaseName, String collectionName)
+    private void waitCollectionReady(
+            String databaseName, String collectionName, String vectorFieldName)
             throws InterruptedException {
         // assert table exist
         R<Boolean> hasCollectionResponse;
@@ -797,22 +801,30 @@ public class MilvusIT extends TestSuiteBase implements TestResource {
                                     .withDatabaseName(databaseName)
                                     .withCollectionName(collectionName)
                                     .build());
-            Assertions.assertEquals(R.Status.Success.getCode(), hasCollectionResponse.getStatus());
+            Assertions.assertEquals(
+                    R.Status.Success.getCode(),
+                    hasCollectionResponse.getStatus(),
+                    Optional.ofNullable(hasCollectionResponse.getException())
+                            .map(Exception::getMessage)
+                            .orElse(""));
         } while (!hasCollectionResponse.getData());
 
-        // assert index exist
-        R<DescribeIndexResponse> describeIndexResponse;
-        do {
-            TimeUnit.SECONDS.sleep(1);
-            describeIndexResponse =
-                    this.milvusClient.describeIndex(
-                            DescribeIndexParam.newBuilder()
-                                    .withDatabaseName(databaseName)
-                                    .withCollectionName(collectionName)
-                                    .build());
-            Assertions.assertEquals(R.Status.Success.getCode(), describeIndexResponse.getStatus());
-        } while (describeIndexResponse.getData() == null
-                || describeIndexResponse.getData().getIndexDescriptionsList().isEmpty());
+        // create index
+        R<RpcStatus> createIndexResponse =
+                milvusClient.createIndex(
+                        CreateIndexParam.newBuilder()
+                                .withDatabaseName(databaseName)
+                                .withCollectionName(collectionName)
+                                .withFieldName(vectorFieldName)
+                                .withIndexType(IndexType.FLAT)
+                                .withMetricType(MetricType.L2)
+                                .build());
+        Assertions.assertEquals(
+                R.Status.Success.getCode(),
+                createIndexResponse.getStatus(),
+                Optional.ofNullable(createIndexResponse.getException())
+                        .map(Exception::getMessage)
+                        .orElse(""));
 
         // load collection
         R<RpcStatus> loadCollectionResponse =
@@ -821,7 +833,12 @@ public class MilvusIT extends TestSuiteBase implements TestResource {
                                 .withDatabaseName(databaseName)
                                 .withCollectionName(collectionName)
                                 .build());
-        Assertions.assertEquals(R.Status.Success.getCode(), loadCollectionResponse.getStatus());
+        Assertions.assertEquals(
+                R.Status.Success.getCode(),
+                loadCollectionResponse.getStatus(),
+                Optional.ofNullable(loadCollectionResponse.getException())
+                        .map(Exception::getMessage)
+                        .orElse(""));
     }
 
     private long countCollectionEntities(String databaseName, String collectionName) {
