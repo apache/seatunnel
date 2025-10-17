@@ -66,8 +66,7 @@ public class MongodbSink
     }
 
     @Override
-    public SinkWriter<SeaTunnelRow, MongodbCommitInfo, DocumentBulk> createWriter(
-            SinkWriter.Context context) {
+    public MongodbWriter createWriter(SinkWriter.Context context) {
         return new MongodbWriter(
                 new RowDataDocumentSerializer(
                         RowDataToBsonConverters.createConverter(catalogTable.getSeaTunnelRowType()),
