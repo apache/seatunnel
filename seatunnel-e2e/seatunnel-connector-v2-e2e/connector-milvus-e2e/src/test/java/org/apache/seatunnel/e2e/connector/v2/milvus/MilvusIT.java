@@ -85,6 +85,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -722,70 +723,40 @@ public class MilvusIT extends TestSuiteBase implements TestResource {
     @TestTemplate
     public void testStreamingFakeToMilvus(TestContainer container)
             throws IOException, InterruptedException {
-        // collection1 not flush by batch interval
-        String jobId1 = "1";
-        String database1 = "streaming_test1";
-        String collection1 = "streaming_simple_example_1";
-        String vectorField1 = "book_intro";
+        // flush by checkpoint interval
+        String jobId = "1";
+        String database = "streaming_test";
+        String collection = "streaming_simple_example";
+        String vectorField = "book_intro";
+        int checkpointInterval = 30000;
         new Thread(
                         () -> {
                             try {
                                 container.executeJob(
                                         "/streaming-fake-to-milvus.conf",
-                                        jobId1,
-                                        "database=" + database1,
-                                        "collection=" + collection1,
-                                        "batch_size=3",
-                                        "batch_interval=0");
+                                        jobId,
+                                        "database=" + database,
+                                        "collection=" + collection,
+                                        "batch_size=3");
                             } catch (IOException | InterruptedException e) {
                                 throw new RuntimeException(e);
                             }
                         })
                 .start();
 
-        // collection2 flush by batch interval
-        String jobId2 = "2";
-        String database2 = "streaming_test2";
-        String collection2 = "streaming_simple_example_2";
-        String vectorField2 = "book_intro";
-        new Thread(
-                        () -> {
-                            try {
-                                container.executeJob(
-                                        "/streaming-fake-to-milvus.conf",
-                                        jobId2,
-                                        "database=" + database2,
-                                        "collection=" + collection2,
-                                        "batch_size=3",
-                                        "batch_interval=1000");
-                            } catch (IOException | InterruptedException e) {
-                                throw new RuntimeException(e);
-                            }
-                        })
-                .start();
-
-        // collection2 count write records
+        // count write records
         long count;
-        waitCollectionReady(database2, collection2, vectorField2);
+        waitCollectionReady(database, collection, vectorField);
         do {
-            count = countCollectionEntities(database2, collection2);
+            count = countCollectionEntities(database, collection);
         } while (count < 9);
-        TimeUnit.SECONDS.sleep(3);
-        count = countCollectionEntities(database2, collection2);
+        Assertions.assertEquals(9, count);
+        TimeUnit.MILLISECONDS.sleep(checkpointInterval);
+        count = countCollectionEntities(database, collection);
         Assertions.assertEquals(10, count);
 
-        // collection1 count write records
-        waitCollectionReady(database1, collection1, vectorField1);
-        do {
-            count = countCollectionEntities(database1, collection1);
-        } while (count < 9);
-        TimeUnit.SECONDS.sleep(3);
-        count = countCollectionEntities(database1, collection1);
-        Assertions.assertEquals(9, count);
-
         // cancel jobs
-        container.cancelJob(jobId1);
-        container.cancelJob(jobId2);
+        container.cancelJob(jobId);
     }
 
     private void waitCollectionReady(

@@ -220,10 +220,6 @@ public class MilvusBufferBatchWriter {
         return this.writeCache.get() >= this.batchSize;
     }
 
-    public long cachedSize() {
-        return this.writeCache.get();
-    }
-
     public void flush() throws Exception {
         log.info("Starting to put {} records to Milvus.", this.writeCache.get());
         // Flush the batch writer

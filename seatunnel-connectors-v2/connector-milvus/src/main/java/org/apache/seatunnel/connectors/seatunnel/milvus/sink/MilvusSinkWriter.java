@@ -22,7 +22,6 @@ import org.apache.seatunnel.api.sink.SinkCommitter;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.connectors.seatunnel.milvus.config.MilvusSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.milvus.exception.MilvusConnectionErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.milvus.exception.MilvusConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.milvus.state.MilvusCommitInfo;
@@ -33,11 +32,6 @@ import lombok.extern.slf4j.Slf4j;
 import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
-import java.util.concurrent.locks.ReentrantLock;
 
 /** MilvusSinkWriter is a sink writer that will write {@link SeaTunnelRow} to Milvus. */
 @Slf4j
@@ -47,12 +41,6 @@ public class MilvusSinkWriter
     private final MilvusBufferBatchWriter batchWriter;
     private ReadonlyConfig config;
 
-    private final ScheduledExecutorService scheduler;
-
-    private final ReentrantLock lock = new ReentrantLock();
-
-    private final AtomicReference<Exception> exception = new AtomicReference<>();
-
     public MilvusSinkWriter(
             Context context,
             CatalogTable catalogTable,
@@ -60,16 +48,6 @@ public class MilvusSinkWriter
             List<MilvusSinkState> milvusSinkStates) {
         this.batchWriter = new MilvusBufferBatchWriter(catalogTable, config);
         this.config = config;
-        int batchInterval = config.get(MilvusSinkOptions.BATCH_INTERVAL);
-        this.scheduler = batchInterval > 0 ? Executors.newSingleThreadScheduledExecutor() : null;
-        if (scheduler != null) {
-            log.info("create Milvus sink writer with batch interval: {}", batchInterval);
-            scheduler.scheduleAtFixedRate(
-                    new BatchWriterFlushRunnable(batchWriter),
-                    0,
-                    batchInterval,
-                    TimeUnit.MILLISECONDS);
-        }
         log.info("create Milvus sink writer success");
         log.info("MilvusSinkWriter config: " + config);
     }
@@ -81,22 +59,9 @@ public class MilvusSinkWriter
      */
     @Override
     public void write(SeaTunnelRow element) {
-        try {
-            lock.lock();
-            checkExceptionAndRethrow();
-            batchWriter.addToBatch(element);
-            if (batchWriter.needFlush()) {
-                try {
-                    // Flush the batch writer
-                    batchWriter.flush();
-                } catch (Exception e) {
-                    log.error("flush Milvus sink writer failed", e);
-                    throw new MilvusConnectorException(
-                            MilvusConnectionErrorCode.WRITE_DATA_FAIL, e);
-                }
-            }
-        } finally {
-            lock.unlock();
+        batchWriter.addToBatch(element);
+        if (batchWriter.needFlush()) {
+            flush();
         }
     }
 
@@ -110,6 +75,7 @@ public class MilvusSinkWriter
      */
     @Override
     public Optional<MilvusCommitInfo> prepareCommit() throws IOException {
+        flush();
         return Optional.empty();
     }
 
@@ -130,52 +96,23 @@ public class MilvusSinkWriter
     @Override
     public void close() throws IOException {
         try {
-            lock.lock();
-            // make sure any errors from batch writer flush are handled
-            checkExceptionAndRethrow();
             log.info("Stopping Milvus Client");
             batchWriter.flush();
             batchWriter.close();
-            scheduler.shutdown();
             log.info("Stop Milvus Client success");
         } catch (Exception e) {
             log.error("Stop Milvus Client failed", e);
             throw new MilvusConnectorException(MilvusConnectionErrorCode.CLOSE_CLIENT_ERROR, e);
-        } finally {
-            lock.unlock();
         }
     }
 
-    /** BatchWriterFlushRunnable is a runnable that will invoke batch writer flush method */
-    private class BatchWriterFlushRunnable implements Runnable {
-        private final MilvusBufferBatchWriter batchWriter;
-
-        public BatchWriterFlushRunnable(MilvusBufferBatchWriter batchWriter) {
-            this.batchWriter = batchWriter;
-        }
-
-        @Override
-        public void run() {
-            try {
-                lock.lock();
-                if (batchWriter.cachedSize() == 0) {
-                    return;
-                }
-                batchWriter.flush();
-            } catch (Exception e) {
-                log.error("flush Milvus sink writer failed", e);
-                exception.compareAndSet(null, e);
-            } finally {
-                lock.unlock();
-            }
-        }
-    }
-
-    /** Check exception in current thread, if exception is not null, throw it. */
-    private void checkExceptionAndRethrow() {
-        if (exception.get() != null) {
-            throw new MilvusConnectorException(
-                    MilvusConnectionErrorCode.WRITE_DATA_FAIL, exception.get());
+    private void flush() {
+        try {
+            // Flush the batch writer
+            batchWriter.flush();
+        } catch (Exception e) {
+            log.error("flush Milvus sink writer failed", e);
+            throw new MilvusConnectorException(MilvusConnectionErrorCode.WRITE_DATA_FAIL, e);
         }
     }
 }
