@@ -36,42 +36,92 @@ import java.util.Arrays;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-/** DuckDB dialect implementation. */
+/**
+ * DuckDB dialect implementation for JDBC operations.
+ *
+ * <p>This dialect provides DuckDB-specific SQL generation, type mapping, and query optimization.
+ * DuckDB is an in-process analytical database with columnar storage architecture, which benefits
+ * from larger fetch sizes and batch operations.
+ */
 @Slf4j
 public class DuckDBDialect implements JdbcDialect {
 
-    // DuckDB default fetch size - optimized for DuckDB
+    /** DuckDB default fetch size - optimized for columnar storage architecture */
     private static final int DEFAULT_FETCH_SIZE = 5000;
-    // DuckDB optimal batch size for bulk operations
+
+    /** DuckDB optimal batch size for bulk operations - larger batches improve performance */
     private static final int OPTIMAL_BATCH_SIZE = 10000;
-    // DuckDB connection validation timeout in seconds
+
+    /** DuckDB connection validation timeout in seconds */
     private static final int CONNECTION_VALIDATION_TIMEOUT = 10;
 
+    /**
+     * Get the dialect name identifier.
+     *
+     * @return the database identifier for DuckDB
+     */
     @Override
     public String dialectName() {
         return DatabaseIdentifier.DUCKDB;
     }
 
+    /**
+     * Get the row converter for DuckDB data type conversions.
+     *
+     * @return DuckDB-specific JDBC row converter
+     */
     @Override
     public JdbcRowConverter getRowConverter() {
         return new DuckDBJdbcRowConverter();
     }
 
+    /**
+     * Generate hash modulo expression for field partitioning.
+     *
+     * <p>Uses DuckDB's HASH function with absolute value to ensure positive hash values.
+     *
+     * @param fieldName the field name to hash
+     * @param mod the modulo divisor for partitioning
+     * @return SQL expression for hash-based partitioning
+     */
     @Override
     public String hashModForField(String fieldName, int mod) {
         return String.format("MOD(ABS(HASH(%s)), %d)", quoteIdentifier(fieldName), mod);
     }
 
+    /**
+     * Get the type mapper for DuckDB data types.
+     *
+     * @return DuckDB-specific type mapper
+     */
     @Override
     public JdbcDialectTypeMapper getJdbcDialectTypeMapper() {
         return new DuckDBTypeMapper();
     }
 
+    /**
+     * Quote identifier to handle special characters and reserved keywords.
+     *
+     * <p>DuckDB uses double quotes for identifiers and escapes embedded quotes by doubling them.
+     *
+     * @param identifier the identifier to quote
+     * @return quoted identifier safe for SQL statements
+     */
     @Override
     public String quoteIdentifier(String identifier) {
         return "\"" + identifier.replace("\"", "\"\"") + "\"";
     }
 
+    /**
+     * Build fully qualified table identifier.
+     *
+     * <p>In DuckDB, database parameter represents schema name. If schema is not specified, only
+     * table name is returned.
+     *
+     * @param database the schema name (DuckDB uses schemas instead of databases)
+     * @param tableName the table name
+     * @return fully qualified table identifier
+     */
     @Override
     public String tableIdentifier(String database, String tableName) {
         if (StringUtils.isNotBlank(database)) {
@@ -80,6 +130,19 @@ public class DuckDBDialect implements JdbcDialect {
         return quoteIdentifier(tableName);
     }
 
+    /**
+     * Generate UPSERT statement using DuckDB's INSERT ... ON CONFLICT syntax.
+     *
+     * <p>DuckDB supports PostgreSQL-compatible UPSERT syntax with ON CONFLICT clause. If unique key
+     * fields are specified, conflicting rows will be updated; otherwise, a simple INSERT is
+     * performed.
+     *
+     * @param database the schema name
+     * @param tableName the table name
+     * @param fieldNames all field names to insert/update
+     * @param uniqueKeyFields fields that define uniqueness constraint
+     * @return optional UPSERT SQL statement
+     */
     @Override
     public Optional<String> getUpsertStatement(
             String database, String tableName, String[] fieldNames, String[] uniqueKeyFields) {
@@ -126,6 +189,18 @@ public class DuckDBDialect implements JdbcDialect {
         return Optional.of(builder.toString());
     }
 
+    /**
+     * Create optimized prepared statement for DuckDB queries.
+     *
+     * <p>DuckDB's columnar storage benefits from larger fetch sizes. This method applies DuckDB-
+     * specific optimizations including minimum fetch size enforcement and query timeout settings.
+     *
+     * @param connection the database connection
+     * @param queryTemplate the SQL query template
+     * @param fetchSize the requested fetch size (will be optimized for DuckDB)
+     * @return configured prepared statement
+     * @throws SQLException if statement creation fails
+     */
     @Override
     public PreparedStatement creatPreparedStatement(
             Connection connection, String queryTemplate, int fetchSize) throws SQLException {
@@ -133,10 +208,13 @@ public class DuckDBDialect implements JdbcDialect {
                 connection.prepareStatement(
                         queryTemplate, ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
 
-        // DuckDB specific optimizations
+        /*
+         * DuckDB specific optimizations:
+         * - Use larger fetch sizes for better performance with columnar storage
+         * - Minimum fetch size of 1000 rows recommended
+         */
         int optimizedFetchSize = fetchSize > 0 ? fetchSize : DEFAULT_FETCH_SIZE;
 
-        // For DuckDB, larger fetch sizes generally perform better due to columnar storage
         if (optimizedFetchSize < 1000) {
             optimizedFetchSize = Math.max(optimizedFetchSize, 1000);
         }
@@ -149,21 +227,50 @@ public class DuckDBDialect implements JdbcDialect {
         return statement;
     }
 
+    /**
+     * Parse table path string into TablePath object.
+     *
+     * @param tablePath the table path string
+     * @return parsed TablePath object
+     */
     @Override
     public TablePath parse(String tablePath) {
         return TablePath.of(tablePath);
     }
 
+    /**
+     * Build table identifier from TablePath object.
+     *
+     * <p>DuckDB uses schema names instead of database names. If no schema is specified, defaults to
+     * "main" schema.
+     *
+     * @param tablePath the table path containing schema and table name
+     * @return fully qualified table identifier
+     */
     @Override
     public String tableIdentifier(TablePath tablePath) {
-        // For DuckDB, use schema name instead of database name
+        /*
+         * For DuckDB, use schema name instead of database name
+         * Default to "main" schema if not specified
+         */
         String schemaName = tablePath.getSchemaName();
         if (schemaName == null || schemaName.trim().isEmpty()) {
-            schemaName = "main"; // Default schema for DuckDB
+            schemaName = "main";
         }
         return tableIdentifier(schemaName, tablePath.getTableName());
     }
 
+    /**
+     * Get approximate row count for a table or query.
+     *
+     * <p>Executes COUNT(*) query to determine the number of rows. Supports both direct table
+     * queries and custom SQL queries.
+     *
+     * @param connection the database connection
+     * @param table the source table configuration
+     * @return approximate row count, or 0 if no rows found
+     * @throws SQLException if query execution fails
+     */
     @Override
     public Long approximateRowCntStatement(Connection connection, JdbcSourceTable table)
             throws SQLException {
@@ -183,6 +290,20 @@ public class DuckDBDialect implements JdbcDialect {
         return 0L;
     }
 
+    /**
+     * Query the maximum value in the next chunk for split-based reading.
+     *
+     * <p>Used for parallel reading by splitting data based on a column's value range. Returns the
+     * maximum value within the specified chunk size starting from the lower bound.
+     *
+     * @param connection the database connection
+     * @param table the source table configuration
+     * @param columnName the column name to use for splitting
+     * @param chunkSize the number of rows in each chunk
+     * @param includedLowerBound the lower bound value (inclusive)
+     * @return the maximum value in the chunk
+     * @throws SQLException if query execution fails or returns no results
+     */
     @Override
     public Object queryNextChunkMax(
             Connection connection,
