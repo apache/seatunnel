@@ -55,8 +55,7 @@ public class TestTikaDocumentIT extends TestSuiteBase {
     @TestTemplate
     public void testTikaDocumentTransformPdf(TestContainer container)
             throws IOException, InterruptedException {
-        Container.ExecResult execResult =
-                container.executeJob("/tikadocument_transform_pdf.conf");
+        Container.ExecResult execResult = container.executeJob("/tikadocument_transform_pdf.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
     }
 
