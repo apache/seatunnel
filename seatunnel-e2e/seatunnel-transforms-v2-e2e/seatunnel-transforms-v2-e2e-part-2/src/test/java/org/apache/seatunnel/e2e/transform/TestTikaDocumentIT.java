@@ -17,7 +17,10 @@
 
 package org.apache.seatunnel.e2e.transform;
 
+import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
+import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
+import org.apache.seatunnel.e2e.common.util.ContainerUtil;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.TestTemplate;
@@ -26,6 +29,13 @@ import org.testcontainers.containers.Container;
 import java.io.IOException;
 
 public class TestTikaDocumentIT extends TestSuiteBase {
+
+    @TestContainerExtension
+    private final ContainerExtendedFactory extendedFactory =
+            container -> {
+                ContainerUtil.copyFileIntoContainers(
+                        "/pdf/sample.pdf", "/seatunnel/read/pdf/sample.pdf", container);
+            };
 
     @TestTemplate
     public void testTikaDocumentTransform(TestContainer container)
@@ -39,6 +49,22 @@ public class TestTikaDocumentIT extends TestSuiteBase {
             throws IOException, InterruptedException {
         Container.ExecResult execResult =
                 container.executeJob("/tikadocument_transform_multi_table.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+    }
+
+    @TestTemplate
+    public void testTikaDocumentTransformPdf(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                container.executeJob("/tikadocument_transform_pdf.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+    }
+
+    @TestTemplate
+    public void testTikaDocumentTransformPdfFromFile(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                container.executeJob("/tikadocument_transform_pdf_from_file.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
     }
 }
