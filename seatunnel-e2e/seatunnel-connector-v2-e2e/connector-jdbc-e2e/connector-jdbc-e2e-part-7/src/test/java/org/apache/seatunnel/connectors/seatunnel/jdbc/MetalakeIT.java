@@ -269,7 +269,7 @@ public class MetalakeIT extends SeaTunnelContainer {
         connection.setAutoCommit(false);
     }
 
-    protected void createNeededTables() {
+    protected void createNeededTables() throws SQLException {
         try (Statement statement = connection.createStatement()) {
             String createTemplate = jdbcCase.getCreateSql();
 
@@ -319,12 +319,10 @@ public class MetalakeIT extends SeaTunnelContainer {
             }
 
             connection.commit();
-        } catch (Exception exception) {
-            exception.printStackTrace();
         }
     }
 
-    protected void insertTestData() {
+    protected void insertTestData() throws SQLException {
         try (PreparedStatement preparedStatement =
                 connection.prepareStatement(jdbcCase.getInsertSql())) {
 
@@ -340,8 +338,6 @@ public class MetalakeIT extends SeaTunnelContainer {
             preparedStatement.executeBatch();
 
             connection.commit();
-        } catch (Exception exception) {
-            exception.printStackTrace();
         }
     }
 
