@@ -48,5 +48,4 @@ public class DatabaseIdentifier {
     public static final String GREENPLUM = "Greenplum";
     public static final String PRESTO = "Presto";
     public static final String DUCKDB = "DuckDB";
-    public static final String DUCKDB = "DuckDB";
 }

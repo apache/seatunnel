@@ -23,7 +23,7 @@ import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.factory.CatalogFactory;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.JdbcCatalogOptions;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcCommonOptions;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 
 import com.google.auto.service.AutoService;
@@ -39,10 +39,10 @@ public class DuckDBCatalogFactory implements CatalogFactory {
 
     @Override
     public Catalog createCatalog(String catalogName, ReadonlyConfig config) {
-        String url = config.get(JdbcCatalogOptions.BASE_URL);
-        String username = config.get(JdbcCatalogOptions.USERNAME);
-        String password = config.get(JdbcCatalogOptions.PASSWORD);
-        String defaultSchema = config.getOptional(JdbcCatalogOptions.SCHEMA).orElse("main");
+        String url = config.get(JdbcCommonOptions.URL);
+        String username = config.get(JdbcCommonOptions.USERNAME);
+        String password = config.get(JdbcCommonOptions.PASSWORD);
+        String defaultSchema = config.getOptional(JdbcCommonOptions.SCHEMA).orElse("main");
 
         JdbcUrlUtil.UrlInfo urlInfo = JdbcUrlUtil.getUrlInfo(url);
 
@@ -51,6 +51,6 @@ public class DuckDBCatalogFactory implements CatalogFactory {
 
     @Override
     public OptionRule optionRule() {
-        return JdbcCatalogOptions.BASE_RULE.build();
+        return JdbcCommonOptions.BASE_CATALOG_RULE.build();
     }
 }
