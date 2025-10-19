@@ -85,6 +85,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -728,56 +729,56 @@ public class MilvusIT extends TestSuiteBase implements TestResource {
         String collection = "streaming_simple_example";
         String vectorField = "book_intro";
         int checkpointInterval = 30000;
-        new Thread(
-                        () -> {
-                            try {
-                                container.executeJob(
-                                        "/streaming-fake-to-milvus.conf",
-                                        jobId,
-                                        "database=" + database,
-                                        "collection=" + collection,
-                                        "batch_size=3");
-                            } catch (IOException | InterruptedException e) {
-                                throw new RuntimeException(e);
-                            }
-                        })
-                .start();
+        CompletableFuture.runAsync(
+                () -> {
+                    try {
+                        container.executeJob(
+                                "/streaming-fake-to-milvus.conf",
+                                jobId,
+                                "database=" + database,
+                                "collection=" + collection,
+                                "batch_size=3");
+                    } catch (IOException | InterruptedException e) {
+                        throw new RuntimeException(e);
+                    }
+                });
 
         // count write records
-        long count;
         waitCollectionReady(database, collection, vectorField);
-        do {
-            count = countCollectionEntities(database, collection);
-        } while (count < 9);
-        Assertions.assertEquals(9, count);
+        Awaitility.await()
+                .atMost(60, TimeUnit.SECONDS)
+                .pollInterval(2, TimeUnit.SECONDS)
+                .until(() -> countCollectionEntities(database, collection) >= 9);
+        Assertions.assertEquals(9, countCollectionEntities(database, collection));
         TimeUnit.MILLISECONDS.sleep(checkpointInterval);
-        count = countCollectionEntities(database, collection);
-        Assertions.assertEquals(10, count);
+        Assertions.assertEquals(10, countCollectionEntities(database, collection));
 
         // cancel jobs
         container.cancelJob(jobId);
     }
 
     private void waitCollectionReady(
-            String databaseName, String collectionName, String vectorFieldName)
-            throws InterruptedException {
+            String databaseName, String collectionName, String vectorFieldName) {
         // assert table exist
-        R<Boolean> hasCollectionResponse;
-        do {
-            TimeUnit.SECONDS.sleep(1);
-            hasCollectionResponse =
-                    this.milvusClient.hasCollection(
-                            HasCollectionParam.newBuilder()
-                                    .withDatabaseName(databaseName)
-                                    .withCollectionName(collectionName)
-                                    .build());
-            Assertions.assertEquals(
-                    R.Status.Success.getCode(),
-                    hasCollectionResponse.getStatus(),
-                    Optional.ofNullable(hasCollectionResponse.getException())
-                            .map(Exception::getMessage)
-                            .orElse(""));
-        } while (!hasCollectionResponse.getData());
+        Awaitility.await()
+                .atMost(60, TimeUnit.SECONDS)
+                .pollInterval(2, TimeUnit.SECONDS)
+                .until(
+                        () -> {
+                            R<Boolean> hasCollectionResponse =
+                                    this.milvusClient.hasCollection(
+                                            HasCollectionParam.newBuilder()
+                                                    .withDatabaseName(databaseName)
+                                                    .withCollectionName(collectionName)
+                                                    .build());
+                            Assertions.assertEquals(
+                                    R.Status.Success.getCode(),
+                                    hasCollectionResponse.getStatus(),
+                                    Optional.ofNullable(hasCollectionResponse.getException())
+                                            .map(Exception::getMessage)
+                                            .orElse(""));
+                            return hasCollectionResponse.getData();
+                        });
 
         // create index
         R<RpcStatus> createIndexResponse =
