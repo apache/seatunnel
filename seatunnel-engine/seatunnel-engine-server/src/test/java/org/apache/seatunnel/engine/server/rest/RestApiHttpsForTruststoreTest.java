@@ -25,6 +25,7 @@ import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
 import org.apache.seatunnel.engine.server.TestUtils;
 
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -48,6 +49,7 @@ import java.util.stream.Collectors;
 @DisabledOnOs(OS.WINDOWS)
 public class RestApiHttpsForTruststoreTest extends AbstractSeaTunnelServerTest {
     private int httpPort;
+    private static SeaTunnelConfig seaTunnelConfig;
     private static final int HTTPS_PORT = 18443;
     private static final String SERVER_KEYSTORE_PASSWORD = "server_keystore_password";
     private static final String SERVER_TRUSTSTORE_PASSWORD = "server_truststore_password";
@@ -60,7 +62,7 @@ public class RestApiHttpsForTruststoreTest extends AbstractSeaTunnelServerTest {
         Config hazelcastConfig = Config.loadFromString(getHazelcastConfig());
         hazelcastConfig.setClusterName(
                 TestUtils.getClusterName("RestApiHttpsForTruststoreTest_" + name));
-        SeaTunnelConfig seaTunnelConfig = loadSeaTunnelConfig();
+        seaTunnelConfig = loadSeaTunnelConfig();
         seaTunnelConfig.setHazelcastConfig(hazelcastConfig);
         seaTunnelConfig.getEngineConfig().setMode(ExecutionMode.LOCAL);
 
@@ -83,6 +85,12 @@ public class RestApiHttpsForTruststoreTest extends AbstractSeaTunnelServerTest {
         nodeEngine = instance.node.nodeEngine;
         server = nodeEngine.getService(SeaTunnelServer.SERVICE_NAME);
         LOGGER = nodeEngine.getLogger(AbstractSeaTunnelServerTest.class);
+    }
+
+    @AfterAll
+    public void resetConfig() {
+        seaTunnelConfig.getEngineConfig().getHttpConfig().setEnabled(false);
+        seaTunnelConfig.getEngineConfig().getHttpConfig().setEnableHttps(false);
     }
 
     public String getPath(String confFile) {
