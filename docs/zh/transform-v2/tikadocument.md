@@ -10,6 +10,66 @@
 
 有关 Apache Tika 和支持的格式的更多信息，请参见 [Apache Tika 文档](https://tika.apache.org/2.9.2/index.html)。
 
+### 适用的数据源连接器
+
+此转换设计用于能够以以下格式之一提供文档数据的源连接器：
+
+**二进制文档数据（字节数组）**：
+- **文件类源**：`LocalFile`、`S3File`、`HDFS`、`FTP`、`SFTP` - 以二进制数据读取文件
+- **JDBC 源**：从数据库读取 `BLOB` 或 `VARBINARY` 列时
+- **MongoDB**：从 GridFS 或二进制字段读取二进制文档数据
+- **对象存储源**：`OSS`、`COS`、`OBS` - 以字节形式读取文件内容
+
+**Base64 编码的字符串**：
+- **Kafka**：包含 Base64 编码文档数据的消息
+- **HTTP 源**：包含 Base64 编码文件的 API 响应
+- **数据库文本字段**：存储为 Base64 字符串的文档，存放在 VARCHAR/TEXT 列中
+
+**源配置示例**：
+
+从 S3 读取 PDF 文件：
+```hocon
+source {
+  S3File {
+    path = "s3a://bucket/documents/*.pdf"
+    file_format_type = "binary"
+    schema = {
+      fields {
+        document_data = bytes
+        filename = string
+      }
+    }
+  }
+}
+```
+
+从数据库 BLOB 列读取文档：
+```hocon
+source {
+  Jdbc {
+    url = "jdbc:mysql://localhost:3306/doc_db"
+    query = "SELECT id, document_blob, filename FROM documents"
+    # document_blob 将以字节数组形式读取
+  }
+}
+```
+
+从 Kafka 读取 Base64 编码的文档：
+```hocon
+source {
+  Kafka {
+    topic = "documents"
+    bootstrap.servers = "localhost:9092"
+    schema = {
+      fields {
+        doc_id = string
+        document_data = string  # Base64 编码
+      }
+    }
+  }
+}
+```
+
 ## 属性
 
 | 名称                                 | 类型     | 是否必须 | 默认值        | 描述                                                                                                  |
@@ -190,6 +250,8 @@ transform {
 
 ### 多表处理
 
+当处理来自多个表的文档（例如，来自 MySQL-CDC 或 JDBC 多表源）时，您可以使用标准的多表转换配置：
+
 ```hocon
 transform {
   TikaDocument {
@@ -198,10 +260,28 @@ transform {
       content = "extracted_content"
       content_type = "document_type"
     }
-    multi_tables = true
+    # 匹配所有需要文档提取的表
+    table_match_regex = "doc_db\\..*"
+    
+    # 可选：为特定表指定不同的配置
+    table_transform = [{
+      table_path = "doc_db.pdf_documents"
+      source_field = "pdf_data"
+      parse_options = {
+        max_string_length = 100000
+      }
+    }, {
+      table_path = "doc_db.office_documents"
+      source_field = "doc_content"
+      parse_options = {
+        max_string_length = 50000
+      }
+    }]
   }
 }
 ```
+
+有关多表转换的更多详细信息，请参阅 [多表转换](transform-multi-table.md)。
 
 ## 数据类型映射
 

@@ -10,6 +10,66 @@ The plugin supports comprehensive error handling, content processing options, an
 
 For more information about Apache Tika and supported formats, see the [Apache Tika documentation](https://tika.apache.org/2.9.2/index.html).
 
+### Applicable Source Connectors
+
+This transform is designed to work with source connectors that can provide document data in one of the following formats:
+
+**Binary Document Data (byte array)**:
+- **File-based sources**: `LocalFile`, `S3File`, `HDFS`, `FTP`, `SFTP` - Read files as binary data
+- **JDBC sources**: When reading `BLOB` or `VARBINARY` columns from databases
+- **MongoDB**: Reading binary document data from GridFS or binary fields
+- **Object storage sources**: `OSS`, `COS`, `OBS` - Reading file content as bytes
+
+**Base64-encoded strings**:
+- **Kafka**: Messages containing Base64-encoded document data
+- **HTTP sources**: API responses with Base64-encoded files
+- **Database text fields**: Documents stored as Base64 strings in VARCHAR/TEXT columns
+
+**Example Source Configurations**:
+
+Reading PDF files from S3:
+```hocon
+source {
+  S3File {
+    path = "s3a://bucket/documents/*.pdf"
+    file_format_type = "binary"
+    schema = {
+      fields {
+        document_data = bytes
+        filename = string
+      }
+    }
+  }
+}
+```
+
+Reading documents from a database BLOB column:
+```hocon
+source {
+  Jdbc {
+    url = "jdbc:mysql://localhost:3306/doc_db"
+    query = "SELECT id, document_blob, filename FROM documents"
+    # document_blob will be read as byte array
+  }
+}
+```
+
+Reading Base64-encoded documents from Kafka:
+```hocon
+source {
+  Kafka {
+    topic = "documents"
+    bootstrap.servers = "localhost:9092"
+    schema = {
+      fields {
+        doc_id = string
+        document_data = string  # Base64-encoded
+      }
+    }
+  }
+}
+```
+
 ## Options
 
 | Name                               | Type   | Required | Default Value | Description                                                                                           |
@@ -190,6 +250,8 @@ transform {
 
 ### Multi-table Processing
 
+When processing documents from multiple tables (e.g., from MySQL-CDC or JDBC sources with multiple tables), you can use the standard multi-table transform configuration:
+
 ```hocon
 transform {
   TikaDocument {
@@ -198,10 +260,28 @@ transform {
       content = "extracted_content"
       content_type = "document_type"
     }
-    multi_tables = true
+    # Match all tables that need document extraction
+    table_match_regex = "doc_db\\..*"
+    
+    # Optional: Specify different configurations for specific tables
+    table_transform = [{
+      table_path = "doc_db.pdf_documents"
+      source_field = "pdf_data"
+      parse_options = {
+        max_string_length = 100000
+      }
+    }, {
+      table_path = "doc_db.office_documents"
+      source_field = "doc_content"
+      parse_options = {
+        max_string_length = 50000
+      }
+    }]
   }
 }
 ```
+
+For more details on multi-table transformations, see [Multi-Table Transform](transform-multi-table.md).
 
 ## Data Type Mapping
 
