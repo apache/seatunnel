@@ -37,7 +37,9 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisDataType;
 import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisParameters;
+import org.apache.seatunnel.connectors.seatunnel.redis.sink.RedisSinkFactory;
 import org.apache.seatunnel.connectors.seatunnel.redis.sink.RedisSinkWriter;
+import org.apache.seatunnel.connectors.seatunnel.sink.SinkFlowTestUtils;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.EngineType;
@@ -636,19 +638,17 @@ public abstract class RedisTestCaseTemplateIT extends TestSuiteBase implements T
     @Test
     public void testFakeToRedisDeleteHashTest() throws IOException {
         String key = "hash_check";
-        final RedisSinkWriter redisSinkWriter = getRedisSinkWriter(RedisDataType.HASH, key);
-        List<SeaTunnelRow> rowList =
+        SinkFlowTestUtils.runBatchWithCheckpointDisabled(
+                getCatalogTable(0, key),
+                getReadonlyConfig(RedisDataType.HASH, key),
+                new RedisSinkFactory(),
                 Arrays.asList(
                         getSeaTunnelRowInsert1(),
                         getSeaTunnelRowInsert2(),
                         getSeaTunnelRowInsert3(),
                         getSeaTunnelRowUpdateBefore(),
                         getSeaTunnelRowUpdateAfter(),
-                        getSeaTunnelRowDelete());
-        for (SeaTunnelRow seaTunnelRow : rowList) {
-            redisSinkWriter.write(seaTunnelRow);
-        }
-        redisSinkWriter.close();
+                        getSeaTunnelRowDelete()));
         Assertions.assertEquals(2, jedis.hlen(key));
         jedis.del(key);
     }
