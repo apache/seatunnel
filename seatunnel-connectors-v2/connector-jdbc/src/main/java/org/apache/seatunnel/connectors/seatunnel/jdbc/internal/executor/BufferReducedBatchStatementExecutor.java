@@ -102,8 +102,6 @@ public class BufferReducedBatchStatementExecutor
             if (!buffer.isEmpty()) {
                 executeBatch();
             }
-        } catch (JdbcConnectorException e) {
-            log.error("Failed to execute remaining batch", e);
         } finally {
             upsertExecutor.closeStatements();
             deleteExecutor.closeStatements();

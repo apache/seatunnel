@@ -18,7 +18,6 @@
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.executor;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
@@ -64,8 +63,6 @@ public class BufferedBatchStatementExecutor implements JdbcBatchStatementExecuto
             if (!buffer.isEmpty()) {
                 executeBatch();
             }
-        } catch (JdbcConnectorException e) {
-            log.error("Failed to execute remaining batch", e);
         } finally {
             statementExecutor.closeStatements();
         }

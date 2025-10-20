@@ -123,8 +123,6 @@ public class InsertOrUpdateBatchStatementExecutor
             if (!submitted) {
                 executeBatch();
             }
-        } catch (JdbcConnectorException e) {
-            log.error("Failed to execute remaining batch", e);
         } finally {
             for (PreparedStatement statement :
                     Arrays.asList(existStatement, insertStatement, updateStatement)) {
