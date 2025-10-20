@@ -14,6 +14,7 @@ import ChangeLog from '../changelog/connector-mongodb.md';
 
 - [x] [exactly-once](../../concept/connector-v2-features.md)
 - [x] [cdc](../../concept/connector-v2-features.md)
+- [x] [support multiple table write](../../concept/connector-v2-features.md)
 
 **Tips**
 
