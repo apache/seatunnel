@@ -75,12 +75,14 @@ public class LogService extends BaseLogService {
                     String url = "http://" + host + ":" + port + contextPath;
                     String logUrl = url + REST_URL_GET_ALL_LOG_NAME;
 
-                    String allName = httpConfig.isEnableBasicAuth()
-                            ? sendGet(logUrl, result.basicUser, result.basicPass)
-                            : sendGet(logUrl);
+                    String allName =
+                            httpConfig.isEnableBasicAuth()
+                                    ? sendGet(logUrl, result.basicUser, result.basicPass)
+                                    : sendGet(logUrl);
 
                     if (allName == null || allName.trim().isEmpty()) {
-                        log.warn("GET {} returned empty body (null/empty). Skip this node.", logUrl);
+                        log.warn(
+                                "GET {} returned empty body (null/empty). Skip this node.", logUrl);
                         return;
                     }
 
@@ -115,7 +117,8 @@ public class LogService extends BaseLogService {
                 basicPass = httpConfig.getBasicAuthPassword();
             }
         } catch (Throwable ignore) {
-            // Compatible with older versions: If HttpConfig does not have these methods, use system properties or environment variables to find out
+            // Compatible with older versions: If HttpConfig does not have these methods, use system
+            // properties or environment variables to find out
             basicUser = System.getProperty("seatunnel.http.user", System.getenv("BASIC_AUTH_USER"));
             basicPass = System.getProperty("seatunnel.http.pass", System.getenv("BASIC_AUTH_PASS"));
             log.warn("Use system property or environment variable to set basic auth.");

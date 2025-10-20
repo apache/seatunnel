@@ -74,8 +74,8 @@ public class BaseLogService extends BaseService {
      * Send GET request with Basic Auth
      *
      * @param urlString url
-     * @param user      name
-     * @param pass      password
+     * @param user name
+     * @param pass password
      * @return log
      */
     protected String sendGet(String urlString, String user, String pass) {
@@ -88,8 +88,11 @@ public class BaseLogService extends BaseService {
 
             // Basic Auth
             if (user != null && pass != null) {
-                String token = java.util.Base64.getEncoder()
-                        .encodeToString((user + ":" + pass).getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                String token =
+                        java.util.Base64.getEncoder()
+                                .encodeToString(
+                                        (user + ":" + pass)
+                                                .getBytes(java.nio.charset.StandardCharsets.UTF_8));
                 connection.setRequestProperty("Authorization", "Basic " + token);
             }
 
@@ -114,7 +117,8 @@ public class BaseLogService extends BaseService {
         if (is == null) {
             return null;
         }
-        try (InputStream in = is; ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
+        try (InputStream in = is;
+                ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
             byte[] buf = new byte[4096];
             int len;
             while ((len = in.read(buf)) != -1) {

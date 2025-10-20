@@ -17,15 +17,6 @@
 
 package org.apache.seatunnel.engine.server.rest;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.net.HttpURLConnection;
-import java.util.Collections;
-import java.util.stream.Collectors;
-
-import com.hazelcast.config.Config;
-import com.hazelcast.internal.serialization.Data;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.config.server.CheckpointConfig;
 import org.apache.seatunnel.engine.common.config.server.HttpConfig;
@@ -37,11 +28,22 @@ import org.apache.seatunnel.engine.server.AbstractSeaTunnelServerTest;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
 import org.apache.seatunnel.engine.server.TestUtils;
+
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledOnOs;
 import org.junit.jupiter.api.condition.OS;
+
+import com.hazelcast.config.Config;
+import com.hazelcast.internal.serialization.Data;
+
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.util.Collections;
+import java.util.stream.Collectors;
 
 /** Test for Rest API with Basic. */
 @DisabledOnOs(OS.MAC)
@@ -56,7 +58,8 @@ public class RestApiHttpBasicTest extends AbstractSeaTunnelServerTest {
     void setUp() {
         String name = this.getClass().getName();
         Config hazelcastConfig = Config.loadFromString(getHazelcastConfig());
-        hazelcastConfig.setClusterName(TestUtils.getClusterName("RestApiServletHttpBasicTest_" + name));
+        hazelcastConfig.setClusterName(
+                TestUtils.getClusterName("RestApiServletHttpBasicTest_" + name));
         SeaTunnelConfig seaTunnelConfig = loadSeaTunnelConfig();
         seaTunnelConfig.setHazelcastConfig(hazelcastConfig);
         seaTunnelConfig.getEngineConfig().setMode(ExecutionMode.LOCAL);
@@ -112,10 +115,13 @@ public class RestApiHttpBasicTest extends AbstractSeaTunnelServerTest {
         testLogRestApiResponse("JSON");
     }
 
-    public void setBasicAuth(HttpURLConnection connection){
+    public void setBasicAuth(HttpURLConnection connection) {
         // Basic Auth
-        String token = java.util.Base64.getEncoder()
-                .encodeToString((USER + ":" + PASS).getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        String token =
+                java.util.Base64.getEncoder()
+                        .encodeToString(
+                                (USER + ":" + PASS)
+                                        .getBytes(java.nio.charset.StandardCharsets.UTF_8));
         connection.setRequestProperty("Authorization", "Basic " + token);
     }
 
@@ -133,11 +139,11 @@ public class RestApiHttpBasicTest extends AbstractSeaTunnelServerTest {
                 //  "node" : "localhost:18080",
                 //  "logLink" : "http://localhost:18080/logs/job-1760939539658.log",
                 //  "logName" : "job-1760939539658.log"
-                //}, {
+                // }, {
                 //  "node" : "localhost:18080",
                 //  "logLink" : "http://localhost:18080/logs/job-${ctx:ST-JID}.log",
                 //  "logName" : "job-${ctx:ST-JID}.log"
-                //} ]
+                // } ]
                 String response = in.lines().collect(Collectors.joining());
                 Assertions.assertNotNull(response);
             }
@@ -156,8 +162,11 @@ public class RestApiHttpBasicTest extends AbstractSeaTunnelServerTest {
     }
 
     private void startJob() {
-        LogicalDag testLogicalDag = TestUtils.createTestLogicalPlan("fake_to_console.conf", RestApiHttpBasicTest.JOB_1.toString(),
-                                                                    RestApiHttpBasicTest.JOB_1);
+        LogicalDag testLogicalDag =
+                TestUtils.createTestLogicalPlan(
+                        "fake_to_console.conf",
+                        RestApiHttpBasicTest.JOB_1.toString(),
+                        RestApiHttpBasicTest.JOB_1);
 
         JobImmutableInformation jobImmutableInformation =
                 new JobImmutableInformation(
@@ -172,7 +181,10 @@ public class RestApiHttpBasicTest extends AbstractSeaTunnelServerTest {
 
         PassiveCompletableFuture<Void> voidPassiveCompletableFuture =
                 server.getCoordinatorService()
-                        .submitJob(RestApiHttpBasicTest.JOB_1, data, jobImmutableInformation.isStartWithSavePoint());
+                        .submitJob(
+                                RestApiHttpBasicTest.JOB_1,
+                                data,
+                                jobImmutableInformation.isStartWithSavePoint());
         voidPassiveCompletableFuture.join();
     }
 }
