@@ -76,9 +76,14 @@ seatunnel:
 ### 返回所有作业及其当前状态的概览
 
 <details>
- <summary><code>GET</code> <code><b>/running-jobs</b></code> <code>(返回所有作业及其当前状态的概览。)</code></summary>
+ <summary><code>GET</code> <code><b>/running-jobs?page=1&rows=10</b></code> <code>(返回所有作业及其当前状态的概览。)</code></summary>
 
 #### 参数
+
+> | 参数名称 | 是否必传 | 参数类型 | 参数描述 |
+> |------|------|------|------|
+> | page | 否    | int  | 页号   |
+> | rows | 否    | int  | 每页行数 |
 
 #### 响应
 
@@ -447,13 +452,15 @@ seatunnel:
 ### 返回所有已完成的作业信息
 
 <details>
- <summary><code>GET</code> <code><b>/finished-jobs/:state</b></code> <code>(返回所有已完成的作业信息。)</code></summary>
+ <summary><code>GET</code> <code><b>/finished-jobs/:state?page=1&rows=10</b></code> <code>(返回所有已完成的作业信息。)</code></summary>
 
 #### 参数
 
 > | 参数名称  |   是否必传   |  参数类型  | 参数描述                                                                              |
 > |-------|----------|--------|-----------------------------------------------------------------------------------|
 > | state | optional | string | finished job status. `FINISHED`,`CANCELED`,`FAILED`,`SAVEPOINT_DONE`,`UNKNOWABLE` |
+> | page | 否    | int  | 页号   |
+> | rows | 否    | int  | 每页行数 |
 
 #### 响应
 

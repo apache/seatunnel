@@ -19,5 +19,5 @@ package org.apache.seatunnel.engine.server.rest;
 
 @FunctionalInterface
 public interface RestApiRequestCallback {
-    void callback(String response);
+    void callback(int responseCode, String responseContent);
 }

@@ -50,6 +50,12 @@ public class PageBaseServlet extends BaseServlet {
                             ? Integer.parseInt(parameterMap.get(rowsParam))
                             : 10;
             int start = (page - 1) * rows;
+            if (start >= total || page < 1) {
+                throw new IllegalArgumentException(
+                        page < 1
+                                ? "Page number must be greater than 0"
+                                : "Page number exceeds total pages");
+            }
             JsonArray paginatedArray = new JsonArray();
             jsonArray
                     .values()
