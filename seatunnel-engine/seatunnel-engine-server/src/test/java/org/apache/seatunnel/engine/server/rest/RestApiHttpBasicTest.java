@@ -1,0 +1,178 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.seatunnel.engine.server.rest;
+
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.util.Collections;
+import java.util.stream.Collectors;
+
+import com.hazelcast.config.Config;
+import com.hazelcast.internal.serialization.Data;
+import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
+import org.apache.seatunnel.engine.common.config.server.CheckpointConfig;
+import org.apache.seatunnel.engine.common.config.server.HttpConfig;
+import org.apache.seatunnel.engine.common.runtime.ExecutionMode;
+import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
+import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
+import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
+import org.apache.seatunnel.engine.server.AbstractSeaTunnelServerTest;
+import org.apache.seatunnel.engine.server.SeaTunnelServer;
+import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
+import org.apache.seatunnel.engine.server.TestUtils;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.DisabledOnOs;
+import org.junit.jupiter.api.condition.OS;
+
+/** Test for Rest API with Basic. */
+@DisabledOnOs(OS.MAC)
+public class RestApiHttpBasicTest extends AbstractSeaTunnelServerTest {
+
+    private static final int HTTP_PORT = 18080;
+    private static final Long JOB_1 = System.currentTimeMillis() + 1L;
+    public static final String USER = "admin";
+    public static final String PASS = "admin";
+
+    @BeforeAll
+    void setUp() {
+        String name = this.getClass().getName();
+        Config hazelcastConfig = Config.loadFromString(getHazelcastConfig());
+        hazelcastConfig.setClusterName(TestUtils.getClusterName("RestApiServletHttpBasicTest_" + name));
+        SeaTunnelConfig seaTunnelConfig = loadSeaTunnelConfig();
+        seaTunnelConfig.setHazelcastConfig(hazelcastConfig);
+        seaTunnelConfig.getEngineConfig().setMode(ExecutionMode.LOCAL);
+
+        HttpConfig httpConfig = seaTunnelConfig.getEngineConfig().getHttpConfig();
+        httpConfig.setEnabled(true);
+        httpConfig.setPort(HTTP_PORT);
+
+        instance = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
+        nodeEngine = instance.node.nodeEngine;
+        server = nodeEngine.getService(SeaTunnelServer.SERVICE_NAME);
+        LOGGER = nodeEngine.getLogger(AbstractSeaTunnelServerTest.class);
+    }
+
+    @Test
+    public void testRestApiHttp() throws Exception {
+        HttpURLConnection conn =
+                (HttpURLConnection)
+                        new java.net.URL("http://localhost:" + HTTP_PORT + "/overview")
+                                .openConnection();
+        setBasicAuth(conn);
+        try (BufferedReader in = new BufferedReader(new InputStreamReader(conn.getInputStream()))) {
+
+            Assertions.assertEquals(200, conn.getResponseCode());
+            String response = in.lines().collect(Collectors.joining());
+            Assertions.assertTrue(response.contains("projectVersion"));
+        } finally {
+            conn.disconnect();
+        }
+    }
+
+    @Override
+    public SeaTunnelConfig loadSeaTunnelConfig() {
+        SeaTunnelConfig seaTunnelConfig = super.loadSeaTunnelConfig();
+
+        HttpConfig httpConfig = seaTunnelConfig.getEngineConfig().getHttpConfig();
+        httpConfig.setEnabled(Boolean.TRUE);
+        httpConfig.setEnableBasicAuth(Boolean.TRUE);
+        httpConfig.setBasicAuthUsername("admin");
+        httpConfig.setBasicAuthPassword("admin");
+        httpConfig.setPort(HTTP_PORT);
+
+        CheckpointConfig checkpointConfig = seaTunnelConfig.getEngineConfig().getCheckpointConfig();
+
+        checkpointConfig.setCheckpointInterval(Integer.MAX_VALUE);
+        seaTunnelConfig.getEngineConfig().setCheckpointConfig(checkpointConfig);
+        return seaTunnelConfig;
+    }
+
+    @Test
+    void testWriteJsonWithObject() throws IOException {
+        startJob();
+        testLogRestApiResponse("JSON");
+    }
+
+    public void setBasicAuth(HttpURLConnection connection){
+        // Basic Auth
+        String token = java.util.Base64.getEncoder()
+                .encodeToString((USER + ":" + PASS).getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        connection.setRequestProperty("Authorization", "Basic " + token);
+    }
+
+    public void testLogRestApiResponse(String format) throws IOException {
+        HttpURLConnection conn = null;
+        try {
+            java.net.URL url =
+                    new java.net.URL("http://localhost:" + HTTP_PORT + "/logs?format=" + format);
+            conn = (HttpURLConnection) url.openConnection();
+            setBasicAuth(conn);
+
+            try (BufferedReader in =
+                    new BufferedReader(new InputStreamReader(conn.getInputStream()))) {
+                // [ {
+                //  "node" : "localhost:18080",
+                //  "logLink" : "http://localhost:18080/logs/job-1760939539658.log",
+                //  "logName" : "job-1760939539658.log"
+                //}, {
+                //  "node" : "localhost:18080",
+                //  "logLink" : "http://localhost:18080/logs/job-${ctx:ST-JID}.log",
+                //  "logName" : "job-${ctx:ST-JID}.log"
+                //} ]
+                String response = in.lines().collect(Collectors.joining());
+                Assertions.assertNotNull(response);
+            }
+
+            Assertions.assertEquals(200, conn.getResponseCode());
+            Assertions.assertTrue(
+                    conn.getHeaderFields()
+                            .get("Content-Type")
+                            .toString()
+                            .contains("charset=utf-8"));
+        } finally {
+            if (conn != null) {
+                conn.disconnect();
+            }
+        }
+    }
+
+    private void startJob() {
+        LogicalDag testLogicalDag = TestUtils.createTestLogicalPlan("fake_to_console.conf", RestApiHttpBasicTest.JOB_1.toString(),
+                                                                    RestApiHttpBasicTest.JOB_1);
+
+        JobImmutableInformation jobImmutableInformation =
+                new JobImmutableInformation(
+                        RestApiHttpBasicTest.JOB_1,
+                        "Test",
+                        nodeEngine.getSerializationService(),
+                        testLogicalDag,
+                        Collections.emptyList(),
+                        Collections.emptyList());
+
+        Data data = nodeEngine.getSerializationService().toData(jobImmutableInformation);
+
+        PassiveCompletableFuture<Void> voidPassiveCompletableFuture =
+                server.getCoordinatorService()
+                        .submitJob(RestApiHttpBasicTest.JOB_1, data, jobImmutableInformation.isStartWithSavePoint());
+        voidPassiveCompletableFuture.join();
+    }
+}

@@ -47,28 +47,81 @@ public class BaseLogService extends BaseService {
     }
 
     protected String sendGet(String urlString) {
+        HttpURLConnection connection = null;
         try {
-            HttpURLConnection connection = (HttpURLConnection) new URL(urlString).openConnection();
+            connection = (HttpURLConnection) new URL(urlString).openConnection();
             connection.setRequestMethod("GET");
             connection.setConnectTimeout(5000);
             connection.setReadTimeout(5000);
             connection.connect();
 
+            int code = connection.getResponseCode();
             if (connection.getResponseCode() == 200) {
-                try (InputStream is = connection.getInputStream();
-                        ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
-                    byte[] buffer = new byte[1024];
-                    int len;
-                    while ((len = is.read(buffer)) != -1) {
-                        baos.write(buffer, 0, len);
-                    }
-                    return baos.toString();
-                }
+                return readAll(connection.getInputStream());
             }
+            log.warn("GET {} -> HTTP {}", urlString, code);
         } catch (IOException e) {
-            log.error("Send get Fail.{}", ExceptionUtils.getMessage(e));
+            log.error("Send GET failed: url={}, err={}", urlString, ExceptionUtils.getMessage(e));
+        } finally {
+            if (connection != null) {
+                connection.disconnect();
+            }
         }
         return null;
+    }
+
+    /**
+     * Send GET request with Basic Auth
+     *
+     * @param urlString url
+     * @param user      name
+     * @param pass      password
+     * @return log
+     */
+    protected String sendGet(String urlString, String user, String pass) {
+        HttpURLConnection connection = null;
+        try {
+            connection = (HttpURLConnection) new URL(urlString).openConnection();
+            connection.setRequestMethod("GET");
+            connection.setConnectTimeout(5000);
+            connection.setReadTimeout(5000);
+
+            // Basic Auth
+            if (user != null && pass != null) {
+                String token = java.util.Base64.getEncoder()
+                        .encodeToString((user + ":" + pass).getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                connection.setRequestProperty("Authorization", "Basic " + token);
+            }
+
+            connection.connect();
+
+            int code = connection.getResponseCode();
+            if (connection.getResponseCode() == 200) {
+                return readAll(connection.getInputStream());
+            }
+            log.warn("GET {} -> HTTP {}", urlString, code);
+        } catch (IOException e) {
+            log.error("Send GET failed: url={}, err={}", urlString, ExceptionUtils.getMessage(e));
+        } finally {
+            if (connection != null) {
+                connection.disconnect();
+            }
+        }
+        return null;
+    }
+
+    private String readAll(InputStream is) throws IOException {
+        if (is == null) {
+            return null;
+        }
+        try (InputStream in = is; ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
+            byte[] buf = new byte[4096];
+            int len;
+            while ((len = in.read(buf)) != -1) {
+                baos.write(buf, 0, len);
+            }
+            return baos.toString(java.nio.charset.StandardCharsets.UTF_8.name());
+        }
     }
 
     public String getLogParam(String uri, String contextPath) {
