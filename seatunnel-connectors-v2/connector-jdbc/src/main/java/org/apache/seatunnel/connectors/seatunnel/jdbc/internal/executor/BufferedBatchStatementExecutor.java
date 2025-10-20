@@ -21,7 +21,6 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 
 import java.sql.Connection;
 import java.sql.SQLException;
@@ -30,7 +29,6 @@ import java.util.List;
 import java.util.function.Function;
 
 @RequiredArgsConstructor
-@Slf4j
 public class BufferedBatchStatementExecutor implements JdbcBatchStatementExecutor<SeaTunnelRow> {
     @NonNull private final JdbcBatchStatementExecutor<SeaTunnelRow> statementExecutor;
     @NonNull private final Function<SeaTunnelRow, SeaTunnelRow> valueTransform;
