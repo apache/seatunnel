@@ -633,6 +633,7 @@ public class StringFunction {
 
     /**
      * Convert date/time objects to standardized string format
+     *
      * @param obj the object to convert
      * @return standardized string representation of the date/time object
      */

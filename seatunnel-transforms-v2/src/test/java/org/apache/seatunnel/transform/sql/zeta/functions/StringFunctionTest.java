@@ -78,8 +78,8 @@ public class StringFunctionTest {
         List<Object> args = new ArrayList<>();
 
         // Test OffsetDateTime
-        OffsetDateTime offsetDateTime = LocalDateTime.of(2023, 12, 25, 15, 30, 45)
-                .atOffset(ZoneOffset.UTC);
+        OffsetDateTime offsetDateTime =
+                LocalDateTime.of(2023, 12, 25, 15, 30, 45).atOffset(ZoneOffset.UTC);
         args.add(offsetDateTime);
         args.add(1);
         args.add(4);
