@@ -35,7 +35,7 @@ public class StringFunctionTest {
         List<Object> args = new ArrayList<>();
         args.add("Hello World");
         args.add(1);
-        Assertions.assertEquals("Hello", StringFunction.substring(args));
+        Assertions.assertEquals("Hello World", StringFunction.substring(args));
 
         args.clear();
         args.add("Hello World");
@@ -68,9 +68,9 @@ public class StringFunctionTest {
         // Test LocalDateTime
         LocalDateTime dateTime = LocalDateTime.of(2023, 12, 25, 15, 30, 45);
         args.add(dateTime);
-        args.add(6);
         args.add(2);
-        Assertions.assertEquals("-1", StringFunction.substring(args));
+        args.add(6);
+        Assertions.assertEquals("023-12", StringFunction.substring(args));
     }
 
     @Test
