@@ -280,6 +280,15 @@ The target ftp connection mode , default is active mode, supported as the follow
 
 `active_local` `passive_local`
 
+### control_encoding [string]
+
+Character encoding for FTP control connection. Default is `UTF-8`.
+
+When file paths contain special characters (such as `$`, spaces, Chinese characters, etc.),
+this should be set to `UTF-8` to ensure paths can be parsed correctly.
+
+For example: `/data/whale_ops/share/$Fund-Product/DA - SANY （三一）/Daily/2025.08.18/file.xlsx`
+
 ### delimiter/field_delimiter [string]
 
 **delimiter** parameter will deprecate after version 2.3.5, please use **field_delimiter** instead.
