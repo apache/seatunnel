@@ -163,7 +163,8 @@ public final class JdbcFieldTypeUtils {
         if (obj.getClass().getName().equals("oracle.sql.TIMESTAMPTZ")) {
             try {
                 // Use reflection to call timestampValue() method
-                java.lang.reflect.Method timestampValueMethod = obj.getClass().getMethod("timestampValue");
+                java.lang.reflect.Method timestampValueMethod =
+                        obj.getClass().getMethod("timestampValue");
                 Timestamp ts = (Timestamp) timestampValueMethod.invoke(obj);
                 if (ts != null) {
                     return ts.toInstant().atOffset(ZoneOffset.UTC);
