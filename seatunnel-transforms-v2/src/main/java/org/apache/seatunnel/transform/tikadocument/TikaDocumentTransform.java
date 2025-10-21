@@ -154,16 +154,12 @@ public class TikaDocumentTransform extends MultipleFieldOutputTransform {
             Object sourceValue = inputRow.getField(sourceFieldIndex);
             byte[] documentData = extractDocumentData(sourceValue);
 
-            if (documentData == null) {
-                return handleError("Source field contains null or invalid data", null);
+            if (documentData == null || documentData.length == 0) {
+                return handleError("Source field contains null or empty data", null);
             }
 
-            // Check if format is supported
-            String mimeType = extractor.detectMimeType(documentData);
-            if (!extractor.isSupported(mimeType)) {
-                return handleError(
-                        "Unsupported document format: " + mimeType,
-                        config.getOnUnsupportedFormat());
+            if (config.isLogErrors()) {
+                log.debug("Processing document data, size: {} bytes", documentData.length);
             }
 
             // Extract document metadata
