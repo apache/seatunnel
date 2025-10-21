@@ -27,9 +27,15 @@ import org.apache.groovy.parser.antlr4.util.StringUtils;
 
 import java.lang.reflect.Array;
 import java.nio.charset.StandardCharsets;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 import java.time.temporal.Temporal;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Date;
 import java.util.List;
 import java.util.Objects;
 import java.util.regex.Matcher;
@@ -625,11 +631,70 @@ public class StringFunction {
         return new String(chars, StandardCharsets.ISO_8859_1);
     }
 
-    public static String substring(List<Object> args) {
-        String s = (String) args.get(0);
-        if (s == null) {
+    /**
+     * Convert date/time objects to standardized string format
+     * @param obj the object to convert
+     * @return standardized string representation of the date/time object
+     */
+    private static String convertDateToString(Object obj) {
+        if (obj == null) {
             return null;
         }
+
+        // Handle java.util.Date and subclasses (java.sql.Date, java.sql.Timestamp)
+        if (obj instanceof Date) {
+            Date date = (Date) obj;
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+            LocalDateTime localDateTime = LocalDateTime.ofInstant(date.toInstant(), ZoneOffset.UTC);
+            return localDateTime.format(formatter);
+        }
+
+        // Handle java.time types
+        if (obj instanceof LocalDate) {
+            LocalDate localDate = (LocalDate) obj;
+            return localDate.format(DateTimeFormatter.ofPattern("yyyy-MM-dd"));
+        }
+
+        if (obj instanceof LocalDateTime) {
+            LocalDateTime localDateTime = (LocalDateTime) obj;
+            return localDateTime.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+        }
+
+        if (obj instanceof OffsetDateTime) {
+            OffsetDateTime offsetDateTime = (OffsetDateTime) obj;
+            return offsetDateTime.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+        }
+
+        // For Temporal objects that are not specifically handled above
+        if (obj instanceof Temporal) {
+            Temporal temporal = (Temporal) obj;
+            try {
+                // Try to format as timestamp first
+                return DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss").format(temporal);
+            } catch (Exception e) {
+                try {
+                    // Fallback to date-only format
+                    return DateTimeFormatter.ofPattern("yyyy-MM-dd").format(temporal);
+                } catch (Exception ex) {
+                    // If all else fails, use toString
+                    return obj.toString();
+                }
+            }
+        }
+
+        // For non-date objects, convert to string directly
+        return obj.toString();
+    }
+
+    public static String substring(List<Object> args) {
+        Object input = args.get(0);
+        if (input == null) {
+            return null;
+        }
+
+        // Convert date types to standardized string format
+        String s = convertDateToString(input);
+
         int sl = s.length();
         int start = ((Number) args.get(1)).intValue();
         Object v3 = null;
