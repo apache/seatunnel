@@ -21,10 +21,12 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeFormatterBuilder;
 import java.time.format.SignStyle;
+import java.time.temporal.Temporal;
 import java.time.temporal.TemporalAccessor;
 import java.time.temporal.TemporalQueries;
 import java.util.HashMap;
@@ -314,12 +316,25 @@ public class DateTimeUtils {
         return dateTime.format(FORMATTER_MAP.get(formatter));
     }
 
+    public static String toString(LocalDate date, Formatter formatter) {
+        return date.format(FORMATTER_MAP.get(formatter));
+    }
+
+    public static String toString(OffsetDateTime offsetDateTime, Formatter formatter) {
+        return offsetDateTime.format(FORMATTER_MAP.get(formatter));
+    }
+
+    public static String toString(Temporal temporal, Formatter formatter) {
+        return FORMATTER_MAP.get(formatter).format(temporal);
+    }
+
     public static String toString(long timestamp, Formatter formatter) {
         Instant instant = Instant.ofEpochMilli(timestamp);
         return toString(LocalDateTime.ofInstant(instant, ZoneId.systemDefault()), formatter);
     }
 
     public enum Formatter {
+        YYYY_MM_DD("yyyy-MM-dd"),
         YYYY_MM_DD_HH_MM_SS("yyyy-MM-dd HH:mm:ss"),
         YYYY_MM_DD_HH_MM_SS_SSSSSS("yyyy-MM-dd HH:mm:ss.SSSSSS"),
         YYYY_MM_DD_HH_MM_SS_SPOT("yyyy.MM.dd HH:mm:ss"),

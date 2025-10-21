@@ -20,6 +20,7 @@ package org.apache.seatunnel.transform.sql.zeta.functions;
 import org.apache.seatunnel.shade.com.google.common.hash.Hashing;
 
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
+import org.apache.seatunnel.common.utils.DateTimeUtils;
 import org.apache.seatunnel.transform.exception.TransformException;
 import org.apache.seatunnel.transform.sql.zeta.ZetaSQLFunction;
 
@@ -31,7 +32,6 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
-import java.time.format.DateTimeFormatter;
 import java.time.temporal.Temporal;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -645,25 +645,27 @@ public class StringFunction {
         // Handle java.util.Date and subclasses (java.sql.Date, java.sql.Timestamp)
         if (obj instanceof Date) {
             Date date = (Date) obj;
-            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
             LocalDateTime localDateTime = LocalDateTime.ofInstant(date.toInstant(), ZoneOffset.UTC);
-            return localDateTime.format(formatter);
+            return DateTimeUtils.toString(
+                    localDateTime, DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS);
         }
 
         // Handle java.time types
         if (obj instanceof LocalDate) {
             LocalDate localDate = (LocalDate) obj;
-            return localDate.format(DateTimeFormatter.ofPattern("yyyy-MM-dd"));
+            return DateTimeUtils.toString(localDate, DateTimeUtils.Formatter.YYYY_MM_DD);
         }
 
         if (obj instanceof LocalDateTime) {
             LocalDateTime localDateTime = (LocalDateTime) obj;
-            return localDateTime.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+            return DateTimeUtils.toString(
+                    localDateTime, DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS);
         }
 
         if (obj instanceof OffsetDateTime) {
             OffsetDateTime offsetDateTime = (OffsetDateTime) obj;
-            return offsetDateTime.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+            return DateTimeUtils.toString(
+                    offsetDateTime, DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS);
         }
 
         // For Temporal objects that are not specifically handled above
@@ -671,11 +673,12 @@ public class StringFunction {
             Temporal temporal = (Temporal) obj;
             try {
                 // Try to format as timestamp first
-                return DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss").format(temporal);
+                return DateTimeUtils.toString(
+                        temporal, DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS);
             } catch (Exception e) {
                 try {
                     // Fallback to date-only format
-                    return DateTimeFormatter.ofPattern("yyyy-MM-dd").format(temporal);
+                    return DateTimeUtils.toString(temporal, DateTimeUtils.Formatter.YYYY_MM_DD);
                 } catch (Exception ex) {
                     // If all else fails, use toString
                     return obj.toString();
