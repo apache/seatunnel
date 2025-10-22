@@ -22,8 +22,10 @@ import org.junit.jupiter.api.Test;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.time.temporal.Temporal;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
@@ -105,5 +107,18 @@ public class StringFunctionTest {
         args.add(null);
         args.add(1);
         Assertions.assertNull(StringFunction.substring(args));
+    }
+
+    @Test
+    public void testSubstringWithTemporal() {
+        List<Object> args = new ArrayList<>();
+
+        // Test LocalTime (as a Temporal implementation not explicitly handled)
+        Temporal time = LocalTime.of(15, 30, 45);
+        args.add(time);
+        args.add(1);
+        args.add(5);
+        // Should extract time part from formatted string "15:30:45"
+        Assertions.assertEquals("15:30", StringFunction.substring(args));
     }
 }

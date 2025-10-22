@@ -21,6 +21,7 @@ import org.apache.seatunnel.shade.com.google.common.hash.Hashing;
 
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.common.utils.DateTimeUtils;
+import org.apache.seatunnel.common.utils.DateUtils;
 import org.apache.seatunnel.transform.exception.TransformException;
 import org.apache.seatunnel.transform.sql.zeta.ZetaSQLFunction;
 
@@ -653,7 +654,7 @@ public class StringFunction {
         // Handle java.time types
         if (obj instanceof LocalDate) {
             LocalDate localDate = (LocalDate) obj;
-            return DateTimeUtils.toString(localDate, DateTimeUtils.Formatter.YYYY_MM_DD);
+            return DateUtils.toString(localDate, DateUtils.Formatter.YYYY_MM_DD);
         }
 
         if (obj instanceof LocalDateTime) {
@@ -678,7 +679,7 @@ public class StringFunction {
             } catch (Exception e) {
                 try {
                     // Fallback to date-only format
-                    return DateTimeUtils.toString(temporal, DateTimeUtils.Formatter.YYYY_MM_DD);
+                    return DateUtils.toString(temporal, DateUtils.Formatter.YYYY_MM_DD);
                 } catch (Exception ex) {
                     // If all else fails, use toString
                     return obj.toString();

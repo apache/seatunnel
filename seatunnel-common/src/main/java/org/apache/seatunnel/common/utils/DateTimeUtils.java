@@ -316,10 +316,6 @@ public class DateTimeUtils {
         return dateTime.format(FORMATTER_MAP.get(formatter));
     }
 
-    public static String toString(LocalDate date, Formatter formatter) {
-        return date.format(FORMATTER_MAP.get(formatter));
-    }
-
     public static String toString(OffsetDateTime offsetDateTime, Formatter formatter) {
         return offsetDateTime.format(FORMATTER_MAP.get(formatter));
     }
@@ -334,7 +330,6 @@ public class DateTimeUtils {
     }
 
     public enum Formatter {
-        YYYY_MM_DD("yyyy-MM-dd"),
         YYYY_MM_DD_HH_MM_SS("yyyy-MM-dd HH:mm:ss"),
         YYYY_MM_DD_HH_MM_SS_SSSSSS("yyyy-MM-dd HH:mm:ss.SSSSSS"),
         YYYY_MM_DD_HH_MM_SS_SPOT("yyyy.MM.dd HH:mm:ss"),
