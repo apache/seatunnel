@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
+import org.apache.seatunnel.api.table.type.MetadataUtil;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.common.source.reader.RecordEmitter;
 import org.apache.seatunnel.connectors.seatunnel.kafka.config.MessageFormatErrorHandleWay;
@@ -58,6 +59,8 @@ public class KafkaRecordEmitter
             KafkaSourceSplitState splitState)
             throws Exception {
         outputCollector.output = collector;
+        // Propagate Kafka record timestamp as metadata EventTime so downstream can materialize it
+        outputCollector.setCurrentRecordTimestamp(consumerRecord.timestamp());
         // todo there is an additional loss in this place for non-multi-table scenarios
         DeserializationSchema<SeaTunnelRow> deserializationSchema =
                 mapMetadata.get(splitState.getTablePath()).getDeserializationSchema();
@@ -87,9 +90,20 @@ public class KafkaRecordEmitter
 
     private static class OutputCollector<T> implements Collector<T> {
         private Collector<T> output;
+        private Long currentRecordTimestamp;
+
+        void setCurrentRecordTimestamp(Long ts) {
+            this.currentRecordTimestamp = ts;
+        }
 
         @Override
         public void collect(T record) {
+            // Attach Kafka record timestamp into metadata if applicable
+            if (record instanceof SeaTunnelRow
+                    && currentRecordTimestamp != null
+                    && currentRecordTimestamp >= 0) {
+                MetadataUtil.setEventTime((SeaTunnelRow) record, currentRecordTimestamp);
+            }
             output.collect(record);
         }
 
