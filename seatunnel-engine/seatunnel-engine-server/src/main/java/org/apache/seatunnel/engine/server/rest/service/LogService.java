@@ -73,8 +73,9 @@ public class LogService extends BaseLogService {
                     String allName = sendGet(url + REST_URL_GET_ALL_LOG_NAME);
                     if (StringUtils.isBlank(allName)) {
                         log.warn(
-                                "Get log file name failed, url: {}",
-                                url + REST_URL_GET_ALL_LOG_NAME);
+                                "Get log file name failed: response logName is blank. url: {}, response: {}",
+                                url + REST_URL_GET_ALL_LOG_NAME,
+                                allName);
                         return;
                     }
                     log.debug("Request: {} , Result: {}", url, allName);
