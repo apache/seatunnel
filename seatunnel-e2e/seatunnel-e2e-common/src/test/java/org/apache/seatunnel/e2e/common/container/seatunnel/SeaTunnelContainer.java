@@ -424,7 +424,9 @@ public class SeaTunnelContainer extends AbstractTestContainer {
                 || s.startsWith("LeaseRenewer")
                 // The read of hdfs which has the thread that is all in running status
                 || s.startsWith("org.apache.hadoop.hdfs.PeerCache")
-                || s.startsWith("java-sdk-progress-listener-callback-thread");
+                || s.startsWith("java-sdk-progress-listener-callback-thread")
+                // redis pool evictor daemon thread
+                || s.startsWith("commons-pool-evictor");
     }
 
     private void classLoaderObjectCheck(Integer maxSize) throws IOException, InterruptedException {

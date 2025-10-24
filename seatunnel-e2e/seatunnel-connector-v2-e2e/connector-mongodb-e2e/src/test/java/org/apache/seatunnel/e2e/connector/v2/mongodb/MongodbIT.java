@@ -17,19 +17,47 @@
 
 package org.apache.seatunnel.e2e.connector.v2.mongodb;
 
+import org.apache.seatunnel.api.sink.DataSaveMode;
+import org.apache.seatunnel.api.sink.SaveModeHandler;
+import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.Column;
+import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
+import org.apache.seatunnel.api.table.catalog.TableIdentifier;
+import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
+import org.apache.seatunnel.connectors.seatunnel.mongodb.serde.RowDataDocumentSerializer;
+import org.apache.seatunnel.connectors.seatunnel.mongodb.serde.RowDataToBsonConverters;
+import org.apache.seatunnel.connectors.seatunnel.mongodb.sink.MongoKeyExtractor;
+import org.apache.seatunnel.connectors.seatunnel.mongodb.sink.MongodbSink;
+import org.apache.seatunnel.connectors.seatunnel.mongodb.sink.MongodbWriterOptions;
+import org.apache.seatunnel.connectors.seatunnel.mongodb.sink.state.DocumentBulk;
+import org.apache.seatunnel.connectors.seatunnel.mongodb.sink.state.MongodbCommitInfo;
 import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 
+import org.bson.BsonDocument;
 import org.bson.Document;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.Container;
 
+import com.mongodb.client.MongoCollection;
+import com.mongodb.client.model.WriteModel;
+import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
+
+import static org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbConfig.CONNECTOR_IDENTITY;
 
 @Slf4j
 public class MongodbIT extends AbstractMongodbIT {
@@ -42,7 +70,7 @@ public class MongodbIT extends AbstractMongodbIT {
 
         Container.ExecResult assertResult = container.executeJob("/mongodb_source_to_assert.conf");
         Assertions.assertEquals(0, assertResult.getExitCode(), assertResult.getStderr());
-        clearDate(MONGODB_SINK_TABLE);
+        clearData(MONGODB_SINK_TABLE);
     }
 
     @TestTemplate
@@ -59,8 +87,8 @@ public class MongodbIT extends AbstractMongodbIT {
                 readMongodbData(MONGODB_NULL_TABLE_RESULT).stream()
                         .peek(e -> e.remove("_id"))
                         .collect(Collectors.toList()));
-        clearDate(MONGODB_NULL_TABLE);
-        clearDate(MONGODB_NULL_TABLE_RESULT);
+        clearData(MONGODB_NULL_TABLE);
+        clearData(MONGODB_NULL_TABLE_RESULT);
     }
 
     @TestTemplate
@@ -78,7 +106,7 @@ public class MongodbIT extends AbstractMongodbIT {
                 readMongodbData(MONGODB_MATCH_RESULT_TABLE).stream()
                         .peek(e -> e.remove("_id"))
                         .collect(Collectors.toList()));
-        clearDate(MONGODB_MATCH_RESULT_TABLE);
+        clearData(MONGODB_MATCH_RESULT_TABLE);
 
         Container.ExecResult projectionResult =
                 container.executeJob("/matchIT/mongodb_matchProjection_source_to_assert.conf");
@@ -93,7 +121,7 @@ public class MongodbIT extends AbstractMongodbIT {
                 readMongodbData(MONGODB_MATCH_RESULT_TABLE).stream()
                         .peek(e -> e.remove("_id"))
                         .collect(Collectors.toList()));
-        clearDate(MONGODB_MATCH_RESULT_TABLE);
+        clearData(MONGODB_MATCH_RESULT_TABLE);
     }
 
     @TestTemplate
@@ -112,7 +140,7 @@ public class MongodbIT extends AbstractMongodbIT {
                 container.executeJob("/updateIT/update_mongodb_to_assert.conf");
         Assertions.assertEquals(0, assertResult.getExitCode(), assertResult.getStderr());
 
-        clearDate(MONGODB_UPDATE_TABLE);
+        clearData(MONGODB_UPDATE_TABLE);
     }
 
     @TestTemplate
@@ -126,7 +154,7 @@ public class MongodbIT extends AbstractMongodbIT {
                 container.executeJob("/flatIT/mongodb_flat_source_to_assert.conf");
         Assertions.assertEquals(0, assertResult.getExitCode(), assertResult.getStderr());
 
-        clearDate(MONGODB_FLAT_TABLE);
+        clearData(MONGODB_FLAT_TABLE);
     }
 
     @TestTemplate
@@ -144,7 +172,7 @@ public class MongodbIT extends AbstractMongodbIT {
                 readMongodbData(MONGODB_SPLIT_RESULT_TABLE).stream()
                         .peek(e -> e.remove("_id"))
                         .collect(Collectors.toList()));
-        clearDate(MONGODB_SPLIT_RESULT_TABLE);
+        clearData(MONGODB_SPLIT_RESULT_TABLE);
 
         Container.ExecResult projectionResult =
                 container.executeJob("/splitIT/mongodb_split_size_source_to_assert.conf");
@@ -158,7 +186,7 @@ public class MongodbIT extends AbstractMongodbIT {
                 readMongodbData(MONGODB_SPLIT_RESULT_TABLE).stream()
                         .peek(e -> e.remove("_id"))
                         .collect(Collectors.toList()));
-        clearDate(MONGODB_SPLIT_RESULT_TABLE);
+        clearData(MONGODB_SPLIT_RESULT_TABLE);
     }
 
     @TestTemplate
@@ -177,7 +205,7 @@ public class MongodbIT extends AbstractMongodbIT {
                 container.executeJob("/updateIT/update_mongodb_to_assert.conf");
         Assertions.assertEquals(0, assertResult.getExitCode(), assertResult.getStderr());
 
-        clearDate(MONGODB_UPDATE_TABLE);
+        clearData(MONGODB_UPDATE_TABLE);
 
         // `matchQuery` compatible test
         Container.ExecResult queryResult =
@@ -192,7 +220,7 @@ public class MongodbIT extends AbstractMongodbIT {
                 readMongodbData(MONGODB_MATCH_RESULT_TABLE).stream()
                         .peek(e -> e.remove("_id"))
                         .collect(Collectors.toList()));
-        clearDate(MONGODB_MATCH_RESULT_TABLE);
+        clearData(MONGODB_MATCH_RESULT_TABLE);
     }
 
     @TestTemplate
@@ -218,8 +246,8 @@ public class MongodbIT extends AbstractMongodbIT {
         Assertions.assertEquals(
                 0, assertUpsertResult.getExitCode(), assertUpsertResult.getStderr());
 
-        clearDate(MONGODB_TRANSACTION_SINK_TABLE);
-        clearDate(MONGODB_TRANSACTION_UPSERT_TABLE);
+        clearData(MONGODB_TRANSACTION_SINK_TABLE);
+        clearData(MONGODB_TRANSACTION_UPSERT_TABLE);
     }
 
     @TestTemplate
@@ -235,6 +263,163 @@ public class MongodbIT extends AbstractMongodbIT {
                 readMongodbData(MONGODB_DOUBLE_TABLE_RESULT).stream()
                         .peek(e -> e.remove("_id"))
                         .collect(Collectors.toList()));
-        clearDate(MONGODB_DOUBLE_TABLE_RESULT);
+        clearData(MONGODB_DOUBLE_TABLE_RESULT);
+    }
+
+    @SneakyThrows
+    @TestTemplate
+    public void testDropDataSaveMode(TestContainer container) {
+        // test drop data save mode
+        String collectionName = "drop_data_save_mode_coll";
+        MongoCollection<BsonDocument> collection =
+                client.getDatabase(MONGODB_DATABASE)
+                        .getCollection(collectionName, BsonDocument.class);
+        // insert one row
+        beforeInsertData(collectionName, DataSaveMode.DROP_DATA, collection);
+        // build sink
+        final MongodbSink mongoDbSink = getSinkInstance(collectionName, DataSaveMode.DROP_DATA);
+        final SinkWriter<SeaTunnelRow, MongodbCommitInfo, DocumentBulk> writer =
+                mongoDbSink.createWriter(null);
+        final Optional<SaveModeHandler> saveModeHandlerOptional = mongoDbSink.getSaveModeHandler();
+        // do save mode
+        if (saveModeHandlerOptional.isPresent()) {
+            final SaveModeHandler saveModeHandler = saveModeHandlerOptional.get();
+            saveModeHandler.open();
+            saveModeHandler.handleSaveMode();
+            saveModeHandler.close();
+        }
+        // do write
+        writer.write(getSeaTunnelRowOne());
+        Assertions.assertEquals(1L, collection.countDocuments());
+        // clear
+        collection.drop();
+    }
+
+    @SneakyThrows
+    @TestTemplate
+    public void testAppendDataSaveMode(TestContainer container) {
+        // test drop data save mode
+        String collectionName = "append_data_save_mode_coll";
+        MongoCollection<BsonDocument> collection =
+                client.getDatabase(MONGODB_DATABASE)
+                        .getCollection(collectionName, BsonDocument.class);
+        // insert one row
+        beforeInsertData(collectionName, DataSaveMode.APPEND_DATA, collection);
+        // build sink
+        final MongodbSink mongoDbSink = getSinkInstance(collectionName, DataSaveMode.APPEND_DATA);
+        final SinkWriter<SeaTunnelRow, MongodbCommitInfo, DocumentBulk> writer =
+                mongoDbSink.createWriter(null);
+        final Optional<SaveModeHandler> saveModeHandlerOptional = mongoDbSink.getSaveModeHandler();
+        // do save mode
+        if (saveModeHandlerOptional.isPresent()) {
+            final SaveModeHandler saveModeHandler = saveModeHandlerOptional.get();
+            saveModeHandler.open();
+            saveModeHandler.handleSaveMode();
+            saveModeHandler.close();
+        }
+        // do write
+        writer.write(getSeaTunnelRowOne());
+        Assertions.assertEquals(3L, collection.countDocuments());
+        // clear
+        collection.drop();
+    }
+
+    @SneakyThrows
+    @TestTemplate
+    public void testErrorWhenDataExistsSaveMode(TestContainer container) {
+        // test drop data save mode
+        String collectionName = "error_data_save_mode_coll";
+        MongoCollection<BsonDocument> collection =
+                client.getDatabase(MONGODB_DATABASE)
+                        .getCollection(collectionName, BsonDocument.class);
+        // insert one row
+        beforeInsertData(collectionName, DataSaveMode.ERROR_WHEN_DATA_EXISTS, collection);
+        // build sink
+        final MongodbSink mongoDbSink =
+                getSinkInstance(collectionName, DataSaveMode.ERROR_WHEN_DATA_EXISTS);
+        final SinkWriter<SeaTunnelRow, MongodbCommitInfo, DocumentBulk> writer =
+                mongoDbSink.createWriter(null);
+        final Optional<SaveModeHandler> saveModeHandlerOptional = mongoDbSink.getSaveModeHandler();
+        // do save mode
+        if (saveModeHandlerOptional.isPresent()) {
+            final SaveModeHandler saveModeHandler = saveModeHandlerOptional.get();
+            saveModeHandler.open();
+            Assertions.assertThrows(
+                    SeaTunnelRuntimeException.class,
+                    saveModeHandler::handleDataSaveMode,
+                    "When there exist data, an error will be reported");
+            saveModeHandler.close();
+        }
+        Assertions.assertEquals(2L, collection.countDocuments());
+        // clear
+        collection.drop();
+    }
+
+    private void beforeInsertData(
+            String collection,
+            DataSaveMode dataSaveMode,
+            MongoCollection<BsonDocument> dropDataCollection) {
+        final RowDataDocumentSerializer rowDataDocumentSerializer =
+                new RowDataDocumentSerializer(
+                        RowDataToBsonConverters.createConverter(
+                                getCatalogTable(collection).getSeaTunnelRowType()),
+                        getMongodbWriterOptions(collection, dataSaveMode),
+                        new MongoKeyExtractor(getMongodbWriterOptions(collection, dataSaveMode)));
+        WriteModel<BsonDocument> bsonDocumentWriteModelOne =
+                rowDataDocumentSerializer.serializeToWriteModel(getSeaTunnelRowOne());
+        WriteModel<BsonDocument> bsonDocumentWriteModelTwo =
+                rowDataDocumentSerializer.serializeToWriteModel(getSeaTunnelRowTwo());
+        List<WriteModel<BsonDocument>> writeModelList = new ArrayList<>();
+        writeModelList.add(bsonDocumentWriteModelOne);
+        writeModelList.add(bsonDocumentWriteModelTwo);
+        dropDataCollection.bulkWrite(writeModelList);
+    }
+
+    private SeaTunnelRow getSeaTunnelRowOne() {
+        return new SeaTunnelRow(new Object[] {1L, "A", 100});
+    }
+
+    private SeaTunnelRow getSeaTunnelRowTwo() {
+        return new SeaTunnelRow(new Object[] {2L, "B", 200});
+    }
+
+    private MongodbSink getSinkInstance(String collection, DataSaveMode dataSaveMode) {
+        return new MongodbSink(
+                getMongodbWriterOptions(collection, dataSaveMode), getCatalogTable(collection));
+    }
+
+    private MongodbWriterOptions getMongodbWriterOptions(
+            String collection, DataSaveMode dataSaveMode) {
+        String host = mongodbContainer.getContainerIpAddress();
+        int port = mongodbContainer.getFirstMappedPort();
+        String url = String.format("mongodb://%s:%d/%s", host, port, MONGODB_DATABASE);
+        return MongodbWriterOptions.builder()
+                .withConnectString(url)
+                .withDatabase(MONGODB_DATABASE)
+                .withCollection(collection)
+                .withDataSaveMode(dataSaveMode)
+                .withFlushSize(1)
+                .build();
+    }
+
+    private CatalogTable getCatalogTable(String collection) {
+        return CatalogTable.of(
+                TableIdentifier.of(CONNECTOR_IDENTITY, MONGODB_DATABASE, collection),
+                getTableSchema(),
+                new HashMap<>(),
+                new ArrayList<>(),
+                "");
+    }
+
+    private TableSchema getTableSchema() {
+        return new TableSchema(getColumns(), null, null);
+    }
+
+    private List<Column> getColumns() {
+        List<Column> columns = new ArrayList<>();
+        columns.add(new PhysicalColumn("c_int", BasicType.LONG_TYPE, 64L, 0, true, "", ""));
+        columns.add(new PhysicalColumn("name", BasicType.STRING_TYPE, 100L, 0, true, "", ""));
+        columns.add(new PhysicalColumn("score", BasicType.INT_TYPE, 32L, 0, true, "", ""));
+        return columns;
     }
 }

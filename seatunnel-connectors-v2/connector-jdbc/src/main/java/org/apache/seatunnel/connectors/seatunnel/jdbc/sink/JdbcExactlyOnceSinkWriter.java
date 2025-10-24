@@ -24,6 +24,7 @@ import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.schema.exception.SinkWriterSchemaException;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSinkConfig;
@@ -131,10 +132,51 @@ public class JdbcExactlyOnceSinkWriter extends AbstractJdbcSinkWriter<Void> {
 
     @Override
     public void write(SeaTunnelRow element) {
+        if (element != null && element.getOptions() != null) {
+            if (element.getOptions().containsKey("flush_event")
+                    || element.getOptions().containsKey("schema_change_event")) {
+                LOG.debug("Skipping schema change event row: {}", element.getOptions().keySet());
+                return;
+            }
+        }
+
         tryOpen();
         checkState(currentXid != null, "current xid must not be null");
         SeaTunnelRow copy = SerializationUtils.clone(element);
         outputFormat.writeRecord(copy);
+    }
+
+    @Override
+    public void flushData() throws IOException {
+        tryOpen();
+        outputFormat.checkFlushException();
+        outputFormat.flush();
+    }
+
+    @Override
+    public void handleFlushEvent(org.apache.seatunnel.api.table.schema.event.FlushEvent event)
+            throws IOException {
+        LOG.info(
+                "JdbcExactlyOnceSinkWriter handling FlushEvent for table: {}",
+                event.tableIdentifier());
+        try {
+            tryOpen();
+            flushData();
+            LOG.info(
+                    "JdbcExactlyOnceSinkWriter flush completed for table: {}",
+                    event.tableIdentifier());
+            sendFlushSuccessful(event);
+        } catch (Exception e) {
+            LOG.error(
+                    "JdbcExactlyOnceSinkWriter flush failed for table: {}",
+                    event.tableIdentifier(),
+                    e);
+            throw SinkWriterSchemaException.flushFailed(
+                    event.tableIdentifier(),
+                    event.getJobId(),
+                    "Exactly-once JDBC flush operation failed",
+                    e);
+        }
     }
 
     @Override

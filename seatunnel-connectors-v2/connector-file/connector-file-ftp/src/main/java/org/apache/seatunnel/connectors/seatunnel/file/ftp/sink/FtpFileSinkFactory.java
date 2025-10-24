@@ -122,6 +122,7 @@ public class FtpFileSinkFactory extends BaseMultipleTableFileSinkFactory {
                 .optional(FileBaseSinkOptions.CREATE_EMPTY_FILE_WHEN_NO_DATA)
                 .optional(FileBaseSinkOptions.FILENAME_EXTENSION)
                 .optional(FtpFileSourceOptions.FTP_REMOTE_VERIFICATION_ENABLED)
+                .optional(FtpFileSourceOptions.FTP_CONTROL_ENCODING)
                 .build();
     }
 
