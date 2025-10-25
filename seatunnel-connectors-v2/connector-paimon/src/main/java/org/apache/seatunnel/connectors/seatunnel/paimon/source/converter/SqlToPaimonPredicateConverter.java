@@ -152,8 +152,11 @@ public class SqlToPaimonPredicateConverter {
     }
 
     public static Map<String, String> parseDynamicOptions(String sql) {
-        String dynamicOptionsPattern = "/\\*\\+ OPTIONS\\((.*?)\\) \\*/";
         Map<String, String> dynamicOptions = new HashMap<>();
+        if (StringUtils.isBlank(sql)) {
+            return dynamicOptions;
+        }
+        String dynamicOptionsPattern = "/\\*\\+ OPTIONS\\((.*?)\\) \\*/";
         Pattern optionsPattern = Pattern.compile(dynamicOptionsPattern, Pattern.CASE_INSENSITIVE);
         Matcher optionsMatcher = optionsPattern.matcher(sql);
         if (optionsMatcher.find()) {
