@@ -98,7 +98,7 @@ you can also project specific columns, for example: select id, name from st_test
 
 Supports dynamic options settings:
 ```sql
-SELECT * FROM table /*+ OPTIONS('incremental-between-timestamp' = '2025-10-12 00:00:00,2025-10-12 00:08:00') */ WHERE int_col > 3 OR double_col < 6.6 */;
+SELECT * FROM table /*+ OPTIONS('incremental-between' = 'test-tag1,test-tag2') */;
 ```
 
 Note: When the field after the where condition is a string or boolean value, its value must be enclosed in single quotes, otherwise an error will be reported. `For example: name='abc' or tag='true'`

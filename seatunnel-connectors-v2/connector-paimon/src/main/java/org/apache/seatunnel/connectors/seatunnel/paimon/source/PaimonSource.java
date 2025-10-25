@@ -83,7 +83,7 @@ public class PaimonSource
                             Map<String, String> dynamicOptions =
                                     SqlToPaimonPredicateConverter.parseDynamicOptions(query);
                             if (!dynamicOptions.isEmpty()) {
-                                paimonTable.copy(dynamicOptions);
+                                paimonTable = paimonTable.copy(dynamicOptions);
                             }
                             RowType paimonRowType = paimonTable.rowType();
                             String[] filedNames =

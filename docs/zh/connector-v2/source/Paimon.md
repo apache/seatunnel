@@ -101,7 +101,7 @@ Projection 已支持,你可以选择特定的列，例如：select id, name from
 
 query 参数支持动态参数设置:
 ```sql
-SELECT * FROM table /*+ OPTIONS('incremental-between-timestamp' = '2025-10-12 00:00:00,2025-10-12 00:08:00') */ WHERE int_col > 3 OR double_col < 6.6 */;
+SELECT * FROM table /*+ OPTIONS('incremental-between' = 'test-tag1,test-tag2') */;
 ```
 
 
