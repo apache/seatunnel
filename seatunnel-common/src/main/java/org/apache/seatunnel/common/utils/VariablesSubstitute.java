@@ -17,9 +17,9 @@
 
 package org.apache.seatunnel.common.utils;
 
-import org.apache.seatunnel.common.Constants;
+import org.apache.seatunnel.shade.org.apache.commons.lang3.text.StrSubstitutor;
 
-import org.apache.commons.lang3.text.StrSubstitutor;
+import org.apache.seatunnel.common.Constants;
 
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;

@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.hudi.sink.writer;
 
+import org.apache.seatunnel.shade.org.apache.commons.lang3.tuple.Pair;
+
 import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -28,7 +30,6 @@ import org.apache.seatunnel.connectors.seatunnel.hudi.sink.client.WriteClientPro
 import org.apache.seatunnel.connectors.seatunnel.hudi.sink.convert.HudiRecordConverter;
 
 import org.apache.avro.Schema;
-import org.apache.commons.lang3.tuple.Pair;
 import org.apache.hudi.avro.AvroSchemaUtils;
 import org.apache.hudi.client.HoodieJavaWriteClient;
 import org.apache.hudi.common.model.HoodieAvroPayload;

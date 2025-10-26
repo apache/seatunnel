@@ -2,6 +2,7 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
+|[Improve][API] Optimize the enumerator API semantics and reduce lock calls at the connector level (#9671)|https://github.com/apache/seatunnel/commit/9212a77140|2.3.12|
 |[fix][connector-mango] fix split with avgSize zero error (#9255)|https://github.com/apache/seatunnel/commit/564863b933|2.3.11|
 |[Feature][Checkpoint] Add check script for source/sink state class serialVersionUID missing (#9118)|https://github.com/apache/seatunnel/commit/4f5adeb1c7|2.3.11|
 |[Fix][MongoDB] The Long type cannot handle string values in scientific notation (#8783)|https://github.com/apache/seatunnel/commit/00f550e3d0|2.3.11|

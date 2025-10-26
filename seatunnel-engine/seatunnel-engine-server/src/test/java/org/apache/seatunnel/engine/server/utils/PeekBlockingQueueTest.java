@@ -34,7 +34,7 @@ public class PeekBlockingQueueTest {
 
     @BeforeEach
     void setUp() {
-        queue = new PeekBlockingQueue<>();
+        queue = new PeekBlockingQueue<>(Long::parseLong);
     }
 
     @Test
@@ -112,5 +112,15 @@ public class PeekBlockingQueueTest {
         queue.put("2");
 
         CompletableFuture.allOf(peekFuture, secondPeekFuture).join();
+    }
+
+    @Test
+    public void testClear() {
+        queue.put("1");
+        queue.put("2");
+        queue.put("3");
+        Assertions.assertEquals(3, queue.size());
+        queue.clear();
+        Assertions.assertEquals(0, queue.size());
     }
 }

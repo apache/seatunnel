@@ -637,6 +637,37 @@ public class DebeziumJsonSerDeSchemaTest {
                         "{\"before\":null,\"after\":{\"id\":111,\"name\":\"scooter\",\"description\":\"Big 2-wheel scooter \",\"weight\":5.17},\"op\":\"c\",\"source\":{\"schema\":\"\",\"database\":\"\",\"table\":\"test\"},\"ts_ms\":1589362330904}",
                         "{\"before\":{\"id\":111,\"name\":\"scooter\",\"description\":\"Big 2-wheel scooter \",\"weight\":5.17},\"after\":null,\"op\":\"d\",\"source\":{\"schema\":\"\",\"database\":\"\",\"table\":\"test\"},\"ts_ms\":1589362344455}");
         assertEquals(expected, actual);
+
+        // test merge_update_event
+        serializationSchema =
+                new DebeziumJsonSerializationSchema(
+                        SEATUNNEL_ROW_TYPE, StandardCharsets.UTF_8, true);
+        actual.clear();
+        for (SeaTunnelRow rowData : collector.list) {
+            if (serializationSchema.serialize(rowData) != null) {
+                actual.add(
+                        new String(serializationSchema.serialize(rowData), StandardCharsets.UTF_8));
+            }
+        }
+        expected =
+                Arrays.asList(
+                        "{\"before\":null,\"after\":{\"id\":101,\"name\":\"scooter\",\"description\":\"Small 2-wheel scooter\",\"weight\":3.14},\"op\":\"c\",\"source\":{\"schema\":\"\",\"database\":\"\",\"table\":\"test\"},\"ts_ms\":1589355606100}",
+                        "{\"before\":null,\"after\":{\"id\":102,\"name\":\"car battery\",\"description\":\"12V car battery\",\"weight\":8.1},\"op\":\"c\",\"source\":{\"schema\":\"\",\"database\":\"\",\"table\":\"test\"},\"ts_ms\":1589355606101}",
+                        "{\"before\":null,\"after\":{\"id\":103,\"name\":\"12-pack drill bits\",\"description\":\"12-pack of drill bits with sizes ranging from #40 to #3\",\"weight\":0.8},\"op\":\"c\",\"source\":{\"schema\":\"\",\"database\":\"\",\"table\":\"test\"},\"ts_ms\":1589355606101}",
+                        "{\"before\":null,\"after\":{\"id\":104,\"name\":\"hammer\",\"description\":\"12oz carpenter's hammer\",\"weight\":0.75},\"op\":\"c\",\"source\":{\"schema\":\"\",\"database\":\"\",\"table\":\"test\"},\"ts_ms\":1589355606101}",
+                        "{\"before\":null,\"after\":{\"id\":105,\"name\":\"hammer\",\"description\":\"14oz carpenter's hammer\",\"weight\":0.875},\"op\":\"c\",\"source\":{\"schema\":\"\",\"database\":\"\",\"table\":\"test\"},\"ts_ms\":1589355606101}",
+                        "{\"before\":null,\"after\":{\"id\":106,\"name\":\"hammer\",\"description\":\"16oz carpenter's hammer\",\"weight\":1.0},\"op\":\"c\",\"source\":{\"schema\":\"\",\"database\":\"\",\"table\":\"test\"},\"ts_ms\":1589355606101}",
+                        "{\"before\":null,\"after\":{\"id\":107,\"name\":\"rocks\",\"description\":\"box of assorted rocks\",\"weight\":5.3},\"op\":\"c\",\"source\":{\"schema\":\"\",\"database\":\"\",\"table\":\"test\"},\"ts_ms\":1589355606101}",
+                        "{\"before\":null,\"after\":{\"id\":108,\"name\":\"jacket\",\"description\":\"water resistent black wind breaker\",\"weight\":0.1},\"op\":\"c\",\"source\":{\"schema\":\"\",\"database\":\"\",\"table\":\"test\"},\"ts_ms\":1589355606101}",
+                        "{\"before\":null,\"after\":{\"id\":109,\"name\":\"spare tire\",\"description\":\"24 inch spare tire\",\"weight\":22.2},\"op\":\"c\",\"source\":{\"schema\":\"\",\"database\":\"\",\"table\":\"test\"},\"ts_ms\":1589355606101}",
+                        "{\"before\":{\"id\":106,\"name\":\"hammer\",\"description\":\"16oz carpenter's hammer\",\"weight\":1.0},\"after\":{\"id\":106,\"name\":\"hammer\",\"description\":\"18oz carpenter hammer\",\"weight\":1.0},\"op\":\"u\",\"source\":{\"schema\":\"\",\"database\":\"\",\"table\":\"test\"},\"ts_ms\":1589361987936}",
+                        "{\"before\":{\"id\":107,\"name\":\"rocks\",\"description\":\"box of assorted rocks\",\"weight\":5.3},\"after\":{\"id\":107,\"name\":\"rocks\",\"description\":\"box of assorted rocks\",\"weight\":5.1},\"op\":\"u\",\"source\":{\"schema\":\"\",\"database\":\"\",\"table\":\"test\"},\"ts_ms\":1589362099505}",
+                        "{\"before\":null,\"after\":{\"id\":110,\"name\":\"jacket\",\"description\":\"water resistent white wind breaker\",\"weight\":0.2},\"op\":\"c\",\"source\":{\"schema\":\"\",\"database\":\"\",\"table\":\"test\"},\"ts_ms\":1589362210230}",
+                        "{\"before\":null,\"after\":{\"id\":111,\"name\":\"scooter\",\"description\":\"Big 2-wheel scooter \",\"weight\":5.18},\"op\":\"c\",\"source\":{\"schema\":\"\",\"database\":\"\",\"table\":\"test\"},\"ts_ms\":1589362243428}",
+                        "{\"before\":{\"id\":110,\"name\":\"jacket\",\"description\":\"water resistent white wind breaker\",\"weight\":0.2},\"after\":{\"id\":110,\"name\":\"jacket\",\"description\":\"new water resistent white wind breaker\",\"weight\":0.5},\"op\":\"u\",\"source\":{\"schema\":\"\",\"database\":\"\",\"table\":\"test\"},\"ts_ms\":1589362293539}",
+                        "{\"before\":{\"id\":111,\"name\":\"scooter\",\"description\":\"Big 2-wheel scooter \",\"weight\":5.18},\"after\":{\"id\":111,\"name\":\"scooter\",\"description\":\"Big 2-wheel scooter \",\"weight\":5.17},\"op\":\"u\",\"source\":{\"schema\":\"\",\"database\":\"\",\"table\":\"test\"},\"ts_ms\":1589362330904}",
+                        "{\"before\":{\"id\":111,\"name\":\"scooter\",\"description\":\"Big 2-wheel scooter \",\"weight\":5.17},\"after\":null,\"op\":\"d\",\"source\":{\"schema\":\"\",\"database\":\"\",\"table\":\"test\"},\"ts_ms\":1589362344455}");
+        assertEquals(expected, actual);
     }
     // --------------------------------------------------------------------------------------------
     // Utilities

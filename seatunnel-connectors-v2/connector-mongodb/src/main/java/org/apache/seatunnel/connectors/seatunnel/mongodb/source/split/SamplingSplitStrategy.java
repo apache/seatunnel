@@ -20,10 +20,9 @@ package org.apache.seatunnel.connectors.seatunnel.mongodb.source.split;
 import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
 import org.apache.seatunnel.shade.com.google.common.base.Preconditions;
 import org.apache.seatunnel.shade.com.google.common.collect.Lists;
+import org.apache.seatunnel.shade.org.apache.commons.lang3.tuple.ImmutablePair;
 
 import org.apache.seatunnel.connectors.seatunnel.mongodb.internal.MongodbClientProvider;
-
-import org.apache.commons.lang3.tuple.ImmutablePair;
 
 import org.bson.BsonDocument;
 import org.bson.BsonString;

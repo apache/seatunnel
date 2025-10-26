@@ -17,22 +17,23 @@ import ChangeLog from '../changelog/connector-redis.md';
 | name               | type    |       required        | default value |
 |--------------------|---------|-----------------------|---------------|
 | host               | string  | `mode=single`时必须      | -             |
-| port               | int     | no                    | 6379          |
-| key                | string  | yes                   | -             |
-| data_type          | string  | yes                   | -             |
-| batch_size         | int     | no                    | 10            |
-| user               | string  | no                    | -             |
-| auth               | string  | no                    | -             |
-| db_num             | int     | no                    | 0             |
-| mode               | string  | no                    | single        |
-| nodes              | list    | yes when mode=cluster | -             |
-| format             | string  | no                    | json          |
-| expire             | long    | no                    | -1            |
-| support_custom_key | boolean | no                    | false         |
-| value_field        | string  | no                    | -             |
-| hash_key_field     | string  | no                    | -             |
-| hash_value_field   | string  | no                    | -             |
-| common-options     |         | no                    | -             |
+| port               | int     | 否                 | 6379          |
+| key                | string  | 是                 | -             |
+| data_type          | string  | 是                 | -             |
+| batch_size         | int     | 否                 | 10            |
+| user               | string  | 否                 | -             |
+| auth               | string  | 否                 | -             |
+| db_num             | int     | 否                 | 0             |
+| mode               | string  | 否                 | single        |
+| nodes              | list    | `mode=cluster`时必须 | -             |
+| format             | string  | 否                 | json          |
+| expire             | long    | 否                 | -1            |
+| support_custom_key | boolean | 否                 | false         |
+| value_field        | string  | 否                 | -             |
+| hash_key_field     | string  | 否                 | -             |
+| hash_value_field   | string  | 否                 | -             |
+| field_delimiter    | string  | 否                 | ","           |
+| common-options     |         | 否                 | -             |
 
 ### host [string]
 
@@ -114,7 +115,7 @@ Redis 节点信息，在集群模式下使用，必须按如下格式：
 
 ### format [string]
 
-上游数据的格式，目前只支持 `json`，以后会支持 `text`，默认 `json`。
+上游数据的格式，目前只支持 `json`，`text`，默认 `json`。
 
 当你指定格式为 `json` 时，例如：
 
@@ -129,6 +130,18 @@ Redis 节点信息，在集群模式下使用，必须按如下格式：
 ```json
 {"code":  200, "data":  "获取成功", "success":  "true"}
 ```
+
+当你指定format为`text`，并设置field_delimiter为`#`时，连接器将生成如下数据并将其写入redis：
+
+```text
+200#get success#true
+```
+
+### field_delimiter [string]
+字段分隔符，用于告诉连接器如何分割字段。
+
+目前仅当格式为text时需要配置。默认为","。
+
 
 ### expire [long]
 
@@ -210,7 +223,7 @@ Redis {
 Redis {
   host = localhost
   port = 6379
-  key = "name:{name}"
+  key = "name:${name}"
   support_custom_key = true
   data_type = key
 }

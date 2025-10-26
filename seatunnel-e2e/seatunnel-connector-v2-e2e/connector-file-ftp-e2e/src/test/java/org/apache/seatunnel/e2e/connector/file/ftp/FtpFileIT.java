@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.e2e.connector.file.ftp;
 
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
+
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.EngineType;
@@ -24,8 +26,6 @@ import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.container.TestHelper;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.util.ContainerUtil;
-
-import org.apache.commons.lang3.StringUtils;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
@@ -255,6 +255,57 @@ public class FtpFileIT extends TestSuiteBase implements TestResource {
         helper.execute("/json/ftp_file_json_to_assert_with_multipletable.conf");
         Assertions.assertEquals(getFileListFromContainer(homePath + sink01).size(), 1);
         Assertions.assertEquals(getFileListFromContainer(homePath + sink02).size(), 1);
+    }
+
+    @TestTemplate
+    public void testFtpFileWithSpecialCharactersPath(TestContainer container)
+            throws IOException, InterruptedException {
+        TestHelper helper = new TestHelper(container);
+
+        // Create test file with spaces in path - simpler test to avoid Docker memory issues
+        String specialPath = "/tmp/seatunnel/test spaces";
+        String fileName = "file with spaces.txt";
+        String fullPath = specialPath + "/" + fileName;
+        String homePath = "/home/vsftpd/seatunnel";
+        String containerPath = homePath + fullPath;
+
+        try {
+            // Create directory structure with special characters
+            Container.ExecResult mkdirResult =
+                    ftpContainer.execInContainer("mkdir", "-p", homePath + specialPath);
+            log.info(
+                    "mkdir result: exit code {}, stdout: {}, stderr: {}",
+                    mkdirResult.getExitCode(),
+                    mkdirResult.getStdout(),
+                    mkdirResult.getStderr());
+
+            // Create test file with content
+            String testContent = "name,age,city\nJohn,30,NYC\nJane,25,LA\n";
+            Container.ExecResult createResult =
+                    ftpContainer.execInContainer(
+                            "sh", "-c", "echo '" + testContent + "' > '" + containerPath + "'");
+            log.info(
+                    "create file result: exit code {}, stdout: {}, stderr: {}",
+                    createResult.getExitCode(),
+                    createResult.getStdout(),
+                    createResult.getStderr());
+
+            // Verify file was created
+            Container.ExecResult lsResult =
+                    ftpContainer.execInContainer("ls", "-la", containerPath);
+            Assertions.assertEquals(
+                    0,
+                    lsResult.getExitCode(),
+                    "Failed to create test file with special characters: " + lsResult.getStderr());
+            log.info("File created successfully: {}", lsResult.getStdout());
+
+            // Test reading file with special characters in path using UTF-8 control encoding
+            helper.execute("/text/ftp_special_characters_path_to_assert.conf");
+
+        } finally {
+            // Clean up
+            deleteFileFromContainer(homePath + "/tmp/seatunnel/test\\ spaces");
+        }
     }
 
     @TestTemplate

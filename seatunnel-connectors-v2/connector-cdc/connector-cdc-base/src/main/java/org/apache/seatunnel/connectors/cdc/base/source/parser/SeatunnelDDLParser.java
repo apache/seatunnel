@@ -17,9 +17,9 @@
 
 package org.apache.seatunnel.connectors.cdc.base.source.parser;
 
-import org.apache.seatunnel.api.table.catalog.TableIdentifier;
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
-import org.apache.commons.lang3.StringUtils;
+import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 
 import io.debezium.relational.Column;
 import io.debezium.relational.TableId;

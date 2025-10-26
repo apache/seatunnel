@@ -17,9 +17,14 @@
 
 package org.apache.seatunnel.connectors.seatunnel.mongodb.sink;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.TableIdentifier;
+import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
+import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbConfig;
 
 import com.google.auto.service.AutoService;
@@ -43,7 +48,51 @@ public class MongodbSinkFactory implements TableSinkFactory {
                         MongodbConfig.RETRY_MAX,
                         MongodbConfig.RETRY_INTERVAL,
                         MongodbConfig.UPSERT_ENABLE,
-                        MongodbConfig.PRIMARY_KEY)
+                        MongodbConfig.PRIMARY_KEY,
+                        MongodbConfig.DATA_SAVE_MODE)
                 .build();
+    }
+
+    @Override
+    public TableSink createSink(TableSinkFactoryContext context) {
+        ReadonlyConfig readonlyConfig = context.getOptions();
+        String connection = readonlyConfig.get(MongodbConfig.URI);
+        String database = readonlyConfig.get(MongodbConfig.DATABASE);
+        String collection = readonlyConfig.get(MongodbConfig.COLLECTION);
+        MongodbWriterOptions.Builder builder =
+                MongodbWriterOptions.builder()
+                        .withConnectString(connection)
+                        .withDatabase(database)
+                        .withCollection(collection);
+        if (readonlyConfig.getOptional(MongodbConfig.BUFFER_FLUSH_MAX_ROWS).isPresent()) {
+            builder.withFlushSize(readonlyConfig.get(MongodbConfig.BUFFER_FLUSH_MAX_ROWS));
+        }
+        if (readonlyConfig.getOptional(MongodbConfig.BUFFER_FLUSH_INTERVAL).isPresent()) {
+            builder.withBatchIntervalMs(readonlyConfig.get(MongodbConfig.BUFFER_FLUSH_INTERVAL));
+        }
+        if (readonlyConfig.getOptional(MongodbConfig.PRIMARY_KEY).isPresent()) {
+            builder.withPrimaryKey(
+                    readonlyConfig.get(MongodbConfig.PRIMARY_KEY).toArray(new String[0]));
+        }
+        if (readonlyConfig.getOptional(MongodbConfig.UPSERT_ENABLE).isPresent()) {
+            builder.withUpsertEnable(readonlyConfig.get(MongodbConfig.UPSERT_ENABLE));
+        }
+        if (readonlyConfig.getOptional(MongodbConfig.RETRY_MAX).isPresent()) {
+            builder.withRetryMax(readonlyConfig.get(MongodbConfig.RETRY_MAX));
+        }
+        if (readonlyConfig.getOptional(MongodbConfig.RETRY_INTERVAL).isPresent()) {
+            builder.withRetryInterval(readonlyConfig.get(MongodbConfig.RETRY_INTERVAL));
+        }
+
+        if (readonlyConfig.getOptional(MongodbConfig.TRANSACTION).isPresent()) {
+            builder.withTransaction(readonlyConfig.get(MongodbConfig.TRANSACTION));
+        }
+        builder.withDataSaveMode(readonlyConfig.get(MongodbConfig.DATA_SAVE_MODE));
+        CatalogTable catalogTable = context.getCatalogTable();
+        // sourceCatalogTable to sinkCatalogTable
+        TableIdentifier tableIdentifier =
+                TableIdentifier.of(CONNECTOR_IDENTITY, database, collection);
+        CatalogTable sinkCatalogTable = CatalogTable.of(tableIdentifier, catalogTable);
+        return () -> new MongodbSink(builder.build(), sinkCatalogTable);
     }
 }

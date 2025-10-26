@@ -27,6 +27,7 @@ import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.core.job.PipelineStatus;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
+import org.apache.seatunnel.engine.server.master.JobMaster;
 import org.apache.seatunnel.engine.server.metrics.SeaTunnelMetricsContext;
 import org.apache.seatunnel.engine.server.operation.PrintMessageOperation;
 import org.apache.seatunnel.engine.server.operation.ReturnRetryTimesOperation;
@@ -42,6 +43,7 @@ import com.hazelcast.instance.impl.HazelcastInstanceImpl;
 import com.hazelcast.internal.serialization.Data;
 import com.hazelcast.map.IMap;
 import com.hazelcast.spi.impl.NodeEngineImpl;
+import lombok.extern.slf4j.Slf4j;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -57,6 +59,7 @@ import java.util.concurrent.TimeUnit;
 
 import static org.awaitility.Awaitility.await;
 
+@Slf4j
 public class CoordinatorServiceTest {
     @Test
     public void testMasterNodeActive() {
@@ -76,12 +79,8 @@ public class CoordinatorServiceTest {
         CoordinatorService coordinatorService1 = server1.getCoordinatorService();
         Assertions.assertTrue(coordinatorService1.isCoordinatorActive());
 
-        try {
-            server2.getCoordinatorService();
-            Assertions.fail("Need throw SeaTunnelEngineException here but not.");
-        } catch (Exception e) {
-            Assertions.assertTrue(e instanceof SeaTunnelEngineException);
-        }
+        Assertions.assertThrows(
+                SeaTunnelEngineException.class, () -> server2.getCoordinatorService());
 
         // shutdown instance1
         instance1.shutdown();
@@ -94,7 +93,7 @@ public class CoordinatorServiceTest {
                                         server2.getCoordinatorService();
                                 Assertions.assertTrue(coordinatorService.isCoordinatorActive());
                             } catch (SeaTunnelEngineException e) {
-                                Assertions.assertTrue(false);
+                                Assertions.fail("Should not throw SeaTunnelEngineException here.");
                             }
                         });
         instance2.shutdown();
@@ -172,15 +171,20 @@ public class CoordinatorServiceTest {
                         "batch_slot_not_enough.conf",
                         "test_cleanup_pending_job_master_map_after_job_failed");
 
-        Assertions.assertNotNull(
-                jobInformation.coordinatorService.pendingJobMasterMap.get(jobInformation.jobId));
+        Assertions.assertTrue(
+                jobInformation
+                        .coordinatorService
+                        .getPendingJobQueue()
+                        .contains(jobInformation.jobId));
 
         await().atMost(10000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () ->
-                                Assertions.assertNull(
-                                        jobInformation.coordinatorService.pendingJobMasterMap.get(
-                                                jobInformation.jobId)));
+                                Assertions.assertFalse(
+                                        jobInformation
+                                                .coordinatorService
+                                                .getPendingJobQueue()
+                                                .contains(jobInformation.jobId)));
 
         jobInformation.coordinatorService.clearCoordinatorService();
         jobInformation.coordinatorServiceTest.shutdown();
@@ -198,10 +202,34 @@ public class CoordinatorServiceTest {
         CoordinatorService coordinatorService = jobInformation.coordinatorService;
         IMap<Object, Object> runningJobStateIMap =
                 coordinatorService.getJobMaster(jobInformation.jobId).getRunningJobStateIMap();
-        Assertions.assertTrue(!runningJobStateIMap.isEmpty());
 
         await().atMost(10000, TimeUnit.MILLISECONDS)
-                .untilAsserted(() -> Assertions.assertTrue(runningJobStateIMap.isEmpty()));
+                .untilAsserted(
+                        () -> {
+                            Assertions.assertEquals(
+                                    JobStatus.RUNNING,
+                                    coordinatorService.getJobStatus(jobInformation.jobId));
+                            JobMaster jobMaster =
+                                    coordinatorService.getJobMaster(jobInformation.jobId);
+                            Assertions.assertNotNull(jobMaster);
+                            Assertions.assertTrue(
+                                    jobMaster
+                                            .getRunningJobStateIMap()
+                                            .containsKey(jobInformation.jobId));
+                        });
+
+        await().atMost(10000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> {
+                            Assertions.assertEquals(
+                                    JobStatus.FINISHED,
+                                    coordinatorService.getJobStatus(jobInformation.jobId));
+                            JobMaster jobMaster =
+                                    coordinatorService.getJobMaster(jobInformation.jobId);
+                            // job master should be null
+                            Assertions.assertNull(jobMaster);
+                            Assertions.assertTrue(runningJobStateIMap.isEmpty());
+                        });
 
         jobInformation.coordinatorService.clearCoordinatorService();
         jobInformation.coordinatorServiceTest.shutdown();
@@ -289,6 +317,23 @@ public class CoordinatorServiceTest {
             instance1.shutdown();
             setDefaultConfigFile();
         }
+    }
+
+    @Test
+    void testCleanupPendingJobMasterMapWhenJobSubmitFutureIsExceptionally() {
+        JobInformation jobInformation =
+                submitJob(
+                        "CoordinatorServiceTest_testCleanPendingJobMasterMap",
+                        "batch_fake_to_inmemory.conf",
+                        "test_clean_pending_jobmastermap");
+        CoordinatorService coordinatorService = jobInformation.coordinatorService;
+        await().atMost(20000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertFalse(
+                                        coordinatorService
+                                                .getPendingJobQueue()
+                                                .contains(jobInformation.jobId)));
     }
 
     private void setDefaultConfigFile() {
@@ -397,7 +442,7 @@ public class CoordinatorServiceTest {
     }
 
     @Test
-    @Disabled("disabled because we can not know")
+    @Disabled("Disabled because we can't know when the master node switches in the unit tests")
     public void testJobRestoreWhenMasterNodeSwitch() throws InterruptedException {
         HazelcastInstanceImpl instance1 =
                 SeaTunnelServerStarter.createHazelcastInstance(
