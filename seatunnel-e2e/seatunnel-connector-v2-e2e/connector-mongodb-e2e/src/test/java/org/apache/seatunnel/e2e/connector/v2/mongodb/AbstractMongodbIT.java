@@ -31,6 +31,9 @@ import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.DockerLoggerFactory;
 
+import com.github.dockerjava.api.model.ExposedPort;
+import com.github.dockerjava.api.model.PortBinding;
+import com.github.dockerjava.api.model.Ports;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoClients;
 import com.mongodb.client.MongoCollection;
@@ -119,7 +122,7 @@ public abstract class AbstractMongodbIT extends TestSuiteBase implements TestRes
         prepareInitDataInCollection(MONGODB_DOUBLE_TABLE, TEST_DOUBLE_DATASET);
     }
 
-    protected void clearDate(String table) {
+    protected void clearData(String table) {
         client.getDatabase(MONGODB_DATABASE).getCollection(table).drop();
     }
 
@@ -247,6 +250,14 @@ public abstract class AbstractMongodbIT extends TestSuiteBase implements TestRes
                         .withNetwork(NETWORK)
                         .withNetworkAliases(MONGODB_CONTAINER_HOST)
                         .withExposedPorts(MONGODB_PORT)
+                        .withCreateContainerCmdModifier(
+                                cmd ->
+                                        cmd.getHostConfig()
+                                                .withPortBindings(
+                                                        new PortBinding(
+                                                                Ports.Binding.bindPort(
+                                                                        MONGODB_PORT),
+                                                                new ExposedPort(MONGODB_PORT))))
                         .waitingFor(
                                 new HttpWaitStrategy()
                                         .forPort(MONGODB_PORT)

@@ -19,6 +19,8 @@ package org.apache.seatunnel.connectors.seatunnel.mongodb.sink;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
@@ -46,7 +48,8 @@ public class MongodbSinkFactory implements TableSinkFactory {
                         MongodbConfig.RETRY_MAX,
                         MongodbConfig.RETRY_INTERVAL,
                         MongodbConfig.UPSERT_ENABLE,
-                        MongodbConfig.PRIMARY_KEY)
+                        MongodbConfig.PRIMARY_KEY,
+                        MongodbConfig.DATA_SAVE_MODE)
                 .build();
     }
 
@@ -84,6 +87,12 @@ public class MongodbSinkFactory implements TableSinkFactory {
         if (readonlyConfig.getOptional(MongodbConfig.TRANSACTION).isPresent()) {
             builder.withTransaction(readonlyConfig.get(MongodbConfig.TRANSACTION));
         }
-        return () -> new MongodbSink(builder.build(), context.getCatalogTable());
+        builder.withDataSaveMode(readonlyConfig.get(MongodbConfig.DATA_SAVE_MODE));
+        CatalogTable catalogTable = context.getCatalogTable();
+        // sourceCatalogTable to sinkCatalogTable
+        TableIdentifier tableIdentifier =
+                TableIdentifier.of(CONNECTOR_IDENTITY, database, collection);
+        CatalogTable sinkCatalogTable = CatalogTable.of(tableIdentifier, catalogTable);
+        return () -> new MongodbSink(builder.build(), sinkCatalogTable);
     }
 }

@@ -31,7 +31,7 @@
 
     <properties>
         <maxcompute.version>0.51.0</maxcompute.version>
-        <commons.lang3.version>3.4</commons.lang3.version>
+        <commons.lang3.version>3.18.0</commons.lang3.version>
     </properties>
 
     <dependencies>
