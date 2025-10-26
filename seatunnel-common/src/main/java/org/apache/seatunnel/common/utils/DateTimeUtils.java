@@ -118,6 +118,13 @@ public class DateTimeUtils {
     public static final DateTimeFormatter YYYY_MM_DD_HH_MM_SS_14_FORMATTER =
             DateTimeFormatter.ofPattern(Formatter.YYYY_MM_DD_HH_MM_SS_NO_SPLIT.value);
 
+    // offset datetime formatter map
+    public static final Map<Pattern, DateTimeFormatter> OFFSET_DATETIME_FORMATTER_MAP =
+            new LinkedHashMap<>();
+
+    public static Set<Map.Entry<Pattern, DateTimeFormatter>>
+            OFFSET_DATETIME_FORMATTER_MAP_ENTRY_SET = new LinkedHashSet<>();
+
     static {
         YYYY_MM_DD_HH_MM_SS_19_FORMATTER_MAP.put(
                 Pattern.compile("\\d{4}-\\d{2}-\\d{2}\\s\\d{2}:\\d{2}:\\d{2}"),
@@ -210,6 +217,42 @@ public class DateTimeUtils {
 
         YYYY_M_D_HH_MM_15_FORMATTER_MAP_ENTRY_SET.addAll(
                 YYYY_M_D_HH_MM_15_FORMATTER_MAP.entrySet());
+
+        OFFSET_DATETIME_FORMATTER_MAP.put(
+                Pattern.compile("\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z"),
+                DateTimeFormatter.ISO_OFFSET_DATE_TIME);
+
+        OFFSET_DATETIME_FORMATTER_MAP.put(
+                Pattern.compile("\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}[+-]\\d{2}:\\d{2}"),
+                DateTimeFormatter.ISO_OFFSET_DATE_TIME);
+
+        OFFSET_DATETIME_FORMATTER_MAP.put(
+                Pattern.compile("\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{1,9}Z"),
+                DateTimeFormatter.ISO_OFFSET_DATE_TIME);
+
+        OFFSET_DATETIME_FORMATTER_MAP.put(
+                Pattern.compile("\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{1,9}[+-]\\d{2}:\\d{2}"),
+                DateTimeFormatter.ISO_OFFSET_DATE_TIME);
+
+        OFFSET_DATETIME_FORMATTER_MAP_ENTRY_SET.addAll(
+                OFFSET_DATETIME_FORMATTER_MAP.entrySet());
+    }
+
+    /**
+     * gave an offset datetime string and return the {@link DateTimeFormatter} which can be used to
+     * parse it.
+     *
+     * @param dateTime eg: 2020-02-03T12:12:10Z or 2020-02-03T12:12:10+09:00
+     * @return the DateTimeFormatter matched, will return null when not matched any pattern
+     */
+    public static DateTimeFormatter matchOffsetDateTimeFormatter(String dateTime) {
+        for (Map.Entry<Pattern, DateTimeFormatter> entry :
+                OFFSET_DATETIME_FORMATTER_MAP_ENTRY_SET) {
+            if (entry.getKey().matcher(dateTime).matches()) {
+                return entry.getValue();
+            }
+        }
+        return null;
     }
 
     /**
