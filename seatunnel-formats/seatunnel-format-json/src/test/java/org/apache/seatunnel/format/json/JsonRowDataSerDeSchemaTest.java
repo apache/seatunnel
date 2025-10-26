@@ -28,6 +28,8 @@ import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -693,5 +695,36 @@ public class JsonRowDataSerDeSchemaTest {
         byte[] serialize = jsonSerializationSchema.serialize(row);
         String expected = "{\"id\":1,\"code\":\"1001015\",\"fe_result\":80}";
         assertEquals(new String(serialize), expected);
+    }
+
+    @Test
+    public void testDeserializationWithTimestampTz() throws Exception {
+        SeaTunnelRowType schema =
+                new SeaTunnelRowType(
+                        new String[] {"timestamp_tz"},
+                        new SeaTunnelDataType[] {LocalTimeType.OFFSET_DATE_TIME_TYPE});
+        CatalogTable catalogTables = CatalogTableUtil.getCatalogTable("", "", "", "test", schema);
+        JsonDeserializationSchema deserializationSchema =
+                new JsonDeserializationSchema(catalogTables, false, false);
+
+        OffsetDateTime timestampUtc = OffsetDateTime.of(2024, 1, 15, 10, 30, 45, 0, ZoneOffset.UTC);
+        SeaTunnelRow rowUtc =
+                deserializationSchema.deserialize(
+                        "{\"timestamp_tz\":\"2024-01-15T10:30:45Z\"}".getBytes());
+        assertEquals(timestampUtc, rowUtc.getField(0));
+
+        OffsetDateTime timestampKst =
+                OffsetDateTime.of(2024, 1, 15, 10, 30, 45, 0, ZoneOffset.ofHours(9));
+        SeaTunnelRow rowKst =
+                deserializationSchema.deserialize(
+                        "{\"timestamp_tz\":\"2024-01-15T10:30:45+09:00\"}".getBytes());
+        assertEquals(timestampKst, rowKst.getField(0));
+
+        OffsetDateTime timestampMillis =
+                OffsetDateTime.of(2024, 1, 15, 10, 30, 45, 123000000, ZoneOffset.UTC);
+        SeaTunnelRow rowMillis =
+                deserializationSchema.deserialize(
+                        "{\"timestamp_tz\":\"2024-01-15T10:30:45.123Z\"}".getBytes());
+        assertEquals(timestampMillis, rowMillis.getField(0));
     }
 }
