@@ -38,9 +38,13 @@ import java.io.IOException;
 import java.io.Serializable;
 import java.lang.reflect.Array;
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeFormatterBuilder;
 import java.time.temporal.ChronoField;
@@ -153,6 +157,13 @@ public class JsonToRowConverters implements Serializable {
                     @Override
                     public Object convert(JsonNode jsonNode, String fieldName) {
                         return convertToLocalDateTime(jsonNode, fieldName);
+                    }
+                };
+            case TIMESTAMP_TZ:
+                return new JsonToObjectConverter() {
+                    @Override
+                    public Object convert(JsonNode jsonNode, String fieldName) {
+                        return convertToOffsetDateTime(jsonNode, fieldName);
                     }
                 };
             case FLOAT:
@@ -282,6 +293,35 @@ public class JsonToRowConverters implements Serializable {
         LocalTime localTime = parsedTimestamp.query(TemporalQueries.localTime());
         LocalDate localDate = parsedTimestamp.query(TemporalQueries.localDate());
         return LocalDateTime.of(localDate, localTime);
+    }
+
+    private OffsetDateTime convertToOffsetDateTime(JsonNode jsonNode, String fieldName) {
+        String datetimeStr = jsonNode.asText();
+        DateTimeFormatter dateTimeFormatter = fieldFormatterMap.get(fieldName);
+
+        if (dateTimeFormatter == null) {
+            dateTimeFormatter = DateTimeUtils.matchOffsetDateTimeFormatter(datetimeStr);
+            fieldFormatterMap.put(fieldName, dateTimeFormatter);
+        }
+
+        if (dateTimeFormatter == null) {
+            throw CommonError.formatDateTimeError(datetimeStr, fieldName);
+        }
+
+        TemporalAccessor parsedTimestamp = dateTimeFormatter.parse(datetimeStr);
+        LocalTime localTime = parsedTimestamp.query(TemporalQueries.localTime());
+        LocalDate localDate = parsedTimestamp.query(TemporalQueries.localDate());
+        ZoneOffset offset = parsedTimestamp.query(TemporalQueries.offset());
+
+        if (offset == null) {
+            offset = ZoneId.systemDefault().getRules().getOffset(Instant.now());
+        }
+
+        if (localDate == null || localTime == null) {
+            throw CommonError.formatDateTimeError(datetimeStr, fieldName);
+        }
+
+        return OffsetDateTime.of(localDate, localTime, offset);
     }
 
     private String convertToString(JsonNode jsonNode) {

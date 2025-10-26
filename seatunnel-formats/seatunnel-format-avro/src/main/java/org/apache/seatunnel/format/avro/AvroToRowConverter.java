@@ -98,6 +98,7 @@ public class AvroToRowConverter implements Serializable {
             case DATE:
             case DECIMAL:
             case TIMESTAMP:
+            case TIMESTAMP_TZ:
                 return val;
             case BYTES:
                 return ((ByteBuffer) val).array();
