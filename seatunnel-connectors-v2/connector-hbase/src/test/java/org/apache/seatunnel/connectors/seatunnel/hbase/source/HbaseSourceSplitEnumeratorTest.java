@@ -265,13 +265,100 @@ public class HbaseSourceSplitEnumeratorTest {
     }
 
     @Test
-    void testGetTableSplitsWithExactRowKeyMatch() throws IOException {
-        // Test when user's row key exactly matches region boundaries
+    void testGetTableSplitsWithExactStartRowKeyMatch() throws IOException {
         byte[][] startKeys = {
-            HConstants.EMPTY_BYTE_ARRAY, Bytes.toBytes("row100"), Bytes.toBytes("row200")
+            HConstants.EMPTY_BYTE_ARRAY,
+            Bytes.toBytes("row100"),
+            Bytes.toBytes("row200"),
+            Bytes.toBytes("row300")
         };
         byte[][] endKeys = {
-            Bytes.toBytes("row100"), Bytes.toBytes("row200"), HConstants.EMPTY_BYTE_ARRAY
+            Bytes.toBytes("row100"),
+            Bytes.toBytes("row200"),
+            Bytes.toBytes("row300"),
+            HConstants.EMPTY_BYTE_ARRAY
+        };
+
+        when(regionLocator.getStartKeys()).thenReturn(startKeys);
+        when(regionLocator.getEndKeys()).thenReturn(endKeys);
+        when(hbaseParameters.getStartRowkey()).thenReturn("row100");
+
+        Set<HbaseSourceSplit> splits = enumerator.getTableSplits();
+
+        assertNotNull(splits);
+        assertEquals(3, splits.size());
+
+        boolean foundRegion1Split = false, foundRegion2Split = false, foundRegion3Split = false;
+        for (HbaseSourceSplit split : splits) {
+            if ("hbase_source_split_1".equals(split.splitId())) {
+                foundRegion1Split = true;
+                assertArrayEquals(Bytes.toBytes("row100"), split.getStartRow());
+                assertArrayEquals(Bytes.toBytes("row200"), split.getEndRow());
+            } else if ("hbase_source_split_2".equals(split.splitId())) {
+                foundRegion2Split = true;
+                assertArrayEquals(Bytes.toBytes("row200"), split.getStartRow());
+                assertArrayEquals(Bytes.toBytes("row300"), split.getEndRow());
+            } else if ("hbase_source_split_3".equals(split.splitId())) {
+                foundRegion3Split = true;
+                assertArrayEquals(Bytes.toBytes("row300"), split.getStartRow());
+                assertArrayEquals(HConstants.EMPTY_BYTE_ARRAY, split.getEndRow());
+            }
+        }
+        assertTrue(foundRegion1Split && foundRegion2Split && foundRegion3Split);
+    }
+
+    @Test
+    void testGetTableSplitsWithExactEndRowKeyMatch() throws IOException {
+        byte[][] startKeys = {
+            HConstants.EMPTY_BYTE_ARRAY,
+            Bytes.toBytes("row100"),
+            Bytes.toBytes("row200"),
+            Bytes.toBytes("row300")
+        };
+        byte[][] endKeys = {
+            Bytes.toBytes("row100"),
+            Bytes.toBytes("row200"),
+            Bytes.toBytes("row300"),
+            HConstants.EMPTY_BYTE_ARRAY
+        };
+
+        when(regionLocator.getStartKeys()).thenReturn(startKeys);
+        when(regionLocator.getEndKeys()).thenReturn(endKeys);
+        when(hbaseParameters.getEndRowkey()).thenReturn("row200");
+
+        Set<HbaseSourceSplit> splits = enumerator.getTableSplits();
+
+        assertNotNull(splits);
+        assertEquals(2, splits.size());
+
+        boolean foundRegion0Split = false, foundRegion1Split = false;
+        for (HbaseSourceSplit split : splits) {
+            if ("hbase_source_split_0".equals(split.splitId())) {
+                foundRegion0Split = true;
+                assertArrayEquals(HConstants.EMPTY_BYTE_ARRAY, split.getStartRow());
+                assertArrayEquals(Bytes.toBytes("row100"), split.getEndRow());
+            } else if ("hbase_source_split_1".equals(split.splitId())) {
+                foundRegion1Split = true;
+                assertArrayEquals(Bytes.toBytes("row100"), split.getStartRow());
+                assertArrayEquals(Bytes.toBytes("row200"), split.getEndRow());
+            }
+        }
+        assertTrue(foundRegion0Split && foundRegion1Split);
+    }
+
+    @Test
+    void testGetTableSplitsWithExactRowKeyMatch() throws IOException {
+        byte[][] startKeys = {
+            HConstants.EMPTY_BYTE_ARRAY,
+            Bytes.toBytes("row100"),
+            Bytes.toBytes("row200"),
+            Bytes.toBytes("row300")
+        };
+        byte[][] endKeys = {
+            Bytes.toBytes("row100"),
+            Bytes.toBytes("row200"),
+            Bytes.toBytes("row300"),
+            HConstants.EMPTY_BYTE_ARRAY
         };
 
         when(regionLocator.getStartKeys()).thenReturn(startKeys);
