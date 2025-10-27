@@ -63,9 +63,6 @@ import org.testcontainers.shaded.org.apache.commons.lang3.tuple.Pair;
 import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.DockerLoggerFactory;
 
-import com.github.dockerjava.api.model.ExposedPort;
-import com.github.dockerjava.api.model.PortBinding;
-import com.github.dockerjava.api.model.Ports;
 import lombok.extern.slf4j.Slf4j;
 import redis.clients.jedis.Jedis;
 
@@ -115,13 +112,6 @@ public abstract class RedisTestCaseTemplateIT extends TestSuiteBase implements T
                         .withNetwork(NETWORK)
                         .withNetworkAliases(host)
                         .withExposedPorts(port)
-                        .withCreateContainerCmdModifier(
-                                cmd ->
-                                        cmd.getHostConfig()
-                                                .withPortBindings(
-                                                        new PortBinding(
-                                                                Ports.Binding.bindPort(port),
-                                                                new ExposedPort(port))))
                         .withLogConsumer(
                                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger(imageName)))
                         .withCommand(String.format("redis-server --requirepass %s", password))
@@ -857,7 +847,7 @@ public abstract class RedisTestCaseTemplateIT extends TestSuiteBase implements T
     private ReadonlyConfig getReadonlyConfig(RedisDataType dataType, String key) {
         Map<String, Object> map = new HashMap<>();
         map.put("host", redisContainer.getHost());
-        map.put("port", port);
+        map.put("port", redisContainer.getFirstMappedPort());
         map.put("db_num", 0);
         map.put("auth", password);
         map.put("key", key);
