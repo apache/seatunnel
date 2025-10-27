@@ -103,6 +103,10 @@
                                     <pattern>com.fasterxml.jackson</pattern>
                                     <shadedPattern>${seatunnel.shade.package}.hadoop.com.fasterxml.jackson</shadedPattern>
                                 </relocation>
+                                <relocation>
+                                    <pattern>com.google.gson</pattern>
+                                    <shadedPattern>${seatunnel.shade.package}.hadoop.com.google.gson</shadedPattern>
+                                </relocation>
                             </relocations>
                         </configuration>
                     </execution>
