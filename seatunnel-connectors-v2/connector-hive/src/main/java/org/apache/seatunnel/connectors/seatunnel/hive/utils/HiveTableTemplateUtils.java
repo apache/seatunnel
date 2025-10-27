@@ -164,8 +164,6 @@ public class HiveTableTemplateUtils {
             throw new IllegalArgumentException(
                     "Template must contain ${database} and ${table} variables");
         }
-
-        log.info("Template validation passed");
     }
 
     /** Extract LOCATION path from template. If it contains ${table_location}, replace it. */
@@ -234,5 +232,45 @@ public class HiveTableTemplateUtils {
             }
         }
         return props;
+    }
+
+    /**
+     * Build complete CREATE TABLE SQL from template and schema. This method generates a complete
+     * SQL statement that can be executed via JDBC.
+     */
+    public static String buildCreateTableSQL(
+            String template,
+            String database,
+            String table,
+            org.apache.seatunnel.api.table.catalog.TableSchema tableSchema) {
+
+        if (template == null || template.trim().isEmpty()) {
+            throw new IllegalArgumentException("Template cannot be null or empty");
+        }
+
+        // Extract partition fields
+        List<String> partitionFields = extractPartitionFieldsFromTemplate(template);
+
+        // Generate field definitions
+        String fieldsDefinition = generateFieldsDefinition(tableSchema, partitionFields);
+        String partitionDefinition = generatePartitionDefinition(tableSchema, partitionFields);
+
+        // Get table location
+        String tableLocation = extractLocationFromTemplate(template, database, table);
+        if (tableLocation == null) {
+            tableLocation = getDefaultTableLocation(database, table);
+        }
+
+        // Replace template variables
+        String sql =
+                replaceTemplateVariables(
+                        template,
+                        database,
+                        table,
+                        fieldsDefinition,
+                        partitionDefinition,
+                        tableLocation);
+
+        return sql;
     }
 }

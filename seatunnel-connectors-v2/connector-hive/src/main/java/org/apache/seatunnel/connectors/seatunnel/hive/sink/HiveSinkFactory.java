@@ -32,8 +32,6 @@ import org.apache.seatunnel.connectors.seatunnel.file.sink.commit.FileCommitInfo
 import org.apache.seatunnel.connectors.seatunnel.file.sink.state.FileSinkState;
 import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConfig;
 import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConstants;
-import org.apache.seatunnel.connectors.seatunnel.hive.exception.HiveConnectorErrorCode;
-import org.apache.seatunnel.connectors.seatunnel.hive.exception.HiveConnectorException;
 
 import com.google.auto.service.AutoService;
 
@@ -69,22 +67,15 @@ public class HiveSinkFactory
         CatalogTable catalogTable = context.getCatalogTable();
 
         return () -> {
-            try {
-                java.util.Map<String, Object> conf =
-                        new java.util.LinkedHashMap<>(readonlyConfig.getSourceMap());
-                java.util.Optional<Boolean> overwriteOptional =
-                        readonlyConfig.getOptional(HiveSinkOptions.OVERWRITE);
-                if (overwriteOptional.isPresent() && overwriteOptional.get()) {
-                    conf.put(HiveSinkOptions.DATA_SAVE_MODE.key(), DataSaveMode.DROP_DATA.name());
-                }
-                ReadonlyConfig adjusted = ReadonlyConfig.fromMap(conf);
-                return new HiveSink(adjusted, catalogTable);
-            } catch (Exception e) {
-                throw new HiveConnectorException(
-                        HiveConnectorErrorCode.CREATE_HIVE_TABLE_FAILED,
-                        "Failed to create HiveSink: " + e.getMessage(),
-                        e);
+            java.util.Map<String, Object> conf =
+                    new java.util.LinkedHashMap<>(readonlyConfig.getSourceMap());
+            java.util.Optional<Boolean> overwriteOptional =
+                    readonlyConfig.getOptional(HiveSinkOptions.OVERWRITE);
+            if (overwriteOptional.isPresent() && overwriteOptional.get()) {
+                conf.put(HiveSinkOptions.DATA_SAVE_MODE.key(), DataSaveMode.DROP_DATA.name());
             }
+            ReadonlyConfig adjusted = ReadonlyConfig.fromMap(conf);
+            return new HiveSink(adjusted, catalogTable);
         };
     }
 

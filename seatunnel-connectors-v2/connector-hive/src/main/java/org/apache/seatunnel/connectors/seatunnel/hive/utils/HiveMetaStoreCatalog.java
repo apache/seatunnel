@@ -51,9 +51,13 @@ import java.io.File;
 import java.io.IOException;
 import java.io.Serializable;
 import java.net.MalformedURLException;
+import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -78,6 +82,7 @@ public class HiveMetaStoreCatalog implements Catalog, Closeable, Serializable {
     private final String remoteUser;
 
     private transient HiveMetaStoreClient hiveClient;
+    private transient HiveConf hiveConf;
 
     public HiveMetaStoreCatalog(ReadonlyConfig config) {
         this.metastoreUri = config.get(HiveOptions.METASTORE_URI);
@@ -107,7 +112,7 @@ public class HiveMetaStoreCatalog implements Catalog, Closeable, Serializable {
     }
 
     private HiveMetaStoreClient initializeClient() {
-        HiveConf hiveConf = buildHiveConf();
+        this.hiveConf = buildHiveConf();
         try {
             if (kerberosEnabled) {
                 return loginWithKerberos(hiveConf);
@@ -124,6 +129,82 @@ public class HiveMetaStoreCatalog implements Catalog, Closeable, Serializable {
             throw new HiveConnectorException(
                     HiveConnectorErrorCode.INITIALIZE_HIVE_METASTORE_CLIENT_FAILED, errMsg, e);
         }
+    }
+
+    /**
+     * Try to execute SQL via HiveServer2 JDBC. Returns true if successful, false if HiveServer2 is
+     * not available or execution failed.
+     */
+    public boolean tryExecuteSqlViaJdbc(String sql) {
+        String jdbcUrl = getHiveServer2JdbcUrl();
+        if (jdbcUrl == null) {
+            return false;
+        }
+
+        Connection conn = null;
+        Statement stmt = null;
+        try {
+            // Load Hive JDBC driver
+            Class.forName("org.apache.hive.jdbc.HiveDriver");
+
+            // Create connection and execute SQL
+            conn = DriverManager.getConnection(jdbcUrl);
+            stmt = conn.createStatement();
+            stmt.execute(sql);
+            return true;
+
+        } catch (ClassNotFoundException e) {
+            log.debug("Hive JDBC driver not found, falling back to Metastore Client");
+            return false;
+        } catch (java.sql.SQLException e) {
+            log.debug("Failed to execute SQL via HiveServer2 JDBC: {}", e.getMessage());
+            return false;
+        } finally {
+            // Close resources
+            try {
+                if (stmt != null) {
+                    stmt.close();
+                }
+                if (conn != null) {
+                    conn.close();
+                }
+            } catch (java.sql.SQLException e) {
+                log.debug("Error closing JDBC resources: {}", e.getMessage());
+            }
+        }
+    }
+
+    /**
+     * Get HiveServer2 JDBC URL from HiveConf or derive from metastore URI. Returns null if not
+     * available.
+     */
+    private String getHiveServer2JdbcUrl() {
+        if (hiveConf == null) {
+            getClient();
+        }
+
+        // Try to get from hive-site.xml configuration
+        String jdbcUrl = hiveConf.get("hive.server2.jdbc.url");
+        if (jdbcUrl != null && !jdbcUrl.trim().isEmpty()) {
+            return jdbcUrl;
+        }
+
+        // Try to derive from metastore URI
+        // metastore URI format: thrift://host:9083
+        // HiveServer2 JDBC URL format: jdbc:hive2://host:10000/default
+        try {
+            if (metastoreUri != null && metastoreUri.startsWith("thrift://")) {
+                URI uri = new URI(metastoreUri);
+                String host = uri.getHost();
+                if (host != null) {
+                    return String.format("jdbc:hive2://%s:10000/default", host);
+                }
+            }
+        } catch (java.net.URISyntaxException e) {
+            log.debug("Failed to derive HiveServer2 JDBC URL: {}", e.getMessage());
+        }
+
+        return null;
     }
 
     private HiveConf buildHiveConf() {
@@ -351,7 +432,11 @@ public class HiveMetaStoreCatalog implements Catalog, Closeable, Serializable {
             }
             Table hiveTable = getTable(tablePath.getDatabaseName(), tablePath.getTableName());
             return convertHiveTableToCatalogTable(hiveTable);
-        } catch (Exception e) {
+        } catch (TableNotExistException e) {
+            throw e;
+        } catch (CatalogException e) {
+            throw e;
+        } catch (TException e) {
             throw new CatalogException("Failed to get table: " + tablePath, e);
         }
     }
@@ -373,9 +458,9 @@ public class HiveMetaStoreCatalog implements Catalog, Closeable, Serializable {
 
             Table hiveTable = convertCatalogTableToHiveTable(tablePath, table);
             createTableIfNotExists(hiveTable);
-        } catch (TableAlreadyExistException | DatabaseNotExistException e) {
+        } catch (TableAlreadyExistException | DatabaseNotExistException | CatalogException e) {
             throw e;
-        } catch (Exception e) {
+        } catch (TException e) {
             throw new CatalogException("Failed to create table: " + tablePath, e);
         }
     }

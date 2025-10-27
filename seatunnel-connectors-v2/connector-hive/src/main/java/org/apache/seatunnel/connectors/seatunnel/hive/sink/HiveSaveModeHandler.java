@@ -130,7 +130,9 @@ public class HiveSaveModeHandler implements SaveModeHandler, AutoCloseable {
                             HiveConnectorErrorCode.CREATE_HIVE_TABLE_FAILED,
                             "Unsupported schema save mode: " + schemaSaveMode);
             }
-        } catch (Exception e) {
+        } catch (HiveConnectorException e) {
+            throw e;
+        } catch (TException e) {
             throw new HiveConnectorException(
                     HiveConnectorErrorCode.CREATE_HIVE_TABLE_FAILED,
                     "Failed to handle schema save mode: " + e.getMessage(),
@@ -144,8 +146,6 @@ public class HiveSaveModeHandler implements SaveModeHandler, AutoCloseable {
     }
 
     private void handleRecreateSchema() throws TException {
-        log.info("Recreate schema mode: dropping and recreating table {}.{}", dbName, tableName);
-
         // Do NOT create database automatically. Ensure database exists first.
         if (!hiveCatalog.databaseExists(dbName)) {
             throw new HiveConnectorException(
@@ -155,8 +155,12 @@ public class HiveSaveModeHandler implements SaveModeHandler, AutoCloseable {
 
         // Drop table if exists
         if (hiveCatalog.tableExists(dbName, tableName)) {
-            hiveCatalog.dropTable(dbName, tableName);
-            log.info("Dropped existing table {}.{}", dbName, tableName);
+            // Try to drop via JDBC first
+            String dropSql = String.format("DROP TABLE IF EXISTS `%s`.`%s`", dbName, tableName);
+            if (!hiveCatalog.tryExecuteSqlViaJdbc(dropSql)) {
+                // Fallback to Metastore Client
+                hiveCatalog.dropTable(dbName, tableName);
+            }
         }
 
         // Create table using template
@@ -164,8 +168,6 @@ public class HiveSaveModeHandler implements SaveModeHandler, AutoCloseable {
     }
 
     private void handleCreateSchemaWhenNotExist() throws TException {
-        log.info("Create schema when not exist mode for table {}.{}", dbName, tableName);
-
         if (!hiveCatalog.databaseExists(dbName)) {
             throw new HiveConnectorException(
                     HiveConnectorErrorCode.CREATE_HIVE_TABLE_FAILED,
@@ -174,22 +176,16 @@ public class HiveSaveModeHandler implements SaveModeHandler, AutoCloseable {
 
         if (!hiveCatalog.tableExists(dbName, tableName)) {
             createTable();
-        } else {
-            log.info("Table {}.{} already exists, skipping creation", dbName, tableName);
         }
     }
 
     private void handleErrorWhenSchemaNotExist() throws TException {
-        log.info("Error when schema not exist mode: checking table {}.{}", dbName, tableName);
-
-        // Check if database exists
         if (!hiveCatalog.databaseExists(dbName)) {
             throw new HiveConnectorException(
                     HiveConnectorErrorCode.CREATE_HIVE_TABLE_FAILED,
                     "Database " + dbName + " does not exist");
         }
 
-        // Check if table exists
         if (!hiveCatalog.tableExists(dbName, tableName)) {
             throw new HiveConnectorException(
                     HiveConnectorErrorCode.CREATE_HIVE_TABLE_FAILED,
@@ -198,7 +194,25 @@ public class HiveSaveModeHandler implements SaveModeHandler, AutoCloseable {
     }
 
     private void createTable() throws TException {
-        log.info("Creating table {}.{} using template-based approach", dbName, tableName);
+        // Try to create table via JDBC first if template is provided
+        if (readonlyConfig.getOptional(HiveSinkOptions.SAVE_MODE_CREATE_TEMPLATE).isPresent()) {
+            String template = readonlyConfig.get(HiveSinkOptions.SAVE_MODE_CREATE_TEMPLATE);
+
+            // Build complete SQL from template
+            String createTableSql =
+                    HiveTableTemplateUtils.buildCreateTableSQL(
+                            template, dbName, tableName, tableSchema);
+
+            boolean jdbcSuccess = hiveCatalog.tryExecuteSqlViaJdbc(createTableSql);
+
+            if (jdbcSuccess) {
+                log.info(
+                        "Successfully created table {}.{} via HiveServer2 JDBC", dbName, tableName);
+                return;
+            }
+        }
+
+        // Fallback to Metastore Client approach
         Table table = buildTableFromTemplate();
         hiveCatalog.createTableFromTemplate(table);
         log.info("Successfully created table {}.{}", dbName, tableName);
@@ -213,8 +227,6 @@ public class HiveSaveModeHandler implements SaveModeHandler, AutoCloseable {
     }
 
     private Table buildTableFromTemplate() {
-        log.info("Building table {}.{} from template", dbName, tableName);
-
         if (readonlyConfig.getOptional(HiveSinkOptions.SAVE_MODE_CREATE_TEMPLATE).isPresent()) {
             return buildTableFromCustomTemplate();
         } else {
@@ -223,10 +235,6 @@ public class HiveSaveModeHandler implements SaveModeHandler, AutoCloseable {
     }
 
     private Table buildTableFromDefaultTemplate() {
-        log.info(
-                "Building table {}.{} using default template (PARQUET, no partitions)",
-                dbName,
-                tableName);
 
         Table table = new Table();
         table.setDbName(dbName);
@@ -277,7 +285,6 @@ public class HiveSaveModeHandler implements SaveModeHandler, AutoCloseable {
     }
 
     private Table buildTableFromCustomTemplate() {
-        log.info("Building table {}.{} using custom template", dbName, tableName);
 
         Table table = new Table();
         table.setDbName(dbName);
