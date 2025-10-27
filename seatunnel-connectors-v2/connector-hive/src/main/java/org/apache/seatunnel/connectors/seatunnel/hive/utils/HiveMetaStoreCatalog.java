@@ -378,7 +378,7 @@ public class HiveMetaStoreCatalog implements Catalog, Closeable, Serializable {
     public void open() throws CatalogException {
         try {
             getClient();
-        } catch (Exception e) {
+        } catch (HiveConnectorException e) {
             throw new CatalogException("Failed to open Hive catalog", e);
         }
     }
@@ -434,9 +434,7 @@ public class HiveMetaStoreCatalog implements Catalog, Closeable, Serializable {
             return convertHiveTableToCatalogTable(hiveTable);
         } catch (TableNotExistException e) {
             throw e;
-        } catch (CatalogException e) {
-            throw e;
-        } catch (TException e) {
+        } catch (HiveConnectorException e) {
             throw new CatalogException("Failed to get table: " + tablePath, e);
         }
     }
@@ -460,7 +458,7 @@ public class HiveMetaStoreCatalog implements Catalog, Closeable, Serializable {
             createTableIfNotExists(hiveTable);
         } catch (TableAlreadyExistException | DatabaseNotExistException | CatalogException e) {
             throw e;
-        } catch (TException e) {
+        } catch (HiveConnectorException e) {
             throw new CatalogException("Failed to create table: " + tablePath, e);
         }
     }
