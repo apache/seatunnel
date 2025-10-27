@@ -460,6 +460,8 @@ public class HiveMetaStoreCatalog implements Catalog, Closeable, Serializable {
             throw e;
         } catch (HiveConnectorException e) {
             throw new CatalogException("Failed to create table: " + tablePath, e);
+        } catch (TException e) {
+            throw new CatalogException("Failed to create table: " + tablePath, e);
         }
     }
 
