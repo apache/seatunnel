@@ -38,7 +38,6 @@ import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisDataType;
 import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisParameters;
 import org.apache.seatunnel.connectors.seatunnel.redis.sink.RedisSinkFactory;
-import org.apache.seatunnel.connectors.seatunnel.redis.sink.RedisSinkWriter;
 import org.apache.seatunnel.connectors.seatunnel.sink.SinkFlowTestUtils;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
@@ -832,11 +831,6 @@ public abstract class RedisTestCaseTemplateIT extends TestSuiteBase implements T
     }
 
     public abstract RedisContainerInfo getRedisContainerInfo();
-
-    private RedisSinkWriter getRedisSinkWriter(RedisDataType dataType, String key) {
-        return new RedisSinkWriter(
-                getCatalogTable(0, key).getSeaTunnelRowType(), getRedisParameters(dataType, key));
-    }
 
     private RedisParameters getRedisParameters(RedisDataType dataType, String key) {
         final RedisParameters redisParameters = new RedisParameters();
