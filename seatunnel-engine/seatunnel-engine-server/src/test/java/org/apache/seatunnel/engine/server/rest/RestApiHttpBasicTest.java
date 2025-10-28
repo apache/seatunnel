@@ -46,7 +46,7 @@ import java.util.Collections;
 import java.util.stream.Collectors;
 
 /** Test for Rest API with Basic. */
-@DisabledOnOs(OS.MAC)
+@DisabledOnOs(OS.WINDOWS)
 public class RestApiHttpBasicTest extends AbstractSeaTunnelServerTest {
 
     private static final int HTTP_PORT = 18080;
