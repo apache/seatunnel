@@ -19,7 +19,7 @@
  */
 package org.apache.seatunnel.engine.imap.storage.file.wal.reader;
 
-import org.apache.seatunnel.engine.imap.storage.api.exception.IMapStorageException;
+import org.apache.seatunnel.engine.imap.storage.api.exception.RocksDBStorageException;
 import org.apache.seatunnel.engine.imap.storage.file.bean.IMapFileData;
 import org.apache.seatunnel.engine.imap.storage.file.common.WALDataUtils;
 import org.apache.seatunnel.engine.serializer.api.Serializer;
@@ -82,7 +82,7 @@ public class DefaultReader implements IFileReader<IMapFileData> {
             }
             return fileNames;
         } catch (IOException e) {
-            throw new IMapStorageException(e, "get file names error,path is s%", parentPath);
+            throw new RocksDBStorageException(e, "get file names error,path is s%", parentPath);
         }
     }
 

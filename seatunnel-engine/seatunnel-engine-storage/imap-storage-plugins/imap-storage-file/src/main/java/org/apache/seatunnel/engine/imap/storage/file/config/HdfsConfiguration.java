@@ -22,7 +22,7 @@ package org.apache.seatunnel.engine.imap.storage.file.config;
 
 import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
-import org.apache.seatunnel.engine.imap.storage.api.exception.IMapStorageException;
+import org.apache.seatunnel.engine.imap.storage.api.exception.RocksDBStorageException;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
@@ -95,16 +95,16 @@ public class HdfsConfiguration extends AbstractConfiguration {
      * @param kerberosPrincipal kerberos principal
      * @param kerberosKeytabFilePath kerberos keytab file path
      * @param hdfsConf hdfs configuration
-     * @throws IMapStorageException authentication exception
+     * @throws RocksDBStorageException authentication exception
      */
     private void authenticateKerberos(
             String kerberosPrincipal, String kerberosKeytabFilePath, Configuration hdfsConf)
-            throws IMapStorageException {
+            throws RocksDBStorageException {
         UserGroupInformation.setConfiguration(hdfsConf);
         try {
             UserGroupInformation.loginUserFromKeytab(kerberosPrincipal, kerberosKeytabFilePath);
         } catch (IOException e) {
-            throw new IMapStorageException(
+            throw new RocksDBStorageException(
                     "Failed to login user from keytab : "
                             + kerberosKeytabFilePath
                             + " and kerberos principal : "

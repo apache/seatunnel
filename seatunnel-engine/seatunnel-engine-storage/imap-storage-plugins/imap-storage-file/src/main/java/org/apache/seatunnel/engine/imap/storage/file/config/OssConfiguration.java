@@ -20,7 +20,7 @@
 
 package org.apache.seatunnel.engine.imap.storage.file.config;
 
-import org.apache.seatunnel.engine.imap.storage.api.exception.IMapStorageException;
+import org.apache.seatunnel.engine.imap.storage.api.exception.RocksDBStorageException;
 
 import org.apache.hadoop.conf.Configuration;
 
@@ -37,7 +37,7 @@ public class OssConfiguration extends AbstractConfiguration {
 
     @Override
     public Configuration buildConfiguration(Map<String, String> config)
-            throws IMapStorageException {
+            throws RocksDBStorageException {
         checkConfiguration(config, OSS_BUCKET_KEY);
         Configuration hadoopConf = new Configuration();
         hadoopConf.set(FS_DEFAULT_NAME_KEY, config.get(OSS_BUCKET_KEY));

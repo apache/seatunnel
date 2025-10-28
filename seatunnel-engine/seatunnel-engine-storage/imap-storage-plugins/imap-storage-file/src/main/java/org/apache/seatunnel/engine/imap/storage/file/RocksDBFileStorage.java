@@ -20,8 +20,8 @@
 
 package org.apache.seatunnel.engine.imap.storage.file;
 
-import org.apache.seatunnel.engine.imap.storage.api.IMapStorage;
-import org.apache.seatunnel.engine.imap.storage.api.exception.IMapStorageException;
+import org.apache.seatunnel.engine.imap.storage.api.RocksDBStorage;
+import org.apache.seatunnel.engine.imap.storage.api.exception.RocksDBStorageException;
 import org.apache.seatunnel.engine.imap.storage.file.bean.IMapFileData;
 import org.apache.seatunnel.engine.imap.storage.file.common.FileConstants;
 import org.apache.seatunnel.engine.imap.storage.file.common.WALReader;
@@ -68,7 +68,7 @@ import static org.apache.seatunnel.engine.imap.storage.file.common.FileConstants
  * ensure data consistency use request future to ensure data consistency
  */
 @Slf4j
-public class IMapFileStorage implements IMapStorage {
+public class RocksDBFileStorage implements RocksDBStorage {
 
     private static final String STORAGE_TYPE_KEY = "storage.type";
 
@@ -156,7 +156,7 @@ public class IMapFileStorage implements IMapStorage {
             this.fs = FileSystem.get(hadoopConf);
             fs.setWriteChecksum(false);
         } catch (IOException e) {
-            throw new IMapStorageException("Failed to get file system", e);
+            throw new RocksDBStorageException("Failed to get file system", e);
         }
         this.serializer = new ProtoStuffSerializer();
         this.walDisruptor =
@@ -237,7 +237,7 @@ public class IMapFileStorage implements IMapStorage {
             WALReader reader = new WALReader(fs, fileConfiguration, serializer);
             return reader.loadAllData(new Path(businessRootPath), new HashSet<>());
         } catch (IOException e) {
-            throw new IMapStorageException("load all data error", e);
+            throw new RocksDBStorageException("load all data error", e);
         }
     }
 
@@ -247,7 +247,7 @@ public class IMapFileStorage implements IMapStorage {
             WALReader reader = new WALReader(fs, fileConfiguration, serializer);
             return reader.loadAllKeys(new Path(businessRootPath));
         } catch (IOException e) {
-            throw new IMapStorageException(
+            throw new RocksDBStorageException(
                     e, "load all keys error parent path is {}", e, businessRootPath);
         }
     }

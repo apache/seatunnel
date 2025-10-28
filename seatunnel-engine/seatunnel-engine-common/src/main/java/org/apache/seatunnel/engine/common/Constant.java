@@ -18,6 +18,8 @@
 package org.apache.seatunnel.engine.common;
 
 public class Constant {
+    private Constant() {}
+
     public static final String SEATUNNEL_SERVICE_NAME = "st:impl:seaTunnelServer";
 
     public static final String SEATUNNEL_ID_GENERATOR_NAME = "SeaTunnelIdGenerator";
@@ -62,4 +64,6 @@ public class Constant {
     public static final String IMAP_CONNECTOR_JAR_REF_COUNTERS = "engine_connectorJarRefCounters";
 
     public static final String PROP_FILE = "zeta.version.properties";
+
+    public static final String ROCKS_DB_STATE_BACKEND = "rocksdbStateBackend";
 }

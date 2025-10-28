@@ -20,7 +20,7 @@
 
 package org.apache.seatunnel.engine.imap.storage.file.config;
 
-import org.apache.seatunnel.engine.imap.storage.api.exception.IMapStorageException;
+import org.apache.seatunnel.engine.imap.storage.api.exception.RocksDBStorageException;
 
 import org.apache.hadoop.conf.Configuration;
 
@@ -55,7 +55,7 @@ public abstract class AbstractConfiguration {
     }
 
     public abstract Configuration buildConfiguration(Map<String, String> config)
-            throws IMapStorageException;
+            throws RocksDBStorageException;
 
     /**
      * set extra options for configuration

@@ -58,7 +58,7 @@ public class IMapFileOSSStorageTest {
     static String CLUSTER_NAME = "test-one";
     private static final Configuration CONF;
 
-    private static final IMapFileStorage STORAGE;
+    private static final RocksDBFileStorage STORAGE;
 
     static {
         CONF = new Configuration();
@@ -69,7 +69,7 @@ public class IMapFileOSSStorageTest {
         CONF.set("fs.oss.accessKeySecret", OSS_ACCESS_KEY_SECRET);
         CONF.set("fs.oss.impl", "org.apache.hadoop.fs.aliyun.oss.AliyunOSSFileSystem");
 
-        STORAGE = new IMapFileStorage();
+        STORAGE = new RocksDBFileStorage();
         Map<String, Object> properties = new HashMap<>();
         properties.put("storage.type", "oss");
         properties.put("oss.bucket", OSS_BUCKET_NAME);

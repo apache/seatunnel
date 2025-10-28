@@ -45,17 +45,17 @@ import static org.junit.jupiter.api.condition.OS.LINUX;
 import static org.junit.jupiter.api.condition.OS.MAC;
 
 @EnabledOnOs({LINUX, MAC})
-public class IMapFileStorageTest {
+class RocksDBFileStorageTest {
 
     private static final Configuration CONF;
 
-    private static final IMapFileStorage STORAGE;
+    private static final RocksDBFileStorage STORAGE;
 
     static {
         CONF = new Configuration();
         CONF.set("fs.defaultFS", "file:///");
         CONF.set("fs.file.impl", "org.apache.hadoop.fs.LocalFileSystem");
-        STORAGE = new IMapFileStorage();
+        STORAGE = new RocksDBFileStorage();
 
         Map<String, Object> properties = new HashMap<>();
         properties.put("fs.defaultFS", "file:///");
@@ -114,7 +114,7 @@ public class IMapFileStorageTest {
         data[6] = 111111111L;
         STORAGE.store("array", data);
         Long[] array = (Long[]) STORAGE.loadAll().get("array");
-        Assertions.assertEquals(array[6], 111111111L);
+        Assertions.assertEquals(111111111L, array[6]);
     }
 
     @AfterAll

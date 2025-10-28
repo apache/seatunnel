@@ -20,7 +20,7 @@
 
 package org.apache.seatunnel.engine.imap.storage.file.disruptor;
 
-import org.apache.seatunnel.engine.imap.storage.api.exception.IMapStorageException;
+import org.apache.seatunnel.engine.imap.storage.api.exception.RocksDBStorageException;
 import org.apache.seatunnel.engine.imap.storage.file.bean.IMapFileData;
 import org.apache.seatunnel.engine.imap.storage.file.config.FileConfiguration;
 import org.apache.seatunnel.engine.serializer.api.Serializer;
@@ -105,7 +105,7 @@ public class WALDisruptor implements Closeable {
             disruptor.shutdown(DEFAULT_CLOSE_WAIT_TIME_SECONDS, TimeUnit.SECONDS);
         } catch (TimeoutException e) {
             log.error("WALDisruptor close timeout error", e);
-            throw new IMapStorageException("WALDisruptor close timeout error", e);
+            throw new RocksDBStorageException("WALDisruptor close timeout error", e);
         }
     }
 }

@@ -31,10 +31,13 @@ import org.apache.seatunnel.engine.server.task.operation.GetMetricsOperation;
 import org.apache.seatunnel.engine.server.task.operation.GetTaskGroupAddressOperation;
 import org.apache.seatunnel.engine.server.task.operation.GetTaskGroupMetricsOperation;
 import org.apache.seatunnel.engine.server.task.operation.NotifyTaskStatusOperation;
-import org.apache.seatunnel.engine.server.task.operation.ReportMetricsOperation;
 import org.apache.seatunnel.engine.server.task.operation.SendConnectorJarToMemberNodeOperation;
 import org.apache.seatunnel.engine.server.task.operation.checkpoint.BarrierFlowOperation;
 import org.apache.seatunnel.engine.server.task.operation.checkpoint.CloseRequestOperation;
+import org.apache.seatunnel.engine.server.task.operation.rocksdb.GetAllDataOperation;
+import org.apache.seatunnel.engine.server.task.operation.rocksdb.GetDataOperation;
+import org.apache.seatunnel.engine.server.task.operation.rocksdb.PutDataOperation;
+import org.apache.seatunnel.engine.server.task.operation.rocksdb.RemoveDataOperation;
 import org.apache.seatunnel.engine.server.task.operation.sink.SinkPrepareCommitOperation;
 import org.apache.seatunnel.engine.server.task.operation.sink.SinkRegisterOperation;
 import org.apache.seatunnel.engine.server.task.operation.source.AssignSplitOperation;
@@ -108,7 +111,13 @@ public class TaskDataSerializerHook implements DataSerializerHook {
 
     public static final int CLEAN_LOG_OPERATION = 27;
 
-    public static final int REPORT_METRICS_OPERATION = 28;
+    public static final int GET_DATA_OPERATION = 28;
+
+    public static final int PUT_DATA_OPERATION = 29;
+
+    public static final int REMOVE_DATA_OPERATION = 30;
+
+    public static final int GET_ALL_DATA_OPERATION = 31;
 
     public static final int FACTORY_ID =
             FactoryIdHelper.getFactoryId(
@@ -184,8 +193,14 @@ public class TaskDataSerializerHook implements DataSerializerHook {
                     return new CloseIdleReaderOperation();
                 case CLEAN_LOG_OPERATION:
                     return new CleanLogOperation();
-                case REPORT_METRICS_OPERATION:
-                    return new ReportMetricsOperation();
+                case GET_DATA_OPERATION:
+                    return new GetDataOperation();
+                case PUT_DATA_OPERATION:
+                    return new PutDataOperation();
+                case REMOVE_DATA_OPERATION:
+                    return new RemoveDataOperation();
+                case GET_ALL_DATA_OPERATION:
+                    return new GetAllDataOperation();
                 default:
                     throw new IllegalArgumentException("Unknown type id " + typeId);
             }

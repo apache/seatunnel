@@ -27,6 +27,7 @@ import org.apache.seatunnel.engine.common.config.server.ConnectorJarStorageConfi
 import org.apache.seatunnel.engine.common.config.server.ConnectorJarStorageMode;
 import org.apache.seatunnel.engine.common.config.server.CoordinatorServiceConfig;
 import org.apache.seatunnel.engine.common.config.server.HttpConfig;
+import org.apache.seatunnel.engine.common.config.server.MapStoreConfig;
 import org.apache.seatunnel.engine.common.config.server.QueueType;
 import org.apache.seatunnel.engine.common.config.server.ScheduleStrategy;
 import org.apache.seatunnel.engine.common.config.server.ServerConfigOptions;
@@ -90,6 +91,61 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
             return true;
         }
         return false;
+    }
+
+    private MapStoreConfig parseMapStoreConfig(Node mapStoreNode) {
+        MapStoreConfig mapStoreConfig = new MapStoreConfig();
+        for (Node node : childElements(mapStoreNode)) {
+            String name = cleanNodeName(node);
+            if (ServerConfigOptions.MasterServerConfigOptions.MAP_STORE_ENABLED
+                    .key()
+                    .equals(name)) {
+                mapStoreConfig.setMapStoreEnabled(getBooleanValue(getTextContent(node)));
+            } else if (ServerConfigOptions.MasterServerConfigOptions.MAP_STORE_TYPE
+                    .key()
+                    .equals(name)) {
+                mapStoreConfig.setMapStoreType(getTextContent(node));
+            } else if (ServerConfigOptions.MasterServerConfigOptions.MAP_STORE_NAMESPACE
+                    .key()
+                    .equals(name)) {
+                mapStoreConfig.setNamespace(getTextContent(node));
+            } else if (ServerConfigOptions.MasterServerConfigOptions.MAP_STORE_CLUSTER_NAME
+                    .key()
+                    .equals(name)) {
+                mapStoreConfig.setClusterName(getTextContent(node));
+            } else if (ServerConfigOptions.MasterServerConfigOptions.MAP_STORE_DEFAULT_FS
+                    .key()
+                    .equals(name)) {
+                mapStoreConfig.setDefaultFS(getTextContent(node));
+            } else if (ServerConfigOptions.MasterServerConfigOptions.MAP_STORE_BLOCK_SIZE
+                    .key()
+                    .equals(name)) {
+                mapStoreConfig.setBlockSize(
+                        getIntegerValue(
+                                ServerConfigOptions.MasterServerConfigOptions.MAP_STORE_BLOCK_SIZE
+                                        .key(),
+                                getTextContent(node)));
+            } else if (ServerConfigOptions.MasterServerConfigOptions.MAP_STORE_OSS_BUCKET
+                    .key()
+                    .equals(name)) {
+                mapStoreConfig.setOssBucket(getTextContent(node));
+            } else if (ServerConfigOptions.MasterServerConfigOptions.MAP_STORE_OSS_ACCESS_KEY_ID
+                    .key()
+                    .equals(name)) {
+                mapStoreConfig.setOssAccessKeyId(getTextContent(node));
+            } else if (ServerConfigOptions.MasterServerConfigOptions.MAP_STORE_OSS_ACCESS_KEY_SECRET
+                    .key()
+                    .equals(name)) {
+                mapStoreConfig.setOssAccessKeySecret(getTextContent(node));
+            } else if (ServerConfigOptions.MasterServerConfigOptions.MAP_STORE_OSS_ENDPOINT
+                    .key()
+                    .equals(name)) {
+                mapStoreConfig.setOssEndpoint(getTextContent(node));
+            } else {
+                LOGGER.warning("Unrecognized element: " + name);
+            }
+        }
+        return mapStoreConfig;
     }
 
     private SlotServiceConfig parseSlotServiceConfig(Node slotServiceNode) {
@@ -259,6 +315,8 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
                     .key()
                     .equals(name)) {
                 engineConfig.setCoordinatorServiceConfig(parseCoordinatorServiceConfig(node));
+            } else if (ServerConfigOptions.MasterServerConfigOptions.MAP_STORE.key().equals(name)) {
+                engineConfig.setMapStoreConfig((parseMapStoreConfig(node)));
             } else {
                 LOGGER.warning("Unrecognized element: " + name);
             }

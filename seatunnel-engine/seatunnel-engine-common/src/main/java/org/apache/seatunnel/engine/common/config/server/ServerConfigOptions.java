@@ -97,6 +97,77 @@ public class ServerConfigOptions {
                         .defaultValue(1)
                         .withDescription("Number of partitions for storing job metrics in IMap.");
         /////////////////////////////////////////////////
+        // The options about RocksDB persistence start
+        public static final Option<Boolean> MAP_STORE_ENABLED =
+                Options.key("map-store-enabled")
+                        .booleanType()
+                        .defaultValue(false)
+                        .withDescription("Enable external map-store persistence for RocksDB");
+
+        // common properties
+        public static final Option<String> MAP_STORE_TYPE =
+                Options.key("type")
+                        .stringType()
+                        .defaultValue("hdfs")
+                        .withDescription("Type marker for map-store usage (hdfs/s3/oss)");
+
+        public static final Option<String> MAP_STORE_NAMESPACE =
+                Options.key("namespace")
+                        .stringType()
+                        .defaultValue("/tmp/seatunnel/imap")
+                        .withDescription("Namespace / base path used by the file map store");
+
+        public static final Option<String> MAP_STORE_CLUSTER_NAME =
+                Options.key("clusterName")
+                        .stringType()
+                        .defaultValue("seatunnel-cluster")
+                        .withDescription("Cluster name used by the file map store");
+
+        // HDFS / local specific
+        public static final Option<String> MAP_STORE_DEFAULT_FS =
+                Options.key("fs.defaultFS")
+                        .stringType()
+                        .defaultValue("hdfs://localhost:9000")
+                        .withDescription("fs.defaultFS for HDFS; for local use file:///");
+
+        // OSS specific
+        public static final Option<Integer> MAP_STORE_BLOCK_SIZE =
+                Options.key("block.size")
+                        .intType()
+                        .defaultValue(134217728) // 128MB
+                        .withDescription("Block size in bytes for OSS/HDFS write (default 128MB)");
+
+        public static final Option<String> MAP_STORE_OSS_BUCKET =
+                Options.key("oss.bucket")
+                        .stringType()
+                        .noDefaultValue()
+                        .withDescription("OSS bucket path, e.g., oss://bucket-name/");
+
+        public static final Option<String> MAP_STORE_OSS_ACCESS_KEY_ID =
+                Options.key("fs.oss.accessKeyId")
+                        .stringType()
+                        .noDefaultValue()
+                        .withDescription("OSS access key id");
+
+        public static final Option<String> MAP_STORE_OSS_ACCESS_KEY_SECRET =
+                Options.key("fs.oss.accessKeySecret")
+                        .stringType()
+                        .noDefaultValue()
+                        .withDescription("OSS access key secret");
+
+        public static final Option<String> MAP_STORE_OSS_ENDPOINT =
+                Options.key("fs.oss.endpoint")
+                        .stringType()
+                        .noDefaultValue()
+                        .withDescription("OSS endpoint");
+
+        public static final Option<MapStoreConfig> MAP_STORE =
+                Options.key("map-store")
+                        .type(new TypeReference<MapStoreConfig>() {})
+                        .defaultValue(new MapStoreConfig())
+                        .withDescription("The map store configuration.");
+        // The options about RocksDB persistence end
+        /////////////////////////////////////////////////
         // The options about Hazelcast IMAP store start
         public static final Option<Integer> BACKUP_COUNT =
                 Options.key("backup-count")

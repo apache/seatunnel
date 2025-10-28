@@ -18,23 +18,27 @@
  *
  */
 
-package org.apache.seatunnel.engine.imap.storage.api.exception;
+package org.apache.seatunnel.engine.imap.storage.file;
 
-public class IMapStorageException extends RuntimeException {
+import org.apache.seatunnel.engine.imap.storage.api.RocksDBStorage;
+import org.apache.seatunnel.engine.imap.storage.api.RocksDBStorageFactory;
+import org.apache.seatunnel.engine.imap.storage.api.exception.RocksDBStorageException;
 
-    public IMapStorageException(String message) {
-        super(message);
+import com.google.auto.service.AutoService;
+
+import java.util.Map;
+
+@AutoService(RocksDBStorageFactory.class)
+public class RocksDBFileStorageFactory implements RocksDBStorageFactory {
+    @Override
+    public String factoryIdentifier() {
+        return "hdfs";
     }
 
-    public IMapStorageException(String message, Throwable cause) {
-        super(message, cause);
-    }
-
-    public IMapStorageException(Throwable cause) {
-        super(cause);
-    }
-
-    public IMapStorageException(Throwable cause, String message, Object... data) {
-        super(String.format(message, data), cause);
+    @Override
+    public RocksDBStorage create(Map<String, Object> initMap) throws RocksDBStorageException {
+        RocksDBFileStorage iMapFileStorage = new RocksDBFileStorage();
+        iMapFileStorage.initialize(initMap);
+        return iMapFileStorage;
     }
 }

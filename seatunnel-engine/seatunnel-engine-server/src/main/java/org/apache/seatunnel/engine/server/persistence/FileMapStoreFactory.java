@@ -17,15 +17,16 @@
 
 package org.apache.seatunnel.engine.server.persistence;
 
-import com.hazelcast.map.MapLoader;
-import com.hazelcast.map.MapStoreFactory;
+import org.apache.seatunnel.engine.imap.storage.api.RocksDBStorageFactory;
 
-import java.util.Properties;
+import java.util.Map;
 
-public class FileMapStoreFactory implements MapStoreFactory<Object, Object> {
-    @Override
-    public MapLoader<Object, Object> newMapStore(String mapName, Properties properties) {
-        properties.setProperty("businessName", mapName);
-        return new FileMapStore();
+public class FileMapStoreFactory {
+    public static final String BUSINESS_NAME = "businessName";
+
+    public FileMapStore newMapStore(
+            RocksDBStorageFactory factory, Map<String, Object> configuration, String name) {
+        configuration.put(BUSINESS_NAME, name);
+        return new FileMapStore(factory, configuration);
     }
 }

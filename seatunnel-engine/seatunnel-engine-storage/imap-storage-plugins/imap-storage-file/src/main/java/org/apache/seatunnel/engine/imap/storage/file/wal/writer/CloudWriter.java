@@ -19,7 +19,7 @@
  */
 package org.apache.seatunnel.engine.imap.storage.file.wal.writer;
 
-import org.apache.seatunnel.engine.imap.storage.api.exception.IMapStorageException;
+import org.apache.seatunnel.engine.imap.storage.api.exception.RocksDBStorageException;
 import org.apache.seatunnel.engine.imap.storage.file.bean.IMapFileData;
 import org.apache.seatunnel.engine.imap.storage.file.common.WALDataUtils;
 import org.apache.seatunnel.engine.serializer.api.Serializer;
@@ -97,7 +97,7 @@ public abstract class CloudWriter implements IFileWriter<IMapFileData> {
             checkAndSetNextScheduleRotation(allBytes.length);
 
         } catch (Exception ex) {
-            throw new IMapStorageException(ex);
+            throw new RocksDBStorageException(ex);
         }
     }
 

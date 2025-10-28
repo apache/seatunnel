@@ -22,7 +22,7 @@ package org.apache.seatunnel.engine.imap.storage.file.common;
 
 import org.apache.seatunnel.shade.org.apache.commons.lang3.ClassUtils;
 
-import org.apache.seatunnel.engine.imap.storage.api.exception.IMapStorageException;
+import org.apache.seatunnel.engine.imap.storage.api.exception.RocksDBStorageException;
 import org.apache.seatunnel.engine.imap.storage.file.bean.IMapFileData;
 import org.apache.seatunnel.engine.imap.storage.file.config.FileConfiguration;
 import org.apache.seatunnel.engine.imap.storage.file.wal.DiscoveryWalFileFactory;
@@ -120,12 +120,12 @@ public class WALReader {
             } catch (IOException e) {
                 // log.error("deserialize data error, data is {}, className is {}", data, className,
                 // e);
-                throw new IMapStorageException(
+                throw new RocksDBStorageException(
                         e, "deserialize data error: data is s%, className is s%", data, className);
             }
         } catch (ClassNotFoundException e) {
             //  log.error("deserialize data error, class name is {}", className, e);
-            throw new IMapStorageException(
+            throw new RocksDBStorageException(
                     e, "deserialize data error, class name is {}", className);
         }
     }

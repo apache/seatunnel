@@ -30,6 +30,8 @@ import org.apache.seatunnel.engine.server.execution.ExecutionState;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.metrics.SeaTunnelMetricsContext;
+import org.apache.seatunnel.engine.server.rocksdb.RocksDBService;
+import org.apache.seatunnel.engine.server.rocksdb.RocksDBValueState;
 import org.apache.seatunnel.engine.server.service.jar.ConnectorPackageService;
 import org.apache.seatunnel.engine.server.service.slot.DefaultSlotService;
 import org.apache.seatunnel.engine.server.service.slot.SlotService;
@@ -63,6 +65,8 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
+import static org.apache.seatunnel.engine.server.rocksdb.RocksDBStateBackend.DB_PATH;
+
 @Slf4j
 public class SeaTunnelServer
         implements ManagedService, MembershipAwareService, LiveOperationsTracker {
@@ -94,6 +98,7 @@ public class SeaTunnelServer
     private ScheduledExecutorService monitorService;
     private JettyService jettyService;
     private TaskLogManagerService taskLogManagerService;
+    private RocksDBService rocksDBService;
 
     @Getter private SeaTunnelHealthMonitor seaTunnelHealthMonitor;
 
@@ -192,6 +197,19 @@ public class SeaTunnelServer
                 0,
                 seaTunnelConfig.getEngineConfig().getPrintExecutionInfoInterval(),
                 TimeUnit.SECONDS);
+        if (rocksDBService == null) {
+            try {
+                String safeAddress =
+                        nodeEngine.getThisAddress().toString().replaceAll("[^A-Za-z0-9._-]", "_");
+                String dbPath = DB_PATH + "_" + safeAddress;
+                this.rocksDBService =
+                        new RocksDBService(
+                                dbPath, seaTunnelConfig.getEngineConfig().getMapStoreConfig());
+            } catch (Exception e) {
+                LOGGER.severe("Failed to initialize RocksDB state backend: " + e.getMessage());
+                throw new SeaTunnelEngineException("Failed to init RocksDBStateBackend", e);
+            }
+        }
     }
 
     private void startWorker() {
@@ -230,6 +248,10 @@ public class SeaTunnelServer
 
         if (eventService != null) {
             eventService.shutdownNow();
+        }
+
+        if (rocksDBService != null) {
+            rocksDBService.close();
         }
     }
 
@@ -303,6 +325,10 @@ public class SeaTunnelServer
         return classLoaderService;
     }
 
+    public RocksDBService getRocksDBService() {
+        return rocksDBService;
+    }
+
     /**
      * return whether task is end
      *
@@ -343,44 +369,13 @@ public class SeaTunnelServer
         }
     }
 
-    public void updateMetrics(Map<TaskLocation, SeaTunnelMetricsContext> localMap) {
-        if (localMap == null || localMap.isEmpty()) {
-            return;
-        }
-        int partitionCount = seaTunnelConfig.getEngineConfig().getJobMetricsPartitionCount();
-
-        IMap<Long, Map<TaskLocation, SeaTunnelMetricsContext>> metricsImap =
-                getNodeEngine().getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_METRICS);
-
-        Map<Long, Map<TaskLocation, SeaTunnelMetricsContext>> partitioned = new HashMap<>();
-        localMap.forEach(
-                (key, value) -> {
-                    long partition = getMetricsImapPartition(key, partitionCount);
-                    partitioned.computeIfAbsent(partition, k -> new HashMap<>()).put(key, value);
-                });
-
-        partitioned
-                .entrySet()
-                .parallelStream()
-                .forEach(
-                        entry -> {
-                            metricsImap.compute(
-                                    entry.getKey(),
-                                    (k, oldVal) -> {
-                                        if (oldVal == null) oldVal = new HashMap<>();
-                                        oldVal.putAll(entry.getValue());
-                                        return oldVal;
-                                    });
-                        });
-    }
-
     public void removeMetrics(PipelineLocation pipelineLocation) {
-        IMap<Long, Map<TaskLocation, SeaTunnelMetricsContext>> metricsImap =
-                getNodeEngine().getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_METRICS);
+        RocksDBValueState<Long, HashMap<TaskLocation, SeaTunnelMetricsContext>> metricsState =
+                rocksDBService.getValueState(Constant.IMAP_RUNNING_JOB_METRICS);
 
         Map<Long, List<TaskLocation>> partitionedTasks = new HashMap<>();
-        for (Map.Entry<Long, Map<TaskLocation, SeaTunnelMetricsContext>> entry :
-                metricsImap.entrySet()) {
+        for (Map.Entry<Long, HashMap<TaskLocation, SeaTunnelMetricsContext>> entry :
+                metricsState.entries()) {
             long partition = entry.getKey();
             List<TaskLocation> tasksToRemove =
                     entry.getValue().keySet().stream()
@@ -394,7 +389,6 @@ public class SeaTunnelServer
                 partitionedTasks.put(partition, tasksToRemove);
             }
         }
-
         partitionedTasks
                 .entrySet()
                 .parallelStream()
@@ -402,19 +396,21 @@ public class SeaTunnelServer
                         entry -> {
                             long partition = entry.getKey();
                             List<TaskLocation> tasks = entry.getValue();
-                            metricsImap.compute(
+                            metricsState.compute(
                                     partition,
-                                    (k, oldVal) -> {
+                                    oldVal -> {
                                         if (oldVal != null) {
                                             tasks.forEach(oldVal::remove);
-                                            if (oldVal.isEmpty()) return null;
+                                            if (oldVal.isEmpty()) {
+                                                return null;
+                                            }
                                         }
                                         return oldVal;
                                     });
                         });
     }
 
-    public static long getMetricsImapPartition(TaskLocation key, int partitionCount) {
+    public static long getMetricsPartition(TaskLocation key, int partitionCount) {
         return (key.hashCode() & 0x7FFFFFFF) % partitionCount;
     }
 

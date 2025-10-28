@@ -20,7 +20,7 @@
 
 package org.apache.seatunnel.engine.imap.storage.file.disruptor;
 
-import org.apache.seatunnel.engine.imap.storage.api.exception.IMapStorageException;
+import org.apache.seatunnel.engine.imap.storage.api.exception.RocksDBStorageException;
 import org.apache.seatunnel.engine.imap.storage.file.bean.IMapFileData;
 import org.apache.seatunnel.engine.imap.storage.file.common.WALWriter;
 import org.apache.seatunnel.engine.imap.storage.file.config.FileConfiguration;
@@ -49,7 +49,7 @@ public class WALWorkHandler implements WorkHandler<FileWALEvent> {
         try {
             writer = new WALWriter(fs, fileConfiguration, new Path(parentPath), serializer);
         } catch (IOException e) {
-            throw new IMapStorageException(
+            throw new RocksDBStorageException(
                     e, "create new current writer failed, parent path is %s", parentPath);
         }
     }

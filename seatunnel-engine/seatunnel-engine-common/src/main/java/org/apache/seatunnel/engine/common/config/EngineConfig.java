@@ -21,6 +21,7 @@ import org.apache.seatunnel.engine.common.config.server.CheckpointConfig;
 import org.apache.seatunnel.engine.common.config.server.ConnectorJarStorageConfig;
 import org.apache.seatunnel.engine.common.config.server.CoordinatorServiceConfig;
 import org.apache.seatunnel.engine.common.config.server.HttpConfig;
+import org.apache.seatunnel.engine.common.config.server.MapStoreConfig;
 import org.apache.seatunnel.engine.common.config.server.QueueType;
 import org.apache.seatunnel.engine.common.config.server.ScheduleStrategy;
 import org.apache.seatunnel.engine.common.config.server.ServerConfigOptions;
@@ -98,6 +99,9 @@ public class EngineConfig {
 
     private HttpConfig httpConfig =
             ServerConfigOptions.MasterServerConfigOptions.HTTP.defaultValue();
+
+    private MapStoreConfig mapStoreConfig =
+            ServerConfigOptions.MasterServerConfigOptions.MAP_STORE.defaultValue();
 
     public void setBackupCount(int newBackupCount) {
         checkBackupCount(newBackupCount, 0);

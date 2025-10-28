@@ -25,7 +25,7 @@ import java.util.Collection;
 import java.util.Map;
 import java.util.Set;
 
-public interface IMapStorage {
+public interface RocksDBStorage {
 
     public void initialize(Map<String, Object> properties);
 

@@ -18,27 +18,22 @@
  *
  */
 
-package org.apache.seatunnel.engine.imap.storage.file;
+package org.apache.seatunnel.engine.server.rocksdb;
 
-import org.apache.seatunnel.engine.imap.storage.api.IMapStorage;
-import org.apache.seatunnel.engine.imap.storage.api.IMapStorageFactory;
-import org.apache.seatunnel.engine.imap.storage.api.exception.IMapStorageException;
+import org.apache.seatunnel.engine.common.config.server.MapStoreConfig;
+import org.apache.seatunnel.engine.imap.storage.file.RocksDBFileStorageFactory;
 
-import com.google.auto.service.AutoService;
+import org.rocksdb.RocksDBException;
 
-import java.util.Map;
+public class BackendFactory {
+    private BackendFactory() {}
 
-@AutoService(IMapStorageFactory.class)
-public class IMapFileStorageFactory implements IMapStorageFactory {
-    @Override
-    public String factoryIdentifier() {
-        return "hdfs";
-    }
-
-    @Override
-    public IMapStorage create(Map<String, Object> initMap) throws IMapStorageException {
-        IMapFileStorage iMapFileStorage = new IMapFileStorage();
-        iMapFileStorage.initialize(initMap);
-        return iMapFileStorage;
+    public static RocksDBStateBackend createRocksDBStateBackend(
+            String dbPath, MapStoreConfig mapStoreConfig) {
+        try {
+            return new RocksDBStateBackend(dbPath, new RocksDBFileStorageFactory(), mapStoreConfig);
+        } catch (RocksDBException e) {
+            throw new RocksDBRuntimeException("Failed to create RocksDBStateBackend", e);
+        }
     }
 }

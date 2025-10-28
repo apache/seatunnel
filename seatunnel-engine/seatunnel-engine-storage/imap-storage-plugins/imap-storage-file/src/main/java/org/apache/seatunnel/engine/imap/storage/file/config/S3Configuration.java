@@ -20,7 +20,7 @@
 
 package org.apache.seatunnel.engine.imap.storage.file.config;
 
-import org.apache.seatunnel.engine.imap.storage.api.exception.IMapStorageException;
+import org.apache.seatunnel.engine.imap.storage.api.exception.RocksDBStorageException;
 
 import org.apache.hadoop.conf.Configuration;
 
@@ -40,7 +40,7 @@ public class S3Configuration extends AbstractConfiguration {
 
     @Override
     public Configuration buildConfiguration(Map<String, String> config)
-            throws IMapStorageException {
+            throws RocksDBStorageException {
         checkConfiguration(config, S3_BUCKET_KEY);
         String protocol = DEFAULT_PROTOCOL;
         if (config.get(S3_BUCKET_KEY).startsWith(S3A_PROTOCOL)) {

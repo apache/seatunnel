@@ -20,13 +20,13 @@
 
 package org.apache.seatunnel.engine.imap.storage.api;
 
-import org.apache.seatunnel.engine.imap.storage.api.exception.IMapStorageException;
+import org.apache.seatunnel.engine.imap.storage.api.exception.RocksDBStorageException;
 
 import java.util.Map;
 
-public interface IMapStorageFactory {
+public interface RocksDBStorageFactory {
 
     String factoryIdentifier();
 
-    IMapStorage create(Map<String, Object> configuration) throws IMapStorageException;
+    RocksDBStorage create(Map<String, Object> configuration) throws RocksDBStorageException;
 }
