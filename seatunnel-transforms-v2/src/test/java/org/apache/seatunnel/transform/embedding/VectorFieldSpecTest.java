@@ -65,7 +65,7 @@ public class VectorFieldSpecTest {
                 Assertions.assertThrows(
                         IllegalArgumentException.class, () -> new VectorFieldSpec(entry));
         Assertions.assertTrue(
-                exception.getMessage().contains("Field config name be null or empty"));
+                exception.getMessage().contains("Field config name cannot be null or empty"));
     }
 
     @Test
