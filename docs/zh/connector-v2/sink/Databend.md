@@ -173,9 +173,11 @@ sink {
   }
 }
 ```
+>注意：[Stream](https://docs.databend.com/sql/sql-commands/ddl/stream/) 是 Databend 的企业版功能，请确保您的 Databend 版本支持该功能。
 
 ## 相关链接
 
+- [Databend Stream](https://docs.databend.com/sql/sql-commands/ddl/stream/)
 - [Databend 官方网站](https://databend.rs/)
 - [Databend JDBC 驱动](https://github.com/databendlabs/databend-jdbc/)
 

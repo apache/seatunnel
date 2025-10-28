@@ -172,10 +172,12 @@ sink {
   }
 }
 ```
+>NOTE: [Stream][https://docs.databend.com/sql/sql-commands/ddl/stream/] is a enterprise feature of Databend, please make sure your Databend edition supports it.
 
 ## Related Links
 
-- [Databend Official Website](https://databend.rs/)
+- [Databend Stream](https://docs.databend.com/sql/sql-commands/ddl/stream/)
+- [Databend Official Website](https://databend.com/)
 - [Databend JDBC Driver](https://github.com/databendlabs/databend-jdbc/)
 
 ## Changelog
