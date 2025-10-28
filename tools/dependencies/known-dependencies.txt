@@ -95,6 +95,7 @@ reactive-streams-1.0.4.jar
 regions-2.31.30.jar
 retries-2.31.30.jar
 retries-spi-2.31.30.jar
+rocksdbjni-10.4.2.jar
 auth-2.31.30.jar
 annotations-2.31.30.jar
 apache-client-2.31.30.jar
