@@ -26,7 +26,7 @@ import java.io.Serializable;
 import java.util.Map;
 
 @Data
-public class FieldSpec implements Serializable {
+public class SrcFieldSpec implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
@@ -34,40 +34,12 @@ public class FieldSpec implements Serializable {
     private ModalityType modalityType;
     private PayloadFormat payloadFormat;
 
-    public FieldSpec(String fieldName) {
-        this.fieldName = fieldName;
-        this.modalityType = ModalityType.TEXT;
-        this.payloadFormat = PayloadFormat.TEXT;
-    }
-
-    public FieldSpec(Map.Entry<String, Object> fieldConfig) {
-        String outputFieldName = fieldConfig.getKey();
-        if (outputFieldName == null) {
-            throw new IllegalArgumentException("Field spec cannot be null");
-        }
-        Object fieldValue = fieldConfig.getValue();
-        try {
-            if (fieldValue instanceof String) {
-                parseBasicFieldSpec((String) fieldValue);
-            } else {
-                Map<String, Object> fieldSpecConfig = (Map<String, Object>) fieldValue;
-                parseMultimodalFieldSpec(fieldSpecConfig);
-            }
-        } catch (Exception e) {
-            String errorMessage =
-                    String.format(
-                            "Invalid field spec for output field '%s': %s",
-                            outputFieldName, fieldConfig);
-            throw new IllegalArgumentException(errorMessage, e);
-        }
-    }
-
     /** Parse basic field spec: just the field name, defaults to TEXT modality and default format */
-    private void parseBasicFieldSpec(String fieldSpec) {
-        if (fieldSpec == null || fieldSpec.trim().isEmpty()) {
-            throw new IllegalArgumentException("Field spec cannot be null or empty");
+    public SrcFieldSpec(String fieldName) {
+        if (fieldName == null || fieldName.trim().isEmpty()) {
+            throw new IllegalArgumentException("Field name cannot be null or empty");
         }
-        this.fieldName = fieldSpec.trim();
+        this.fieldName = fieldName.trim();
         this.modalityType = ModalityType.TEXT;
         this.payloadFormat = PayloadFormat.TEXT;
     }
@@ -76,9 +48,9 @@ public class FieldSpec implements Serializable {
      * Parse multimodal field spec: field name, modality, and format Supports both formats: 1.
      * Separate modality and format
      */
-    private void parseMultimodalFieldSpec(Map<String, Object> fieldConfig) {
+    public SrcFieldSpec(Map<String, Object> fieldConfig) {
         if (fieldConfig == null || fieldConfig.isEmpty()) {
-            throw new IllegalArgumentException("Field configuration cannot be null or empty");
+            throw new IllegalArgumentException("Field config cannot be null or empty");
         }
 
         Object fieldNameObj = fieldConfig.get("field");
@@ -107,10 +79,6 @@ public class FieldSpec implements Serializable {
                 this.payloadFormat = PayloadFormat.TEXT;
             }
         }
-    }
-
-    public boolean isMultimodalField() {
-        return !ModalityType.TEXT.equals(modalityType);
     }
 
     public boolean isBinary() {

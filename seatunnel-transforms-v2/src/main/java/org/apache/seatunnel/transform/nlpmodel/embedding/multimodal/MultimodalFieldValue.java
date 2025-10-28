@@ -17,13 +17,14 @@
 
 package org.apache.seatunnel.transform.nlpmodel.embedding.multimodal;
 
-import org.apache.seatunnel.transform.nlpmodel.embedding.FieldSpec;
+import org.apache.seatunnel.transform.nlpmodel.embedding.SrcField;
+import org.apache.seatunnel.transform.nlpmodel.embedding.SrcFieldSpec;
 
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.Serializable;
-import java.util.Base64;
+import java.util.List;
 
 @Slf4j
 @Getter
@@ -31,26 +32,28 @@ public class MultimodalFieldValue implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
-    private final FieldSpec fieldSpec;
-    private final Object value;
+    private final List<SrcField> srcFields;
 
-    public MultimodalFieldValue(FieldSpec fieldSpec, Object value) {
-        this.value = value;
-        fieldSpec.setModalityType(determineModalityType(fieldSpec, value));
-        this.fieldSpec = fieldSpec;
+    public MultimodalFieldValue(List<SrcField> srcFields) {
+        this.srcFields = srcFields;
+        for (SrcField srcField : srcFields) {
+            SrcFieldSpec fieldSpec = srcField.getFieldSpec();
+            ModalityType modalityType = determineModalityType(fieldSpec, srcField.getFieldValue());
+            fieldSpec.setModalityType(modalityType);
+        }
     }
 
     /**
      * Determine the actual modality type based on field spec and value If not binary format,
      * analyze the value suffix to determine modality type
      */
-    private ModalityType determineModalityType(FieldSpec fieldSpec, Object value) {
+    private ModalityType determineModalityType(SrcFieldSpec fieldSpec, Object fieldValue) {
 
         if (fieldSpec.isBinary()) {
             return fieldSpec.getModalityType();
         }
-        if (value != null) {
-            String valueStr = value.toString();
+        if (fieldValue != null) {
+            String valueStr = fieldValue.toString();
             ModalityType detectedType = ModalityType.fromFileSuffix(valueStr);
             if (detectedType != null) {
                 log.debug(
@@ -59,12 +62,5 @@ public class MultimodalFieldValue implements Serializable {
             }
         }
         return fieldSpec.getModalityType();
-    }
-
-    public String toBase64() {
-        if (value == null) {
-            throw new IllegalArgumentException("Binary data cannot be null or empty");
-        }
-        return Base64.getEncoder().encodeToString(value.toString().getBytes());
     }
 }
