@@ -23,65 +23,7 @@ package org.apache.seatunnel.engine.serializer.protobuf;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-import java.util.HashMap;
-import java.util.Map;
-
 public class ProtoStuffSerializerTest {
-
-    public static class TaskLocation {
-        public String node;
-        public int slot;
-
-        public TaskLocation() {}
-
-        public TaskLocation(String node, int slot) {
-            this.node = node;
-            this.slot = slot;
-        }
-    }
-
-    public static class SeatunnelContext {
-        public String jobId;
-        public int partition;
-
-        public SeatunnelContext() {}
-
-        public SeatunnelContext(String jobId, int partition) {
-            this.jobId = jobId;
-            this.partition = partition;
-        }
-    }
-
-    @Test
-    public void debugNestedGenericMapSerialization_ShowTypes() {
-        ProtoStuffSerializer serializer = new ProtoStuffSerializer();
-
-        Map<TaskLocation, SeatunnelContext> inner = new HashMap<>();
-        inner.put(new TaskLocation("nodeA", 1), new SeatunnelContext("job-1", 0));
-
-        Map<Long, Map<TaskLocation, SeatunnelContext>> outer = new HashMap<>();
-        outer.put(100L, inner);
-
-        byte[] bytes = serializer.serialize(outer);
-
-        @SuppressWarnings("unchecked")
-        Map<?, ?> restored = serializer.deserialize(bytes, Map.class);
-
-        System.out.println("restored outer class = " + restored.getClass().getName());
-
-        Object innerObj = restored.values().iterator().next();
-        System.out.println("restored inner class = " + innerObj.getClass().getName());
-
-        if (innerObj instanceof Map) {
-            Map<?, ?> restoredInner = (Map<?, ?>) innerObj;
-            Object key = restoredInner.keySet().iterator().next();
-            Object val = restoredInner.values().iterator().next();
-            System.out.println("inner key class = " + key.getClass().getName());
-            System.out.println("inner value class = " + val.getClass().getName());
-        } else {
-            System.out.println("inner object not a Map, class = " + innerObj.getClass().getName());
-        }
-    }
 
     @Test
     public void testProtoStuffSerializerForArrayType() {
