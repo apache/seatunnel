@@ -231,11 +231,11 @@ public class DateTimeUtils {
                 DateTimeFormatter.ISO_OFFSET_DATE_TIME);
 
         OFFSET_DATETIME_FORMATTER_MAP.put(
-                Pattern.compile("\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{1,9}[+-]\\d{2}:\\d{2}"),
+                Pattern.compile(
+                        "\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{1,9}[+-]\\d{2}:\\d{2}"),
                 DateTimeFormatter.ISO_OFFSET_DATE_TIME);
 
-        OFFSET_DATETIME_FORMATTER_MAP_ENTRY_SET.addAll(
-                OFFSET_DATETIME_FORMATTER_MAP.entrySet());
+        OFFSET_DATETIME_FORMATTER_MAP_ENTRY_SET.addAll(OFFSET_DATETIME_FORMATTER_MAP.entrySet());
     }
 
     /**

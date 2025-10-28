@@ -52,8 +52,8 @@ public class ProtobufToRowConverter implements Serializable {
             try {
                 descriptor = createDescriptor();
             } catch (IOException
-                     | Descriptors.DescriptorValidationException
-                     | InterruptedException e) {
+                    | Descriptors.DescriptorValidationException
+                    | InterruptedException e) {
                 throw new RuntimeException(e);
             }
         }
@@ -125,22 +125,22 @@ public class ProtobufToRowConverter implements Serializable {
                 Map<Object, Object> res =
                         ((List<DynamicMessage>) val)
                                 .stream()
-                                .collect(
-                                        Collectors.toMap(
-                                                dm ->
-                                                        convertField(
-                                                                descriptor,
-                                                                dm,
-                                                                mapType.getKeyType(),
-                                                                getFieldValue(dm, "key"),
-                                                                null),
-                                                dm ->
-                                                        convertField(
-                                                                descriptor,
-                                                                dm,
-                                                                mapType.getValueType(),
-                                                                getFieldValue(dm, "value"),
-                                                                null)));
+                                        .collect(
+                                                Collectors.toMap(
+                                                        dm ->
+                                                                convertField(
+                                                                        descriptor,
+                                                                        dm,
+                                                                        mapType.getKeyType(),
+                                                                        getFieldValue(dm, "key"),
+                                                                        null),
+                                                        dm ->
+                                                                convertField(
+                                                                        descriptor,
+                                                                        dm,
+                                                                        mapType.getValueType(),
+                                                                        getFieldValue(dm, "value"),
+                                                                        null)));
 
                 return res;
             case ROW:
