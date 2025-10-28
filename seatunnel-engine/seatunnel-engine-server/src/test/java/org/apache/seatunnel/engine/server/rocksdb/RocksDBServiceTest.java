@@ -59,6 +59,9 @@ class RocksDBServiceTest {
         Files.createDirectories(jniTmpDir);
         prevProperty = System.getProperty("java.io.tmpdir");
         System.setProperty("java.io.tmpdir", jniTmpDir.toString());
+
+        System.setProperty("org.rocksdb.debug", "true");
+        System.out.println("JNI tmpdir = " + System.getProperty("java.io.tmpdir"));
     }
 
     @AfterAll
