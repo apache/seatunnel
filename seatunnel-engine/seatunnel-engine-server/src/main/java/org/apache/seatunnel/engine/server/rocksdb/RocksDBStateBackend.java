@@ -49,18 +49,16 @@ import java.util.Map;
 @Slf4j
 public class RocksDBStateBackend {
     public static final String DB_PATH = "rocksdb";
+    public static final String DEFAULT_NAME = "default";
 
     private final RocksDB db;
     private final DBOptions dbOptions;
     private final List<ColumnFamilyOptions> columnFamilyOptions = new ArrayList<>();
-    private final List<ColumnFamilyHandle> cfHandles = new ArrayList<>();
-    private final Map<String, ColumnFamilyHandle> columnFamilies = new HashMap<>();
+    private final List<ColumnFamilyHandle> columnFamilyHandles = new ArrayList<>();
+    private final Map<String, ColumnFamilyHandle> columnFamilyMap = new HashMap<>();
     private final Map<String, RocksDBValueState<Object, Object>> valueStateMap = new HashMap<>();
     private final List<String> initialStateNames =
-            Arrays.asList(
-                    Constant.IMAP_RUNNING_JOB_METRICS
-                    // Add other initial state names here
-                    );
+            new ArrayList<>(Arrays.asList(DEFAULT_NAME, Constant.IMAP_RUNNING_JOB_METRICS));
 
     private FileMapStoreManager fileMapStoreManager;
 
@@ -69,24 +67,13 @@ public class RocksDBStateBackend {
             throws RocksDBException {
         RocksDB.loadLibrary();
         try {
+            List<ColumnFamilyDescriptor> descriptors = getColumnFamilyDescriptors(dbPath);
+
             this.dbOptions =
                     new DBOptions().setCreateIfMissing(true).setCreateMissingColumnFamilies(true);
-            List<ColumnFamilyDescriptor> descriptors = new ArrayList<>();
-            ColumnFamilyOptions defaultOptions = new ColumnFamilyOptions();
-            descriptors.add(
-                    new ColumnFamilyDescriptor(RocksDB.DEFAULT_COLUMN_FAMILY, defaultOptions));
-            this.columnFamilyOptions.add(defaultOptions);
+            this.db = RocksDB.open(dbOptions, dbPath, descriptors, this.columnFamilyHandles);
 
-            for (String name : initialStateNames) {
-                if (StringUtils.isBlank(name)) continue;
-                ColumnFamilyOptions options = new ColumnFamilyOptions();
-                this.columnFamilyOptions.add(options);
-                descriptors.add(
-                        new ColumnFamilyDescriptor(name.getBytes(StandardCharsets.UTF_8), options));
-            }
-
-            this.db = RocksDB.open(dbOptions, dbPath, descriptors, cfHandles);
-            initializeColumnFamiliesAndValueStates();
+            initializeColumnFamilyMapAndValueStateMap();
 
             if (mapStoreConfig != null && mapStoreConfig.isMapStoreEnabled()) {
                 this.fileMapStoreManager =
@@ -99,19 +86,52 @@ public class RocksDBStateBackend {
         }
     }
 
-    private void initializeColumnFamiliesAndValueStates() {
-        if (!cfHandles.isEmpty()) {
-            ColumnFamilyHandle defaultHandle = cfHandles.get(0);
-            columnFamilies.put("default", defaultHandle);
-            valueStateMap.put(
-                    "default",
-                    new RocksDBValueState<>(db, defaultHandle, new ProtoStuffSerializer()));
+    private List<ColumnFamilyDescriptor> getColumnFamilyDescriptors(String dbPath) {
+        addExistingColumnFamilies(dbPath);
+
+        List<ColumnFamilyDescriptor> descriptors = new ArrayList<>();
+        for (String name : initialStateNames) {
+            ColumnFamilyOptions options = new ColumnFamilyOptions();
+            columnFamilyOptions.add(options);
+            if (DEFAULT_NAME.equals(name)) {
+                descriptors.add(new ColumnFamilyDescriptor(RocksDB.DEFAULT_COLUMN_FAMILY, options));
+            } else {
+                descriptors.add(
+                        new ColumnFamilyDescriptor(name.getBytes(StandardCharsets.UTF_8), options));
+            }
         }
-        int idx = 1;
+        return descriptors;
+    }
+
+    private void addExistingColumnFamilies(String dbPath) {
+        try (Options options = new Options()) {
+            List<byte[]> existing = RocksDB.listColumnFamilies(options, dbPath);
+
+            List<String> existingNames = new ArrayList<>();
+            for (byte[] bytes : existing) {
+                if (Arrays.equals(bytes, RocksDB.DEFAULT_COLUMN_FAMILY)) {
+                    existingNames.add(DEFAULT_NAME);
+                } else {
+                    existingNames.add(new String(bytes, StandardCharsets.UTF_8));
+                }
+            }
+
+            for (String name : existingNames) {
+                if (!initialStateNames.contains(name)) {
+                    this.initialStateNames.add(name);
+                }
+            }
+        } catch (RocksDBException ignored) {
+            log.info("RocksDB at {} does not exist. It will be created.", dbPath);
+        }
+    }
+
+    private void initializeColumnFamilyMapAndValueStateMap() {
+        int idx = 0;
         for (String name : initialStateNames) {
             if (StringUtils.isBlank(name)) continue;
-            if (idx < cfHandles.size()) {
-                columnFamilies.put(name, cfHandles.get(idx));
+            if (idx < columnFamilyHandles.size()) {
+                columnFamilyMap.put(name, columnFamilyHandles.get(idx));
             }
             idx++;
         }
@@ -120,7 +140,7 @@ public class RocksDBStateBackend {
             if (StringUtils.isBlank(name)) continue;
             RocksDBValueState<Object, Object> valueState =
                     new RocksDBValueState<>(
-                            db, columnFamilies.get(name), new ProtoStuffSerializer());
+                            db, columnFamilyMap.get(name), new ProtoStuffSerializer());
             valueStateMap.put(name, valueState);
         }
     }
@@ -148,8 +168,36 @@ public class RocksDBStateBackend {
 
     public <K, V> void put(String stateName, K key, V value) {
         RocksDBValueState<K, V> valueState = getValueState(stateName);
-        valueState.put(key, value);
-        if (fileMapStoreManager != null) fileMapStoreManager.put(stateName, key, value);
+        valueState.compute(key, oldVal -> mergeValues(oldVal, value));
+        if (fileMapStoreManager != null) {
+            V merged = valueState.get(key);
+            fileMapStoreManager.put(stateName, key, merged);
+        }
+    }
+
+    public <K, V> void putAll(String stateName, Map<K, V> map) {
+        final RocksDBValueState<K, V> valueState = getValueState(stateName);
+        for (Map.Entry<K, V> e : map.entrySet()) {
+            K key = e.getKey();
+            valueState.compute(key, oldVal -> mergeValues(oldVal, e.getValue()));
+            if (fileMapStoreManager != null) {
+                V merged = valueState.get(key);
+                fileMapStoreManager.put(stateName, key, merged);
+            }
+        }
+    }
+
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private static <V> V mergeValues(V oldVal, V newVal) {
+        if (oldVal == null) return newVal;
+
+        if (oldVal instanceof Map && newVal instanceof Map) {
+            Map merged = new HashMap((Map) oldVal);
+            merged.putAll((Map) newVal);
+            return (V) merged;
+        }
+
+        return newVal;
     }
 
     public <K, V> void remove(String stateName, K key) {
@@ -159,7 +207,7 @@ public class RocksDBStateBackend {
     }
 
     public void close(String dbPath) {
-        close(dbPath, true);
+        close(dbPath, false);
     }
 
     public void close(String dbPath, boolean destroyFiles) {
@@ -169,8 +217,8 @@ public class RocksDBStateBackend {
             state.close();
         }
         valueStateMap.clear();
-        cfHandles.clear();
-        columnFamilies.clear();
+        columnFamilyHandles.clear();
+        columnFamilyMap.clear();
 
         try {
             if (db != null) db.close();

@@ -20,6 +20,8 @@
 
 package org.apache.seatunnel.engine.server.rocksdb;
 
+import org.apache.seatunnel.shade.com.google.common.collect.MapMaker;
+
 import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.engine.serializer.api.Serializer;
 
@@ -27,6 +29,7 @@ import org.rocksdb.ColumnFamilyHandle;
 import org.rocksdb.RocksDB;
 import org.rocksdb.RocksDBException;
 import org.rocksdb.RocksIterator;
+import org.rocksdb.WriteOptions;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -42,7 +45,6 @@ import java.util.Arrays;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.NoSuchElementException;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.UnaryOperator;
 
@@ -51,8 +53,10 @@ public class RocksDBValueState<K, V> implements ValueState<K, V> {
     private final RocksDB db;
     private final ColumnFamilyHandle columnFamilyHandle;
     private final Serializer serializer;
+    private final WriteOptions writeOptions = new WriteOptions().setSync(false);
 
-    private final ConcurrentHashMap<K, ReentrantLock> lockMap = new ConcurrentHashMap<>();
+    private final Map<K, ReentrantLock> lockMap =
+            new MapMaker().concurrencyLevel(16).weakKeys().makeMap();
 
     RocksDBValueState(RocksDB db, ColumnFamilyHandle columnFamilyHandle, Serializer serializer) {
         this.db = db;
@@ -132,12 +136,6 @@ public class RocksDBValueState<K, V> implements ValueState<K, V> {
         return lockMap.computeIfAbsent(key, k -> new ReentrantLock());
     }
 
-    private void tryRemoveLock(K key, ReentrantLock lock) {
-        if (!lock.isLocked() && !lock.hasQueuedThreads()) {
-            lockMap.remove(key, lock);
-        }
-    }
-
     public V get(K key) {
         if (key == null) throw new NullPointerException("key is null");
         ReentrantLock lock = getLock(key);
@@ -160,10 +158,10 @@ public class RocksDBValueState<K, V> implements ValueState<K, V> {
         try {
             byte[] rawKey = encode(key);
             if (value == null) {
-                db.delete(columnFamilyHandle, rawKey);
+                db.delete(columnFamilyHandle, writeOptions, rawKey);
             } else {
                 byte[] valueBytes = encode(value);
-                db.put(columnFamilyHandle, rawKey, valueBytes);
+                db.put(columnFamilyHandle, writeOptions, rawKey, valueBytes);
             }
         } catch (Exception e) {
             throw new RocksDBRuntimeException(
@@ -181,12 +179,11 @@ public class RocksDBValueState<K, V> implements ValueState<K, V> {
         lock.lock();
         try {
             byte[] rawKey = encode(key);
-            db.delete(columnFamilyHandle, rawKey);
+            db.delete(columnFamilyHandle, writeOptions, rawKey);
         } catch (Exception e) {
             throw new RocksDBRuntimeException("Failed to remove key from RocksDB. key: " + key, e);
         } finally {
             lock.unlock();
-            tryRemoveLock(key, lock);
         }
     }
 
@@ -308,6 +305,7 @@ public class RocksDBValueState<K, V> implements ValueState<K, V> {
     public void close() {
         try {
             columnFamilyHandle.close();
+            writeOptions.close();
         } catch (Exception ignored) {
             log.warn("Failed to close ColumnFamilyHandle", ignored);
         }

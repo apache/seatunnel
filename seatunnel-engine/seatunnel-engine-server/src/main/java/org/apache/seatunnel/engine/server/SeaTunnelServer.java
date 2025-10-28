@@ -250,7 +250,7 @@ public class SeaTunnelServer
         }
 
         if (rocksDBService != null) {
-            rocksDBService.close();
+            rocksDBService.close(false);
         }
     }
 

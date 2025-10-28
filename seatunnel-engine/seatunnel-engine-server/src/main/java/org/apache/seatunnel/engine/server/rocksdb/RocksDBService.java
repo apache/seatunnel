@@ -49,16 +49,14 @@ public class RocksDBService {
     }
 
     public <K, V> void putData(String stateName, Map<K, V> map) {
-        for (Map.Entry<K, V> e : map.entrySet()) {
-            stateBackend.put(stateName, e.getKey(), e.getValue());
-        }
+        stateBackend.putAll(stateName, map);
     }
 
     public <K> void removeData(String stateName, K key) {
         stateBackend.remove(stateName, key);
     }
 
-    public void close() {
-        stateBackend.close(dbPath);
+    public void close(boolean deleteFiles) {
+        stateBackend.close(dbPath, deleteFiles);
     }
 }

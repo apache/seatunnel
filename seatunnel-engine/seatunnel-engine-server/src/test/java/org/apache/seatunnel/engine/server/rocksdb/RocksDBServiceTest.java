@@ -43,7 +43,7 @@ class RocksDBServiceTest {
 
     @AfterEach
     void tearDown() {
-        rocksDBService.close();
+        rocksDBService.close(true);
     }
 
     @Test
@@ -86,5 +86,34 @@ class RocksDBServiceTest {
 
         Map<String, String> allData = rocksDBService.getAllData(STATE_NAME);
         Assertions.assertEquals(2, allData.size());
+    }
+
+    @Test
+    void testCloseAndReopen() {
+        String key = "testKey";
+        String value = "testValue";
+
+        rocksDBService.putData(STATE_NAME, Collections.singletonMap(key, value));
+        rocksDBService.close(false);
+
+        rocksDBService = new RocksDBService(DB_PATH, new MapStoreConfig());
+        String retrievedValue = rocksDBService.getData(STATE_NAME, key);
+
+        Assertions.assertEquals(value, retrievedValue);
+    }
+
+    @Test
+    void testPutMultipleData() {
+        Map<String, String> dataToPut = new HashMap<>();
+        dataToPut.put("key1", "value1");
+        dataToPut.put("key2", "value2");
+        dataToPut.put("key3", "value3");
+
+        rocksDBService.putData(STATE_NAME, dataToPut);
+
+        for (Map.Entry<String, String> entry : dataToPut.entrySet()) {
+            String retrievedValue = rocksDBService.getData(STATE_NAME, entry.getKey());
+            Assertions.assertEquals(entry.getValue(), retrievedValue);
+        }
     }
 }
