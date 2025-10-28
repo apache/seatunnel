@@ -22,26 +22,85 @@ package org.apache.seatunnel.engine.server.rocksdb;
 
 import org.apache.seatunnel.engine.common.config.server.MapStoreConfig;
 
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import lombok.extern.slf4j.Slf4j;
+
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.stream.Stream;
 
+@Slf4j
 class RocksDBServiceTest {
     private static final String DB_PATH = "rocksdb_test";
     private static final String STATE_NAME = "default";
+    private static String prevProperty;
+    private static Path jniTmpDir;
     private RocksDBService rocksDBService;
     private String path;
 
     @TempDir Path tempDir;
+
+    @BeforeAll
+    static void initNative() throws Exception {
+        jniTmpDir = Paths.get("target", "rocksdb-jni-tmp").toAbsolutePath();
+        Files.createDirectories(jniTmpDir);
+        prevProperty = System.getProperty("java.io.tmpdir");
+        System.setProperty("java.io.tmpdir", jniTmpDir.toString());
+    }
+
+    @AfterAll
+    static void cleanupNative() {
+        if (prevProperty != null) {
+            System.setProperty("java.io.tmpdir", prevProperty);
+        } else {
+            System.clearProperty("java.io.tmpdir");
+        }
+        safeDeleteDirectory(jniTmpDir);
+    }
+
+    private static void safeDeleteDirectory(Path dir) {
+        if (dir == null) return;
+        final int maxRetries = 5;
+        for (int i = 0; i < maxRetries; i++) {
+            try {
+                if (Files.exists(dir)) {
+                    try (Stream<Path> walk = Files.walk(dir)) {
+                        walk.sorted(Comparator.reverseOrder())
+                                .forEach(
+                                        p -> {
+                                            try {
+                                                Files.deleteIfExists(p);
+                                            } catch (IOException ignore) {
+                                            }
+                                        });
+                    }
+                }
+                break;
+            } catch (IOException e) {
+                if (i == maxRetries - 1) {
+                    log.warn("Failed to delete JNI tmp dir: {}", dir, e);
+                } else {
+                    try {
+                        Thread.sleep(200L);
+                    } catch (InterruptedException ignored) {
+                    }
+                }
+            }
+        }
+    }
 
     @BeforeEach
     void setUp() throws IOException {
