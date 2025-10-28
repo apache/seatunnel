@@ -317,11 +317,17 @@ public class DateTimeUtils {
     }
 
     public static String toString(OffsetDateTime offsetDateTime, Formatter formatter) {
-        return offsetDateTime.format(FORMATTER_MAP.get(formatter));
+        return toString(offsetDateTime.toLocalDateTime(), formatter);
     }
 
     public static String toString(Temporal temporal, Formatter formatter) {
-        return FORMATTER_MAP.get(formatter).format(temporal);
+        if (temporal instanceof OffsetDateTime) {
+            return toString(((OffsetDateTime) temporal).toLocalDateTime(), formatter);
+        } else if (temporal instanceof java.time.ZonedDateTime) {
+            return toString(((java.time.ZonedDateTime) temporal).toLocalDateTime(), formatter);
+        } else {
+            return FORMATTER_MAP.get(formatter).format(temporal);
+        }
     }
 
     public static String toString(long timestamp, Formatter formatter) {
