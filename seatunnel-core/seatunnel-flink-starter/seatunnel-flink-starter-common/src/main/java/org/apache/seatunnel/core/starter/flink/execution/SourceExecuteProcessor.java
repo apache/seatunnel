@@ -26,6 +26,7 @@ import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.options.EnvCommonOptions;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceSplit;
+import org.apache.seatunnel.api.source.SupportSchemaEvolution;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.factory.FactoryUtil;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
@@ -38,6 +39,8 @@ import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelSourcePluginDisc
 import org.apache.seatunnel.translation.flink.source.FlinkSource;
 
 import org.apache.flink.api.common.eventtime.WatermarkStrategy;
+import org.apache.flink.api.common.typeinfo.TypeInformation;
+import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.datastream.DataStreamSource;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 
@@ -89,11 +92,33 @@ public class SourceExecuteProcessor extends FlinkAbstractPluginExecuteProcessor<
                 int parallelism = pluginConfig.getInt(EnvCommonOptions.PARALLELISM.key());
                 sourceStream.setParallelism(parallelism);
             }
-            sources.add(
-                    new DataStreamTableInfo(
-                            sourceStream,
-                            sourceTableInfo.getCatalogTables(),
-                            ReadonlyConfig.fromConfig(pluginConfig).get(PLUGIN_OUTPUT)));
+
+            // add schema evolution functionality to cdc source
+            DataStream<SeaTunnelRow> evolvedStream = null;
+            if (sourceTableInfo.getSource() instanceof SupportSchemaEvolution) {
+                evolvedStream =
+                        sourceStream.transform(
+                                "schema-evolution",
+                                TypeInformation.of(SeaTunnelRow.class),
+                                new SchemaOperator(
+                                        jobContext.getJobId(),
+                                        (SupportSchemaEvolution) sourceTableInfo.getSource(),
+                                        pluginConfig));
+            }
+
+            if (evolvedStream != null) {
+                sources.add(
+                        new DataStreamTableInfo(
+                                evolvedStream,
+                                sourceTableInfo.getCatalogTables(),
+                                ReadonlyConfig.fromConfig(pluginConfig).get(PLUGIN_OUTPUT)));
+            } else {
+                sources.add(
+                        new DataStreamTableInfo(
+                                sourceStream,
+                                sourceTableInfo.getCatalogTables(),
+                                ReadonlyConfig.fromConfig(pluginConfig).get(PLUGIN_OUTPUT)));
+            }
         }
         return sources;
     }
