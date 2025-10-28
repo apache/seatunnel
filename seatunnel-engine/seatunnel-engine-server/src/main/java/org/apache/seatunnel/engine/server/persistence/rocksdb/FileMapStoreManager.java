@@ -18,7 +18,7 @@
  *
  */
 
-package org.apache.seatunnel.engine.server.persistence;
+package org.apache.seatunnel.engine.server.persistence.rocksdb;
 
 import org.apache.seatunnel.engine.imap.storage.api.RocksDBStorageFactory;
 

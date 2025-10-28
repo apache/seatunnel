@@ -27,7 +27,7 @@ import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.server.MapStoreConfig;
 import org.apache.seatunnel.engine.imap.storage.api.RocksDBStorageFactory;
 import org.apache.seatunnel.engine.serializer.protobuf.ProtoStuffSerializer;
-import org.apache.seatunnel.engine.server.persistence.FileMapStoreManager;
+import org.apache.seatunnel.engine.server.persistence.rocksdb.FileMapStoreManager;
 
 import org.rocksdb.ColumnFamilyDescriptor;
 import org.rocksdb.ColumnFamilyHandle;

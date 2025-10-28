@@ -15,74 +15,46 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.persistence;
+package org.apache.seatunnel.engine.server.persistence.rocksdb;
 
-import org.apache.seatunnel.shade.com.google.common.collect.Maps;
-
-import org.apache.seatunnel.engine.common.utils.FactoryUtil;
 import org.apache.seatunnel.engine.imap.storage.api.RocksDBStorage;
 import org.apache.seatunnel.engine.imap.storage.api.RocksDBStorageFactory;
 
-import com.hazelcast.core.HazelcastInstance;
-import com.hazelcast.map.MapLoaderLifecycleSupport;
-import com.hazelcast.map.MapStore;
 import lombok.SneakyThrows;
 
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Properties;
 
-public class FileMapStore implements MapStore<Object, Object>, MapLoaderLifecycleSupport {
-
+public class FileMapStore {
     private RocksDBStorage mapStorage;
 
-    @Override
-    public void init(HazelcastInstance hazelcastInstance, Properties properties, String mapName) {
-
-        Map<String, Object> initMap = new HashMap<>(Maps.fromProperties(properties));
-        this.mapStorage =
-                FactoryUtil.discoverFactory(
-                                Thread.currentThread().getContextClassLoader(),
-                                RocksDBStorageFactory.class,
-                                (String) initMap.get("type"))
-                        .create(initMap);
+    public FileMapStore(RocksDBStorageFactory factory, Map<String, Object> configuration) {
+        this.mapStorage = factory.create(configuration);
     }
 
-    @Override
     public void destroy() {
         mapStorage.destroy(false);
     }
 
-    @Override
     public void store(Object key, Object value) {
         mapStorage.store(key, value);
     }
 
-    @Override
     public void storeAll(Map<Object, Object> map) {
         mapStorage.storeAll(map);
     }
 
-    @Override
     public void delete(Object key) {
         mapStorage.delete(key);
     }
 
-    @Override
     public void deleteAll(Collection<Object> keys) {
         mapStorage.deleteAll(keys);
     }
 
     @SneakyThrows
-    @Override
-    public Object load(Object key) {
-        return null;
-    }
-
-    @SneakyThrows
-    @Override
     public Map<Object, Object> loadAll(Collection<Object> keys) {
         Map<Object, Object> allMap = mapStorage.loadAll();
         Map<Object, Object> retMap = new HashMap<>();
@@ -91,7 +63,6 @@ public class FileMapStore implements MapStore<Object, Object>, MapLoaderLifecycl
         return Collections.unmodifiableMap(retMap);
     }
 
-    @Override
     public Iterable<Object> loadAllKeys() {
         return mapStorage.loadAllKeys();
     }
