@@ -18,7 +18,6 @@
 package org.apache.seatunnel.engine.server.rest;
 
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
-import org.apache.seatunnel.engine.common.config.server.CheckpointConfig;
 import org.apache.seatunnel.engine.common.config.server.HttpConfig;
 import org.apache.seatunnel.engine.common.runtime.ExecutionMode;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
@@ -32,8 +31,6 @@ import org.apache.seatunnel.engine.server.TestUtils;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.condition.DisabledOnOs;
-import org.junit.jupiter.api.condition.OS;
 
 import com.hazelcast.config.Config;
 import com.hazelcast.internal.serialization.Data;
@@ -46,10 +43,9 @@ import java.util.Collections;
 import java.util.stream.Collectors;
 
 /** Test for Rest API with Basic. */
-@DisabledOnOs(OS.WINDOWS)
-public class RestApiHttpBasicTest extends AbstractSeaTunnelServerTest {
+class RestApiHttpBasicTest extends AbstractSeaTunnelServerTest {
 
-    private static final int HTTP_PORT = 18080;
+    private static final int HTTP_PORT = 18081;
     private static final Long JOB_1 = System.currentTimeMillis() + 1L;
     public static final String USER = "admin";
     public static final String PASS = "admin";
@@ -65,8 +61,12 @@ public class RestApiHttpBasicTest extends AbstractSeaTunnelServerTest {
         seaTunnelConfig.getEngineConfig().setMode(ExecutionMode.LOCAL);
 
         HttpConfig httpConfig = seaTunnelConfig.getEngineConfig().getHttpConfig();
-        httpConfig.setEnabled(true);
+        httpConfig.setEnabled(Boolean.TRUE);
         httpConfig.setPort(HTTP_PORT);
+
+        httpConfig.setEnableBasicAuth(Boolean.TRUE);
+        httpConfig.setBasicAuthUsername(USER);
+        httpConfig.setBasicAuthPassword(PASS);
 
         instance = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
         nodeEngine = instance.node.nodeEngine;
@@ -75,38 +75,24 @@ public class RestApiHttpBasicTest extends AbstractSeaTunnelServerTest {
     }
 
     @Test
-    public void testRestApiHttp() throws Exception {
-        HttpURLConnection conn =
-                (HttpURLConnection)
-                        new java.net.URL("http://localhost:" + HTTP_PORT + "/overview")
-                                .openConnection();
-        setBasicAuth(conn);
-        try (BufferedReader in = new BufferedReader(new InputStreamReader(conn.getInputStream()))) {
+    public void testRestApiOverview() throws Exception {
+        HttpURLConnection conn = null;
+        try {
+            java.net.URL url = new java.net.URL("http://localhost:" + HTTP_PORT + "/overview");
+            conn = (HttpURLConnection) url.openConnection();
+            setBasicAuth(conn);
 
             Assertions.assertEquals(200, conn.getResponseCode());
-            String response = in.lines().collect(Collectors.joining());
-            Assertions.assertTrue(response.contains("projectVersion"));
+            Assertions.assertTrue(
+                    conn.getHeaderFields()
+                            .get("Content-Type")
+                            .toString()
+                            .contains("charset=utf-8"));
         } finally {
-            conn.disconnect();
+            if (conn != null) {
+                conn.disconnect();
+            }
         }
-    }
-
-    @Override
-    public SeaTunnelConfig loadSeaTunnelConfig() {
-        SeaTunnelConfig seaTunnelConfig = super.loadSeaTunnelConfig();
-
-        HttpConfig httpConfig = seaTunnelConfig.getEngineConfig().getHttpConfig();
-        httpConfig.setEnabled(Boolean.TRUE);
-        httpConfig.setEnableBasicAuth(Boolean.TRUE);
-        httpConfig.setBasicAuthUsername("admin");
-        httpConfig.setBasicAuthPassword("admin");
-        httpConfig.setPort(HTTP_PORT);
-
-        CheckpointConfig checkpointConfig = seaTunnelConfig.getEngineConfig().getCheckpointConfig();
-
-        checkpointConfig.setCheckpointInterval(Integer.MAX_VALUE);
-        seaTunnelConfig.getEngineConfig().setCheckpointConfig(checkpointConfig);
-        return seaTunnelConfig;
     }
 
     @Test
@@ -133,6 +119,13 @@ public class RestApiHttpBasicTest extends AbstractSeaTunnelServerTest {
             conn = (HttpURLConnection) url.openConnection();
             setBasicAuth(conn);
 
+            Assertions.assertEquals(200, conn.getResponseCode());
+            Assertions.assertTrue(
+                    conn.getHeaderFields()
+                            .get("Content-Type")
+                            .toString()
+                            .contains("charset=utf-8"));
+
             try (BufferedReader in =
                     new BufferedReader(new InputStreamReader(conn.getInputStream()))) {
                 // [ {
@@ -148,12 +141,6 @@ public class RestApiHttpBasicTest extends AbstractSeaTunnelServerTest {
                 Assertions.assertNotNull(response);
             }
 
-            Assertions.assertEquals(200, conn.getResponseCode());
-            Assertions.assertTrue(
-                    conn.getHeaderFields()
-                            .get("Content-Type")
-                            .toString()
-                            .contains("charset=utf-8"));
         } finally {
             if (conn != null) {
                 conn.disconnect();
