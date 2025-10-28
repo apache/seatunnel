@@ -41,8 +41,7 @@ class RocksDBServiceTest {
     private RocksDBService rocksDBService;
     private String path;
 
-    @TempDir
-    Path tempDir;
+    @TempDir Path tempDir;
 
     @BeforeEach
     void setUp() throws IOException {
