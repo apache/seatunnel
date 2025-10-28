@@ -26,19 +26,30 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
 class RocksDBServiceTest {
-    private static final String DB_PATH = "/tmp/rocksdb_test";
+    private static final String DB_PATH = "rocksdb_test";
     private static final String STATE_NAME = "default";
     private RocksDBService rocksDBService;
+    private String path;
+
+    @TempDir
+    Path tempDir;
 
     @BeforeEach
-    void setUp() {
-        rocksDBService = new RocksDBService(DB_PATH, new MapStoreConfig());
+    void setUp() throws IOException {
+        Path dbDir = tempDir.resolve(DB_PATH);
+        Files.createDirectories(dbDir);
+        path = dbDir.toString();
+        rocksDBService = new RocksDBService(path, new MapStoreConfig());
     }
 
     @AfterEach
@@ -96,7 +107,7 @@ class RocksDBServiceTest {
         rocksDBService.putData(STATE_NAME, Collections.singletonMap(key, value));
         rocksDBService.close(false);
 
-        rocksDBService = new RocksDBService(DB_PATH, new MapStoreConfig());
+        rocksDBService = new RocksDBService(path, new MapStoreConfig());
         String retrievedValue = rocksDBService.getData(STATE_NAME, key);
 
         Assertions.assertEquals(value, retrievedValue);
