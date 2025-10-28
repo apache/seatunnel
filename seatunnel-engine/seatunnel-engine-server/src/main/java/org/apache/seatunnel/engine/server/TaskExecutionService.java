@@ -25,7 +25,6 @@ import org.apache.seatunnel.api.tracing.MDCExecutorService;
 import org.apache.seatunnel.api.tracing.MDCTracer;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.common.utils.StringFormatUtils;
-import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.config.server.ThreadShareMode;
@@ -53,7 +52,7 @@ import org.apache.seatunnel.engine.server.service.jar.ServerConnectorPackageClie
 import org.apache.seatunnel.engine.server.task.SeaTunnelTask;
 import org.apache.seatunnel.engine.server.task.TaskGroupImmutableInformation;
 import org.apache.seatunnel.engine.server.task.operation.NotifyTaskStatusOperation;
-import org.apache.seatunnel.engine.server.task.operation.rocksdb.PutDataOperation;
+import org.apache.seatunnel.engine.server.task.operation.ReportMetricsOperation;
 
 import org.apache.commons.collections4.CollectionUtils;
 
@@ -112,7 +111,6 @@ import static org.apache.seatunnel.api.common.metrics.MetricTags.PIPELINE_ID;
 import static org.apache.seatunnel.api.common.metrics.MetricTags.TASK_GROUP_ID;
 import static org.apache.seatunnel.api.common.metrics.MetricTags.TASK_GROUP_LOCATION;
 import static org.apache.seatunnel.api.common.metrics.MetricTags.TASK_ID;
-import static org.apache.seatunnel.engine.server.SeaTunnelServer.getMetricsPartition;
 
 /** This class is responsible for the execution of the Task */
 public class TaskExecutionService implements DynamicMetricsProvider {
@@ -580,23 +578,12 @@ public class TaskExecutionService implements DynamicMetricsProvider {
             return;
         }
 
-        HashMap<TaskLocation, SeaTunnelMetricsContext> localMap = collectLocalMetricsMap();
-
-        int partitionCount = seaTunnelConfig.getEngineConfig().getJobMetricsPartitionCount();
-        Map<Long, Map<TaskLocation, SeaTunnelMetricsContext>> partitionedMap = new HashMap<>();
-        localMap.forEach(
-                (key, value) -> {
-                    long partition = getMetricsPartition(key, partitionCount);
-                    partitionedMap.computeIfAbsent(partition, k -> new HashMap<>()).put(key, value);
-                });
-
         InvocationFuture<Object> invoke =
                 nodeEngine
                         .getOperationService()
                         .createInvocationBuilder(
                                 SeaTunnelServer.SERVICE_NAME,
-                                new PutDataOperation<>(
-                                        Constant.IMAP_RUNNING_JOB_METRICS, partitionedMap),
+                                new ReportMetricsOperation(collectLocalMetricsMap()),
                                 nodeEngine.getMasterAddress())
                         .invoke();
 

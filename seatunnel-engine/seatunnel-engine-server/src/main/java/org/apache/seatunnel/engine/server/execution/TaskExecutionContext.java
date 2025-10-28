@@ -21,12 +21,12 @@ import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.TaskExecutionService;
 import org.apache.seatunnel.engine.server.metrics.SeaTunnelMetricsContext;
-import org.apache.seatunnel.engine.server.task.operation.rocksdb.GetDataOperation;
 import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
 
 import com.hazelcast.cluster.Address;
 import com.hazelcast.core.HazelcastInstance;
 import com.hazelcast.logging.ILogger;
+import com.hazelcast.map.IMap;
 import com.hazelcast.spi.impl.NodeEngineImpl;
 import com.hazelcast.spi.impl.operationservice.Operation;
 import com.hazelcast.spi.impl.operationservice.impl.InvocationFuture;
@@ -59,34 +59,15 @@ public class TaskExecutionContext {
     }
 
     public SeaTunnelMetricsContext getOrCreateMetricsContext(TaskLocation taskLocation) {
+        IMap<Long, HashMap<TaskLocation, SeaTunnelMetricsContext>> map =
+                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_METRICS);
         int partitionCount =
                 taskExecutionService
                         .getSeaTunnelConfig()
                         .getEngineConfig()
                         .getJobMetricsPartitionCount();
-        long partition = SeaTunnelServer.getMetricsPartition(taskLocation, partitionCount);
-        GetDataOperation<Long, HashMap<TaskLocation, SeaTunnelMetricsContext>> getDataOperation =
-                new GetDataOperation<>(Constant.IMAP_RUNNING_JOB_METRICS, partition);
-        InvocationFuture<Object> invoke =
-                nodeEngine
-                        .getOperationService()
-                        .createInvocationBuilder(
-                                SeaTunnelServer.SERVICE_NAME,
-                                getDataOperation,
-                                nodeEngine.getMasterAddress())
-                        .invoke();
-
-        try {
-            invoke.get();
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            getLogger()
-                    .severe("get or create metrics context stopped due to thread interruption.", e);
-        } catch (Exception e) {
-            getLogger().severe("failed to get or create metrics context", e);
-        }
-
-        HashMap<TaskLocation, SeaTunnelMetricsContext> centralMap = getDataOperation.getValue();
+        long partition = SeaTunnelServer.getMetricsImapPartition(taskLocation, partitionCount);
+        HashMap<TaskLocation, SeaTunnelMetricsContext> centralMap = map.get(partition);
         return centralMap == null || centralMap.get(taskLocation) == null
                 ? new SeaTunnelMetricsContext()
                 : centralMap.get(taskLocation);

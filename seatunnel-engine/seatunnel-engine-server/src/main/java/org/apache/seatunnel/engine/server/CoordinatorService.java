@@ -165,6 +165,8 @@ public class CoordinatorService {
      */
     private IMap<PipelineLocation, Map<TaskGroupLocation, SlotProfile>> ownedSlotProfilesIMap;
 
+    private IMap<Long, HashMap<TaskLocation, SeaTunnelMetricsContext>> metricsImap;
+
     /** If this node is a master node */
     private volatile boolean isActive = false;
 
@@ -391,6 +393,7 @@ public class CoordinatorService {
                 nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_STATE_TIMESTAMPS);
         ownedSlotProfilesIMap =
                 nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_OWNED_SLOT_PROFILES);
+        metricsImap = nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_METRICS);
 
         jobHistoryService =
                 new JobHistoryService(
@@ -1072,8 +1075,8 @@ public class CoordinatorService {
     }
 
     @VisibleForTesting
-    protected Map<Long, HashMap<TaskLocation, SeaTunnelMetricsContext>> getMetrics() {
-        return seaTunnelServer.getRocksDBService().getAllData(Constant.IMAP_RUNNING_JOB_METRICS);
+    protected IMap<Long, HashMap<TaskLocation, SeaTunnelMetricsContext>> getMetricsImap() {
+        return metricsImap;
     }
 
     @VisibleForTesting

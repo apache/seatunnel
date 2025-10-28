@@ -31,8 +31,7 @@ import org.apache.seatunnel.engine.server.master.JobMaster;
 import org.apache.seatunnel.engine.server.metrics.SeaTunnelMetricsContext;
 import org.apache.seatunnel.engine.server.operation.PrintMessageOperation;
 import org.apache.seatunnel.engine.server.operation.ReturnRetryTimesOperation;
-import org.apache.seatunnel.engine.server.task.operation.rocksdb.GetAllDataOperation;
-import org.apache.seatunnel.engine.server.task.operation.rocksdb.PutDataOperation;
+import org.apache.seatunnel.engine.server.task.operation.ReportMetricsOperation;
 import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
 
 import org.junit.jupiter.api.Assertions;
@@ -54,12 +53,10 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
-import static org.apache.seatunnel.engine.server.SeaTunnelServer.getMetricsPartition;
 import static org.awaitility.Awaitility.await;
 
 @Slf4j
@@ -239,56 +236,40 @@ public class CoordinatorServiceTest {
     }
 
     @Test
-    void testCleanupMetricsMap() {
+    void testCleanupMetricsImap() {
         JobInformation jobInformation =
                 submitJob(
-                        "CoordinatorServiceTest_testCleanupMetricsMap",
+                        "CoordinatorServiceTest_testCleanupMetricsImap",
                         "batch_fake_to_console.conf",
-                        "test_cleanup_metrics_map");
+                        "test_cleanup_metrics_imap");
         CoordinatorService coordinatorService = jobInformation.coordinatorService;
+        IMap<Long, HashMap<TaskLocation, SeaTunnelMetricsContext>> metricsImap =
+                coordinatorService.getMetricsImap();
         await().atMost(10000, TimeUnit.MILLISECONDS)
-                .untilAsserted(
-                        () -> {
-                            Map<Long, HashMap<TaskLocation, SeaTunnelMetricsContext>> metricsMap =
-                                    coordinatorService.getMetrics();
-                            Assertions.assertFalse(metricsMap.isEmpty());
-                        });
+                .untilAsserted(() -> Assertions.assertFalse(metricsImap.isEmpty()));
         await().atMost(10000, TimeUnit.MILLISECONDS)
-                .untilAsserted(
-                        () -> {
-                            Map<Long, HashMap<TaskLocation, SeaTunnelMetricsContext>> metricsMap =
-                                    coordinatorService.getMetrics();
-                            Assertions.assertTrue(metricsMap.isEmpty());
-                        });
+                .untilAsserted(() -> Assertions.assertTrue(metricsImap.isEmpty()));
 
         jobInformation.coordinatorService.clearCoordinatorService();
         jobInformation.coordinatorServiceTest.shutdown();
     }
 
     @Test
-    void testCleanupMetricsMapWithPartitionConfig() {
+    void testCleanupMetricsImapWithPartitionConfig() {
         setConfigFile("seatunnel_multiple_metrics_key.yaml");
 
         JobInformation jobInformation =
                 submitJob(
-                        "CoordinatorServiceTest_testCleanupMetricsMapWithPartitionConfig",
+                        "CoordinatorServiceTest_testCleanupMetricsImapWithPartitionConfig",
                         "batch_fake_to_console.conf",
                         "test_cleanup_metrics_imap_with_partition_config");
         CoordinatorService coordinatorService = jobInformation.coordinatorService;
+        IMap<Long, HashMap<TaskLocation, SeaTunnelMetricsContext>> metricsImap =
+                coordinatorService.getMetricsImap();
         await().atMost(10000, TimeUnit.MILLISECONDS)
-                .untilAsserted(
-                        () -> {
-                            Map<Long, HashMap<TaskLocation, SeaTunnelMetricsContext>> metricsMap =
-                                    coordinatorService.getMetrics();
-                            Assertions.assertFalse(metricsMap.isEmpty());
-                        });
+                .untilAsserted(() -> Assertions.assertFalse(metricsImap.isEmpty()));
         await().atMost(10000, TimeUnit.MILLISECONDS)
-                .untilAsserted(
-                        () -> {
-                            Map<Long, HashMap<TaskLocation, SeaTunnelMetricsContext>> metricsMap =
-                                    coordinatorService.getMetrics();
-                            Assertions.assertTrue(metricsMap.isEmpty());
-                        });
+                .untilAsserted(() -> Assertions.assertTrue(metricsImap.isEmpty()));
 
         jobInformation.coordinatorService.clearCoordinatorService();
         jobInformation.coordinatorServiceTest.shutdown();
@@ -296,10 +277,10 @@ public class CoordinatorServiceTest {
     }
 
     @Test
-    void testMetricsMapSizeWithPartitionConfig() {
+    void testMetricsImapSizeWithPartitionConfig() {
         setConfigFile("seatunnel_multiple_metrics_key.yaml");
 
-        String clusterName = TestUtils.getClusterName("testMetricsMapSizeWithPartitionConfig");
+        String clusterName = TestUtils.getClusterName("testMetricsImapSizeWithPartitionConfig");
         HazelcastInstanceImpl instance1 =
                 SeaTunnelServerStarter.createHazelcastInstance(clusterName);
         SeaTunnelServer server1 =
@@ -313,51 +294,25 @@ public class CoordinatorServiceTest {
                 taskLocation.setTaskID(i);
                 localMap.put(taskLocation, new SeaTunnelMetricsContext());
             }
-
-            int partitionCount =
-                    server1.getSeaTunnelConfig().getEngineConfig().getJobMetricsPartitionCount();
-            Map<Long, Map<TaskLocation, SeaTunnelMetricsContext>> partitionedMap = new HashMap<>();
-            localMap.forEach(
-                    (key, value) -> {
-                        long partition = getMetricsPartition(key, partitionCount);
-                        partitionedMap
-                                .computeIfAbsent(partition, k -> new HashMap<>())
-                                .put(key, value);
+            IMap<Long, HashMap<TaskLocation, SeaTunnelMetricsContext>> metricsImap =
+                    server1.getCoordinatorService().getMetricsImap();
+            CompletableFuture.runAsync(
+                    () -> {
+                        try {
+                            nodeEngine
+                                    .getOperationService()
+                                    .createInvocationBuilder(
+                                            SeaTunnelServer.SERVICE_NAME,
+                                            new ReportMetricsOperation(localMap),
+                                            nodeEngine.getMasterAddress())
+                                    .invoke()
+                                    .get();
+                        } catch (Exception e) {
+                            throw new CompletionException(e);
+                        }
                     });
-
-            nodeEngine
-                    .getOperationService()
-                    .createInvocationBuilder(
-                            SeaTunnelServer.SERVICE_NAME,
-                            new PutDataOperation<>(
-                                    Constant.IMAP_RUNNING_JOB_METRICS, partitionedMap),
-                            nodeEngine.getMasterAddress())
-                    .invoke()
-                    .get();
-
-            GetAllDataOperation<Long, HashMap<TaskLocation, SeaTunnelMetricsContext>>
-                    dataOperation = new GetAllDataOperation<>(Constant.IMAP_RUNNING_JOB_METRICS);
-            nodeEngine
-                    .getOperationService()
-                    .createInvocationBuilder(
-                            SeaTunnelServer.SERVICE_NAME,
-                            dataOperation,
-                            nodeEngine.getMasterAddress())
-                    .invoke()
-                    .get();
-
-            CoordinatorService coordinatorService = server1.getCoordinatorService();
             await().atMost(10000, TimeUnit.MILLISECONDS)
-                    .untilAsserted(
-                            () -> {
-                                Map<Long, HashMap<TaskLocation, SeaTunnelMetricsContext>>
-                                        metricsMap = coordinatorService.getMetrics();
-                                Assertions.assertEquals(10, metricsMap.size());
-                            });
-        } catch (ExecutionException e) {
-            throw new RuntimeException(e);
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
+                    .untilAsserted(() -> Assertions.assertEquals(10, metricsImap.size()));
         } finally {
             instance1.shutdown();
             setDefaultConfigFile();
@@ -622,9 +577,6 @@ public class CoordinatorServiceTest {
         HazelcastInstanceImpl instance3 =
                 SeaTunnelServerStarter.createHazelcastInstance(clusterName);
 
-        SeaTunnelServer server =
-                instance1.node.getNodeEngine().getService(SeaTunnelServer.SERVICE_NAME);
-
         await().atMost(20000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () ->
@@ -642,10 +594,10 @@ public class CoordinatorServiceTest {
             }
 
             // warm-up
-            runOps(server, executor, nodeEngine, localMap, 100);
+            runOps(executor, nodeEngine, localMap, 100);
 
             int ops = 100;
-            double seconds = runOps(server, executor, nodeEngine, localMap, ops);
+            double seconds = runOps(executor, nodeEngine, localMap, ops);
             double tps = ops / seconds;
 
             System.out.printf("Distributed metrics performance:%n");
@@ -659,20 +611,10 @@ public class CoordinatorServiceTest {
     }
 
     private double runOps(
-            SeaTunnelServer server,
             ExecutorService executor,
             NodeEngineImpl nodeEngine,
             Map<TaskLocation, SeaTunnelMetricsContext> localMap,
             int ops) {
-
-        int partitionCount =
-                server.getSeaTunnelConfig().getEngineConfig().getJobMetricsPartitionCount();
-        Map<Long, Map<TaskLocation, SeaTunnelMetricsContext>> partitionedMap = new HashMap<>();
-        localMap.forEach(
-                (key, value) -> {
-                    long partition = getMetricsPartition(key, partitionCount);
-                    partitionedMap.computeIfAbsent(partition, k -> new HashMap<>()).put(key, value);
-                });
 
         CountDownLatch startGate = new CountDownLatch(1);
 
@@ -689,9 +631,7 @@ public class CoordinatorServiceTest {
                                             .getOperationService()
                                             .createInvocationBuilder(
                                                     SeaTunnelServer.SERVICE_NAME,
-                                                    new PutDataOperation<>(
-                                                            Constant.IMAP_RUNNING_JOB_METRICS,
-                                                            partitionedMap),
+                                                    new ReportMetricsOperation(localMap),
                                                     nodeEngine.getMasterAddress())
                                             .setCallTimeout(120_000)
                                             .invoke()
