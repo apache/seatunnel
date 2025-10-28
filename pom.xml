@@ -937,6 +937,8 @@
                         </googleJavaFormat>
                         <removeUnusedImports />
                         <formatAnnotations />
+                        <!-- 启用 spotless:off/on 标记 -->
+                        <toggleOffOn />
                         <importOrder>
                             <order>org.apache.seatunnel.shade,org.apache.seatunnel,org.apache,org,,javax,java,\#</order>
                         </importOrder>
