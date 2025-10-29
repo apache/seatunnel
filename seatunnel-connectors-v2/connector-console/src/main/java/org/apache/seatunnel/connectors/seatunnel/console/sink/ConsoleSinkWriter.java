@@ -22,7 +22,10 @@ import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
 import org.apache.seatunnel.api.sink.SupportSchemaEvolutionSinkWriter;
+import org.apache.seatunnel.api.table.coordinator.SchemaCoordinator;
+import org.apache.seatunnel.api.table.schema.event.FlushEvent;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
+import org.apache.seatunnel.api.table.schema.exception.SinkWriterSchemaException;
 import org.apache.seatunnel.api.table.schema.handler.DataTypeChangeEventDispatcher;
 import org.apache.seatunnel.api.table.schema.handler.DataTypeChangeEventHandler;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
@@ -34,6 +37,7 @@ import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 
 import lombok.extern.slf4j.Slf4j;
 
+import java.io.IOException;
 import java.lang.reflect.Array;
 import java.util.ArrayList;
 import java.util.List;
@@ -47,6 +51,7 @@ public class ConsoleSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
     private final AtomicLong rowCounter = new AtomicLong(0);
     private final SinkWriter.Context context;
     private final DataTypeChangeEventHandler dataTypeChangeEventHandler;
+    private SchemaCoordinator schemaCoordinator;
 
     boolean isPrintData = true;
     int delayMs = 0;
@@ -65,14 +70,62 @@ public class ConsoleSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
     }
 
     @Override
-    public void applySchemaChange(SchemaChangeEvent event) {
+    public void applySchemaChange(SchemaChangeEvent event) throws IOException {
         log.info("changed rowType before: {}", fieldsInfo(seaTunnelRowType));
-        seaTunnelRowType = dataTypeChangeEventHandler.reset(seaTunnelRowType).apply(event);
-        log.info("changed rowType after: {}", fieldsInfo(seaTunnelRowType));
+        try {
+            seaTunnelRowType = dataTypeChangeEventHandler.reset(seaTunnelRowType).apply(event);
+            log.info("changed rowType after: {}", fieldsInfo(seaTunnelRowType));
+        } catch (Exception e) {
+            log.error(
+                    "ConsoleSinkWriter failed to apply schema change for table: {}",
+                    event.tableIdentifier(),
+                    e);
+            throw SinkWriterSchemaException.applicationFailed(
+                    event.tableIdentifier(),
+                    event.getJobId(),
+                    "Console sink writer schema change application failed",
+                    e);
+        }
+    }
+
+    @Override
+    public void handleFlushEvent(FlushEvent event) throws IOException {
+        log.info("ConsoleSinkWriter handling FlushEvent for table: {}", event.tableIdentifier());
+        try {
+            flushData();
+            log.info("ConsoleSinkWriter flush completed for table: {}", event.tableIdentifier());
+            sendFlushSuccessful(event);
+        } catch (Exception e) {
+            log.error("ConsoleSinkWriter flush failed for table: {}", event.tableIdentifier(), e);
+            throw SinkWriterSchemaException.flushFailed(
+                    event.tableIdentifier(), event.getJobId(), "Console flush operation failed", e);
+        }
+    }
+
+    @Override
+    public void sendFlushSuccessful(FlushEvent event) throws IOException {
+        log.info(
+                "ConsoleSinkWriter reporting flush success for table: {}", event.tableIdentifier());
+        SupportSchemaEvolutionSinkWriter.super.sendFlushSuccessful(event);
+    }
+
+    @Override
+    public SchemaCoordinator getSchemaCoordinator() {
+        return schemaCoordinator;
     }
 
     @Override
     public void write(SeaTunnelRow element) {
+        if (element != null && element.getOptions() != null) {
+            if (element.getOptions().containsKey("flush_event")
+                    || element.getOptions().containsKey("schema_change_event")) {
+                log.info(
+                        "ConsoleSinkWriter skipping schema event row: {}",
+                        element.getOptions().keySet());
+                return;
+            }
+        }
+
         String[] arr = new String[seaTunnelRowType.getTotalFields()];
         SeaTunnelDataType<?>[] fieldTypes = seaTunnelRowType.getFieldTypes();
         Object[] fields = element.getFields();
