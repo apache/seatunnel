@@ -489,7 +489,8 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                 0,
                 10);
         Container.ExecResult execResult =
-                container.executeJob("/textFormatIT/kafka_source_text_with_event_time_to_assert.conf");
+                container.executeJob(
+                        "/textFormatIT/kafka_source_text_with_event_time_to_assert.conf");
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
     }
 
