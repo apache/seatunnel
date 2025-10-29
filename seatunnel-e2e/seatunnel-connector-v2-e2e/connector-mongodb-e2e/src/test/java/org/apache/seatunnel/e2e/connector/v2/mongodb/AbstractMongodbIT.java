@@ -109,8 +109,8 @@ public abstract class AbstractMongodbIT extends TestSuiteBase implements TestRes
     protected MongoClient client;
 
     public void initConnection() {
-        String host = mongodbContainer.getContainerIpAddress();
-        int port = mongodbContainer.getFirstMappedPort();
+        String host = mongodbContainer.getHost();
+        int port = mongodbContainer.getMappedPort(mongodbPort);
         String url = String.format("mongodb://%s:%d/%s", host, port, MONGODB_DATABASE);
         client = MongoClients.create(url);
     }
@@ -267,8 +267,6 @@ public abstract class AbstractMongodbIT extends TestSuiteBase implements TestRes
                                         .withStartupTimeout(Duration.ofMinutes(2)))
                         .withLogConsumer(
                                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger(MONGODB_IMAGE)));
-        // For local test use
-        // mongodbContainer.setPortBindings(Collections.singletonList("27017:27017"));
         Startables.deepStart(Stream.of(mongodbContainer)).join();
         log.info("Mongodb container started");
 
