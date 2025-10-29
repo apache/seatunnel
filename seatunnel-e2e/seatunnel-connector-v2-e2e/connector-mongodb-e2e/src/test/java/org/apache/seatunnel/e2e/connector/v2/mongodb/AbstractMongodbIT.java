@@ -26,7 +26,7 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
-import org.testcontainers.containers.wait.strategy.HttpWaitStrategy;
+import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.DockerLoggerFactory;
@@ -49,9 +49,6 @@ import java.util.List;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
-
-import static java.net.HttpURLConnection.HTTP_OK;
-import static java.net.HttpURLConnection.HTTP_UNAUTHORIZED;
 
 @Slf4j
 public abstract class AbstractMongodbIT extends TestSuiteBase implements TestResource {
@@ -258,13 +255,7 @@ public abstract class AbstractMongodbIT extends TestSuiteBase implements TestRes
                                                                 Ports.Binding.bindPort(mongodbPort),
                                                                 new ExposedPort(mongodbPort))))
                         .waitingFor(
-                                new HttpWaitStrategy()
-                                        .forPort(mongodbPort)
-                                        .forStatusCodeMatching(
-                                                response ->
-                                                        response == HTTP_OK
-                                                                || response == HTTP_UNAUTHORIZED)
-                                        .withStartupTimeout(Duration.ofMinutes(2)))
+                                Wait.forListeningPort().withStartupTimeout(Duration.ofMinutes(2)))
                         .withLogConsumer(
                                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger(MONGODB_IMAGE)));
         Startables.deepStart(Stream.of(mongodbContainer)).join();
