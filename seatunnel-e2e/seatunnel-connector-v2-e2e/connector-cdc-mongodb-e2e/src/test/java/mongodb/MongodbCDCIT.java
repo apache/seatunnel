@@ -167,7 +167,7 @@ public class MongodbCDCIT extends TestSuiteBase implements TestResource {
         log.info("The second stage:Starting Mongodb containers...");
         mongodbContainer = new MongoDBContainer(NETWORK);
         // For local test use
-        mongodbContainer.setPortBindings(Collections.singletonList("27018:27017"));
+        mongodbContainer.setPortBindings(Collections.singletonList("27017:27017"));
         mongodbContainer.withLogConsumer(
                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger("Mongodb-Docker-Image")));
 

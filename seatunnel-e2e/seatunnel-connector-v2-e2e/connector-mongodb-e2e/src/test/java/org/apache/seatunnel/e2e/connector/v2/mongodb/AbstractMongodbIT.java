@@ -71,7 +71,7 @@ public abstract class AbstractMongodbIT extends TestSuiteBase implements TestRes
 
     protected static final String MONGODB_CONTAINER_HOST = "e2e_mongodb";
 
-    protected static final int MONGODB_PORT = 27017;
+    protected static int MONGODB_PORT = 27017;
 
     protected static final String MONGODB_DATABASE = "test_db";
 

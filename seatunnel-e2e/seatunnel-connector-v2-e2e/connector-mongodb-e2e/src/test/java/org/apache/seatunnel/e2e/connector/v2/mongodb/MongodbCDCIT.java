@@ -44,6 +44,10 @@ import java.util.stream.Stream;
 @Slf4j
 public class MongodbCDCIT extends AbstractMongodbIT {
 
+    static {
+        MONGODB_PORT = 27018;
+    }
+
     @TestTemplate
     public void testMongodbCDCUpsertSink(TestContainer container)
             throws IOException, InterruptedException {

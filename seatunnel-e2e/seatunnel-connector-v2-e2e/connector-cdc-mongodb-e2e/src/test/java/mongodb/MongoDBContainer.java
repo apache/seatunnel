@@ -43,7 +43,7 @@ public class MongoDBContainer extends GenericContainer<MongoDBContainer> {
 
     private static final String DOCKER_IMAGE_NAME = "mongo:5.0.2";
 
-    public static final int MONGODB_PORT = 27018;
+    public static final int MONGODB_PORT = 27017;
 
     public static final String MONGO_SUPER_USER = "superuser";
 
@@ -106,8 +106,6 @@ public class MongoDBContainer extends GenericContainer<MongoDBContainer> {
                             MONGO_SUPER_USER,
                             "-p",
                             MONGO_SUPER_PASSWORD,
-                            "--port",
-                            String.valueOf(MONGODB_PORT),
                             "--eval",
                             command);
             log.info(execResult.getStdout());
