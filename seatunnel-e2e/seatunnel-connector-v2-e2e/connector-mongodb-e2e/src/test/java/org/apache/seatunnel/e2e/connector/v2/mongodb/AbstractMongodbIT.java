@@ -66,9 +66,9 @@ public abstract class AbstractMongodbIT extends TestSuiteBase implements TestRes
 
     protected static final String MONGODB_IMAGE = "mongo:latest";
 
-    protected String mongodbContainerHost = "e2e_mongodb";
+    protected static final String MONGODB_CONTAINER_HOST = "e2e_mongodb";
 
-    protected int mongodbPort = 27017;
+    protected static final int MONGODB_PORT = 27017;
 
     protected static final String MONGODB_DATABASE = "test_db";
 
@@ -107,7 +107,7 @@ public abstract class AbstractMongodbIT extends TestSuiteBase implements TestRes
 
     public void initConnection() {
         String host = mongodbContainer.getHost();
-        int port = mongodbContainer.getMappedPort(mongodbPort);
+        int port = mongodbContainer.getMappedPort(MONGODB_PORT);
         String url = String.format("mongodb://%s:%d/%s", host, port, MONGODB_DATABASE);
         client = MongoClients.create(url);
     }
@@ -245,15 +245,16 @@ public abstract class AbstractMongodbIT extends TestSuiteBase implements TestRes
         mongodbContainer =
                 new GenericContainer<>(imageName)
                         .withNetwork(NETWORK)
-                        .withNetworkAliases(mongodbContainerHost)
-                        .withExposedPorts(mongodbPort)
+                        .withNetworkAliases(MONGODB_CONTAINER_HOST)
+                        .withExposedPorts(MONGODB_PORT)
                         .withCreateContainerCmdModifier(
                                 cmd ->
                                         cmd.getHostConfig()
                                                 .withPortBindings(
                                                         new PortBinding(
-                                                                Ports.Binding.bindPort(mongodbPort),
-                                                                new ExposedPort(mongodbPort))))
+                                                                Ports.Binding.bindPort(
+                                                                        MONGODB_PORT),
+                                                                new ExposedPort(MONGODB_PORT))))
                         .waitingFor(
                                 Wait.forListeningPort().withStartupTimeout(Duration.ofMinutes(2)))
                         .withLogConsumer(
