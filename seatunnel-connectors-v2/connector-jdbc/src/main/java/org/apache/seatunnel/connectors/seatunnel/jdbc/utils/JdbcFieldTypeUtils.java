@@ -20,7 +20,6 @@ import java.math.BigDecimal;
 import java.sql.Date;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.sql.SQLFeatureNotSupportedException;
 import java.sql.Time;
 import java.sql.Timestamp;
 import java.time.OffsetDateTime;
@@ -122,7 +121,7 @@ public final class JdbcFieldTypeUtils {
             if (direct != null) {
                 return direct;
             }
-        } catch (AbstractMethodError | SQLFeatureNotSupportedException | SQLException ignored) {
+        } catch (AbstractMethodError | SQLException ignored) {
             // fall through to best-effort handling below
         }
 
