@@ -378,6 +378,7 @@ public class DoubaoModel extends MultimodalModel {
                 rawDataNodes.add(rawDataNode);
                 continue;
             }
+
             if (srcField.getFieldSpec().isBinary()) {
                 fieldValue =
                         String.format(

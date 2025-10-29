@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.transform.nlpmodel.embedding;
 
-import org.apache.seatunnel.transform.nlpmodel.embedding.multimodal.PayloadFormat;
-
 import lombok.Data;
 
 import java.io.Serializable;
@@ -39,7 +37,7 @@ public class SrcField implements Serializable {
     }
 
     public String toBase64() {
-        if (fieldSpec == null || !PayloadFormat.BINARY.equals(fieldSpec.getPayloadFormat())) {
+        if (fieldSpec == null || !fieldSpec.isBinary()) {
             throw new IllegalArgumentException("Payload format must be binary");
         }
         if (fieldValue == null) {

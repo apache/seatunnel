@@ -48,7 +48,6 @@ public class MultimodalFieldValue implements Serializable {
      * analyze the value suffix to determine modality type
      */
     private ModalityType determineModalityType(SrcFieldSpec fieldSpec, Object fieldValue) {
-
         if (fieldSpec.isBinary()) {
             return fieldSpec.getModalityType();
         }

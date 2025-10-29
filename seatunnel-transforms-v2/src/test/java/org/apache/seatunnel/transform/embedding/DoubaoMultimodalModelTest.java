@@ -252,15 +252,18 @@ public class DoubaoMultimodalModelTest {
                                 new SrcField(
                                         vectorFieldSpec.getSrcFieldSpecs().get(1),
                                         "Hello world 2")));
+
         ObjectNode result = model.multimodalBody(multimodalFieldValue);
         Assertions.assertEquals("doubao-embedding-vision", result.get("model").asText());
         Assertions.assertEquals("float", result.get("encoding_format").asText());
         Assertions.assertEquals(2, result.get("input").size());
+
         ObjectNode inputNode = (ObjectNode) result.get("input").get(0);
         Assertions.assertEquals("text", inputNode.get("type").asText());
         Assertions.assertEquals("Hello world 1", inputNode.get("text").asText());
         Assertions.assertFalse(inputNode.has("image_url"));
         Assertions.assertFalse(inputNode.has("video_url"));
+
         inputNode = (ObjectNode) result.get("input").get(1);
         Assertions.assertEquals("text", inputNode.get("type").asText());
         Assertions.assertEquals("Hello world 2", inputNode.get("text").asText());
@@ -316,6 +319,7 @@ public class DoubaoMultimodalModelTest {
                 new java.util.AbstractMap.SimpleEntry<>(
                         "different_multimodal_vector",
                         Arrays.asList(textFieldConfig, imageFieldConfig, videoFieldConfig));
+
         VectorFieldSpec vectorFieldSpec = new VectorFieldSpec(vectorFieldEntry);
         MultimodalFieldValue multimodalFieldValue =
                 new MultimodalFieldValue(
@@ -328,15 +332,18 @@ public class DoubaoMultimodalModelTest {
                                 new SrcField(
                                         vectorFieldSpec.getSrcFieldSpecs().get(2),
                                         "https://example.com/video.mp4")));
+
         ObjectNode result = model.multimodalBody(multimodalFieldValue);
         Assertions.assertEquals("doubao-embedding-vision", result.get("model").asText());
         Assertions.assertEquals("float", result.get("encoding_format").asText());
         Assertions.assertEquals(3, result.get("input").size());
+
         ObjectNode inputNode = (ObjectNode) result.get("input").get(0);
         Assertions.assertEquals("text", inputNode.get("type").asText());
         Assertions.assertEquals("Hello world", inputNode.get("text").asText());
         Assertions.assertFalse(inputNode.has("image_url"));
         Assertions.assertFalse(inputNode.has("video_url"));
+
         inputNode = (ObjectNode) result.get("input").get(1);
         Assertions.assertEquals("image_url", inputNode.get("type").asText());
         Assertions.assertTrue(inputNode.has("image_url"));
@@ -345,6 +352,7 @@ public class DoubaoMultimodalModelTest {
                 inputNode.get("image_url").get("url").asText());
         Assertions.assertFalse(inputNode.has("text"));
         Assertions.assertFalse(inputNode.has("video_url"));
+
         inputNode = (ObjectNode) result.get("input").get(2);
         Assertions.assertEquals("video_url", inputNode.get("type").asText());
         Assertions.assertTrue(inputNode.has("video_url"));
