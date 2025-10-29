@@ -69,7 +69,7 @@ public abstract class AbstractMongodbIT extends TestSuiteBase implements TestRes
 
     protected static final String MONGODB_IMAGE = "mongo:latest";
 
-    protected static final String MONGODB_CONTAINER_HOST = "e2e_mongodb";
+    protected String mongodbContainerHost = "e2e_mongodb";
 
     protected int mongodbPort = 27017;
 
@@ -248,7 +248,7 @@ public abstract class AbstractMongodbIT extends TestSuiteBase implements TestRes
         mongodbContainer =
                 new GenericContainer<>(imageName)
                         .withNetwork(NETWORK)
-                        .withNetworkAliases(MONGODB_CONTAINER_HOST)
+                        .withNetworkAliases(mongodbContainerHost)
                         .withExposedPorts(mongodbPort)
                         .withCreateContainerCmdModifier(
                                 cmd ->

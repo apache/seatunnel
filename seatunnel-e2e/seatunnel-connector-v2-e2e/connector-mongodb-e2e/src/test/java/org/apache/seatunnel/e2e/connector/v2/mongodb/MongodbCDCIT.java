@@ -45,6 +45,7 @@ import java.util.stream.Stream;
 public class MongodbCDCIT extends AbstractMongodbIT {
 
     {
+        mongodbContainerHost = "e2e_mongodb_cdc_it";
         mongodbPort = 27018;
     }
 
