@@ -71,7 +71,7 @@ public abstract class AbstractMongodbIT extends TestSuiteBase implements TestRes
 
     protected static final String MONGODB_CONTAINER_HOST = "e2e_mongodb";
 
-    protected static int MONGODB_PORT = 27017;
+    protected int mongodbPort = 27017;
 
     protected static final String MONGODB_DATABASE = "test_db";
 
@@ -249,18 +249,18 @@ public abstract class AbstractMongodbIT extends TestSuiteBase implements TestRes
                 new GenericContainer<>(imageName)
                         .withNetwork(NETWORK)
                         .withNetworkAliases(MONGODB_CONTAINER_HOST)
-                        .withExposedPorts(MONGODB_PORT)
+                        .withExposedPorts(mongodbPort)
                         .withCreateContainerCmdModifier(
                                 cmd ->
                                         cmd.getHostConfig()
                                                 .withPortBindings(
                                                         new PortBinding(
                                                                 Ports.Binding.bindPort(
-                                                                        MONGODB_PORT),
-                                                                new ExposedPort(MONGODB_PORT))))
+                                                                        mongodbPort),
+                                                                new ExposedPort(mongodbPort))))
                         .waitingFor(
                                 new HttpWaitStrategy()
-                                        .forPort(MONGODB_PORT)
+                                        .forPort(mongodbPort)
                                         .forStatusCodeMatching(
                                                 response ->
                                                         response == HTTP_OK

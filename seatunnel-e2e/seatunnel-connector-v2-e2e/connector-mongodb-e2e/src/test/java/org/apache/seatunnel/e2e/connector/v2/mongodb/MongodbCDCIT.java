@@ -44,8 +44,8 @@ import java.util.stream.Stream;
 @Slf4j
 public class MongodbCDCIT extends AbstractMongodbIT {
 
-    static {
-        MONGODB_PORT = 27018;
+    {
+        mongodbPort = 27018;
     }
 
     @TestTemplate
