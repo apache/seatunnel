@@ -161,6 +161,9 @@ metadata-extractor-2.18.0.jar
 parso-2.0.14.jar
 pdfbox-2.0.29.jar
 pdfbox-tools-2.0.29.jar
+fontbox-3.0.1.jar
+pdfbox-3.0.1.jar
+pdfbox-io-3.0.1.jar
 poi-5.2.3.jar
 poi-ooxml-5.2.3.jar
 poi-ooxml-lite-5.2.3.jar

@@ -34,6 +34,7 @@
         <httpcore.version>4.4.16</httpcore.version>
         <zhipu.version>release-V4-2.3.0</zhipu.version>
         <tika.version>2.9.1</tika.version>
+        <tika.pdfbox.version>3.0.1</tika.pdfbox.version>
     </properties>
 
     <dependencyManagement>
@@ -134,13 +135,46 @@
             <groupId>org.apache.tika</groupId>
             <artifactId>tika-parsers-standard-package</artifactId>
             <version>${tika.version}</version>
-            <!-- Exclude commons-compress to avoid Spark conflicts -->
+            <!-- Exclude commons-compress and PDFBox to avoid conflicts -->
             <exclusions>
                 <exclusion>
                     <groupId>org.apache.commons</groupId>
                     <artifactId>commons-compress</artifactId>
                 </exclusion>
+                <exclusion>
+                    <groupId>org.apache.pdfbox</groupId>
+                    <artifactId>pdfbox</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.apache.pdfbox</groupId>
+                    <artifactId>pdfbox-io</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.apache.pdfbox</groupId>
+                    <artifactId>pdfbox-tools</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.apache.pdfbox</groupId>
+                    <artifactId>xmpbox</artifactId>
+                </exclusion>
             </exclusions>
+        </dependency>
+
+        <!-- PDFBox 3.x for Tika (will be shaded to avoid conflicts) -->
+        <dependency>
+            <groupId>org.apache.pdfbox</groupId>
+            <artifactId>pdfbox</artifactId>
+            <version>${tika.pdfbox.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.pdfbox</groupId>
+            <artifactId>pdfbox-io</artifactId>
+            <version>${tika.pdfbox.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.pdfbox</groupId>
+            <artifactId>fontbox</artifactId>
+            <version>${tika.pdfbox.version}</version>
         </dependency>
 
         <!-- Explicitly force commons-compress version for Spark compatibility -->
@@ -163,6 +197,15 @@
                         <relocation>
                             <pattern>org.apache.commons.compress</pattern>
                             <shadedPattern>org.apache.seatunnel.shaded.commons.compress</shadedPattern>
+                        </relocation>
+                        <!-- Relocate PDFBox 3.x for Tika to avoid conflicts with PDFBox 2.x -->
+                        <relocation>
+                            <pattern>org.apache.pdfbox</pattern>
+                            <shadedPattern>org.apache.seatunnel.shaded.tika.pdfbox</shadedPattern>
+                        </relocation>
+                        <relocation>
+                            <pattern>org.apache.fontbox</pattern>
+                            <shadedPattern>org.apache.seatunnel.shaded.tika.fontbox</shadedPattern>
                         </relocation>
                     </relocations>
                     <filters>
