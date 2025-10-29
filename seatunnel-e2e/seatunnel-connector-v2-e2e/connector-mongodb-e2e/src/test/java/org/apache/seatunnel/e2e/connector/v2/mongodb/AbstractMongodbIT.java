@@ -255,8 +255,7 @@ public abstract class AbstractMongodbIT extends TestSuiteBase implements TestRes
                                         cmd.getHostConfig()
                                                 .withPortBindings(
                                                         new PortBinding(
-                                                                Ports.Binding.bindPort(
-                                                                        mongodbPort),
+                                                                Ports.Binding.bindPort(mongodbPort),
                                                                 new ExposedPort(mongodbPort))))
                         .waitingFor(
                                 new HttpWaitStrategy()
