@@ -73,6 +73,27 @@ public final class JdbcFieldTypeUtils {
                 blob.free();
             }
         }
+
+        // Handle PostgreSQL PGobject (e.g., json/jsonb/xml) gracefully without adding hard deps
+        String className = obj.getClass().getName();
+        if ("org.postgresql.util.PGobject".equals(className)) {
+            try {
+                java.lang.reflect.Method getType = obj.getClass().getMethod("getType");
+                Object type = getType.invoke(obj);
+                String typeName = type == null ? null : type.toString();
+                // For json/jsonb/xml, prefer the raw value string from PGobject
+                if (typeName != null
+                        && ("json".equalsIgnoreCase(typeName)
+                                || "jsonb".equalsIgnoreCase(typeName)
+                                || "xml".equalsIgnoreCase(typeName))) {
+                    java.lang.reflect.Method getValue = obj.getClass().getMethod("getValue");
+                    Object val = getValue.invoke(obj);
+                    return val == null ? null : val.toString();
+                }
+            } catch (Throwable ignore) {
+                // fallback to getString below
+            }
+        }
         return resultSet.getString(columnIndex);
     }
 
@@ -121,7 +142,7 @@ public final class JdbcFieldTypeUtils {
             if (direct != null) {
                 return direct;
             }
-        } catch (AbstractMethodError | SQLException ignored) {
+        } catch (Throwable ignored) {
             // fall through to best-effort handling below
         }
 
