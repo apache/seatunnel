@@ -200,4 +200,3 @@ xml-apis-1.4.01.jar
 xmlbeans-5.1.1.jar
 xmpcore-6.1.11.jar
 xz-1.9.jar
-apiguardian-api-1.1.2.jar
