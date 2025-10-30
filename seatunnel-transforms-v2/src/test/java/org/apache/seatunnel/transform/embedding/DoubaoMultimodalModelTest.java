@@ -364,13 +364,6 @@ public class DoubaoMultimodalModelTest {
 
     @Test
     void testParseMultimodalVectorResponseSuccess() throws IOException {
-        DoubaoModel model =
-                new DoubaoModel(
-                        "test-api-key",
-                        "doubao-embedding-vision",
-                        "https://ark.cn-beijing.volces.com/api/v3/embeddings",
-                        1);
-
         String successResponse =
                 "{\n"
                         + "  \"created\": 1743575029,\n"
@@ -403,8 +396,6 @@ public class DoubaoMultimodalModelTest {
         Assertions.assertEquals(-0.318359375f, result.get(2), 0.0001f);
         Assertions.assertEquals(0.255859375f, result.get(3), 0.0001f);
         Assertions.assertEquals(1.5f, result.get(4), 0.0001f);
-
-        model.close();
     }
 
     @Test
