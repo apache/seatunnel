@@ -49,7 +49,7 @@ class HadoopFileSystemProxyKerberosRenewTest {
     }
 
     @Test
-    void testMaybeRelogin_fromKeytab_callsCheck() throws Exception {
+    void testMaybeReloginFromKeytabCallsCheck() throws Exception {
         HadoopConf conf = new HadoopConf("file:///");
         HadoopFileSystemProxy proxy = new HadoopFileSystemProxy(conf);
 
