@@ -140,7 +140,6 @@ commons-math3-3.6.1.jar
 curvesapi-1.07.jar
 dd-plist-1.27.jar
 dec-0.1.2.jar
-fontbox-2.0.29.jar
 istack-commons-runtime-3.0.12.jar
 jackcess-4.0.5.jar
 jackcess-encrypt-4.0.2.jar
@@ -159,8 +158,6 @@ junrar-7.5.5.jar
 jwarc-0.28.3.jar
 metadata-extractor-2.18.0.jar
 parso-2.0.14.jar
-pdfbox-2.0.29.jar
-pdfbox-tools-2.0.29.jar
 fontbox-3.0.1.jar
 pdfbox-3.0.1.jar
 pdfbox-io-3.0.1.jar
@@ -201,6 +198,6 @@ vorbis-java-tika-0.8.jar
 xercesImpl-2.12.2.jar
 xml-apis-1.4.01.jar
 xmlbeans-5.1.1.jar
-xmpbox-2.0.29.jar
 xmpcore-6.1.11.jar
 xz-1.9.jar
+apiguardian-api-1.1.2.jar
