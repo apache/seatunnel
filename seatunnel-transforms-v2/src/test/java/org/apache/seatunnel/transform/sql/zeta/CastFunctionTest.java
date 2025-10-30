@@ -18,6 +18,7 @@
 package org.apache.seatunnel.transform.sql.zeta;
 
 import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -53,5 +54,30 @@ public class CastFunctionTest {
         Assertions.assertEquals("1", f1Object);
         Assertions.assertEquals(Byte.parseByte("1"), f2Object);
         Assertions.assertEquals(Short.parseShort("1"), f3Object);
+    }
+
+    @Test
+    public void testCastFunctionWithNullNestedField() {
+        SQLEngine sqlEngine = SQLEngineFactory.getSQLEngine(SQLEngineFactory.EngineType.ZETA);
+
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"user"},
+                        new SeaTunnelDataType[] {
+                            new MapType<>(BasicType.STRING_TYPE, BasicType.STRING_TYPE)
+                        });
+
+        SeaTunnelRow inputRow = new SeaTunnelRow(new Object[] {null});
+
+        sqlEngine.init("test", null, rowType, "select user.address as address from test");
+
+        SeaTunnelRowType outRowType = sqlEngine.typeMapping(null);
+
+        SeaTunnelRow outRow = sqlEngine.transformBySQL(inputRow, outRowType).get(0);
+
+        Object addressField = outRow.getField(0);
+        Assertions.assertNull(
+                addressField,
+                "When casting nested field where intermediate value is null, result should be null");
     }
 }
