@@ -23,10 +23,13 @@ import org.apache.seatunnel.shade.com.google.common.util.concurrent.ThreadFactor
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.common.utils.SeaTunnelException;
+import org.apache.seatunnel.connectors.seatunnel.paimon.exception.PaimonConnectorErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.paimon.exception.PaimonConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.paimon.source.PaimonSourceSplit;
 import org.apache.seatunnel.connectors.seatunnel.paimon.source.PaimonSourceSplitGenerator;
 import org.apache.seatunnel.connectors.seatunnel.paimon.source.PaimonSourceState;
 
+import org.apache.paimon.privilege.NoPrivilegeException;
 import org.apache.paimon.table.source.EndOfScanException;
 import org.apache.paimon.table.source.ReadBuilder;
 import org.apache.paimon.table.source.StreamTableScan;
@@ -73,7 +76,7 @@ public abstract class AbstractSplitEnumerator
 
     @Nullable protected Long nextSnapshotId;
 
-    private ExecutorService executorService;
+    private final ExecutorService executorService;
 
     public AbstractSplitEnumerator(
             Context<PaimonSourceSplit> context,
@@ -96,10 +99,16 @@ public abstract class AbstractSplitEnumerator
 
         readBuilders.forEach(
                 (tableId, readBuilder) -> {
-                    TableScan scan =
-                            JobMode.BATCH.equals(jobMode)
-                                    ? readBuilder.newScan()
-                                    : readBuilder.newStreamScan();
+                    TableScan scan = null;
+                    try {
+                        scan =
+                                JobMode.BATCH.equals(jobMode)
+                                        ? readBuilder.newScan()
+                                        : readBuilder.newStreamScan();
+                    } catch (NoPrivilegeException e) {
+                        throw new PaimonConnectorException(
+                                PaimonConnectorErrorCode.NO_PRIVILEGE, e.getMessage(), e);
+                    }
                     tableScans.put(tableId, scan);
                     if (scan instanceof StreamTableScan && nextSnapshotId != null) {
                         ((StreamTableScan) scan).restore(nextSnapshotId);

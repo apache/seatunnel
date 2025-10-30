@@ -156,7 +156,7 @@ public class PaimonIT extends TestSuiteBase implements TestResource {
     /** User not grant read privilege read data test cases for the Paimon table */
     @TestTemplate
     public void privilegeEnabledPaimonSourceAuthorized(TestContainer container) throws Exception {
-        String warehouse = "/tmp/seatunnel_mnt/paimon";
+        String warehouse = getWarehouse("paimon");
         List<PrivilegeType> privilegeTypes = new ArrayList<>();
         privilegeTypes.add(PrivilegeType.SELECT);
         privilegeTypes.add(PrivilegeType.INSERT);
@@ -173,7 +173,7 @@ public class PaimonIT extends TestSuiteBase implements TestResource {
     /** User not grant read privilege read data test cases for the Paimon table */
     @TestTemplate
     public void privilegeEnabledPaimonSourceUnAuthorized(TestContainer container) throws Exception {
-        String warehouse = "/tmp/seatunnel_mnt/paimon";
+        String warehouse = getWarehouse("paimon");
         List<PrivilegeType> privilegeTypes = new ArrayList<>();
         privilegeTypes.add(PrivilegeType.INSERT);
         initPrivilege(privilegeTypes, warehouse);
@@ -194,14 +194,18 @@ public class PaimonIT extends TestSuiteBase implements TestResource {
                 container.executeJob("/fake_to_paimon_with_change_log_tmp.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
         // check job finished clean up tmp files
+        String tmpDir = getWarehouse("paimon_tmp");
+        List<File> files = FileUtils.listFile(tmpDir);
+        Assertions.assertTrue(CollectionUtils.isEmpty(files));
+    }
+
+    private String getWarehouse(String namespace) {
         String hostName = System.getProperty("user.name");
         boolean isWindows =
                 System.getProperties().getProperty("os.name").toUpperCase().contains("WINDOWS");
-        String tmpDir =
-                isWindows
-                        ? String.format("C:/Users/%s/tmp/seatunnel_mnt/paimon_tmp", hostName)
-                        : "/tmp/seatunnel_mnt/paimon_tmp";
-        List<File> files = FileUtils.listFile(tmpDir);
-        Assertions.assertTrue(CollectionUtils.isEmpty(files));
+        if (isWindows) {
+            return String.format("C:/Users/%s/tmp/seatunnel_mnt/%s", hostName, namespace);
+        }
+        return "/tmp/seatunnel_mnt/" + namespace;
     }
 }

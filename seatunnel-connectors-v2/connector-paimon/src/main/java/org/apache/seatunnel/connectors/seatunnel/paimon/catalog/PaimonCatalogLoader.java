@@ -56,11 +56,11 @@ public class PaimonCatalogLoader implements Serializable {
 
     private static final String HADOOP_USER_NAME = "hadoop_user_name";
 
-    private String warehouse;
-    private PaimonCatalogEnum catalogType;
-    private String catalogUri;
+    private final String warehouse;
+    private final PaimonCatalogEnum catalogType;
+    private final String catalogUri;
 
-    private PaimonHadoopConfiguration paimonHadoopConfiguration;
+    private final PaimonHadoopConfiguration paimonHadoopConfiguration;
     protected String user;
     protected String password;
 

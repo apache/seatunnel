@@ -50,6 +50,7 @@ import org.apache.paimon.CoreOptions;
 import org.apache.paimon.data.InternalRow;
 import org.apache.paimon.disk.IOManager;
 import org.apache.paimon.disk.IOManagerImpl;
+import org.apache.paimon.privilege.NoPrivilegeException;
 import org.apache.paimon.schema.TableSchema;
 import org.apache.paimon.table.BucketMode;
 import org.apache.paimon.table.FileStoreTable;
@@ -281,7 +282,12 @@ public class PaimonSinkWriter
     private void newTableWrite() {
         TableWrite oldTableWrite = this.tableWrite;
         tableWriteClose(oldTableWrite);
-        this.tableWrite = this.paimonTable.newWrite(commitUser).withIOManager(ioManager);
+        try {
+            this.tableWrite = this.paimonTable.newWrite(commitUser).withIOManager(ioManager);
+        } catch (NoPrivilegeException e) {
+            throw new PaimonConnectorException(
+                    PaimonConnectorErrorCode.NO_PRIVILEGE, e.getMessage(), e);
+        }
     }
 
     @Override

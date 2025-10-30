@@ -41,6 +41,7 @@ import org.apache.seatunnel.connectors.seatunnel.paimon.utils.SchemaUtil;
 
 import org.apache.paimon.CoreOptions;
 import org.apache.paimon.catalog.Identifier;
+import org.apache.paimon.privilege.NoPrivilegeException;
 import org.apache.paimon.schema.Schema;
 import org.apache.paimon.schema.SchemaChange;
 import org.apache.paimon.table.FileStoreTable;
@@ -54,6 +55,7 @@ import lombok.extern.slf4j.Slf4j;
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -121,6 +123,8 @@ public class PaimonCatalog implements Catalog, PaimonTable {
             throws CatalogException, DatabaseNotExistException {
         try {
             return catalog.listTables(databaseName);
+        } catch (IllegalArgumentException e) {
+            throw new CatalogException(e.getMessage(), e);
         } catch (org.apache.paimon.catalog.Catalog.DatabaseNotExistException e) {
             throw new DatabaseNotExistException(this.catalogName, databaseName);
         }
@@ -143,22 +147,14 @@ public class PaimonCatalog implements Catalog, PaimonTable {
     @Override
     public CatalogTable getTable(TablePath tablePath)
             throws CatalogException, TableNotExistException {
-        try {
-            FileStoreTable paimonFileStoreTableTable = (FileStoreTable) getPaimonTable(tablePath);
-            return toCatalogTable(paimonFileStoreTableTable, tablePath);
-        } catch (Exception e) {
-            throw new TableNotExistException(this.catalogName, tablePath);
-        }
+        FileStoreTable paimonFileStoreTableTable = (FileStoreTable) getPaimonTable(tablePath);
+        return toCatalogTable(paimonFileStoreTableTable, tablePath);
     }
 
     public CatalogTable getTableWithProjection(TablePath tablePath, int[] projectionIndex)
             throws CatalogException, TableNotExistException {
-        try {
-            FileStoreTable paimonFileStoreTableTable = (FileStoreTable) getPaimonTable(tablePath);
-            return toCatalogTable(paimonFileStoreTableTable, tablePath, projectionIndex);
-        } catch (Exception e) {
-            throw new TableNotExistException(this.catalogName, tablePath);
-        }
+        FileStoreTable paimonFileStoreTableTable = (FileStoreTable) getPaimonTable(tablePath);
+        return toCatalogTable(paimonFileStoreTableTable, tablePath, projectionIndex);
     }
 
     @Override
@@ -166,6 +162,8 @@ public class PaimonCatalog implements Catalog, PaimonTable {
             throws CatalogException, TableNotExistException {
         try {
             return catalog.getTable(toIdentifier(tablePath));
+        } catch (IllegalArgumentException e) {
+            throw new CatalogException(e.getMessage(), e);
         } catch (org.apache.paimon.catalog.Catalog.TableNotExistException e) {
             throw new TableNotExistException(this.catalogName, tablePath);
         }
@@ -185,6 +183,11 @@ public class PaimonCatalog implements Catalog, PaimonTable {
             throw new TableAlreadyExistException(this.catalogName, tablePath);
         } catch (org.apache.paimon.catalog.Catalog.DatabaseNotExistException e) {
             throw new DatabaseNotExistException(this.catalogName, tablePath.getDatabaseName());
+        } catch (IllegalArgumentException e) {
+            throw new CatalogException(e.getMessage(), e);
+        } catch (NoPrivilegeException e) {
+            throw new PaimonConnectorException(
+                    PaimonConnectorErrorCode.NO_PRIVILEGE, e.getMessage(), e);
         } catch (Exception e) {
             resolveException(e);
         }
@@ -197,6 +200,11 @@ public class PaimonCatalog implements Catalog, PaimonTable {
             catalog.dropTable(toIdentifier(tablePath), ignoreIfNotExists);
         } catch (org.apache.paimon.catalog.Catalog.TableNotExistException e) {
             throw new TableNotExistException(this.catalogName, tablePath);
+        } catch (IllegalArgumentException e) {
+            throw new CatalogException(e.getMessage(), e);
+        } catch (NoPrivilegeException e) {
+            throw new PaimonConnectorException(
+                    PaimonConnectorErrorCode.NO_PRIVILEGE, e.getMessage(), e);
         }
     }
 
@@ -207,12 +215,18 @@ public class PaimonCatalog implements Catalog, PaimonTable {
             catalog.createDatabase(tablePath.getDatabaseName(), ignoreIfExists);
         } catch (org.apache.paimon.catalog.Catalog.DatabaseAlreadyExistException e) {
             throw new DatabaseAlreadyExistException(this.catalogName, tablePath.getDatabaseName());
+        } catch (IllegalArgumentException e) {
+            throw new CatalogException(e.getMessage(), e);
+        } catch (NoPrivilegeException e) {
+            throw new PaimonConnectorException(
+                    PaimonConnectorErrorCode.NO_PRIVILEGE, e.getMessage(), e);
         }
     }
 
     @Override
     public void truncateTable(TablePath tablePath, boolean ignoreIfNotExists)
             throws TableNotExistException, CatalogException {
+
         try {
             Identifier identifier = toIdentifier(tablePath);
             FileStoreTable table = (FileStoreTable) catalog.getTable(identifier);
@@ -225,6 +239,11 @@ public class PaimonCatalog implements Catalog, PaimonTable {
             throw new DatabaseAlreadyExistException(this.catalogName, tablePath.getDatabaseName());
         } catch (org.apache.paimon.catalog.Catalog.DatabaseNotExistException e) {
             throw new DatabaseNotExistException(this.catalogName, tablePath.getDatabaseName());
+        } catch (IllegalArgumentException e) {
+            throw new CatalogException(e.getMessage(), e);
+        } catch (NoPrivilegeException e) {
+            throw new PaimonConnectorException(
+                    PaimonConnectorErrorCode.NO_PRIVILEGE, e.getMessage(), e);
         }
     }
 
@@ -246,6 +265,11 @@ public class PaimonCatalog implements Catalog, PaimonTable {
             throws DatabaseNotExistException, CatalogException {
         try {
             catalog.dropDatabase(tablePath.getDatabaseName(), ignoreIfNotExists, true);
+        } catch (IllegalArgumentException e) {
+            throw new CatalogException(e.getMessage(), e);
+        } catch (NoPrivilegeException e) {
+            throw new PaimonConnectorException(
+                    PaimonConnectorErrorCode.NO_PRIVILEGE, e.getMessage(), e);
         } catch (Exception e) {
             throw new DatabaseNotExistException(this.catalogName, tablePath.getDatabaseName());
         }
@@ -357,27 +381,24 @@ public class PaimonCatalog implements Catalog, PaimonTable {
 
     public void alterTable(
             Identifier identifier, SchemaChange schemaChange, boolean ignoreIfNotExists) {
-        try {
-            catalog.alterTable(identifier, schemaChange, true);
-        } catch (org.apache.paimon.catalog.Catalog.TableNotExistException e) {
-            throw new CatalogException("TableNotExistException: {}", e);
-        } catch (org.apache.paimon.catalog.Catalog.ColumnAlreadyExistException e) {
-            throw new CatalogException("ColumnAlreadyExistException: {}", e);
-        } catch (org.apache.paimon.catalog.Catalog.ColumnNotExistException e) {
-            throw new CatalogException("ColumnNotExistException: {}", e);
-        }
+        alterTable(identifier, Collections.singletonList(schemaChange), ignoreIfNotExists);
     }
 
     public void alterTable(
             Identifier identifier, List<SchemaChange> schemaChanges, boolean ignoreIfNotExists) {
         try {
-            catalog.alterTable(identifier, schemaChanges, true);
+            catalog.alterTable(identifier, schemaChanges, ignoreIfNotExists);
         } catch (org.apache.paimon.catalog.Catalog.TableNotExistException e) {
             throw new CatalogException("TableNotExistException: {}", e);
         } catch (org.apache.paimon.catalog.Catalog.ColumnAlreadyExistException e) {
             throw new CatalogException("ColumnAlreadyExistException: {}", e);
         } catch (org.apache.paimon.catalog.Catalog.ColumnNotExistException e) {
             throw new CatalogException("ColumnNotExistException: {}", e);
+        } catch (IllegalArgumentException e) {
+            throw new CatalogException(e.getMessage(), e);
+        } catch (NoPrivilegeException e) {
+            throw new PaimonConnectorException(
+                    PaimonConnectorErrorCode.NO_PRIVILEGE, e.getMessage(), e);
         }
     }
 }

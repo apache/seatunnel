@@ -23,10 +23,13 @@ import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.connectors.seatunnel.paimon.exception.PaimonConnectorErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.paimon.exception.PaimonConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.paimon.utils.RowConverter;
 import org.apache.seatunnel.connectors.seatunnel.paimon.utils.RowKindConverter;
 
 import org.apache.paimon.data.InternalRow;
+import org.apache.paimon.privilege.NoPrivilegeException;
 import org.apache.paimon.reader.RecordReader;
 import org.apache.paimon.reader.RecordReaderIterator;
 import org.apache.paimon.table.FileStoreTable;
@@ -66,7 +69,16 @@ public class PaimonSourceReader implements SourceReader<SeaTunnelRow, PaimonSour
         this.seaTunnelRowTypes = seaTunnelRowTypes;
         this.tableReads = new HashMap<>();
         for (Map.Entry<String, ReadBuilder> entry : readBuilders.entrySet()) {
-            this.tableReads.put(entry.getKey(), entry.getValue().newRead());
+            this.tableReads.put(entry.getKey(), createTableRead(entry.getValue()));
+        }
+    }
+
+    private TableRead createTableRead(ReadBuilder value) {
+        try {
+            return value.newRead();
+        } catch (NoPrivilegeException e) {
+            throw new PaimonConnectorException(
+                    PaimonConnectorErrorCode.NO_PRIVILEGE, e.getMessage(), e);
         }
     }
 

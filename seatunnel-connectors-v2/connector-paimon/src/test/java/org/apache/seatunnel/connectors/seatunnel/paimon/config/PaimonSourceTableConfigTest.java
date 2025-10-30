@@ -28,6 +28,7 @@ import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 public class PaimonSourceTableConfigTest {
 
@@ -78,6 +79,6 @@ public class PaimonSourceTableConfigTest {
         PaimonSourceTableConfig config2 = tableConfigs.get(1);
         assertEquals("test_db", config2.getDatabase());
         assertEquals("table2", config2.getTable());
-        assertEquals(null, config2.getQuery());
+        assertNull(config2.getQuery());
     }
 }

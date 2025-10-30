@@ -65,7 +65,6 @@ import org.apache.paimon.catalog.Identifier;
 import org.apache.paimon.fs.FileIO;
 import org.apache.paimon.fs.ResolvingFileIO;
 import org.apache.paimon.privilege.FileBasedPrivilegeManagerLoader;
-import org.apache.paimon.privilege.NoPrivilegeException;
 import org.apache.paimon.privilege.PrivilegeType;
 import org.apache.paimon.privilege.PrivilegedCatalog;
 import org.apache.paimon.schema.SchemaChange;
@@ -96,8 +95,9 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
-import static org.junit.Assert.assertThrows;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @Slf4j
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
@@ -107,19 +107,18 @@ public class PaimonPrivilegeCatalogTest {
     private PaimonCatalog authorizedCatalog;
     private PaimonCatalog unAuthorizedCatalog;
     private PaimonCatalog rootUserPaimonCatalog;
-    private String CATALOG_NAME = "paimon_catalog";
-    private String DATABASE_NAME = "test_db";
-    private String TABLE_NAME = "test_table";
+    private final String CATALOG_NAME = "paimon_catalog";
+    private final String DATABASE_NAME = "test_db";
+    private final String TABLE_NAME = "test_table";
     private CatalogTable catalogTable;
     @TempDir protected static java.nio.file.Path temporaryFolder;
     private String warehouse;
-    private String rootUser = "root";
-    private String rootPassword = "123456";
-    private String bucketKey = "f0";
-    private String authorizeUser = "paimon";
-    private String authorizeUserPassword = "123456";
-    private String unAuthorizeUser = "unauthorized_paimon";
-    private String unAuthorizeUserPassword = "123456";
+    private final String rootUser = "root";
+    private final String rootPassword = "123456";
+    private final String authorizeUser = "paimon";
+    private final String unAuthorizeUser = "unauthorized_paimon";
+    private final String noPrivilegeMsgFormat = "User %s doesn't have privilege %s on";
+    private final String userOrPasswordErrorMsgFormat = "User %s not found, or password incorrect.";
 
     private int writeRows = 0;
 
@@ -128,7 +127,9 @@ public class PaimonPrivilegeCatalogTest {
         warehouse = new File(temporaryFolder.toFile(), UUID.randomUUID().toString()).toString();
         initPrivilege();
         rootUserPaimonCatalog = createPaimonCatalog(rootUser, rootPassword);
+        String authorizeUserPassword = "123456";
         authorizedCatalog = createPaimonCatalog(authorizeUser, authorizeUserPassword);
+        String unAuthorizeUserPassword = "123456";
         unAuthorizedCatalog = createPaimonCatalog(unAuthorizeUser, unAuthorizeUserPassword);
 
         createUser(authorizeUser, authorizeUserPassword);
@@ -163,16 +164,16 @@ public class PaimonPrivilegeCatalogTest {
         }
 
         TableSchema tableSchema =
-                schemaBuilder.primaryKey(PrimaryKey.of("pk", Arrays.asList("f0"))).build();
+                schemaBuilder
+                        .primaryKey(PrimaryKey.of("pk", Collections.singletonList("f0")))
+                        .build();
 
-        CatalogTable cTable =
-                CatalogTable.of(
-                        TableIdentifier.of(CATALOG_NAME, DATABASE_NAME, tableName),
-                        tableSchema,
-                        new HashMap<>(),
-                        new ArrayList<>(),
-                        "test table");
-        return cTable;
+        return CatalogTable.of(
+                TableIdentifier.of(CATALOG_NAME, DATABASE_NAME, tableName),
+                tableSchema,
+                new HashMap<>(),
+                new ArrayList<>(),
+                "test table");
     }
 
     private void initPrivilege() {
@@ -232,6 +233,7 @@ public class PaimonPrivilegeCatalogTest {
         properties.put("table", TABLE_NAME);
         Map<String, String> writeProps = new HashMap<>();
         writeProps.put("bucket", "2");
+        String bucketKey = "f0";
         writeProps.put("bucket-key", bucketKey);
         properties.put("paimon.table.write-props", writeProps);
         return properties;
@@ -267,25 +269,82 @@ public class PaimonPrivilegeCatalogTest {
     }
 
     @Test
-    public void createCatalogWithErrorPassword() {
+    public void testCatalogWithErrorPassword() {
         PaimonCatalog catalog = createPaimonCatalog(authorizeUser, "errorpassword");
+        // create table with not permission
         assertThrows(
                 CatalogException.class,
                 () -> {
                     TablePath tablePath = TablePath.of(DATABASE_NAME, TABLE_NAME);
                     try {
                         catalog.createTable(tablePath, catalogTable, false);
-                    } catch (CatalogException e) {
-                        assertTrue(
-                                e.getCause()
-                                        .getMessage()
-                                        .contains(
-                                                String.format(
-                                                        "User %s not found, or password incorrect.",
-                                                        authorizeUser)));
+                    } catch (Exception e) {
+                        checkExceptionCause(e, userOrPasswordErrorMsgFormat, authorizeUser);
                         throw e;
                     }
                 });
+        // alter table with not permission
+        assertThrows(
+                CatalogException.class,
+                () -> {
+                    try {
+                        SchemaChange newColumn =
+                                SchemaChange.addColumn("new_column", DataTypes.STRING());
+                        catalog.alterTable(
+                                Identifier.create(DATABASE_NAME, TABLE_NAME), newColumn, false);
+                    } catch (Exception e) {
+                        checkExceptionCause(e, userOrPasswordErrorMsgFormat, authorizeUser);
+                        throw e;
+                    }
+                });
+        // get table with not permission
+        assertThrows(
+                CatalogException.class,
+                () -> {
+                    try {
+                        catalog.getTable(TablePath.of(DATABASE_NAME, TABLE_NAME));
+                    } catch (Exception e) {
+                        checkExceptionCause(e, userOrPasswordErrorMsgFormat, authorizeUser);
+                        throw e;
+                    }
+                });
+        // drop table with not permission
+        assertThrows(
+                CatalogException.class,
+                () -> {
+                    try {
+                        catalog.dropTable(TablePath.of(DATABASE_NAME, TABLE_NAME), false);
+                    } catch (Exception e) {
+                        checkExceptionCause(e, userOrPasswordErrorMsgFormat, authorizeUser);
+                        throw e;
+                    }
+                });
+        // create database with not permission
+        assertThrows(
+                CatalogException.class,
+                () -> {
+                    try {
+                        catalog.createDatabase(TablePath.of("new_database", "new_table"), false);
+                    } catch (Exception e) {
+                        checkExceptionCause(e, userOrPasswordErrorMsgFormat, authorizeUser);
+                        throw e;
+                    }
+                });
+        // drop database with not permission
+        assertThrows(
+                CatalogException.class,
+                () -> {
+                    try {
+                        catalog.dropDatabase(TablePath.of("new_database", "new_table"), false);
+                    } catch (Exception e) {
+                        checkExceptionCause(e, userOrPasswordErrorMsgFormat, authorizeUser);
+                        throw e;
+                    }
+                });
+    }
+
+    private void checkExceptionCause(Exception e, String msgFormat, Object... args) {
+        assertTrue(e.getCause().getMessage().contains(String.format(msgFormat, args)));
     }
 
     @Test
@@ -297,18 +356,13 @@ public class PaimonPrivilegeCatalogTest {
 
         // No permission to create tables
         assertThrows(
-                CatalogException.class,
+                PaimonConnectorException.class,
                 () -> {
                     try {
                         unAuthorizedCatalog.createTable(tablePath, catalogTable, false);
-                    } catch (CatalogException e) {
-                        assertTrue(
-                                e.getCause()
-                                        .getMessage()
-                                        .contains(
-                                                String.format(
-                                                        "User %s doesn't have privilege CREATE_TABLE on",
-                                                        unAuthorizeUser)));
+                    } catch (Exception e) {
+                        checkExceptionCause(
+                                e, noPrivilegeMsgFormat, unAuthorizeUser, "CREATE_TABLE");
                         throw e;
                     }
                 });
@@ -321,17 +375,13 @@ public class PaimonPrivilegeCatalogTest {
         authorizedCatalog.alterTable(identifier, change, false);
 
         assertThrows(
-                NoPrivilegeException.class,
+                PaimonConnectorException.class,
                 () -> {
                     try {
                         unAuthorizedCatalog.alterTable(identifier, change, false);
-                    } catch (NoPrivilegeException e) {
-                        assertTrue(
-                                e.getMessage()
-                                        .contains(
-                                                "User "
-                                                        + unAuthorizeUser
-                                                        + " doesn't have privilege ALTER_TABLE on table"));
+                    } catch (Exception e) {
+                        checkExceptionCause(
+                                e, noPrivilegeMsgFormat, unAuthorizeUser, "ALTER_TABLE");
                         throw e;
                     }
                 });
@@ -345,17 +395,12 @@ public class PaimonPrivilegeCatalogTest {
         writeRows = rows.size();
 
         assertThrows(
-                NoPrivilegeException.class,
+                PaimonConnectorException.class,
                 () -> {
                     try {
                         writeTable(unAuthorizedCatalog, rows);
-                    } catch (NoPrivilegeException e) {
-                        assertTrue(
-                                e.getMessage()
-                                        .contains(
-                                                String.format(
-                                                        "User %s doesn't have privilege INSERT on table",
-                                                        unAuthorizeUser)));
+                    } catch (Exception e) {
+                        checkExceptionCause(e, noPrivilegeMsgFormat, unAuthorizeUser, "INSERT");
                         throw e;
                     }
                 });
@@ -365,20 +410,15 @@ public class PaimonPrivilegeCatalogTest {
     @Order(3)
     public void testReadTable() throws Exception {
         List<SeaTunnelRow> rows = readTable(authorizedCatalog);
-        assertTrue(rows.size() == writeRows);
+        assertEquals(rows.size(), writeRows);
 
         assertThrows(
-                NoPrivilegeException.class,
+                PaimonConnectorException.class,
                 () -> {
                     try {
                         readTable(unAuthorizedCatalog);
-                    } catch (NoPrivilegeException e) {
-                        assertTrue(
-                                e.getMessage()
-                                        .contains(
-                                                "User "
-                                                        + unAuthorizeUser
-                                                        + " doesn't have privilege SELECT on table"));
+                    } catch (Exception e) {
+                        checkExceptionCause(e, noPrivilegeMsgFormat, unAuthorizeUser, "SELECT");
                         throw e;
                     }
                 });
@@ -501,6 +541,18 @@ public class PaimonPrivilegeCatalogTest {
         }
         enumerator.run();
 
+        List<SeaTunnelRow> rows = getSeaTunnelRows(unfinishedReaders, parallelism, readers);
+        enumerator.close();
+        for (SourceReader reader : readers) {
+            reader.close();
+        }
+
+        return rows;
+    }
+
+    private static List<SeaTunnelRow> getSeaTunnelRows(
+            Set<Integer> unfinishedReaders, int parallelism, List<SourceReader> readers)
+            throws Exception {
         List<SeaTunnelRow> rows = new ArrayList<>();
         while (!unfinishedReaders.isEmpty()) {
             for (int i = 0; i < parallelism; i++) {
@@ -521,20 +573,13 @@ public class PaimonPrivilegeCatalogTest {
                 }
             }
         }
-        enumerator.close();
-        for (SourceReader reader : readers) {
-            reader.close();
-        }
-
         return rows;
     }
 
     private List<SeaTunnelRow> getWriteRows() {
-        List<SeaTunnelRow> rows =
-                Arrays.asList(
-                        new SeaTunnelRow(new Object[] {"f0", "f1", "f2", "f3", "f4"}),
-                        new SeaTunnelRow(new Object[] {"f10", "f11", "f12", "f13", "f14"}));
-        return rows;
+        return Arrays.asList(
+                new SeaTunnelRow(new Object[] {"f0", "f1", "f2", "f3", "f4"}),
+                new SeaTunnelRow(new Object[] {"f10", "f11", "f12", "f13", "f14"}));
     }
 
     private void writeTable(PaimonCatalog paimonCatalog, List<SeaTunnelRow> rows)

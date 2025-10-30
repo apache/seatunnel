@@ -63,10 +63,10 @@ public class PaimonSource
 
     private JobContext jobContext;
 
-    private List<CatalogTable> catalogTables = Lists.newArrayList();
-    private Map<String, Table> paimonTables = Maps.newHashMap();
-    private Map<String, SeaTunnelRowType> seaTunnelRowTypes = Maps.newHashMap();
-    private Map<String, ReadBuilder> readBuilders = Maps.newHashMap();
+    private final List<CatalogTable> catalogTables = Lists.newArrayList();
+    private final Map<String, Table> paimonTables = Maps.newHashMap();
+    private final Map<String, SeaTunnelRowType> seaTunnelRowTypes = Maps.newHashMap();
+    private final Map<String, ReadBuilder> readBuilders = Maps.newHashMap();
 
     public PaimonSource(ReadonlyConfig readonlyConfig, PaimonCatalog paimonCatalog) {
         new PaimonSourceConfig(readonlyConfig)

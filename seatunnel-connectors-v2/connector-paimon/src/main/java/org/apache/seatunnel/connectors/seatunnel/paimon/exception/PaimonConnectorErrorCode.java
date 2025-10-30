@@ -32,7 +32,8 @@ public enum PaimonConnectorErrorCode implements SeaTunnelErrorCode {
     WRITE_PROPS_BUCKET_KEY_ERROR("PAIMON-09", "Cannot define 'bucket-key' in dynamic bucket mode"),
     NON_PRIMARY_KEY_CHECK_ERROR(
             "PAIMON-10", "Primary keys should be empty when nonPrimaryKey is true"),
-    DECIMAL_PRECISION_INCOMPATIBLE("PAIMON-11", "decimal type precision is incompatible. ");
+    DECIMAL_PRECISION_INCOMPATIBLE("PAIMON-11", "decimal type precision is incompatible. "),
+    NO_PRIVILEGE("PAIMON-12", "No privilege.");
 
     private final String code;
     private final String description;
