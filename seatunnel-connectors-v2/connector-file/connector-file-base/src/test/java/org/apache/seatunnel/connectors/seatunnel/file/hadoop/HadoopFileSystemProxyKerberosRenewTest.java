@@ -66,7 +66,7 @@ class HadoopFileSystemProxyKerberosRenewTest {
     }
 
     @Test
-    void testMaybeRelogin_notFromKeytab_noCheck() throws Exception {
+    void testMaybeReloginNotFromKeytabNoCheck() throws Exception {
         HadoopConf conf = new HadoopConf("file:///");
         HadoopFileSystemProxy proxy = new HadoopFileSystemProxy(conf);
 
@@ -82,7 +82,7 @@ class HadoopFileSystemProxyKerberosRenewTest {
     }
 
     @Test
-    void testMaybeRelogin_checkThrows_swallowed() throws Exception {
+    void testMaybeReloginCheckThrowsSwallowed() throws Exception {
         HadoopConf conf = new HadoopConf("file:///");
         HadoopFileSystemProxy proxy = new HadoopFileSystemProxy(conf);
 
