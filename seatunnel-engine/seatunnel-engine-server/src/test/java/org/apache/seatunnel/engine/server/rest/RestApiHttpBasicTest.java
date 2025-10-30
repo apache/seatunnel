@@ -28,6 +28,7 @@ import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
 import org.apache.seatunnel.engine.server.TestUtils;
 
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -74,6 +75,19 @@ class RestApiHttpBasicTest extends AbstractSeaTunnelServerTest {
         LOGGER = nodeEngine.getLogger(AbstractSeaTunnelServerTest.class);
     }
 
+    @AfterAll
+    public void after() {
+        // Disable basic auth
+        // Because of the ConfigProvider.locateAndGetSeaTunnelConfig() single-case,
+        // if you change, other use cases will also change
+        // managed via org.apache.seatunnel.engine.common.config.YamlSeaTunnelDomConfigProcessor
+        SeaTunnelConfig seaTunnelConfig = loadSeaTunnelConfig();
+        HttpConfig httpConfig = seaTunnelConfig.getEngineConfig().getHttpConfig();
+        httpConfig.setEnableBasicAuth(Boolean.FALSE);
+        httpConfig.setBasicAuthUsername("");
+        httpConfig.setBasicAuthPassword("");
+    }
+
     @Test
     public void testRestApiOverview() throws Exception {
         HttpURLConnection conn = null;
@@ -96,7 +110,24 @@ class RestApiHttpBasicTest extends AbstractSeaTunnelServerTest {
     }
 
     @Test
-    void testWriteJsonWithObject() throws IOException {
+    void testLogRestApiResponseFailure() throws IOException {
+        startJob();
+        HttpURLConnection conn = null;
+        try {
+            java.net.URL url =
+                    new java.net.URL("http://localhost:" + HTTP_PORT + "/logs?format=JSON");
+            conn = (HttpURLConnection) url.openConnection();
+
+            Assertions.assertEquals(401, conn.getResponseCode());
+        } finally {
+            if (conn != null) {
+                conn.disconnect();
+            }
+        }
+    }
+
+    @Test
+    void testLogRestApiResponseSuccess() throws IOException {
         startJob();
         testLogRestApiResponse("JSON");
     }
