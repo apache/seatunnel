@@ -50,7 +50,7 @@ class HiveMetaStoreProxyKerberosRenewTest {
     }
 
     @Test
-    void testGetClient_triggersMaybeRelogin_fromKeytab() throws Exception {
+    void testGetClientTriggersMaybeReloginFromKeytab() throws Exception {
         ReadonlyConfig cfg = Mockito.mock(ReadonlyConfig.class);
         HiveMetaStoreProxy proxy = new HiveMetaStoreProxy(cfg);
 
@@ -68,7 +68,7 @@ class HiveMetaStoreProxyKerberosRenewTest {
     }
 
     @Test
-    void testGetClient_triggersMaybeRelogin_notFromKeytab() throws Exception {
+    void testGetClientTriggersMaybeReloginNotFromKeytab() throws Exception {
         ReadonlyConfig cfg = Mockito.mock(ReadonlyConfig.class);
         HiveMetaStoreProxy proxy = new HiveMetaStoreProxy(cfg);
 
@@ -86,7 +86,7 @@ class HiveMetaStoreProxyKerberosRenewTest {
     }
 
     @Test
-    void testGetClient_reloginThrows_swallowed() throws Exception {
+    void testGetClientReloginThrowsSwallowed() throws Exception {
         ReadonlyConfig cfg = Mockito.mock(ReadonlyConfig.class);
         HiveMetaStoreProxy proxy = new HiveMetaStoreProxy(cfg);
 
