@@ -133,14 +133,11 @@ public class JobInfoService extends BaseService {
         IMap<Long, JobInfo> values =
                 nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_INFO);
         return values.entrySet().stream()
-                .map(jobInfoEntry -> convertToJson(jobInfoEntry.getValue(), jobInfoEntry.getKey()))
                 .sorted(
                         Comparator.comparing(
-                                        json ->
-                                                ((JsonObject) json)
-                                                        .get(RestConstant.CREATE_TIME)
-                                                        .asString())
-                                .reversed())
+                                entry -> entry.getValue().getInitializationTimestamp(),
+                                Comparator.reverseOrder()))
+                .map(jobInfoEntry -> convertToJson(jobInfoEntry.getValue(), jobInfoEntry.getKey()))
                 .collect(JsonArray::new, JsonArray::add, JsonArray::add);
     }
 
