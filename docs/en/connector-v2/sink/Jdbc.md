@@ -26,28 +26,27 @@ support `Xa transactions`. You can set `is_exactly_once=true` to enable it.
 
 ## Options
 
-|                   name                    |  type   | required | default value |
-|-------------------------------------------|---------|----------|---------------|
-| url                                       | String  | Yes      | -             |
-| driver                                    | String  | Yes      | -             |
-| user                                      | String  | No       | -             |
-| password                                  | String  | No       | -             |
-| query                                     | String  | No       | -             |
-| compatible_mode                           | String  | No       | -             |
-| database                                  | String  | No       | -             |
-| table                                     | String  | No       | -             |
-| primary_keys                              | Array   | No       | -             |
-| support_upsert_by_query_primary_key_exist | Boolean | No       | false         |
-| connection_check_timeout_sec              | Int     | No       | 30            |
-| max_retries                               | Int     | No       | 0             |
-| batch_size                                | Int     | No       | 1000          |
-| is_exactly_once                           | Boolean | No       | false         |
-| generate_sink_sql                         | Boolean | No       | false         |
-| xa_data_source_class_name                 | String  | No       | -             |
-| max_commit_attempts                       | Int     | No       | 3             |
-| transaction_timeout_sec                   | Int     | No       | -1            |
-| auto_commit                               | Boolean | No       | true          |
-| common-options                            |         | no       | -             |
+|             name             |  type   | required | default value |
+|------------------------------|---------|----------|---------------|
+| url                          | String  | Yes      | -             |
+| driver                       | String  | Yes      | -             |
+| user                         | String  | No       | -             |
+| password                     | String  | No       | -             |
+| query                        | String  | No       | -             |
+| compatible_mode              | String  | No       | -             |
+| database                     | String  | No       | -             |
+| table                        | String  | No       | -             |
+| primary_keys                 | Array   | No       | -             |
+| connection_check_timeout_sec | Int     | No       | 30            |
+| max_retries                  | Int     | No       | 0             |
+| batch_size                   | Int     | No       | 1000          |
+| is_exactly_once              | Boolean | No       | false         |
+| generate_sink_sql            | Boolean | No       | false         |
+| xa_data_source_class_name    | String  | No       | -             |
+| max_commit_attempts          | Int     | No       | 3             |
+| transaction_timeout_sec      | Int     | No       | -1            |
+| auto_commit                  | Boolean | No       | true          |
+| common-options               |         | no       | -             |
 
 ### driver [string]
 
@@ -90,11 +89,6 @@ This option is mutually exclusive with `query` and has a higher priority.
 ### primary_keys [array]
 
 This option is used to support operations such as `insert`, `delete`, and `update` when automatically generate sql.
-
-### support_upsert_by_query_primary_key_exist [boolean]
-
-Choose to use INSERT sql, UPDATE sql to process update events(INSERT, UPDATE_AFTER) based on query primary key exists. This configuration is only used when database unsupported upsert syntax.
-**Note**: that this method has low performance
 
 ### connection_check_timeout_sec [int]
 
@@ -234,7 +228,6 @@ sink {
         compatible_mode="postgresLow"
         database = "sink_database"
         table = "sink_table"
-        support_upsert_by_query_primary_key_exist = true
         generate_sink_sql = true
         primary_keys = ["key1", "key2", ...]
     }
