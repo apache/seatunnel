@@ -49,6 +49,8 @@ import java.sql.Statement;
 import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -97,6 +99,7 @@ public class JdbcOracleIT extends AbstractJdbcIT {
                     + "    DATE_COL                      date,\n"
                     + "    TIMESTAMP_WITH_3_FRAC_SEC_COL timestamp(3),\n"
                     + "    TIMESTAMP_WITH_LOCAL_TZ       timestamp with local time zone,\n"
+                    + "    TIMESTAMP_WITH_TZ             timestamp with time zone,\n"
                     + "    XML_TYPE_COL                  \"SYS\".\"XMLTYPE\",\n"
                     + "    constraint PK_T_COL primary key (INTEGER_COL)"
                     + ")";
@@ -121,6 +124,7 @@ public class JdbcOracleIT extends AbstractJdbcIT {
                     + "    DATE_COL                      date,\n"
                     + "    TIMESTAMP_WITH_3_FRAC_SEC_COL timestamp(3),\n"
                     + "    TIMESTAMP_WITH_LOCAL_TZ       timestamp with local time zone,\n"
+                    + "    TIMESTAMP_WITH_TZ             timestamp with time zone,\n"
                     + "    XML_TYPE_COL                  \"SYS\".\"XMLTYPE\"\n"
                     + ")";
 
@@ -143,6 +147,7 @@ public class JdbcOracleIT extends AbstractJdbcIT {
                 "DATE_COL",
                 "TIMESTAMP_WITH_3_FRAC_SEC_COL",
                 "TIMESTAMP_WITH_LOCAL_TZ",
+                "TIMESTAMP_WITH_TZ",
                 "XML_TYPE_COL"
             };
 
@@ -235,7 +240,20 @@ public class JdbcOracleIT extends AbstractJdbcIT {
     @Override
     Pair<String[], List<SeaTunnelRow>> initTestData() {
         List<SeaTunnelRow> rows = new ArrayList<>();
+        // Create different timezone offsets for testing
+        ZoneOffset[] zoneOffsets = {
+            ZoneOffset.of("+08:00"), // China
+            ZoneOffset.of("-05:00"), // US Eastern
+            ZoneOffset.of("+00:00"), // UTC
+            ZoneOffset.of("+12:00"), // New Zealand
+            ZoneOffset.of("-12:00") // International Date Line
+        };
+
         for (int i = 0; i < 20000; i++) {
+            // Rotate through different timezones for variety
+            ZoneOffset zoneOffset = zoneOffsets[i % zoneOffsets.length];
+            OffsetDateTime offsetDateTime = OffsetDateTime.of(LocalDateTime.now(), zoneOffset);
+
             SeaTunnelRow row =
                     new SeaTunnelRow(
                             new Object[] {
@@ -260,6 +278,7 @@ public class JdbcOracleIT extends AbstractJdbcIT {
                                 Date.valueOf(LocalDate.now()),
                                 Timestamp.valueOf(LocalDateTime.now()),
                                 Timestamp.valueOf(LocalDateTime.now()),
+                                offsetDateTime,
                                 "<?xml version=\"1.0\" encoding=\"UTF-8\"?><project xmlns=\"http://maven.apache.org/POM/4.0.0\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xsi:schemaLocation=\"http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd\"><name>SeaTunnel : E2E : Connector V2 : Oracle XMLType</name></project>"
                             });
             rows.add(row);

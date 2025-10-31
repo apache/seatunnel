@@ -443,38 +443,9 @@ public interface BasicDataConverter<T> extends DataConverter<T> {
         if (value instanceof OffsetDateTime) {
             return (OffsetDateTime) value;
         }
-        if (value instanceof LocalDateTime) {
-            return ((LocalDateTime) value).atZone(ZoneId.systemDefault()).toOffsetDateTime();
-        }
-        if (value instanceof Instant) {
-            return ((Instant) value).atZone(ZoneId.systemDefault()).toOffsetDateTime();
-        }
-        if (value instanceof java.sql.Date) {
-            return ((java.sql.Date) value)
-                    .toLocalDate()
-                    .atTime(LocalTime.MIDNIGHT)
-                    .atZone(ZoneId.systemDefault())
-                    .toOffsetDateTime();
-        }
-        if (value instanceof java.sql.Timestamp) {
-            return ((java.sql.Timestamp) value)
-                    .toInstant()
-                    .atZone(ZoneId.systemDefault())
-                    .toOffsetDateTime();
-        }
-        if (value instanceof Date) {
-            return ((Date) value).toInstant().atZone(ZoneId.systemDefault()).toOffsetDateTime();
-        }
-        if (value instanceof LocalDate) {
-            return ((LocalDate) value)
-                    .atTime(LocalTime.MIDNIGHT)
-                    .atZone(ZoneId.systemDefault())
-                    .toOffsetDateTime();
-        }
         if (value instanceof String) {
             return OffsetDateTime.parse((String) value);
         }
-
         throw new UnsupportedOperationException(
                 "Unsupported convert "
                         + value.getClass()
@@ -535,40 +506,11 @@ public interface BasicDataConverter<T> extends DataConverter<T> {
         if (value instanceof OffsetDateTime) {
             return (OffsetDateTime) value;
         }
-        if (value instanceof LocalDateTime) {
-            return ((LocalDateTime) value).atZone(ZoneId.systemDefault()).toOffsetDateTime();
-        }
-        if (value instanceof Instant) {
-            return ((Instant) value).atZone(ZoneId.systemDefault()).toOffsetDateTime();
-        }
-        if (value instanceof java.sql.Date) {
-            return ((java.sql.Date) value)
-                    .toLocalDate()
-                    .atTime(LocalTime.MIDNIGHT)
-                    .atZone(ZoneId.systemDefault())
-                    .toOffsetDateTime();
-        }
-        if (value instanceof java.sql.Timestamp) {
-            return ((java.sql.Timestamp) value)
-                    .toInstant()
-                    .atZone(ZoneId.systemDefault())
-                    .toOffsetDateTime();
-        }
-        if (value instanceof Date) {
-            return ((Date) value).toInstant().atZone(ZoneId.systemDefault()).toOffsetDateTime();
-        }
-        if (value instanceof LocalDate) {
-            return ((LocalDate) value)
-                    .atTime(LocalTime.MIDNIGHT)
-                    .atZone(ZoneId.systemDefault())
-                    .toOffsetDateTime();
-        }
         if (value instanceof String) {
             return OffsetDateTime.parse((String) value);
         }
-
         throw new UnsupportedOperationException(
-                "Unsupported convert " + value.getClass() + " to LocalDateTime");
+                "Unsupported convert " + value.getClass() + " to OffsetDateTime");
     }
 
     default LocalDateTime convertLocalDateTime(Instant value) {

@@ -612,7 +612,7 @@ public class OracleTypeConverterTest {
         column = INSTANCE.convert(typeDefine);
 
         Assertions.assertEquals(typeDefine.getName(), column.getName());
-        Assertions.assertEquals(LocalTimeType.LOCAL_DATE_TIME_TYPE, column.getDataType());
+        Assertions.assertEquals(BasicType.OFFSET_DATE_TIME_TYPE, column.getDataType());
         Assertions.assertEquals(6, column.getScale());
         Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
 
@@ -626,7 +626,7 @@ public class OracleTypeConverterTest {
         column = INSTANCE.convert(typeDefine);
 
         Assertions.assertEquals(typeDefine.getName(), column.getName());
-        Assertions.assertEquals(LocalTimeType.LOCAL_DATE_TIME_TYPE, column.getDataType());
+        Assertions.assertEquals(BasicType.OFFSET_DATE_TIME_TYPE, column.getDataType());
         Assertions.assertEquals(6, column.getScale());
         Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
     }
