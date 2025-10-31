@@ -275,7 +275,8 @@ public class KafkaSourceConfig implements Serializable {
                         new HashMap<String, String>() {
                             {
                                 Optional.ofNullable(readonlyConfig.get(PROTOBUF_MESSAGE_NAME))
-                                        .ifPresent(value -> put(PROTOBUF_MESSAGE_NAME.key(), value));
+                                        .ifPresent(
+                                                value -> put(PROTOBUF_MESSAGE_NAME.key(), value));
 
                                 Optional.ofNullable(readonlyConfig.get(PROTOBUF_SCHEMA))
                                         .ifPresent(value -> put(PROTOBUF_SCHEMA.key(), value));
@@ -289,8 +290,7 @@ public class KafkaSourceConfig implements Serializable {
                 MetadataSchema.builder()
                         .column(
                                 MetadataColumn.of(
-                                        org.apache.seatunnel.api.table.type.CommonOptions
-                                                .EVENT_TIME
+                                        org.apache.seatunnel.api.table.type.CommonOptions.EVENT_TIME
                                                 .getName(),
                                         BasicType.LONG_TYPE,
                                         0L,
