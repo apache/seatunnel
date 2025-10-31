@@ -49,7 +49,7 @@ public class LogService extends BaseLogService {
         String logPath = getLogPath();
         List<File> logFileList = FileUtils.listFile(logPath);
         if (logFileList == null) {
-            return null;
+            return new ArrayList<>();
         }
         return logFileList.stream().map(File::getName).collect(Collectors.toList());
     }
@@ -164,7 +164,7 @@ public class LogService extends BaseLogService {
         return buildWebSiteContent(logLink);
     }
 
-    public String currentNodeLog(String uri) {
+    public String currentNodeLog() {
         List<File> logFileList = FileUtils.listFile(getLogPath());
         StringBuffer logLink = new StringBuffer();
         if (logFileList != null) {
