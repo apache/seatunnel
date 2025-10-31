@@ -25,6 +25,8 @@ import org.apache.seatunnel.api.options.table.TableIdentifierOptions;
 import org.apache.seatunnel.api.options.table.TableSchemaOptions;
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.MetadataColumn;
+import org.apache.seatunnel.api.table.catalog.MetadataSchema;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
@@ -266,20 +268,38 @@ public class KafkaSourceConfig implements Serializable {
         }
         TablePath tablePath = getTablePathFromSchema(readonlyConfig, readonlyConfig.get(TOPIC));
 
-        return CatalogTable.of(
-                TableIdentifier.of("", tablePath),
-                tableSchema,
-                new HashMap<String, String>() {
-                    {
-                        Optional.ofNullable(readonlyConfig.get(PROTOBUF_MESSAGE_NAME))
-                                .ifPresent(value -> put(PROTOBUF_MESSAGE_NAME.key(), value));
+        CatalogTable catalogTable =
+                CatalogTable.of(
+                        TableIdentifier.of("", tablePath),
+                        tableSchema,
+                        new HashMap<String, String>() {
+                            {
+                                Optional.ofNullable(readonlyConfig.get(PROTOBUF_MESSAGE_NAME))
+                                        .ifPresent(value -> put(PROTOBUF_MESSAGE_NAME.key(), value));
 
-                        Optional.ofNullable(readonlyConfig.get(PROTOBUF_SCHEMA))
-                                .ifPresent(value -> put(PROTOBUF_SCHEMA.key(), value));
-                    }
-                },
-                Collections.emptyList(),
-                null);
+                                Optional.ofNullable(readonlyConfig.get(PROTOBUF_SCHEMA))
+                                        .ifPresent(value -> put(PROTOBUF_SCHEMA.key(), value));
+                            }
+                        },
+                        Collections.emptyList(),
+                        null);
+
+        // Expose Kafka record timestamp as metadata 'EventTime' for Metadata transform
+        MetadataSchema metadataSchema =
+                MetadataSchema.builder()
+                        .column(
+                                MetadataColumn.of(
+                                        org.apache.seatunnel.api.table.type.CommonOptions
+                                                .EVENT_TIME
+                                                .getName(),
+                                        BasicType.LONG_TYPE,
+                                        0L,
+                                        true,
+                                        null,
+                                        null))
+                        .build();
+
+        return CatalogTable.withMetadata(catalogTable, metadataSchema);
     }
 
     private TablePath getTablePathFromSchema(ReadonlyConfig readonlyConfig, String topicName) {
