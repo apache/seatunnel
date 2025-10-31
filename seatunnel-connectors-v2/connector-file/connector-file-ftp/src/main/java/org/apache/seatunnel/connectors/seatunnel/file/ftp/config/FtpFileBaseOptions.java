@@ -50,4 +50,10 @@ public class FtpFileBaseOptions extends FileBaseOptions {
                     .defaultValue(true)
                     .withDescription(
                             "Whether to enable remote host verification for FTP data channels (enabled by default)");
+    public static final Option<String> FTP_CONTROL_ENCODING =
+            Options.key("control_encoding")
+                    .stringType()
+                    .defaultValue("UTF-8")
+                    .withDescription(
+                            "Character encoding for FTP control connection. Use UTF-8 to support special characters in file paths");
 }

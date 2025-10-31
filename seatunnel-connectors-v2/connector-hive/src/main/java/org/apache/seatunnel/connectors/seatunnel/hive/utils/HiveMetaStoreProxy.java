@@ -33,4 +33,17 @@ public class HiveMetaStoreProxy extends HiveMetaStoreCatalog {
     public static HiveMetaStoreProxy getInstance(ReadonlyConfig config) {
         return new HiveMetaStoreProxy(config);
     }
+
+    private void maybeRelogin() {
+        if (userGroupInformation == null) {
+            return;
+        }
+        try {
+            if (userGroupInformation.isFromKeytab()) {
+                userGroupInformation.checkTGTAndReloginFromKeytab();
+            }
+        } catch (Exception e) {
+            log.warn("Kerberos re-login for HiveMetaStore failed: {}", e.getMessage());
+        }
+    }
 }
