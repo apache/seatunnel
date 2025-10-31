@@ -20,12 +20,11 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.oracle;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.AbstractJdbcRowConverter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.utils.JdbcFieldTypeUtils;
-
-import lombok.var;
 
 import javax.annotation.Nullable;
 
@@ -48,7 +47,7 @@ public class OracleJdbcRowConverter extends AbstractJdbcRowConverter {
     public SeaTunnelRow toInternal(ResultSet rs, TableSchema tableSchema) throws SQLException {
         SeaTunnelRow row = super.toInternal(rs, tableSchema);
         // Handle TIMESTAMP_TZ types for Oracle
-        var rowType = tableSchema.toPhysicalRowDataType();
+        SeaTunnelRowType rowType = tableSchema.toPhysicalRowDataType();
         for (int fieldIndex = 0; fieldIndex < rowType.getTotalFields(); fieldIndex++) {
             SeaTunnelDataType<?> seaTunnelDataType = rowType.getFieldType(fieldIndex);
             if (seaTunnelDataType.getSqlType().equals(SqlType.TIMESTAMP_TZ)) {
