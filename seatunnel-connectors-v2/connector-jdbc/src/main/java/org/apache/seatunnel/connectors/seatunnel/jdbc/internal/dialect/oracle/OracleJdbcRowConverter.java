@@ -70,6 +70,35 @@ public class OracleJdbcRowConverter extends AbstractJdbcRowConverter {
             return null;
         }
 
+        // Handle Oracle proprietary TIMESTAMP WITH TIME ZONE types
+        // oracle.sql.TIMESTAMPTZ - TIMESTAMP WITH TIME ZONE
+        // oracle.sql.TIMESTAMPLTZ - TIMESTAMP WITH LOCAL TIME ZONE
+        String className = obj.getClass().getName();
+        if ("oracle.sql.TIMESTAMPTZ".equals(className)
+                || "oracle.sql.TIMESTAMPLTZ".equals(className)) {
+            try {
+                // Use reflection to call toOffsetDateTime() or offsetDateTimeValue() method
+                // These methods are available in Oracle JDBC driver
+                java.lang.reflect.Method toOffsetDateTimeMethod = null;
+                try {
+                    // Try toOffsetDateTime() first (no connection required)
+                    toOffsetDateTimeMethod = obj.getClass().getMethod("toOffsetDateTime");
+                    return (OffsetDateTime) toOffsetDateTimeMethod.invoke(obj);
+                } catch (NoSuchMethodException e) {
+                    // Fall back to offsetDateTimeValue(Connection) if toOffsetDateTime() is not
+                    // available
+                    toOffsetDateTimeMethod =
+                            obj.getClass()
+                                    .getMethod("offsetDateTimeValue", java.sql.Connection.class);
+                    return (OffsetDateTime)
+                            toOffsetDateTimeMethod.invoke(obj, rs.getStatement().getConnection());
+                }
+            } catch (Exception e) {
+                throw new SQLException(
+                        "Failed to convert Oracle TIMESTAMP WITH TIME ZONE value: " + className, e);
+            }
+        }
+
         // Handle OffsetDateTime directly
         if (obj instanceof OffsetDateTime) {
             return (OffsetDateTime) obj;
@@ -106,7 +135,12 @@ public class OracleJdbcRowConverter extends AbstractJdbcRowConverter {
                 return OffsetDateTime.parse(str);
             } catch (Exception ex) {
                 throw new SQLException(
-                        "Failed to parse Oracle TIMESTAMP WITH TIME ZONE value: " + str, ex);
+                        "Failed to parse Oracle TIMESTAMP WITH TIME ZONE value: "
+                                + str
+                                + " (class: "
+                                + className
+                                + ")",
+                        ex);
             }
         }
     }
