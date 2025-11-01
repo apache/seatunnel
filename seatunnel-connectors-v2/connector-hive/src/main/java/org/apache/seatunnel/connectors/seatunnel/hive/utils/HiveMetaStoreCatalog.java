@@ -116,6 +116,14 @@ public class HiveMetaStoreCatalog implements Catalog, Closeable, Serializable {
         return hiveClient;
     }
 
+    /**
+     * Compatibility delegate for {@link HiveMetaStoreProxy} to access the client logic while
+     * keeping {@code getClient()} private in this class.
+     */
+    protected HiveMetaStoreClient getClientForProxy() {
+        return getClient();
+    }
+
     private HiveMetaStoreClient initializeClient() {
         HiveConf hiveConf = buildHiveConf();
         try {
