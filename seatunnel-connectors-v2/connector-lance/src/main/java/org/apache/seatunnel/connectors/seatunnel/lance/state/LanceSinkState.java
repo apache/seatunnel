@@ -24,4 +24,7 @@ import java.io.Serializable;
 
 @Data
 @AllArgsConstructor
-public class LanceSinkState implements Serializable {}
+public class LanceSinkState implements Serializable {
+    private static final long serialVersionUID = 1L;
+    private String commitUser;
+}
