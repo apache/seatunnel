@@ -41,6 +41,7 @@ import org.apache.hadoop.hive.metastore.HiveMetaStoreClient;
 import org.apache.hadoop.hive.metastore.api.AlreadyExistsException;
 import org.apache.hadoop.hive.metastore.api.Database;
 import org.apache.hadoop.hive.metastore.api.Table;
+import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.thrift.TException;
 
 import lombok.NonNull;
@@ -82,6 +83,7 @@ public class HiveMetaStoreCatalog implements Catalog, Closeable, Serializable {
     private final String remoteUser;
 
     private transient HiveMetaStoreClient hiveClient;
+    private transient UserGroupInformation userGroupInformation;
     private transient HiveConf hiveConf;
 
     public HiveMetaStoreCatalog(ReadonlyConfig config) {
@@ -108,11 +110,14 @@ public class HiveMetaStoreCatalog implements Catalog, Closeable, Serializable {
         if (hiveClient == null) {
             hiveClient = initializeClient();
         }
+        if (kerberosEnabled) {
+            maybeRelogin();
+        }
         return hiveClient;
     }
 
     private HiveMetaStoreClient initializeClient() {
-        this.hiveConf = buildHiveConf();
+        HiveConf hiveConf = buildHiveConf();
         try {
             if (kerberosEnabled) {
                 return loginWithKerberos(hiveConf);
@@ -248,12 +253,28 @@ public class HiveMetaStoreCatalog implements Catalog, Closeable, Serializable {
                 krb5Path,
                 principal,
                 keytabPath,
-                (conf, ugi) -> new HiveMetaStoreClient(hiveConf));
+                (conf, ugi) -> {
+                    this.userGroupInformation = ugi;
+                    return new HiveMetaStoreClient(hiveConf);
+                });
     }
 
     private HiveMetaStoreClient loginWithRemoteUser(HiveConf hiveConf) throws Exception {
         return HadoopLoginFactory.loginWithRemoteUser(
                 new Configuration(), remoteUser, (conf, ugi) -> new HiveMetaStoreClient(hiveConf));
+    }
+
+    private void maybeRelogin() {
+        if (userGroupInformation == null) {
+            return;
+        }
+        try {
+            if (userGroupInformation.isFromKeytab()) {
+                userGroupInformation.checkTGTAndReloginFromKeytab();
+            }
+        } catch (Exception e) {
+            log.warn("Kerberos re-login for HiveMetaStore failed: {}", e.getMessage());
+        }
     }
 
     public Table getTable(@NonNull String dbName, @NonNull String tableName) {
