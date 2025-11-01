@@ -18,6 +18,9 @@
 package org.apache.seatunnel.connectors.seatunnel.hive.utils;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
+import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConfig;
+import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveOptions;
 
 import org.apache.hadoop.hive.metastore.HiveMetaStoreClient;
 import org.apache.hadoop.security.UserGroupInformation;
@@ -28,6 +31,7 @@ import org.mockito.Mockito;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.util.Optional;
 
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
@@ -49,9 +53,26 @@ class HiveMetaStoreProxyKerberosRenewTest {
         return m.invoke(target);
     }
 
+    private ReadonlyConfig createKerberosEnabledConfig() {
+        ReadonlyConfig cfg = Mockito.mock(ReadonlyConfig.class);
+        when(cfg.get(HiveOptions.METASTORE_URI)).thenReturn("thrift://localhost:9083");
+        when(cfg.get(HiveConfig.HADOOP_CONF_PATH)).thenReturn(null);
+        when(cfg.get(HiveConfig.HIVE_SITE_PATH)).thenReturn(null);
+        when(cfg.getOptional(FileBaseSourceOptions.KERBEROS_PRINCIPAL))
+                .thenReturn(Optional.of("user@REALM"));
+        when(cfg.getOptional(FileBaseSourceOptions.KERBEROS_KEYTAB_PATH))
+                .thenReturn(Optional.of("/path/to/keytab"));
+        when(cfg.get(FileBaseSourceOptions.KRB5_PATH)).thenReturn(null);
+        when(cfg.get(FileBaseSourceOptions.KERBEROS_PRINCIPAL)).thenReturn("user@REALM");
+        when(cfg.get(FileBaseSourceOptions.KERBEROS_KEYTAB_PATH)).thenReturn("/path/to/keytab");
+        when(cfg.get(FileBaseSourceOptions.REMOTE_USER)).thenReturn(null);
+        when(cfg.getOptional(FileBaseSourceOptions.REMOTE_USER)).thenReturn(Optional.empty());
+        return cfg;
+    }
+
     @Test
     void testGetClientTriggersMaybeReloginFromKeytab() throws Exception {
-        ReadonlyConfig cfg = Mockito.mock(ReadonlyConfig.class);
+        ReadonlyConfig cfg = createKerberosEnabledConfig();
         HiveMetaStoreProxy proxy = new HiveMetaStoreProxy(cfg);
 
         HiveMetaStoreClient client = Mockito.mock(HiveMetaStoreClient.class);
@@ -60,7 +81,6 @@ class HiveMetaStoreProxyKerberosRenewTest {
 
         set(proxy, "hiveClient", client);
         set(proxy, "userGroupInformation", ugi);
-        set(proxy, "kerberosEnabled", true);
 
         HiveMetaStoreClient out = (HiveMetaStoreClient) invoke(proxy, "getClient");
         Assertions.assertNotNull(out);
@@ -69,7 +89,7 @@ class HiveMetaStoreProxyKerberosRenewTest {
 
     @Test
     void testGetClientTriggersMaybeReloginNotFromKeytab() throws Exception {
-        ReadonlyConfig cfg = Mockito.mock(ReadonlyConfig.class);
+        ReadonlyConfig cfg = createKerberosEnabledConfig();
         HiveMetaStoreProxy proxy = new HiveMetaStoreProxy(cfg);
 
         HiveMetaStoreClient client = Mockito.mock(HiveMetaStoreClient.class);
@@ -78,7 +98,6 @@ class HiveMetaStoreProxyKerberosRenewTest {
 
         set(proxy, "hiveClient", client);
         set(proxy, "userGroupInformation", ugi);
-        set(proxy, "kerberosEnabled", true);
 
         HiveMetaStoreClient out = (HiveMetaStoreClient) invoke(proxy, "getClient");
         Assertions.assertNotNull(out);
@@ -87,7 +106,7 @@ class HiveMetaStoreProxyKerberosRenewTest {
 
     @Test
     void testGetClientReloginThrowsSwallowed() throws Exception {
-        ReadonlyConfig cfg = Mockito.mock(ReadonlyConfig.class);
+        ReadonlyConfig cfg = createKerberosEnabledConfig();
         HiveMetaStoreProxy proxy = new HiveMetaStoreProxy(cfg);
 
         HiveMetaStoreClient client = Mockito.mock(HiveMetaStoreClient.class);
@@ -97,7 +116,6 @@ class HiveMetaStoreProxyKerberosRenewTest {
 
         set(proxy, "hiveClient", client);
         set(proxy, "userGroupInformation", ugi);
-        set(proxy, "kerberosEnabled", true);
 
         Assertions.assertDoesNotThrow(
                 () -> {
