@@ -288,5 +288,3 @@ sink {
 +I, pk_id=2, name="B_updated", score=98, change_type="UPDATE_AFTER"
 +I, pk_id=1, name="A_updated", score=95, change_type="DELETE"
 ```
-
-
