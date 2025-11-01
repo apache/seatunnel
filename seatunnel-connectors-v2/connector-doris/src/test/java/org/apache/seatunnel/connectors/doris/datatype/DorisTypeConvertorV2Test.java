@@ -236,6 +236,21 @@ public class DorisTypeConvertorV2Test {
         Assertions.assertEquals(38L, column.getColumnLength());
         Assertions.assertEquals(2, column.getScale());
         Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
+
+        typeDefine =
+                BasicTypeDefine.builder()
+                        .name("test")
+                        .columnType("decimalv3(8,0)")
+                        .dataType("decimal")
+                        .precision(8L)
+                        .scale(0)
+                        .build();
+        column = DorisTypeConverterV2.INSTANCE.convert(typeDefine);
+        Assertions.assertEquals(typeDefine.getName(), column.getName());
+        Assertions.assertEquals(new DecimalType(8, 0), column.getDataType());
+        Assertions.assertEquals(8L, column.getColumnLength());
+        Assertions.assertEquals(0, column.getScale());
+        Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
     }
 
     @Test

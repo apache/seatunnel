@@ -159,13 +159,19 @@ public class ExcelReadStrategy extends AbstractReadStrategy {
             cellCount = seaTunnelRowType.getTotalFields();
             cellCount = partitionsMap.isEmpty() ? cellCount : cellCount + partitionsMap.size();
             SeaTunnelDataType<?>[] fieldTypes = seaTunnelRowType.getFieldTypes();
-            int rowCount = sheet.getPhysicalNumberOfRows();
-            if (skipHeaderNumber > rowCount) {
+            int firstRowNum = sheet.getFirstRowNum();
+            int lastRowNum = sheet.getLastRowNum();
+            if (firstRowNum == -1 || lastRowNum == -1) {
+                return;
+            }
+            // Calculate the actual start row considering skipHeaderNumber
+            int startRow = Math.max(firstRowNum + (int) skipHeaderNumber, firstRowNum);
+            if (startRow > lastRowNum) {
                 throw new FileConnectorException(
                         CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
                         "Skip the number of rows exceeds the maximum or minimum limit of Sheet");
             }
-            IntStream.range((int) skipHeaderNumber, rowCount)
+            IntStream.range(startRow, lastRowNum + 1)
                     .mapToObj(sheet::getRow)
                     .filter(Objects::nonNull)
                     .forEach(

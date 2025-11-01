@@ -20,6 +20,7 @@ package org.apache.seatunnel.e2e.connector.typesense;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.core.JsonProcessingException;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.seatunnel.shade.com.google.common.collect.Lists;
+import org.apache.seatunnel.shade.org.apache.commons.lang3.RandomUtils;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.Catalog;
@@ -37,8 +38,6 @@ import org.apache.seatunnel.connectors.seatunnel.typesense.config.TypesenseBaseO
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
-
-import org.apache.commons.lang3.RandomUtils;
 
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterEach;

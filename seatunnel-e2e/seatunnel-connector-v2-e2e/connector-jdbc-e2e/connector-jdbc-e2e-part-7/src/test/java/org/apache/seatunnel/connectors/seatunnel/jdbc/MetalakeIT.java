@@ -18,19 +18,17 @@
 package org.apache.seatunnel.connectors.seatunnel.jdbc;
 
 import org.apache.seatunnel.shade.com.google.common.collect.Lists;
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
+import org.apache.seatunnel.shade.org.apache.commons.lang3.tuple.Pair;
 
 import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.e2e.common.container.seatunnel.SeaTunnelContainer;
 
-import org.apache.commons.lang3.StringUtils;
-import org.apache.commons.lang3.tuple.Pair;
-
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.MySQLContainer;
@@ -41,8 +39,6 @@ import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.DockerLoggerFactory;
 import org.testcontainers.utility.MountableFile;
-
-import com.github.dockerjava.api.DockerClient;
 
 import java.io.IOException;
 import java.math.BigDecimal;
@@ -75,11 +71,9 @@ public class MetalakeIT extends SeaTunnelContainer {
 
     protected Catalog catalog;
 
-    protected DockerClient dockerClient = DockerClientFactory.lazyClient();
-
     protected static final String HOST = "HOST";
 
-    private static final String MYSQL_IMAGE = "mysql:8.0";
+    private static final String MYSQL_IMAGE = "mysql:8.0.43";
     private static final String MYSQL_CONTAINER_HOST = "mysql-e2e";
     private static final String MYSQL_DATABASE = "seatunnel";
     private static final String MYSQL_SOURCE = "source";
@@ -90,9 +84,6 @@ public class MetalakeIT extends SeaTunnelContainer {
     private static final String MYSQL_PASSWORD = "Abc!@#135_seatunnel";
     private static final int MYSQL_PORT = 3306;
     private static final String MYSQL_URL = "jdbc:mysql://" + HOST + ":%s/%s?useSSL=false";
-    private static final String URL = "jdbc:mysql://" + HOST + ":3306/seatunnel";
-
-    private static final String SQL = "select * from seatunnel.source";
 
     private static final String DRIVER_CLASS = "com.mysql.cj.jdbc.Driver";
 
@@ -113,7 +104,6 @@ public class MetalakeIT extends SeaTunnelContainer {
     @BeforeEach
     @Override
     public void startUp() throws Exception {
-        // super.startUp();
         server =
                 new GenericContainer<>(getDockerImage())
                         .withNetwork(NETWORK)
@@ -184,25 +174,17 @@ public class MetalakeIT extends SeaTunnelContainer {
         if (catalog != null) {
             catalog.close();
         }
-
         if (connection != null) {
             connection.close();
         }
-
         if (dbServer != null) {
             dbServer.close();
-            try {
-                dockerClient.removeImageCmd(dbServer.getDockerImageName()).exec();
-            } catch (Exception ignored) {
-                ignored.printStackTrace();
-            }
         }
-
         super.tearDown();
     }
 
     @Test
-    public void TestMetalake() throws IOException, InterruptedException {
+    public void testMetalake() throws IOException, InterruptedException {
         Container.ExecResult execResult =
                 executeJob("/jdbc_mysql_source_to_assert_sink_with_metalake.conf");
         Assertions.assertEquals(0, execResult.getExitCode());

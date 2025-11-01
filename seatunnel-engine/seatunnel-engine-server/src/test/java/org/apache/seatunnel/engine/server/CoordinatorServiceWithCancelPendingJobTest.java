@@ -123,8 +123,7 @@ public class CoordinatorServiceWithCancelPendingJobTest extends AbstractSeaTunne
         JobMaster jobMaster = newJobInstanceWithRunningState(jobId);
 
         // Verify that the task is pending
-        Assertions.assertTrue(
-                server.getCoordinatorService().pendingJobMasterMap.containsKey(jobId));
+        Assertions.assertTrue(server.getCoordinatorService().getPendingJobQueue().contains(jobId));
 
         // Cancel Task
         PassiveCompletableFuture<Void> voidPassiveCompletableFuture =
@@ -132,8 +131,7 @@ public class CoordinatorServiceWithCancelPendingJobTest extends AbstractSeaTunne
         voidPassiveCompletableFuture.join();
 
         // Verify if the task has been deleted in pending
-        Assertions.assertFalse(
-                server.getCoordinatorService().pendingJobMasterMap.containsKey(jobId));
+        Assertions.assertFalse(server.getCoordinatorService().getPendingJobQueue().contains(jobId));
 
         // Verify if the final status of the task is cancelled
         await().pollDelay(3, TimeUnit.SECONDS)
