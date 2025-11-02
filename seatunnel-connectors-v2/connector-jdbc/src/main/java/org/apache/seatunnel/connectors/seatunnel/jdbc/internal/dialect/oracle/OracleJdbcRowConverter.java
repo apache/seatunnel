@@ -29,10 +29,13 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.utils.JdbcFieldTypeUtils;
 import javax.annotation.Nullable;
 
 import java.io.ByteArrayInputStream;
+import java.lang.reflect.Constructor;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Timestamp;
 import java.time.OffsetDateTime;
+import java.time.format.DateTimeFormatter;
 
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.oracle.OracleTypeConverter.ORACLE_BLOB;
 
@@ -158,6 +161,38 @@ public class OracleJdbcRowConverter extends AbstractJdbcRowConverter {
                 statement.setBinaryStream(statementIndex, new ByteArrayInputStream((byte[]) value));
             } else {
                 statement.setBytes(statementIndex, (byte[]) value);
+            }
+        } else if (seaTunnelDataType.getSqlType().equals(SqlType.TIMESTAMP_TZ)) {
+            // Prefer using Oracle's TIMESTAMPTZ to avoid driver-specific null conversions
+            OffsetDateTime offsetDateTime = (OffsetDateTime) value;
+            boolean written = false;
+            try {
+                Class<?> tsTzClazz =
+                        Class.forName(
+                                "oracle.sql.TIMESTAMPTZ",
+                                false,
+                                statement.getConnection().getClass().getClassLoader());
+                // Oracle TIMESTAMPTZ accepts Connection + String constructor
+                // Use a space-separated format instead of ISO 'T'
+                DateTimeFormatter formatter =
+                        DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSSxxx");
+                String literal = offsetDateTime.format(formatter);
+                Constructor<?> ctor =
+                        tsTzClazz.getConstructor(java.sql.Connection.class, String.class);
+                Object tsTz = ctor.newInstance(statement.getConnection(), literal);
+                statement.setObject(statementIndex, tsTz);
+                written = true;
+            } catch (Throwable ignore) {
+                // Fallbacks if Oracle specific class is unavailable
+            }
+
+            if (!written) {
+                try {
+                    statement.setObject(statementIndex, offsetDateTime);
+                } catch (SQLException e) {
+                    statement.setTimestamp(
+                            statementIndex, Timestamp.from(offsetDateTime.toInstant()));
+                }
             }
         } else {
             super.setValueToStatementByDataType(
