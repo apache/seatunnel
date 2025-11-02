@@ -572,8 +572,34 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
                 javaArray[index] = checkData(jdbcArray[index]);
             }
             return javaArray;
+        } else if (isOracleTimestampType(data)) {
+            // Convert Oracle TIMESTAMPTZ/TIMESTAMPLTZ to string for comparison
+            // This handles the case where different instances of the same timestamp
+            // would fail equality comparison
+            return convertOracleTimestampToString(data);
         } else {
             return data;
+        }
+    }
+
+    private boolean isOracleTimestampType(Object data) {
+        String className = data.getClass().getName();
+        return "oracle.sql.TIMESTAMPTZ".equals(className)
+                || "oracle.sql.TIMESTAMPLTZ".equals(className);
+    }
+
+    private String convertOracleTimestampToString(Object data) throws SQLException {
+        try {
+            // Try toOffsetDateTime() first
+            java.lang.reflect.Method method = data.getClass().getMethod("toOffsetDateTime");
+            Object offsetDateTime = method.invoke(data);
+            return offsetDateTime.toString();
+        } catch (NoSuchMethodException e) {
+            // Fall back to toString()
+            return data.toString();
+        } catch (Exception e) {
+            log.warn("Failed to convert Oracle timestamp to string", e);
+            return data.toString();
         }
     }
 
