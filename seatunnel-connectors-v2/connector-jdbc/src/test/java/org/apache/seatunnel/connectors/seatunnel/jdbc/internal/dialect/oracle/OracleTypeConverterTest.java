@@ -612,8 +612,7 @@ public class OracleTypeConverterTest {
         column = INSTANCE.convert(typeDefine);
 
         Assertions.assertEquals(typeDefine.getName(), column.getName());
-        // TIMESTAMP WITH TIME ZONE should map to OFFSET_DATE_TIME_TYPE
-        Assertions.assertEquals(BasicType.OFFSET_DATE_TIME_TYPE, column.getDataType());
+        Assertions.assertEquals(LocalTimeType.LOCAL_DATE_TIME_TYPE, column.getDataType());
         Assertions.assertEquals(6, column.getScale());
         Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
 
@@ -627,55 +626,8 @@ public class OracleTypeConverterTest {
         column = INSTANCE.convert(typeDefine);
 
         Assertions.assertEquals(typeDefine.getName(), column.getName());
-        // TIMESTAMP WITH LOCAL TIME ZONE should map to OFFSET_DATE_TIME_TYPE
-        Assertions.assertEquals(BasicType.OFFSET_DATE_TIME_TYPE, column.getDataType());
+        Assertions.assertEquals(LocalTimeType.LOCAL_DATE_TIME_TYPE, column.getDataType());
         Assertions.assertEquals(6, column.getScale());
-        Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
-    }
-
-    @Test
-    public void testConvertTimestampTz() {
-        // Test TIMESTAMP WITH TIME ZONE without scale
-        BasicTypeDefine<Object> typeDefine =
-                BasicTypeDefine.builder()
-                        .name("test_tz")
-                        .columnType("timestamp with time zone")
-                        .dataType("timestamp with time zone")
-                        .build();
-        Column column = INSTANCE.convert(typeDefine);
-
-        Assertions.assertEquals(typeDefine.getName(), column.getName());
-        Assertions.assertEquals(BasicType.OFFSET_DATE_TIME_TYPE, column.getDataType());
-        Assertions.assertEquals(6, column.getScale()); // Default scale
-        Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
-
-        // Test TIMESTAMP WITH TIME ZONE with scale
-        typeDefine =
-                BasicTypeDefine.builder()
-                        .name("test_tz_scale")
-                        .columnType("timestamp(3) with time zone")
-                        .dataType("timestamp with time zone")
-                        .scale(3)
-                        .build();
-        column = INSTANCE.convert(typeDefine);
-
-        Assertions.assertEquals(typeDefine.getName(), column.getName());
-        Assertions.assertEquals(BasicType.OFFSET_DATE_TIME_TYPE, column.getDataType());
-        Assertions.assertEquals(3, column.getScale());
-        Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
-
-        // Test TIMESTAMP WITH LOCAL TIME ZONE
-        typeDefine =
-                BasicTypeDefine.builder()
-                        .name("test_ltz")
-                        .columnType("timestamp with local time zone")
-                        .dataType("timestamp with local time zone")
-                        .build();
-        column = INSTANCE.convert(typeDefine);
-
-        Assertions.assertEquals(typeDefine.getName(), column.getName());
-        Assertions.assertEquals(BasicType.OFFSET_DATE_TIME_TYPE, column.getDataType());
-        Assertions.assertEquals(6, column.getScale()); // Default scale
         Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
     }
 
@@ -961,58 +913,6 @@ public class OracleTypeConverterTest {
                 OracleTypeConverter.ORACLE_TIMESTAMP_WITH_LOCAL_TIME_ZONE,
                 typeDefine.getDataType());
         Assertions.assertEquals(column.getScale(), typeDefine.getScale());
-    }
-
-    @Test
-    public void testReconvertTimestampTz() {
-        // Test OFFSET_DATE_TIME_TYPE without scale
-        Column column =
-                PhysicalColumn.builder()
-                        .name("test_tz")
-                        .dataType(BasicType.OFFSET_DATE_TIME_TYPE)
-                        .build();
-
-        BasicTypeDefine typeDefine = INSTANCE.reconvert(column);
-        Assertions.assertEquals(column.getName(), typeDefine.getName());
-        Assertions.assertEquals(
-                OracleTypeConverter.ORACLE_TIMESTAMP_WITH_TIME_ZONE, typeDefine.getColumnType());
-        Assertions.assertEquals(
-                OracleTypeConverter.ORACLE_TIMESTAMP_WITH_TIME_ZONE, typeDefine.getDataType());
-
-        // Test OFFSET_DATE_TIME_TYPE with scale
-        column =
-                PhysicalColumn.builder()
-                        .name("test_tz_scale")
-                        .dataType(BasicType.OFFSET_DATE_TIME_TYPE)
-                        .scale(3)
-                        .build();
-
-        typeDefine = INSTANCE.reconvert(column);
-        Assertions.assertEquals(column.getName(), typeDefine.getName());
-        Assertions.assertEquals(
-                String.format("TIMESTAMP(%s) WITH TIME ZONE", column.getScale()),
-                typeDefine.getColumnType());
-        Assertions.assertEquals(
-                OracleTypeConverter.ORACLE_TIMESTAMP_WITH_TIME_ZONE, typeDefine.getDataType());
-        Assertions.assertEquals(column.getScale(), typeDefine.getScale());
-
-        // Test with max scale
-        column =
-                PhysicalColumn.builder()
-                        .name("test_tz_max_scale")
-                        .dataType(BasicType.OFFSET_DATE_TIME_TYPE)
-                        .scale(15) // Exceeds MAX_TIMESTAMP_SCALE (9)
-                        .build();
-
-        typeDefine = INSTANCE.reconvert(column);
-        Assertions.assertEquals(column.getName(), typeDefine.getName());
-        Assertions.assertEquals(
-                String.format(
-                        "TIMESTAMP(%s) WITH TIME ZONE", OracleTypeConverter.MAX_TIMESTAMP_SCALE),
-                typeDefine.getColumnType());
-        Assertions.assertEquals(
-                OracleTypeConverter.ORACLE_TIMESTAMP_WITH_TIME_ZONE, typeDefine.getDataType());
-        Assertions.assertEquals(OracleTypeConverter.MAX_TIMESTAMP_SCALE, typeDefine.getScale());
     }
 
     @Test
