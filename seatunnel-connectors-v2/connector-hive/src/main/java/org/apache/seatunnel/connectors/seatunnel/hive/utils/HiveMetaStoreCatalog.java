@@ -83,7 +83,6 @@ public class HiveMetaStoreCatalog implements Catalog, Closeable, Serializable {
     private final String remoteUser;
 
     private transient HiveMetaStoreClient hiveClient;
-    private transient UserGroupInformation userGroupInformation;
     private transient HiveConf hiveConf;
     private transient UserGroupInformation userGroupInformation;
 
@@ -117,16 +116,8 @@ public class HiveMetaStoreCatalog implements Catalog, Closeable, Serializable {
         return hiveClient;
     }
 
-    /**
-     * Compatibility delegate for {@link HiveMetaStoreProxy} to access the client logic while
-     * keeping {@code getClient()} private in this class.
-     */
-    protected HiveMetaStoreClient getClientForProxy() {
-        return getClient();
-    }
-
     private HiveMetaStoreClient initializeClient() {
-        HiveConf hiveConf = buildHiveConf();
+        this.hiveConf = buildHiveConf();
         try {
             if (kerberosEnabled) {
                 return loginWithKerberos(hiveConf);
@@ -271,19 +262,6 @@ public class HiveMetaStoreCatalog implements Catalog, Closeable, Serializable {
     private HiveMetaStoreClient loginWithRemoteUser(HiveConf hiveConf) throws Exception {
         return HadoopLoginFactory.loginWithRemoteUser(
                 new Configuration(), remoteUser, (conf, ugi) -> new HiveMetaStoreClient(hiveConf));
-    }
-
-    private void maybeRelogin() {
-        if (userGroupInformation == null) {
-            return;
-        }
-        try {
-            if (userGroupInformation.isFromKeytab()) {
-                userGroupInformation.checkTGTAndReloginFromKeytab();
-            }
-        } catch (Exception e) {
-            log.warn("Kerberos re-login for HiveMetaStore failed: {}", e.getMessage());
-        }
     }
 
     public Table getTable(@NonNull String dbName, @NonNull String tableName) {
