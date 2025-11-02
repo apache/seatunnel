@@ -31,6 +31,8 @@ Reads data from Apache Hbase.
 | is_binary_rowkey     | boolean   | No        | false   |
 | start_rowkey         | string    | No        | -       |
 | end_rowkey           | string    | No        | -       |
+| start_row_inclusive | boolean | No       | true    |
+| end_row_inclusive   | boolean | No       | false   |
 | common-options       |           | No        | -       |
 
 ### zookeeper_quorum [string]
@@ -72,6 +74,14 @@ The start row of the scan
 ### end_rowkey
 
 The stop row of the scan
+
+### start_row_inclusive
+
+Whether to include the start row in the scan range. When set to true, the start row is included in the scan results. Default: true (inclusive).
+
+### end_row_inclusive
+
+Whether to include the end row in the scan range. When set to false, the end row is excluded from the scan results, following the left-closed-right-open convention [start, end). Default: false (exclusive).
 
 ### common-options
 

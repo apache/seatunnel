@@ -31,6 +31,8 @@ import ChangeLog from '../changelog/connector-hbase.md';
 | is_binary_rowkey     | boolean  | 否  | false |
 | start_rowkey         | string   | 否  | -     |
 | end_rowkey           | string   | 否  | -     |
+| start_row_inclusive | boolean | 否  | true  |
+| end_row_inclusive   | boolean | 否  | false |
 | common-options       |          | 否  | -     |
 
 ### zookeeper_quorum [string]
@@ -72,6 +74,14 @@ HBase 的行键既可以是文本字符串，也可以是二进制数据。在 S
 ### end_rowkey
 
 扫描结束行
+
+### start_row_inclusive
+
+设置扫描范围是否包含起始行。当设置为 true 时,扫描结果将包含起始行。默认值: true (包含)。
+
+### end_row_inclusive
+
+设置扫描范围是否包含结束行。当设置为 false 时,扫描结果将不包含结束行,遵循左闭右开的区间约定 [start, end)。默认值: false (不包含)。
 
 ### 常用选项
 
