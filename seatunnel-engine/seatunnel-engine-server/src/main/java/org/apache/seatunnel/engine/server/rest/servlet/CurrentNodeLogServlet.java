@@ -55,7 +55,7 @@ public class CurrentNodeLogServlet extends LogBaseServlet {
         String logPath = logService.getLogPath();
 
         if (StringUtils.isBlank(logName)) {
-            writeHtml(resp, logService.currentNodeLog(uri));
+            writeHtml(resp, logService.currentNodeLog());
         } else {
             // Get Current Node Log Content
             prepareLogResponse(resp, logPath, logName);

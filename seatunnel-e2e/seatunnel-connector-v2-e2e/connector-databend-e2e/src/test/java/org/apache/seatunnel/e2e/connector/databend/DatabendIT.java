@@ -457,6 +457,11 @@ public class DatabendIT extends TestSuiteBase implements TestResource {
             }
         }
 
+        if (minioContainer != null) {
+            minioContainer.stop();
+            LOG.info("Minio container stopped");
+        }
+
         Thread.sleep(5000);
 
         if (this.container != null) {
