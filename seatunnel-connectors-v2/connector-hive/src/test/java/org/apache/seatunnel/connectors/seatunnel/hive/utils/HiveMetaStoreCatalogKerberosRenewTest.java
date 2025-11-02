@@ -14,17 +14,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.seatunnel.connectors.seatunnel.file.hadoop;
+package org.apache.seatunnel.connectors.seatunnel.hive.utils;
 
-import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 
+import org.apache.hadoop.hive.metastore.HiveMetaStoreClient;
 import org.apache.hadoop.security.UserGroupInformation;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
-import java.io.IOException;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 
@@ -34,11 +34,12 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-class HadoopFileSystemProxyKerberosRenewTest {
+class HiveMetaStoreCatalogKerberosRenewTest {
 
     private static void set(Object target, String field, Object value) throws Exception {
         Field f = null;
         Class<?> cls = target.getClass();
+        // Fields are declared on HiveMetaStoreCatalog; if a subclass instance is passed, climb up
         while (cls != null) {
             try {
                 f = cls.getDeclaredField(field);
@@ -59,7 +60,7 @@ class HadoopFileSystemProxyKerberosRenewTest {
         Class<?> cls = target.getClass();
         while (cls != null) {
             try {
-                m = cls.getDeclaredMethod(method, java.security.PrivilegedExceptionAction.class);
+                m = cls.getDeclaredMethod(method);
                 break;
             } catch (NoSuchMethodException ignore) {
                 cls = cls.getSuperclass();
@@ -69,66 +70,67 @@ class HadoopFileSystemProxyKerberosRenewTest {
             throw new NoSuchMethodException(method);
         }
         m.setAccessible(true);
-        // call doAsPrivileged with a no-op action returning null
-        return m.invoke(target, (java.security.PrivilegedExceptionAction<Object>) () -> null);
+        return m.invoke(target);
     }
 
     @Test
-    void testMaybeReloginFromKeytabCallsCheck() throws Exception {
-        HadoopConf conf = new HadoopConf("file:///");
-        HadoopFileSystemProxy proxy = new HadoopFileSystemProxy(conf);
+    void testGetClientTriggersMaybeReloginFromKeytab() throws Exception {
+        ReadonlyConfig cfg = Mockito.mock(ReadonlyConfig.class);
+        HiveMetaStoreCatalog catalog = new HiveMetaStoreCatalog(cfg);
 
+        HiveMetaStoreClient client = Mockito.mock(HiveMetaStoreClient.class);
         UserGroupInformation ugi = Mockito.mock(UserGroupInformation.class);
         when(ugi.isFromKeytab()).thenReturn(true);
 
-        set(proxy, "isAuthTypeKerberos", true);
-        set(proxy, "userGroupInformation", ugi);
+        set(catalog, "hiveClient", client);
+        set(catalog, "userGroupInformation", ugi);
+        set(catalog, "kerberosEnabled", true);
 
-        // invoke private doAsPrivileged -> which should call maybeRelogin internally
-        invoke(proxy, "doAsPrivileged");
-
+        HiveMetaStoreClient out = (HiveMetaStoreClient) invoke(catalog, "getClient");
+        Assertions.assertNotNull(out);
         verify(ugi, times(1)).checkTGTAndReloginFromKeytab();
     }
 
     @Test
-    void testMaybeReloginNotFromKeytabNoCheck() throws Exception {
-        HadoopConf conf = new HadoopConf("file:///");
-        HadoopFileSystemProxy proxy = new HadoopFileSystemProxy(conf);
+    void testGetClientTriggersMaybeReloginNotFromKeytab() throws Exception {
+        ReadonlyConfig cfg = Mockito.mock(ReadonlyConfig.class);
+        HiveMetaStoreCatalog catalog = new HiveMetaStoreCatalog(cfg);
 
+        HiveMetaStoreClient client = Mockito.mock(HiveMetaStoreClient.class);
         UserGroupInformation ugi = Mockito.mock(UserGroupInformation.class);
         when(ugi.isFromKeytab()).thenReturn(false);
 
-        set(proxy, "isAuthTypeKerberos", true);
-        set(proxy, "userGroupInformation", ugi);
+        set(catalog, "hiveClient", client);
+        set(catalog, "userGroupInformation", ugi);
+        set(catalog, "kerberosEnabled", true);
 
-        invoke(proxy, "doAsPrivileged");
-
+        HiveMetaStoreClient out = (HiveMetaStoreClient) invoke(catalog, "getClient");
+        Assertions.assertNotNull(out);
         verify(ugi, never()).checkTGTAndReloginFromKeytab();
     }
 
     @Test
-    void testMaybeReloginCheckThrowsSwallowed() throws Exception {
-        HadoopConf conf = new HadoopConf("file:///");
-        HadoopFileSystemProxy proxy = new HadoopFileSystemProxy(conf);
+    void testGetClientReloginThrowsSwallowed() throws Exception {
+        ReadonlyConfig cfg = Mockito.mock(ReadonlyConfig.class);
+        HiveMetaStoreCatalog catalog = new HiveMetaStoreCatalog(cfg);
 
+        HiveMetaStoreClient client = Mockito.mock(HiveMetaStoreClient.class);
         UserGroupInformation ugi = Mockito.mock(UserGroupInformation.class);
         when(ugi.isFromKeytab()).thenReturn(true);
-        doThrow(new IOException("test")).when(ugi).checkTGTAndReloginFromKeytab();
+        doThrow(new RuntimeException("test")).when(ugi).checkTGTAndReloginFromKeytab();
 
-        set(proxy, "isAuthTypeKerberos", true);
-        set(proxy, "userGroupInformation", ugi);
+        set(catalog, "hiveClient", client);
+        set(catalog, "userGroupInformation", ugi);
+        set(catalog, "kerberosEnabled", true);
 
-        // should not throw out
         Assertions.assertDoesNotThrow(
                 () -> {
                     try {
-                        invoke(proxy, "doAsPrivileged");
+                        invoke(catalog, "getClient");
                     } catch (Exception e) {
-                        // unwrap reflection InvocationTargetException if any
                         throw new RuntimeException(e);
                     }
                 });
-
         verify(ugi, times(1)).checkTGTAndReloginFromKeytab();
     }
 }

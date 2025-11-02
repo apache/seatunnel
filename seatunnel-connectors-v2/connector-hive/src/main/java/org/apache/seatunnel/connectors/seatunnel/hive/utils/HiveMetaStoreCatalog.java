@@ -85,6 +85,7 @@ public class HiveMetaStoreCatalog implements Catalog, Closeable, Serializable {
     private transient HiveMetaStoreClient hiveClient;
     private transient UserGroupInformation userGroupInformation;
     private transient HiveConf hiveConf;
+    private transient UserGroupInformation userGroupInformation;
 
     public HiveMetaStoreCatalog(ReadonlyConfig config) {
         this.metastoreUri = config.get(HiveOptions.METASTORE_URI);
@@ -539,6 +540,19 @@ public class HiveMetaStoreCatalog implements Catalog, Closeable, Serializable {
     public synchronized void close() throws CatalogException {
         if (Objects.nonNull(hiveClient)) {
             hiveClient.close();
+        }
+    }
+
+    private void maybeRelogin() {
+        if (userGroupInformation == null) {
+            return;
+        }
+        try {
+            if (userGroupInformation.isFromKeytab()) {
+                userGroupInformation.checkTGTAndReloginFromKeytab();
+            }
+        } catch (Exception e) {
+            log.warn("Kerberos re-login for HiveMetaStore failed: {}", e.getMessage());
         }
     }
 
