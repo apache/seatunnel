@@ -1494,12 +1494,12 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
             producer.flush();
         }
         Long endOffset;
-        try (KafkaConsumer<String, String> consumer = new KafkaConsumer<>(kafkaConsumerConfig())) {
-            consumer.subscribe(Arrays.asList(producerTopic));
-            Map<TopicPartition, Long> offsets =
-                    consumer.endOffsets(Arrays.asList(new TopicPartition(producerTopic, 0)));
-            endOffset = offsets.entrySet().iterator().next().getValue();
-        }
+        KafkaConsumer<String, String> consumer = new KafkaConsumer<>(kafkaConsumerConfig());
+        consumer.subscribe(Arrays.asList(producerTopic));
+        Map<TopicPartition, Long> offsets =
+                consumer.endOffsets(Arrays.asList(new TopicPartition(producerTopic, 0)));
+        endOffset = offsets.entrySet().iterator().next().getValue();
+        closeKafkaConsumer(consumer);
         Container.ExecResult execResult =
                 container.executeJob("/kafka/kafka_to_kafka_exactly_once_batch.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
@@ -1855,86 +1855,96 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
 
     private Map<String, String> getKafkaConsumerData(String topicName) {
         Map<String, String> data = new HashMap<>();
-        try (KafkaConsumer<String, String> consumer = new KafkaConsumer<>(kafkaConsumerConfig())) {
-            consumer.subscribe(Arrays.asList(topicName));
-            Map<TopicPartition, Long> offsets =
-                    consumer.endOffsets(Arrays.asList(new TopicPartition(topicName, 0)));
-            Long endOffset = offsets.entrySet().iterator().next().getValue();
-            Long lastProcessedOffset = -1L;
+        KafkaConsumer<String, String> consumer = new KafkaConsumer<>(kafkaConsumerConfig());
+        consumer.subscribe(Arrays.asList(topicName));
+        Map<TopicPartition, Long> offsets =
+                consumer.endOffsets(Arrays.asList(new TopicPartition(topicName, 0)));
+        Long endOffset = offsets.entrySet().iterator().next().getValue();
+        Long lastProcessedOffset = -1L;
 
-            do {
-                ConsumerRecords<String, String> records = consumer.poll(Duration.ofMillis(100));
-                for (ConsumerRecord<String, String> record : records) {
-                    if (lastProcessedOffset < record.offset()) {
-                        data.put(record.key(), record.value());
-                    }
-                    lastProcessedOffset = record.offset();
+        do {
+            ConsumerRecords<String, String> records = consumer.poll(Duration.ofMillis(100));
+            for (ConsumerRecord<String, String> record : records) {
+                if (lastProcessedOffset < record.offset()) {
+                    data.put(record.key(), record.value());
                 }
-            } while (lastProcessedOffset < endOffset - 1);
-        }
+                lastProcessedOffset = record.offset();
+            }
+        } while (lastProcessedOffset < endOffset - 1);
+        closeKafkaConsumer(consumer);
         return data;
     }
 
     private List<ConsumerRecord<String, String>> getKafkaRecordData(String topicName) {
         List<ConsumerRecord<String, String>> data = new ArrayList<>();
-        try (KafkaConsumer<String, String> consumer = new KafkaConsumer<>(kafkaConsumerConfig())) {
-            consumer.subscribe(Arrays.asList(topicName));
-            Map<TopicPartition, Long> offsets =
-                    consumer.endOffsets(Arrays.asList(new TopicPartition(topicName, 0)));
-            Long endOffset = offsets.entrySet().iterator().next().getValue();
-            Long lastProcessedOffset = -1L;
+        KafkaConsumer<String, String> consumer = new KafkaConsumer<>(kafkaConsumerConfig());
+        consumer.subscribe(Arrays.asList(topicName));
+        Map<TopicPartition, Long> offsets =
+                consumer.endOffsets(Arrays.asList(new TopicPartition(topicName, 0)));
+        Long endOffset = offsets.entrySet().iterator().next().getValue();
+        Long lastProcessedOffset = -1L;
 
-            do {
-                ConsumerRecords<String, String> records = consumer.poll(Duration.ofMillis(100));
-                for (ConsumerRecord<String, String> record : records) {
-                    if (lastProcessedOffset < record.offset()) {
-                        data.add(record);
-                    }
-                    lastProcessedOffset = record.offset();
+        do {
+            ConsumerRecords<String, String> records = consumer.poll(Duration.ofMillis(100));
+            for (ConsumerRecord<String, String> record : records) {
+                if (lastProcessedOffset < record.offset()) {
+                    data.add(record);
                 }
-            } while (lastProcessedOffset < endOffset - 1);
-        }
+                lastProcessedOffset = record.offset();
+            }
+        } while (lastProcessedOffset < endOffset - 1);
+        closeKafkaConsumer(consumer);
         return data;
     }
 
     private List<String> getKafkaConsumerListData(String topicName) {
         List<String> data = new ArrayList<>();
-        try (KafkaConsumer<String, String> consumer = new KafkaConsumer<>(kafkaConsumerConfig())) {
-            consumer.subscribe(Arrays.asList(topicName));
-            Map<TopicPartition, Long> offsets =
-                    consumer.endOffsets(Arrays.asList(new TopicPartition(topicName, 0)));
-            Long endOffset = offsets.entrySet().iterator().next().getValue();
-            Long lastProcessedOffset = -1L;
+        KafkaConsumer<String, String> consumer = new KafkaConsumer<>(kafkaConsumerConfig());
+        consumer.subscribe(Arrays.asList(topicName));
+        Map<TopicPartition, Long> offsets =
+                consumer.endOffsets(Arrays.asList(new TopicPartition(topicName, 0)));
+        Long endOffset = offsets.entrySet().iterator().next().getValue();
+        Long lastProcessedOffset = -1L;
 
-            do {
-                ConsumerRecords<String, String> records = consumer.poll(Duration.ofMillis(100));
-                for (ConsumerRecord<String, String> record : records) {
-                    if (lastProcessedOffset < record.offset()) {
-                        data.add(record.value());
-                    }
-                    lastProcessedOffset = record.offset();
+        do {
+            ConsumerRecords<String, String> records = consumer.poll(Duration.ofMillis(100));
+            for (ConsumerRecord<String, String> record : records) {
+                if (lastProcessedOffset < record.offset()) {
+                    data.add(record.value());
                 }
-            } while (lastProcessedOffset < endOffset - 1);
-        }
+                lastProcessedOffset = record.offset();
+            }
+        } while (lastProcessedOffset < endOffset - 1);
+        closeKafkaConsumer(consumer);
         return data;
     }
 
     private List<String> getKafkaConsumerListData(String topicName, long endOffset) {
         List<String> data = new ArrayList<>();
-        try (KafkaConsumer<String, String> consumer = new KafkaConsumer<>(kafkaConsumerConfig())) {
-            consumer.subscribe(Arrays.asList(topicName));
-            Long lastProcessedOffset = -1L;
-            do {
-                ConsumerRecords<String, String> records = consumer.poll(Duration.ofMillis(100));
-                for (ConsumerRecord<String, String> record : records) {
-                    if (lastProcessedOffset < record.offset()) {
-                        data.add(record.value());
-                    }
-                    lastProcessedOffset = record.offset();
+        KafkaConsumer<String, String> consumer = new KafkaConsumer<>(kafkaConsumerConfig());
+        consumer.subscribe(Arrays.asList(topicName));
+        Long lastProcessedOffset = -1L;
+        do {
+            ConsumerRecords<String, String> records = consumer.poll(Duration.ofMillis(100));
+            for (ConsumerRecord<String, String> record : records) {
+                if (lastProcessedOffset < record.offset()) {
+                    data.add(record.value());
                 }
-            } while (lastProcessedOffset < endOffset - 1);
-        }
+                lastProcessedOffset = record.offset();
+            }
+        } while (lastProcessedOffset < endOffset - 1);
+        closeKafkaConsumer(consumer);
         return data;
+    }
+
+    private void closeKafkaConsumer(KafkaConsumer<String, String> consumer) {
+        if (consumer != null) {
+            try {
+                consumer.close();
+            } catch (Exception e) {
+                log.warn("Close kafka consumer failed.");
+            }
+        }
     }
 
     private List<SeaTunnelRow> getKafkaSTRow(String topicName, ConsumerRecordConverter converter) {
