@@ -83,10 +83,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-@DisabledOnContainer(
-        value = {},
-        type = {EngineType.FLINK, EngineType.SPARK},
-        disabledReason = "Currently FLINK engine unsupported NULL type")
 public class ClickhouseIT extends TestSuiteBase implements TestResource {
     private static final Logger LOG = LoggerFactory.getLogger(ClickhouseIT.class);
     private static final String CLICKHOUSE_DOCKER_IMAGE = "clickhouse/clickhouse-server:23.3.13.6";
