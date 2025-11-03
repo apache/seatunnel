@@ -194,10 +194,8 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
                 if (jdbcStatementExecutor != null) {
                     jdbcStatementExecutor.closeStatements();
                 }
-            } catch (SQLException e) {
+            } catch (SQLException | JdbcConnectorException e) {
                 LOG.warn("Close JDBC writer failed.", e);
-            } catch (JdbcConnectorException e) {
-                LOG.warn("Failed to execute remaining batch", e);
             }
         }
         connectionProvider.closeConnection();
@@ -207,13 +205,11 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
     public void updateExecutor(boolean reconnect) throws SQLException, ClassNotFoundException {
         try {
             jdbcStatementExecutor.closeStatements();
-        } catch (SQLException e) {
+        } catch (SQLException | JdbcConnectorException e) {
             if (!reconnect) {
                 throw e;
             }
             LOG.error("Close JDBC statement failed on reconnect.", e);
-        } catch (JdbcConnectorException e) {
-            LOG.warn("Failed to execute remaining batch", e);
         }
         jdbcStatementExecutor.prepareStatements(
                 reconnect
