@@ -1410,9 +1410,9 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
 
     @TestTemplate
     @DisabledOnContainer(
-            type = EngineType.SPARK,
+            type = {EngineType.SPARK, EngineType.FLINK},
             value = {})
-    public void testKafkaToKafkaExactlyOnceOnStreaming(TestContainer container)
+    public void testRestoreKafkaToKafkaExactlyOnceOnStreaming(TestContainer container)
             throws InterruptedException, IOException {
 
         String producerTopic = "kafka_topic_exactly_once_1";
@@ -1479,6 +1479,45 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                         () ->
                                 Assertions.assertTrue(
                                         checkData(consumerTopic, finalEndOffset2, sourceData)));
+    }
+
+    @TestTemplate
+    @DisabledOnContainer(
+            type = EngineType.SPARK,
+            value = {})
+    public void testKafkaToKafkaExactlyOnceOnStreaming(TestContainer container) {
+
+        String producerTopic = "kafka_topic_exactly_once_1";
+        String consumerTopic = "kafka_topic_exactly_once_2";
+        String sourceData = "Seatunnel Exactly Once Example";
+        for (int i = 0; i < 10; i++) {
+            ProducerRecord<byte[], byte[]> record =
+                    new ProducerRecord<>(producerTopic, null, sourceData.getBytes());
+            producer.send(record);
+            producer.flush();
+        }
+        long endOffset = endOffsetOnP0(producerTopic);
+        // async execute
+        CompletableFuture.supplyAsync(
+                () -> {
+                    try {
+                        container.executeJob("/kafka/kafka_to_kafka_exactly_once_streaming.conf");
+                    } catch (Exception e) {
+                        log.error("Commit task exception :" + e.getMessage());
+                        throw new RuntimeException(e);
+                    }
+                    return null;
+                });
+        // wait for data written to kafka
+        long finalEndOffset = endOffset;
+        given().pollDelay(30, SECONDS)
+                .pollInterval(5, SECONDS)
+                .await()
+                .atMost(5, MINUTES)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertTrue(
+                                        checkData(consumerTopic, finalEndOffset, sourceData)));
     }
 
     @TestTemplate
