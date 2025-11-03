@@ -21,7 +21,10 @@ import org.apache.seatunnel.common.exception.SeaTunnelErrorCode;
 public enum RedisErrorCode implements SeaTunnelErrorCode {
     GET_REDIS_VERSION_INFO_FAILED("RedisErrorCode-01", "Failed to get the redis version"),
     INVALID_CONFIG("RedisErrorCode-02", "Invalid redis Config"),
-    GET_RESPONSE_FAILED("RedisErrorCode-03", "Failed to get the write response");
+    GET_RESPONSE_FAILED("RedisErrorCode-03", "Failed to get the write response"),
+    GET_REDIS_INFO_ERROR("RedisErrorCode-04", "Failed to get redis info in cluster mode."),
+    REDIS_NODE_EMPTY_ERROR("RedisErrorCode-05", "Redis nodes parameter is empty"),
+    REDIS_CONNECTION_ERROR("RedisErrorCode-06", "Redis connection error");
 
     private final String code;
     private final String description;

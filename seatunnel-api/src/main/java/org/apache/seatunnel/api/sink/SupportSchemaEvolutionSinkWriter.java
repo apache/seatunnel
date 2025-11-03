@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.api.sink;
 
+import org.apache.seatunnel.api.table.coordinator.SchemaCoordinator;
+import org.apache.seatunnel.api.table.schema.event.FlushEvent;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 
 import java.io.IOException;
@@ -30,4 +32,48 @@ public interface SupportSchemaEvolutionSinkWriter {
      * @throws IOException
      */
     void applySchemaChange(SchemaChangeEvent event) throws IOException;
+
+    /**
+     * handle FlushEvent propagated from upstream
+     *
+     * @param event
+     * @throws IOException
+     */
+    default void handleFlushEvent(FlushEvent event) throws IOException {
+        flushData();
+        sendFlushSuccessful(event);
+    }
+
+    /**
+     * send success event to coordinator upon successful flash
+     *
+     * @param event
+     * @throws IOException
+     */
+    default void sendFlushSuccessful(FlushEvent event) throws IOException {
+        SchemaCoordinator coordinator = getSchemaCoordinator();
+        if (coordinator == null && event != null && event.getJobId() != null) {
+            coordinator = SchemaCoordinator.getOrCreateInstance(event.getJobId());
+        }
+
+        if (coordinator != null) {
+            coordinator.notifyFlushSuccessful(event.getJobId(), event.tableIdentifier());
+        }
+    }
+
+    /**
+     * Get the schema coordinator instance for reporting flush completion
+     *
+     * @return the schema coordinator instance, or null if not available
+     */
+    default SchemaCoordinator getSchemaCoordinator() {
+        return null;
+    }
+
+    /**
+     * flush data to other system
+     *
+     * @throws IOException
+     */
+    default void flushData() throws IOException {}
 }
