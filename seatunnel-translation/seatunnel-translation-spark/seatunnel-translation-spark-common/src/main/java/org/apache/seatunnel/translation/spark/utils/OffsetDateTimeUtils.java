@@ -20,7 +20,6 @@ package org.apache.seatunnel.translation.spark.utils;
 import org.apache.spark.sql.types.DecimalType;
 
 import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
@@ -33,18 +32,34 @@ public class OffsetDateTimeUtils {
     public static final DecimalType OFFSET_DATETIME_WITH_DECIMAL = new DecimalType(18, 5);
 
     public static BigDecimal toBigDecimal(OffsetDateTime time) {
-        return new BigDecimal(
-                time.toInstant().toEpochMilli() + "." + time.getOffset().getTotalSeconds());
+        long epochMilli = time.toInstant().toEpochMilli();
+        int offsetSeconds = time.getOffset().getTotalSeconds();
+
+        int sign = offsetSeconds < 0 ? 1 : 0;
+        int absOffset = Math.abs(offsetSeconds);
+        int decimalPart = sign * 100000 + absOffset;
+
+        BigDecimal millis = new BigDecimal(epochMilli);
+        BigDecimal decimal =
+                new BigDecimal(decimalPart)
+                        .divide(new BigDecimal(1000000), 6, java.math.RoundingMode.HALF_UP);
+        return millis.add(decimal);
     }
 
     public static OffsetDateTime toOffsetDateTime(BigDecimal timeWithDecimal) {
-        BigInteger epochMilli =
-                timeWithDecimal.unscaledValue().divide(BigInteger.TEN.pow(timeWithDecimal.scale()));
-        BigInteger offset =
-                timeWithDecimal
-                        .unscaledValue()
-                        .remainder(BigInteger.TEN.pow(timeWithDecimal.scale()));
-        return Instant.ofEpochMilli(epochMilli.longValue())
-                .atOffset(ZoneOffset.ofTotalSeconds(offset.intValue()));
+        long epochMilli = timeWithDecimal.longValue();
+
+        BigDecimal fractionalPart = timeWithDecimal.subtract(new BigDecimal(epochMilli));
+        int decimalPart =
+                fractionalPart
+                        .multiply(new BigDecimal(1000000))
+                        .setScale(0, java.math.RoundingMode.HALF_UP)
+                        .intValue();
+
+        int sign = decimalPart / 100000; // 0 or 1
+        int absOffset = decimalPart % 100000;
+        int offsetSeconds = sign == 1 ? -absOffset : absOffset;
+
+        return Instant.ofEpochMilli(epochMilli).atOffset(ZoneOffset.ofTotalSeconds(offsetSeconds));
     }
 }
