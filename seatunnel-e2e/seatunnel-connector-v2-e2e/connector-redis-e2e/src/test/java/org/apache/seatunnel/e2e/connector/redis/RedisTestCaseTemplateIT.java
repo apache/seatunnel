@@ -626,9 +626,11 @@ public abstract class RedisTestCaseTemplateIT extends TestSuiteBase implements T
     @Test
     public void testFakeToRedisDeleteHashTest() throws IOException {
         String key = "hash_check";
+        Map<String, Object> otherParams = new HashMap<>();
+        otherParams.put("hash_key_field", "id");
         SinkFlowTestUtils.runBatchWithCheckpointDisabled(
                 getCatalogTable(0, key),
-                getReadonlyConfig(RedisDataType.HASH, key),
+                getDefaultReadonlyConfig(RedisDataType.HASH, key, otherParams),
                 new RedisSinkFactory(),
                 Arrays.asList(
                         getSeaTunnelRowInsert1(),
@@ -641,12 +643,22 @@ public abstract class RedisTestCaseTemplateIT extends TestSuiteBase implements T
         jedis.del(key);
     }
 
-    @TestTemplate
-    public void testFakeToRedisDeleteKeyTest(TestContainer container)
-            throws IOException, InterruptedException {
-        Container.ExecResult execResult =
-                container.executeJob("/fake-to-redis-test-delete-key.conf");
-        Assertions.assertEquals(0, execResult.getExitCode());
+    @Test
+    public void testFakeToRedisDeleteKeyTest() throws IOException {
+        String key = "key_check:{id}";
+        Map<String, Object> otherParams = new HashMap<>();
+        otherParams.put("support_custom_key", true);
+        SinkFlowTestUtils.runBatchWithCheckpointDisabled(
+                getCatalogTable(0, key),
+                getDefaultReadonlyConfig(RedisDataType.KEY, key, otherParams),
+                new RedisSinkFactory(),
+                Arrays.asList(
+                        getSeaTunnelRowInsert1(),
+                        getSeaTunnelRowInsert2(),
+                        getSeaTunnelRowInsert3(),
+                        getSeaTunnelRowUpdateBefore(),
+                        getSeaTunnelRowUpdateAfter(),
+                        getSeaTunnelRowDelete()));
         int count = 0;
         for (int i = 1; i <= 3; i++) {
             String data = jedis.get("key_check:" + i);
@@ -660,34 +672,58 @@ public abstract class RedisTestCaseTemplateIT extends TestSuiteBase implements T
         }
     }
 
-    @TestTemplate
-    public void testFakeToRedisDeleteListTest(TestContainer container)
-            throws IOException, InterruptedException {
-        Container.ExecResult execResult =
-                container.executeJob("/fake-to-redis-test-delete-list.conf");
-        Assertions.assertEquals(0, execResult.getExitCode());
-        Assertions.assertEquals(2, jedis.llen("list_check"));
-        jedis.del("list_check");
+    @Test
+    public void testFakeToRedisDeleteListTest() throws IOException {
+        String key = "list_check";
+        SinkFlowTestUtils.runBatchWithCheckpointDisabled(
+                getCatalogTable(0, key),
+                getDefaultReadonlyConfig(RedisDataType.LIST, key, new HashMap<>()),
+                new RedisSinkFactory(),
+                Arrays.asList(
+                        getSeaTunnelRowInsert1(),
+                        getSeaTunnelRowInsert2(),
+                        getSeaTunnelRowInsert3(),
+                        getSeaTunnelRowUpdateBefore(),
+                        getSeaTunnelRowUpdateAfter(),
+                        getSeaTunnelRowDelete()));
+        Assertions.assertEquals(2, jedis.llen(key));
+        jedis.del(key);
     }
 
-    @TestTemplate
-    public void testFakeToRedisDeleteSetTest(TestContainer container)
-            throws IOException, InterruptedException {
-        Container.ExecResult execResult =
-                container.executeJob("/fake-to-redis-test-delete-set.conf");
-        Assertions.assertEquals(0, execResult.getExitCode());
-        Assertions.assertEquals(2, jedis.scard("set_check"));
-        jedis.del("set_check");
+    @Test
+    public void testFakeToRedisDeleteSetTest() throws IOException {
+        String key = "set_check";
+        SinkFlowTestUtils.runBatchWithCheckpointDisabled(
+                getCatalogTable(0, key),
+                getDefaultReadonlyConfig(RedisDataType.SET, key, new HashMap<>()),
+                new RedisSinkFactory(),
+                Arrays.asList(
+                        getSeaTunnelRowInsert1(),
+                        getSeaTunnelRowInsert2(),
+                        getSeaTunnelRowInsert3(),
+                        getSeaTunnelRowUpdateBefore(),
+                        getSeaTunnelRowUpdateAfter(),
+                        getSeaTunnelRowDelete()));
+        Assertions.assertEquals(2, jedis.scard(key));
+        jedis.del(key);
     }
 
-    @TestTemplate
-    public void testFakeToToRedisDeleteZSetTest(TestContainer container)
-            throws IOException, InterruptedException {
-        Container.ExecResult execResult =
-                container.executeJob("/fake-to-redis-test-delete-zset.conf");
-        Assertions.assertEquals(0, execResult.getExitCode());
-        Assertions.assertEquals(2, jedis.zcard("zset_check"));
-        jedis.del("zset_check");
+    @Test
+    public void testFakeToToRedisDeleteZSetTest() throws IOException {
+        String key = "zset_check";
+        SinkFlowTestUtils.runBatchWithCheckpointDisabled(
+                getCatalogTable(0, key),
+                getDefaultReadonlyConfig(RedisDataType.ZSET, key, new HashMap<>()),
+                new RedisSinkFactory(),
+                Arrays.asList(
+                        getSeaTunnelRowInsert1(),
+                        getSeaTunnelRowInsert2(),
+                        getSeaTunnelRowInsert3(),
+                        getSeaTunnelRowUpdateBefore(),
+                        getSeaTunnelRowUpdateAfter(),
+                        getSeaTunnelRowDelete()));
+        Assertions.assertEquals(2, jedis.zcard(key));
+        jedis.del(key);
     }
 
     @TestTemplate
@@ -831,15 +867,15 @@ public abstract class RedisTestCaseTemplateIT extends TestSuiteBase implements T
 
     public abstract RedisContainerInfo getRedisContainerInfo();
 
-    private ReadonlyConfig getReadonlyConfig(RedisDataType dataType, String key) {
-        Map<String, Object> map = new HashMap<>();
+    private ReadonlyConfig getDefaultReadonlyConfig(
+            RedisDataType dataType, String key, Map<String, Object> otherParams) {
+        Map<String, Object> map = new HashMap<>(otherParams);
         map.put("host", redisContainer.getHost());
         map.put("port", redisContainer.getFirstMappedPort());
         map.put("db_num", 0);
         map.put("auth", password);
         map.put("key", key);
         map.put("data_type", dataType.name());
-        map.put("hash_key_field", "id");
         map.put("batch_size", 33);
         return ReadonlyConfig.fromMap(map);
     }
