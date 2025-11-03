@@ -124,16 +124,16 @@ public class DAGUtils {
                                         .collect(Collectors.toList()));
                         pipeline.getVertexes()
                                 .forEach(
-                                        (id, vertex) -> {
-                                            vertexInfoMap.put(
-                                                    id,
-                                                    new VertexInfo(
-                                                            vertex.getVertexId(),
-                                                            ActionUtils.getActionType(
-                                                                    vertex.getAction()),
-                                                            vertex.getAction().getName(),
-                                                            getTablePaths(vertex.getAction())));
-                                        });
+                                        (id, vertex) ->
+                                                vertexInfoMap.put(
+                                                        id,
+                                                        new VertexInfo(
+                                                                vertex.getVertexId(),
+                                                                ActionUtils.getActionType(
+                                                                        vertex.getAction()),
+                                                                vertex.getAction().getName(),
+                                                                getTablePaths(
+                                                                        vertex.getAction()))));
                     });
             return new JobDAGInfo(
                     jobImmutableInformation.getJobId(),

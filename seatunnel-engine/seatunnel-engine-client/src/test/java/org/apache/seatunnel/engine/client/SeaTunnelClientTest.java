@@ -430,7 +430,7 @@ public class SeaTunnelClientTest {
             await().atMost(10, TimeUnit.SECONDS)
                     .untilAsserted(
                             () -> {
-                                Assertions.assertNotNull(jobClient.getJobInfo(jobId));
+                                Assertions.assertNotNull(jobClient.getJobInfo(jobId, true));
                             });
 
             await().atMost(720000, TimeUnit.MILLISECONDS)
@@ -450,7 +450,7 @@ public class SeaTunnelClientTest {
                                                         .contains("FINISHED"));
                             });
             // Finished
-            JobDAGInfo jobInfo = jobClient.getJobInfo(jobId);
+            JobDAGInfo jobInfo = jobClient.getJobInfo(jobId, true);
             Assertions.assertTrue(
                     StringUtils.isNotEmpty(new ObjectMapper().writeValueAsString(jobInfo)));
 

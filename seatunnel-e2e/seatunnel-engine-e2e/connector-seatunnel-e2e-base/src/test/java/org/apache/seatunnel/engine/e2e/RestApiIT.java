@@ -35,6 +35,8 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import com.hazelcast.client.config.ClientConfig;
 import com.hazelcast.config.Config;
@@ -511,8 +513,9 @@ public class RestApiIT {
                                         }));
     }
 
-    @Test
-    public void testGetJobInfoByJobId() {
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    public void testGetJobInfoByJobId(boolean isPhysicalDAGInfo) {
         Arrays.asList(node2, node1)
                 .forEach(
                         instance -> {
@@ -524,7 +527,10 @@ public class RestApiIT {
                                                                 + CONTEXT_PATH
                                                                 + RestConstant.REST_URL_JOB_INFO
                                                                 + "/"
-                                                                + batchJobProxy.getJobId())
+                                                                + batchJobProxy.getJobId()
+                                                                + (isPhysicalDAGInfo
+                                                                        ? "/true"
+                                                                        : ""))
                                                 .then()
                                                 .statusCode(200)
                                                 .body(
@@ -590,7 +596,10 @@ public class RestApiIT {
                                                                         .getContextPath()
                                                                 + RestConstant.REST_URL_JOB_INFO
                                                                 + "/"
-                                                                + batchJobProxy.getJobId())
+                                                                + batchJobProxy.getJobId()
+                                                                + (isPhysicalDAGInfo
+                                                                        ? "/true"
+                                                                        : ""))
                                                 .then()
                                                 .statusCode(200)
                                                 .body(

@@ -115,7 +115,7 @@ public abstract class BaseService {
         return seaTunnelServer;
     }
 
-    protected JsonObject convertToJson(JobInfo jobInfo, long jobId) {
+    protected JsonObject convertToJson(JobInfo jobInfo, long jobId, boolean isPhysicalDAGInfo) {
 
         JsonObject jobInfoJson = new JsonObject();
         JobImmutableInformation jobImmutableInformation =
@@ -162,7 +162,7 @@ public abstract class BaseService {
                         logicalDag,
                         jobImmutableInformation,
                         getSeaTunnelServer(false).getSeaTunnelConfig().getEngineConfig(),
-                        true,
+                        isPhysicalDAGInfo,
                         new ExecutionAddress(
                                 this.nodeEngine.getMasterAddress().getHost(),
                                 this.nodeEngine.getMasterAddress().getPort()),

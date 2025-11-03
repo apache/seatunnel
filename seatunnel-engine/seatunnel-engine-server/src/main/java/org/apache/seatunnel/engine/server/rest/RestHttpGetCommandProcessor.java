@@ -211,9 +211,30 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
 
     private void handleJobInfoById(HttpGetCommand command, String uri) {
         uri = StringUtil.stripTrailingSlash(uri);
-        int indexEnd = uri.indexOf('/', URI_MAPS.length());
-        String jobId = uri.substring(indexEnd + 1);
-        this.prepareResponse(command, jobInfoService.getJobInfoJson(Long.valueOf(jobId)));
+        int index = uri.indexOf('/', URI_MAPS.length());
+
+        String jobIdStr = "";
+        String isPhysicalDAGInfoStr = "false";
+
+        if (index != -1 && index + 1 < uri.length()) {
+            String rest = uri.substring(index + 1);
+            String[] parts = rest.split("/");
+            if (parts.length > 0) {
+                jobIdStr = parts[0];
+            }
+            if (parts.length > 1) {
+                isPhysicalDAGInfoStr = parts[1];
+            }
+        }
+
+        if (StringUtils.isBlank(jobIdStr)) {
+            throw new IllegalArgumentException("jobId is required");
+        }
+
+        long jobId = Long.parseLong(jobIdStr);
+        boolean isPhysicalDAGInfo = Boolean.parseBoolean(isPhysicalDAGInfoStr);
+
+        this.prepareResponse(command, jobInfoService.getJobInfoJson(jobId, isPhysicalDAGInfo));
     }
 
     private void getRunningThread(HttpGetCommand command) {

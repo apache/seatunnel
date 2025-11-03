@@ -61,9 +61,9 @@ import java.util.concurrent.TimeUnit;
 import static org.awaitility.Awaitility.await;
 
 @Slf4j
-public class CoordinatorServiceTest {
+class CoordinatorServiceTest {
     @Test
-    public void testMasterNodeActive() {
+    void testMasterNodeActive() {
         HazelcastInstanceImpl instance1 =
                 SeaTunnelServerStarter.createHazelcastInstance(
                         TestUtils.getClusterName("CoordinatorServiceTest_testMasterNodeActive"));
@@ -101,7 +101,7 @@ public class CoordinatorServiceTest {
     }
 
     @Test
-    public void testSeaTunnelEngineRetryableExceptionOperationCanBeRetryByHazelcast() {
+    void testSeaTunnelEngineRetryableExceptionOperationCanBeRetryByHazelcast() {
 
         HazelcastInstanceImpl instance =
                 SeaTunnelServerStarter.createHazelcastInstance(
@@ -129,7 +129,7 @@ public class CoordinatorServiceTest {
     }
 
     @Test
-    public void testInvocationFutureUseCompletableFutureExecutor() {
+    void testInvocationFutureUseCompletableFutureExecutor() {
         HazelcastInstanceImpl instance =
                 SeaTunnelServerStarter.createHazelcastInstance(
                         TestUtils.getClusterName(
@@ -339,59 +339,36 @@ public class CoordinatorServiceTest {
 
     @Test
     void testLogicalDAGConfig() {
-        setConfigFile("seatunnel_logical_dag.yaml");
-        JobInformation jobInformation1 =
+        JobInformation jobInformation =
                 submitJob(
                         "test_logical_dag_config",
                         "batch_fake_to_inmemory.conf",
-                        "test_logical_dag_config_1");
-        CoordinatorService coordinatorService1 = jobInformation1.coordinatorService;
+                        "test_logical_dag_config");
+        CoordinatorService coordinatorService = jobInformation.coordinatorService;
         await().atMost(10000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () -> {
                             Assertions.assertEquals(
                                     JobStatus.RUNNING,
-                                    coordinatorService1.getJobStatus(jobInformation1.jobId));
+                                    coordinatorService.getJobStatus(jobInformation.jobId));
                             JobMaster jobMaster =
-                                    coordinatorService1.getJobMaster(jobInformation1.jobId);
+                                    coordinatorService.getJobMaster(jobInformation.jobId);
                             Assertions.assertNotNull(jobMaster);
                             Assertions.assertTrue(
                                     jobMaster
                                             .getRunningJobStateIMap()
-                                            .containsKey(jobInformation1.jobId));
+                                            .containsKey(jobInformation.jobId));
                         });
 
-        JobDAGInfo jobInfo1 = coordinatorService1.getJobInfo(jobInformation1.jobId);
+        JobDAGInfo logicalDAGInfo = coordinatorService.getJobInfo(jobInformation.jobId, false);
+        JobDAGInfo physicalDAGInfo = coordinatorService.getJobInfo(jobInformation.jobId, true);
 
-        coordinatorService1.clearCoordinatorService();
-        jobInformation1.coordinatorServiceTest.shutdown();
-        setDefaultConfigFile();
-
-        JobInformation jobInformation2 =
-                submitJob(
-                        "test_logical_dag_config",
-                        "batch_fake_to_inmemory.conf",
-                        "test_logical_dag_config_2");
-        CoordinatorService coordinatorService2 = jobInformation2.coordinatorService;
-        await().atMost(10000, TimeUnit.MILLISECONDS)
-                .untilAsserted(
-                        () -> {
-                            Assertions.assertEquals(
-                                    JobStatus.RUNNING,
-                                    coordinatorService2.getJobStatus(jobInformation2.jobId));
-                            JobMaster jobMaster =
-                                    coordinatorService2.getJobMaster(jobInformation2.jobId);
-                            Assertions.assertNotNull(jobMaster);
-                            Assertions.assertTrue(
-                                    jobMaster
-                                            .getRunningJobStateIMap()
-                                            .containsKey(jobInformation2.jobId));
-                        });
-        JobDAGInfo jobInfo2 = coordinatorService2.getJobInfo(jobInformation2.jobId);
-        Assertions.assertNotEquals(jobInfo1.getPipelineEdges(), jobInfo2.getPipelineEdges());
-
-        coordinatorService2.clearCoordinatorService();
-        jobInformation2.coordinatorServiceTest.shutdown();
+        System.out.println(logicalDAGInfo.getVertexInfoMap());
+        System.out.println(physicalDAGInfo.getVertexInfoMap());
+        Assertions.assertNotEquals(
+                logicalDAGInfo.getPipelineEdges(), physicalDAGInfo.getPipelineEdges());
+        Assertions.assertNotEquals(
+                logicalDAGInfo.getVertexInfoMap(), physicalDAGInfo.getVertexInfoMap());
     }
 
     private void setDefaultConfigFile() {
@@ -449,7 +426,7 @@ public class CoordinatorServiceTest {
     }
 
     @Test
-    public void testClearCoordinatorService() {
+    void testClearCoordinatorService() {
         JobInformation jobInformation =
                 submitJob(
                         "CoordinatorServiceTest_testClearCoordinatorService",
@@ -501,7 +478,7 @@ public class CoordinatorServiceTest {
 
     @Test
     @Disabled("Disabled because we can't know when the master node switches in the unit tests")
-    public void testJobRestoreWhenMasterNodeSwitch() throws InterruptedException {
+    void testJobRestoreWhenMasterNodeSwitch() {
         HazelcastInstanceImpl instance1 =
                 SeaTunnelServerStarter.createHazelcastInstance(
                         TestUtils.getClusterName(
@@ -604,7 +581,7 @@ public class CoordinatorServiceTest {
     @SetEnvironmentVariable(
             key = "ST_DOCKER_MEMBER_LIST",
             value = "127.0.0.1,127.0.0.2,127.0.0.3,127.0.0.4")
-    public void testDockerEnvOverwrite() {
+    void testDockerEnvOverwrite() {
         SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
         if (seaTunnelConfig
                 .getHazelcastConfig()

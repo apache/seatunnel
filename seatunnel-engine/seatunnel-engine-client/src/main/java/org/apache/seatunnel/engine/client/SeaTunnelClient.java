@@ -159,8 +159,8 @@ public class SeaTunnelClient implements SeaTunnelClientInstance, AutoCloseable {
         jobClient.cancelJob(jobId);
     }
 
-    public JobDAGInfo getJobInfo(Long jobId) {
-        return jobClient.getJobInfo(jobId);
+    public JobDAGInfo getJobInfo(Long jobId, boolean isPhysicalDAGInfo) {
+        return jobClient.getJobInfo(jobId, isPhysicalDAGInfo);
     }
 
     public JobMetricsSummary getJobMetricsSummary(Long jobId) {

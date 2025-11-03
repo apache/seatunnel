@@ -17,8 +17,11 @@
 
 package org.apache.seatunnel.engine.server.rest.servlet;
 
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
+
 import org.apache.seatunnel.engine.server.rest.service.JobInfoService;
 
+import com.hazelcast.internal.util.StringUtil;
 import com.hazelcast.spi.impl.NodeEngineImpl;
 
 import javax.servlet.ServletException;
@@ -39,16 +42,40 @@ public class JobInfoServlet extends BaseServlet {
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp)
             throws ServletException, IOException {
-
-        String jobIdStr = req.getPathInfo();
-
-        if (jobIdStr != null && jobIdStr.length() > 1) {
-            jobIdStr = jobIdStr.substring(1);
-        } else {
-            throw new IllegalArgumentException("The jobId must not be empty.");
+        String pathInfo = req.getPathInfo();
+        if (pathInfo == null) {
+            pathInfo = "";
         }
-        Long jobId = Long.valueOf(jobIdStr);
+        pathInfo = StringUtil.stripTrailingSlash(pathInfo);
+        if (pathInfo.startsWith("/")) {
+            pathInfo = pathInfo.substring(1);
+        }
 
-        writeJson(resp, jobInfoService.getJobInfoJson(jobId));
+        pathInfo = StringUtil.stripTrailingSlash(pathInfo);
+        if (pathInfo.startsWith("/")) {
+            pathInfo = pathInfo.substring(1);
+        }
+
+        String jobIdStr = "";
+        String isPhysicalDAGInfoStr = "false";
+
+        if (!pathInfo.isEmpty()) {
+            String[] parts = pathInfo.split("/");
+            if (parts.length > 0) {
+                jobIdStr = parts[0];
+            }
+            if (parts.length > 1) {
+                isPhysicalDAGInfoStr = parts[1];
+            }
+        }
+
+        if (StringUtils.isBlank(jobIdStr)) {
+            throw new IllegalArgumentException("jobId is required");
+        }
+
+        long jobId = Long.parseLong(jobIdStr);
+        boolean isPhysicalDAGInfo = Boolean.parseBoolean(isPhysicalDAGInfoStr);
+
+        writeJson(resp, jobInfoService.getJobInfoJson(jobId, isPhysicalDAGInfo));
     }
 }

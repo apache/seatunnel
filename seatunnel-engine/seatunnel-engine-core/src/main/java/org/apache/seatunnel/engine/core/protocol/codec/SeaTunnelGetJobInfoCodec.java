@@ -28,7 +28,9 @@ import static com.hazelcast.client.impl.protocol.ClientMessage.UNFRAGMENTED_MESS
 import static com.hazelcast.client.impl.protocol.codec.builtin.FixedSizeTypesCodec.BYTE_SIZE_IN_BYTES;
 import static com.hazelcast.client.impl.protocol.codec.builtin.FixedSizeTypesCodec.INT_SIZE_IN_BYTES;
 import static com.hazelcast.client.impl.protocol.codec.builtin.FixedSizeTypesCodec.LONG_SIZE_IN_BYTES;
+import static com.hazelcast.client.impl.protocol.codec.builtin.FixedSizeTypesCodec.decodeBoolean;
 import static com.hazelcast.client.impl.protocol.codec.builtin.FixedSizeTypesCodec.decodeLong;
+import static com.hazelcast.client.impl.protocol.codec.builtin.FixedSizeTypesCodec.encodeBoolean;
 import static com.hazelcast.client.impl.protocol.codec.builtin.FixedSizeTypesCodec.encodeInt;
 import static com.hazelcast.client.impl.protocol.codec.builtin.FixedSizeTypesCodec.encodeLong;
 
@@ -46,6 +48,8 @@ public final class SeaTunnelGetJobInfoCodec {
     public static final int RESPONSE_MESSAGE_TYPE = 14551297;
     private static final int REQUEST_JOB_ID_FIELD_OFFSET =
             PARTITION_ID_FIELD_OFFSET + INT_SIZE_IN_BYTES;
+    private static final int REQUEST_IS_PHYSICAL_DAG_INFO_FIELD_OFFSET =
+            REQUEST_JOB_ID_FIELD_OFFSET + LONG_SIZE_IN_BYTES;
     private static final int REQUEST_INITIAL_FRAME_SIZE =
             REQUEST_JOB_ID_FIELD_OFFSET + LONG_SIZE_IN_BYTES;
     private static final int RESPONSE_INITIAL_FRAME_SIZE =
@@ -53,7 +57,12 @@ public final class SeaTunnelGetJobInfoCodec {
 
     private SeaTunnelGetJobInfoCodec() {}
 
-    public static ClientMessage encodeRequest(long jobId) {
+    public static class RequestParameters {
+        public long jobId;
+        public boolean isPhysicalDAGInfo;
+    }
+
+    public static ClientMessage encodeRequest(long jobId, boolean isPhysicalDAGInfo) {
         ClientMessage clientMessage = ClientMessage.createForEncode();
         clientMessage.setRetryable(true);
         clientMessage.setOperationName("SeaTunnel.GetJobInfo");
@@ -62,15 +71,22 @@ public final class SeaTunnelGetJobInfoCodec {
         encodeInt(initialFrame.content, TYPE_FIELD_OFFSET, REQUEST_MESSAGE_TYPE);
         encodeInt(initialFrame.content, PARTITION_ID_FIELD_OFFSET, -1);
         encodeLong(initialFrame.content, REQUEST_JOB_ID_FIELD_OFFSET, jobId);
+        encodeBoolean(
+                initialFrame.content, REQUEST_IS_PHYSICAL_DAG_INFO_FIELD_OFFSET, isPhysicalDAGInfo);
         clientMessage.add(initialFrame);
         return clientMessage;
     }
 
     /** */
-    public static long decodeRequest(ClientMessage clientMessage) {
+    public static SeaTunnelGetJobInfoCodec.RequestParameters decodeRequest(
+            ClientMessage clientMessage) {
         ClientMessage.ForwardFrameIterator iterator = clientMessage.frameIterator();
         ClientMessage.Frame initialFrame = iterator.next();
-        return decodeLong(initialFrame.content, REQUEST_JOB_ID_FIELD_OFFSET);
+        RequestParameters request = new RequestParameters();
+        request.jobId = decodeLong(initialFrame.content, REQUEST_JOB_ID_FIELD_OFFSET);
+        request.isPhysicalDAGInfo =
+                decodeBoolean(initialFrame.content, REQUEST_IS_PHYSICAL_DAG_INFO_FIELD_OFFSET);
+        return request;
     }
 
     public static ClientMessage encodeResponse(com.hazelcast.internal.serialization.Data response) {

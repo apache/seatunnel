@@ -136,7 +136,9 @@ public class JobMaster {
 
     private LogicalDag logicalDag;
 
-    private JobDAGInfo jobDAGInfo;
+    private JobDAGInfo physicalDAGInfo;
+
+    private JobDAGInfo logicalDAGInfo;
 
     private SeaTunnelServer seaTunnelServer;
 
@@ -149,8 +151,6 @@ public class JobMaster {
     private final IMap<Object, Object> runningJobStateIMap;
 
     private final IMap<Object, Object> runningJobStateTimestampsIMap;
-
-    private final boolean isPhysicalDAGInfo;
 
     private final EngineConfig engineConfig;
 
@@ -203,7 +203,6 @@ public class JobMaster {
         this.jobHistoryService = jobHistoryService;
         this.runningJobStateIMap = runningJobStateIMap;
         this.runningJobStateTimestampsIMap = runningJobStateTimestampsIMap;
-        this.isPhysicalDAGInfo = engineConfig.isPhysicalDAGEnabled();
         this.runningJobInfoIMap = runningJobInfoIMap;
         this.engineConfig = engineConfig;
         this.seaTunnelServer = seaTunnelServer;
@@ -635,20 +634,36 @@ public class JobMaster {
         runningJobInfoIMap.remove(jobId);
     }
 
-    public JobDAGInfo getJobDAGInfo() {
-        if (jobDAGInfo == null) {
-            jobDAGInfo =
-                    DAGUtils.getJobDAGInfo(
-                            logicalDag,
-                            jobImmutableInformation,
-                            engineConfig,
-                            isPhysicalDAGInfo,
-                            new ExecutionAddress(
-                                    this.nodeEngine.getThisAddress().getHost(),
-                                    this.nodeEngine.getThisAddress().getPort()),
-                            historyExecutionAddress);
+    public JobDAGInfo getPhysicalDAGInfo(boolean isPhysicalDAGInfo) {
+        if (isPhysicalDAGInfo) {
+            if (physicalDAGInfo == null) {
+                physicalDAGInfo =
+                        DAGUtils.getJobDAGInfo(
+                                logicalDag,
+                                jobImmutableInformation,
+                                engineConfig,
+                                isPhysicalDAGInfo,
+                                new ExecutionAddress(
+                                        this.nodeEngine.getThisAddress().getHost(),
+                                        this.nodeEngine.getThisAddress().getPort()),
+                                historyExecutionAddress);
+            }
+            return physicalDAGInfo;
+        } else {
+            if (logicalDAGInfo == null) {
+                logicalDAGInfo =
+                        DAGUtils.getJobDAGInfo(
+                                logicalDag,
+                                jobImmutableInformation,
+                                engineConfig,
+                                isPhysicalDAGInfo,
+                                new ExecutionAddress(
+                                        this.nodeEngine.getThisAddress().getHost(),
+                                        this.nodeEngine.getThisAddress().getPort()),
+                                historyExecutionAddress);
+            }
+            return logicalDAGInfo;
         }
-        return jobDAGInfo;
     }
 
     public void releaseTaskGroupResource(
@@ -740,7 +755,8 @@ public class JobMaster {
 
     public void cleanJob() {
         checkpointManager.clearCheckpointIfNeed(physicalPlan.getJobStatus());
-        jobHistoryService.storeJobInfo(jobImmutableInformation.getJobId(), getJobDAGInfo());
+        jobHistoryService.storeJobInfo(
+                jobImmutableInformation.getJobId(), getPhysicalDAGInfo(true));
         jobHistoryService.storeFinishedJobState(this);
         removeJobIMap();
     }

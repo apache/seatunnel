@@ -56,7 +56,7 @@ public class JobInfoService extends BaseService {
         super(nodeEngine);
     }
 
-    public JsonObject getJobInfoJson(Long jobId) {
+    public JsonObject getJobInfoJson(Long jobId, boolean isPhysicalDAGInfo) {
         IMap<Object, Object> jobInfoMap =
                 nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_INFO);
         JobInfo jobInfo = (JobInfo) jobInfoMap.get(jobId);
@@ -66,7 +66,7 @@ public class JobInfoService extends BaseService {
         JobState finishedJobState = (JobState) finishedJobStateMap.get(jobId);
 
         if (jobInfo != null) {
-            return convertToJson(jobInfo, jobId);
+            return convertToJson(jobInfo, jobId, isPhysicalDAGInfo);
         } else if (finishedJobState != null) {
             JobMetrics finishedJobMetrics =
                     (JobMetrics)
@@ -133,7 +133,9 @@ public class JobInfoService extends BaseService {
         IMap<Long, JobInfo> values =
                 nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_INFO);
         return values.entrySet().stream()
-                .map(jobInfoEntry -> convertToJson(jobInfoEntry.getValue(), jobInfoEntry.getKey()))
+                .map(
+                        jobInfoEntry ->
+                                convertToJson(jobInfoEntry.getValue(), jobInfoEntry.getKey(), true))
                 .collect(JsonArray::new, JsonArray::add, JsonArray::add);
     }
 

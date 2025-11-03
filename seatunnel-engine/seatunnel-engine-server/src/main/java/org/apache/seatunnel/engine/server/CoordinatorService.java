@@ -854,12 +854,12 @@ public class CoordinatorService {
         return longJobMetricsMap;
     }
 
-    public JobDAGInfo getJobInfo(long jobId) {
+    public JobDAGInfo getJobInfo(long jobId, boolean isPhysicalDAGInfo) {
         JobDAGInfo jobInfo = jobHistoryService.getJobDAGInfo(jobId);
         if (jobInfo != null) {
             return jobInfo;
         }
-        return runningJobMasterMap.get(jobId).getJobDAGInfo();
+        return runningJobMasterMap.get(jobId).getPhysicalDAGInfo(isPhysicalDAGInfo);
     }
 
     /**

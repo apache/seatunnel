@@ -26,7 +26,8 @@ import com.hazelcast.internal.nio.Connection;
 import com.hazelcast.internal.serialization.Data;
 import com.hazelcast.spi.impl.operationservice.Operation;
 
-public class GetJobInfoTask extends AbstractSeaTunnelMessageTask<Long, Data> {
+public class GetJobInfoTask
+        extends AbstractSeaTunnelMessageTask<SeaTunnelGetJobInfoCodec.RequestParameters, Data> {
 
     protected GetJobInfoTask(ClientMessage clientMessage, Node node, Connection connection) {
         super(
@@ -39,7 +40,7 @@ public class GetJobInfoTask extends AbstractSeaTunnelMessageTask<Long, Data> {
 
     @Override
     protected Operation prepareOperation() {
-        return new GetJobInfoOperation(parameters);
+        return new GetJobInfoOperation(parameters.jobId, parameters.isPhysicalDAGInfo);
     }
 
     @Override

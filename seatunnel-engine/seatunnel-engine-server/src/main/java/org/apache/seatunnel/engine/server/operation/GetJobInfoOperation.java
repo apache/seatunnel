@@ -36,13 +36,15 @@ public class GetJobInfoOperation extends Operation
         implements IdentifiedDataSerializable, AllowedDuringPassiveState {
 
     private long jobId;
+    private boolean isPhysicalDAGInfo;
 
     private Data response;
 
     public GetJobInfoOperation() {}
 
-    public GetJobInfoOperation(long jobId) {
+    public GetJobInfoOperation(long jobId, boolean isPhysicalDAGInfo) {
         this.jobId = jobId;
+        this.isPhysicalDAGInfo = isPhysicalDAGInfo;
     }
 
     @Override
@@ -52,7 +54,9 @@ public class GetJobInfoOperation extends Operation
                 CompletableFuture.supplyAsync(
                         () ->
                                 this.getNodeEngine()
-                                        .toData(service.getCoordinatorService().getJobInfo(jobId)),
+                                        .toData(
+                                                service.getCoordinatorService()
+                                                        .getJobInfo(jobId, isPhysicalDAGInfo)),
                         getNodeEngine()
                                 .getExecutionService()
                                 .getExecutor("get_job_info_operation"));

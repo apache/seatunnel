@@ -142,12 +142,12 @@ public class JobClient {
         cancelFuture.join();
     }
 
-    public JobDAGInfo getJobInfo(Long jobId) {
+    public JobDAGInfo getJobInfo(Long jobId, boolean isPhysicalDAGInfo) {
         return hazelcastClient
                 .getSerializationService()
                 .toObject(
                         hazelcastClient.requestOnMasterAndDecodeResponse(
-                                SeaTunnelGetJobInfoCodec.encodeRequest(jobId),
+                                SeaTunnelGetJobInfoCodec.encodeRequest(jobId, isPhysicalDAGInfo),
                                 SeaTunnelGetJobInfoCodec::decodeResponse));
     }
 
