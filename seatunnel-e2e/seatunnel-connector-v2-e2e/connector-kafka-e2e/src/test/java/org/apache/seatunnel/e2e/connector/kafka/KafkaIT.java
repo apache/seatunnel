@@ -470,6 +470,11 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK},
+            disabledReason =
+                    "The implementation of the Spark engine does not currently support metadata.")
     public void testSourceKafkaTextEventTimeToAssert(TestContainer container)
             throws IOException, InterruptedException {
         long fixedTimestamp = 1738395840000L;
