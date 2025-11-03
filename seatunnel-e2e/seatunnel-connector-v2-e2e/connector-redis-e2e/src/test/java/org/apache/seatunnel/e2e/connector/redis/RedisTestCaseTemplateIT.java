@@ -36,7 +36,6 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisDataType;
-import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisParameters;
 import org.apache.seatunnel.connectors.seatunnel.redis.sink.RedisSinkFactory;
 import org.apache.seatunnel.connectors.seatunnel.sink.SinkFlowTestUtils;
 import org.apache.seatunnel.e2e.common.TestResource;
@@ -831,12 +830,6 @@ public abstract class RedisTestCaseTemplateIT extends TestSuiteBase implements T
     }
 
     public abstract RedisContainerInfo getRedisContainerInfo();
-
-    private RedisParameters getRedisParameters(RedisDataType dataType, String key) {
-        final RedisParameters redisParameters = new RedisParameters();
-        redisParameters.buildWithConfig(getReadonlyConfig(dataType, key));
-        return redisParameters;
-    }
 
     private ReadonlyConfig getReadonlyConfig(RedisDataType dataType, String key) {
         Map<String, Object> map = new HashMap<>();
