@@ -407,7 +407,7 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
 
     protected boolean filterFileByPattern(FileStatus fileStatus) {
         if (Objects.nonNull(pattern)) {
-            return pattern.matcher(fileStatus.getPath().getName()).matches();
+            return pattern.matcher(fileStatus.getPath().toUri().getPath()).matches();
         }
         return true;
     }
