@@ -1447,8 +1447,7 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                 .untilAsserted(
                         () ->
                                 Assertions.assertTrue(
-                                        checkData(
-                                                consumerTopic, finalEndOffset1, sourceData, 10L)));
+                                        checkData(consumerTopic, finalEndOffset1, sourceData)));
 
         // Savepoint the running job (so restore should continue from this position).
         container.savepointJob(jobId);
@@ -1479,8 +1478,7 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                 .untilAsserted(
                         () ->
                                 Assertions.assertTrue(
-                                        checkData(
-                                                consumerTopic, finalEndOffset2, sourceData, 10L)));
+                                        checkData(consumerTopic, finalEndOffset2, sourceData)));
     }
 
     @TestTemplate
@@ -1506,16 +1504,17 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                 container.executeJob("/kafka/kafka_to_kafka_exactly_once_batch.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
         // wait for data written to kafka
-        Assertions.assertTrue(checkData(consumerTopic, endOffset, sourceData, 10L));
+        Assertions.assertTrue(checkData(consumerTopic, endOffset, sourceData));
     }
 
     // Compare the values of data fields obtained from consumers
-    private boolean checkData(String topicName, long endOffset, String data, long dateCount) {
+    private boolean checkData(String topicName, long endOffset, String data) {
         List<String> listData = getKafkaConsumerListData(topicName, endOffset);
-        if (listData.isEmpty() || listData.size() != dateCount) {
+        if (listData.isEmpty() || listData.size() != endOffset) {
             log.error(
-                    "testKafkaToKafkaExactlyOnce get data size is not expect,get consumer data size {}",
-                    listData.size());
+                    "testKafkaToKafkaExactlyOnce get data size is not expect,get consumer data size {},get end offset {}",
+                    listData.size(),
+                    endOffset);
             return false;
         }
         for (String value : listData) {
