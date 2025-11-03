@@ -1413,28 +1413,25 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
             type = EngineType.SPARK,
             value = {})
     public void testKafkaToKafkaExactlyOnceOnStreaming(TestContainer container)
-            throws InterruptedException {
+            throws InterruptedException, IOException {
+
         String producerTopic = "kafka_topic_exactly_once_1";
         String consumerTopic = "kafka_topic_exactly_once_2";
         String sourceData = "Seatunnel Exactly Once Example";
+        final String jobId = "18696753645407";
         for (int i = 0; i < 10; i++) {
             ProducerRecord<byte[], byte[]> record =
                     new ProducerRecord<>(producerTopic, null, sourceData.getBytes());
             producer.send(record);
             producer.flush();
         }
-        Long endOffset = 0l;
-        try (KafkaConsumer<String, String> consumer = new KafkaConsumer<>(kafkaConsumerConfig())) {
-            consumer.subscribe(Arrays.asList(producerTopic));
-            Map<TopicPartition, Long> offsets =
-                    consumer.endOffsets(Arrays.asList(new TopicPartition(producerTopic, 0)));
-            endOffset = offsets.entrySet().iterator().next().getValue();
-        }
+        long endOffset = endOffsetOnP0(producerTopic);
         // async execute
         CompletableFuture.supplyAsync(
                 () -> {
                     try {
-                        container.executeJob("/kafka/kafka_to_kafka_exactly_once_streaming.conf");
+                        container.executeJob(
+                                "/kafka/kafka_to_kafka_exactly_once_streaming.conf", jobId);
                     } catch (Exception e) {
                         log.error("Commit task exception :" + e.getMessage());
                         throw new RuntimeException(e);
@@ -1442,7 +1439,7 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                     return null;
                 });
         // wait for data written to kafka
-        Long finalEndOffset = endOffset;
+        long finalEndOffset1 = endOffset;
         given().pollDelay(30, SECONDS)
                 .pollInterval(5, SECONDS)
                 .await()
@@ -1450,7 +1447,40 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                 .untilAsserted(
                         () ->
                                 Assertions.assertTrue(
-                                        checkData(consumerTopic, finalEndOffset, sourceData)));
+                                        checkData(
+                                                consumerTopic, finalEndOffset1, sourceData, 10L)));
+
+        // Savepoint the running job (so restore should continue from this position).
+        container.savepointJob(jobId);
+
+        for (int i = 0; i < 10; i++) {
+            ProducerRecord<byte[], byte[]> record =
+                    new ProducerRecord<>(producerTopic, null, sourceData.getBytes());
+            producer.send(record);
+            producer.flush();
+        }
+
+        endOffset = endOffsetOnP0(producerTopic);
+        long finalEndOffset2 = endOffset;
+        CompletableFuture.runAsync(
+                () -> {
+                    try {
+                        container.restoreJob(
+                                "/kafka/kafka_to_kafka_exactly_once_streaming.conf", jobId);
+                    } catch (Exception e) {
+                        throw new RuntimeException(e);
+                    }
+                });
+
+        given().pollDelay(30, SECONDS)
+                .pollInterval(5, SECONDS)
+                .await()
+                .atMost(5, MINUTES)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertTrue(
+                                        checkData(
+                                                consumerTopic, finalEndOffset2, sourceData, 10L)));
     }
 
     @TestTemplate
@@ -1476,13 +1506,13 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                 container.executeJob("/kafka/kafka_to_kafka_exactly_once_batch.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
         // wait for data written to kafka
-        Assertions.assertTrue(checkData(consumerTopic, endOffset, sourceData));
+        Assertions.assertTrue(checkData(consumerTopic, endOffset, sourceData, 10L));
     }
 
     // Compare the values of data fields obtained from consumers
-    private boolean checkData(String topicName, long endOffset, String data) {
+    private boolean checkData(String topicName, long endOffset, String data, long dateCount) {
         List<String> listData = getKafkaConsumerListData(topicName, endOffset);
-        if (listData.isEmpty() || listData.size() != endOffset) {
+        if (listData.isEmpty() || listData.size() != dateCount) {
             log.error(
                     "testKafkaToKafkaExactlyOnce get data size is not expect,get consumer data size {}",
                     listData.size());
