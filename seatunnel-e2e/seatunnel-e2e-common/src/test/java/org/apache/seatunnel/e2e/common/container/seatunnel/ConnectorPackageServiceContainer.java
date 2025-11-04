@@ -52,7 +52,7 @@ import static org.apache.seatunnel.e2e.common.util.ContainerUtil.PROJECT_ROOT_PA
 @NoArgsConstructor
 @Slf4j
 public class ConnectorPackageServiceContainer extends AbstractTestContainer {
-    private static final String JDK_DOCKER_IMAGE = "openjdk:8";
+    private static final String JDK_DOCKER_IMAGE = "openjdk:8u342";
     private static final String CLIENT_SHELL = "seatunnel.sh";
     private static final String SERVER_SHELL = "seatunnel-cluster.sh";
     private GenericContainer<?> server1;
