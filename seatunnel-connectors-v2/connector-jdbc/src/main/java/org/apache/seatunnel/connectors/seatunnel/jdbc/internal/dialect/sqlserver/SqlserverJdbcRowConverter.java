@@ -105,6 +105,23 @@ public class SqlserverJdbcRowConverter extends AbstractJdbcRowConverter {
                     statement.setTimestamp(
                             statementIndex, java.sql.Timestamp.valueOf(localDateTime));
                     break;
+                case TIMESTAMP_TZ:
+                    java.time.OffsetDateTime offsetDateTime =
+                            (java.time.OffsetDateTime) row.getField(fieldIndex);
+                    // First set as instant to be compatible with drivers that don't support
+                    // OffsetDateTime
+                    statement.setTimestamp(
+                            statementIndex, java.sql.Timestamp.from(offsetDateTime.toInstant()));
+                    try {
+                        // Prefer JDBC 4.2 API to preserve original offset when supported by driver
+                        statement.setObject(statementIndex, offsetDateTime);
+                    } catch (AbstractMethodError | java.sql.SQLException e) {
+                        // Fallback: store as instant without original offset
+                        statement.setTimestamp(
+                                statementIndex,
+                                java.sql.Timestamp.from(offsetDateTime.toInstant()));
+                    }
+                    break;
                 case BYTES:
                     if (row.getField(fieldIndex) == null) {
                         statement.setBytes(statementIndex, new byte[0]);

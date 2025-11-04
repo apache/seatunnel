@@ -76,6 +76,7 @@ public class JdbcSqlServerIT extends AbstractJdbcIT {
                     + "\tDATETIME_TEST datetime NULL,\n"
                     + "\tDATETIME2_TEST datetime2 NULL,\n"
                     + "\tDATETIMEOFFSET_TEST datetimeoffset NULL,\n"
+                    + "\tDATETIMEOFFSET_TZ datetimeoffset(7) NULL,\n"
                     + "\tDECIMAL_TEST decimal(18,2) NULL,\n"
                     + "\tFLOAT_TEST float NULL,\n"
                     + "\tIMAGE_TEST image NULL,\n"
@@ -115,6 +116,7 @@ public class JdbcSqlServerIT extends AbstractJdbcIT {
                     + "\tDATETIME_TEST datetime NULL,\n"
                     + "\tDATETIME2_TEST datetime2 NULL,\n"
                     + "\tDATETIMEOFFSET_TEST datetimeoffset NULL,\n"
+                    + "\tDATETIMEOFFSET_TZ datetimeoffset(7) NULL,\n"
                     + "\tDECIMAL_TEST decimal(18,2) NULL,\n"
                     + "\tFLOAT_TEST float NULL,\n"
                     + "\tIMAGE_TEST image NULL,\n"
@@ -212,6 +214,7 @@ public class JdbcSqlServerIT extends AbstractJdbcIT {
                     "DATETIME_TEST",
                     "DATETIME2_TEST",
                     "DATETIMEOFFSET_TEST",
+                    "DATETIMEOFFSET_TZ",
                     "DECIMAL_TEST",
                     "FLOAT_TEST",
                     "IMAGE_TEST",
@@ -252,6 +255,7 @@ public class JdbcSqlServerIT extends AbstractJdbcIT {
                                 LocalDateTime.now(), // DATETIME_TEST
                                 LocalDateTime.now(), // DATETIME2_TEST
                                 OffsetDateTime.now(), // DATETIMEOFFSET_TEST
+                                OffsetDateTime.now(), // DATETIMEOFFSET_TZ
                                 new BigDecimal("123.45"), // DECIMAL_TEST
                                 3.14f, // FLOAT_TEST
                                 new byte[255], // IMAGE_TEST

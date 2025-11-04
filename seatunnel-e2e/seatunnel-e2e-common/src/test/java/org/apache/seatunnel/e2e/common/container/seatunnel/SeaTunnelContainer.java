@@ -76,7 +76,7 @@ import static org.apache.seatunnel.e2e.common.util.ContainerUtil.copyAllConnecto
 @AutoService(TestContainer.class)
 public class SeaTunnelContainer extends AbstractTestContainer {
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
-    protected static final String JDK_DOCKER_IMAGE = "openjdk:8";
+    protected static final String JDK_DOCKER_IMAGE = "openjdk:8u342";
     private static final String CLIENT_SHELL = "seatunnel.sh";
     protected static final String SERVER_SHELL = "seatunnel-cluster.sh";
     protected static final String CONNECTOR_CHECK_SHELL = "seatunnel-connector.sh";

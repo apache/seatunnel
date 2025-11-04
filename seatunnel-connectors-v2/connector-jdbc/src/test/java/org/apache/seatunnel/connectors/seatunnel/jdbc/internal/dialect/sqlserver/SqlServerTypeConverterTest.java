@@ -540,7 +540,7 @@ public class SqlServerTypeConverterTest {
                         .build();
         column = SqlServerTypeConverter.INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
-        Assertions.assertEquals(LocalTimeType.LOCAL_DATE_TIME_TYPE, column.getDataType());
+        Assertions.assertEquals(LocalTimeType.OFFSET_DATE_TIME_TYPE, column.getDataType());
         Assertions.assertEquals(typeDefine.getScale(), column.getScale());
         Assertions.assertEquals(
                 String.format("%s(%s)", typeDefine.getDataType(), typeDefine.getScale()),
@@ -870,6 +870,74 @@ public class SqlServerTypeConverterTest {
                 typeDefine.getColumnType());
         Assertions.assertEquals(
                 SqlServerTypeConverter.SQLSERVER_DATETIME2, typeDefine.getDataType());
+        Assertions.assertEquals(7, typeDefine.getScale());
+    }
+
+    @Test
+    public void testConvertDatetimeoffset() {
+        BasicTypeDefine<Object> typeDefine =
+                BasicTypeDefine.builder()
+                        .name("test")
+                        .columnType("datetimeoffset")
+                        .dataType("datetimeoffset")
+                        .scale(3)
+                        .build();
+        Column column = SqlServerTypeConverter.INSTANCE.convert(typeDefine);
+        Assertions.assertEquals(typeDefine.getName(), column.getName());
+        Assertions.assertEquals(LocalTimeType.OFFSET_DATE_TIME_TYPE, column.getDataType());
+        Assertions.assertEquals(typeDefine.getScale(), column.getScale());
+        Assertions.assertEquals(
+                String.format("%s(%s)", typeDefine.getDataType(), typeDefine.getScale()),
+                column.getSourceType().toLowerCase());
+    }
+
+    @Test
+    public void testReconvertTimestampTz() {
+        Column column =
+                PhysicalColumn.builder()
+                        .name("test")
+                        .dataType(LocalTimeType.OFFSET_DATE_TIME_TYPE)
+                        .build();
+
+        BasicTypeDefine typeDefine = SqlServerTypeConverter.INSTANCE.reconvert(column);
+        Assertions.assertEquals(column.getName(), typeDefine.getName());
+        Assertions.assertEquals(
+                SqlServerTypeConverter.SQLSERVER_DATETIMEOFFSET, typeDefine.getColumnType());
+        Assertions.assertEquals(
+                SqlServerTypeConverter.SQLSERVER_DATETIMEOFFSET, typeDefine.getDataType());
+
+        column =
+                PhysicalColumn.builder()
+                        .name("test")
+                        .dataType(LocalTimeType.OFFSET_DATE_TIME_TYPE)
+                        .scale(3)
+                        .build();
+
+        typeDefine = SqlServerTypeConverter.INSTANCE.reconvert(column);
+        Assertions.assertEquals(column.getName(), typeDefine.getName());
+        Assertions.assertEquals(
+                String.format(
+                        "%s(%s)",
+                        SqlServerTypeConverter.SQLSERVER_DATETIMEOFFSET, column.getScale()),
+                typeDefine.getColumnType());
+        Assertions.assertEquals(
+                SqlServerTypeConverter.SQLSERVER_DATETIMEOFFSET, typeDefine.getDataType());
+        Assertions.assertEquals(column.getScale(), typeDefine.getScale());
+
+        column =
+                PhysicalColumn.builder()
+                        .name("test")
+                        .dataType(LocalTimeType.OFFSET_DATE_TIME_TYPE)
+                        .scale(9)
+                        .build();
+
+        typeDefine = SqlServerTypeConverter.INSTANCE.reconvert(column);
+        Assertions.assertEquals(column.getName(), typeDefine.getName());
+        Assertions.assertEquals(
+                String.format("%s(%s)", SqlServerTypeConverter.SQLSERVER_DATETIMEOFFSET, 7),
+                typeDefine.getColumnType());
+        Assertions.assertEquals(
+                SqlServerTypeConverter.SQLSERVER_DATETIMEOFFSET, typeDefine.getDataType());
         Assertions.assertEquals(7, typeDefine.getScale());
     }
 }
