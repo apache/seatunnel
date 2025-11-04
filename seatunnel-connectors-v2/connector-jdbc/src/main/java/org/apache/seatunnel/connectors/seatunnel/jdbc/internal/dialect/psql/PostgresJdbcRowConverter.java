@@ -367,44 +367,37 @@ public class PostgresJdbcRowConverter extends AbstractJdbcRowConverter {
 
     private OffsetDateTime getPostgresOffsetDateTime(ResultSet rs, int columnIndex)
             throws SQLException {
-        Object obj = null;
-        try {
-            obj = rs.getObject(columnIndex);
-        } catch (SQLException e) {
-            log.debug("Failed to get object from ResultSet at column {}", columnIndex, e);
-            // Try alternative approach
-            try {
-                String str = rs.getString(columnIndex);
-                if (str != null && !str.trim().isEmpty()) {
-                    return parsePostgresTimestampTz(str);
-                }
-            } catch (SQLException se) {
-                log.debug("Failed to get string from ResultSet at column {}", columnIndex, se);
-            }
-            return null;
-        }
-
+        Object obj = rs.getObject(columnIndex);
         if (obj == null) {
             return null;
         }
 
-        // Handle PostgreSQL-specific timestamp with timezone objects
+        // If already OffsetDateTime, return directly
+        if (obj instanceof OffsetDateTime) {
+            return (OffsetDateTime) obj;
+        }
+
+        // Try to parse from string representation
+        String str = obj.toString();
+        if (str == null || str.isEmpty()) {
+            return null;
+        }
+
+        // Handle PostgreSQL-specific timestamp objects
         if (obj.getClass().getName().startsWith("org.postgresql.")) {
-            try {
-                // Try to get string representation and parse it
-                String str = obj.toString();
-                if (str != null && !str.isEmpty()) {
-                    return parsePostgresTimestampTz(str);
-                }
-            } catch (Exception e) {
-                log.debug(
-                        "Failed to parse PostgreSQL timestamp object from string representation",
-                        e);
+            OffsetDateTime result = parsePostgresTimestampTz(str);
+            if (result != null) {
+                return result;
             }
         }
 
-        // Fall back to the enhanced JdbcFieldTypeUtils method
-        return JdbcFieldTypeUtils.getOffsetDateTime(rs, columnIndex);
+        // Fall back to generic string parsing
+        try {
+            return JdbcFieldTypeUtils.parseOffsetDateTimeFromString(str);
+        } catch (Exception e) {
+            log.debug("Failed to parse OffsetDateTime from: {}", str, e);
+            return null;
+        }
     }
 
     private OffsetDateTime parsePostgresTimestampTz(String str) {
@@ -413,33 +406,20 @@ public class PostgresJdbcRowConverter extends AbstractJdbcRowConverter {
         }
 
         try {
-            // PostgreSQL timestamptz format examples:
-            // "2023-12-25 10:30:45.123456+08:00"
-            // "2023-12-25 10:30:45+08"
-            // "2023-12-25 10:30:45.123456 UTC"
             String s = str.trim();
-
-            // Handle UTC timezone
             if (s.endsWith(" UTC")) {
                 s = s.substring(0, s.length() - 4) + "Z";
             }
-
-            // Normalize to ISO-8601 format
             String iso = s.replace(' ', 'T');
-
-            // Add colon to offsets like +HH -> +HH:00
             if (iso.matches(".*[+-]\\d{2}$")) {
                 iso = iso + ":00";
             } else if (iso.matches(".*[+-]\\d{4}$")) {
-                // Add colon to offsets like +HHMM -> +HH:MM
                 iso = iso.substring(0, iso.length() - 2) + ":" + iso.substring(iso.length() - 2);
             }
 
             return OffsetDateTime.parse(iso);
         } catch (Exception e) {
             log.debug("Failed to parse PostgreSQL timestamptz string: {}", str, e);
-
-            // Last resort: try to parse as timestamp and assume UTC
             try {
                 String withoutOffset =
                         str.replaceFirst("([+-]\\d{2}:?\\d{2}|\\s+UTC|Z)$", "").trim();
