@@ -248,15 +248,8 @@ public class OracleTypeConverter implements TypeConverter<BasicTypeDefine> {
                 }
                 break;
             case ORACLE_TIMESTAMP_WITH_TIME_ZONE:
-                builder.dataType(BasicType.OFFSET_DATE_TIME_TYPE);
-                if (typeDefine.getScale() == null) {
-                    builder.scale(TIMESTAMP_DEFAULT_SCALE);
-                } else {
-                    builder.scale(typeDefine.getScale());
-                }
-                break;
             case ORACLE_TIMESTAMP_WITH_LOCAL_TIME_ZONE:
-                builder.dataType(LocalTimeType.LOCAL_DATE_TIME_TYPE);
+                builder.dataType(BasicType.OFFSET_DATE_TIME_TYPE);
                 if (typeDefine.getScale() == null) {
                     builder.scale(TIMESTAMP_DEFAULT_SCALE);
                 } else {
