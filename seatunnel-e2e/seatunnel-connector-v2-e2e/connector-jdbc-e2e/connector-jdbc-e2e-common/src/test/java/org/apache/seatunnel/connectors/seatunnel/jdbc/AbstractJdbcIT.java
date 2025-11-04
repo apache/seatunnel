@@ -589,17 +589,14 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
     }
 
     private String convertOracleTimestampToString(Object data) throws SQLException {
+        // 精简实现：优先调用 Oracle 驱动的 stringValue(Connection)，失败则回退 toString()
         try {
-            // Try toOffsetDateTime() first
-            java.lang.reflect.Method method = data.getClass().getMethod("toOffsetDateTime");
-            Object offsetDateTime = method.invoke(data);
-            return offsetDateTime.toString();
-        } catch (NoSuchMethodException e) {
-            // Fall back to toString()
-            return data.toString();
-        } catch (Exception e) {
-            log.warn("Failed to convert Oracle timestamp to string", e);
-            return data.toString();
+            java.lang.reflect.Method m =
+                    data.getClass().getMethod("stringValue", java.sql.Connection.class);
+            Object s = m.invoke(data, this.connection);
+            return String.valueOf(s);
+        } catch (Exception ignore) {
+            return String.valueOf(data);
         }
     }
 
