@@ -24,6 +24,7 @@ import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
@@ -759,5 +760,420 @@ public class SQLTransformTest {
                         throw e;
                     }
                 });
+    }
+
+    @Test
+    public void testCastIntToDecimal() {
+        String tableName = "test";
+        String[] fields = new String[] {"id", "intField", "longField"};
+        CatalogTable table =
+                CatalogTableUtil.getCatalogTable(
+                        tableName,
+                        new SeaTunnelRowType(
+                                fields,
+                                new SeaTunnelDataType[] {
+                                    BasicType.INT_TYPE, BasicType.INT_TYPE, BasicType.LONG_TYPE
+                                }));
+        ReadonlyConfig config =
+                ReadonlyConfig.fromMap(
+                        Collections.singletonMap(
+                                "query",
+                                "select id, CAST(intField AS DECIMAL(10,2)) as decimalField from dual"));
+        SQLTransform sqlTransform = new SQLTransform(config, table);
+        TableSchema tableSchema = sqlTransform.transformTableSchema();
+
+        Assertions.assertEquals("decimalField", tableSchema.getFieldNames()[1]);
+        Assertions.assertTrue(
+                tableSchema.getColumns().get(1).getDataType() instanceof DecimalType);
+
+        List<SeaTunnelRow> result =
+                sqlTransform.transformRow(new SeaTunnelRow(new Object[] {1, 100, 200L}));
+        Assertions.assertNotNull(result.get(0).getField(1));
+    }
+
+    @Test
+    public void testCastIntToBoolean() {
+        String tableName = "test";
+        String[] fields = new String[] {"id", "intField"};
+        CatalogTable table =
+                CatalogTableUtil.getCatalogTable(
+                        tableName,
+                        new SeaTunnelRowType(
+                                fields,
+                                new SeaTunnelDataType[] {BasicType.INT_TYPE, BasicType.INT_TYPE}));
+        ReadonlyConfig config =
+                ReadonlyConfig.fromMap(
+                        Collections.singletonMap(
+                                "query",
+                                "select id, CAST(intField AS BOOLEAN) as boolField from dual"));
+        SQLTransform sqlTransform = new SQLTransform(config, table);
+        TableSchema tableSchema = sqlTransform.transformTableSchema();
+
+        Assertions.assertEquals("boolField", tableSchema.getFieldNames()[1]);
+        Assertions.assertEquals(
+                BasicType.BOOLEAN_TYPE, tableSchema.getColumns().get(1).getDataType());
+
+        List<SeaTunnelRow> result =
+                sqlTransform.transformRow(new SeaTunnelRow(new Object[] {1, 1}));
+        Assertions.assertEquals(true, result.get(0).getField(1));
+
+        result = sqlTransform.transformRow(new SeaTunnelRow(new Object[] {1, 0}));
+        Assertions.assertEquals(false, result.get(0).getField(1));
+    }
+
+    @Test
+    public void testCastIntToDouble() {
+        String tableName = "test";
+        String[] fields = new String[] {"id", "intField"};
+        CatalogTable table =
+                CatalogTableUtil.getCatalogTable(
+                        tableName,
+                        new SeaTunnelRowType(
+                                fields,
+                                new SeaTunnelDataType[] {BasicType.INT_TYPE, BasicType.INT_TYPE}));
+        ReadonlyConfig config =
+                ReadonlyConfig.fromMap(
+                        Collections.singletonMap(
+                                "query",
+                                "select id, CAST(intField AS DOUBLE) as doubleField from dual"));
+        SQLTransform sqlTransform = new SQLTransform(config, table);
+        TableSchema tableSchema = sqlTransform.transformTableSchema();
+
+        Assertions.assertEquals("doubleField", tableSchema.getFieldNames()[1]);
+        Assertions.assertEquals(
+                BasicType.DOUBLE_TYPE, tableSchema.getColumns().get(1).getDataType());
+
+        List<SeaTunnelRow> result =
+                sqlTransform.transformRow(new SeaTunnelRow(new Object[] {1, 100}));
+        Assertions.assertEquals(100.0, result.get(0).getField(1));
+    }
+
+    @Test
+    public void testCastIntToFloat() {
+        String tableName = "test";
+        String[] fields = new String[] {"id", "intField"};
+        CatalogTable table =
+                CatalogTableUtil.getCatalogTable(
+                        tableName,
+                        new SeaTunnelRowType(
+                                fields,
+                                new SeaTunnelDataType[] {BasicType.INT_TYPE, BasicType.INT_TYPE}));
+        ReadonlyConfig config =
+                ReadonlyConfig.fromMap(
+                        Collections.singletonMap(
+                                "query",
+                                "select id, CAST(intField AS FLOAT) as floatField from dual"));
+        SQLTransform sqlTransform = new SQLTransform(config, table);
+        TableSchema tableSchema = sqlTransform.transformTableSchema();
+
+        Assertions.assertEquals("floatField", tableSchema.getFieldNames()[1]);
+        Assertions.assertEquals(
+                BasicType.FLOAT_TYPE, tableSchema.getColumns().get(1).getDataType());
+
+        List<SeaTunnelRow> result =
+                sqlTransform.transformRow(new SeaTunnelRow(new Object[] {1, 100}));
+        Assertions.assertEquals(100.0f, result.get(0).getField(1));
+    }
+
+    @Test
+    public void testCastLongToDecimal() {
+        String tableName = "test";
+        String[] fields = new String[] {"id", "longField"};
+        CatalogTable table =
+                CatalogTableUtil.getCatalogTable(
+                        tableName,
+                        new SeaTunnelRowType(
+                                fields,
+                                new SeaTunnelDataType[] {BasicType.INT_TYPE, BasicType.LONG_TYPE}));
+        ReadonlyConfig config =
+                ReadonlyConfig.fromMap(
+                        Collections.singletonMap(
+                                "query",
+                                "select id, CAST(longField AS DECIMAL(20,4)) as decimalField from dual"));
+        SQLTransform sqlTransform = new SQLTransform(config, table);
+        TableSchema tableSchema = sqlTransform.transformTableSchema();
+
+        Assertions.assertEquals("decimalField", tableSchema.getFieldNames()[1]);
+        Assertions.assertTrue(
+                tableSchema.getColumns().get(1).getDataType() instanceof DecimalType);
+
+        List<SeaTunnelRow> result =
+                sqlTransform.transformRow(new SeaTunnelRow(new Object[] {1, 1000000L}));
+        Assertions.assertNotNull(result.get(0).getField(1));
+    }
+
+    @Test
+    public void testCastLongToBoolean() {
+        String tableName = "test";
+        String[] fields = new String[] {"id", "longField"};
+        CatalogTable table =
+                CatalogTableUtil.getCatalogTable(
+                        tableName,
+                        new SeaTunnelRowType(
+                                fields,
+                                new SeaTunnelDataType[] {BasicType.INT_TYPE, BasicType.LONG_TYPE}));
+        ReadonlyConfig config =
+                ReadonlyConfig.fromMap(
+                        Collections.singletonMap(
+                                "query",
+                                "select id, CAST(longField AS BOOLEAN) as boolField from dual"));
+        SQLTransform sqlTransform = new SQLTransform(config, table);
+        TableSchema tableSchema = sqlTransform.transformTableSchema();
+
+        Assertions.assertEquals("boolField", tableSchema.getFieldNames()[1]);
+        Assertions.assertEquals(
+                BasicType.BOOLEAN_TYPE, tableSchema.getColumns().get(1).getDataType());
+
+        List<SeaTunnelRow> result =
+                sqlTransform.transformRow(new SeaTunnelRow(new Object[] {1, 1L}));
+        Assertions.assertEquals(true, result.get(0).getField(1));
+
+        result = sqlTransform.transformRow(new SeaTunnelRow(new Object[] {1, 0L}));
+        Assertions.assertEquals(false, result.get(0).getField(1));
+    }
+
+    @Test
+    public void testCastFloatToDecimal() {
+        String tableName = "test";
+        String[] fields = new String[] {"id", "floatField"};
+        CatalogTable table =
+                CatalogTableUtil.getCatalogTable(
+                        tableName,
+                        new SeaTunnelRowType(
+                                fields,
+                                new SeaTunnelDataType[] {BasicType.INT_TYPE, BasicType.FLOAT_TYPE}));
+        ReadonlyConfig config =
+                ReadonlyConfig.fromMap(
+                        Collections.singletonMap(
+                                "query",
+                                "select id, CAST(floatField AS DECIMAL(10,2)) as decimalField from dual"));
+        SQLTransform sqlTransform = new SQLTransform(config, table);
+        TableSchema tableSchema = sqlTransform.transformTableSchema();
+
+        Assertions.assertEquals("decimalField", tableSchema.getFieldNames()[1]);
+        Assertions.assertTrue(
+                tableSchema.getColumns().get(1).getDataType() instanceof DecimalType);
+
+        List<SeaTunnelRow> result =
+                sqlTransform.transformRow(new SeaTunnelRow(new Object[] {1, 123.45f}));
+        Assertions.assertNotNull(result.get(0).getField(1));
+    }
+
+    @Test
+    public void testCastFloatToBoolean() {
+        String tableName = "test";
+        String[] fields = new String[] {"id", "floatField"};
+        CatalogTable table =
+                CatalogTableUtil.getCatalogTable(
+                        tableName,
+                        new SeaTunnelRowType(
+                                fields,
+                                new SeaTunnelDataType[] {BasicType.INT_TYPE, BasicType.FLOAT_TYPE}));
+        ReadonlyConfig config =
+                ReadonlyConfig.fromMap(
+                        Collections.singletonMap(
+                                "query",
+                                "select id, CAST(floatField AS BOOLEAN) as boolField from dual"));
+        SQLTransform sqlTransform = new SQLTransform(config, table);
+        TableSchema tableSchema = sqlTransform.transformTableSchema();
+
+        Assertions.assertEquals("boolField", tableSchema.getFieldNames()[1]);
+        Assertions.assertEquals(
+                BasicType.BOOLEAN_TYPE, tableSchema.getColumns().get(1).getDataType());
+
+        List<SeaTunnelRow> result =
+                sqlTransform.transformRow(new SeaTunnelRow(new Object[] {1, 1.0f}));
+        Assertions.assertEquals(true, result.get(0).getField(1));
+
+        result = sqlTransform.transformRow(new SeaTunnelRow(new Object[] {1, 0.0f}));
+        Assertions.assertEquals(false, result.get(0).getField(1));
+    }
+
+    @Test
+    public void testCastDecimalToBoolean() {
+        String tableName = "test";
+        String[] fields = new String[] {"id", "name"};
+        CatalogTable table =
+                CatalogTableUtil.getCatalogTable(
+                        tableName,
+                        new SeaTunnelRowType(
+                                fields,
+                                new SeaTunnelDataType[] {BasicType.INT_TYPE, BasicType.STRING_TYPE}));
+        ReadonlyConfig config =
+                ReadonlyConfig.fromMap(
+                        Collections.singletonMap(
+                                "query",
+                                "select id, CAST(CAST(id AS DECIMAL(10,2)) AS BOOLEAN) as boolField from dual"));
+        SQLTransform sqlTransform = new SQLTransform(config, table);
+        TableSchema tableSchema = sqlTransform.transformTableSchema();
+
+        Assertions.assertEquals("boolField", tableSchema.getFieldNames()[1]);
+        Assertions.assertEquals(
+                BasicType.BOOLEAN_TYPE, tableSchema.getColumns().get(1).getDataType());
+    }
+
+    @Test
+    public void testCastStringToDate() {
+        String tableName = "test";
+        String[] fields = new String[] {"id", "dateString"};
+        CatalogTable table =
+                CatalogTableUtil.getCatalogTable(
+                        tableName,
+                        new SeaTunnelRowType(
+                                fields,
+                                new SeaTunnelDataType[] {BasicType.INT_TYPE, BasicType.STRING_TYPE}));
+        ReadonlyConfig config =
+                ReadonlyConfig.fromMap(
+                        Collections.singletonMap(
+                                "query",
+                                "select id, CAST(dateString AS DATE) as dateField from dual"));
+        SQLTransform sqlTransform = new SQLTransform(config, table);
+        TableSchema tableSchema = sqlTransform.transformTableSchema();
+
+        Assertions.assertEquals("dateField", tableSchema.getFieldNames()[1]);
+        Assertions.assertEquals(
+                LocalTimeType.LOCAL_DATE_TYPE, tableSchema.getColumns().get(1).getDataType());
+    }
+
+    @Test
+    public void testCastStringToTimestamp() {
+        String tableName = "test";
+        String[] fields = new String[] {"id", "timestampString"};
+        CatalogTable table =
+                CatalogTableUtil.getCatalogTable(
+                        tableName,
+                        new SeaTunnelRowType(
+                                fields,
+                                new SeaTunnelDataType[] {BasicType.INT_TYPE, BasicType.STRING_TYPE}));
+        ReadonlyConfig config =
+                ReadonlyConfig.fromMap(
+                        Collections.singletonMap(
+                                "query",
+                                "select id, CAST(timestampString AS TIMESTAMP) as timestampField from dual"));
+        SQLTransform sqlTransform = new SQLTransform(config, table);
+        TableSchema tableSchema = sqlTransform.transformTableSchema();
+
+        Assertions.assertEquals("timestampField", tableSchema.getFieldNames()[1]);
+        Assertions.assertEquals(
+                LocalTimeType.LOCAL_DATE_TIME_TYPE, tableSchema.getColumns().get(1).getDataType());
+    }
+
+    @Test
+    public void testCastStringToTime() {
+        String tableName = "test";
+        String[] fields = new String[] {"id", "timeString"};
+        CatalogTable table =
+                CatalogTableUtil.getCatalogTable(
+                        tableName,
+                        new SeaTunnelRowType(
+                                fields,
+                                new SeaTunnelDataType[] {BasicType.INT_TYPE, BasicType.STRING_TYPE}));
+        ReadonlyConfig config =
+                ReadonlyConfig.fromMap(
+                        Collections.singletonMap(
+                                "query",
+                                "select id, CAST(timeString AS TIME) as timeField from dual"));
+        SQLTransform sqlTransform = new SQLTransform(config, table);
+        TableSchema tableSchema = sqlTransform.transformTableSchema();
+
+        Assertions.assertEquals("timeField", tableSchema.getFieldNames()[1]);
+        Assertions.assertEquals(
+                LocalTimeType.LOCAL_TIME_TYPE, tableSchema.getColumns().get(1).getDataType());
+    }
+
+    @Test
+    public void testCastTimestampToString() {
+        String tableName = "test";
+        String[] fields = new String[] {"id", "timestampField"};
+        CatalogTable table =
+                CatalogTableUtil.getCatalogTable(
+                        tableName,
+                        new SeaTunnelRowType(
+                                fields,
+                                new SeaTunnelDataType[] {
+                                    BasicType.INT_TYPE, LocalTimeType.LOCAL_DATE_TIME_TYPE
+                                }));
+        ReadonlyConfig config =
+                ReadonlyConfig.fromMap(
+                        Collections.singletonMap(
+                                "query",
+                                "select id, CAST(timestampField AS STRING) as stringField from dual"));
+        SQLTransform sqlTransform = new SQLTransform(config, table);
+        TableSchema tableSchema = sqlTransform.transformTableSchema();
+
+        Assertions.assertEquals("stringField", tableSchema.getFieldNames()[1]);
+        Assertions.assertEquals(
+                BasicType.STRING_TYPE, tableSchema.getColumns().get(1).getDataType());
+    }
+
+    @Test
+    public void testCastDateToString() {
+        String tableName = "test";
+        String[] fields = new String[] {"id", "dateField"};
+        CatalogTable table =
+                CatalogTableUtil.getCatalogTable(
+                        tableName,
+                        new SeaTunnelRowType(
+                                fields,
+                                new SeaTunnelDataType[] {
+                                    BasicType.INT_TYPE, LocalTimeType.LOCAL_DATE_TYPE
+                                }));
+        ReadonlyConfig config =
+                ReadonlyConfig.fromMap(
+                        Collections.singletonMap(
+                                "query",
+                                "select id, CAST(dateField AS STRING) as stringField from dual"));
+        SQLTransform sqlTransform = new SQLTransform(config, table);
+        TableSchema tableSchema = sqlTransform.transformTableSchema();
+
+        Assertions.assertEquals("stringField", tableSchema.getFieldNames()[1]);
+        Assertions.assertEquals(
+                BasicType.STRING_TYPE, tableSchema.getColumns().get(1).getDataType());
+    }
+
+    @Test
+    public void testCastByteToBoolean() {
+        String tableName = "test";
+        String[] fields = new String[] {"id", "byteField"};
+        CatalogTable table =
+                CatalogTableUtil.getCatalogTable(
+                        tableName,
+                        new SeaTunnelRowType(
+                                fields,
+                                new SeaTunnelDataType[] {BasicType.INT_TYPE, BasicType.BYTE_TYPE}));
+        ReadonlyConfig config =
+                ReadonlyConfig.fromMap(
+                        Collections.singletonMap(
+                                "query",
+                                "select id, CAST(byteField AS BOOLEAN) as boolField from dual"));
+        SQLTransform sqlTransform = new SQLTransform(config, table);
+        TableSchema tableSchema = sqlTransform.transformTableSchema();
+
+        Assertions.assertEquals("boolField", tableSchema.getFieldNames()[1]);
+        Assertions.assertEquals(
+                BasicType.BOOLEAN_TYPE, tableSchema.getColumns().get(1).getDataType());
+    }
+
+    @Test
+    public void testCastShortToBoolean() {
+        String tableName = "test";
+        String[] fields = new String[] {"id", "shortField"};
+        CatalogTable table =
+                CatalogTableUtil.getCatalogTable(
+                        tableName,
+                        new SeaTunnelRowType(
+                                fields,
+                                new SeaTunnelDataType[] {BasicType.INT_TYPE, BasicType.SHORT_TYPE}));
+        ReadonlyConfig config =
+                ReadonlyConfig.fromMap(
+                        Collections.singletonMap(
+                                "query",
+                                "select id, CAST(shortField AS BOOLEAN) as boolField from dual"));
+        SQLTransform sqlTransform = new SQLTransform(config, table);
+        TableSchema tableSchema = sqlTransform.transformTableSchema();
+
+        Assertions.assertEquals("boolField", tableSchema.getFieldNames()[1]);
+        Assertions.assertEquals(
+                BasicType.BOOLEAN_TYPE, tableSchema.getColumns().get(1).getDataType());
     }
 }
