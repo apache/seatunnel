@@ -34,6 +34,7 @@ import ChangeLog from '../changelog/connector-redis.md';
 | nodes               | list   | `mode=cluster` 时必须 | -      |
 | schema              | config | `format=json` 时必须  | -      |
 | format              | string | 否                  | json   |
+| field_delimiter     | string | 否                  | ','    |
 | common-options      |        | 否                  | -      |
 
 ### host [string]
@@ -203,20 +204,43 @@ schema {
 | ---- | ----------- | ------- |
 | 200  | get success | true    |
 
-当指定格式为 `text` 时，连接器不会对上游数据做任何处理，例如：
+当指定格式为 `text` 时，可以选择是否指定schema参数。
 
-当上游数据如下时：
+例如, 当上游数据如下时：
 
-```json
-{"code":  200, "data":  "get success", "success":  true}
+```text
+200#get success#true
+```
+
+如果不指定schema参数，连接器将按照以下方式处理上游数据：
+
+| content                                                  |
+| -------------------------------------------------------- |
+| 200#get success#true |
+
+如果指定schema参数，此时需要同时配置`schema`和`field_delimiter`，如下所示：
+```hocon
+field_delimiter = "#"
+schema {
+    fields {
+        code = int
+        data = string
+        success = boolean
+    }
+}
 
 ```
 
-连接器将会生成如下格式数据：
+连接器将生成如下数据：
 
 | content                                                  |
 | -------------------------------------------------------- |
 | {"code":  200, "data":  "get success", "success":  true} |
+
+### field_delimiter [string]
+字段分隔符，用于告诉连接器如何分割字段。
+
+目前仅当格式为text时需要配置。默认为","。
 
 ### schema [config]
 

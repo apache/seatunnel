@@ -334,7 +334,7 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
 
         if (StringUtils.isBlank(logName)) {
             // Get Current Node Log List
-            this.prepareResponse(httpGetCommand, getRestValue(logService.currentNodeLog(uri)));
+            this.prepareResponse(httpGetCommand, getRestValue(logService.currentNodeLog()));
         } else {
             // Get Current Node Log Content
             prepareLogResponse(httpGetCommand, logPath, logName);

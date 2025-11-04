@@ -37,6 +37,7 @@ Used to read data from Redis.
 | schema              | config | yes when format=json           | -             |
 | format              | string | no                             | json          |
 | single_field_name   | string | yes when read_key_enabled=true | -             |
+| field_delimiter     | string | no                             | ','           |
 | common-options      |        | no                             | -             |
 
 ### host [string]
@@ -252,20 +253,43 @@ connector will generate data as the following:
 | ---- | ----------- | ------- |
 | 200  | get success | true    |
 
-when you assign format is `text`, connector will do nothing for upstream data, for example:
+when you assign format is `text`, you can choose to specify the schema information or not. 
 
-upstream data is the following:
+For example, upstream data is the following:
 
-```json
-{"code":  200, "data":  "get success", "success":  true}
-
+```text
+200#get success#true
 ```
 
+If you do not assign data schema connector will treat the upstream data as the following:
+
+| content                                                  |
+| -------------------------------------------------------- |
+| 200#get success#true |
+
+If you assign data schema, you should also assign the option `schema` and `field_delimiter` as following:
+
+```hocon
+field_delimiter = "#"
+schema {
+    fields {
+        code = int
+        data = string
+        success = boolean
+    }
+}
+
+```
 connector will generate data as the following:
 
 | content                                                  |
 | -------------------------------------------------------- |
 | {"code":  200, "data":  "get success", "success":  true} |
+
+### field_delimiter [string]
+Field delimiter, used to tell connector how to slice and dice fields.
+
+Currently, only need to be configured when format is text. default is ",".
 
 ### schema [config]
 

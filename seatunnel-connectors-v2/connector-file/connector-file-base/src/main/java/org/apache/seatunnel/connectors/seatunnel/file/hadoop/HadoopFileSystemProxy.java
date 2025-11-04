@@ -340,10 +340,28 @@ public class HadoopFileSystemProxy implements Serializable, Closeable {
         }
 
         try {
+            // Ensure Kerberos ticket is valid for long-running jobs
+            maybeRelogin();
             return userGroupInformation.doAs(action);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new IOException(e);
+        }
+    }
+
+    private void maybeRelogin() {
+        if (!isAuthTypeKerberos) {
+            return;
+        }
+        if (userGroupInformation == null) {
+            return;
+        }
+        try {
+            if (userGroupInformation.isFromKeytab()) {
+                userGroupInformation.checkTGTAndReloginFromKeytab();
+            }
+        } catch (IOException e) {
+            log.warn("Kerberos re-login from keytab failed: {}", e.getMessage());
         }
     }
 }
