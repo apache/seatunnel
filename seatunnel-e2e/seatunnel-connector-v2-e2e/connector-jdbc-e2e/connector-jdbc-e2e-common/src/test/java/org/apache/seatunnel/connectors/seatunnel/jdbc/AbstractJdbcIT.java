@@ -589,7 +589,6 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
     }
 
     private String convertOracleTimestampToString(Object data) throws SQLException {
-        // 精简实现：优先调用 Oracle 驱动的 stringValue(Connection)，失败则回退 toString()
         try {
             java.lang.reflect.Method m =
                     data.getClass().getMethod("stringValue", java.sql.Connection.class);
