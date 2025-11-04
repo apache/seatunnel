@@ -1074,6 +1074,10 @@ public class CoordinatorService {
         return connectorPackageService;
     }
 
+    public int getPendingJobCount() {
+        return pendingJobQueue.getJobIdMap().size();
+    }
+
     @VisibleForTesting
     protected IMap<Long, HashMap<TaskLocation, SeaTunnelMetricsContext>> getMetricsImap() {
         return metricsImap;

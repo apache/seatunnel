@@ -30,6 +30,7 @@ public class OverviewInfo implements Serializable {
     private long runningJobs;
     private long finishedJobs;
     private long failedJobs;
+    private long pendingJobs;
     private long cancelledJobs;
     private int workers;
 }
