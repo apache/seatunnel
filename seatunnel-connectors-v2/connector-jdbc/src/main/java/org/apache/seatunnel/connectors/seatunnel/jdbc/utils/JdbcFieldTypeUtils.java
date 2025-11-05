@@ -23,10 +23,12 @@ import java.sql.SQLException;
 import java.sql.Time;
 import java.sql.Timestamp;
 import java.time.Instant;
+import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeFormatterBuilder;
 import java.time.format.DateTimeParseException;
 
 public final class JdbcFieldTypeUtils {
@@ -183,22 +185,11 @@ public final class JdbcFieldTypeUtils {
             // fall through
         }
 
-        // Try SQL Server DateTimeOffset format: "YYYY-MM-DD HH:MM:SS.ffffff +HH:MM"
-        // Example: "2025-11-04 21:10:06.891977 +00:00"
+        // Try SQL Server DateTimeOffset format with variable precision
+        // Examples: "2025-11-04 21:10:06.891977 +00:00" (6 decimals)
+        //           "2025-11-05 05:54:15.069 +00:00" (3 decimals)
         try {
-            // Use a custom formatter for SQL Server format
-            DateTimeFormatter sqlServerFormatter =
-                    DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSSSSS Z");
-            return OffsetDateTime.parse(trimmed, sqlServerFormatter);
-        } catch (DateTimeParseException ignore) {
-            // fall through
-        }
-
-        // Try SQL Server format with variable precision (fewer decimal places)
-        try {
-            DateTimeFormatter sqlServerFormatterShort =
-                    DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSSSS Z");
-            return OffsetDateTime.parse(trimmed, sqlServerFormatterShort);
+            return parseSqlServerDateTimeOffset(trimmed);
         } catch (DateTimeParseException ignore) {
             // fall through
         }
@@ -206,6 +197,47 @@ public final class JdbcFieldTypeUtils {
         // If all parsing attempts fail, throw exception
         throw new DateTimeParseException(
                 "Unable to parse OffsetDateTime from string: " + str, trimmed, 0);
+    }
+
+    /**
+     * Parse SQL Server DateTimeOffset format with variable precision. Supports formats like: -
+     * "2025-11-04 21:10:06.891977 +00:00" (6 decimals) - "2025-11-05 05:54:15.069 +00:00" (3
+     * decimals) - "2025-11-05 05:54:15.1 +00:00" (1 decimal)
+     */
+    private static OffsetDateTime parseSqlServerDateTimeOffset(String str)
+            throws DateTimeParseException {
+        // Pattern: YYYY-MM-DD HH:MM:SS.fff... +HH:MM
+        // We need to handle variable precision in the fractional seconds
+
+        // Find the position of the space before the offset
+        int lastSpaceIndex = str.lastIndexOf(' ');
+        if (lastSpaceIndex <= 0) {
+            throw new DateTimeParseException(
+                    "Invalid SQL Server DateTimeOffset format: " + str, str, 0);
+        }
+
+        String dateTimePart = str.substring(0, lastSpaceIndex);
+        String offsetPart = str.substring(lastSpaceIndex + 1);
+
+        try {
+            // Parse the offset part (e.g., "+00:00" or "-05:00")
+            ZoneOffset offset = ZoneOffset.of(offsetPart);
+
+            // Parse the date-time part with variable precision
+            // Use a formatter that allows optional fractional seconds
+            DateTimeFormatter formatter =
+                    new DateTimeFormatterBuilder()
+                            .append(DateTimeFormatter.ISO_LOCAL_DATE)
+                            .appendLiteral(' ')
+                            .append(DateTimeFormatter.ISO_LOCAL_TIME)
+                            .toFormatter();
+
+            LocalDateTime localDateTime = LocalDateTime.parse(dateTimePart, formatter);
+            return localDateTime.atOffset(offset);
+        } catch (Exception e) {
+            throw new DateTimeParseException(
+                    "Failed to parse SQL Server DateTimeOffset: " + str, str, 0);
+        }
     }
 
     private static <T> T getNullableValue(
