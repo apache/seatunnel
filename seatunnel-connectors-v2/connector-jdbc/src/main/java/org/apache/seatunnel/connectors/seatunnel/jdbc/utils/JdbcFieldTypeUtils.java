@@ -183,6 +183,26 @@ public final class JdbcFieldTypeUtils {
             // fall through
         }
 
+        // Try SQL Server DateTimeOffset format: "YYYY-MM-DD HH:MM:SS.ffffff +HH:MM"
+        // Example: "2025-11-04 21:10:06.891977 +00:00"
+        try {
+            // Use a custom formatter for SQL Server format
+            DateTimeFormatter sqlServerFormatter =
+                    DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSSSSS Z");
+            return OffsetDateTime.parse(trimmed, sqlServerFormatter);
+        } catch (DateTimeParseException ignore) {
+            // fall through
+        }
+
+        // Try SQL Server format with variable precision (fewer decimal places)
+        try {
+            DateTimeFormatter sqlServerFormatterShort =
+                    DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSSSS Z");
+            return OffsetDateTime.parse(trimmed, sqlServerFormatterShort);
+        } catch (DateTimeParseException ignore) {
+            // fall through
+        }
+
         // If all parsing attempts fail, throw exception
         throw new DateTimeParseException(
                 "Unable to parse OffsetDateTime from string: " + str, trimmed, 0);

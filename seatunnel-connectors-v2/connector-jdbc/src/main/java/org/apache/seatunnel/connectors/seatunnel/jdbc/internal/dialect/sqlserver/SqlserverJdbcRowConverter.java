@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.sqlserver;
 
+import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -35,6 +36,7 @@ import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.OffsetDateTime;
 import java.util.Optional;
 
 public class SqlserverJdbcRowConverter extends AbstractJdbcRowConverter {
@@ -42,6 +44,58 @@ public class SqlserverJdbcRowConverter extends AbstractJdbcRowConverter {
     @Override
     public String converterName() {
         return DatabaseIdentifier.SQLSERVER;
+    }
+
+    @Override
+    public SeaTunnelRow toInternal(ResultSet rs, TableSchema tableSchema) throws SQLException {
+        SeaTunnelRow row = super.toInternal(rs, tableSchema);
+        // Handle TIMESTAMP_TZ types for SQL Server
+        SeaTunnelRowType rowType = tableSchema.toPhysicalRowDataType();
+        for (int fieldIndex = 0; fieldIndex < rowType.getTotalFields(); fieldIndex++) {
+            SeaTunnelDataType<?> seaTunnelDataType = rowType.getFieldType(fieldIndex);
+            if (seaTunnelDataType.getSqlType().equals(SqlType.TIMESTAMP_TZ)) {
+                int resultSetIndex = fieldIndex + 1;
+                OffsetDateTime offsetDateTime = getSqlServerOffsetDateTime(rs, resultSetIndex);
+                row.setField(fieldIndex, offsetDateTime);
+            }
+        }
+        return row;
+    }
+
+    /**
+     * Get OffsetDateTime from SQL Server DateTimeOffset column. SQL Server returns DateTimeOffset
+     * as microsoft.sql.DateTimeOffset object with format like "2025-11-04 21:10:06.891977 +00:00"
+     */
+    private OffsetDateTime getSqlServerOffsetDateTime(ResultSet rs, int columnIndex)
+            throws SQLException {
+        Object obj = rs.getObject(columnIndex);
+        if (obj == null) {
+            return null;
+        }
+
+        // Handle OffsetDateTime directly
+        if (obj instanceof OffsetDateTime) {
+            return (OffsetDateTime) obj;
+        }
+
+        // Handle java.sql.Timestamp
+        if (obj instanceof Timestamp) {
+            return ((Timestamp) obj).toLocalDateTime().atOffset(java.time.ZoneOffset.UTC);
+        }
+
+        // Handle microsoft.sql.DateTimeOffset or other types by converting to string
+        String str = obj.toString();
+        try {
+            return JdbcFieldTypeUtils.parseOffsetDateTimeFromString(str);
+        } catch (Exception e) {
+            throw new SQLException(
+                    "Failed to parse SQL Server DateTimeOffset value: "
+                            + str
+                            + " (class: "
+                            + obj.getClass().getName()
+                            + ")",
+                    e);
+        }
     }
 
     @Override
