@@ -77,28 +77,29 @@ public class OracleJdbcRowConverter extends AbstractJdbcRowConverter {
         // oracle.sql.TIMESTAMPTZ - TIMESTAMP WITH TIME ZONE
         // oracle.sql.TIMESTAMPLTZ - TIMESTAMP WITH LOCAL TIME ZONE
         String className = obj.getClass().getName();
-        if ("oracle.sql.TIMESTAMPTZ".equals(className)
-                || "oracle.sql.TIMESTAMPLTZ".equals(className)) {
+        if ("oracle.sql.TIMESTAMPTZ".equals(className)) {
             try {
-                // Use reflection to call toOffsetDateTime() or offsetDateTimeValue() method
-                // These methods are available in Oracle JDBC driver
-                java.lang.reflect.Method toOffsetDateTimeMethod = null;
-                try {
-                    // Try toOffsetDateTime() first (no connection required)
-                    toOffsetDateTimeMethod = obj.getClass().getMethod("toOffsetDateTime");
-                    return (OffsetDateTime) toOffsetDateTimeMethod.invoke(obj);
-                } catch (NoSuchMethodException e) {
-                    // Fall back to offsetDateTimeValue(Connection) if toOffsetDateTime() is not
-                    // available
-                    toOffsetDateTimeMethod =
-                            obj.getClass()
-                                    .getMethod("offsetDateTimeValue", java.sql.Connection.class);
-                    return (OffsetDateTime)
-                            toOffsetDateTimeMethod.invoke(obj, rs.getStatement().getConnection());
-                }
+                // For TIMESTAMPTZ, use offsetDateTimeValue(Connection) to preserve timezone
+                // toOffsetDateTime() may convert to UTC in some Oracle JDBC versions
+                java.lang.reflect.Method offsetDateTimeValueMethod =
+                        obj.getClass().getMethod("offsetDateTimeValue", java.sql.Connection.class);
+                return (OffsetDateTime)
+                        offsetDateTimeValueMethod.invoke(obj, rs.getStatement().getConnection());
             } catch (Exception e) {
                 throw new SQLException(
                         "Failed to convert Oracle TIMESTAMP WITH TIME ZONE value: " + className, e);
+            }
+        } else if ("oracle.sql.TIMESTAMPLTZ".equals(className)) {
+            try {
+                // For TIMESTAMPLTZ, use toOffsetDateTime() as it's local time zone aware
+                java.lang.reflect.Method toOffsetDateTimeMethod =
+                        obj.getClass().getMethod("toOffsetDateTime");
+                return (OffsetDateTime) toOffsetDateTimeMethod.invoke(obj);
+            } catch (Exception e) {
+                throw new SQLException(
+                        "Failed to convert Oracle TIMESTAMP WITH LOCAL TIME ZONE value: "
+                                + className,
+                        e);
             }
         }
 
@@ -173,9 +174,10 @@ public class OracleJdbcRowConverter extends AbstractJdbcRowConverter {
                                 false,
                                 statement.getConnection().getClass().getClassLoader());
                 // Oracle TIMESTAMPTZ accepts Connection + String constructor
-                // Use a space-separated format instead of ISO 'T'
+                // Use a space-separated format with nanosecond precision (9 digits)
+                // Format: yyyy-MM-dd HH:mm:ss.nnnnnnnnnxxx (9 digits for nanoseconds)
                 DateTimeFormatter formatter =
-                        DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSSxxx");
+                        DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.nnnnnnnnnxxx");
                 String literal = offsetDateTime.format(formatter);
                 Constructor<?> ctor =
                         tsTzClazz.getConstructor(java.sql.Connection.class, String.class);

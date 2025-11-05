@@ -209,6 +209,16 @@ public final class JdbcFieldTypeUtils {
             // fall through
         }
 
+        // Try Oracle TIMESTAMP WITH TIME ZONE format with nanosecond precision
+        // Format: yyyy-MM-dd HH:mm:ss.nnnnnnnnnxxx (9 digits for nanoseconds)
+        try {
+            DateTimeFormatter oracleFormatter =
+                    DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.nnnnnnnnnxxx");
+            return OffsetDateTime.parse(trimmed, oracleFormatter);
+        } catch (DateTimeParseException ignore) {
+            // fall through
+        }
+
         // If all parsing attempts fail, throw exception
         throw new DateTimeParseException(
                 "Unable to parse OffsetDateTime from string: " + str, trimmed, 0);
