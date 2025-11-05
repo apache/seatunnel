@@ -189,7 +189,8 @@ public class PaimonSink
                         paimonSinkConfig.getDataSaveMode(),
                         paimonCatalog,
                         catalogTable,
-                        null));
+                        null,
+                        paimonSinkConfig.getBranch()));
     }
 
     @Override
