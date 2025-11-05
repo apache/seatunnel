@@ -123,10 +123,8 @@ public class PostgresJdbcRowConverter extends AbstractJdbcRowConverter {
                 case STRING:
                     if (metaDataColumnType.equals(PG_GEOMETRY)
                             || metaDataColumnType.equals(PG_GEOGRAPHY)) {
-                        fields[fieldIndex] =
-                                rs.getObject(resultSetIndex) == null
-                                        ? null
-                                        : rs.getObject(resultSetIndex).toString();
+                        Object geoObj = rs.getObject(resultSetIndex);
+                        fields[fieldIndex] = geoObj == null ? null : geoObj.toString();
                     } else {
                         fields[fieldIndex] = JdbcFieldTypeUtils.getString(rs, resultSetIndex);
                     }
@@ -372,32 +370,33 @@ public class PostgresJdbcRowConverter extends AbstractJdbcRowConverter {
             return null;
         }
 
-        // If already OffsetDateTime, return directly
         if (obj instanceof OffsetDateTime) {
             return (OffsetDateTime) obj;
         }
 
-        // Try to parse from string representation
-        String str = obj.toString();
+        String str = extractTimestampString(obj);
         if (str == null || str.isEmpty()) {
             return null;
         }
 
-        // Handle PostgreSQL-specific timestamp objects
-        if (obj.getClass().getName().startsWith("org.postgresql.")) {
-            OffsetDateTime result = parsePostgresTimestampTz(str);
-            if (result != null) {
-                return result;
-            }
+        OffsetDateTime result = parsePostgresTimestampTz(str);
+        if (result != null) {
+            return result;
         }
 
-        // Fall back to generic string parsing
         try {
             return JdbcFieldTypeUtils.parseOffsetDateTimeFromString(str);
         } catch (Exception e) {
             log.debug("Failed to parse OffsetDateTime from: {}", str, e);
             return null;
         }
+    }
+
+    private String extractTimestampString(Object obj) {
+        if (obj instanceof PGobject) {
+            return ((PGobject) obj).getValue();
+        }
+        return obj.toString();
     }
 
     private OffsetDateTime parsePostgresTimestampTz(String str) {
