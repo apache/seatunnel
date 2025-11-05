@@ -22,6 +22,7 @@ import org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonBaseOptions
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
+import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.container.TestContainerId;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
@@ -95,6 +96,9 @@ public class PaimonIT extends TestSuiteBase implements TestResource {
                 container.copyFileToContainer(
                         MountableFile.forHostPath(schemaPath),
                         "/tmp/seatunnel_mnt/paimon/default.db/st_test_p/schema/schema-0");
+                container.copyFileToContainer(
+                        MountableFile.forHostPath(schemaPath),
+                        "/tmp/seatunnel_mnt/paimon/default.db/st_test_p/test_branch/schema/schema-0");
                 container.copyFileToContainer(
                         MountableFile.forHostPath(schemaPath),
                         "/tmp/seatunnel_mnt/paimon/default.db/st_test_p1/schema/schema-0");
@@ -226,6 +230,11 @@ public class PaimonIT extends TestSuiteBase implements TestResource {
         Assertions.assertTrue(CollectionUtils.isEmpty(files));
     }
 
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK, EngineType.FLINK},
+            disabledReason =
+                    "Spark and Flink engine can not auto create paimon table on worker node in local file(e.g flink tm) by savemode feature which can lead error")
     @TestTemplate
     public void testSinkBranch(TestContainer container) throws Exception {
 
