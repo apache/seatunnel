@@ -77,10 +77,10 @@ public class JdbcSinkFactory implements TableSinkFactory {
         // source table info
         TableIdentifier tableId = catalogTable.getTableId();
         // sink table info
-        assert optionalDatabase.isPresent();
-        String sinkDatabaseName = optionalDatabase.get();
-        assert optionalTable.isPresent();
-        String sinkTableNameBefore = optionalTable.get();
+        String sinkDatabaseName =
+                optionalDatabase.orElse(catalogTable.getTablePath().getDatabaseName());
+        String sinkTableNameBefore =
+                optionalTable.orElse(catalogTable.getTablePath().getTableName());
         String[] sinkTableSplitArray = sinkTableNameBefore.split("\\.");
         String sinkTableName = sinkTableSplitArray[sinkTableSplitArray.length - 1];
         String sinkSchemaName;
