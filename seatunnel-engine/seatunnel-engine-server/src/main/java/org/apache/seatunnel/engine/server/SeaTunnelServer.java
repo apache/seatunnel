@@ -30,6 +30,7 @@ import org.apache.seatunnel.engine.server.execution.ExecutionState;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.metrics.SeaTunnelMetricsContext;
+import org.apache.seatunnel.engine.server.persistence.MapStoreConfigFactory;
 import org.apache.seatunnel.engine.server.rocksdb.RocksDBService;
 import org.apache.seatunnel.engine.server.service.jar.ConnectorPackageService;
 import org.apache.seatunnel.engine.server.service.slot.DefaultSlotService;
@@ -201,9 +202,13 @@ public class SeaTunnelServer
                 String safeAddress =
                         nodeEngine.getThisAddress().toString().replaceAll("[^A-Za-z0-9._-]", "_");
                 String dbPath = DB_PATH + "_" + safeAddress;
+
                 this.rocksDBService =
                         new RocksDBService(
-                                dbPath, seaTunnelConfig.getEngineConfig().getMapStoreConfig());
+                                dbPath,
+                                MapStoreConfigFactory.createMapStoreConfig(
+                                        seaTunnelConfig.getEngineConfig().getMapStoreConfig(),
+                                        nodeEngine.getHazelcastInstance()));
             } catch (Exception e) {
                 LOGGER.severe("Failed to initialize RocksDB state backend: " + e.getMessage());
                 throw new SeaTunnelEngineException("Failed to init RocksDBStateBackend", e);
