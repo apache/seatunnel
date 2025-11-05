@@ -35,6 +35,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.oracle.OracleTypeConverter.ORACLE_BLOB;
@@ -78,11 +79,20 @@ public class OracleJdbcRowConverter extends AbstractJdbcRowConverter {
         // oracle.sql.TIMESTAMPLTZ - TIMESTAMP WITH LOCAL TIME ZONE
         if ("oracle.sql.TIMESTAMPTZ".equals(className)) {
             try {
-                // For TIMESTAMPTZ, use offsetDateTimeValue(Connection) to preserve timezone
-                java.lang.reflect.Method offsetDateTimeValueMethod =
-                        obj.getClass().getMethod("offsetDateTimeValue", java.sql.Connection.class);
-                return (OffsetDateTime)
-                        offsetDateTimeValueMethod.invoke(obj, rs.getStatement().getConnection());
+                // Prefer toOffsetDateTime() if available
+                try {
+                    java.lang.reflect.Method toOffsetDateTimeMethod =
+                            obj.getClass().getMethod("toOffsetDateTime");
+                    return (OffsetDateTime) toOffsetDateTimeMethod.invoke(obj);
+                } catch (NoSuchMethodException ignore) {
+                    // Fall back to offsetDateTimeValue(Connection)
+                    java.lang.reflect.Method offsetDateTimeValueMethod =
+                            obj.getClass()
+                                    .getMethod("offsetDateTimeValue", java.sql.Connection.class);
+                    return (OffsetDateTime)
+                            offsetDateTimeValueMethod.invoke(
+                                    obj, rs.getStatement().getConnection());
+                }
             } catch (Exception e) {
                 throw new SQLException(
                         "Failed to convert Oracle TIMESTAMP WITH TIME ZONE value: " + className, e);
@@ -111,19 +121,27 @@ public class OracleJdbcRowConverter extends AbstractJdbcRowConverter {
         }
 
         if (obj instanceof java.time.Instant) {
-            return ((java.time.Instant) obj).atOffset(java.time.ZoneOffset.UTC);
+            java.time.Instant instant = (java.time.Instant) obj;
+            java.time.ZoneOffset off = ZoneId.systemDefault().getRules().getOffset(instant);
+            return instant.atOffset(off);
         }
 
         if (obj instanceof java.sql.Timestamp) {
-            return ((java.sql.Timestamp) obj).toLocalDateTime().atOffset(java.time.ZoneOffset.UTC);
+            java.time.Instant instant = ((java.sql.Timestamp) obj).toInstant();
+            java.time.ZoneOffset off = ZoneId.systemDefault().getRules().getOffset(instant);
+            return instant.atOffset(off);
         }
 
         if (obj instanceof java.util.Date) {
-            return ((java.util.Date) obj).toInstant().atOffset(java.time.ZoneOffset.UTC);
+            java.time.Instant instant = ((java.util.Date) obj).toInstant();
+            java.time.ZoneOffset off = ZoneId.systemDefault().getRules().getOffset(instant);
+            return instant.atOffset(off);
         }
 
         if (obj instanceof Long) {
-            return java.time.Instant.ofEpochMilli((Long) obj).atOffset(java.time.ZoneOffset.UTC);
+            java.time.Instant instant = java.time.Instant.ofEpochMilli((Long) obj);
+            java.time.ZoneOffset off = ZoneId.systemDefault().getRules().getOffset(instant);
+            return instant.atOffset(off);
         }
 
         String str = obj.toString();
@@ -171,7 +189,7 @@ public class OracleJdbcRowConverter extends AbstractJdbcRowConverter {
                 // Oracle TIMESTAMPTZ accepts Connection + String constructor,Use a space-separated
                 // format with nanosecond precision (9 digits)
                 DateTimeFormatter formatter =
-                        DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.nnnnnnnnnxxx");
+                        DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSSSSSSSSxxx");
                 String literal = offsetDateTime.format(formatter);
                 Constructor<?> ctor =
                         tsTzClazz.getConstructor(java.sql.Connection.class, String.class);
@@ -186,8 +204,9 @@ public class OracleJdbcRowConverter extends AbstractJdbcRowConverter {
                 try {
                     statement.setObject(statementIndex, offsetDateTime);
                 } catch (SQLException e) {
-                    statement.setTimestamp(
-                            statementIndex, Timestamp.from(offsetDateTime.toInstant()));
+                    Timestamp ts = Timestamp.from(offsetDateTime.toInstant());
+                    ts.setNanos(offsetDateTime.getNano());
+                    statement.setTimestamp(statementIndex, ts);
                 }
             }
         } else {

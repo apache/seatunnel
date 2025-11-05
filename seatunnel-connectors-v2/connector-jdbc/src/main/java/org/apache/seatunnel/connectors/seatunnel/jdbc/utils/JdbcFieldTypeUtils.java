@@ -155,7 +155,7 @@ public final class JdbcFieldTypeUtils {
 
         // Handle java.sql.Timestamp
         if (obj instanceof Timestamp) {
-            return ((Timestamp) obj).toLocalDateTime().atOffset(ZoneOffset.UTC);
+            return ((Timestamp) obj).toInstant().atOffset(ZoneOffset.UTC);
         }
 
         // Handle java.util.Date
@@ -209,11 +209,9 @@ public final class JdbcFieldTypeUtils {
             // fall through
         }
 
-        // Try Oracle TIMESTAMP WITH TIME ZONE format with nanosecond precision
-        // Format: yyyy-MM-dd HH:mm:ss.nnnnnnnnnxxx (9 digits for nanoseconds)
         try {
             DateTimeFormatter oracleFormatter =
-                    DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.nnnnnnnnnxxx");
+                    DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSSSSSSSSxxx");
             return OffsetDateTime.parse(trimmed, oracleFormatter);
         } catch (DateTimeParseException ignore) {
             // fall through

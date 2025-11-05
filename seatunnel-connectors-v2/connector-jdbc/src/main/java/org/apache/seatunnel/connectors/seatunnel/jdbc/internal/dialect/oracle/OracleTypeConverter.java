@@ -383,12 +383,12 @@ public class OracleTypeConverter implements TypeConverter<BasicTypeDefine> {
                 builder.dataType(ORACLE_DATE);
                 break;
             case TIMESTAMP:
-                if (column.getScale() == null || column.getScale() <= 0) {
-                    builder.columnType(ORACLE_TIMESTAMP_WITH_LOCAL_TIME_ZONE);
-                } else {
-                    int timestampScale = column.getScale();
-                    if (column.getScale() > MAX_TIMESTAMP_SCALE) {
-                        timestampScale = MAX_TIMESTAMP_SCALE;
+                {
+                    int timestampScale =
+                            column.getScale() == null || column.getScale() <= 0
+                                    ? TIMESTAMP_DEFAULT_SCALE
+                                    : column.getScale();
+                    if (timestampScale > MAX_TIMESTAMP_SCALE) {
                         log.warn(
                                 "The timestamp column {} type timestamp({}) is out of range, "
                                         + "which exceeds the maximum scale of {}, "
@@ -396,22 +396,23 @@ public class OracleTypeConverter implements TypeConverter<BasicTypeDefine> {
                                 column.getName(),
                                 column.getScale(),
                                 MAX_TIMESTAMP_SCALE,
-                                timestampScale);
+                                MAX_TIMESTAMP_SCALE);
+                        timestampScale = MAX_TIMESTAMP_SCALE;
                     }
                     builder.columnType(
                             String.format("TIMESTAMP(%s) WITH LOCAL TIME ZONE", timestampScale));
                     builder.scale(timestampScale);
+                    builder.dataType(ORACLE_TIMESTAMP_WITH_LOCAL_TIME_ZONE);
                 }
-                builder.dataType(ORACLE_TIMESTAMP_WITH_LOCAL_TIME_ZONE);
                 break;
             case TIMESTAMP_TZ:
                 // Support TIMESTAMP_TZ for Oracle TIMESTAMP WITH TIME ZONE
-                if (column.getScale() == null || column.getScale() <= 0) {
-                    builder.columnType(ORACLE_TIMESTAMP_WITH_TIME_ZONE);
-                } else {
-                    int timestampScale = column.getScale();
-                    if (column.getScale() > MAX_TIMESTAMP_SCALE) {
-                        timestampScale = MAX_TIMESTAMP_SCALE;
+                {
+                    int timestampScale =
+                            column.getScale() == null || column.getScale() <= 0
+                                    ? TIMESTAMP_DEFAULT_SCALE
+                                    : column.getScale();
+                    if (timestampScale > MAX_TIMESTAMP_SCALE) {
                         log.warn(
                                 "The timestamp_tz column {} type timestamp_tz({}) is out of range, "
                                         + "which exceeds the maximum scale of {}, "
@@ -419,13 +420,14 @@ public class OracleTypeConverter implements TypeConverter<BasicTypeDefine> {
                                 column.getName(),
                                 column.getScale(),
                                 MAX_TIMESTAMP_SCALE,
-                                timestampScale);
+                                MAX_TIMESTAMP_SCALE);
+                        timestampScale = MAX_TIMESTAMP_SCALE;
                     }
                     builder.columnType(
                             String.format("TIMESTAMP(%s) WITH TIME ZONE", timestampScale));
                     builder.scale(timestampScale);
+                    builder.dataType(ORACLE_TIMESTAMP_WITH_TIME_ZONE);
                 }
-                builder.dataType(ORACLE_TIMESTAMP_WITH_TIME_ZONE);
                 break;
             default:
                 throw CommonError.convertToConnectorTypeError(
