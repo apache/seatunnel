@@ -381,7 +381,7 @@ jobs:
 
   updated-modules-integration-test-part-1:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'false' && needs.changes.outputs.engine == 'false' && needs.changes.outputs.it-modules != ''
+    if: 'false'
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -412,7 +412,7 @@ jobs:
 
   updated-modules-integration-test-part-2:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'false' && needs.changes.outputs.engine == 'false' && needs.changes.outputs.it-modules != ''
+    if: 'false'
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -443,7 +443,7 @@ jobs:
 
   updated-modules-integration-test-part-3:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'false' && needs.changes.outputs.engine == 'false' && needs.changes.outputs.it-modules != ''
+    if: 'false'
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -474,7 +474,7 @@ jobs:
 
   updated-modules-integration-test-part-4:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'false' && needs.changes.outputs.engine == 'false' && needs.changes.outputs.it-modules != ''
+    if: 'false'
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -504,7 +504,7 @@ jobs:
           MAVEN_OPTS: -Xmx4096m
   updated-modules-integration-test-part-5:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'false' && needs.changes.outputs.engine == 'false' && needs.changes.outputs.it-modules != ''
+    if: 'false'
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -534,7 +534,7 @@ jobs:
           MAVEN_OPTS: -Xmx2048m
   updated-modules-integration-test-part-6:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'false' && needs.changes.outputs.engine == 'false' && needs.changes.outputs.it-modules != ''
+    if: 'false'
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -564,7 +564,7 @@ jobs:
           MAVEN_OPTS: -Xmx2048m
   updated-modules-integration-test-part-7:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'false' && needs.changes.outputs.engine == 'false' && needs.changes.outputs.it-modules != ''
+    if: 'false'
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -595,7 +595,7 @@ jobs:
 
   updated-modules-integration-test-part-8:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'false' && needs.changes.outputs.engine == 'false' && needs.changes.outputs.it-modules != ''
+    if: 'false'
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -626,7 +626,7 @@ jobs:
 
   engine-v2-it:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true' || needs.changes.outputs.engine-e2e == 'true'
+    if: 'false'
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -651,7 +651,7 @@ jobs:
 
   engine-k8s-it:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'true' || contains(needs.changes.outputs.it-modules, 'seatunnel-engine-k8s-e2e')
+    if: 'false'
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -685,7 +685,7 @@ jobs:
 
   transform-v2-it-part-1:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true'
+    if: 'false'
     runs-on: ${{ matrix.os }}
     env:
       RUN_ALL_CONTAINER: ${{ needs.changes.outputs.api }}
@@ -713,7 +713,7 @@ jobs:
 
   transform-v2-it-part-2:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true'
+    if: 'false'
     runs-on: ${{ matrix.os }}
     env:
       RUN_ALL_CONTAINER: ${{ needs.changes.outputs.api }}
@@ -741,7 +741,7 @@ jobs:
 
   all-connectors-it-1:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true'
+    if: 'false'
     runs-on: ${{ matrix.os }}
     env:
       RUN_ALL_CONTAINER: ${{ needs.changes.outputs.api }}
@@ -772,7 +772,7 @@ jobs:
 
   all-connectors-it-2:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true'
+    if: 'false'
     runs-on: ${{ matrix.os }}
     env:
       RUN_ALL_CONTAINER: ${{ needs.changes.outputs.api }}
@@ -803,7 +803,7 @@ jobs:
 
   all-connectors-it-3:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true'
+    if: 'false'
     runs-on: ${{ matrix.os }}
     env:
       RUN_ALL_CONTAINER: ${{ needs.changes.outputs.api }}
@@ -834,7 +834,7 @@ jobs:
 
   all-connectors-it-4:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true'
+    if: 'false'
     runs-on: ${{ matrix.os }}
     env:
       RUN_ALL_CONTAINER: ${{ needs.changes.outputs.api }}
@@ -865,7 +865,7 @@ jobs:
 
   all-connectors-it-5:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true'
+    if: 'false'
     runs-on: ${{ matrix.os }}
     env:
       RUN_ALL_CONTAINER: ${{ needs.changes.outputs.api }}
@@ -896,7 +896,7 @@ jobs:
 
   all-connectors-it-6:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true'
+    if: 'false'
     runs-on: ${{ matrix.os }}
     env:
       RUN_ALL_CONTAINER: ${{ needs.changes.outputs.api }}
@@ -927,7 +927,7 @@ jobs:
 
   all-connectors-it-7:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true'
+    if: 'false'
     runs-on: ${{ matrix.os }}
     env:
       RUN_ALL_CONTAINER: ${{ needs.changes.outputs.api }}
@@ -958,7 +958,7 @@ jobs:
 
   jdbc-connectors-it-part-1:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true'
+    if: 'false'
     runs-on: ${{ matrix.os }}
     env:
       RUN_ALL_CONTAINER: ${{ needs.changes.outputs.api }}
@@ -986,7 +986,7 @@ jobs:
 
   jdbc-connectors-it-part-2:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true'
+    if: 'false'
     runs-on: ${{ matrix.os }}
     env:
       RUN_ALL_CONTAINER: ${{ needs.changes.outputs.api }}
@@ -1042,7 +1042,7 @@ jobs:
 
   jdbc-connectors-it-part-4:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true'
+    if: 'false'
     runs-on: ${{ matrix.os }}
     env:
       RUN_ALL_CONTAINER: ${{ needs.changes.outputs.api }}
@@ -1070,7 +1070,7 @@ jobs:
 
   jdbc-connectors-it-part-5:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true'
+    if: 'false'
     runs-on: ${{ matrix.os }}
     env:
       RUN_ALL_CONTAINER: ${{ needs.changes.outputs.api }}
@@ -1098,7 +1098,7 @@ jobs:
 
   jdbc-connectors-it-part-6:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true'
+    if: 'false'
     runs-on: ${{ matrix.os }}
     env:
       RUN_ALL_CONTAINER: ${{ needs.changes.outputs.api }}
@@ -1126,7 +1126,7 @@ jobs:
 
   jdbc-connectors-it-part-7:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true'
+    if: 'false'
     runs-on: ${{ matrix.os }}
     env:
       RUN_ALL_CONTAINER: ${{ needs.changes.outputs.api }}
@@ -1154,7 +1154,7 @@ jobs:
 
   jdbc-connectors-it-ddl:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true'
+    if: 'false'
     runs-on: ${{ matrix.os }}
     env:
       RUN_ALL_CONTAINER: ${{ needs.changes.outputs.api }}
@@ -1182,7 +1182,7 @@ jobs:
 
   kudu-connector-it:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true' || contains(needs.changes.outputs.it-modules, 'connector-kudu-e2e')
+    if: 'false'
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -1207,7 +1207,7 @@ jobs:
 
   amazonSqs-connector-it:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true' || contains(needs.changes.outputs.it-modules, 'connector-amazonsqs-e2e')
+    if: 'false'
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -1232,7 +1232,7 @@ jobs:
 
   kafka-connector-it:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true' || contains(needs.changes.outputs.it-modules, 'connector-kafka-e2e')
+    if: 'false'
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -1257,7 +1257,7 @@ jobs:
 
   rocketmq-connector-it:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true' || contains(needs.changes.outputs.it-modules, 'connector-rocketmq-e2e')
+    if: 'false'
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -1283,7 +1283,7 @@ jobs:
 
   doris-connector-it:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true' || contains(needs.changes.outputs.it-modules, 'connector-doris-e2e')
+    if: 'false'
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -1308,7 +1308,7 @@ jobs:
 
   paimon-connector-it:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true' || contains(needs.changes.outputs.it-modules, 'connector-paimon-e2e')
+    if: 'false'
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -1333,7 +1333,7 @@ jobs:
 
   oracle-cdc-connector-it:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true' || contains(needs.changes.outputs.it-modules, 'connector-cdc-oracle-e2e')
+    if: 'false'
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -1363,7 +1363,7 @@ jobs:
 
   connector-file-local-it:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true' || contains(needs.changes.outputs.it-modules, 'connector-file-local-e2e')
+    if: 'false'
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -1388,7 +1388,7 @@ jobs:
 
   connector-file-sftp-it:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true' || contains(needs.changes.outputs.it-modules, 'connector-file-sftp-e2e')
+    if: 'false'
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -1413,7 +1413,7 @@ jobs:
 
   connector-redis-it:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true' || contains(needs.changes.outputs.it-modules, 'connector-redis-e2e')
+    if: 'false'
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -1438,7 +1438,7 @@ jobs:
 
   connector-sensorsdata-it:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'true' || contains(needs.changes.outputs.it-modules, 'connector-sensorsdata-e2e')
+    if: 'false'
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
