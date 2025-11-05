@@ -26,7 +26,6 @@ import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
-import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 
 public final class JdbcFieldTypeUtils {
@@ -103,7 +102,7 @@ public final class JdbcFieldTypeUtils {
 
     public static OffsetDateTime getOffsetDateTime(ResultSet resultSet, int columnIndex)
             throws SQLException {
-        Object obj = resultSet.getObject(columnIndex);
+        final Object obj = resultSet.getObject(columnIndex);
         if (obj == null) {
             return null;
         }
@@ -185,33 +184,42 @@ public final class JdbcFieldTypeUtils {
             return null;
         }
 
-        String trimmed = str.trim();
+        String original = str.trim();
 
-        // Try standard ISO-8601 format first
         try {
-            return OffsetDateTime.parse(trimmed);
+            return OffsetDateTime.parse(original);
         } catch (DateTimeParseException ignore) {
             // fall through
         }
 
-        // Try with space separator instead of 'T'
+        String normalized = original;
+        if (normalized.endsWith(" UTC")) {
+            normalized = normalized.substring(0, normalized.length() - 4) + "Z";
+        }
+        normalized = normalized.replace(' ', 'T');
+        if (normalized.matches(".*[+-]\\d{2}$")) {
+            normalized = normalized + ":00";
+        } else if (normalized.matches(".*[+-]\\d{4}$")) {
+            normalized =
+                    normalized.substring(0, normalized.length() - 2)
+                            + ":"
+                            + normalized.substring(normalized.length() - 2);
+        }
+
         try {
-            String normalized = trimmed.replace('T', ' ');
-            return OffsetDateTime.parse(normalized, DateTimeFormatter.ISO_OFFSET_DATE_TIME);
+            return OffsetDateTime.parse(normalized);
         } catch (DateTimeParseException ignore) {
             // fall through
         }
 
-        // Try ZonedDateTime parsing
         try {
-            return ZonedDateTime.parse(trimmed).toOffsetDateTime();
+            return ZonedDateTime.parse(original).toOffsetDateTime();
         } catch (DateTimeParseException ignore) {
             // fall through
         }
 
-        // If all parsing attempts fail, throw exception
         throw new DateTimeParseException(
-                "Unable to parse OffsetDateTime from string: " + str, trimmed, 0);
+                "Unable to parse OffsetDateTime from string: " + str, original, 0);
     }
 
     private static <T> T getNullableValue(
@@ -219,8 +227,7 @@ public final class JdbcFieldTypeUtils {
             int columnIndex,
             ThrowingFunction<ResultSet, T, SQLException> getter)
             throws SQLException {
-        // Fix: Avoid reading ResultSet twice - store the value first
-        Object obj = resultSet.getObject(columnIndex);
+        final Object obj = resultSet.getObject(columnIndex);
         if (obj == null) {
             return null;
         }

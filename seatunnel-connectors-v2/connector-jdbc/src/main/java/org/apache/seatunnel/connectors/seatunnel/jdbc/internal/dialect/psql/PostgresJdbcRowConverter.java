@@ -365,13 +365,15 @@ public class PostgresJdbcRowConverter extends AbstractJdbcRowConverter {
 
     private OffsetDateTime getPostgresOffsetDateTime(ResultSet rs, int columnIndex)
             throws SQLException {
-        Object obj = null;
+        // Read the value ONCE to avoid drivers returning null on subsequent reads
+        final Object obj;
         try {
             obj = rs.getObject(columnIndex);
         } catch (SQLException e) {
             log.debug("Failed to get object from ResultSet at column {}", columnIndex, e);
+            // Best-effort fallback to string, still only a single read path for parsing
             try {
-                String str = rs.getString(columnIndex);
+                final String str = rs.getString(columnIndex);
                 if (str != null && !str.trim().isEmpty()) {
                     return parsePostgresTimestampTz(str);
                 }
@@ -385,9 +387,25 @@ public class PostgresJdbcRowConverter extends AbstractJdbcRowConverter {
             return null;
         }
 
-        if (obj.getClass().getName().startsWith("org.postgresql.")) {
+        // Direct types
+        if (obj instanceof OffsetDateTime) {
+            return (OffsetDateTime) obj;
+        }
+        if (obj instanceof Timestamp) {
+            return ((Timestamp) obj).toInstant().atOffset(ZoneOffset.UTC);
+        }
+        if (obj instanceof java.time.ZonedDateTime) {
+            return ((java.time.ZonedDateTime) obj).toOffsetDateTime();
+        }
+        if (obj instanceof java.util.Date) {
+            return ((java.util.Date) obj).toInstant().atOffset(ZoneOffset.UTC);
+        }
+
+        // PostgreSQL specific objects (e.g., PGobject) or any org.postgresql.* class
+        final String className = obj.getClass().getName();
+        if (className.startsWith("org.postgresql.")) {
             try {
-                String str = obj.toString();
+                final String str = obj.toString();
                 if (str != null && !str.isEmpty()) {
                     return parsePostgresTimestampTz(str);
                 }
@@ -398,7 +416,25 @@ public class PostgresJdbcRowConverter extends AbstractJdbcRowConverter {
             }
         }
 
-        return JdbcFieldTypeUtils.getOffsetDateTime(rs, columnIndex);
+        // String-like values
+        if (obj instanceof CharSequence) {
+            final String str = obj.toString();
+            if (!str.trim().isEmpty()) {
+                return parsePostgresTimestampTz(str);
+            }
+            return null;
+        }
+
+        // Last resort: attempt to parse from toString() representation
+        try {
+            final String str = String.valueOf(obj);
+            if (str != null && !str.trim().isEmpty()) {
+                return parsePostgresTimestampTz(str);
+            }
+        } catch (Exception ignore) {
+            // ignore
+        }
+        return null;
     }
 
     private OffsetDateTime parsePostgresTimestampTz(String str) {
