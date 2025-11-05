@@ -20,6 +20,8 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.mysql;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import lombok.extern.slf4j.Slf4j;
+
 import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -27,6 +29,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.zip.CRC32;
 
+@Slf4j
 public class MysqlDialectTest {
 
     @Test
@@ -55,22 +58,22 @@ public class MysqlDialectTest {
             crc32Distribution.put(partition, crc32Distribution.get(partition) + 1);
         }
 
-        System.out.println("MD5 Distribution (OLD - Has Issue):");
+        log.info("MD5 Distribution (OLD - Has Issue):");
         for (int i = 0; i < partitions; i++) {
             int count = md5Distribution.get(i);
             double percentage = (count * 100.0) / totalRecords;
-            System.out.printf(
-                    "  Partition %d: %,7d records (%.2f%%)%s\n",
+            log.info(
+                    "  Partition {}: {:,} records ({:.2f}%){}",
                     i, count, percentage, (percentage > 20 ? " SKEWED!" : ""));
         }
 
-        System.out.println("\nCRC32 Distribution (NEW - Fixed):");
+        log.info("CRC32 Distribution (NEW - Fixed):");
         for (int i = 0; i < partitions; i++) {
             int count = crc32Distribution.get(i);
             double percentage = (count * 100.0) / totalRecords;
-            System.out.printf(
-                    "  Partition %d: %,7d records (%.2f%%)%s\n",
-                    i, count, percentage, (percentage > 20 ? " SKEWED!" : " ✓"));
+            log.info(
+                    "  Partition {}: {:,} records ({:.2f}%){}",
+                    i, count, percentage, (percentage > 20 ? " SKEWED!" : ""));
         }
 
         // Verify that MD5 is severely skewed
