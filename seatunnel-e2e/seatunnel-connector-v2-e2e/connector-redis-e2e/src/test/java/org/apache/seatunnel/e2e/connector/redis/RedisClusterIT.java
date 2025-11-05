@@ -346,10 +346,7 @@ public class RedisClusterIT extends TestSuiteBase implements TestResource {
             Assertions.assertEquals(0, execResult.getExitCode());
 
             List<String> items = jedisCluster.lrange("cluster-list-value-check", 0, -1);
-            Set<String> unique = new HashSet<>();
-            if (items != null) {
-                unique.addAll(items);
-            }
+            Set<String> unique = new HashSet<>(items);
 
             Assertions.assertEquals(100, unique.size());
         } finally {
