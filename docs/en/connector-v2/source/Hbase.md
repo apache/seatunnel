@@ -19,16 +19,19 @@ Reads data from Apache Hbase.
 
 ## Options
 
-|        Name        |  Type   | Required | Default |
-|--------------------|---------|----------|---------|
-| zookeeper_quorum   | string  | Yes      | -       |
-| table              | string  | Yes      | -       |
-| schema             | config  | Yes      | -       |
-| hbase_extra_config | string  | No       | -       |
-| caching            | int     | No       | -1      |
-| batch              | int     | No       | -1      |
-| cache_blocks       | boolean | No       | false   |
-| common-options     |         | No       | -       |
+| Name                 | Type      | Required  | Default |
+|----------------------|-----------|-----------|---------|
+| zookeeper_quorum     | string    | Yes       | -       |
+| table                | string    | Yes       | -       |
+| schema               | config    | Yes       | -       |
+| hbase_extra_config   | string    | No        | -       |
+| caching              | int       | No        | -1      |
+| batch                | int       | No        | -1      |
+| cache_blocks         | boolean   | No        | false   |
+| is_binary_rowkey     | boolean   | No        | false   |
+| start_rowkey         | string    | No        | -       |
+| end_rowkey           | string    | No        | -       |
+| common-options       |           | No        | -       |
 
 ### zookeeper_quorum [string]
 
@@ -58,6 +61,18 @@ The batch parameter sets the maximum number of columns returned per scan. This i
 
 The cache_blocks parameter determines whether to cache data blocks during scans. By default, HBase caches data blocks during scans. Setting this to false reduces memory usage during scans. Default in SeaTunnel: false.
 
+### is_binary_rowkey
+
+The row key in HBase can be either a text string or binary data. In SeaTunnel, the row key is set to a text string by default (i.e., the default value of is_binary_rowkey is false).
+
+### start_rowkey
+
+The start row of the scan
+
+### end_rowkey
+
+The stop row of the scan
+
 ### common-options
 
 Common parameters for Source plugins, refer to [Common Source Options](../source-common-options.md).
@@ -72,6 +87,9 @@ source {
     caching = 1000 
     batch = 100 
     cache_blocks = false 
+    is_binary_rowkey = false
+    start_rowkey = "B"
+    end_rowkey = "C"
     schema = {
       columns = [
         { 
