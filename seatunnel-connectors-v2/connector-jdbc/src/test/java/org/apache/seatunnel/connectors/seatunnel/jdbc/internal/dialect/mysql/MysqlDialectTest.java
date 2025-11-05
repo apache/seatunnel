@@ -63,8 +63,9 @@ public class MysqlDialectTest {
             int count = md5Distribution.get(i);
             double percentage = (count * 100.0) / totalRecords;
             log.info(
-                    "  Partition {}: {:,} records ({:.2f}%){}",
-                    i, count, percentage, (percentage > 20 ? " SKEWED!" : ""));
+                    String.format(
+                            "  Partition %d: %,7d records (%.2f%%)%s",
+                            i, count, percentage, (percentage > 20 ? " SKEWED!" : "")));
         }
 
         log.info("CRC32 Distribution (NEW - Fixed):");
@@ -72,8 +73,9 @@ public class MysqlDialectTest {
             int count = crc32Distribution.get(i);
             double percentage = (count * 100.0) / totalRecords;
             log.info(
-                    "  Partition {}: {:,} records ({:.2f}%){}",
-                    i, count, percentage, (percentage > 20 ? " SKEWED!" : ""));
+                    String.format(
+                            "  Partition %d: %,7d records (%.2f%%)%s",
+                            i, count, percentage, (percentage > 20 ? " SKEWED!" : "")));
         }
 
         // Verify that MD5 is severely skewed
