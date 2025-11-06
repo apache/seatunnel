@@ -28,8 +28,6 @@ import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
 import org.apache.seatunnel.engine.server.TestUtils;
 
-import org.apache.http.HttpHeaders;
-
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
@@ -60,6 +58,8 @@ class RestApiHttpBasicTest extends AbstractSeaTunnelServerTest {
     private static final String USER = "admin";
     private static final String PASS = "admin";
     private static final String DOMAIN = "http://localhost:" + HTTP_PORT;
+
+    private static final String AUTHORIZATION_HEADER = "Authorization";
     private static final String BASIC_PREFIX = "Basic ";
 
     @BeforeAll
@@ -147,7 +147,7 @@ class RestApiHttpBasicTest extends AbstractSeaTunnelServerTest {
         Encoder encoder = Base64.getEncoder();
         String auth = USER + ":" + PASS;
         String token = encoder.encodeToString(auth.getBytes(StandardCharsets.UTF_8));
-        connection.setRequestProperty(HttpHeaders.AUTHORIZATION, BASIC_PREFIX + token);
+        connection.setRequestProperty(AUTHORIZATION_HEADER, BASIC_PREFIX + token);
     }
 
     public void testLogRestApiResponse(String format) throws IOException {

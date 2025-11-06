@@ -20,8 +20,6 @@ package org.apache.seatunnel.engine.server.rest.service;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.engine.common.utils.LogUtil;
 
-import org.apache.http.HttpHeaders;
-
 import com.hazelcast.internal.util.StringUtil;
 import com.hazelcast.spi.impl.NodeEngineImpl;
 import lombok.extern.slf4j.Slf4j;
@@ -41,7 +39,8 @@ public class BaseLogService extends BaseService {
         super(nodeEngine);
     }
 
-    private static final String BASIC = "Basic ";
+    private static final String AUTHORIZATION_HEADER = "Authorization";
+    private static final String BASIC_PREFIX = "Basic ";
 
     /** Get configuration log path */
     public String getLogPath() {
@@ -100,7 +99,7 @@ public class BaseLogService extends BaseService {
                 String auth = user + ":" + pass;
                 String token = encoder.encodeToString(auth.getBytes(StandardCharsets.UTF_8));
 
-                connection.setRequestProperty(HttpHeaders.AUTHORIZATION, BASIC + token);
+                connection.setRequestProperty(AUTHORIZATION_HEADER, BASIC_PREFIX + token);
             }
 
             connection.connect();
