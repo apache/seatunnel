@@ -108,17 +108,6 @@ public class LogService extends BaseLogService {
         return allLogNameList;
     }
 
-    private void getHttpBasicAuth(HttpConfig httpConfig) {
-        try {
-            if (httpConfig.isEnableBasicAuth()) {
-                httpConfig.setBasicAuthUsername(httpConfig.getBasicAuthUsername());
-                httpConfig.setBasicAuthPassword(httpConfig.getBasicAuthPassword());
-            }
-        } catch (Throwable ignore) {
-            log.warn("Use system property or environment variable to set basic auth.");
-        }
-    }
-
     public JsonArray allNodeLogFormatJson(String jobId) {
 
         return allLogNameList(jobId).stream()
