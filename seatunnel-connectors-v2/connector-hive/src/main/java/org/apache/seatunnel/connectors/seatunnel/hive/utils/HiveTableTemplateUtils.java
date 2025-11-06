@@ -121,7 +121,7 @@ public class HiveTableTemplateUtils {
 
     /** Get default table location */
     public static String getDefaultTableLocation(String database, String table) {
-        return String.format("file:/tmp/hive/warehouse/%s.db/%s", database, table);
+        return String.format("/user/hive/warehouse/%s.db/%s", database, table);
     }
 
     /**
