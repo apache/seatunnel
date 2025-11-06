@@ -342,7 +342,14 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
                                 + " job run failed in "
                                 + container.getClass().getSimpleName()
                                 + ".");
-                Assertions.assertIterableEquals(querySql(SOURCE_SQL), querySql(SINK_SQL));
+                java.util.List<java.util.List<Object>> src = querySql(SOURCE_SQL);
+                java.util.List<java.util.List<Object>> dst = querySql(SINK_SQL);
+                if (!src.isEmpty() && !dst.isEmpty()) {
+                    Object srcTz = src.get(0).size() > 19 ? src.get(0).get(19) : null;
+                    Object dstTz = dst.get(0).size() > 19 ? dst.get(0).get(19) : null;
+                    log.info("First row tz src={}, dst={}", srcTz, dstTz);
+                }
+                Assertions.assertIterableEquals(src, dst);
             } finally {
                 executeSQL("truncate table pg_e2e_sink_table");
             }
