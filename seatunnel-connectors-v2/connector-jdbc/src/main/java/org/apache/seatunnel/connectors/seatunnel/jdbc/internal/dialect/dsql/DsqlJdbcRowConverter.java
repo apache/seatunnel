@@ -15,22 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.resourcemanager.resource;
+package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.dsql;
 
-import lombok.Data;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.psql.PostgresJdbcRowConverter;
 
-import java.io.Serializable;
+public class DsqlJdbcRowConverter extends PostgresJdbcRowConverter {
 
-@Data
-public class OverviewInfo implements Serializable {
-    private String projectVersion;
-    private String gitCommitAbbrev;
-    private int totalSlot;
-    private int unassignedSlot;
-    private long runningJobs;
-    private long finishedJobs;
-    private long failedJobs;
-    private long pendingJobs;
-    private long cancelledJobs;
-    private int workers;
+    @Override
+    public String converterName() {
+        return DatabaseIdentifier.DSQL;
+    }
 }

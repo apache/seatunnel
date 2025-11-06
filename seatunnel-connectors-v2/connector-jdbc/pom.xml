@@ -58,6 +58,7 @@
         <highgo.version>6.2.3</highgo.version>
         <presto.version>0.279</presto.version>
         <trino.version>460</trino.version>
+        <aws.sdk.version>2.31.30</aws.sdk.version>
     </properties>
 
     <dependencyManagement>
@@ -374,6 +375,29 @@
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-jdbc</artifactId>
+        </dependency>
+        <!-- AWS SDK for DSQL -->
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>dsql</artifactId>
+            <version>${aws.sdk.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>auth</artifactId>
+            <version>${aws.sdk.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>regions</artifactId>
+            <version>${aws.sdk.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>sts</artifactId>
+            <version>${aws.sdk.version}</version>
         </dependency>
     </dependencies>
 
