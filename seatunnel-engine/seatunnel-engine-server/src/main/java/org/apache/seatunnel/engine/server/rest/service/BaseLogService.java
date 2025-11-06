@@ -20,6 +20,8 @@ package org.apache.seatunnel.engine.server.rest.service;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.engine.common.utils.LogUtil;
 
+import org.apache.http.HttpHeaders;
+
 import com.hazelcast.internal.util.StringUtil;
 import com.hazelcast.spi.impl.NodeEngineImpl;
 import lombok.extern.slf4j.Slf4j;
@@ -30,12 +32,16 @@ import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import java.util.Base64;
+import java.util.Base64.Encoder;
 
 @Slf4j
 public class BaseLogService extends BaseService {
     public BaseLogService(NodeEngineImpl nodeEngine) {
         super(nodeEngine);
     }
+
+    private static final String BASIC = "Basic ";
 
     /** Get configuration log path */
     public String getLogPath() {
@@ -89,12 +95,12 @@ public class BaseLogService extends BaseService {
 
             // Basic Auth
             if (user != null && pass != null) {
-                String token =
-                        java.util.Base64.getEncoder()
-                                .encodeToString(
-                                        (user + ":" + pass)
-                                                .getBytes(java.nio.charset.StandardCharsets.UTF_8));
-                connection.setRequestProperty("Authorization", "Basic " + token);
+
+                Encoder encoder = Base64.getEncoder();
+                String auth = user + ":" + pass;
+                String token = encoder.encodeToString(auth.getBytes(StandardCharsets.UTF_8));
+
+                connection.setRequestProperty(HttpHeaders.AUTHORIZATION, BASIC + token);
             }
 
             connection.connect();
