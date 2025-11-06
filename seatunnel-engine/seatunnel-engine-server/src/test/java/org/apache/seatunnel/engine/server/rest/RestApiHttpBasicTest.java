@@ -176,7 +176,7 @@ class RestApiHttpBasicTest extends AbstractSeaTunnelServerTest {
                 //  "logName" : "job-${ctx:ST-JID}.log"
                 // } ]
                 String response = in.lines().collect(Collectors.joining());
-                Assertions.assertNotNull(response);
+                Assertions.assertFalse(StringUtils.isBlank(response));
             }
 
         } finally {
