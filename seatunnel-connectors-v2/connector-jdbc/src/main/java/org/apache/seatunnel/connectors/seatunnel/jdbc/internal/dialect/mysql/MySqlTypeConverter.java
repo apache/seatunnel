@@ -537,6 +537,30 @@ public class MySqlTypeConverter implements TypeConverter<BasicTypeDefine<MysqlTy
                     builder.columnType(MYSQL_DATETIME);
                 }
                 break;
+            case TIMESTAMP_TZ:
+                builder.nativeType(MysqlType.DATETIME);
+                builder.dataType(MYSQL_DATETIME);
+                if (version.isAtOrBefore(MySqlVersion.V_5_5)) {
+                    builder.columnType(MYSQL_DATETIME);
+                } else if (column.getScale() != null && column.getScale() > 0) {
+                    int timestampTzScale = column.getScale();
+                    if (timestampTzScale > MAX_TIMESTAMP_SCALE) {
+                        timestampTzScale = MAX_TIMESTAMP_SCALE;
+                        log.warn(
+                                "The timestamp_tz column {} type timestamp_tz({}) is out of range, "
+                                        + "which exceeds the maximum scale of {}, "
+                                        + "it will be converted to timestamp({})",
+                                column.getName(),
+                                column.getScale(),
+                                MAX_TIMESTAMP_SCALE,
+                                timestampTzScale);
+                    }
+                    builder.columnType(String.format("%s(%s)", MYSQL_DATETIME, timestampTzScale));
+                    builder.scale(timestampTzScale);
+                } else {
+                    builder.columnType(MYSQL_DATETIME);
+                }
+                break;
             default:
                 throw CommonError.convertToConnectorTypeError(
                         DatabaseIdentifier.MYSQL,
