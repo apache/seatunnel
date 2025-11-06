@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.sink.MultiTableResourceManager;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
 import org.apache.seatunnel.api.sink.SupportSchemaEvolutionSinkWriter;
+import org.apache.seatunnel.api.table.schema.event.FlushEvent;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.tracing.MDCTracer;
@@ -176,7 +177,35 @@ public class MultiTableSinkWriter
     }
 
     @Override
+    public void handleFlushEvent(FlushEvent event) throws IOException {
+        subSinkErrorCheck();
+        String targetTableId = event.tableIdentifier().toTablePath().getFullName();
+        for (int i = 0; i < sinkWritersWithIndex.size(); i++) {
+            for (Map.Entry<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> sinkWriterEntry :
+                    sinkWritersWithIndex.get(i).entrySet()) {
+                if (sinkWriterEntry.getKey().getTableIdentifier().equals(targetTableId)) {
+                    synchronized (runnable.get(i)) {
+                        SinkWriter<SeaTunnelRow, ?, ?> sink = sinkWriterEntry.getValue();
+                        if (sink instanceof SupportSchemaEvolutionSinkWriter) {
+                            ((SupportSchemaEvolutionSinkWriter) sink).handleFlushEvent(event);
+                        }
+                    }
+                    return;
+                }
+            }
+        }
+    }
+
+    @Override
     public void write(SeaTunnelRow element) throws IOException {
+        if (element != null && element.getOptions() != null) {
+            if (element.getOptions().containsKey("flush_event")
+                    || element.getOptions().containsKey("schema_change_event")) {
+                log.debug("Skipping schema change event row: {}", element.getOptions().keySet());
+                return;
+            }
+        }
+
         if (!submitted) {
             submitted = true;
             runnable.forEach(executorService::submit);
