@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.mongodb.sink;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.options.SinkConnectorCommonOptions;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.connector.TableSink;
@@ -49,7 +50,8 @@ public class MongodbSinkFactory implements TableSinkFactory {
                         MongodbConfig.RETRY_INTERVAL,
                         MongodbConfig.UPSERT_ENABLE,
                         MongodbConfig.PRIMARY_KEY,
-                        MongodbConfig.DATA_SAVE_MODE)
+                        MongodbConfig.DATA_SAVE_MODE,
+                        SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA)
                 .build();
     }
 
