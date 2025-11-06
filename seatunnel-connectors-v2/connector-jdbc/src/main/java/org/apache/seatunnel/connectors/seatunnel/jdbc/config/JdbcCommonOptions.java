@@ -129,6 +129,20 @@ public class JdbcCommonOptions {
                     .mapType()
                     .noDefaultValue()
                     .withDescription("additional connection configuration parameters");
+    public static final Option<String> ACCESS_KEY_ID =
+            Options.key("access_key_id")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("access_key_id");
+
+    public static final Option<String> SECRET_ACCESS_KEY =
+            Options.key("secret_access_key")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("secret_access_key");
+
+    public static final Option<String> REGION =
+            Options.key("region").stringType().noDefaultValue().withDescription("region");
 
     public static final OptionRule.Builder BASE_CATALOG_RULE =
             OptionRule.builder()

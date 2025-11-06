@@ -319,6 +319,11 @@ public class DatabendCDCSinkIT extends TestSuiteBase implements TestResource {
             }
         }
 
+        if (minioContainer != null) {
+            minioContainer.stop();
+            LOG.info("Minio container stopped");
+        }
+
         // Add a longer sleep to ensure all heartbeat threads are properly terminated
         Thread.sleep(10000);
 

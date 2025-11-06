@@ -97,7 +97,7 @@ public class HiveJdbcConnectionProvider extends SimpleJdbcConnectionProvider {
                     .ifPresent(username -> info.setProperty("user", username));
             jdbcConnectionConfig
                     .getPassword()
-                    .ifPresent(username -> info.setProperty("password", username));
+                    .ifPresent(password -> info.setProperty("password", password));
             return driver.connect(jdbcConnectionConfig.getUrl(), info);
         }
     }
