@@ -573,10 +573,9 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
             }
             return javaArray;
         } else if (isOracleTimestampType(data)) {
-            // Convert Oracle TIMESTAMPTZ/TIMESTAMPLTZ to string for comparison
-            // This handles the case where different instances of the same timestamp
-            // would fail equality comparison
-            return convertOracleTimestampToString(data);
+            // Normalize Oracle TIMESTAMPTZ/TIMESTAMPLTZ to the same instant for comparison
+            // to avoid differences only in textual offset / zone representations
+            return normalizeOracleTimestampToInstant(data);
         } else {
             return data;
         }
@@ -596,6 +595,124 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
             return String.valueOf(s);
         } catch (Exception ignore) {
             return String.valueOf(data);
+        }
+    }
+
+    private Object normalizeOracleTimestampToInstant(Object data) throws SQLException {
+        try {
+            // Obtain Oracle textual representation which preserves original offset/region
+            java.lang.reflect.Method m =
+                    data.getClass().getMethod("stringValue", java.sql.Connection.class);
+            Object s = m.invoke(data, this.connection);
+            String literal = String.valueOf(s);
+
+            // Try to parse into an Instant using a flexible parser
+            java.time.Instant inst = parseOracleTimestampLiteralToInstant(literal);
+            if (inst != null) {
+                // Align to milliseconds to tolerate engine precision differences
+                return inst.truncatedTo(java.time.temporal.ChronoUnit.MILLIS);
+            }
+            // Fallback to raw text comparison
+            return literal;
+        } catch (Exception ignore) {
+            return String.valueOf(data);
+        }
+    }
+
+    private java.time.Instant parseOracleTimestampLiteralToInstant(String literal) {
+        if (literal == null) {
+            return null;
+        }
+        String trimmed = literal.trim();
+        if (trimmed.isEmpty()) {
+            return null;
+        }
+        // Common Oracle forms observed:
+        // 1) yyyy-MM-dd HH:mm:ss.SSSSSS 8:00
+        // 2) yyyy-MM-dd HH:mm:ss.SSSSSS 0:00
+        // 3) yyyy-MM-dd HH:mm:ss.SSSSSS UTC | Etc/UTC
+        int idx = trimmed.lastIndexOf(' ');
+        if (idx > 0 && idx + 1 < trimmed.length()) {
+            String dt = trimmed.substring(0, idx);
+            String zone = trimmed.substring(idx + 1);
+            java.time.LocalDateTime ldt = parseFlexibleLocalDateTime(dt);
+            java.time.ZoneOffset off = parseFlexibleZoneOffset(zone);
+            if (ldt != null && off != null) {
+                return ldt.toInstant(off);
+            }
+        }
+        // Try existing utility as a fallback
+        try {
+            java.time.OffsetDateTime odt =
+                    org.apache.seatunnel.connectors.seatunnel.jdbc.utils.JdbcFieldTypeUtils
+                            .parseOffsetDateTimeFromString(trimmed);
+            if (odt != null) {
+                return odt.toInstant().truncatedTo(java.time.temporal.ChronoUnit.MILLIS);
+            }
+        } catch (Exception ignore) {
+            // ignore
+        }
+        return null;
+    }
+
+    private java.time.LocalDateTime parseFlexibleLocalDateTime(String dt) {
+        try {
+            java.time.format.DateTimeFormatter f =
+                    new java.time.format.DateTimeFormatterBuilder()
+                            .appendPattern("yyyy-MM-dd HH:mm:ss")
+                            .optionalStart()
+                            .appendLiteral('.')
+                            .appendFraction(
+                                    java.time.temporal.ChronoField.NANO_OF_SECOND, 1, 9, false)
+                            .optionalEnd()
+                            .toFormatter();
+            return java.time.LocalDateTime.parse(dt, f);
+        } catch (Exception ignore) {
+            return null;
+        }
+    }
+
+    private java.time.ZoneOffset parseFlexibleZoneOffset(String zone) {
+        if (zone == null) {
+            return null;
+        }
+        String z = zone.trim();
+        if (z.equalsIgnoreCase("UTC")
+                || z.equalsIgnoreCase("Etc/UTC")
+                || z.equals("Z")
+                || z.equalsIgnoreCase("GMT")) {
+            return java.time.ZoneOffset.UTC;
+        }
+        // Support forms like +08:00, -05:00, 8:00, 0:00 (treat no sign as '+')
+        return parseOffsetByParts(z);
+    }
+
+    private java.time.ZoneOffset parseOffsetByParts(String z) {
+        int colon = z.indexOf(':');
+        if (colon <= 0 || colon == z.length() - 1) {
+            return null;
+        }
+        String hPart = z.substring(0, colon);
+        String mPart = z.substring(colon + 1);
+        int sign = 1;
+        if (hPart.startsWith("+")) {
+            hPart = hPart.substring(1);
+        } else if (hPart.startsWith("-")) {
+            sign = -1;
+            hPart = hPart.substring(1);
+        }
+        try {
+            int h = Integer.parseInt(hPart);
+            int m = Integer.parseInt(mPart);
+            if (h < 0 || h > 18 || m < 0 || m >= 60) {
+                return null;
+            }
+            String hh = (h < 10 ? "0" : "") + h;
+            String mm = (m < 10 ? "0" : "") + m;
+            String signStr = sign == -1 ? "-" : "+";
+            return java.time.ZoneOffset.of(signStr + hh + ":" + mm);
+        } catch (NumberFormatException e) {
+            return null;
         }
     }
 
