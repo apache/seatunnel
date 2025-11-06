@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
+import org.apache.seatunnel.api.table.type.CommonOptions;
 import org.apache.seatunnel.api.table.type.MetadataUtil;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.common.source.reader.RecordEmitter;
@@ -98,11 +99,16 @@ public class KafkaRecordEmitter
 
         @Override
         public void collect(T record) {
-            // Attach Kafka record timestamp into metadata if applicable
+            // Attach Kafka record timestamp into metadata only if the row doesn't already carry
+            // an EventTime (e.g., CDC formats provide their own 'ts').
             if (record instanceof SeaTunnelRow
                     && currentRecordTimestamp != null
                     && currentRecordTimestamp >= 0) {
-                MetadataUtil.setEventTime((SeaTunnelRow) record, currentRecordTimestamp);
+                SeaTunnelRow row = (SeaTunnelRow) record;
+                Object existing = row.getOptions().get(CommonOptions.EVENT_TIME.getName());
+                if (null == existing) {
+                    MetadataUtil.setEventTime(row, currentRecordTimestamp);
+                }
             }
             output.collect(record);
         }

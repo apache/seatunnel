@@ -43,7 +43,7 @@ import java.util.Map;
 class KafkaRecordEmitterTest {
 
     @Test
-    void emitRecord_shouldAttachKafkaTimestampAsEventTime() throws Exception {
+    void emitRecordShouldAttachKafkaTimestampAsEventTime() throws Exception {
         long kafkaTimestamp = 1690000000000L;
 
         // Prepare a simple deserialization schema that creates a single-field row from bytes
@@ -88,7 +88,7 @@ class KafkaRecordEmitterTest {
     }
 
     @Test
-    void emitRecord_shouldNotAttachEventTimeWhenTimestampNegative() throws Exception {
+    void emitRecordShouldNotAttachEventTimeWhenTimestampNegative() throws Exception {
         long kafkaTimestamp = -1L; // invalid timestamp
 
         SeaTunnelRowType rowType =
