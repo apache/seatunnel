@@ -79,13 +79,29 @@ public class OracleJdbcRowConverter extends AbstractJdbcRowConverter {
         // oracle.sql.TIMESTAMPLTZ - TIMESTAMP WITH LOCAL TIME ZONE
         if ("oracle.sql.TIMESTAMPTZ".equals(className)) {
             try {
-                // Prefer toOffsetDateTime() if available
+                // Prefer stringValue(Connection) to preserve original offset/zone textual form
+                try {
+                    java.lang.reflect.Method stringValue =
+                            obj.getClass().getMethod("stringValue", java.sql.Connection.class);
+                    String literal =
+                            String.valueOf(
+                                    stringValue.invoke(obj, rs.getStatement().getConnection()));
+                    OffsetDateTime parsed =
+                            JdbcFieldTypeUtils.parseOffsetDateTimeFromString(literal);
+                    if (parsed != null) {
+                        return parsed;
+                    }
+                } catch (NoSuchMethodException ignore) {
+                    // fall through
+                }
+
+                // Fallbacks: toOffsetDateTime() first
                 try {
                     java.lang.reflect.Method toOffsetDateTimeMethod =
                             obj.getClass().getMethod("toOffsetDateTime");
                     return (OffsetDateTime) toOffsetDateTimeMethod.invoke(obj);
                 } catch (NoSuchMethodException ignore) {
-                    // Fall back to offsetDateTimeValue(Connection)
+                    // Then offsetDateTimeValue(Connection)
                     java.lang.reflect.Method offsetDateTimeValueMethod =
                             obj.getClass()
                                     .getMethod("offsetDateTimeValue", java.sql.Connection.class);
@@ -99,8 +115,23 @@ public class OracleJdbcRowConverter extends AbstractJdbcRowConverter {
             }
         } else if ("oracle.sql.TIMESTAMPLTZ".equals(className)) {
             try {
-                // For TIMESTAMPLTZ, use offsetDateTimeValue(Connection) to get the offset datetime
-                // Note: TIMESTAMPLTZ doesn't have toOffsetDateTime() method
+                // Prefer stringValue(Connection) to preserve original zone/offset
+                try {
+                    java.lang.reflect.Method stringValue =
+                            obj.getClass().getMethod("stringValue", java.sql.Connection.class);
+                    String literal =
+                            String.valueOf(
+                                    stringValue.invoke(obj, rs.getStatement().getConnection()));
+                    OffsetDateTime parsed =
+                            JdbcFieldTypeUtils.parseOffsetDateTimeFromString(literal);
+                    if (parsed != null) {
+                        return parsed;
+                    }
+                } catch (NoSuchMethodException ignore) {
+                    // fall through
+                }
+
+                // Fall back to offsetDateTimeValue(Connection)
                 java.lang.reflect.Method offsetDateTimeValueMethod =
                         obj.getClass().getMethod("offsetDateTimeValue", java.sql.Connection.class);
                 return (OffsetDateTime)
@@ -208,6 +239,47 @@ public class OracleJdbcRowConverter extends AbstractJdbcRowConverter {
                     ts.setNanos(offsetDateTime.getNano());
                     statement.setTimestamp(statementIndex, ts);
                 }
+            }
+        } else if (seaTunnelDataType.getSqlType().equals(SqlType.TIMESTAMP)
+                && org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.oracle
+                        .OracleTypeConverter.ORACLE_TIMESTAMP_WITH_LOCAL_TIME_ZONE
+                        .equals(sourceType)) {
+            // Write LTZ with Oracle TIMESTAMPLTZ to preserve nanos
+            boolean written = false;
+            try {
+                Class<?> tsLtzClazz =
+                        Class.forName(
+                                "oracle.sql.TIMESTAMPLTZ",
+                                false,
+                                statement.getConnection().getClass().getClassLoader());
+
+                String literal;
+                if (value instanceof java.sql.Timestamp) {
+                    java.sql.Timestamp ts = (java.sql.Timestamp) value;
+                    java.time.LocalDateTime ldt = ts.toLocalDateTime();
+                    DateTimeFormatter base = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+                    literal = ldt.format(base) + String.format(".%09d", ldt.getNano());
+                } else if (value instanceof java.time.LocalDateTime) {
+                    java.time.LocalDateTime ldt = (java.time.LocalDateTime) value;
+                    DateTimeFormatter base = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+                    literal = ldt.format(base) + String.format(".%09d", ldt.getNano());
+                } else {
+                    // Fallback to toString(); let driver try best-effort
+                    literal = String.valueOf(value);
+                }
+
+                Constructor<?> ctor =
+                        tsLtzClazz.getConstructor(java.sql.Connection.class, String.class);
+                Object tsLtz = ctor.newInstance(statement.getConnection(), literal);
+                statement.setObject(statementIndex, tsLtz);
+                written = true;
+            } catch (Throwable ignore) {
+                // fallback
+            }
+
+            if (!written) {
+                super.setValueToStatementByDataType(
+                        value, statement, seaTunnelDataType, statementIndex, sourceType);
             }
         } else {
             super.setValueToStatementByDataType(

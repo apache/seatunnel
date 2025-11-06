@@ -217,6 +217,60 @@ public final class JdbcFieldTypeUtils {
             // fall through
         }
 
+        // Try pattern with trailing zone token like 'UTC', 'Etc/UTC', 'GMT', 'Z' or '+08:00' /
+        // '8:00'
+        int lastSpace = trimmed.lastIndexOf(' ');
+        if (lastSpace > 0 && lastSpace + 1 < trimmed.length()) {
+            String dtPart = trimmed.substring(0, lastSpace);
+            String zonePart = trimmed.substring(lastSpace + 1).trim();
+            try {
+                DateTimeFormatter ldtFormatter =
+                        new java.time.format.DateTimeFormatterBuilder()
+                                .appendPattern("yyyy-MM-dd HH:mm:ss")
+                                .optionalStart()
+                                .appendLiteral('.')
+                                .appendFraction(
+                                        java.time.temporal.ChronoField.NANO_OF_SECOND, 1, 9, false)
+                                .optionalEnd()
+                                .toFormatter();
+                java.time.LocalDateTime ldt = java.time.LocalDateTime.parse(dtPart, ldtFormatter);
+
+                java.time.ZoneOffset zoneOffset = null;
+                String z = zonePart;
+                if ("UTC".equalsIgnoreCase(z)
+                        || "Etc/UTC".equalsIgnoreCase(z)
+                        || "GMT".equalsIgnoreCase(z)
+                        || "Z".equals(z)) {
+                    zoneOffset = java.time.ZoneOffset.UTC;
+                } else {
+                    // support '+08:00', '-05:00', '8:00', '0:00' (no sign -> '+')
+                    if (!z.startsWith("+")
+                            && !z.startsWith("-")
+                            && z.matches("^\\d{1,2}:\\d{2}$")) {
+                        z = "+" + z;
+                    }
+                    if (z.matches("^[+-]\\d{1,2}:\\d{2}$")) {
+                        // normalize to two-digit hour
+                        String sign = z.substring(0, 1);
+                        String[] hm = z.substring(1).split(":", 2);
+                        int h = Integer.parseInt(hm[0]);
+                        int m = Integer.parseInt(hm[1]);
+                        if (h >= 0 && h <= 18 && m >= 0 && m < 60) {
+                            String hh = (h < 10 ? "0" : "") + h;
+                            String mm = (m < 10 ? "0" : "") + m;
+                            zoneOffset = java.time.ZoneOffset.of(sign + hh + ":" + mm);
+                        }
+                    }
+                }
+
+                if (zoneOffset != null) {
+                    return OffsetDateTime.of(ldt, zoneOffset);
+                }
+            } catch (Exception ignore) {
+                // fall through to final error
+            }
+        }
+
         // If all parsing attempts fail, throw exception
         throw new DateTimeParseException(
                 "Unable to parse OffsetDateTime from string: " + str, trimmed, 0);
