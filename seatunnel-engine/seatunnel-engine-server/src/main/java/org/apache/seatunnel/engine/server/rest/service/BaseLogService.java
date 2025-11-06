@@ -31,10 +31,10 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
-import java.util.Base64.Encoder;
 
 @Slf4j
 public class BaseLogService extends BaseService {
+
     public BaseLogService(NodeEngineImpl nodeEngine) {
         super(nodeEngine);
     }
@@ -52,37 +52,23 @@ public class BaseLogService extends BaseService {
         }
     }
 
+    /**
+     * Send a simple HTTP GET request.
+     *
+     * @param urlString url
+     * @return the response body as a string, or {@code null} if the request failed
+     */
     protected String sendGet(String urlString) {
-        HttpURLConnection connection = null;
-        try {
-            connection = (HttpURLConnection) new URL(urlString).openConnection();
-            connection.setRequestMethod("GET");
-            connection.setConnectTimeout(5000);
-            connection.setReadTimeout(5000);
-            connection.connect();
-
-            int code = connection.getResponseCode();
-            if (connection.getResponseCode() == 200) {
-                return readAll(connection.getInputStream());
-            }
-            log.warn("GET {} -> HTTP {}", urlString, code);
-        } catch (IOException e) {
-            log.error("Send GET failed: url={}, err={}", urlString, ExceptionUtils.getMessage(e));
-        } finally {
-            if (connection != null) {
-                connection.disconnect();
-            }
-        }
-        return null;
+        return sendGet(urlString, null, null);
     }
 
     /**
-     * Send GET request with Basic Auth
+     * Send GET request (optionally with Basic Auth)
      *
      * @param urlString url
-     * @param user name
-     * @param pass password
-     * @return log
+     * @param user username, nullable
+     * @param pass password, nullable
+     * @return the response body as a string, or {@code null} if the request failed
      */
     protected String sendGet(String urlString, String user, String pass) {
         HttpURLConnection connection = null;
@@ -94,21 +80,21 @@ public class BaseLogService extends BaseService {
 
             // Basic Auth
             if (user != null && pass != null) {
-
-                Encoder encoder = Base64.getEncoder();
                 String auth = user + ":" + pass;
-                String token = encoder.encodeToString(auth.getBytes(StandardCharsets.UTF_8));
-
+                String token =
+                        Base64.getEncoder().encodeToString(auth.getBytes(StandardCharsets.UTF_8));
                 connection.setRequestProperty(AUTHORIZATION_HEADER, BASIC_PREFIX + token);
             }
 
             connection.connect();
 
             int code = connection.getResponseCode();
-            if (connection.getResponseCode() == 200) {
-                return readAll(connection.getInputStream());
+            if (code == HttpURLConnection.HTTP_OK) {
+                return readResponseBody(connection.getInputStream());
+            } else {
+                log.warn("GET {} -> HTTP {}", urlString, code);
+                drainErrorStream(connection);
             }
-            log.warn("GET {} -> HTTP {}", urlString, code);
         } catch (IOException e) {
             log.error("Send GET failed: url={}, err={}", urlString, ExceptionUtils.getMessage(e));
         } finally {
@@ -119,18 +105,27 @@ public class BaseLogService extends BaseService {
         return null;
     }
 
-    private String readAll(InputStream is) throws IOException {
-        if (is == null) {
-            return null;
-        }
-        try (InputStream in = is;
-                ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
+    private String readResponseBody(InputStream is) throws IOException {
+        try (InputStream input = is;
+                ByteArrayOutputStream output = new ByteArrayOutputStream()) {
+
             byte[] buf = new byte[4096];
             int len;
-            while ((len = in.read(buf)) != -1) {
-                baos.write(buf, 0, len);
+            while ((len = input.read(buf)) != -1) {
+                output.write(buf, 0, len);
             }
-            return baos.toString(StandardCharsets.UTF_8.name());
+            return output.toString(StandardCharsets.UTF_8.name());
+        }
+    }
+
+    private void drainErrorStream(HttpURLConnection connection) throws IOException {
+        try (InputStream err = connection.getErrorStream()) {
+            if (err != null) {
+                byte[] buffer = new byte[1024];
+                while (err.read(buffer) != -1) {
+                    // discard
+                }
+            }
         }
     }
 
