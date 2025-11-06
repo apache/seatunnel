@@ -29,6 +29,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.nio.charset.StandardCharsets;
 
 @Slf4j
 public class BaseLogService extends BaseService {
@@ -124,7 +125,7 @@ public class BaseLogService extends BaseService {
             while ((len = in.read(buf)) != -1) {
                 baos.write(buf, 0, len);
             }
-            return baos.toString(java.nio.charset.StandardCharsets.UTF_8.name());
+            return baos.toString(StandardCharsets.UTF_8.name());
         }
     }
 

@@ -62,9 +62,6 @@ public class LogService extends BaseLogService {
         String contextPath = httpConfig.getContextPath();
         int port = httpConfig.getPort();
 
-        // Take BasicAuth from configuration (if enabled)
-        HttpBasic result = getHttpBasicAuth(httpConfig);
-
         List<Tuple3<String, String, String>> allLogNameList = new ArrayList<>();
 
         JsonArray systemMonitoringInformationJsonValues =
@@ -77,10 +74,13 @@ public class LogService extends BaseLogService {
 
                     String allName =
                             httpConfig.isEnableBasicAuth()
-                                    ? sendGet(logUrl, result.basicUser, result.basicPass)
+                                    ? sendGet(
+                                            logUrl,
+                                            httpConfig.getBasicAuthUsername(),
+                                            httpConfig.getBasicAuthPassword())
                                     : sendGet(logUrl);
 
-                    if (allName == null || allName.trim().isEmpty()) {
+                    if (StringUtils.isBlank(allName)) {
                         log.warn(
                                 "GET {} returned empty body (null/empty). Skip this node.", logUrl);
                         return;
@@ -108,37 +108,14 @@ public class LogService extends BaseLogService {
         return allLogNameList;
     }
 
-    private static HttpBasic getHttpBasicAuth(HttpConfig httpConfig) {
-        String basicUser = "";
-        String basicPass = "";
+    private void getHttpBasicAuth(HttpConfig httpConfig) {
         try {
             if (httpConfig.isEnableBasicAuth()) {
-                basicUser = httpConfig.getBasicAuthUsername();
-                basicPass = httpConfig.getBasicAuthPassword();
+                httpConfig.setBasicAuthUsername(httpConfig.getBasicAuthUsername());
+                httpConfig.setBasicAuthPassword(httpConfig.getBasicAuthPassword());
             }
         } catch (Throwable ignore) {
-            // Compatible with older versions: If HttpConfig does not have these methods, use system
-            // properties or environment variables to find out
-            basicUser = System.getProperty("seatunnel.http.user", System.getenv("BASIC_AUTH_USER"));
-            basicPass = System.getProperty("seatunnel.http.pass", System.getenv("BASIC_AUTH_PASS"));
             log.warn("Use system property or environment variable to set basic auth.");
-        }
-
-        if (StringUtils.isNotBlank(basicUser) && StringUtils.isNotBlank(basicPass)) {
-            httpConfig.setBasicAuthUsername(basicUser);
-            httpConfig.setBasicAuthPassword(basicPass);
-        }
-        return new HttpBasic(basicUser, basicPass);
-    }
-
-    private static class HttpBasic {
-
-        public final String basicUser;
-        public final String basicPass;
-
-        public HttpBasic(String basicUser, String basicPass) {
-            this.basicUser = basicUser;
-            this.basicPass = basicPass;
         }
     }
 

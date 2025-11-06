@@ -28,6 +28,8 @@ import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
 import org.apache.seatunnel.engine.server.TestUtils;
 
+import org.apache.http.HttpHeaders;
+
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
@@ -40,16 +42,25 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
+import java.net.URL;
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
+import java.util.Base64.Encoder;
 import java.util.Collections;
 import java.util.stream.Collectors;
+
+import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_LOGS;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_OVERVIEW;
 
 /** Test for Rest API with Basic. */
 class RestApiHttpBasicTest extends AbstractSeaTunnelServerTest {
 
     private static final int HTTP_PORT = 18081;
     private static final Long JOB_1 = System.currentTimeMillis() + 1L;
-    public static final String USER = "admin";
-    public static final String PASS = "admin";
+    private static final String USER = "admin";
+    private static final String PASS = "admin";
+    private static final String DOMAIN = "http://localhost:" + HTTP_PORT;
+    private static final String BASIC_PREFIX = "Basic ";
 
     @BeforeAll
     void setUp() {
@@ -92,7 +103,7 @@ class RestApiHttpBasicTest extends AbstractSeaTunnelServerTest {
     public void testRestApiOverview() throws Exception {
         HttpURLConnection conn = null;
         try {
-            java.net.URL url = new java.net.URL("http://localhost:" + HTTP_PORT + "/overview");
+            URL url = new URL(DOMAIN + REST_URL_OVERVIEW);
             conn = (HttpURLConnection) url.openConnection();
             setBasicAuth(conn);
 
@@ -114,8 +125,7 @@ class RestApiHttpBasicTest extends AbstractSeaTunnelServerTest {
         startJob();
         HttpURLConnection conn = null;
         try {
-            java.net.URL url =
-                    new java.net.URL("http://localhost:" + HTTP_PORT + "/logs?format=JSON");
+            URL url = new URL(DOMAIN + REST_URL_LOGS + "?format=JSON");
             conn = (HttpURLConnection) url.openConnection();
 
             Assertions.assertEquals(401, conn.getResponseCode());
@@ -134,19 +144,16 @@ class RestApiHttpBasicTest extends AbstractSeaTunnelServerTest {
 
     public void setBasicAuth(HttpURLConnection connection) {
         // Basic Auth
-        String token =
-                java.util.Base64.getEncoder()
-                        .encodeToString(
-                                (USER + ":" + PASS)
-                                        .getBytes(java.nio.charset.StandardCharsets.UTF_8));
-        connection.setRequestProperty("Authorization", "Basic " + token);
+        Encoder encoder = Base64.getEncoder();
+        String auth = USER + ":" + PASS;
+        String token = encoder.encodeToString(auth.getBytes(StandardCharsets.UTF_8));
+        connection.setRequestProperty(HttpHeaders.AUTHORIZATION, BASIC_PREFIX + token);
     }
 
     public void testLogRestApiResponse(String format) throws IOException {
         HttpURLConnection conn = null;
         try {
-            java.net.URL url =
-                    new java.net.URL("http://localhost:" + HTTP_PORT + "/logs?format=" + format);
+            URL url = new URL(DOMAIN + REST_URL_LOGS + "?format=" + format);
             conn = (HttpURLConnection) url.openConnection();
             setBasicAuth(conn);
 
