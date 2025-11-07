@@ -31,11 +31,11 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.Abstrac
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.utils.JdbcFieldTypeUtils;
 
+import lombok.extern.slf4j.Slf4j;
+
 import org.apache.commons.lang3.math.NumberUtils;
 
 import org.postgresql.util.PGobject;
-
-import lombok.extern.slf4j.Slf4j;
 
 import javax.annotation.Nullable;
 
@@ -365,8 +365,7 @@ public class PostgresJdbcRowConverter extends AbstractJdbcRowConverter {
         return sb.toString().trim();
     }
 
-    private OffsetDateTime getPostgresOffsetDateTime(ResultSet rs, int columnIndex)
-            throws SQLException {
+    private OffsetDateTime getPostgresOffsetDateTime(ResultSet rs, int columnIndex) throws SQLException {
         Object obj = null;
         try {
             obj = rs.getObject(columnIndex);
@@ -397,9 +396,7 @@ public class PostgresJdbcRowConverter extends AbstractJdbcRowConverter {
                     return parsePostgresTimestampTz(str);
                 }
             } catch (Exception e) {
-                log.debug(
-                        "Failed to parse PostgreSQL timestamp object from string representation",
-                        e);
+                log.debug("Failed to parse PostgreSQL timestamp object from string representation", e);
             }
         }
 
@@ -441,8 +438,7 @@ public class PostgresJdbcRowConverter extends AbstractJdbcRowConverter {
 
             // Last resort: try to parse as timestamp and assume UTC
             try {
-                String withoutOffset =
-                        str.replaceFirst("([+-]\\d{2}:?\\d{2}|\\s+UTC|Z)$", "").trim();
+                String withoutOffset = str.replaceFirst("([+-]\\d{2}:?\\d{2}|\\s+UTC|Z)$", "").trim();
                 Timestamp ts = Timestamp.valueOf(withoutOffset);
                 return ts.toInstant().atOffset(ZoneOffset.UTC);
             } catch (Exception e2) {

@@ -124,8 +124,7 @@ public class OracleJdbcRowConverter extends AbstractJdbcRowConverter {
         return new SeaTunnelRow(fields);
     }
 
-    private OffsetDateTime getOracleOffsetDateTime(ResultSet rs, int columnIndex)
-            throws SQLException {
+    private OffsetDateTime getOracleOffsetDateTime(ResultSet rs, int columnIndex) throws SQLException {
         Object obj = null;
         try {
             obj = rs.getObject(columnIndex);
@@ -142,15 +141,13 @@ public class OracleJdbcRowConverter extends AbstractJdbcRowConverter {
         if (obj.getClass().getName().equals("oracle.sql.TIMESTAMPTZ")) {
             try {
                 // Use reflection to call timestampValue() method to get Timestamp
-                java.lang.reflect.Method timestampValueMethod =
-                        obj.getClass().getMethod("timestampValue");
+                java.lang.reflect.Method timestampValueMethod = obj.getClass().getMethod("timestampValue");
                 Timestamp ts = (Timestamp) timestampValueMethod.invoke(obj);
                 if (ts != null) {
                     return ts.toInstant().atOffset(ZoneOffset.UTC);
                 }
             } catch (Exception e) {
-                log.debug(
-                        "Failed to extract timestamp from Oracle TIMESTAMPTZ using reflection", e);
+                log.debug("Failed to extract timestamp from Oracle TIMESTAMPTZ using reflection", e);
             }
 
             try {
