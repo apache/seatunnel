@@ -115,7 +115,13 @@ public final class JdbcFieldTypeUtils {
 
     public static OffsetDateTime getOffsetDateTime(ResultSet resultSet, int columnIndex)
             throws SQLException {
-        // Avoid driver-specific issues by not calling getObject with a target class.
+        // Try JDBC 4.2 direct retrieval first (some drivers may throw unchecked exceptions)
+        try {
+            return resultSet.getObject(columnIndex, OffsetDateTime.class);
+        } catch (Throwable ignored) {
+            // Some drivers (e.g., certain Oracle versions) may throw NPE or other unchecked errors
+            // here; fall through to best-effort fallback
+        }
         Object obj;
         try {
             obj = resultSet.getObject(columnIndex);
@@ -144,31 +150,26 @@ public final class JdbcFieldTypeUtils {
         }
         if (str != null) {
             String s = str.trim();
-            // Normalize to ISO-8601: ensure 'T' separator and offset with colon
-            String iso = s.replace(' ', 'T');
-            // If ends with 'Z', try parse directly
-            if (iso.endsWith("Z")) {
-                try {
-                    return OffsetDateTime.parse(iso);
-                } catch (Exception ignored) {
-                }
-            }
-            // Add colon to offsets like +HH or +HHMM -> +HH:MM
-            if (iso.matches(".*[+-]\\d{2}$")) {
-                iso = iso + ":00";
-            } else if (iso.matches(".*[+-]\\d{4}$")) {
-                iso = iso.substring(0, iso.length() - 2) + ":" + iso.substring(iso.length() - 2);
-            }
             try {
-                return OffsetDateTime.parse(iso);
+                return OffsetDateTime.parse(s);
             } catch (Exception ignored) {
+                // ignore parse failure
             }
             try {
-                // Last resort: drop offset if present and treat as UTC
-                String withoutOffset = iso.replaceFirst("([+-]\\d{2}:?\\d{2}|Z)$", "");
-                Timestamp ts = Timestamp.valueOf(withoutOffset.replace('T', ' '));
+                // Some drivers (e.g. Oracle) may return a non-ISO string like "2023-06-01
+                // 08:15:30.123456 +08:00"
+                String normalized = s.replace(' ', 'T').replace(" +", "+").replace(" -", "-");
+                return OffsetDateTime.parse(normalized);
+            } catch (Exception ignored) {
+                // ignore
+            }
+            try {
+                // As a last resort, parse as timestamp (no offset) and treat it as UTC to avoid
+                // locale leakage
+                Timestamp ts = Timestamp.valueOf(s.replace('T', ' '));
                 return ts.toInstant().atOffset(ZoneOffset.UTC);
             } catch (Exception ignored) {
+                // ignore
             }
         }
         // Unknown representation; return null to let caller decide further handling
