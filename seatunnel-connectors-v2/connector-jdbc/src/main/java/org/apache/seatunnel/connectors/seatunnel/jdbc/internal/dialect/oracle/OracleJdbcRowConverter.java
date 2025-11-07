@@ -22,18 +22,14 @@ import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.AbstractJdbcRowConverter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 
-import lombok.extern.slf4j.Slf4j;
-
 import javax.annotation.Nullable;
 
 import java.io.ByteArrayInputStream;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
-import java.time.OffsetDateTime;
 
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.oracle.OracleTypeConverter.ORACLE_BLOB;
 
-@Slf4j
 public class OracleJdbcRowConverter extends AbstractJdbcRowConverter {
 
     @Override
@@ -55,42 +51,9 @@ public class OracleJdbcRowConverter extends AbstractJdbcRowConverter {
             } else {
                 statement.setBytes(statementIndex, (byte[]) value);
             }
-            return;
+        } else {
+            super.setValueToStatementByDataType(
+                    value, statement, seaTunnelDataType, statementIndex, sourceType);
         }
-        if (seaTunnelDataType.getSqlType().equals(SqlType.TIMESTAMP_TZ)) {
-            OffsetDateTime odt = (OffsetDateTime) value;
-            try {
-                statement.setObject(statementIndex, odt);
-                return;
-            } catch (AbstractMethodError | SQLException e) {
-                log.debug(
-                        "JDBC 4.2 setObject(OffsetDateTime) failed, trying Oracle-specific approach",
-                        e);
-            }
-
-            try {
-                java.sql.Connection conn = statement.getConnection();
-                oracle.jdbc.OracleConnection oracleConn =
-                        conn.unwrap(oracle.jdbc.OracleConnection.class);
-                String iso = odt.toString();
-                String oracleLiteral = iso.replace('T', ' ');
-                oracle.sql.TIMESTAMPTZ tsTz = new oracle.sql.TIMESTAMPTZ(oracleConn, oracleLiteral);
-                statement.setObject(statementIndex, tsTz);
-                return;
-            } catch (Throwable t) {
-                log.debug(
-                        "Oracle-specific TIMESTAMPTZ handling failed, using instant conversion", t);
-                try {
-                    statement.setTimestamp(
-                            statementIndex, java.sql.Timestamp.from(odt.toInstant()));
-                    return;
-                } catch (SQLException se) {
-                    log.error("Failed to set TIMESTAMP_TZ value using all fallback methods", se);
-                    throw se;
-                }
-            }
-        }
-        super.setValueToStatementByDataType(
-                value, statement, seaTunnelDataType, statementIndex, sourceType);
     }
 }
