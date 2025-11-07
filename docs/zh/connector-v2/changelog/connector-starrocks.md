@@ -2,6 +2,10 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
+|[Feature][Core] Add plugin directory support for each connector (#9650)|https://github.com/apache/seatunnel/commit/4beb2b9336|2.3.12|
+|[Fix][Doc] Update StarRocks doc change schema necessity to true (#9656)|https://github.com/apache/seatunnel/commit/45f8ac6d1d|2.3.12|
+|[improve] jdbc options (#9541)|https://github.com/apache/seatunnel/commit/d041e5fb32|2.3.12|
+|[Fix][Connector-V2] Fix starrocks decimal column definition generation(#9470) (#9471)|https://github.com/apache/seatunnel/commit/64b8f1752e|2.3.12|
 |[Bugfix][Starrocks] Fix starrocks batch data exceeds the maximum limit (#9256)|https://github.com/apache/seatunnel/commit/84634a4d1f|2.3.11|
 |[Improve][Starrocks] Catch lable already exception (#9222)|https://github.com/apache/seatunnel/commit/b6fc222c0a|2.3.11|
 |[Feature][Transform] Support define sink column type (#9114)|https://github.com/apache/seatunnel/commit/ab7119e507|2.3.11|

@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.sensorsdata.sdk.sink;
 
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
+
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
@@ -36,8 +38,6 @@ import org.apache.seatunnel.connectors.sensorsdata.sdk.exception.SensorsDataConn
 import org.apache.seatunnel.connectors.sensorsdata.sdk.exception.SensorsDataConnectorException;
 import org.apache.seatunnel.connectors.sensorsdata.sdk.state.SensorsDataCommitInfo;
 import org.apache.seatunnel.connectors.sensorsdata.sdk.state.SensorsDataSinkState;
-
-import org.apache.commons.lang3.StringUtils;
 
 import com.sensorsdata.analytics.javasdk.SensorsAnalytics;
 import com.sensorsdata.analytics.javasdk.bean.schema.UserSchema;

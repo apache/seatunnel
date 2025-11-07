@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.engine.common.config;
 
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
+
 import org.apache.seatunnel.engine.common.config.server.AllocateStrategy;
 import org.apache.seatunnel.engine.common.config.server.CheckpointConfig;
 import org.apache.seatunnel.engine.common.config.server.CheckpointStorageConfig;
@@ -33,8 +35,6 @@ import org.apache.seatunnel.engine.common.config.server.TelemetryConfig;
 import org.apache.seatunnel.engine.common.config.server.TelemetryLogsConfig;
 import org.apache.seatunnel.engine.common.config.server.TelemetryMetricConfig;
 import org.apache.seatunnel.engine.common.config.server.ThreadShareMode;
-
-import org.apache.commons.lang3.StringUtils;
 
 import org.w3c.dom.NamedNodeMap;
 import org.w3c.dom.Node;
@@ -179,6 +179,15 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
                                         .JOB_METRICS_BACKUP_INTERVAL
                                         .key(),
                                 getTextContent(node)));
+            } else if (ServerConfigOptions.MasterServerConfigOptions.JOB_METRICS_PARTITION_COUNT
+                    .key()
+                    .equals(name)) {
+                engineConfig.setJobMetricsPartitionCount(
+                        getIntegerValue(
+                                ServerConfigOptions.MasterServerConfigOptions
+                                        .JOB_METRICS_PARTITION_COUNT
+                                        .key(),
+                                getTextContent(node)));
             } else if (ServerConfigOptions.WorkerServerConfigOptions
                     .TASK_EXECUTION_THREAD_SHARE_MODE
                     .key()
@@ -280,6 +289,14 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
                 checkpointConfig.setCheckpointTimeout(
                         getIntegerValue(
                                 ServerConfigOptions.MasterServerConfigOptions.CHECKPOINT_TIMEOUT
+                                        .key(),
+                                getTextContent(node)));
+            } else if (ServerConfigOptions.MasterServerConfigOptions.CHECKPOINT_MIN_PAUSE
+                    .key()
+                    .equals(name)) {
+                checkpointConfig.setCheckpointMinPause(
+                        getIntegerValue(
+                                ServerConfigOptions.MasterServerConfigOptions.CHECKPOINT_MIN_PAUSE
                                         .key(),
                                 getTextContent(node)));
             } else if (ServerConfigOptions.MasterServerConfigOptions

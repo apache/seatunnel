@@ -133,14 +133,15 @@ public class ClusterIT {
 
             final ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
 
+            TimeUnit.SECONDS.sleep(2);
             CompletableFuture<PassiveCompletableFuture<JobResult>> objectCompletableFuture =
                     CompletableFuture.supplyAsync(clientJobProxy::doWaitForJobComplete);
 
             Awaitility.await()
                     .atMost(120000, TimeUnit.MILLISECONDS)
+                    .pollInterval(2000, TimeUnit.MILLISECONDS)
                     .untilAsserted(
                             () -> {
-                                Thread.sleep(2000);
                                 Assertions.assertTrue(objectCompletableFuture.isDone());
 
                                 PassiveCompletableFuture<JobResult>

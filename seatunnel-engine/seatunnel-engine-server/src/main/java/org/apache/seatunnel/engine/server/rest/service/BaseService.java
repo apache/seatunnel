@@ -21,6 +21,8 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.core.JsonProcessingExcep
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.seatunnel.shade.org.apache.commons.lang3.ArrayUtils;
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.options.EnvCommonOptions;
@@ -50,9 +52,6 @@ import org.apache.seatunnel.engine.server.rest.RestConstant;
 import org.apache.seatunnel.engine.server.rest.RestJobExecutionEnvironment;
 import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
 import org.apache.seatunnel.engine.server.utils.RestUtil;
-
-import org.apache.commons.lang3.ArrayUtils;
-import org.apache.commons.lang3.StringUtils;
 
 import com.hazelcast.cluster.Address;
 import com.hazelcast.cluster.Cluster;
@@ -206,11 +205,13 @@ public abstract class BaseService {
     private String getJobStartTime(long jobId) {
         IMap<Object, Long[]> stateTimestamps =
                 nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_STATE_TIMESTAMPS);
-        Long[] jobnStateTimestamps = stateTimestamps.get(jobId);
-        if (jobnStateTimestamps != null) {
-            Long startTimestamp = jobnStateTimestamps[JobStatus.SCHEDULED.ordinal()];
-            return DateTimeUtils.toString(
-                    startTimestamp, DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS);
+        Long[] jobStateTimestamps = stateTimestamps.get(jobId);
+        if (jobStateTimestamps != null) {
+            Long startTimestamp = jobStateTimestamps[JobStatus.SCHEDULED.ordinal()];
+            if (startTimestamp != null) {
+                return DateTimeUtils.toString(
+                        startTimestamp, DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS);
+            }
         }
         return null;
     }

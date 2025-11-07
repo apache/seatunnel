@@ -78,6 +78,7 @@ import ChangeLog from '../changelog/connector-file-cos.md';
 | parquet_avro_write_timestamp_as_int96 | boolean | 否  | false                                      | 仅在file_format为parquet时使用.                                       |
 | parquet_avro_write_fixed_as_int96     | array   | 否  | -                                          | 仅在file_format为parquet时使用.                                       |
 | encoding                              | string  | 否  | "UTF-8"                                    | 仅当file_format_type为json、text、csv、xml时使用.                        |
+| merge_update_event                    | boolean | 否  | false                                      | 仅当file_format_type为canal_json、debezium_json、maxwell_json.       |
 
 ### path [string]
 
@@ -241,6 +242,12 @@ Tips: excel 类型不支持任何压缩格式
 
 仅当file_format_type为json、text、csv、xml时使用.
 要写入的文件的编码。此参数将由`Charset.forName(encoding)` 解析.
+
+### merge_update_event [boolean]
+
+仅当file_format_type为canal_json、debezium_json、maxwell_json时使用.
+设置成true,序列化数据时,UPDATE_AFTER 和 UPDATE_BEFORE 会合并成 UPDATE;
+设置成false,序列化数据时,UPDATE_AFTER 和 UPDATE_BEFORE 不会合并;
 
 ## 示例
 

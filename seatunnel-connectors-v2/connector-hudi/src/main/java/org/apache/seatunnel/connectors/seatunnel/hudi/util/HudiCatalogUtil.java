@@ -17,9 +17,9 @@
 
 package org.apache.seatunnel.connectors.seatunnel.hudi.util;
 
-import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
-import org.apache.commons.lang3.StringUtils;
+import org.apache.seatunnel.api.table.catalog.TablePath;
 
 public class HudiCatalogUtil {
 

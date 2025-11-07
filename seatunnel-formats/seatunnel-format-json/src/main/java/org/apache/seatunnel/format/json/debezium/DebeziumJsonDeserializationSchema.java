@@ -147,7 +147,6 @@ public class DebeziumJsonDeserializationSchema implements DeserializationSchema<
                 if (tsNode != null) {
                     MetadataUtil.setEventTime(before, tsNode.asLong());
                 }
-                out.collect(before);
 
                 SeaTunnelRow after = debeziumRowConverter.parse(payload.get(DATA_AFTER));
                 after.setRowKind(RowKind.UPDATE_AFTER);
@@ -158,6 +157,7 @@ public class DebeziumJsonDeserializationSchema implements DeserializationSchema<
                 if (tsNode != null) {
                     MetadataUtil.setEventTime(after, tsNode.asLong());
                 }
+                out.collect(before);
                 out.collect(after);
                 break;
             case OP_DELETE:

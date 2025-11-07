@@ -49,6 +49,7 @@ import org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.hazelcast.jet.datamodel.Tuple2;
 import com.hazelcast.map.IMap;
 import com.hazelcast.spi.impl.operationservice.impl.InvocationFuture;
 import lombok.Getter;
@@ -58,6 +59,7 @@ import lombok.SneakyThrows;
 import java.time.Instant;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -361,7 +363,8 @@ public class CheckpointCoordinator {
         }
     }
 
-    private void notifyCompleted(CompletedCheckpoint completedCheckpoint) {
+    @VisibleForTesting
+    protected void notifyCompleted(CompletedCheckpoint completedCheckpoint) {
         if (completedCheckpoint != null) {
             try {
                 LOG.info(
@@ -404,7 +407,9 @@ public class CheckpointCoordinator {
         scheduleTriggerPendingCheckpoint(CHECKPOINT_TYPE, delayMills);
     }
 
-    private void scheduleTriggerPendingCheckpoint(CheckpointType checkpointType, long delayMills) {
+    @VisibleForTesting
+    protected void scheduleTriggerPendingCheckpoint(
+            CheckpointType checkpointType, long delayMills) {
         scheduler.schedule(
                 () -> tryTriggerPendingCheckpoint(checkpointType),
                 delayMills,
@@ -513,6 +518,24 @@ public class CheckpointCoordinator {
                 scheduleTriggerPendingCheckpoint(
                         checkpointType, coordinatorConfig.getCheckpointInterval() - interval);
                 return;
+            }
+
+            if (latestCompletedCheckpoint != null
+                    && coordinatorConfig.getCheckpointMinPause() != -1) {
+                long lastCompletedTime = latestCompletedCheckpoint.getCompletedTimestamp();
+                long timeSinceLastCompleted = currentTimestamp - lastCompletedTime;
+                if (timeSinceLastCompleted < coordinatorConfig.getCheckpointMinPause()) {
+                    long minPauseDelay =
+                            coordinatorConfig.getCheckpointMinPause() - timeSinceLastCompleted;
+                    LOG.info(
+                            "skip trigger checkpoint because the last completed timestamp is {} and current timestamp is {}, the time since completion ({} ms) is less than min-pause ({} ms).",
+                            lastCompletedTime,
+                            currentTimestamp,
+                            timeSinceLastCompleted,
+                            coordinatorConfig.getCheckpointMinPause());
+                    scheduleTriggerPendingCheckpoint(checkpointType, minPauseDelay);
+                    return;
+                }
             }
         }
         synchronized (lock) {
@@ -766,8 +789,19 @@ public class CheckpointCoordinator {
     }
 
     private Map<ActionStateKey, ActionState> getActionStates() {
-        // TODO: some tasks have completed and will not submit state again.
-        return plan.getPipelineActions().entrySet().stream()
+        Map<ActionStateKey, Integer> pipelineActions = new HashMap<>(plan.getPipelineActions());
+        Set<ActionStateKey> closedActionKeys =
+                plan.getSubtaskActions().entrySet().stream()
+                        .filter(
+                                entry ->
+                                        SeaTunnelTaskState.CLOSED.equals(
+                                                this.pipelineTaskStatus.get(
+                                                        entry.getKey().getTaskID())))
+                        .flatMap(entry -> entry.getValue().stream().map(Tuple2::f0))
+                        .collect(Collectors.toSet());
+        pipelineActions.keySet().removeAll(closedActionKeys);
+
+        return pipelineActions.entrySet().stream()
                 .collect(
                         Collectors.toMap(
                                 Map.Entry::getKey,
@@ -775,8 +809,13 @@ public class CheckpointCoordinator {
     }
 
     private Map<Long, TaskStatistics> getTaskStatistics() {
-        // TODO: some tasks have completed and don't need to be ack
-        return this.pipelineTasks.entrySet().stream()
+        Map<Long, Integer> tasks = new HashMap<>(this.pipelineTasks);
+        for (Long taskId : this.pipelineTasks.keySet()) {
+            if (SeaTunnelTaskState.CLOSED.equals(this.pipelineTaskStatus.get(taskId))) {
+                tasks.remove(taskId);
+            }
+        }
+        return tasks.entrySet().stream()
                 .collect(
                         Collectors.toMap(
                                 Map.Entry::getKey,
@@ -784,8 +823,11 @@ public class CheckpointCoordinator {
     }
 
     public InvocationFuture<?>[] triggerCheckpoint(CheckpointBarrier checkpointBarrier) {
-        // TODO: some tasks have completed and don't need to trigger
         return plan.getStartingSubtasks().stream()
+                .filter(
+                        taskLocation ->
+                                !SeaTunnelTaskState.CLOSED.equals(
+                                        this.pipelineTaskStatus.get(taskLocation.getTaskID())))
                 .map(
                         taskLocation ->
                                 new CheckpointBarrierTriggerOperation(
@@ -909,6 +951,7 @@ public class CheckpointCoordinator {
         notifyCompleted(completedCheckpoint);
         pendingCheckpoints.remove(checkpointId).abortCheckpointTimeoutFutureWhenIsCompleted();
         pendingCounter.decrementAndGet();
+
         if (isCompleted()) {
             cleanPendingCheckpoint(CheckpointCloseReason.CHECKPOINT_COORDINATOR_COMPLETED);
             if (latestCompletedCheckpoint.getCheckpointType().isSavepoint()) {
@@ -1077,5 +1120,10 @@ public class CheckpointCoordinator {
     @VisibleForTesting
     public PendingCheckpoint getSavepointPendingCheckpoint() {
         return savepointPendingCheckpoint;
+    }
+
+    @VisibleForTesting
+    public Map<Long, SeaTunnelTaskState> getPipelineTaskStatus() {
+        return pipelineTaskStatus;
     }
 }

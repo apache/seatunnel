@@ -18,6 +18,7 @@
 package org.apache.seatunnel.core.starter.seatunnel.command;
 
 import org.apache.seatunnel.shade.com.google.common.util.concurrent.ThreadFactoryBuilder;
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
 import org.apache.seatunnel.common.utils.DateTimeUtils;
 import org.apache.seatunnel.common.utils.StringFormatUtils;
@@ -42,8 +43,6 @@ import org.apache.seatunnel.engine.common.job.JobStatus;
 import org.apache.seatunnel.engine.common.runtime.ExecutionMode;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.server.SeaTunnelNodeContext;
-
-import org.apache.commons.lang3.StringUtils;
 
 import com.hazelcast.client.config.ClientConfig;
 import com.hazelcast.core.HazelcastInstance;
@@ -211,7 +210,6 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
                             0,
                             TimeUnit.SECONDS);
                 }
-
                 // wait for job complete
                 JobResult jobResult = clientJobProxy.waitForJobCompleteV2();
                 jobStatus = jobResult.getStatus();

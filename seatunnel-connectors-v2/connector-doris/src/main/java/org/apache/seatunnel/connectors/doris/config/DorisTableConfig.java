@@ -19,10 +19,9 @@ package org.apache.seatunnel.connectors.doris.config;
 
 import org.apache.seatunnel.shade.com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.annotation.JsonProperty;
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
-
-import org.apache.commons.lang3.StringUtils;
 
 import lombok.Builder;
 import lombok.Data;

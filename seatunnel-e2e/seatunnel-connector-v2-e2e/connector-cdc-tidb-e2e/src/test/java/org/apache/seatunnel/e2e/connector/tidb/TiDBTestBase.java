@@ -17,9 +17,9 @@
 
 package org.apache.seatunnel.e2e.connector.tidb;
 
-import org.apache.seatunnel.e2e.common.TestSuiteBase;
+import org.apache.seatunnel.shade.org.apache.commons.lang3.RandomUtils;
 
-import org.apache.commons.lang3.RandomUtils;
+import org.apache.seatunnel.e2e.common.TestSuiteBase;
 
 import org.awaitility.Awaitility;
 import org.awaitility.core.ConditionTimeoutException;

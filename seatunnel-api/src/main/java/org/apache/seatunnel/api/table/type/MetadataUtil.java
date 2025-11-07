@@ -25,6 +25,8 @@ import java.util.stream.Stream;
 
 import static org.apache.seatunnel.api.table.type.CommonOptions.DELAY;
 import static org.apache.seatunnel.api.table.type.CommonOptions.EVENT_TIME;
+import static org.apache.seatunnel.api.table.type.CommonOptions.IS_BINARY_FORMAT;
+import static org.apache.seatunnel.api.table.type.CommonOptions.IS_COMPLETE;
 import static org.apache.seatunnel.api.table.type.CommonOptions.PARTITION;
 
 public class MetadataUtil {
@@ -51,6 +53,22 @@ public class MetadataUtil {
         row.getOptions().put(EVENT_TIME.getName(), delay);
     }
 
+    public static void setBinaryRowComplete(SeaTunnelRow row) {
+        row.getOptions().put(IS_COMPLETE.getName(), true);
+    }
+
+    public static void setBinaryFormat(SeaTunnelRow row) {
+        row.getOptions().put(IS_BINARY_FORMAT.getName(), true);
+    }
+
+    public static boolean isComplete(Object row) {
+        return checkOption(row, IS_COMPLETE.getName(), false);
+    }
+
+    public static boolean isBinaryFormat(Object row) {
+        return checkOption(row, IS_BINARY_FORMAT.getName(), false);
+    }
+
     public static String getDatabase(SeaTunnelRowAccessor row) {
         if (row.getTableId() == null) {
             return null;
@@ -75,5 +93,20 @@ public class MetadataUtil {
 
     public static boolean isMetadataField(String fieldName) {
         return METADATA_FIELDS.contains(fieldName);
+    }
+
+    public static <T> boolean checkOption(T row, String optionKey, boolean defaultValue) {
+        if (row instanceof SeaTunnelRow) {
+            return ((SeaTunnelRow) row)
+                    .getOptions()
+                    .getOrDefault(optionKey, defaultValue)
+                    .equals(true);
+        } else if (row instanceof SeaTunnelRowAccessor) {
+            return ((SeaTunnelRowAccessor) row)
+                    .getOptions()
+                    .getOrDefault(optionKey, defaultValue)
+                    .equals(true);
+        }
+        throw new IllegalArgumentException("Unsupported row type: " + row.getClass().getName());
     }
 }

@@ -18,131 +18,154 @@
 package org.apache.seatunnel.connectors.seatunnel.databend.config;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
-import org.apache.seatunnel.api.sink.DataSaveMode;
-import org.apache.seatunnel.api.sink.SchemaSaveMode;
 
 import lombok.Getter;
-import lombok.Setter;
-import lombok.ToString;
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.Serializable;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.Properties;
 
-import static org.apache.seatunnel.connectors.seatunnel.databend.config.DatabendOptions.AUTO_COMMIT;
-import static org.apache.seatunnel.connectors.seatunnel.databend.config.DatabendOptions.BATCH_SIZE;
-import static org.apache.seatunnel.connectors.seatunnel.databend.config.DatabendOptions.DATABASE;
-import static org.apache.seatunnel.connectors.seatunnel.databend.config.DatabendOptions.JDBC_CONFIG;
-import static org.apache.seatunnel.connectors.seatunnel.databend.config.DatabendOptions.MAX_RETRIES;
-import static org.apache.seatunnel.connectors.seatunnel.databend.config.DatabendOptions.PASSWORD;
-import static org.apache.seatunnel.connectors.seatunnel.databend.config.DatabendOptions.SSL;
-import static org.apache.seatunnel.connectors.seatunnel.databend.config.DatabendOptions.TABLE;
-import static org.apache.seatunnel.connectors.seatunnel.databend.config.DatabendOptions.URL;
-import static org.apache.seatunnel.connectors.seatunnel.databend.config.DatabendOptions.USERNAME;
-import static org.apache.seatunnel.connectors.seatunnel.databend.config.DatabendSinkOptions.CUSTOM_SQL;
-import static org.apache.seatunnel.connectors.seatunnel.databend.config.DatabendSinkOptions.DATA_SAVE_MODE;
-import static org.apache.seatunnel.connectors.seatunnel.databend.config.DatabendSinkOptions.EXECUTE_TIMEOUT_SEC;
-import static org.apache.seatunnel.connectors.seatunnel.databend.config.DatabendSinkOptions.SCHEMA_SAVE_MODE;
-
-@Setter
+@Slf4j
 @Getter
-@ToString
 public class DatabendSinkConfig implements Serializable {
     private static final long serialVersionUID = 1L;
 
-    // common options
-    private String url;
-    private String username;
-    private String password;
-    private Boolean ssl;
-    private String database;
-    private String table;
-    private Boolean autoCommit;
-    private Integer batchSize;
-    private Integer maxRetries;
-    private Map<String, String> jdbcConfig;
+    private final String url;
+    private final String username;
+    private final String password;
+    private final String database;
+    private final String table;
+    private final boolean autoCommit;
+    private final int batchSize;
+    private final int executeTimeoutSec;
+    private final int interval;
+    private final String conflictKey;
+    private final boolean enableDelete;
 
-    // sink options
-    private Integer executeTimeoutSec;
-    private String customSql;
-    private SchemaSaveMode schemaSaveMode;
-    private DataSaveMode dataSaveMode;
-    private Properties properties;
+    private DatabendSinkConfig(Builder builder) {
+        this.url = builder.url;
+        this.username = builder.username;
+        this.password = builder.password;
+        this.database = builder.database;
+        this.table = builder.table;
+        this.autoCommit = builder.autoCommit;
+        this.batchSize = builder.batchSize;
+        this.executeTimeoutSec = builder.executeTimeoutSec;
+        this.interval = builder.interval;
+        this.conflictKey = builder.conflictKey;
+        this.enableDelete = builder.enableDelete;
+    }
 
     public static DatabendSinkConfig of(ReadonlyConfig config) {
-        DatabendSinkConfig sinkConfig = new DatabendSinkConfig();
-
-        // common options
-        sinkConfig.setUrl(config.get(URL));
-        sinkConfig.setUsername(config.get(USERNAME));
-        sinkConfig.setPassword(config.get(PASSWORD));
-        sinkConfig.setDatabase(config.get(DATABASE));
-        sinkConfig.setTable(config.get(TABLE));
-        sinkConfig.setAutoCommit(config.get(AUTO_COMMIT));
-        sinkConfig.setBatchSize(config.get(BATCH_SIZE));
-        sinkConfig.setMaxRetries(config.get(MAX_RETRIES));
-        sinkConfig.setJdbcConfig(config.get(JDBC_CONFIG));
-
-        // sink options
-        sinkConfig.setExecuteTimeoutSec(config.get(EXECUTE_TIMEOUT_SEC));
-        sinkConfig.setCustomSql(config.getOptional(CUSTOM_SQL).orElse(null));
-        sinkConfig.setSchemaSaveMode(config.get(SCHEMA_SAVE_MODE));
-        sinkConfig.setDataSaveMode(config.get(DATA_SAVE_MODE));
-        // Create properties for JDBC connection
-        Properties properties = new Properties();
-        if (sinkConfig.getJdbcConfig() != null) {
-            sinkConfig.getJdbcConfig().forEach(properties::setProperty);
-        }
-        if (!properties.containsKey("user")) {
-            properties.setProperty("user", sinkConfig.getUsername());
-        }
-        if (!properties.containsKey("password")) {
-            properties.setProperty("password", sinkConfig.getPassword());
-        }
-        if (sinkConfig.getSsl() != null) {
-            properties.setProperty("ssl", sinkConfig.getSsl().toString());
-        }
-        sinkConfig.setProperties(properties);
-
-        return sinkConfig;
+        return new Builder()
+                .withUrl(config.get(DatabendOptions.URL))
+                .withUsername(config.get(DatabendOptions.USERNAME))
+                .withPassword(config.get(DatabendOptions.PASSWORD))
+                .withDatabase(config.get(DatabendOptions.DATABASE))
+                .withTable(config.get(DatabendOptions.TABLE))
+                .withAutoCommit(config.get(DatabendOptions.AUTO_COMMIT))
+                .withBatchSize(config.get(DatabendOptions.BATCH_SIZE))
+                .withExecuteTimeoutSec(config.get(DatabendSinkOptions.EXECUTE_TIMEOUT_SEC))
+                .withConflictKey(config.get(DatabendSinkOptions.CONFLICT_KEY))
+                .withAllowDelete(config.get(DatabendSinkOptions.ENABLE_DELETE))
+                .build();
     }
 
-    // Change UserName, password, jdbcConfig to properties from databendSinkConfig
-    public Properties toProperties() {
-        Properties properties = new Properties();
-        properties.put("user", username);
-        properties.put("password", password);
-        properties.put("ssl", ssl);
-        if (jdbcConfig != null) {
-            jdbcConfig.forEach(properties::put);
+    public static class Builder {
+        private String url;
+        private String username;
+        private String password;
+        private String database;
+        private String table;
+        private boolean autoCommit = true;
+        private int batchSize = 1000;
+        private int executeTimeoutSec = 300;
+        private int interval = 30;
+        private String conflictKey;
+        private boolean enableDelete = false;
+
+        public Builder withUrl(String url) {
+            this.url = url;
+            return this;
         }
+
+        public Builder withUsername(String username) {
+            this.username = username;
+            return this;
+        }
+
+        public Builder withPassword(String password) {
+            this.password = password;
+            return this;
+        }
+
+        public Builder withDatabase(String database) {
+            this.database = database;
+            return this;
+        }
+
+        public Builder withTable(String table) {
+            this.table = table;
+            return this;
+        }
+
+        public Builder withAutoCommit(boolean autoCommit) {
+            this.autoCommit = autoCommit;
+            return this;
+        }
+
+        public Builder withBatchSize(int batchSize) {
+            this.batchSize = batchSize;
+            return this;
+        }
+
+        public Builder withExecuteTimeoutSec(int executeTimeoutSec) {
+            this.executeTimeoutSec = executeTimeoutSec;
+            return this;
+        }
+
+        public Builder withInterval(int interval) {
+            this.interval = interval;
+            return this;
+        }
+
+        public Builder withConflictKey(String conflictKey) {
+            this.conflictKey = conflictKey;
+            return this;
+        }
+
+        public Builder withAllowDelete(boolean allowDelete) {
+            this.enableDelete = allowDelete;
+            return this;
+        }
+
+        public DatabendSinkConfig build() {
+            return new DatabendSinkConfig(this);
+        }
+    }
+
+    public Properties getProperties() {
+        Properties properties = new Properties();
+        properties.setProperty("user", username);
+        properties.setProperty("password", password);
         return properties;
     }
-    /** Convert this config to a ReadonlyConfig */
-    public ReadonlyConfig toReadonlyConfig() {
-        Map<String, Object> map = new HashMap<>();
-        map.put(URL.key(), url);
-        map.put(USERNAME.key(), username);
-        map.put(PASSWORD.key(), password);
-        if (ssl != null) {
-            map.put(SSL.key(), ssl);
-        }
-        map.put(DATABASE.key(), database);
-        map.put(TABLE.key(), table);
-        map.put(AUTO_COMMIT.key(), autoCommit);
-        map.put(BATCH_SIZE.key(), batchSize);
-        map.put(MAX_RETRIES.key(), maxRetries);
-        if (jdbcConfig != null) {
-            map.put(JDBC_CONFIG.key(), jdbcConfig);
-        }
-        map.put(EXECUTE_TIMEOUT_SEC.key(), executeTimeoutSec);
-        if (customSql != null) {
-            map.put(CUSTOM_SQL.key(), customSql);
-        }
-        map.put(SCHEMA_SAVE_MODE.key(), schemaSaveMode);
-        map.put(DATA_SAVE_MODE.key(), dataSaveMode);
 
-        return ReadonlyConfig.fromMap(map);
+    public String getRawTableName() {
+        long timestamp = System.currentTimeMillis();
+        return table + "_raw_" + timestamp;
+    }
+
+    public String getStreamName() {
+        long timestamp = System.currentTimeMillis();
+        return table + "_stream_" + timestamp;
+    }
+
+    public Properties toProperties() {
+        return getProperties();
+    }
+
+    public boolean isCdcMode() {
+        return conflictKey != null && !conflictKey.isEmpty();
     }
 }

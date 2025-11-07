@@ -2,6 +2,7 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
+|[Improve][API] Add metadata schema into catalog table (#9586)|https://github.com/apache/seatunnel/commit/385814e7f1|2.3.12|
 |[Improve] restruct connector common options (#8634)|https://github.com/apache/seatunnel/commit/f3499a6eeb|2.3.10|
 |[improve] add assert options (#8620)|https://github.com/apache/seatunnel/commit/b159cc0c75|2.3.10|
 |[Feature][API] Support timestamp with timezone offset (#8367)|https://github.com/apache/seatunnel/commit/e18bfeabd2|2.3.9|

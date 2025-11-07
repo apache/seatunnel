@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.api.common;
 
-import org.apache.commons.lang3.StringUtils;
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
 /** Used to identify a plugin. */
 public class PluginIdentifier {

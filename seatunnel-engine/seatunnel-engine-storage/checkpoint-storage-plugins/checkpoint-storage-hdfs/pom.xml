@@ -48,10 +48,6 @@
             <version>${hadoop-aliyun.version}</version>
             <scope>provided</scope>
         </dependency>
-        <dependency>
-            <groupId>org.apache.commons</groupId>
-            <artifactId>commons-lang3</artifactId>
-        </dependency>
         <!-- hadoop jar -->
         <dependency>
             <groupId>org.apache.hadoop</groupId>

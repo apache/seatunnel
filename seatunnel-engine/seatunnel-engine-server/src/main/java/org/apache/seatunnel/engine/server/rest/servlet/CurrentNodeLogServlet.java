@@ -17,11 +17,11 @@
 
 package org.apache.seatunnel.engine.server.rest.servlet;
 
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
+
 import org.apache.seatunnel.engine.common.config.server.HttpConfig;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.rest.service.LogService;
-
-import org.apache.commons.lang3.StringUtils;
 
 import com.hazelcast.spi.impl.NodeEngineImpl;
 import lombok.extern.slf4j.Slf4j;
@@ -55,7 +55,7 @@ public class CurrentNodeLogServlet extends LogBaseServlet {
         String logPath = logService.getLogPath();
 
         if (StringUtils.isBlank(logName)) {
-            writeHtml(resp, logService.currentNodeLog(uri));
+            writeHtml(resp, logService.currentNodeLog());
         } else {
             // Get Current Node Log Content
             prepareLogResponse(resp, logPath, logName);

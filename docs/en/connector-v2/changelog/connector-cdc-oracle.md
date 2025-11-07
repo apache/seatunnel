@@ -2,7 +2,11 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
-|[Improve][Oracle-CDC] Remove duplicate load table names (#9357)|https://github.com/apache/seatunnel/commit/90e88cafc5| dev |
+|[Feature][Core] Add plugin directory support for each connector (#9650)|https://github.com/apache/seatunnel/commit/4beb2b9336|2.3.12|
+|[improve] jdbc options (#9541)|https://github.com/apache/seatunnel/commit/d041e5fb32|2.3.12|
+|[Feature][Connectors-v2] Optimize the size of CDC JAR Files (#9546)|https://github.com/apache/seatunnel/commit/1dd19c6823|2.3.12|
+|[Fix][Connector-V2] Oracle cdc not update transaction commit when LOB enabled (#9412)|https://github.com/apache/seatunnel/commit/2a25bae6f6|2.3.12|
+|[Improve][Oracle-CDC] Remove duplicate load table names (#9357)|https://github.com/apache/seatunnel/commit/90e88cafc5|2.3.12|
 |[Feature][Connector-JDBC] Supprot read Oracle BLOB data as string instead of bytes (#9305)|https://github.com/apache/seatunnel/commit/454a88f81a|2.3.11|
 |[Improve][CDC] Filter ddl for snapshot phase (#8911)|https://github.com/apache/seatunnel/commit/641cc72f2f|2.3.10|
 |[Improve][Oracle-CDC] Support ReadOnlyLogWriterFlushStrategy (#8912)|https://github.com/apache/seatunnel/commit/6aebdc0384|2.3.10|

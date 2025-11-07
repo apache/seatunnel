@@ -17,12 +17,12 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.utils;
 
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
+
 import org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.exception.MongodbConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.internal.MongodbClientProvider;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.source.offset.ChangeStreamDescriptor;
-
-import org.apache.commons.lang3.StringUtils;
 
 import org.bson.BsonDocument;
 import org.bson.BsonInt32;
