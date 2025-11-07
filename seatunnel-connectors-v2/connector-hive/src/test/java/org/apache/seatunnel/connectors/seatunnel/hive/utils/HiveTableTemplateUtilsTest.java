@@ -151,7 +151,7 @@ public class HiveTableTemplateUtilsTest {
     @Test
     void testGetDefaultTableLocation() {
         String location = HiveTableTemplateUtils.getDefaultTableLocation("test_db", "test_table");
-        assertEquals("file:/tmp/hive/warehouse/test_db.db/test_table", location);
+        assertEquals("/user/hive/warehouse/test_db.db/test_table", location);
     }
 
     @Test
@@ -268,7 +268,7 @@ public class HiveTableTemplateUtilsTest {
                 HiveTableTemplateUtils.extractLocationFromTemplate(withVar, "db", "tbl");
         String extractedWithoutVar =
                 HiveTableTemplateUtils.extractLocationFromTemplate(withoutVar, "db", "tbl");
-        assertEquals("file:/tmp/hive/warehouse/db.db/tbl", extractedWithVar);
+        assertEquals("/user/hive/warehouse/db.db/tbl", extractedWithVar);
         assertEquals("/custom/warehouse/db.tbl", extractedWithoutVar);
     }
 
