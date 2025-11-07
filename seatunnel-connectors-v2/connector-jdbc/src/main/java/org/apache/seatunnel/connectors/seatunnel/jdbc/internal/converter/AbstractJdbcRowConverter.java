@@ -39,7 +39,6 @@ import java.sql.Date;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.sql.SQLFeatureNotSupportedException;
 import java.sql.Time;
 import java.sql.Timestamp;
 import java.time.LocalDate;
@@ -282,13 +281,7 @@ public abstract class AbstractJdbcRowConverter implements JdbcRowConverter {
                 break;
             case TIMESTAMP_TZ:
                 OffsetDateTime offsetDateTime = (OffsetDateTime) value;
-                try {
-                    // Prefer JDBC 4.2 API to preserve original offset when supported by driver
-                    statement.setObject(statementIndex, offsetDateTime);
-                } catch (AbstractMethodError| SQLException e) {
-                    // Fallback: store as instant without original offset
-                    statement.setTimestamp(statementIndex, Timestamp.from(offsetDateTime.toInstant()));
-                }
+                statement.setTimestamp(statementIndex, Timestamp.from(offsetDateTime.toInstant()));
                 break;
             case BYTES:
                 statement.setBytes(statementIndex, (byte[]) value);
