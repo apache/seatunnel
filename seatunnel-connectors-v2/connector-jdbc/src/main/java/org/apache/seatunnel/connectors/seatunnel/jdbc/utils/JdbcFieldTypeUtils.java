@@ -120,139 +120,58 @@ public final class JdbcFieldTypeUtils {
         try {
             obj = resultSet.getObject(columnIndex);
         } catch (Throwable e) {
-            // Defensive: buggy drivers might throw unchecked exceptions; try alternative approaches
+            // Defensive: buggy drivers might throw unchecked exceptions; fallback to string path
             obj = null;
         }
-
         if (obj == null) {
             return null;
         }
-
-        // Handle OffsetDateTime directly
         if (obj instanceof OffsetDateTime) {
             return (OffsetDateTime) obj;
         }
-
-        // Handle ZonedDateTime by converting to OffsetDateTime
-        if (obj instanceof java.time.ZonedDateTime) {
-            return ((java.time.ZonedDateTime) obj).toOffsetDateTime();
-        }
-
-        // Handle Instant by converting to UTC OffsetDateTime
-        if (obj instanceof java.time.Instant) {
-            return ((java.time.Instant) obj).atOffset(ZoneOffset.UTC);
-        }
-
-        // Handle Timestamp by converting to UTC OffsetDateTime
         if (obj instanceof Timestamp) {
+            // Fallback: best-effort convert timestamp to OffsetDateTime using UTC to preserve the
+            // instant
             Timestamp ts = (Timestamp) obj;
             return ts.toInstant().atOffset(ZoneOffset.UTC);
         }
-
-        // Handle java.util.Date by converting to UTC OffsetDateTime
-        if (obj instanceof java.util.Date) {
-            return ((java.util.Date) obj).toInstant().atOffset(ZoneOffset.UTC);
-        }
-
-        // Handle Long (epoch milliseconds) by converting to UTC OffsetDateTime
-        if (obj instanceof Long) {
-            return java.time.Instant.ofEpochMilli((Long) obj).atOffset(ZoneOffset.UTC);
-        }
-
-        // Handle Oracle-specific TIMESTAMPTZ objects
-        if (obj.getClass().getName().equals("oracle.sql.TIMESTAMPTZ")) {
-            try {
-                // Use reflection to call timestampValue() method
-                java.lang.reflect.Method timestampValueMethod = obj.getClass().getMethod("timestampValue");
-                Timestamp ts = (Timestamp) timestampValueMethod.invoke(obj);
-                if (ts != null) {
-                    return ts.toInstant().atOffset(ZoneOffset.UTC);
-                }
-            } catch (Exception e) {
-                // Fall through to string parsing
-            }
-        }
-
-        // Handle PostgreSQL-specific objects
-        if (obj.getClass().getName().startsWith("org.postgresql.")) {
-            try {
-                // Try to get string representation and parse it
-                String str = obj.toString();
-                if (str != null && !str.isEmpty()) {
-                    return parseOffsetDateTimeFromString(str);
-                }
-            } catch (Exception e) {
-                // Fall through to string parsing
-            }
-        }
-
         // Try parsing from string value if it contains offset information
         String str = null;
         try {
             str = resultSet.getString(columnIndex);
         } catch (Throwable ignored) {
-            // Try toString() on the object as last resort
-            try {
-                str = obj.toString();
-            } catch (Throwable ignored2) {
-                // ignore and keep str as null
-            }
+            // ignore and keep str as null
         }
-
         if (str != null) {
-            return parseOffsetDateTimeFromString(str);
-        }
-
-        // Unknown representation; return null to let caller decide further handling
-        return null;
-    }
-
-    private static OffsetDateTime parseOffsetDateTimeFromString(String str) {
-        if (str == null || str.trim().isEmpty()) {
-            return null;
-        }
-
-        String s = str.trim();
-        // Normalize to ISO-8601: ensure 'T' separator and offset with colon
-        String iso = s.replace(' ', 'T');
-
-        // If ends with 'Z', try parse directly
-        if (iso.endsWith("Z")) {
+            String s = str.trim();
+            // Normalize to ISO-8601: ensure 'T' separator and offset with colon
+            String iso = s.replace(' ', 'T');
+            // If ends with 'Z', try parse directly
+            if (iso.endsWith("Z")) {
+                try {
+                    return OffsetDateTime.parse(iso);
+                } catch (Exception ignored) {
+                }
+            }
+            // Add colon to offsets like +HH or +HHMM -> +HH:MM
+            if (iso.matches(".*[+-]\\d{2}$")) {
+                iso = iso + ":00";
+            } else if (iso.matches(".*[+-]\\d{4}$")) {
+                iso = iso.substring(0, iso.length() - 2) + ":" + iso.substring(iso.length() - 2);
+            }
             try {
                 return OffsetDateTime.parse(iso);
             } catch (Exception ignored) {
             }
-        }
-
-        // Add colon to offsets like +HH or +HHMM -> +HH:MM
-        if (iso.matches(".*[+-]\\d{2}$")) {
-            iso = iso + ":00";
-        } else if (iso.matches(".*[+-]\\d{4}$")) {
-            iso = iso.substring(0, iso.length() - 2) + ":" + iso.substring(iso.length() - 2);
-        }
-
-        try {
-            return OffsetDateTime.parse(iso);
-        } catch (Exception ignored) {
-        }
-
-        try {
-            // Handle formats without 'T' separator
-            if (iso.contains(" ") && !iso.contains("T")) {
-                iso = iso.replace(" ", "T");
-                return OffsetDateTime.parse(iso);
+            try {
+                // Last resort: drop offset if present and treat as UTC
+                String withoutOffset = iso.replaceFirst("([+-]\\d{2}:?\\d{2}|Z)$", "");
+                Timestamp ts = Timestamp.valueOf(withoutOffset.replace('T', ' '));
+                return ts.toInstant().atOffset(ZoneOffset.UTC);
+            } catch (Exception ignored) {
             }
-        } catch (Exception ignored) {
         }
-
-        try {
-            // Last resort: drop offset if present and treat as UTC
-            String withoutOffset = iso.replaceFirst("([+-]\\d{2}:?\\d{2}|Z)$", "");
-            Timestamp ts = Timestamp.valueOf(withoutOffset.replace('T', ' '));
-            return ts.toInstant().atOffset(ZoneOffset.UTC);
-        } catch (Exception ignored) {
-        }
-
+        // Unknown representation; return null to let caller decide further handling
         return null;
     }
 }
