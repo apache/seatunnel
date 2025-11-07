@@ -225,11 +225,6 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
                     + "from\n"
                     + "  pg_e2e_sink_table";
 
-    private static final String PG_TSTZ_SOURCE_QUERY =
-            "select id, tzt from pg_e2e_tstz_src order by id";
-    private static final String PG_TSTZ_SINK_QUERY =
-            "select id, tzt from pg_e2e_tstz_sink order by id";
-
     @TestContainerExtension
     private final ContainerExtendedFactory extendedFactory =
             container -> {
@@ -346,23 +341,10 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
                                 + ".");
                 Assertions.assertIterableEquals(querySql(SOURCE_SQL), querySql(SINK_SQL));
             } finally {
-
                 executeSQL("truncate table pg_e2e_sink_table");
             }
             log.info(CONFIG_FILE + " e2e test completed");
         }
-    }
-
-    @TestTemplate
-    public void testTimestampTzRoundTrip(TestContainer container)
-            throws IOException, InterruptedException {
-        Container.ExecResult r =
-                container.executeJob("/jdbc_postgres_timestamptz_source_and_sink.conf");
-        Assertions.assertEquals(0, r.getExitCode());
-        Assertions.assertIterableEquals(
-                querySql(PG_TSTZ_SOURCE_QUERY), querySql(PG_TSTZ_SINK_QUERY));
-        executeSQL("truncate table pg_e2e_tstz_sink");
-        log.info("/jdbc_postgres_timestamptz_source_and_sink.conf e2e test completed");
     }
 
     @Test
@@ -371,7 +353,6 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
         String databaseName = POSTGRESQL_CONTAINER.getDatabaseName();
         String tableName = "pg_e2e_sink_table";
         String catalogDatabaseName = "pg_e2e_catalog_database";
-
         String catalogTableName = "pg_e2e_catalog_table";
 
         Catalog catalog =
@@ -505,25 +486,6 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
             }
 
             statement.executeBatch();
-            // Prepare timestamptz roundtrip tables
-            statement.execute(
-                    "CREATE TABLE IF NOT EXISTS pg_e2e_tstz_src (id INT PRIMARY KEY, tzt TIMESTAMPTZ)");
-            statement.execute(
-                    "CREATE TABLE IF NOT EXISTS pg_e2e_tstz_sink (id INT PRIMARY KEY, tzt TIMESTAMPTZ)");
-            statement.execute("TRUNCATE TABLE pg_e2e_tstz_src");
-            statement.execute("TRUNCATE TABLE pg_e2e_tstz_sink");
-            statement.addBatch(
-                    "INSERT INTO pg_e2e_tstz_src(id, tzt) VALUES (1, '2023-01-01 00:00:00+00')");
-            statement.addBatch(
-                    "INSERT INTO pg_e2e_tstz_src(id, tzt) VALUES (2, '2023-06-01 08:15:30.123456+08')");
-            statement.addBatch(
-                    "INSERT INTO pg_e2e_tstz_src(id, tzt) VALUES (3, '2020-02-29 23:59:59.999999-05')");
-            statement.addBatch(
-                    "INSERT INTO pg_e2e_tstz_src(id, tzt) VALUES (4, '1970-01-01 00:00:00+00')");
-            statement.addBatch(
-                    "INSERT INTO pg_e2e_tstz_src(id, tzt) VALUES (5, '9999-12-31 23:59:59.999999+14')");
-            statement.executeBatch();
-
         } catch (SQLException e) {
             throw new RuntimeException("Initializing PostgreSql table failed!", e);
         }

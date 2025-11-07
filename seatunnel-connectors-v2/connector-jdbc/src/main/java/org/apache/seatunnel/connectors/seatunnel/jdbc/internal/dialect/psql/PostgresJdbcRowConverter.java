@@ -261,7 +261,7 @@ public class PostgresJdbcRowConverter extends AbstractJdbcRowConverter {
                         OffsetDateTime offsetDateTime = (OffsetDateTime) row.getField(fieldIndex);
                         try {
                             statement.setObject(statementIndex, offsetDateTime);
-                        } catch (AbstractMethodError | SQLException e) {
+                        } catch (AbstractMethodError | java.sql.SQLFeatureNotSupportedException | SQLException e) {
                             statement.setTimestamp(
                                     statementIndex, Timestamp.from(offsetDateTime.toInstant()));
                         }

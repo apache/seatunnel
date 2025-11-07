@@ -24,7 +24,8 @@ import java.sql.SQLFeatureNotSupportedException;
 import java.sql.Time;
 import java.sql.Timestamp;
 import java.time.OffsetDateTime;
-import java.time.ZoneOffset;
+import java.time.Instant;
+import java.time.ZoneId;
 
 public final class JdbcFieldTypeUtils {
 
@@ -119,11 +120,7 @@ public final class JdbcFieldTypeUtils {
         // Try JDBC 4.2 direct retrieval first
         try {
             return resultSet.getObject(columnIndex, OffsetDateTime.class);
-        } catch (AbstractMethodError ignored) {
-            // fall through to best-effort fallback
-        } catch (SQLFeatureNotSupportedException ignored) {
-            // fall through to best-effort fallback
-        } catch (SQLException ignored) {
+        } catch (AbstractMethodError | SQLFeatureNotSupportedException | SQLException ignored) {
             // fall through to best-effort fallback
         }
         Object obj = resultSet.getObject(columnIndex);
@@ -134,38 +131,27 @@ public final class JdbcFieldTypeUtils {
             return (OffsetDateTime) obj;
         }
         if (obj instanceof Timestamp) {
-            // Fallback: best-effort convert timestamp to OffsetDateTime using UTC to preserve the
-            // instant
+            // Fallback: best-effort convert timestamp to OffsetDateTime using system default zone
+            // Note: this may lose original DB timezone semantics if driver doesn't expose it
             Timestamp ts = (Timestamp) obj;
-            return ts.toInstant().atOffset(ZoneOffset.UTC);
+            return ts.toInstant().atZone(ZoneId.systemDefault()).toOffsetDateTime();
         }
         // Try parsing from string value if it contains offset information
         String str = resultSet.getString(columnIndex);
         if (str != null) {
-            String s = str.trim();
             try {
-                return OffsetDateTime.parse(s);
+                return OffsetDateTime.parse(str);
             } catch (Exception ignored) {
                 // ignore parse failure
             }
             try {
-                // Some drivers (e.g. Oracle) may return a non-ISO string like "2023-06-01
-                // 08:15:30.123456 +08:00"
-                String normalized = s.replace(' ', 'T').replace(" +", "+").replace(" -", "-");
-                return OffsetDateTime.parse(normalized);
-            } catch (Exception ignored) {
-                // ignore
-            }
-            try {
-                // As a last resort, parse as timestamp (no offset) and treat it as UTC to avoid
-                // locale leakage
-                Timestamp ts = Timestamp.valueOf(s.replace('T', ' '));
-                return ts.toInstant().atOffset(ZoneOffset.UTC);
+                // last resort: interpret as epoch millis/seconds? avoid unsafe guesses, return null
+                Instant instant = Timestamp.valueOf(str).toInstant();
+                return instant.atZone(ZoneId.systemDefault()).toOffsetDateTime();
             } catch (Exception ignored) {
                 // ignore
             }
         }
-        // Unknown representation; return null to let caller decide further handling
         return null;
     }
 }

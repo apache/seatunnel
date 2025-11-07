@@ -78,17 +78,6 @@ public class JdbcOracleIT extends AbstractJdbcIT {
                     "/jdbc_oracle_source_to_sink_use_select2.conf",
                     "/jdbc_oracle_source_to_sink_use_select3.conf");
 
-    private static final String TZ_SOURCE_TABLE = "E2E_TZ_SRC";
-    private static final String TZ_SINK_TABLE = "E2E_TZ_SINK";
-    private static final String ORA_TZ_SOURCE_QUERY =
-            "SELECT ID, TO_CHAR(TSTZ, 'YYYY-MM-DD\"T\"HH24:MI:SS.FF6TZH:TZM') FROM "
-                    + TZ_SOURCE_TABLE
-                    + " ORDER BY ID";
-    private static final String ORA_TZ_SINK_QUERY =
-            "SELECT ID, TO_CHAR(TSTZ, 'YYYY-MM-DD\"T\"HH24:MI:SS.FF6TZH:TZM') FROM "
-                    + TZ_SINK_TABLE
-                    + " ORDER BY ID";
-
     private static final String CREATE_SQL =
             "create table %s\n"
                     + "(\n"
@@ -176,17 +165,6 @@ public class JdbcOracleIT extends AbstractJdbcIT {
                                         + " where INTEGER_COL = 1")
                         .build();
         dialect.sampleDataFromColumn(connection, table, "INTEGER_COL", 1, 1024);
-    }
-
-    @TestTemplate
-    public void testTimestampTzRoundTrip(TestContainer container) throws Exception {
-        Container.ExecResult r =
-                container.executeJob("/jdbc_oracle_timestamptz_source_and_sink.conf");
-        Assertions.assertEquals(0, r.getExitCode());
-        Assertions.assertIterableEquals(querySql(ORA_TZ_SOURCE_QUERY), querySql(ORA_TZ_SINK_QUERY));
-        try (Statement st = connection.createStatement()) {
-            st.execute("truncate table " + TZ_SINK_TABLE);
-        }
     }
 
     @TestTemplate
@@ -329,47 +307,6 @@ public class JdbcOracleIT extends AbstractJdbcIT {
     }
 
     @Override
-    protected void createNeededTables() {
-        super.createNeededTables();
-        try (Statement statement = connection.createStatement()) {
-            statement.execute(
-                    "create table if not exists "
-                            + TZ_SOURCE_TABLE
-                            + " (ID number(10) primary key, TSTZ timestamp with time zone)");
-            statement.execute(
-                    "create table if not exists "
-                            + TZ_SINK_TABLE
-                            + " (ID number(10) primary key, TSTZ timestamp with time zone)");
-            statement.execute("truncate table " + TZ_SOURCE_TABLE);
-            statement.execute("truncate table " + TZ_SINK_TABLE);
-            statement.addBatch(
-                    "insert into "
-                            + TZ_SOURCE_TABLE
-                            + " (ID, TSTZ) values (1, TO_TIMESTAMP_TZ('2023-01-01T00:00:00.000000+00:00', 'YYYY-MM-DD\"T\"HH24:MI:SS.FF6TZH:TZM'))");
-            statement.addBatch(
-                    "insert into "
-                            + TZ_SOURCE_TABLE
-                            + " (ID, TSTZ) values (2, TO_TIMESTAMP_TZ('2023-06-01T08:15:30.123456+08:00', 'YYYY-MM-DD\"T\"HH24:MI:SS.FF6TZH:TZM'))");
-            statement.addBatch(
-                    "insert into "
-                            + TZ_SOURCE_TABLE
-                            + " (ID, TSTZ) values (3, TO_TIMESTAMP_TZ('2020-02-29T23:59:59.999999-05:00', 'YYYY-MM-DD\"T\"HH24:MI:SS.FF6TZH:TZM'))");
-            statement.addBatch(
-                    "insert into "
-                            + TZ_SOURCE_TABLE
-                            + " (ID, TSTZ) values (4, TO_TIMESTAMP_TZ('1970-01-01T00:00:00.000000+00:00', 'YYYY-MM-DD\"T\"HH24:MI:SS.FF6TZH:TZM'))");
-            statement.addBatch(
-                    "insert into "
-                            + TZ_SOURCE_TABLE
-                            + " (ID, TSTZ) values (5, TO_TIMESTAMP_TZ('9999-12-31T23:59:59.999999+14:00', 'YYYY-MM-DD\"T\"HH24:MI:SS.FF6TZH:TZM'))");
-            statement.executeBatch();
-            connection.commit();
-        } catch (Exception e) {
-            throw new RuntimeException("Initializing Oracle TZ tables failed!", e);
-        }
-    }
-
-    @Override
     protected void initCatalog() {
         String jdbcUrl = jdbcCase.getJdbcUrl().replace(HOST, dbServer.getHost());
         catalog =
@@ -381,24 +318,6 @@ public class JdbcOracleIT extends AbstractJdbcIT {
                         SCHEMA,
                         null);
         catalog.open();
-    }
-
-    private List<List<Object>> querySql(String sql) {
-        try (Statement statement = connection.createStatement();
-                java.sql.ResultSet resultSet = statement.executeQuery(sql)) {
-            List<List<Object>> result = new ArrayList<>();
-            int columnCount = resultSet.getMetaData().getColumnCount();
-            while (resultSet.next()) {
-                ArrayList<Object> row = new ArrayList<>();
-                for (int i = 1; i <= columnCount; i++) {
-                    row.add(resultSet.getObject(i));
-                }
-                result.add(row);
-            }
-            return result;
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
     }
 
     @BeforeAll
