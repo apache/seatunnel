@@ -221,7 +221,7 @@ public class OracleDdlParserTest {
                 addEvent3.get(12),
                 "col13".toUpperCase(),
                 "timestamp with time zone(6)",
-                "TIMESTAMP_TZ",
+                "TIMESTAMP",
                 null,
                 6,
                 false,
