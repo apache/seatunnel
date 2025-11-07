@@ -310,7 +310,7 @@ public class CheckpointManager {
 
     protected InvocationFuture<?> sendOperationToMemberNode(TaskOperation operation) {
         log.debug(
-                "Send Operation : "
+                "Sead Operation : "
                         + operation.getClass().getSimpleName()
                         + " to "
                         + jobMaster.queryTaskGroupAddress(

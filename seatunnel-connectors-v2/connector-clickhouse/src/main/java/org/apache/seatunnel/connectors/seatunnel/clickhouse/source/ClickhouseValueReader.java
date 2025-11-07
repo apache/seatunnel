@@ -18,12 +18,10 @@
 package org.apache.seatunnel.connectors.seatunnel.clickhouse.source;
 
 import org.apache.seatunnel.api.table.catalog.TablePath;
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.exception.ClickhouseConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.exception.ClickhouseConnectorException;
-import org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.file.ClickhouseTable;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.source.split.ClickhouseSourceSplit;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.util.ClickhouseProxy;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.util.ClickhouseUtil;
@@ -35,50 +33,27 @@ import com.clickhouse.client.ClickHouseResponse;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.Serializable;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import java.util.Optional;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 
-/**
- * ClickhouseValueReader is responsible for reading data from ClickHouse database. It supports two
- * reading modes determined by {@link #shouldUseStreamReader()}:
- *
- * <p>1. Stream Mode: Used when the query is complex, no sorting key exists, or not all sorting key
- * columns are included in the query fields.
- *
- * <p>2. Batch Mode: Used keyset pagination approach by tracking the last row's sorting key values
- * from each batch. This mode requires {@link #isAllSortKeyInRowType()} to be true, meaning all
- * sorting key columns must be included in the query fields.
- */
 @Slf4j
 public class ClickhouseValueReader implements Serializable {
     private static final long serialVersionUID = 4588012013447713463L;
-
-    private static final DateTimeFormatter TS_FORMATTER =
-            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
     private final ClickhouseSourceSplit clickhouseSourceSplit;
     private final SeaTunnelRowType rowTypeInfo;
     private final ClickhouseSourceTable clickhouseSourceTable;
     private StreamValueReader streamValueReader;
     private ClickhouseProxy proxy;
-    private final boolean shouldUseStreamReader;
 
     protected int currentPartIndex = 0;
 
     private List<SeaTunnelRow> rowBatch;
-
-    // SQL strategy keyset order values
-    private List<Object> sqlLastOrderingKeyValues;
 
     public ClickhouseValueReader(
             ClickhouseSourceSplit clickhouseSourceSplit,
@@ -88,11 +63,10 @@ public class ClickhouseValueReader implements Serializable {
         this.rowTypeInfo = seaTunnelRowType;
         this.clickhouseSourceTable = clickhouseSourceTable;
         this.proxy = new ClickhouseProxy(clickhouseSourceSplit.getShard().getNode());
-        this.shouldUseStreamReader = shouldUseStreamReader();
     }
 
     public boolean hasNext() {
-        if (shouldUseStreamReader) {
+        if (shouldUseStreamReader()) {
             if (streamValueReader == null) {
                 streamValueReader = new StreamValueReader();
             }
@@ -130,7 +104,7 @@ public class ClickhouseValueReader implements Serializable {
         }
 
         try {
-            String query = buildBatchPartQuery(currentPart);
+            String query = buildPartQuery(currentPart);
             rowBatch =
                     proxy.batchFetchRecords(
                             query, clickhouseSourceTable.getTablePath(), rowTypeInfo);
@@ -147,15 +121,8 @@ public class ClickhouseValueReader implements Serializable {
                 return currentPartIndex < partSize && partBatchStrategyRead();
             }
 
-            // update Keyset cursor (last ordering key values)
-            String sortingKey = clickhouseSourceTable.getClickhouseTable().getSortingKey();
-
-            SeaTunnelRow lastRow = rowBatch.get(rowBatch.size() - 1);
-            List<Object> keyValues = extractOrderingKeyValuesFromRow(lastRow, sortingKey);
-            log.debug("lastRow: {}, extract ordering key values from row: {}", lastRow, keyValues);
-
-            currentPart.setLastOrderingKeyValues(keyValues);
-
+            // update part offset
+            currentPart.setOffset(currentPart.getOffset() + rowBatch.size());
             return true;
         } catch (Exception e) {
             throw new ClickhouseConnectorException(
@@ -171,26 +138,15 @@ public class ClickhouseValueReader implements Serializable {
     }
 
     private boolean sqlBatchStrategyRead() {
-        String query = buildBatchSqlQuery();
+        String query = buildSqlQuery();
 
         try {
             rowBatch =
                     proxy.batchFetchRecords(
                             query, clickhouseSourceTable.getTablePath(), rowTypeInfo);
 
-            String sortingKey = clickhouseSourceTable.getClickhouseTable().getSortingKey();
-
-            if (rowBatch.isEmpty()) {
-                return false;
-            }
-            SeaTunnelRow lastRow = rowBatch.get(rowBatch.size() - 1);
-
-            sqlLastOrderingKeyValues = extractOrderingKeyValuesFromRow(lastRow, sortingKey);
-
-            log.debug(
-                    "lastRow: {}, extract ordering key values from row: {}",
-                    lastRow,
-                    sqlLastOrderingKeyValues);
+            clickhouseSourceSplit.setSqlOffset(
+                    clickhouseSourceSplit.getSqlOffset() + rowBatch.size());
 
             return !rowBatch.isEmpty();
         } catch (Exception e) {
@@ -217,30 +173,10 @@ public class ClickhouseValueReader implements Serializable {
 
     private boolean shouldUseStreamReader() {
         return clickhouseSourceTable.isComplexSql()
-                || StringUtils.isEmpty(clickhouseSourceTable.getClickhouseTable().getSortingKey())
-                || !isAllSortKeyInRowType();
+                || StringUtils.isEmpty(clickhouseSourceTable.getClickhouseTable().getSortingKey());
     }
 
-    /** Verify if all sorting key exists in roTypeInfo */
-    private boolean isAllSortKeyInRowType() {
-        ClickhouseTable clickhouseTable = clickhouseSourceTable.getClickhouseTable();
-        if (clickhouseTable == null || StringUtils.isEmpty(clickhouseTable.getSortingKey())) {
-            return false;
-        }
-        String sortingKey = clickhouseTable.getSortingKey();
-        List<String> sortingKeyList =
-                Arrays.stream(sortingKey.split(",")).map(String::trim).collect(Collectors.toList());
-
-        // check all sort key exists in rowTypeInfo
-        Optional<String> sortKeyNotExistOpt =
-                sortingKeyList.stream()
-                        .filter(key -> rowTypeInfo.indexOf(key, false) == -1)
-                        .findAny();
-
-        return !sortKeyNotExistOpt.isPresent();
-    }
-
-    private String buildBatchPartQuery(ClickhousePart part) {
+    private String buildPartQuery(ClickhousePart part) {
         TablePath tablePath = TablePath.of(part.getDatabase(), part.getTable());
 
         String whereClause = String.format("_part = '%s'", part.getName());
@@ -248,34 +184,14 @@ public class ClickhouseValueReader implements Serializable {
             whereClause += " AND (" + clickhouseSourceTable.getFilterQuery() + ")";
         }
 
-        String sortingKey = clickhouseSourceTable.getClickhouseTable().getSortingKey();
-
-        String orderByClause = " ORDER BY " + sortingKey;
-
-        String keysetWhere = "";
-        // Key cursor mode pagination: when sorting key exists, use tuple comparison on
-        // lastOrderingKeyValues
-        if (part.getLastOrderingKeyValues() != null) {
-            keysetWhere = buildKeysetWhereCondition(sortingKey, part.getLastOrderingKeyValues());
-            if (!keysetWhere.isEmpty()) {
-                whereClause += " AND (" + keysetWhere + ")";
-            }
+        String orderByClause = "";
+        if (StringUtils.isNotEmpty(clickhouseSourceTable.getClickhouseTable().getSortingKey())) {
+            orderByClause =
+                    " ORDER BY " + clickhouseSourceTable.getClickhouseTable().getSortingKey();
         }
 
         String sql;
-
-        if (part.getLastOrderingKeyValues() != null) {
-            // key cursor mode: no OFFSET, only LIMIT
-            sql =
-                    String.format(
-                            "SELECT * FROM %s.%s WHERE %s %s LIMIT %d WITH TIES",
-                            tablePath.getDatabaseName(),
-                            tablePath.getTableName(),
-                            whereClause,
-                            orderByClause,
-                            clickhouseSourceTable.getBatchSize());
-        } else {
-            // for the first sql creation, lastOrderingKeyValues is null
+        if (StringUtils.isNotEmpty(orderByClause)) {
             sql =
                     String.format(
                             "SELECT * FROM %s.%s WHERE %s %s LIMIT %d, %d WITH TIES",
@@ -283,135 +199,40 @@ public class ClickhouseValueReader implements Serializable {
                             tablePath.getTableName(),
                             whereClause,
                             orderByClause,
-                            0,
+                            part.getOffset(),
                             clickhouseSourceTable.getBatchSize());
-        }
-
-        log.info("generate batch part sql: {}", sql);
-
-        return sql;
-    }
-
-    private String buildBatchSqlQuery() {
-        String base =
-                String.format("SELECT * FROM (%s) AS t", clickhouseSourceSplit.getSplitQuery());
-
-        String sortingKey = clickhouseSourceTable.getClickhouseTable().getSortingKey();
-
-        String whereClause = "";
-        if (sqlLastOrderingKeyValues != null) {
-            String keyset = buildKeysetWhereCondition(sortingKey, sqlLastOrderingKeyValues);
-            if (!keyset.isEmpty()) {
-                whereClause = " WHERE (" + keyset + ")";
-            }
-        }
-
-        String orderByClause = " ORDER BY " + sortingKey;
-
-        String sql;
-        if (sqlLastOrderingKeyValues != null) {
-            // key cursor mode: no OFFSET, only LIMIT
-            sql =
-                    String.format(
-                            "%s %s %s LIMIT %d WITH TIES",
-                            base, whereClause, orderByClause, clickhouseSourceTable.getBatchSize());
         } else {
-            // for the first sql creation, sqlLastOrderingKeyValues is null
             sql =
                     String.format(
-                            "%s %s LIMIT %d, %d WITH TIES",
-                            base, orderByClause, 0, clickhouseSourceTable.getBatchSize());
+                            "SELECT * FROM %s.%s WHERE %s",
+                            tablePath.getDatabaseName(), tablePath.getTableName(), whereClause);
         }
-
-        log.info("generate batch query sql: {}", sql);
 
         return sql;
     }
 
-    /**
-     * Build WHERE condition using the sorting key and last key values. Supports single or composite
-     * keys, and generates lexicographic tuple comparison.
-     */
-    private String buildKeysetWhereCondition(String sortingKey, List<Object> lastKeyValues) {
-        List<String> keyCols =
-                Arrays.stream(sortingKey.split(",")).map(String::trim).collect(Collectors.toList());
-        if (lastKeyValues == null
-                || lastKeyValues.isEmpty()
-                || keyCols.size() != lastKeyValues.size()) {
-            return "";
+    private String buildSqlQuery() {
+        String orderByClause = "";
+        if (StringUtils.isNotEmpty(clickhouseSourceTable.getClickhouseTable().getSortingKey())) {
+            orderByClause =
+                    " ORDER BY " + clickhouseSourceTable.getClickhouseTable().getSortingKey();
         }
 
-        // Build tuple comparison (c1, c2, ...) > (v1, v2, ...)
-        String left = "(" + String.join(", ", keyCols) + ")";
-
-        // Convert lastKeyValues to SQL literals based on rowTypeInfo
-        String inlinedRight = "(" + buildSqlLiteralsForKeyValues(keyCols, lastKeyValues) + ")";
-
-        return left + " > " + inlinedRight;
-    }
-
-    private String buildSqlLiteralsForKeyValues(List<String> keyCols, List<Object> values) {
-        List<String> literals = new ArrayList<>();
-        for (int i = 0; i < keyCols.size(); i++) {
-            String col = keyCols.get(i);
-            Object v = values.get(i);
-            literals.add(toSqlLiteral(col, v));
+        String executeSql;
+        if (StringUtils.isNotEmpty(orderByClause)) {
+            executeSql =
+                    String.format(
+                            "SELECT * FROM (%s) AS t %s LIMIT %d, %d WITH TIES",
+                            clickhouseSourceSplit.getSplitQuery(),
+                            orderByClause,
+                            clickhouseSourceSplit.getSqlOffset(),
+                            clickhouseSourceTable.getBatchSize());
+        } else {
+            executeSql =
+                    String.format("SELECT * FROM (%s) AS t", clickhouseSourceSplit.getSplitQuery());
         }
-        return String.join(", ", literals);
-    }
 
-    private String toSqlLiteral(String column, Object value) {
-        if (value == null) {
-            return "NULL";
-        }
-        int idx = rowTypeInfo.indexOf(column, false);
-        if (idx < 0) {
-            // fallback: quote as string
-            return quoteString(value.toString());
-        }
-        SeaTunnelDataType<?> t = rowTypeInfo.getFieldType(idx);
-        switch (t.getSqlType()) {
-            case STRING:
-                return quoteString(value.toString());
-            case BOOLEAN:
-                return Boolean.TRUE.equals(value) ? "1" : "0";
-            case TINYINT:
-            case SMALLINT:
-            case INT:
-            case BIGINT:
-            case FLOAT:
-            case DOUBLE:
-            case DECIMAL:
-                return value.toString();
-            case DATE:
-                if (value instanceof LocalDate) {
-                    return quoteString(value.toString());
-                }
-                return quoteString(String.valueOf(value));
-            case TIMESTAMP:
-                if (value instanceof LocalDateTime) {
-                    return quoteString(TS_FORMATTER.format((LocalDateTime) value));
-                }
-                return quoteString(String.valueOf(value));
-            default:
-                return quoteString(String.valueOf(value));
-        }
-    }
-
-    private List<Object> extractOrderingKeyValuesFromRow(SeaTunnelRow row, String sortingKey) {
-        List<String> keyCols =
-                Arrays.stream(sortingKey.split(",")).map(String::trim).collect(Collectors.toList());
-        List<Object> keyValues = new ArrayList<>(keyCols.size());
-        for (String col : keyCols) {
-            int idx = rowTypeInfo.indexOf(col, false);
-            keyValues.add(row.getField(idx));
-        }
-        return keyValues;
-    }
-
-    private String quoteString(String s) {
-        String escaped = s.replace("\\", "\\\\").replace("'", "''");
-        return "'" + escaped + "'";
+        return executeSql;
     }
 
     private class StreamValueReader implements Serializable {
@@ -438,7 +259,6 @@ public class ClickhouseValueReader implements Serializable {
                                 try {
                                     for (String sql : sqlList) {
                                         executeSql = sql;
-                                        log.info("execute stream sql: {}", executeSql);
                                         try (ClickHouseResponse response =
                                                 proxy.getClickhouseConnection()
                                                         .query(sql)
@@ -515,22 +335,9 @@ public class ClickhouseValueReader implements Serializable {
                 return Collections.singletonList(clickhouseSourceSplit.getSplitQuery());
             } else {
                 return clickhouseSourceSplit.getParts().stream()
-                        .map(this::buildStreamPartQuery)
+                        .map(ClickhouseValueReader.this::buildPartQuery)
                         .collect(Collectors.toList());
             }
-        }
-
-        private String buildStreamPartQuery(ClickhousePart part) {
-            TablePath tablePath = TablePath.of(part.getDatabase(), part.getTable());
-
-            String whereClause = String.format("_part = '%s'", part.getName());
-            if (StringUtils.isNotEmpty(clickhouseSourceTable.getFilterQuery())) {
-                whereClause += " AND (" + clickhouseSourceTable.getFilterQuery() + ")";
-            }
-
-            return String.format(
-                    "SELECT * FROM %s.%s WHERE %s",
-                    tablePath.getDatabaseName(), tablePath.getTableName(), whereClause);
         }
 
         public void close() {

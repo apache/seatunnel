@@ -55,10 +55,6 @@ public class EngineConfig {
             ServerConfigOptions.MasterServerConfigOptions.JOB_METRICS_BACKUP_INTERVAL
                     .defaultValue();
 
-    private int jobMetricsPartitionCount =
-            ServerConfigOptions.MasterServerConfigOptions.JOB_METRICS_PARTITION_COUNT
-                    .defaultValue();
-
     private ThreadShareMode taskExecutionThreadShareMode =
             ServerConfigOptions.WorkerServerConfigOptions.TASK_EXECUTION_THREAD_SHARE_MODE
                     .defaultValue();
@@ -130,14 +126,6 @@ public class EngineConfig {
                 ServerConfigOptions.MasterServerConfigOptions.JOB_METRICS_BACKUP_INTERVAL
                         + " must be > 0");
         this.jobMetricsBackupInterval = jobMetricsBackupInterval;
-    }
-
-    public void setJobMetricsPartitionCount(int jobMetricsPartitionCount) {
-        checkPositive(
-                jobMetricsPartitionCount,
-                ServerConfigOptions.MasterServerConfigOptions.JOB_METRICS_PARTITION_COUNT
-                        + " must be > 0");
-        this.jobMetricsPartitionCount = jobMetricsPartitionCount;
     }
 
     public void setTaskExecutionThreadShareMode(ThreadShareMode taskExecutionThreadShareMode) {

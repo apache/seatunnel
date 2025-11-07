@@ -151,7 +151,7 @@ public class JobMaster {
     private final IMap<Object, Object> runningJobStateTimestampsIMap;
 
     // TODO add config to change value
-    private boolean isPhysicalDAGInfo = true;
+    private boolean isPhysicalDAGIInfo = true;
 
     private final EngineConfig engineConfig;
 
@@ -333,7 +333,6 @@ public class JobMaster {
         CheckpointConfig jobCheckpointConfig = new CheckpointConfig();
         jobCheckpointConfig.setCheckpointTimeout(defaultCheckpointConfig.getCheckpointTimeout());
         jobCheckpointConfig.setCheckpointInterval(defaultCheckpointConfig.getCheckpointInterval());
-        jobCheckpointConfig.setCheckpointMinPause(defaultCheckpointConfig.getCheckpointMinPause());
 
         CheckpointStorageConfig jobCheckpointStorageConfig = new CheckpointStorageConfig();
         jobCheckpointStorageConfig.setStorage(defaultCheckpointConfig.getStorage().getStorage());
@@ -357,11 +356,6 @@ public class JobMaster {
             jobCheckpointConfig.setCheckpointTimeout(
                     Long.parseLong(
                             jobEnv.get(EnvCommonOptions.CHECKPOINT_TIMEOUT.key()).toString()));
-        }
-        if (jobEnv.containsKey(EnvCommonOptions.CHECKPOINT_MIN_PAUSE.key())) {
-            jobCheckpointConfig.setCheckpointMinPause(
-                    Long.parseLong(
-                            jobEnv.get(EnvCommonOptions.CHECKPOINT_MIN_PAUSE.key()).toString()));
         }
         return jobCheckpointConfig;
     }
@@ -643,7 +637,7 @@ public class JobMaster {
                             logicalDag,
                             jobImmutableInformation,
                             engineConfig,
-                            isPhysicalDAGInfo,
+                            isPhysicalDAGIInfo,
                             new ExecutionAddress(
                                     this.nodeEngine.getThisAddress().getHost(),
                                     this.nodeEngine.getThisAddress().getPort()),

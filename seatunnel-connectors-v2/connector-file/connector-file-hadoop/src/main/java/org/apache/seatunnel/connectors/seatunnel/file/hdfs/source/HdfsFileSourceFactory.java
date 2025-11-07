@@ -20,11 +20,8 @@ package org.apache.seatunnel.connectors.seatunnel.file.hdfs.source;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
-import org.apache.seatunnel.api.source.SourceSplit;
-import org.apache.seatunnel.api.table.connector.TableSource;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
-import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
@@ -32,18 +29,10 @@ import org.apache.seatunnel.connectors.seatunnel.file.hdfs.source.config.HdfsSou
 
 import com.google.auto.service.AutoService;
 
-import java.io.Serializable;
 import java.util.Arrays;
 
 @AutoService(Factory.class)
 public class HdfsFileSourceFactory implements TableSourceFactory {
-
-    @Override
-    public <T, SplitT extends SourceSplit, StateT extends Serializable>
-            TableSource<T, SplitT, StateT> createSource(TableSourceFactoryContext context) {
-        return () -> (SeaTunnelSource<T, SplitT, StateT>) new HdfsFileSource(context.getOptions());
-    }
-
     @Override
     public String factoryIdentifier() {
         return FileSystemType.HDFS.getFileSystemPluginName();
@@ -52,9 +41,9 @@ public class HdfsFileSourceFactory implements TableSourceFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .exclusive(HdfsSourceConfigOptions.TABLE_CONFIGS, HdfsSourceConfigOptions.FILE_PATH)
-                .optional(HdfsSourceConfigOptions.DEFAULT_FS)
-                .optional(FileBaseSourceOptions.FILE_FORMAT_TYPE)
+                .required(HdfsSourceConfigOptions.FILE_PATH)
+                .required(HdfsSourceConfigOptions.DEFAULT_FS)
+                .required(FileBaseSourceOptions.FILE_FORMAT_TYPE)
                 .conditional(
                         FileBaseSourceOptions.FILE_FORMAT_TYPE,
                         FileFormat.TEXT,

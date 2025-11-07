@@ -361,8 +361,7 @@ public class CheckpointCoordinator {
         }
     }
 
-    @VisibleForTesting
-    protected void notifyCompleted(CompletedCheckpoint completedCheckpoint) {
+    private void notifyCompleted(CompletedCheckpoint completedCheckpoint) {
         if (completedCheckpoint != null) {
             try {
                 LOG.info(
@@ -405,9 +404,7 @@ public class CheckpointCoordinator {
         scheduleTriggerPendingCheckpoint(CHECKPOINT_TYPE, delayMills);
     }
 
-    @VisibleForTesting
-    protected void scheduleTriggerPendingCheckpoint(
-            CheckpointType checkpointType, long delayMills) {
+    private void scheduleTriggerPendingCheckpoint(CheckpointType checkpointType, long delayMills) {
         scheduler.schedule(
                 () -> tryTriggerPendingCheckpoint(checkpointType),
                 delayMills,
@@ -516,24 +513,6 @@ public class CheckpointCoordinator {
                 scheduleTriggerPendingCheckpoint(
                         checkpointType, coordinatorConfig.getCheckpointInterval() - interval);
                 return;
-            }
-
-            if (latestCompletedCheckpoint != null
-                    && coordinatorConfig.getCheckpointMinPause() != -1) {
-                long lastCompletedTime = latestCompletedCheckpoint.getCompletedTimestamp();
-                long timeSinceLastCompleted = currentTimestamp - lastCompletedTime;
-                if (timeSinceLastCompleted < coordinatorConfig.getCheckpointMinPause()) {
-                    long minPauseDelay =
-                            coordinatorConfig.getCheckpointMinPause() - timeSinceLastCompleted;
-                    LOG.info(
-                            "skip trigger checkpoint because the last completed timestamp is {} and current timestamp is {}, the time since completion ({} ms) is less than min-pause ({} ms).",
-                            lastCompletedTime,
-                            currentTimestamp,
-                            timeSinceLastCompleted,
-                            coordinatorConfig.getCheckpointMinPause());
-                    scheduleTriggerPendingCheckpoint(checkpointType, minPauseDelay);
-                    return;
-                }
             }
         }
         synchronized (lock) {
@@ -930,7 +909,6 @@ public class CheckpointCoordinator {
         notifyCompleted(completedCheckpoint);
         pendingCheckpoints.remove(checkpointId).abortCheckpointTimeoutFutureWhenIsCompleted();
         pendingCounter.decrementAndGet();
-
         if (isCompleted()) {
             cleanPendingCheckpoint(CheckpointCloseReason.CHECKPOINT_COORDINATOR_COMPLETED);
             if (latestCompletedCheckpoint.getCheckpointType().isSavepoint()) {

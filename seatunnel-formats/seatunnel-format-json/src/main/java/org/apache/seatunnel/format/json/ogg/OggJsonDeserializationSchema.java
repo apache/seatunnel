@@ -195,6 +195,7 @@ public class OggJsonDeserializationSchema implements DeserializationSchema<SeaTu
                     if (tsNode != null) {
                         MetadataUtil.setEventTime(before, ts);
                     }
+                    out.collect(before);
 
                     after.setRowKind(RowKind.UPDATE_AFTER);
                     if (tablePath != null) {
@@ -203,7 +204,6 @@ public class OggJsonDeserializationSchema implements DeserializationSchema<SeaTu
                     if (tsNode != null) {
                         MetadataUtil.setEventTime(after, ts);
                     }
-                    out.collect(before);
                     out.collect(after);
                     break;
                 case OP_DELETE:

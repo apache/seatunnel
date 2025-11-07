@@ -20,7 +20,6 @@ package org.apache.seatunnel.connectors.seatunnel.clickhouse.source;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.shard.Shard;
 
 import java.io.Serializable;
-import java.util.List;
 import java.util.Objects;
 
 public class ClickhousePart implements Serializable, Comparable<ClickhousePart> {
@@ -32,12 +31,7 @@ public class ClickhousePart implements Serializable, Comparable<ClickhousePart> 
     private final String database;
     private final String table;
     private final Shard shard;
-
-    /**
-     * Stores the last ordering key values fetched for Keyset cursor pagination. The order matches
-     * the table's sorting key columns.
-     */
-    private List<Object> lastOrderingKeyValues;
+    private int offset = 0;
 
     /** Flag indicating whether all data from this part has been completely read. */
     private boolean isEndOfPart = false;
@@ -73,12 +67,12 @@ public class ClickhousePart implements Serializable, Comparable<ClickhousePart> 
         this.isEndOfPart = endOfPart;
     }
 
-    public List<Object> getLastOrderingKeyValues() {
-        return lastOrderingKeyValues;
+    public void setOffset(int offset) {
+        this.offset = offset;
     }
 
-    public void setLastOrderingKeyValues(List<Object> lastOrderingKeyValues) {
-        this.lastOrderingKeyValues = lastOrderingKeyValues;
+    public int getOffset() {
+        return offset;
     }
 
     @Override
@@ -120,10 +114,10 @@ public class ClickhousePart implements Serializable, Comparable<ClickhousePart> 
                 + '\''
                 + ", shard="
                 + shard
+                + ", offset="
+                + offset
                 + ", isEndOfPart="
                 + isEndOfPart
-                + ", lastOrderingKeyValues="
-                + lastOrderingKeyValues
                 + '}';
     }
 }

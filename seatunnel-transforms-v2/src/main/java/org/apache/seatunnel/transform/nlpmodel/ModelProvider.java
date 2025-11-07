@@ -24,8 +24,7 @@ public enum ModelProvider {
     OPENAI("https://api.openai.com/v1/chat/completions", "https://api.openai.com/v1/embeddings"),
     DOUBAO(
             "https://ark.cn-beijing.volces.com/api/v3/chat/completions",
-            "https://ark.cn-beijing.volces.com/api/v3/embeddings",
-            "https://ark.cn-beijing.volces.com/api/v3/embeddings/multimodal"),
+            "https://ark.cn-beijing.volces.com/api/v3/embeddings"),
     QIANFAN("", "https://aip.baidubce.com/rpc/2.0/ai_custom/v1/wenxinworkshop/embeddings"),
     KIMIAI("https://api.moonshot.cn/v1/chat/completions", ""),
     DEEPSEEK("https://api.deepseek.com/chat/completions", ""),
@@ -38,19 +37,10 @@ public enum ModelProvider {
 
     private final String LLMProviderPath;
     private final String EmbeddingProviderPath;
-    private final String MultimodalEmbeddingProviderPath;
 
     ModelProvider(String llmProviderPath, String embeddingProviderPath) {
-        this(llmProviderPath, embeddingProviderPath, "");
-    }
-
-    ModelProvider(
-            String llmProviderPath,
-            String embeddingProviderPath,
-            String multimodalEmbeddingProviderPath) {
         LLMProviderPath = llmProviderPath;
         EmbeddingProviderPath = embeddingProviderPath;
-        MultimodalEmbeddingProviderPath = multimodalEmbeddingProviderPath;
     }
 
     public String usedLLMPath(String path) {
@@ -60,9 +50,9 @@ public enum ModelProvider {
         return path;
     }
 
-    public String usedEmbeddingPath(String path, boolean isMultimodalFields) {
+    public String usedEmbeddingPath(String path) {
         if (StringUtils.isBlank(path)) {
-            return isMultimodalFields ? MultimodalEmbeddingProviderPath : EmbeddingProviderPath;
+            return EmbeddingProviderPath;
         }
         return path;
     }

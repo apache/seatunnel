@@ -90,8 +90,6 @@ public class FileSinkConfig extends BaseFileSinkConfig implements PartitionConfi
     private CsvStringQuoteMode csvStringQuoteMode =
             FileBaseSinkOptions.CSV_STRING_QUOTE_MODE.defaultValue();
 
-    private Boolean mergeUpdateEvent = FileBaseSinkOptions.MERGE_UPDATE_EVENT.defaultValue();
-
     public FileSinkConfig(@NonNull Config config, @NonNull SeaTunnelRowType seaTunnelRowTypeInfo) {
         super(config);
         checkArgument(
@@ -249,14 +247,6 @@ public class FileSinkConfig extends BaseFileSinkConfig implements PartitionConfi
                 this.csvStringQuoteMode =
                         CsvStringQuoteMode.valueOf(
                                 config.getString(FileBaseSinkOptions.CSV_STRING_QUOTE_MODE.key()));
-            }
-        }
-        if (FileFormat.DEBEZIUM_JSON.equals(this.fileFormat)
-                || FileFormat.CANAL_JSON.equals(this.fileFormat)
-                || FileFormat.MAXWELL_JSON.equals(this.fileFormat)) {
-            if (config.hasPath(FileBaseSinkOptions.MERGE_UPDATE_EVENT.key())) {
-                this.mergeUpdateEvent =
-                        config.getBoolean(FileBaseSinkOptions.MERGE_UPDATE_EVENT.key());
             }
         }
     }

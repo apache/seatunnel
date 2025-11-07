@@ -24,6 +24,7 @@ import org.apache.seatunnel.connectors.seatunnel.clickhouse.source.ClickhousePar
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
+import lombok.Setter;
 
 import java.util.List;
 
@@ -38,6 +39,7 @@ public class ClickhouseSourceSplit implements SourceSplit {
     private final List<ClickhousePart> parts;
     private final Shard shard;
     private final String splitQuery;
+    @Setter private int sqlOffset;
 
     private final String splitId;
 
@@ -64,6 +66,8 @@ public class ClickhouseSourceSplit implements SourceSplit {
                 + ", splitQuery='"
                 + splitQuery
                 + "'"
+                + ", sqlOffset="
+                + sqlOffset
                 + ", splitId='"
                 + splitId
                 + "'"

@@ -41,9 +41,8 @@ public class MaxWellJsonSerializationSchema implements SerializationSchema {
 
     private static final long serialVersionUID = 1L;
 
-    private static final String OP_INSERT = "insert";
-    private static final String OP_DELETE = "delete";
-    private static final String OP_UPDATE = "update";
+    private static final String OP_INSERT = "INSERT";
+    private static final String OP_DELETE = "DELETE";
 
     public static final String FORMAT = "MAXWELL";
 
@@ -51,44 +50,29 @@ public class MaxWellJsonSerializationSchema implements SerializationSchema {
 
     private final JsonSerializationSchema jsonSerializer;
 
-    private final boolean mergeUpdateEventFlag;
-    SeaTunnelRow cacheUpdateBeforeRow;
-
     public MaxWellJsonSerializationSchema(SeaTunnelRowType rowType) {
         this.jsonSerializer = new JsonSerializationSchema(createJsonRowType(rowType));
-        this.reuse = new SeaTunnelRow(6);
-        this.mergeUpdateEventFlag = false;
+        this.reuse = new SeaTunnelRow(5);
     }
 
-    public MaxWellJsonSerializationSchema(
-            SeaTunnelRowType rowType, Charset charset, boolean mergeUpdateEventFlag) {
+    public MaxWellJsonSerializationSchema(SeaTunnelRowType rowType, Charset charset) {
         this.jsonSerializer = new JsonSerializationSchema(createJsonRowType(rowType), charset);
-        this.reuse = new SeaTunnelRow(6);
-        this.mergeUpdateEventFlag = mergeUpdateEventFlag;
+        this.reuse = new SeaTunnelRow(5);
     }
 
     @Override
     public byte[] serialize(SeaTunnelRow row) {
         try {
-            if (mergeUpdateEventFlag && row.getRowKind() == RowKind.UPDATE_BEFORE) {
-                cacheUpdateBeforeRow = row;
-                return null;
-            }
-
-            if (mergeUpdateEventFlag && row.getRowKind() == RowKind.UPDATE_AFTER) {
-                reuse.setField(0, cacheUpdateBeforeRow);
-            } else {
-                reuse.setField(0, null);
-            }
-
-            reuse.setField(1, row);
-            reuse.setField(2, rowKind2String(row.getRowKind()));
+            String opType = rowKind2String(row.getRowKind());
+            reuse.setField(0, row);
+            reuse.setField(1, opType);
+            reuse.setField(2, row.getTableId());
             if (!StringUtils.isEmpty(row.getTableId())) {
-                reuse.setField(3, TablePath.of(row.getTableId()).getDatabaseName());
-                reuse.setField(4, TablePath.of(row.getTableId()).getTableName());
+                reuse.setField(2, TablePath.of(row.getTableId()).getDatabaseName());
+                reuse.setField(3, TablePath.of(row.getTableId()).getTableName());
             }
             if (row.getOptions() != null && row.getOptions().containsKey(EVENT_TIME.getName())) {
-                reuse.setField(5, row.getOptions().get(EVENT_TIME.getName()));
+                reuse.setField(4, row.getOptions().get(EVENT_TIME.getName()));
             }
             return jsonSerializer.serialize(reuse);
         } catch (Throwable t) {
@@ -100,9 +84,6 @@ public class MaxWellJsonSerializationSchema implements SerializationSchema {
         switch (rowKind) {
             case INSERT:
             case UPDATE_AFTER:
-                if (mergeUpdateEventFlag && rowKind.equals(RowKind.UPDATE_AFTER)) {
-                    return OP_UPDATE;
-                }
                 return OP_INSERT;
             case UPDATE_BEFORE:
             case DELETE:
@@ -115,10 +96,13 @@ public class MaxWellJsonSerializationSchema implements SerializationSchema {
     }
 
     private static SeaTunnelRowType createJsonRowType(SeaTunnelRowType databaseSchema) {
+        // MaxWell JSON contains other information, e.g. "database", "ts"
+        // but we don't need them
+        // and we don't need "old" , because can not support UPDATE_BEFORE,UPDATE_AFTER
         return new SeaTunnelRowType(
-                new String[] {"old", "data", "type", "database", "table", "ts"},
+                new String[] {"data", "type", "database", "table", "ts"},
                 new SeaTunnelDataType[] {
-                    databaseSchema, databaseSchema, STRING_TYPE, STRING_TYPE, STRING_TYPE, LONG_TYPE
+                    databaseSchema, STRING_TYPE, STRING_TYPE, STRING_TYPE, LONG_TYPE
                 });
     }
 }

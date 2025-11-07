@@ -45,7 +45,6 @@ public class CanalJsonWriteStrategy extends AbstractWriteStrategy<FSDataOutputSt
     private final LinkedHashMap<String, FSDataOutputStream> beingWrittenOutputStream;
     private final Map<String, Boolean> isFirstWrite;
     private final Charset charset;
-    private final boolean mergeUpdateEventFlag;
 
     public CanalJsonWriteStrategy(FileSinkConfig textFileSinkConfig) {
         super(textFileSinkConfig);
@@ -53,7 +52,6 @@ public class CanalJsonWriteStrategy extends AbstractWriteStrategy<FSDataOutputSt
         this.isFirstWrite = new HashMap<>();
         this.charset = EncodingUtils.tryParseCharset(textFileSinkConfig.getEncoding());
         this.rowDelimiter = textFileSinkConfig.getRowDelimiter().getBytes(charset);
-        this.mergeUpdateEventFlag = textFileSinkConfig.getMergeUpdateEvent();
     }
 
     @Override
@@ -63,8 +61,7 @@ public class CanalJsonWriteStrategy extends AbstractWriteStrategy<FSDataOutputSt
                 new CanalJsonSerializationSchema(
                         buildSchemaWithRowType(
                                 catalogTable.getSeaTunnelRowType(), sinkColumnsIndexInRow),
-                        charset,
-                        mergeUpdateEventFlag);
+                        charset);
     }
 
     @Override
@@ -79,9 +76,6 @@ public class CanalJsonWriteStrategy extends AbstractWriteStrategy<FSDataOutputSt
                                     sinkColumnsIndexInRow.stream()
                                             .mapToInt(Integer::intValue)
                                             .toArray()));
-            if (rowBytes == null) {
-                return;
-            }
             if (isFirstWrite.get(filePath)) {
                 isFirstWrite.put(filePath, false);
             } else {

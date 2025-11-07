@@ -45,9 +45,10 @@ import com.hazelcast.spi.impl.NodeEngineImpl;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.CountDownLatch;
@@ -217,78 +218,12 @@ public class CoordinatorServiceTest {
         CoordinatorService coordinatorService = jobInformation.coordinatorService;
         IMap<Long, HashMap<TaskLocation, SeaTunnelMetricsContext>> metricsImap =
                 coordinatorService.getMetricsImap();
-        await().atMost(10000, TimeUnit.MILLISECONDS)
-                .untilAsserted(() -> Assertions.assertFalse(metricsImap.isEmpty()));
-        await().atMost(10000, TimeUnit.MILLISECONDS)
-                .untilAsserted(() -> Assertions.assertTrue(metricsImap.isEmpty()));
 
-        jobInformation.coordinatorService.clearCoordinatorService();
-        jobInformation.coordinatorServiceTest.shutdown();
-    }
-
-    @Test
-    void testCleanupMetricsImapWithPartitionConfig() {
-        setConfigFile("seatunnel_multiple_metrics_key.yaml");
-
-        JobInformation jobInformation =
-                submitJob(
-                        "CoordinatorServiceTest_testCleanupMetricsImapWithPartitionConfig",
-                        "batch_fake_to_console.conf",
-                        "test_cleanup_metrics_imap_with_partition_config");
-        CoordinatorService coordinatorService = jobInformation.coordinatorService;
-        IMap<Long, HashMap<TaskLocation, SeaTunnelMetricsContext>> metricsImap =
-                coordinatorService.getMetricsImap();
-        await().atMost(10000, TimeUnit.MILLISECONDS)
-                .untilAsserted(() -> Assertions.assertFalse(metricsImap.isEmpty()));
         await().atMost(10000, TimeUnit.MILLISECONDS)
                 .untilAsserted(() -> Assertions.assertTrue(metricsImap.isEmpty()));
 
         jobInformation.coordinatorService.clearCoordinatorService();
         jobInformation.coordinatorServiceTest.shutdown();
-        setDefaultConfigFile();
-    }
-
-    @Test
-    void testMetricsImapSizeWithPartitionConfig() {
-        setConfigFile("seatunnel_multiple_metrics_key.yaml");
-
-        String clusterName = TestUtils.getClusterName("testMetricsImapSizeWithPartitionConfig");
-        HazelcastInstanceImpl instance1 =
-                SeaTunnelServerStarter.createHazelcastInstance(clusterName);
-        SeaTunnelServer server1 =
-                instance1.node.getNodeEngine().getService(SeaTunnelServer.SERVICE_NAME);
-
-        try {
-            NodeEngineImpl nodeEngine = instance1.node.getNodeEngine();
-            Map<TaskLocation, SeaTunnelMetricsContext> localMap = new HashMap<>();
-            for (int i = 0; i < 100; i++) {
-                TaskLocation taskLocation = new TaskLocation();
-                taskLocation.setTaskID(i);
-                localMap.put(taskLocation, new SeaTunnelMetricsContext());
-            }
-            IMap<Long, HashMap<TaskLocation, SeaTunnelMetricsContext>> metricsImap =
-                    server1.getCoordinatorService().getMetricsImap();
-            CompletableFuture.runAsync(
-                    () -> {
-                        try {
-                            nodeEngine
-                                    .getOperationService()
-                                    .createInvocationBuilder(
-                                            SeaTunnelServer.SERVICE_NAME,
-                                            new ReportMetricsOperation(localMap),
-                                            nodeEngine.getMasterAddress())
-                                    .invoke()
-                                    .get();
-                        } catch (Exception e) {
-                            throw new CompletionException(e);
-                        }
-                    });
-            await().atMost(10000, TimeUnit.MILLISECONDS)
-                    .untilAsserted(() -> Assertions.assertEquals(10, metricsImap.size()));
-        } finally {
-            instance1.shutdown();
-            setDefaultConfigFile();
-        }
     }
 
     private void setDefaultConfigFile() {
@@ -529,29 +464,22 @@ public class CoordinatorServiceTest {
                 SeaTunnelServerStarter.createHazelcastInstance(clusterName);
         HazelcastInstanceImpl instance2 =
                 SeaTunnelServerStarter.createHazelcastInstance(clusterName);
-        HazelcastInstanceImpl instance3 =
-                SeaTunnelServerStarter.createHazelcastInstance(clusterName);
 
         await().atMost(20000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () ->
                                 Assertions.assertEquals(
-                                        3, instance1.getCluster().getMembers().size()));
+                                        2, instance1.getCluster().getMembers().size()));
 
-        ExecutorService executor = Executors.newFixedThreadPool(32);
+        ExecutorService executor = Executors.newFixedThreadPool(50);
         try {
             NodeEngineImpl nodeEngine = instance2.node.getNodeEngine();
             Map<TaskLocation, SeaTunnelMetricsContext> localMap = new HashMap<>();
-            for (int i = 0; i < 20000; i++) {
-                TaskLocation taskLocation = new TaskLocation();
-                taskLocation.setTaskID(i);
-                localMap.put(taskLocation, new SeaTunnelMetricsContext());
-            }
 
             // warm-up
-            runOps(executor, nodeEngine, localMap, 100);
+            runOps(executor, nodeEngine, localMap, 2000);
 
-            int ops = 100;
+            int ops = 10000;
             double seconds = runOps(executor, nodeEngine, localMap, ops);
             double tps = ops / seconds;
 
@@ -572,46 +500,34 @@ public class CoordinatorServiceTest {
             int ops) {
 
         CountDownLatch startGate = new CountDownLatch(1);
-
-        CompletableFuture<Long>[] futures = new CompletableFuture[ops];
+        List<CompletableFuture<Void>> futures = new ArrayList<>(ops);
 
         for (int i = 0; i < ops; i++) {
-            futures[i] =
-                    CompletableFuture.supplyAsync(
+            futures.add(
+                    CompletableFuture.runAsync(
                             () -> {
                                 try {
                                     startGate.await();
-                                    long start = System.nanoTime();
                                     nodeEngine
                                             .getOperationService()
                                             .createInvocationBuilder(
                                                     SeaTunnelServer.SERVICE_NAME,
                                                     new ReportMetricsOperation(localMap),
                                                     nodeEngine.getMasterAddress())
-                                            .setCallTimeout(120_000)
                                             .invoke()
                                             .get();
-                                    long end = System.nanoTime();
-                                    return end - start;
                                 } catch (Exception e) {
-                                    throw new CompletionException(e);
+                                    throw new java.util.concurrent.CompletionException(e);
                                 }
                             },
-                            executor);
+                            executor));
         }
 
         long startNs = System.nanoTime();
         startGate.countDown();
-
-        long[] durations = new long[ops];
-        for (int i = 0; i < ops; i++) {
-            durations[i] = futures[i].join();
-        }
-
+        CompletableFuture.allOf(futures.toArray(new java.util.concurrent.CompletableFuture[0]))
+                .join();
         long elapsedNs = System.nanoTime() - startNs;
-        double avgSeconds = Arrays.stream(durations).average().orElse(0) / 1_000_000_000.0;
-
-        System.out.printf("Average completion time per op: %.6f seconds%n", avgSeconds);
 
         return elapsedNs / 1_000_000_000.0;
     }

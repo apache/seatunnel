@@ -50,7 +50,7 @@ public class GetJobDetailStatusOperation extends Operation
 
     @Override
     public int getClassId() {
-        return ClientToServerOperationDataSerializerHook.GET_JOB_STATE_OPERATION;
+        return ClientToServerOperationDataSerializerHook.PRINT_MESSAGE_OPERATOR;
     }
 
     @Override

@@ -343,79 +343,49 @@ public class SeaTunnelServer
         }
     }
 
-    public void updateMetrics(Map<TaskLocation, SeaTunnelMetricsContext> localMap) {
+    public synchronized void updateMetrics(Map<TaskLocation, SeaTunnelMetricsContext> localMap) {
         if (localMap == null || localMap.isEmpty()) {
             return;
         }
-        int partitionCount = seaTunnelConfig.getEngineConfig().getJobMetricsPartitionCount();
-
-        IMap<Long, Map<TaskLocation, SeaTunnelMetricsContext>> metricsImap =
+        IMap<Long, HashMap<TaskLocation, SeaTunnelMetricsContext>> metricsImap =
                 getNodeEngine().getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_METRICS);
 
-        Map<Long, Map<TaskLocation, SeaTunnelMetricsContext>> partitioned = new HashMap<>();
-        localMap.forEach(
-                (key, value) -> {
-                    long partition = getMetricsImapPartition(key, partitionCount);
-                    partitioned.computeIfAbsent(partition, k -> new HashMap<>()).put(key, value);
-                });
+        HashMap<TaskLocation, SeaTunnelMetricsContext> centralMap =
+                metricsImap.get(Constant.IMAP_RUNNING_JOB_METRICS_KEY);
 
-        partitioned
-                .entrySet()
-                .parallelStream()
-                .forEach(
-                        entry -> {
-                            metricsImap.compute(
-                                    entry.getKey(),
-                                    (k, oldVal) -> {
-                                        if (oldVal == null) oldVal = new HashMap<>();
-                                        oldVal.putAll(entry.getValue());
-                                        return oldVal;
-                                    });
-                        });
+        if (centralMap == null) {
+            centralMap = new HashMap<>();
+        }
+        centralMap.putAll(localMap);
+        metricsImap.put(Constant.IMAP_RUNNING_JOB_METRICS_KEY, centralMap);
     }
 
-    public void removeMetrics(PipelineLocation pipelineLocation) {
-        IMap<Long, Map<TaskLocation, SeaTunnelMetricsContext>> metricsImap =
+    public synchronized void removeMetrics(PipelineLocation pipelineLocation) {
+        IMap<Long, HashMap<TaskLocation, SeaTunnelMetricsContext>> metricsImap =
                 getNodeEngine().getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_METRICS);
 
-        Map<Long, List<TaskLocation>> partitionedTasks = new HashMap<>();
-        for (Map.Entry<Long, Map<TaskLocation, SeaTunnelMetricsContext>> entry :
-                metricsImap.entrySet()) {
-            long partition = entry.getKey();
-            List<TaskLocation> tasksToRemove =
-                    entry.getValue().keySet().stream()
-                            .filter(
-                                    t ->
-                                            t.getTaskGroupLocation()
-                                                    .getPipelineLocation()
-                                                    .equals(pipelineLocation))
-                            .collect(Collectors.toList());
-            if (!tasksToRemove.isEmpty()) {
-                partitionedTasks.put(partition, tasksToRemove);
-            }
+        HashMap<TaskLocation, SeaTunnelMetricsContext> centralMap =
+                metricsImap.get(Constant.IMAP_RUNNING_JOB_METRICS_KEY);
+        if (centralMap == null) {
+            return;
         }
 
-        partitionedTasks
-                .entrySet()
-                .parallelStream()
-                .forEach(
-                        entry -> {
-                            long partition = entry.getKey();
-                            List<TaskLocation> tasks = entry.getValue();
-                            metricsImap.compute(
-                                    partition,
-                                    (k, oldVal) -> {
-                                        if (oldVal != null) {
-                                            tasks.forEach(oldVal::remove);
-                                            if (oldVal.isEmpty()) return null;
-                                        }
-                                        return oldVal;
-                                    });
-                        });
+        List<TaskLocation> taskLocations = getTaskLocations(pipelineLocation, centralMap);
+        taskLocations.forEach(centralMap::remove);
+        metricsImap.put(Constant.IMAP_RUNNING_JOB_METRICS_KEY, centralMap);
     }
 
-    public static long getMetricsImapPartition(TaskLocation key, int partitionCount) {
-        return (key.hashCode() & 0x7FFFFFFF) % partitionCount;
+    private List<TaskLocation> getTaskLocations(
+            PipelineLocation pipelineLocation,
+            HashMap<TaskLocation, SeaTunnelMetricsContext> centralMap) {
+        return centralMap.keySet().stream()
+                .filter(
+                        taskLocation ->
+                                taskLocation
+                                        .getTaskGroupLocation()
+                                        .getPipelineLocation()
+                                        .equals(pipelineLocation))
+                .collect(Collectors.toList());
     }
 
     public SeaTunnelConfig getSeaTunnelConfig() {

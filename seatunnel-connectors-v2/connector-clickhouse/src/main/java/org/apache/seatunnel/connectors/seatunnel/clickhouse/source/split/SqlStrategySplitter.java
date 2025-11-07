@@ -64,6 +64,7 @@ public class SqlStrategySplitter implements Splitter, AutoCloseable, Serializabl
                                         new ArrayList<>(),
                                         shard,
                                         querySql,
+                                        0,
                                         createSplitId(
                                                 clickhouseSourceTable.getTablePath(),
                                                 shard,
@@ -100,6 +101,7 @@ public class SqlStrategySplitter implements Splitter, AutoCloseable, Serializabl
                         new ArrayList<>(),
                         clusterShardList.get(0),
                         clickhouseSourceTable.getOriginQuery(),
+                        0,
                         createSplitId(
                                 clickhouseSourceTable.getTablePath(), clusterShardList.get(0), 0)));
     }
