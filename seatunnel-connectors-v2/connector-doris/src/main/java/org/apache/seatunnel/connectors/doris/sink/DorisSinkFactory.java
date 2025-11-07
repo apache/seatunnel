@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.connectors.doris.sink;
 
-import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
-
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.options.SinkConnectorCommonOptions;
@@ -34,6 +32,8 @@ import org.apache.seatunnel.connectors.doris.config.DorisSinkOptions;
 import org.apache.seatunnel.connectors.doris.sink.committer.DorisCommitInfo;
 import org.apache.seatunnel.connectors.doris.sink.writer.DorisSinkState;
 import org.apache.seatunnel.connectors.doris.util.UnsupportedTypeConverterUtils;
+
+import org.apache.commons.lang3.StringUtils;
 
 import com.google.auto.service.AutoService;
 

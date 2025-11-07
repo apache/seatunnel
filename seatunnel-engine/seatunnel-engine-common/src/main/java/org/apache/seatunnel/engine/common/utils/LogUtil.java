@@ -17,8 +17,7 @@
 
 package org.apache.seatunnel.engine.common.utils;
 
-import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
-
+import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.core.LoggerContext;
 import org.apache.logging.log4j.core.config.builder.api.Component;

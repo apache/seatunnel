@@ -159,24 +159,14 @@ public class PhysicalPlanGenerator {
                                 .getJobConfig()
                                 .getEnvOptions()
                                 .get(EnvCommonOptions.NODE_TAG_FILTER.key());
+        // TODO Determine which tasks do not need to be restored according to state
         CopyOnWriteArrayList<PassiveCompletableFuture<PipelineStatus>>
                 waitForCompleteBySubPlanList = new CopyOnWriteArrayList<>();
 
-        List<Pipeline> unclosedPipelines = new ArrayList<>();
-        for (Pipeline pipeline : this.pipelines) {
-            PipelineLocation pipelineLocation =
-                    new PipelineLocation(jobImmutableInformation.getJobId(), pipeline.getId());
-            PipelineStatus pipelineStatus =
-                    (PipelineStatus) runningJobStateIMap.get(pipelineLocation);
-            if (!PipelineStatus.FINISHED.equals(pipelineStatus)) {
-                unclosedPipelines.add(pipeline);
-            }
-        }
-
         Map<Integer, CheckpointPlan> checkpointPlans = new HashMap<>();
-        final int totalPipelineNum = unclosedPipelines.size();
+        final int totalPipelineNum = pipelines.size();
         Stream<SubPlan> subPlanStream =
-                unclosedPipelines.stream()
+                pipelines.stream()
                         .map(
                                 pipeline -> {
                                     this.pipelineTasks.clear();

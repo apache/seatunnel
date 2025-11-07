@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.engine.server.task.group;
 
-import org.apache.seatunnel.shade.org.apache.commons.lang3.tuple.Pair;
-
 import org.apache.seatunnel.api.common.metrics.Counter;
 import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.table.type.Record;
@@ -28,6 +26,8 @@ import org.apache.seatunnel.engine.server.execution.TaskGroupType;
 import org.apache.seatunnel.engine.server.task.SeaTunnelTask;
 import org.apache.seatunnel.engine.server.task.group.queue.AbstractIntermediateQueue;
 import org.apache.seatunnel.engine.server.task.group.queue.IntermediateBlockingQueue;
+
+import org.apache.commons.lang3.tuple.Pair;
 
 import java.util.Collection;
 import java.util.Map;

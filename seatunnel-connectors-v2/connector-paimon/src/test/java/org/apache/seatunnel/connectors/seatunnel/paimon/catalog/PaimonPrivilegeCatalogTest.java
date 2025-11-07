@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.paimon.catalog;
 
-import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
-
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.common.metrics.AbstractMetricsContext;
 import org.apache.seatunnel.api.common.metrics.MetricsContext;
@@ -59,6 +57,7 @@ import org.apache.seatunnel.connectors.seatunnel.paimon.exception.PaimonConnecto
 import org.apache.seatunnel.connectors.seatunnel.paimon.sink.PaimonSinkFactory;
 import org.apache.seatunnel.connectors.seatunnel.paimon.source.PaimonSourceFactory;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.paimon.catalog.CatalogContext;
 import org.apache.paimon.catalog.CatalogFactory;
 import org.apache.paimon.catalog.Identifier;

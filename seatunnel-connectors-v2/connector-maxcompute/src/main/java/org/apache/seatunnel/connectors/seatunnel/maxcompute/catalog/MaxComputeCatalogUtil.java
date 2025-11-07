@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.maxcompute.catalog;
 
-import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
-
 import org.apache.seatunnel.api.sink.SaveModePlaceHolder;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
@@ -28,6 +26,8 @@ import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
 import org.apache.seatunnel.api.table.converter.TypeConverter;
 import org.apache.seatunnel.connectors.seatunnel.maxcompute.datatype.MaxComputeTypeConverter;
 import org.apache.seatunnel.connectors.seatunnel.maxcompute.util.CreateTableParser;
+
+import org.apache.commons.lang3.StringUtils;
 
 import com.aliyun.odps.type.TypeInfo;
 import lombok.extern.slf4j.Slf4j;

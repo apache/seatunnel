@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.translation.spark.source.reader.micro;
 
-import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
-
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.utils.SerializationUtils;
@@ -28,6 +26,7 @@ import org.apache.seatunnel.translation.spark.source.reader.batch.ParallelBatchP
 import org.apache.seatunnel.translation.spark.source.state.ReaderState;
 import org.apache.seatunnel.translation.util.ThreadPoolExecutorFactory;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FSDataOutputStream;

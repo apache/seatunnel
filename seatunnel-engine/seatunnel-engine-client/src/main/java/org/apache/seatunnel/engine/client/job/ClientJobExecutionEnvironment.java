@@ -18,7 +18,6 @@
 package org.apache.seatunnel.engine.client.job;
 
 import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
-import org.apache.seatunnel.shade.org.apache.commons.lang3.tuple.ImmutablePair;
 
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.engine.client.SeaTunnelHazelcastClient;
@@ -31,6 +30,8 @@ import org.apache.seatunnel.engine.core.job.ConnectorJarIdentifier;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.core.job.JobPipelineCheckpointData;
 import org.apache.seatunnel.engine.core.parse.MultipleTableJobConfigParser;
+
+import org.apache.commons.lang3.tuple.ImmutablePair;
 
 import java.net.URL;
 import java.util.ArrayList;

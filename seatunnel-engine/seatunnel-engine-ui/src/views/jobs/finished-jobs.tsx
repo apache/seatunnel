@@ -67,11 +67,6 @@ export default defineComponent({
           sorter: 'default'
         },
         {
-          title: 'Finish Time',
-          key: 'finishTime',
-          sorter: 'default'
-        },
-        {
           title: 'Status',
           key: 'jobStatus',
           render(row) {

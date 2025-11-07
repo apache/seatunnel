@@ -94,8 +94,7 @@ const sidebars = {
                 'concept/sql-config',
                 'concept/speed-limit',
                 'concept/event-listener',
-                'concept/schema-evolution',
-                'concept/metalake'
+                'concept/schema-evolution'
             ]
         },
         {

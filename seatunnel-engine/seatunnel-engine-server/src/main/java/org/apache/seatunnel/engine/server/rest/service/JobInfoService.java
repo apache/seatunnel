@@ -104,7 +104,7 @@ public class JobInfoService extends BaseService {
                             }
                             return jobState.getJobStatus().name().equals(state.toUpperCase());
                         })
-                .sorted(Comparator.comparing(JobState::getFinishTime, Comparator.reverseOrder()))
+                .sorted(Comparator.comparing(JobState::getFinishTime))
                 .map(
                         jobState -> {
                             Long jobId = jobState.getJobId();

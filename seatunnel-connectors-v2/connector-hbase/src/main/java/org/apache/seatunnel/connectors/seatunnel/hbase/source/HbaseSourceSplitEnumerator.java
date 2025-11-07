@@ -18,16 +18,11 @@
 
 package org.apache.seatunnel.connectors.seatunnel.hbase.source;
 
-import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
-
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.connectors.seatunnel.hbase.client.HbaseClient;
 import org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseParameters;
-import org.apache.seatunnel.connectors.seatunnel.hbase.util.HBaseUtil;
 
-import org.apache.hadoop.hbase.HConstants;
 import org.apache.hadoop.hbase.client.RegionLocator;
-import org.apache.hadoop.hbase.util.Bytes;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -66,15 +61,6 @@ public class HbaseSourceSplitEnumerator
         this(context, hbaseParameters, sourceState.getAssignedSplits());
     }
 
-    @VisibleForTesting
-    public HbaseSourceSplitEnumerator(
-            Context<HbaseSourceSplit> context,
-            HbaseParameters hbaseParameters,
-            HbaseClient hbaseClient) {
-        this(context, hbaseParameters, new HashSet<>());
-        this.hbaseClient = hbaseClient;
-    }
-
     private HbaseSourceSplitEnumerator(
             Context<HbaseSourceSplit> context,
             HbaseParameters hbaseParameters,
@@ -97,13 +83,7 @@ public class HbaseSourceSplitEnumerator
 
     @Override
     public void close() throws IOException {
-        if (this.hbaseClient != null) {
-            try {
-                this.hbaseClient.close();
-            } catch (Exception e) {
-                throw new RuntimeException(e);
-            }
-        }
+        // do nothing
     }
 
     @Override
@@ -172,60 +152,23 @@ public class HbaseSourceSplitEnumerator
         context.signalNoMoreSplits(taskId);
     }
 
-    @VisibleForTesting
-    public Set<HbaseSourceSplit> getTableSplits() {
+    /** Get all splits of table */
+    private Set<HbaseSourceSplit> getTableSplits() {
+        List<HbaseSourceSplit> splits = new ArrayList<>();
 
         try {
             RegionLocator regionLocator = hbaseClient.getRegionLocator(hbaseParameters.getTable());
             byte[][] startKeys = regionLocator.getStartKeys();
             byte[][] endKeys = regionLocator.getEndKeys();
-            List<HbaseSourceSplit> splits = new ArrayList<>();
-            boolean isBinaryRowkey = hbaseParameters.isBinaryRowkey();
-            byte[] userStartRowkey =
-                    HBaseUtil.convertRowKey(hbaseParameters.getStartRowkey(), isBinaryRowkey);
-            byte[] userEndRowkey =
-                    HBaseUtil.convertRowKey(hbaseParameters.getEndRowkey(), isBinaryRowkey);
-            HBaseUtil.validateRowKeyRange(userStartRowkey, userEndRowkey);
+            if (startKeys.length != endKeys.length) {
+                throw new IOException(
+                        "Failed to create Splits for HBase table {}. HBase start keys and end keys not equal."
+                                + hbaseParameters.getTable());
+            }
 
             int i = 0;
             while (i < startKeys.length) {
-                byte[] regionStartKey = startKeys[i];
-                byte[] regionEndKey = endKeys[i];
-                if (userEndRowkey.length > 0
-                        && Bytes.compareTo(userEndRowkey, regionStartKey) <= 0
-                        && Bytes.compareTo(regionStartKey, HConstants.EMPTY_BYTE_ARRAY) != 0) {
-                    i++;
-                    continue;
-                }
-
-                if (userStartRowkey.length > 0
-                        && Bytes.compareTo(userStartRowkey, regionEndKey) >= 0
-                        && Bytes.compareTo(regionEndKey, HConstants.EMPTY_BYTE_ARRAY) != 0) {
-                    i++;
-                    continue;
-                }
-                byte[] splitStartKey =
-                        userStartRowkey.length > 0
-                                        && (Bytes.compareTo(
-                                                                regionStartKey,
-                                                                HConstants.EMPTY_BYTE_ARRAY)
-                                                        == 0
-                                                || Bytes.compareTo(userStartRowkey, regionStartKey)
-                                                        > 0)
-                                ? userStartRowkey
-                                : regionStartKey;
-
-                byte[] splitEndKey =
-                        userEndRowkey.length > 0
-                                        && (Bytes.compareTo(
-                                                                regionEndKey,
-                                                                HConstants.EMPTY_BYTE_ARRAY)
-                                                        == 0
-                                                || Bytes.compareTo(userEndRowkey, regionEndKey) < 0)
-                                ? userEndRowkey
-                                : regionEndKey;
-
-                splits.add(new HbaseSourceSplit(i, splitStartKey, splitEndKey));
+                splits.add(new HbaseSourceSplit(i, startKeys[i], endKeys[i]));
                 i++;
             }
             return new HashSet<>(splits);

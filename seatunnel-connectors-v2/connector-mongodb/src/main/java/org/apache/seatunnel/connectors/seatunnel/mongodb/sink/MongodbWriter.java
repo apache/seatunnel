@@ -18,7 +18,6 @@
 package org.apache.seatunnel.connectors.seatunnel.mongodb.sink;
 
 import org.apache.seatunnel.api.sink.SinkWriter;
-import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
 import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.exception.MongodbConnectorException;
@@ -48,9 +47,7 @@ import java.util.stream.IntStream;
 import static org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated.WRITER_OPERATION_FAILED;
 
 @Slf4j
-public class MongodbWriter
-        implements SinkWriter<SeaTunnelRow, MongodbCommitInfo, DocumentBulk>,
-                SupportMultiTableSinkWriter<Void> {
+public class MongodbWriter implements SinkWriter<SeaTunnelRow, MongodbCommitInfo, DocumentBulk> {
 
     private MongodbClientProvider collectionProvider;
 

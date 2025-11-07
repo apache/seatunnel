@@ -18,7 +18,6 @@
 package org.apache.seatunnel.translation.spark.sink;
 
 import org.apache.seatunnel.shade.com.google.common.collect.Sets;
-import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
@@ -28,6 +27,7 @@ import org.apache.seatunnel.common.utils.SerializationUtils;
 import org.apache.seatunnel.translation.spark.execution.MultiTableManager;
 import org.apache.seatunnel.translation.spark.sink.write.SeaTunnelWriteBuilder;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.spark.sql.connector.catalog.SupportsWrite;
 import org.apache.spark.sql.connector.catalog.Table;
 import org.apache.spark.sql.connector.catalog.TableCapability;

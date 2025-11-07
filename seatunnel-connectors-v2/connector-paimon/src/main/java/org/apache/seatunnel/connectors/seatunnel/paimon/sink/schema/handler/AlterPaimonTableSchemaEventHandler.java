@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.paimon.sink.schema.handler;
 
-import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
-
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
@@ -34,6 +32,7 @@ import org.apache.seatunnel.api.table.schema.handler.TableSchemaChangeEventDispa
 import org.apache.seatunnel.connectors.seatunnel.paimon.catalog.PaimonCatalog;
 import org.apache.seatunnel.connectors.seatunnel.paimon.data.PaimonTypeMapper;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.paimon.catalog.Identifier;
 import org.apache.paimon.schema.SchemaChange;
 import org.apache.paimon.types.DataField;

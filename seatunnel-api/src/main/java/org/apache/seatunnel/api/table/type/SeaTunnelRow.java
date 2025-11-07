@@ -233,12 +233,6 @@ public final class SeaTunnelRow implements Serializable {
                 return getArrayNotNullSize((Long[]) v) * 8;
             case DOUBLE:
                 return getArrayNotNullSize((Double[]) v) * 8;
-            case ARRAY:
-                int total = 0;
-                for (Object elem : (Object[]) v) {
-                    total += getBytesForValue(elem, dataType);
-                }
-                return total;
             case MAP:
                 return getArrayMapNotNullSize(v);
             case NULL:
@@ -348,13 +342,6 @@ public final class SeaTunnelRow implements Serializable {
                 }
                 return rowSize;
             default:
-                if (v.getClass().isArray() && v instanceof Object[]) {
-                    int sum = 0;
-                    for (Object o : (Object[]) v) {
-                        sum += getBytesForValue(o);
-                    }
-                    return sum;
-                }
                 if (v instanceof Map) {
                     int mapSize = 0;
                     for (Map.Entry<?, ?> entry : ((Map<?, ?>) v).entrySet()) {

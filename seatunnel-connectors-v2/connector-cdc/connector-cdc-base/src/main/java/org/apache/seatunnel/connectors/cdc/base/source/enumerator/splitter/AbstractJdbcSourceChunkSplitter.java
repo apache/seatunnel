@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.connectors.cdc.base.source.enumerator.splitter;
 
-import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
-
 import org.apache.seatunnel.api.table.catalog.ConstraintKey;
 import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -26,6 +24,8 @@ import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.dialect.JdbcDataSourceDialect;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SnapshotSplit;
 import org.apache.seatunnel.connectors.cdc.base.utils.ObjectUtils;
+
+import org.apache.commons.lang3.StringUtils;
 
 import io.debezium.jdbc.JdbcConnection;
 import io.debezium.relational.Column;

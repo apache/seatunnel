@@ -19,19 +19,16 @@ import ChangeLog from '../changelog/connector-hbase.md';
 
 ## 选项
 
-| 名称                   | 类型       | 必填 | 默认值   |
-|----------------------|----------|----|-------|
-| zookeeper_quorum     | string   | 是  | -     |
-| table                | string   | 是  | -     |
-| schema               | config   | 是  | -     |
-| hbase_extra_config   | string   | 否  | -     |
-| caching              | int      | 否  | -1    |
-| batch                | int      | 否  | -1    |
-| cache_blocks         | boolean  | 否  | false |
-| is_binary_rowkey     | boolean  | 否  | false |
-| start_rowkey         | string   | 否  | -     |
-| end_rowkey           | string   | 否  | -     |
-| common-options       |          | 否  | -     |
+|         名称         |   类型    | 必填 |  默认值  |
+|--------------------|---------|----|-------|
+| zookeeper_quorum   | string  | 是  | -     |
+| table              | string  | 是  | -     |
+| schema             | config  | 是  | -     |
+| hbase_extra_config | string  | 否  | -     |
+| caching            | int     | 否  | -1    |
+| batch              | int     | 否  | -1    |
+| cache_blocks       | boolean | 否  | false |
+| common-options     |         | 否  | -     |
 
 ### zookeeper_quorum [string]
 
@@ -61,18 +58,6 @@ batch 参数用于设置在扫描过程中每次返回的最大列数。这对�
 
 cache_blocks 参数用于设置在扫描过程中是否缓存数据块。默认情况下，HBase 会在扫描时将数据块缓存到块缓存中。如果设置为 false，则在扫描过程中不会缓存数据块，从而减少内存的使用。在SeaTunnel中默认值为: false
 
-### is_binary_rowkey
-
-HBase 的行键既可以是文本字符串，也可以是二进制数据。在 SeaTunnel 中，行键默认设置为文本字符串(即 is_binary_rowkey 默认值为 false)
-
-### start_rowkey
-
-扫描起始行
-
-### end_rowkey
-
-扫描结束行
-
 ### 常用选项
 
 Source 插件常用参数，具体请参考 [Source 常用选项](../source-common-options.md)
@@ -87,9 +72,6 @@ source {
     caching = 1000 
     batch = 100 
     cache_blocks = false 
-    is_binary_rowkey = false
-    start_rowkey = "B"
-    end_rowkey = "C"
     schema = {
       columns = [
         { 

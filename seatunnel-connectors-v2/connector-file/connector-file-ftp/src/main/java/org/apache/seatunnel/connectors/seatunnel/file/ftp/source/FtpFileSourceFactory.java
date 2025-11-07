@@ -98,7 +98,6 @@ public class FtpFileSourceFactory implements TableSourceFactory {
                 .optional(FileBaseSourceOptions.FILENAME_EXTENSION)
                 .optional(FileBaseSourceOptions.READ_COLUMNS)
                 .optional(FtpFileSourceOptions.FTP_REMOTE_VERIFICATION_ENABLED)
-                .optional(FtpFileSourceOptions.FTP_CONTROL_ENCODING)
                 .build();
     }
 

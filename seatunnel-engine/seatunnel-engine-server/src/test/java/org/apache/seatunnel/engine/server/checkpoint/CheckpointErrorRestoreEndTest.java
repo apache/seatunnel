@@ -57,7 +57,7 @@ public class CheckpointErrorRestoreEndTest
                 .untilAsserted(
                         () ->
                                 Assertions.assertEquals(
-                                        JobStatus.FAILED,
-                                        server.getCoordinatorService().getJobStatus(jobId)));
+                                        server.getCoordinatorService().getJobStatus(jobId),
+                                        JobStatus.FAILED));
     }
 }

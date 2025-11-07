@@ -3,7 +3,7 @@ import ChangeLog from '../changelog/connector-iotdb.md';
 # IoTDB
 
 > IoTDB source connector
- 
+
 ## Support Those Engines
 
 > Spark<br/>
@@ -12,7 +12,23 @@ import ChangeLog from '../changelog/connector-iotdb.md';
 
 ## Description
 
-Used to read data from IoTDB.
+Read external data source data through IoTDB.
+
+:::tip
+
+There is a conflict of thrift version between IoTDB and Spark.Therefore, you need to execute `rm -f $SPARK_HOME/jars/libthrift*` and `cp $IOTDB_HOME/lib/libthrift* $SPARK_HOME/jars/` to resolve it.
+
+:::
+
+## Using Dependency
+
+### For Spark/Flink Engine
+
+> 1. You need to ensure that the [jdbc driver jar package](https://mvnrepository.com/artifact/org.apache.iotdb/iotdb-jdbc) has been placed in directory `${SEATUNNEL_HOME}/plugins/`.
+
+### For SeaTunnel Zeta Engine
+
+> 1. You need to ensure that the [jdbc driver jar package](https://mvnrepository.com/artifact/org.apache.iotdb/iotdb-jdbc) has been placed in directory `${SEATUNNEL_HOME}/lib/`.
 
 ## Key features
 
@@ -20,15 +36,17 @@ Used to read data from IoTDB.
 - [x] [stream](../../concept/connector-v2-features.md)
 - [x] [exactly-once](../../concept/connector-v2-features.md)
 - [x] [column projection](../../concept/connector-v2-features.md)
-  > IoTDB allows column projection using SQL query.
+
+supports query SQL and can achieve projection effect.
+
 - [x] [parallelism](../../concept/connector-v2-features.md)
 - [ ] [support user-defined split](../../concept/connector-v2-features.md)
 
 ## Supported DataSource Info
 
-| Datasource | Supported Versions           |      Url       |
-|------------|------------------------------|----------------|
-| IoTDB      | `0.13.0 <= version <= 1.3.X` | localhost:6667 |
+| Datasource | Supported Versions |      Url       |
+|------------|--------------------|----------------|
+| IoTDB      | `>= 0.13.0`        | localhost:6667 |
 
 ## Data Type Mapping
 
@@ -45,49 +63,58 @@ Used to read data from IoTDB.
 
 ## Source Options
 
-| Name                       | Type    | Required | Default Value | Description                                                                                                       |
-|----------------------------|---------|----------|---------------|-------------------------------------------------------------------------------------------------------------------|
-| node_urls                  | string  | yes      | -             | IoTDB cluster address, the format is `"host1:port"` or `"host1:port,host2:port"`                                  |
-| username                   | string  | yes      | -             | IoTDB user username                                                                                               |
-| password                   | string  | yes      | -             | IoTDB user password                                                                                               |
-| sql                        | string  | yes      | -             | execute sql statement                                                                                             |
-| schema                     | config  | yes      | -             | the data schema                                                                                                   |
-| fetch_size                 | int     | no       | -             | the fetch_size of the IoTDB when you select                                                                       |
-| lower_bound                | long    | no       | -             | the lower_bound of the IoTDB when you select                                                                      |
-| upper_bound                | long    | no       | -             | the upper_bound of the IoTDB when you select                                                                      |
-| num_partitions             | int     | no       | -             | the num_partitions of the IoTDB when you select                                                                   |
-| thrift_default_buffer_size | int     | no       | -             | the thrift_default_buffer_size of the IoTDB when you select                                                       |
-| thrift_max_frame_size      | int     | no       | -             | the thrift max frame size                                                                                         |
-| enable_cache_leader        | boolean | no       | -             | enable_cache_leader of the IoTDB when you select                                                                  |
-| version                    | string  | no       | -             | SQL semantic version used by the client, The possible values are: `V_0_12`, `V_0_13`                              |
-| common-options             |         | no       | -             | Source plugin common parameters, please refer to [Source Common Options](../source-common-options.md) for details |
+|            Name            |  Type   | Required | Default Value |                                    Description                                     |
+|----------------------------|---------|----------|---------------|------------------------------------------------------------------------------------|
+| node_urls                  | string  | yes      | -             | `IoTDB` cluster address, the format is `"host1:port"` or `"host1:port,host2:port"` |
+| username                   | string  | yes      | -             | `IoTDB` user username                                                              |
+| password                   | string  | yes      | -             | `IoTDB` user password                                                              |
+| sql                        | string  | yes      | -             | execute sql statement                                                              |
+| schema                     | config  | yes      | -             | the data schema                                                                    |
+| fetch_size                 | int     | no       | -             | the fetch_size of the IoTDB when you select                                        |
+| lower_bound                | long    | no       | -             | the lower_bound of the IoTDB when you select                                       |
+| upper_bound                | long    | no       | -             | the upper_bound of the IoTDB when you select                                       |
+| num_partitions             | int     | no       | -             | the num_partitions of the IoTDB when you select                                    |
+| thrift_default_buffer_size | int     | no       | -             | the thrift_default_buffer_size of the IoTDB when you select                        |
+| thrift_max_frame_size      | int     | no       | -             | the thrift max frame size                                                          |
+| enable_cache_leader        | boolean | no       | -             | enable_cache_leader of the IoTDB when you select                                   |
+| version                    | string  | no       | -             | SQL semantic version used by the client, The possible values are: V_0_12, V_0_13   |
+| common-options             |         | no       | -             |                                                                                    |
 
-We can use time column as a partition key in SQL queries.
+### split partitions
+
+we can split the partitions of the IoTDB and we used time column split
 
 #### num_partitions [int]
 
-the number of partitions
+split num
 
 ### upper_bound [long]
 
-the upper bound of the time range
+upper bound of the time column
 
 ### lower_bound [long]
 
-the lower bound of the time range
+lower bound of the time column
 
 ```
      split the time range into numPartitions parts
-     if numPartitions = 1, the whole time range will be used
-     if numPartitions < (upper_bound - lower_bound), will use (upper_bound - lower_bound) as numPartitions
+     if numPartitions is 1, use the whole time range
+     if numPartitions < (upper_bound - lower_bound), use (upper_bound - lower_bound) partitions
      
      eg: lower_bound = 1, upper_bound = 10, numPartitions = 2
      sql = "select * from test where age > 0 and age < 10"
      
-     split result:
+     split result
+
      split 1: select * from test  where (time >= 1 and time < 6)  and (  age > 0 and age < 10 )
+     
      split 2: select * from test  where (time >= 6 and time < 11) and (  age > 0 and age < 10 )
+
 ```
+
+### common options
+
+Source plugin common parameters, please refer to [Source Common Options](../source-common-options.md) for details
 
 ## Examples
 
@@ -126,7 +153,7 @@ sink {
 }
 ```
 
-The data format from upstream IoTDB is as follows:
+Upstream `IoTDB` data format is the following:
 
 ```shell
 IoTDB> SELECT temperature, moisture, c_int, c_bigint, c_float, c_double, c_string, c_boolean FROM root.test_group.* WHERE time < 4102329600000 align by device;
@@ -139,7 +166,7 @@ IoTDB> SELECT temperature, moisture, c_int, c_bigint, c_float, c_double, c_strin
 +------------------------+------------------------+--------------+-----------+--------+--------------+----------+---------+---------+----------+
 ```
 
-The data format loaded to SeaTunnelRow is as follows:
+Loaded to SeaTunnelRow data format is the following:
 
 |      ts       |       device_name        | temperature | moisture | c_int |  c_bigint   | c_float | c_double | c_string | c_boolean |
 |---------------|--------------------------|-------------|----------|-------|-------------|---------|----------|----------|-----------|

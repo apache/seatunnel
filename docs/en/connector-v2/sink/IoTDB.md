@@ -14,17 +14,34 @@ import ChangeLog from '../changelog/connector-iotdb.md';
 
 Used to write data to IoTDB.
 
+## Using Dependency
+
+### For Spark/Flink Engine
+
+> 1. You need to ensure that the [jdbc driver jar package](https://mvnrepository.com/artifact/org.apache.iotdb/iotdb-jdbc) has been placed in directory `${SEATUNNEL_HOME}/plugins/`.
+
+### For SeaTunnel Zeta Engine
+
+> 1. You need to ensure that the [jdbc driver jar package](https://mvnrepository.com/artifact/org.apache.iotdb/iotdb-jdbc) has been placed in directory `${SEATUNNEL_HOME}/lib/`.
+
 ## Key Features
 
 - [x] [exactly-once](../../concept/connector-v2-features.md)
 
-  > IoTDB supports the `exactly-once` feature through idempotent writing. If multiple data have the same `key` and `timestamp`, the latest one will overwrite the previous one.
+IoTDB supports the `exactly-once` feature through idempotent writing. If two pieces of data have
+the same `key` and `timestamp`, the new data will overwrite the old one.
+
+:::tip
+
+There is a conflict of thrift version between IoTDB and Spark.Therefore, you need to execute `rm -f $SPARK_HOME/jars/libthrift*` and `cp $IOTDB_HOME/lib/libthrift* $SPARK_HOME/jars/` to resolve it.
+
+:::
 
 ## Supported DataSource Info
 
-| Datasource | Supported Versions           |      Url       |
-|------------|------------------------------|----------------|
-| IoTDB      | `0.13.0 <= version <= 1.3.X` | localhost:6667 |
+| Datasource | Supported Versions |      Url       |
+|------------|--------------------|----------------|
+| IoTDB      | `>= 0.13.0`        | localhost:6667 |
 
 ## Data Type Mapping
 
@@ -41,24 +58,24 @@ Used to write data to IoTDB.
 
 ## Sink Options
 
-| Name                        | Type    | Required | Default                        | Description                                                                                                                                                       |
+|            Name             |  Type   | Required |            Default             |                                                                            Description                                                                            |
 |-----------------------------|---------|----------|--------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| node_urls                   | Array   | Yes      | -                              | IoTDB cluster address, the format is `["host1:port"]` or `["host1:port","host2:port"]`                                                                            |
-| username                    | String  | Yes      | -                              | IoTDB user username                                                                                                                                               |
-| password                    | String  | Yes      | -                              | IoTDB user password                                                                                                                                               |
-| key_device                  | String  | Yes      | -                              | Specify field name of the IoTDB deviceId in SeaTunnelRow                                                                                                          |
-| key_timestamp               | String  | No       | processing time                | Specify field-name of the IoTDB timestamp in SeaTunnelRow. If not specified, use processing-time as timestamp                                                     |
-| key_measurement_fields      | Array   | No       | exclude `device` & `timestamp` | Specify field-name of the IoTDB measurement list in SeaTunnelRow. If not specified, include all fields but exclude `device` & `timestamp`                         |
-| storage_group               | Array   | No       | -                              | Specify device storage group(path prefix) <br/> example: deviceId = \${storage_group} + "." +  \${key_device}                                                     |
+| node_urls                   | String  | Yes      | -                              | `IoTDB` cluster address, the format is `"host1:port"` or `"host1:port,host2:port"`                                                                                |
+| username                    | String  | Yes      | -                              | `IoTDB` user username                                                                                                                                             |
+| password                    | String  | Yes      | -                              | `IoTDB` user password                                                                                                                                             |
+| key_device                  | String  | Yes      | -                              | Specify field name of the `IoTDB` deviceId in SeaTunnelRow                                                                                                        |
+| key_timestamp               | String  | No       | processing time                | Specify field-name of the `IoTDB` timestamp in SeaTunnelRow. If not specified, use processing-time as timestamp                                                   |
+| key_measurement_fields      | Array   | No       | exclude `device` & `timestamp` | Specify field-name of the `IoTDB` measurement list in SeaTunnelRow. If not specified, include all fields but exclude `device` & `timestamp`                       |
+| storage_group               | Array   | No       | -                              | Specify device storage group(path prefix) <br/> example: deviceId = ${storage_group} + "." +  ${key_device}                                                       |
 | batch_size                  | Integer | No       | 1024                           | For batch writing, when the number of buffers reaches the number of `batch_size` or the time reaches `batch_interval_ms`, the data will be flushed into the IoTDB |
 | max_retries                 | Integer | No       | -                              | The number of retries to flush failed                                                                                                                             |
 | retry_backoff_multiplier_ms | Integer | No       | -                              | Using as a multiplier for generating the next delay for backoff                                                                                                   |
 | max_retry_backoff_ms        | Integer | No       | -                              | The amount of time to wait before attempting to retry a request to `IoTDB`                                                                                        |
-| default_thrift_buffer_size  | Integer | No       | -                              | Thrift init buffer size in IoTDB client                                                                                                                           |
-| max_thrift_frame_size       | Integer | No       | -                              | Thrift max frame size in IoTDB client                                                                                                                             |
-| zone_id                     | string  | No       | -                              | java.time.ZoneId in IoTDB client                                                                                                                                  |
-| enable_rpc_compression      | Boolean | No       | -                              | Enable rpc compression in IoTDB client                                                                                                                            |
-| connection_timeout_in_ms    | Integer | No       | -                              | The maximum time (in ms) to wait when connecting to IoTDB                                                                                                         |
+| default_thrift_buffer_size  | Integer | No       | -                              | Thrift init buffer size in `IoTDB` client                                                                                                                         |
+| max_thrift_frame_size       | Integer | No       | -                              | Thrift max frame size in `IoTDB` client                                                                                                                           |
+| zone_id                     | string  | No       | -                              | java.time.ZoneId in `IoTDB` client                                                                                                                                |
+| enable_rpc_compression      | Boolean | No       | -                              | Enable rpc compression in `IoTDB` client                                                                                                                          |
+| connection_timeout_in_ms    | Integer | No       | -                              | The maximum time (in ms) to wait when connecting to `IoTDB`                                                                                                       |
 | common-options              |         | no       | -                              | Sink plugin common parameters, please refer to [Sink Common Options](../sink-common-options.md) for details                                                       |
 
 ## Examples
@@ -93,7 +110,7 @@ source {
 }
 ```
 
-The data format from upstream SeaTunnelRow is as follows:
+Upstream SeaTunnelRow data format is the following:
 
 |       device_name        | temperature | moisture |   event_ts    | c_string | c_boolean | c_tinyint | c_smallint | c_int |  c_bigint  | c_float | c_double |
 |--------------------------|-------------|----------|---------------|----------|-----------|-----------|------------|-------|------------|---------|----------|
@@ -103,14 +120,13 @@ The data format from upstream SeaTunnelRow is as follows:
 
 ### Case1
 
-Only required options used:
-- use current processing time as timestamp
-- measurement fields include all fields excluding `key_device`
+only fill required config.
+use current processing time as timestamp. and include all fields but exclude `device` & `timestamp` as measurement fields
 
 ```hocon
 sink {
   IoTDB {
-    node_urls = ["localhost:6667"]
+    node_urls = "localhost:6667"
     username = "root"
     password = "root"
     key_device = "device_name" # specify the `deviceId` use device_name field
@@ -118,7 +134,7 @@ sink {
 }
 ```
 
-The data format of IoTDB output is as follows:
+Output to `IoTDB` data format is the following:
 
 ```shell
 IoTDB> SELECT * FROM root.test_group.* align by device;
@@ -133,14 +149,12 @@ IoTDB> SELECT * FROM root.test_group.* align by device;
 
 ### Case2
 
-Use source event's time:
-- use `key_timestamp` as timestamp
-- measurement fields include all fields excluding `key_device` & `key_timestamp`
+use source event's time
 
 ```hocon
 sink {
   IoTDB {
-    node_urls = ["localhost:6667"]
+    node_urls = "localhost:6667"
     username = "root"
     password = "root"
     key_device = "device_name" # specify the `deviceId` use device_name field
@@ -149,7 +163,7 @@ sink {
 }
 ```
 
-The data format of IoTDB output is as follows:
+Output to `IoTDB` data format is the following:
 
 ```shell
 IoTDB> SELECT * FROM root.test_group.* align by device;
@@ -164,14 +178,12 @@ IoTDB> SELECT * FROM root.test_group.* align by device;
 
 ### Case3
 
-Use source event's time and limit measurement fields:
-- use `key_timestamp` as timestamp
-- measurement fields include only fields specified in `key_measurement_fields`
+use source event's time and limit measurement fields
 
 ```hocon
 sink {
   IoTDB {
-    node_urls = ["localhost:6667"]
+    node_urls = "localhost:6667"
     username = "root"
     password = "root"
     key_device = "device_name"
@@ -181,7 +193,7 @@ sink {
 }
 ```
 
-The data format of IoTDB output is as follows:
+Output to `IoTDB` data format is the following:
 
 ```shell
 IoTDB> SELECT * FROM root.test_group.* align by device;

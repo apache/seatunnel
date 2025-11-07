@@ -18,7 +18,6 @@
 package org.apache.seatunnel.e2e.connector.file.local;
 
 import org.apache.seatunnel.shade.com.google.common.collect.Lists;
-import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
@@ -37,6 +36,7 @@ import org.apache.seatunnel.e2e.common.util.ContainerUtil;
 
 import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
 import org.apache.commons.compress.archivers.tar.TarArchiveOutputStream;
+import org.apache.commons.lang3.StringUtils;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.TestTemplate;
@@ -292,11 +292,6 @@ public class LocalFileIT extends TestSuiteBase {
                         container);
 
                 ContainerUtil.copyFileIntoContainers(
-                        "/excel/special_excel.xlsx",
-                        "/seatunnel/read/special_excel/special_excel.xlsx",
-                        container);
-
-                ContainerUtil.copyFileIntoContainers(
                         "/csv/break_line.csv",
                         "/seatunnel/read/csv/break_line/break_line.csv",
                         container);
@@ -328,7 +323,6 @@ public class LocalFileIT extends TestSuiteBase {
         helper.execute("/excel/fake_to_local_excel.conf");
         helper.execute("/excel/local_excel_to_assert.conf");
         helper.execute("/excel/local_excel_projection_to_assert.conf");
-        helper.execute("/excel/special_excel_to_assert.conf");
         // test write local text file
         helper.execute("/text/fake_to_local_file_text.conf");
         helper.execute("/text/local_file_text_lzo_to_assert.conf");

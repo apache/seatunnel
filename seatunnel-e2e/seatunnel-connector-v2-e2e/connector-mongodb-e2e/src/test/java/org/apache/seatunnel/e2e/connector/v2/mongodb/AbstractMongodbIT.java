@@ -26,14 +26,11 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
-import org.testcontainers.containers.wait.strategy.Wait;
+import org.testcontainers.containers.wait.strategy.HttpWaitStrategy;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.DockerLoggerFactory;
 
-import com.github.dockerjava.api.model.ExposedPort;
-import com.github.dockerjava.api.model.PortBinding;
-import com.github.dockerjava.api.model.Ports;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoClients;
 import com.mongodb.client.MongoCollection;
@@ -49,6 +46,9 @@ import java.util.List;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
+
+import static java.net.HttpURLConnection.HTTP_OK;
+import static java.net.HttpURLConnection.HTTP_UNAUTHORIZED;
 
 @Slf4j
 public abstract class AbstractMongodbIT extends TestSuiteBase implements TestResource {
@@ -106,8 +106,8 @@ public abstract class AbstractMongodbIT extends TestSuiteBase implements TestRes
     protected MongoClient client;
 
     public void initConnection() {
-        String host = mongodbContainer.getHost();
-        int port = mongodbContainer.getMappedPort(MONGODB_PORT);
+        String host = mongodbContainer.getContainerIpAddress();
+        int port = mongodbContainer.getFirstMappedPort();
         String url = String.format("mongodb://%s:%d/%s", host, port, MONGODB_DATABASE);
         client = MongoClients.create(url);
     }
@@ -119,7 +119,7 @@ public abstract class AbstractMongodbIT extends TestSuiteBase implements TestRes
         prepareInitDataInCollection(MONGODB_DOUBLE_TABLE, TEST_DOUBLE_DATASET);
     }
 
-    protected void clearData(String table) {
+    protected void clearDate(String table) {
         client.getDatabase(MONGODB_DATABASE).getCollection(table).drop();
     }
 
@@ -247,18 +247,18 @@ public abstract class AbstractMongodbIT extends TestSuiteBase implements TestRes
                         .withNetwork(NETWORK)
                         .withNetworkAliases(MONGODB_CONTAINER_HOST)
                         .withExposedPorts(MONGODB_PORT)
-                        .withCreateContainerCmdModifier(
-                                cmd ->
-                                        cmd.getHostConfig()
-                                                .withPortBindings(
-                                                        new PortBinding(
-                                                                Ports.Binding.bindPort(
-                                                                        MONGODB_PORT),
-                                                                new ExposedPort(MONGODB_PORT))))
                         .waitingFor(
-                                Wait.forListeningPort().withStartupTimeout(Duration.ofMinutes(2)))
+                                new HttpWaitStrategy()
+                                        .forPort(MONGODB_PORT)
+                                        .forStatusCodeMatching(
+                                                response ->
+                                                        response == HTTP_OK
+                                                                || response == HTTP_UNAUTHORIZED)
+                                        .withStartupTimeout(Duration.ofMinutes(2)))
                         .withLogConsumer(
                                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger(MONGODB_IMAGE)));
+        // For local test use
+        // mongodbContainer.setPortBindings(Collections.singletonList("27017:27017"));
         Startables.deepStart(Stream.of(mongodbContainer)).join();
         log.info("Mongodb container started");
 

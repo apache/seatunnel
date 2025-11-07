@@ -124,15 +124,15 @@ public class KafkaInternalProducer<K, V> extends KafkaProducer<K, V> {
 
         Object transactionManager = getTransactionManager();
         synchronized (transactionManager) {
-            Object txnPartitionMap =
+            Object topicPartitionBookkeeper =
                     ReflectionUtils.getField(
                                     transactionManager,
                                     transactionManager.getClass(),
-                                    "txnPartitionMap")
+                                    "topicPartitionBookkeeper")
                             .get();
 
             transitionTransactionManagerStateTo(transactionManager, "INITIALIZING");
-            ReflectionUtils.invoke(txnPartitionMap, "reset");
+            ReflectionUtils.invoke(topicPartitionBookkeeper, "reset");
 
             ReflectionUtils.setField(
                     transactionManager,

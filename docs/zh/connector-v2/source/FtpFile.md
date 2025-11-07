@@ -257,14 +257,6 @@ markdown 解析器提取各种元素，包括标题、段落、列表、代码�
 
 `active_local` `passive_local`
 
-### control_encoding [string]
-
-FTP 控制连接的字符编码。默认为 `UTF-8`。
-
-当文件路径包含特殊字符（如 `$`、空格、中文字符等）时，需要设置为 `UTF-8` 以确保路径能够正确解析。
-
-例如：`/data/whale_ops/share/$Fund-Product/DA - SANY （三一）/Daily/2025.08.18/file.xlsx`
-
 ### delimiter/field_delimiter [string]
 
 **delimiter** 参数将在 2.3.5 版本后弃用，请使用 **field_delimiter** 代替。

@@ -17,14 +17,15 @@
 
 package org.apache.seatunnel.connectors.seatunnel.redis.config;
 
-import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
-
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.redis.client.RedisClient;
 import org.apache.seatunnel.connectors.seatunnel.redis.client.RedisClusterClient;
 import org.apache.seatunnel.connectors.seatunnel.redis.client.RedisSingleClient;
 import org.apache.seatunnel.connectors.seatunnel.redis.exception.RedisConnectorException;
+
+import org.apache.commons.lang3.StringUtils;
+import org.apache.logging.log4j.core.util.Assert;
 
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
@@ -40,7 +41,6 @@ import java.util.List;
 
 import static org.apache.seatunnel.connectors.seatunnel.redis.exception.RedisErrorCode.GET_REDIS_VERSION_INFO_FAILED;
 import static org.apache.seatunnel.connectors.seatunnel.redis.exception.RedisErrorCode.INVALID_CONFIG;
-import static org.apache.seatunnel.connectors.seatunnel.redis.exception.RedisErrorCode.REDIS_NODE_EMPTY_ERROR;
 
 @Data
 @Slf4j
@@ -65,8 +65,6 @@ public class RedisParameters implements Serializable {
     private String valueField;
     private String hashKeyField;
     private String hashValueField;
-    private String fieldDelimiter;
-    private RedisBaseOptions.Format format;
 
     private int redisVersion;
 
@@ -139,12 +137,6 @@ public class RedisParameters implements Serializable {
         if (config.getOptional(RedisSinkOptions.HASH_VALUE_FIELD).isPresent()) {
             this.hashValueField = config.get(RedisSinkOptions.HASH_VALUE_FIELD);
         }
-
-        // set format, default json
-        this.format = config.get(RedisBaseOptions.FORMAT);
-
-        // set field delimiter, only need when format is TEXT
-        this.fieldDelimiter = config.get(RedisBaseOptions.FIELD_DELIMITER);
     }
 
     public RedisClient buildRedisClient() {
@@ -199,10 +191,7 @@ public class RedisParameters implements Serializable {
                 return jedis;
             case CLUSTER:
                 HashSet<HostAndPort> nodes = new HashSet<>();
-                if (redisNodes.isEmpty()) {
-                    throw new RedisConnectorException(
-                            REDIS_NODE_EMPTY_ERROR, "Redis nodes parameter must not be empty");
-                }
+                Assert.requireNonEmpty(redisNodes, "nodes parameter must not be empty");
                 for (String redisNode : redisNodes) {
                     String[] splits = redisNode.split(":");
                     if (splits.length != 2) {
@@ -230,6 +219,7 @@ public class RedisParameters implements Serializable {
                     jedisCluster = new JedisCluster(nodes);
                 }
                 JedisWrapper jedisWrapper = new JedisWrapper(jedisCluster);
+                jedisWrapper.select(dbNum);
                 return jedisWrapper;
             default:
                 // do nothing

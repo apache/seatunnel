@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.clickhouse.source.split;
 
-import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
-
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
@@ -31,6 +29,8 @@ import org.apache.seatunnel.connectors.seatunnel.clickhouse.source.ClickhouseSou
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.state.ClickhouseSourceState;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.util.ClickhouseProxy;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.util.DistributedEngine;
+
+import org.apache.commons.lang3.StringUtils;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

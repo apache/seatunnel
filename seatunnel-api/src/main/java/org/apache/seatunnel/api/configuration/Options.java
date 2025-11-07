@@ -18,7 +18,8 @@
 package org.apache.seatunnel.api.configuration;
 
 import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
-import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
+
+import org.apache.commons.lang3.StringUtils;
 
 import lombok.NonNull;
 

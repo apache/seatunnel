@@ -18,7 +18,6 @@
 package org.apache.seatunnel.connectors.seatunnel.jdbc.utils;
 
 import org.apache.seatunnel.shade.com.google.common.base.Strings;
-import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.options.ConnectorCommonOptions;
@@ -44,6 +43,8 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.JdbcCo
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectLoader;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.source.JdbcSourceTable;
+
+import org.apache.commons.lang3.StringUtils;
 
 import lombok.extern.slf4j.Slf4j;
 

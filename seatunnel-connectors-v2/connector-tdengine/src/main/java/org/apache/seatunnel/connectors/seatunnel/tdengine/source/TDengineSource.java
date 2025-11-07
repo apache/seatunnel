@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.tdengine.source;
 
-import org.apache.seatunnel.shade.org.apache.commons.lang3.ArrayUtils;
-
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
@@ -34,6 +32,8 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.tdengine.config.TDengineSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.tdengine.state.TDengineSourceState;
 import org.apache.seatunnel.connectors.seatunnel.tdengine.typemapper.TDengineTypeMapper;
+
+import org.apache.commons.lang3.ArrayUtils;
 
 import com.taosdata.jdbc.TSDBDriver;
 import lombok.Getter;

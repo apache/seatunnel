@@ -20,7 +20,6 @@ package org.apache.seatunnel.engine.client;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.core.JsonProcessingException;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
-import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
 import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.config.DeployMode;
@@ -37,6 +36,8 @@ import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
 import org.apache.seatunnel.engine.core.job.JobDAGInfo;
 import org.apache.seatunnel.engine.server.SeaTunnelNodeContext;
+
+import org.apache.commons.lang3.StringUtils;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
@@ -154,6 +155,11 @@ public class SeaTunnelClientTest {
             ClientJobExecutionEnvironment jobExecutionEnv =
                     seaTunnelClient.createExecutionContext(filePath, jobConfig, SEATUNNEL_CONFIG);
             final ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
+            CompletableFuture<JobStatus> objectCompletableFuture =
+                    CompletableFuture.supplyAsync(
+                            () -> {
+                                return clientJobProxy.waitForJobComplete();
+                            });
             long jobId = clientJobProxy.getJobId();
 
             await().atMost(30000, TimeUnit.MILLISECONDS)
@@ -196,6 +202,11 @@ public class SeaTunnelClientTest {
                     seaTunnelClient.createExecutionContext(filePath, jobConfig, SEATUNNEL_CONFIG);
 
             final ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
+            CompletableFuture<JobStatus> objectCompletableFuture =
+                    CompletableFuture.supplyAsync(
+                            () -> {
+                                return clientJobProxy.waitForJobComplete();
+                            });
             long jobId = clientJobProxy.getJobId();
 
             await().atMost(30000, TimeUnit.MILLISECONDS)
@@ -425,6 +436,7 @@ public class SeaTunnelClientTest {
             ClientJobExecutionEnvironment jobExecutionEnv =
                     seaTunnelClient.createExecutionContext(filePath, jobConfig, SEATUNNEL_CONFIG);
             final ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
+            CompletableFuture.supplyAsync(clientJobProxy::waitForJobComplete);
             long jobId = clientJobProxy.getJobId();
 
             await().atMost(10, TimeUnit.SECONDS)
@@ -495,6 +507,7 @@ public class SeaTunnelClientTest {
             ClientJobExecutionEnvironment jobExecutionEnv =
                     seaTunnelClient.createExecutionContext(filePath, jobConfig, SEATUNNEL_CONFIG);
             final ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
+            CompletableFuture.supplyAsync(clientJobProxy::waitForJobComplete);
             long jobId = clientJobProxy.getJobId();
 
             await().atMost(30000, TimeUnit.MILLISECONDS)
@@ -569,6 +582,11 @@ public class SeaTunnelClientTest {
                     seaTunnelClient.createExecutionContext(filePath, jobConfig, SEATUNNEL_CONFIG);
 
             final ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
+            CompletableFuture<JobStatus> objectCompletableFuture =
+                    CompletableFuture.supplyAsync(
+                            () -> {
+                                return clientJobProxy.waitForJobComplete();
+                            });
             long jobId = clientJobProxy.getJobId();
 
             await().atMost(30000, TimeUnit.MILLISECONDS)

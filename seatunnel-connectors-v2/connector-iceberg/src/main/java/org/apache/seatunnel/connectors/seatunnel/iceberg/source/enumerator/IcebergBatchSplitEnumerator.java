@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.iceberg.source.enumerator;
 
-import org.apache.seatunnel.shade.org.apache.commons.lang3.tuple.Pair;
-
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergSourceConfig;
@@ -26,6 +24,7 @@ import org.apache.seatunnel.connectors.seatunnel.iceberg.source.enumerator.scan.
 import org.apache.seatunnel.connectors.seatunnel.iceberg.source.enumerator.scan.IcebergScanSplitPlanner;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.source.split.IcebergFileScanTaskSplit;
 
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.Table;
 

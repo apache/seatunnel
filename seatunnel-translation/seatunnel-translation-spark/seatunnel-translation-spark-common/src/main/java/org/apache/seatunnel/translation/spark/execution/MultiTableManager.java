@@ -37,8 +37,6 @@ import lombok.extern.slf4j.Slf4j;
 import java.io.IOException;
 import java.io.Serializable;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -131,7 +129,6 @@ public class MultiTableManager implements Serializable {
     }
 
     public List<ColumnWithIndex> mergeSchema(CatalogTable[] catalogTables) {
-        Arrays.sort(catalogTables, Comparator.comparing(t -> t.getTablePath().toString()));
         List<ColumnWithIndex> columnWithIndexes = new ArrayList<>();
         if (catalogTables.length == 1) {
             CatalogTable catalogTable = catalogTables[0];

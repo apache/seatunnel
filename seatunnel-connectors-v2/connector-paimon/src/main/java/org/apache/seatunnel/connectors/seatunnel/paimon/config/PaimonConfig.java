@@ -18,7 +18,6 @@
 package org.apache.seatunnel.connectors.seatunnel.paimon.config;
 
 import org.apache.seatunnel.shade.com.google.common.collect.ImmutableList;
-import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
@@ -26,6 +25,8 @@ import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.seatunnel.paimon.catalog.PaimonCatalogEnum;
+
+import org.apache.commons.lang3.StringUtils;
 
 import lombok.Getter;
 
