@@ -17,9 +17,9 @@
 
 package org.apache.seatunnel.common.utils;
 
-import org.apache.seatunnel.common.exception.CommonError;
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
-import org.apache.commons.lang3.StringUtils;
+import org.apache.seatunnel.common.exception.CommonError;
 
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;

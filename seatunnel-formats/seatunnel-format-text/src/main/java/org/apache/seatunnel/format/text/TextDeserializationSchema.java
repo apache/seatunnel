@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.format.text;
 
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
+
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
@@ -35,8 +37,6 @@ import org.apache.seatunnel.format.text.constant.TextFormatConstant;
 import org.apache.seatunnel.format.text.exception.SeaTunnelTextFormatException;
 import org.apache.seatunnel.format.text.splitor.DefaultTextLineSplitor;
 import org.apache.seatunnel.format.text.splitor.TextLineSplitor;
-
-import org.apache.commons.lang3.StringUtils;
 
 import lombok.NonNull;
 

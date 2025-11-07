@@ -17,9 +17,9 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc;
 
-import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.shade.org.apache.commons.lang3.tuple.Pair;
 
-import org.apache.commons.lang3.tuple.Pair;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 
 import lombok.Builder;
 import lombok.Getter;

@@ -76,7 +76,7 @@ import static org.apache.seatunnel.e2e.common.util.ContainerUtil.copyAllConnecto
 @AutoService(TestContainer.class)
 public class SeaTunnelContainer extends AbstractTestContainer {
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
-    protected static final String JDK_DOCKER_IMAGE = "openjdk:8";
+    protected static final String JDK_DOCKER_IMAGE = "openjdk:8u342";
     private static final String CLIENT_SHELL = "seatunnel.sh";
     protected static final String SERVER_SHELL = "seatunnel-cluster.sh";
     protected static final String CONNECTOR_CHECK_SHELL = "seatunnel-connector.sh";
@@ -418,12 +418,15 @@ public class SeaTunnelContainer extends AbstractTestContainer {
                 || s.contains(
                         "org.apache.hadoop.fs.FileSystem$Statistics$StatisticsDataReferenceCleaner")
                 || s.startsWith("Log4j2-TF-")
+                || s.startsWith("heartbeat") // Add heartbeat threads as system threads
                 || aqsThread.matcher(s).matches()
                 // The renewed background thread of the hdfs client
                 || s.startsWith("LeaseRenewer")
                 // The read of hdfs which has the thread that is all in running status
                 || s.startsWith("org.apache.hadoop.hdfs.PeerCache")
-                || s.startsWith("java-sdk-progress-listener-callback-thread");
+                || s.startsWith("java-sdk-progress-listener-callback-thread")
+                // redis pool evictor daemon thread
+                || s.startsWith("commons-pool-evictor");
     }
 
     private void classLoaderObjectCheck(Integer maxSize) throws IOException, InterruptedException {

@@ -18,10 +18,9 @@
 package org.apache.seatunnel.transform.nlpmodel.embedding.remote;
 
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.seatunnel.shade.org.apache.commons.lang3.ArrayUtils;
 
 import org.apache.seatunnel.common.utils.VectorUtils;
-
-import org.apache.commons.lang3.ArrayUtils;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;

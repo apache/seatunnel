@@ -17,6 +17,9 @@
 
 package org.apache.seatunnel.transform.sql.zeta;
 
+import org.apache.seatunnel.shade.org.apache.commons.lang3.ArrayUtils;
+import org.apache.seatunnel.shade.org.apache.commons.lang3.tuple.Pair;
+
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.DecimalType;
@@ -30,13 +33,11 @@ import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.transform.exception.TransformException;
 import org.apache.seatunnel.transform.sql.zeta.functions.ArrayFunction;
 import org.apache.seatunnel.transform.sql.zeta.functions.DateTimeFunction;
+import org.apache.seatunnel.transform.sql.zeta.functions.MapFunction;
 import org.apache.seatunnel.transform.sql.zeta.functions.NumericFunction;
 import org.apache.seatunnel.transform.sql.zeta.functions.StringFunction;
 import org.apache.seatunnel.transform.sql.zeta.functions.SystemFunction;
 import org.apache.seatunnel.transform.sql.zeta.functions.VectorFunction;
-
-import org.apache.commons.lang3.ArrayUtils;
-import org.apache.commons.lang3.tuple.Pair;
 
 import net.sf.jsqlparser.expression.BinaryExpression;
 import net.sf.jsqlparser.expression.CaseExpression;
@@ -195,6 +196,7 @@ public class ZetaSQLFunction {
     // -------------------------lateralView functions----------------------------
     public static final String EXPLODE = "EXPLODE";
     public static final String ARRAY = "ARRAY";
+    public static final String MAP = "MAP";
 
     // -------------------------system functions----------------------------
     public static final String COALESCE = "COALESCE";
@@ -619,6 +621,8 @@ public class ZetaSQLFunction {
                 return ArrayFunction.arrayMax(args);
             case ARRAY_MIN:
                 return ArrayFunction.arrayMin(args);
+            case MAP:
+                return MapFunction.map(args);
             case UUID:
                 return randomUUID().toString();
             case COSINE_DISTANCE:

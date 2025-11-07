@@ -82,6 +82,11 @@ public class MySqlTypeConverterTest {
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(BasicType.BOOLEAN_TYPE, column.getDataType());
         Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
+        MySqlTypeConverter typeMapper = new MySqlTypeConverter(MySqlVersion.V_8, false);
+        column = typeMapper.convert(typeDefine);
+        Assertions.assertEquals(typeDefine.getName(), column.getName());
+        Assertions.assertEquals(PrimitiveByteArrayType.INSTANCE, column.getDataType());
+        Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
 
         typeDefine =
                 BasicTypeDefine.builder()

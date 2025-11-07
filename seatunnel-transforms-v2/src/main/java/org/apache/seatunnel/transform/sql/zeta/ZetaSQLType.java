@@ -30,6 +30,7 @@ import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.transform.exception.TransformException;
 import org.apache.seatunnel.transform.sql.zeta.functions.ArrayFunction;
 import org.apache.seatunnel.transform.sql.zeta.functions.CastFunction;
+import org.apache.seatunnel.transform.sql.zeta.functions.MapFunction;
 
 import org.apache.commons.collections4.CollectionUtils;
 
@@ -416,6 +417,8 @@ public class ZetaSQLType {
                 return BasicType.DOUBLE_TYPE;
             case ZetaSQLFunction.ARRAY:
                 return ArrayFunction.castArrayTypeMapping(function, inputRowType);
+            case ZetaSQLFunction.MAP:
+                return MapFunction.castMapTypeMapping(function, inputRowType);
             case ZetaSQLFunction.ARRAY_MAX:
             case ZetaSQLFunction.ARRAY_MIN:
                 return ArrayFunction.getElementType(function, inputRowType);
@@ -521,15 +524,22 @@ public class ZetaSQLType {
     }
 
     private static List<Expression> getExpressions(Function function) {
-        ExpressionList parameters = function.getParameters();
+        ExpressionList<Expression> parameters =
+                (ExpressionList<Expression>) function.getParameters();
         if (parameters == null) {
             throw new TransformException(
                     CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
                     function.getName() + " function requires at least one parameter");
         }
 
-        List<Expression> expressions = parameters.getExpressions();
-        if (expressions == null || expressions.isEmpty()) {
+        List<Expression> expressions = new ArrayList<>();
+        if (parameters != null) {
+            for (Expression expression : parameters) {
+                expressions.add(expression);
+            }
+        }
+
+        if (expressions.isEmpty()) {
             throw new TransformException(
                     CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
                     function.getName() + " function requires at least one parameter");

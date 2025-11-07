@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.transform.nlpmodel;
 
-import org.apache.commons.lang3.StringUtils;
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
 public enum ModelProvider {
     AMAZON("https://aws.amazon.com/bedrock", "https://aws.amazon.com/bedrock/amazon-models"),
