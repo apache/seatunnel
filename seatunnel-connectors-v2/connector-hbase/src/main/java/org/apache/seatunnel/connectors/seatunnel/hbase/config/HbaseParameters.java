@@ -40,20 +40,26 @@ public class HbaseParameters implements Serializable {
 
     private List<String> columns;
 
+    private boolean isBinaryRowkey;
+
+    private String startRowkey;
+
+    private String endRowkey;
+
     private Map<String, String> familyNames;
 
     private String versionColumn;
 
     private Map<String, String> hbaseExtraConfig;
 
-    @Builder.Default private int caching = HbaseSinkOptions.HBASE_CACHING_CONFIG.defaultValue();
+    @Builder.Default private int caching = HbaseSourceOptions.HBASE_CACHING_CONFIG.defaultValue();
 
-    @Builder.Default private int batch = HbaseSinkOptions.HBASE_BATCH_CONFIG.defaultValue();
+    @Builder.Default private int batch = HbaseSourceOptions.HBASE_BATCH_CONFIG.defaultValue();
 
     @Builder.Default private Long ttl = HbaseSinkOptions.HBASE_TTL_CONFIG.defaultValue();
 
     @Builder.Default
-    private boolean cacheBlocks = HbaseSinkOptions.HBASE_CACHE_BLOCKS_CONFIG.defaultValue();
+    private boolean cacheBlocks = HbaseSourceOptions.HBASE_CACHE_BLOCKS_CONFIG.defaultValue();
 
     @Builder.Default
     private String rowkeyDelimiter = HbaseSinkOptions.ROWKEY_DELIMITER.defaultValue();
@@ -118,14 +124,24 @@ public class HbaseParameters implements Serializable {
         if (pluginConfig.getOptional(HbaseSinkOptions.HBASE_EXTRA_CONFIG).isPresent()) {
             builder.hbaseExtraConfig(pluginConfig.get(HbaseSinkOptions.HBASE_EXTRA_CONFIG));
         }
-        if (pluginConfig.getOptional(HbaseSinkOptions.HBASE_CACHING_CONFIG).isPresent()) {
-            builder.caching(pluginConfig.get(HbaseSinkOptions.HBASE_CACHING_CONFIG));
+        if (pluginConfig.getOptional(HbaseSourceOptions.HBASE_CACHING_CONFIG).isPresent()) {
+            builder.caching(pluginConfig.get(HbaseSourceOptions.HBASE_CACHING_CONFIG));
         }
-        if (pluginConfig.getOptional(HbaseSinkOptions.HBASE_BATCH_CONFIG).isPresent()) {
-            builder.batch(pluginConfig.get(HbaseSinkOptions.HBASE_BATCH_CONFIG));
+        if (pluginConfig.getOptional(HbaseSourceOptions.HBASE_BATCH_CONFIG).isPresent()) {
+            builder.batch(pluginConfig.get(HbaseSourceOptions.HBASE_BATCH_CONFIG));
         }
-        if (pluginConfig.getOptional(HbaseSinkOptions.HBASE_CACHE_BLOCKS_CONFIG).isPresent()) {
-            builder.cacheBlocks(pluginConfig.get(HbaseSinkOptions.HBASE_CACHE_BLOCKS_CONFIG));
+        if (pluginConfig.getOptional(HbaseSourceOptions.HBASE_CACHE_BLOCKS_CONFIG).isPresent()) {
+            builder.cacheBlocks(pluginConfig.get(HbaseSourceOptions.HBASE_CACHE_BLOCKS_CONFIG));
+        }
+
+        if (pluginConfig.getOptional(HbaseSourceOptions.IS_BINARY_ROW_KEY).isPresent()) {
+            builder.isBinaryRowkey(pluginConfig.get(HbaseSourceOptions.IS_BINARY_ROW_KEY));
+        }
+        if (pluginConfig.getOptional(HbaseSourceOptions.START_ROW_KEY).isPresent()) {
+            builder.startRowkey(pluginConfig.get(HbaseSourceOptions.START_ROW_KEY));
+        }
+        if (pluginConfig.getOptional(HbaseSourceOptions.END_ROW_KEY).isPresent()) {
+            builder.endRowkey(pluginConfig.get(HbaseSourceOptions.END_ROW_KEY));
         }
         return builder.build();
     }

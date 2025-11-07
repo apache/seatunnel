@@ -91,7 +91,7 @@ public class DorisTypeConverterV2 extends AbstractDorisTypeConverter {
                     p = typeDefine.getPrecision();
                 }
 
-                if (typeDefine.getScale() != null && typeDefine.getScale() > 0) {
+                if (typeDefine.getScale() != null && typeDefine.getScale() >= 0) {
                     scale = typeDefine.getScale();
                 }
                 DecimalType decimalType;

@@ -64,6 +64,9 @@ public class JdbcConnectionConfig implements Serializable {
     private String dialect = JdbcCommonOptions.DIALECT.defaultValue();
 
     private Map<String, String> properties;
+    private String region;
+    private String accessKeyId;
+    private String secretAccessKey;
 
     private boolean handleBlobAsString = JdbcCommonOptions.HANDLE_BLOB_AS_STRING.defaultValue();
 
@@ -98,6 +101,10 @@ public class JdbcConnectionConfig implements Serializable {
         config.getOptional(JdbcCommonOptions.INT_TYPE_NARROWING)
                 .ifPresent(builder::intTypeNarrowing);
         config.getOptional(JdbcCommonOptions.DIALECT).ifPresent(builder::dialect);
+        config.getOptional(JdbcCommonOptions.ACCESS_KEY_ID).ifPresent(builder::accessKeyId);
+        config.getOptional(JdbcCommonOptions.SECRET_ACCESS_KEY).ifPresent(builder::secretAccessKey);
+        config.getOptional(JdbcCommonOptions.REGION).ifPresent(builder::region);
+
         return builder.build();
     }
 
@@ -142,6 +149,9 @@ public class JdbcConnectionConfig implements Serializable {
         public String kerberosKeytabPath;
         public String krb5Path = JdbcCommonOptions.KRB5_PATH.defaultValue();
         public String dialect = JdbcCommonOptions.DIALECT.defaultValue();
+        private String region;
+        private String accessKeyId;
+        private String secretAccessKey;
 
         private Builder() {}
 
@@ -255,6 +265,21 @@ public class JdbcConnectionConfig implements Serializable {
             return this;
         }
 
+        public Builder region(String region) {
+            this.region = region;
+            return this;
+        }
+
+        public Builder accessKeyId(String accessKeyId) {
+            this.accessKeyId = accessKeyId;
+            return this;
+        }
+
+        public Builder secretAccessKey(String secretAccessKey) {
+            this.secretAccessKey = secretAccessKey;
+            return this;
+        }
+
         public JdbcConnectionConfig build() {
             JdbcConnectionConfig jdbcConnectionConfig = new JdbcConnectionConfig();
             jdbcConnectionConfig.batchSize = this.batchSize;
@@ -279,6 +304,10 @@ public class JdbcConnectionConfig implements Serializable {
             jdbcConnectionConfig.dialect = this.dialect;
             jdbcConnectionConfig.properties =
                     this.properties == null ? new HashMap<>() : this.properties;
+
+            jdbcConnectionConfig.region = this.region;
+            jdbcConnectionConfig.accessKeyId = this.accessKeyId;
+            jdbcConnectionConfig.secretAccessKey = this.secretAccessKey;
             return jdbcConnectionConfig;
         }
     }

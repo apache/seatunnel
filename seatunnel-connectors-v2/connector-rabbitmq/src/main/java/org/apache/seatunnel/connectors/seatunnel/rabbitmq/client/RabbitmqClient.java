@@ -17,11 +17,11 @@
 
 package org.apache.seatunnel.connectors.seatunnel.rabbitmq.client;
 
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
+
 import org.apache.seatunnel.common.Handover;
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqConfig;
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.exception.RabbitmqConnectorException;
-
-import org.apache.commons.lang3.StringUtils;
 
 import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.Connection;

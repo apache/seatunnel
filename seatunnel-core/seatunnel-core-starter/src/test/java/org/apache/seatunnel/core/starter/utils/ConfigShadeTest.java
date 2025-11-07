@@ -367,6 +367,42 @@ public class ConfigShadeTest {
                 encryptedConfig.getConfigList("source").get(0).getString("password"));
     }
 
+    @Test
+    public void testDecryptWithTransform() throws URISyntaxException {
+        URL resource = ConfigShadeTest.class.getResource("/config.shade_with_transform.json");
+        Assertions.assertNotNull(resource);
+        Config decryptedProps = ConfigBuilder.of(Paths.get(resource.toURI()), Lists.newArrayList());
+
+        Assertions.assertEquals(
+                "access_key",
+                decryptedProps.getConfigList("source").get(0).getString("access_key"));
+        Assertions.assertEquals(
+                "secret_key",
+                decryptedProps.getConfigList("source").get(0).getString("secret_key"));
+        Assertions.assertEquals(
+                "api_key", decryptedProps.getConfigList("transform").get(0).getString("api_key"));
+        Assertions.assertEquals(
+                "api_key", decryptedProps.getConfigList("transform").get(1).getString("api_key"));
+        Assertions.assertEquals(
+                "token", decryptedProps.getConfigList("sink").get(0).getString("token"));
+
+        String accessKey = ConfigShadeUtils.encryptOption("base64", "access_key");
+        String secretKey = ConfigShadeUtils.encryptOption("base64", "secret_key");
+        String apiKey = ConfigShadeUtils.encryptOption("base64", "api_key");
+        String token = ConfigShadeUtils.encryptOption("base64", "token");
+        Config encryptedConfig = ConfigShadeUtils.encryptConfig(decryptedProps);
+        Assertions.assertEquals(
+                accessKey, encryptedConfig.getConfigList("source").get(0).getString("access_key"));
+        Assertions.assertEquals(
+                secretKey, encryptedConfig.getConfigList("source").get(0).getString("secret_key"));
+        Assertions.assertEquals(
+                apiKey, encryptedConfig.getConfigList("transform").get(0).getString("api_key"));
+        Assertions.assertEquals(
+                apiKey, encryptedConfig.getConfigList("transform").get(1).getString("api_key"));
+        Assertions.assertEquals(
+                token, encryptedConfig.getConfigList("sink").get(0).getString("token"));
+    }
+
     public static class ConfigShadeWithProps implements ConfigShade {
 
         private String suffix;

@@ -21,11 +21,14 @@ import org.apache.seatunnel.common.utils.ExceptionUtils;
 
 import lombok.extern.slf4j.Slf4j;
 
+import java.util.Map;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.function.Function;
 
 /**
  * PeekBlockingQueue implements blocking when peeking. Queues like BlockingQueue only support
@@ -45,10 +48,19 @@ public class PeekBlockingQueue<E> {
     private final Lock lock = new ReentrantLock();
     private final Condition notEmpty = lock.newCondition();
 
+    private final Map<Long, E> jobIdMap = new ConcurrentHashMap<>();
+    private final Function<E, Long> idExtractor;
+
+    public PeekBlockingQueue(Function<E, Long> idExtractor) {
+        this.idExtractor = idExtractor;
+    }
+
     public void put(E element) {
         lock.lock();
         try {
             queue.put(element);
+            Long jobId = idExtractor.apply(element);
+            jobIdMap.put(jobId, element);
             notEmpty.signalAll();
         } catch (InterruptedException e) {
             log.error("Put element into queue failed. {}", ExceptionUtils.getMessage(e));
@@ -58,7 +70,10 @@ public class PeekBlockingQueue<E> {
     }
 
     public E take() throws InterruptedException {
-        return queue.take();
+        E element = queue.take();
+        Long jobId = idExtractor.apply(element);
+        jobIdMap.remove(jobId);
+        return element;
     }
 
     public E peekBlocking() throws InterruptedException {
@@ -80,5 +95,40 @@ public class PeekBlockingQueue<E> {
         } finally {
             lock.unlock();
         }
+    }
+
+    public void clear() {
+        lock.lock();
+        try {
+            queue.clear();
+            jobIdMap.clear();
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    public E getById(Long jobId) {
+        return jobIdMap.get(jobId);
+    }
+
+    public boolean removeById(Long jobId) {
+        lock.lock();
+        try {
+            E element = jobIdMap.remove(jobId);
+            if (element != null) {
+                return queue.remove(element);
+            }
+            return false;
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    public boolean contains(Long jobId) {
+        return jobIdMap.containsKey(jobId);
+    }
+
+    public Map<Long, E> getJobIdMap() {
+        return jobIdMap;
     }
 }

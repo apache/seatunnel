@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.milvus.sink;
 
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
+
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.PrimaryKey;
@@ -27,8 +29,6 @@ import org.apache.seatunnel.connectors.seatunnel.milvus.exception.MilvusConnecti
 import org.apache.seatunnel.connectors.seatunnel.milvus.exception.MilvusConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.milvus.utils.MilvusConnectorUtils;
 import org.apache.seatunnel.connectors.seatunnel.milvus.utils.sink.MilvusSinkConverter;
-
-import org.apache.commons.lang3.StringUtils;
 
 import com.google.gson.JsonObject;
 import io.milvus.v2.client.ConnectConfig;
