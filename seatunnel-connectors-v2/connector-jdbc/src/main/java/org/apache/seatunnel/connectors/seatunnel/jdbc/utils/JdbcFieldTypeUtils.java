@@ -20,12 +20,8 @@ import java.math.BigDecimal;
 import java.sql.Date;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.sql.SQLFeatureNotSupportedException;
 import java.sql.Time;
 import java.sql.Timestamp;
-import java.time.OffsetDateTime;
-import java.time.Instant;
-import java.time.ZoneId;
 
 public final class JdbcFieldTypeUtils {
 
@@ -113,45 +109,5 @@ public final class JdbcFieldTypeUtils {
     @FunctionalInterface
     private interface ThrowingFunction<T, R, E extends Exception> {
         R apply(T t, int columnIndex) throws E;
-    }
-
-    public static OffsetDateTime getOffsetDateTime(ResultSet resultSet, int columnIndex)
-            throws SQLException {
-        // Try JDBC 4.2 direct retrieval first
-        try {
-            return resultSet.getObject(columnIndex, OffsetDateTime.class);
-        } catch (AbstractMethodError | SQLFeatureNotSupportedException | SQLException ignored) {
-            // fall through to best-effort fallback
-        }
-        Object obj = resultSet.getObject(columnIndex);
-        if (obj == null) {
-            return null;
-        }
-        if (obj instanceof OffsetDateTime) {
-            return (OffsetDateTime) obj;
-        }
-        if (obj instanceof Timestamp) {
-            // Fallback: best-effort convert timestamp to OffsetDateTime using system default zone
-            // Note: this may lose original DB timezone semantics if driver doesn't expose it
-            Timestamp ts = (Timestamp) obj;
-            return ts.toInstant().atZone(ZoneId.systemDefault()).toOffsetDateTime();
-        }
-        // Try parsing from string value if it contains offset information
-        String str = resultSet.getString(columnIndex);
-        if (str != null) {
-            try {
-                return OffsetDateTime.parse(str);
-            } catch (Exception ignored) {
-                // ignore parse failure
-            }
-            try {
-                // last resort: interpret as epoch millis/seconds? avoid unsafe guesses, return null
-                Instant instant = Timestamp.valueOf(str).toInstant();
-                return instant.atZone(ZoneId.systemDefault()).toOffsetDateTime();
-            } catch (Exception ignored) {
-                // ignore
-            }
-        }
-        return null;
     }
 }

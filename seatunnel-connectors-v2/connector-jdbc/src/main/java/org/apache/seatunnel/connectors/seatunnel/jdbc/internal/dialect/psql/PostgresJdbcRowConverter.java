@@ -131,9 +131,6 @@ public class PostgresJdbcRowConverter extends AbstractJdbcRowConverter {
                                     .map(e -> e.toLocalDateTime())
                                     .orElse(null);
                     break;
-                case TIMESTAMP_TZ:
-                    fields[fieldIndex] = JdbcFieldTypeUtils.getOffsetDateTime(rs, resultSetIndex);
-                    break;
                 case BYTES:
                     fields[fieldIndex] = JdbcFieldTypeUtils.getBytes(rs, resultSetIndex);
                     break;

@@ -292,8 +292,7 @@ public class SqlServerTypeConverter implements TypeConverter<BasicTypeDefine> {
             case SQLSERVER_DATETIMEOFFSET:
                 builder.sourceType(
                         String.format("%s(%s)", SQLSERVER_DATETIMEOFFSET, typeDefine.getScale()));
-                // map to TIMESTAMP_TZ
-                builder.dataType(LocalTimeType.OFFSET_DATE_TIME_TYPE);
+                builder.dataType(LocalTimeType.LOCAL_DATE_TIME_TYPE);
                 builder.scale(typeDefine.getScale());
                 break;
             case SQLSERVER_SMALLDATETIME:
