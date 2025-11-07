@@ -20,6 +20,7 @@ import java.math.BigDecimal;
 import java.sql.Date;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.SQLFeatureNotSupportedException;
 import java.sql.Time;
 import java.sql.Timestamp;
 import java.time.OffsetDateTime;
@@ -115,20 +116,17 @@ public final class JdbcFieldTypeUtils {
 
     public static OffsetDateTime getOffsetDateTime(ResultSet resultSet, int columnIndex)
             throws SQLException {
-        // Try JDBC 4.2 direct retrieval first (some drivers may throw unchecked exceptions)
+        // Try JDBC 4.2 direct retrieval first
         try {
             return resultSet.getObject(columnIndex, OffsetDateTime.class);
-        } catch (Throwable ignored) {
-            // Some drivers (e.g., certain Oracle versions) may throw NPE or other unchecked errors
-            // here; fall through to best-effort fallback
+        } catch (AbstractMethodError ignored) {
+            // fall through to best-effort fallback
+        } catch (SQLFeatureNotSupportedException ignored) {
+            // fall through to best-effort fallback
+        } catch (SQLException ignored) {
+            // fall through to best-effort fallback
         }
-        Object obj;
-        try {
-            obj = resultSet.getObject(columnIndex);
-        } catch (Throwable e) {
-            // Defensive: buggy drivers might throw unchecked exceptions; fallback to string path
-            obj = null;
-        }
+        Object obj = resultSet.getObject(columnIndex);
         if (obj == null) {
             return null;
         }
@@ -142,12 +140,7 @@ public final class JdbcFieldTypeUtils {
             return ts.toInstant().atOffset(ZoneOffset.UTC);
         }
         // Try parsing from string value if it contains offset information
-        String str = null;
-        try {
-            str = resultSet.getString(columnIndex);
-        } catch (Throwable ignored) {
-            // ignore and keep str as null
-        }
+        String str = resultSet.getString(columnIndex);
         if (str != null) {
             String s = str.trim();
             try {
