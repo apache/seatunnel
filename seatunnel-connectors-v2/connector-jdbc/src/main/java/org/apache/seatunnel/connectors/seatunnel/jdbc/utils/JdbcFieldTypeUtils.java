@@ -20,7 +20,6 @@ import java.math.BigDecimal;
 import java.sql.Date;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.sql.SQLFeatureNotSupportedException;
 import java.sql.Time;
 import java.sql.Timestamp;
 import java.time.OffsetDateTime;
@@ -116,16 +115,6 @@ public final class JdbcFieldTypeUtils {
 
     public static OffsetDateTime getOffsetDateTime(ResultSet resultSet, int columnIndex)
             throws SQLException {
-        // Try JDBC 4.2 API first – most modern drivers (Oracle, PostgreSQL, etc.) support this.
-        try {
-            OffsetDateTime direct = resultSet.getObject(columnIndex, OffsetDateTime.class);
-            if (direct != null) {
-                return direct;
-            }
-        } catch (AbstractMethodError | SQLFeatureNotSupportedException | SQLException ignored) {
-            // fall through to best-effort handling below
-        }
-
         // Avoid driver-specific issues by not calling getObject with a target class.
         Object obj;
         try {
@@ -173,34 +162,12 @@ public final class JdbcFieldTypeUtils {
         // Handle Oracle-specific TIMESTAMPTZ objects
         if (obj.getClass().getName().equals("oracle.sql.TIMESTAMPTZ")) {
             try {
-                // Prefer offsetDateTimeValue(Connection) when available to preserve original zone.
-                java.lang.reflect.Method offsetMethod =
-                        obj.getClass().getMethod("offsetDateTimeValue", java.sql.Connection.class);
-                java.sql.Connection connection = extractConnection(resultSet);
-                if (connection != null) {
-                    Object value = offsetMethod.invoke(obj, connection);
-                    if (value instanceof OffsetDateTime) {
-                        return (OffsetDateTime) value;
-                    }
-                    if (value instanceof Timestamp) {
-                        Timestamp ts = (Timestamp) value;
-                        return ts.toInstant().atOffset(ZoneOffset.UTC);
-                    }
-                }
-            } catch (NoSuchMethodException ignore) {
-                // Fall back to timestampValue when offset method is unavailable.
-                try {
-                    java.lang.reflect.Method timestampValueMethod =
-                            obj.getClass().getMethod("timestampValue", java.sql.Connection.class);
-                    java.sql.Connection connection = extractConnection(resultSet);
-                    if (connection != null) {
-                        Timestamp ts = (Timestamp) timestampValueMethod.invoke(obj, connection);
-                        if (ts != null) {
-                            return ts.toInstant().atOffset(ZoneOffset.UTC);
-                        }
-                    }
-                } catch (Exception inner) {
-                    // Fall through to string parsing
+                // Use reflection to call timestampValue() method
+                java.lang.reflect.Method timestampValueMethod =
+                        obj.getClass().getMethod("timestampValue");
+                Timestamp ts = (Timestamp) timestampValueMethod.invoke(obj);
+                if (ts != null) {
+                    return ts.toInstant().atOffset(ZoneOffset.UTC);
                 }
             } catch (Exception e) {
                 // Fall through to string parsing
@@ -246,7 +213,9 @@ public final class JdbcFieldTypeUtils {
             return null;
         }
 
-        String iso = normalizeOffsetDateTimeString(str);
+        String s = str.trim();
+        // Normalize to ISO-8601: ensure 'T' separator and offset with colon
+        String iso = s.replace(' ', 'T');
 
         // If ends with 'Z', try parse directly
         if (iso.endsWith("Z")) {
@@ -285,37 +254,6 @@ public final class JdbcFieldTypeUtils {
         } catch (Exception ignored) {
         }
 
-        return null;
-    }
-
-    private static String normalizeOffsetDateTimeString(String raw) {
-        String trimmed = raw.trim();
-
-        // Replace textual UTC suffix with 'Z'
-        if (trimmed.endsWith(" UTC")) {
-            trimmed = trimmed.substring(0, trimmed.length() - 4) + "Z";
-        }
-
-        // Replace the first space (between date and time) with 'T'
-        int firstSpace = trimmed.indexOf(' ');
-        if (firstSpace >= 0) {
-            trimmed = trimmed.substring(0, firstSpace) + "T" + trimmed.substring(firstSpace + 1);
-        }
-
-        // Remove remaining spaces (e.g. before offset)
-        trimmed = trimmed.replace(" ", "");
-        return trimmed;
-    }
-
-    private static java.sql.Connection extractConnection(ResultSet resultSet) {
-        try {
-            java.sql.Statement statement = resultSet.getStatement();
-            if (statement != null) {
-                return statement.getConnection();
-            }
-        } catch (SQLException ignored) {
-            // ignore and fall back to other strategies
-        }
         return null;
     }
 }
