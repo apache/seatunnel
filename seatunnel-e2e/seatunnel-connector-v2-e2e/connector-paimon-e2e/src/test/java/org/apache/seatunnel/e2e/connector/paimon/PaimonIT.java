@@ -98,9 +98,6 @@ public class PaimonIT extends TestSuiteBase implements TestResource {
                         "/tmp/seatunnel_mnt/paimon/default.db/st_test_p/schema/schema-0");
                 container.copyFileToContainer(
                         MountableFile.forHostPath(schemaPath),
-                        "/tmp/seatunnel_mnt/paimon/default.db/st_test_p/test_branch/schema/schema-0");
-                container.copyFileToContainer(
-                        MountableFile.forHostPath(schemaPath),
                         "/tmp/seatunnel_mnt/paimon/default.db/st_test_p1/schema/schema-0");
                 container.execInContainer("chmod", "777", "-R", "/tmp/seatunnel_mnt/");
             };
