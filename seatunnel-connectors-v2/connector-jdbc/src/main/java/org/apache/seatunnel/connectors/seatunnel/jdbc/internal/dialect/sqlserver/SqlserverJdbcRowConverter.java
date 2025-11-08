@@ -162,10 +162,6 @@ public class SqlserverJdbcRowConverter extends AbstractJdbcRowConverter {
                 case TIMESTAMP_TZ:
                     java.time.OffsetDateTime offsetDateTime =
                             (java.time.OffsetDateTime) row.getField(fieldIndex);
-                    // First set as instant to be compatible with drivers that don't support
-                    // OffsetDateTime
-                    statement.setTimestamp(
-                            statementIndex, java.sql.Timestamp.from(offsetDateTime.toInstant()));
                     try {
                         // Prefer JDBC 4.2 API to preserve original offset when supported by driver
                         statement.setObject(statementIndex, offsetDateTime);
@@ -196,5 +192,27 @@ public class SqlserverJdbcRowConverter extends AbstractJdbcRowConverter {
             }
         }
         return statement;
+    }
+
+    @Override
+    protected void setValueToStatementByDataType(
+            Object value,
+            PreparedStatement statement,
+            SeaTunnelDataType<?> seaTunnelDataType,
+            int statementIndex,
+            @javax.annotation.Nullable String sourceType)
+            throws SQLException {
+        if (seaTunnelDataType.getSqlType() == SqlType.TIMESTAMP_TZ) {
+            OffsetDateTime offsetDateTime = (OffsetDateTime) value;
+            try {
+                statement.setObject(statementIndex, offsetDateTime);
+            } catch (AbstractMethodError | java.sql.SQLException e) {
+                statement.setTimestamp(
+                        statementIndex, java.sql.Timestamp.from(offsetDateTime.toInstant()));
+            }
+            return;
+        }
+        super.setValueToStatementByDataType(
+                value, statement, seaTunnelDataType, statementIndex, sourceType);
     }
 }
