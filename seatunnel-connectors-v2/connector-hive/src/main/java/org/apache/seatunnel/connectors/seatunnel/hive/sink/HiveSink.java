@@ -307,19 +307,19 @@ public class HiveSink
         return hadoopConf;
     }
 
-    // Try to read from configuration, fallback to Hive default warehouse dir on HDFS
+    // Try to read from configuration, qualify default location via HiveLocationUtils
     private String getDefaultTableLocation(ReadonlyConfig config) {
         try {
             String table = config.get(HiveOptions.TABLE_NAME);
             org.apache.seatunnel.api.table.catalog.TablePath path =
                     org.apache.seatunnel.api.table.catalog.TablePath.of(table);
-            return org.apache.seatunnel.connectors.seatunnel.hive.utils.HiveTableTemplateUtils
-                    .getDefaultTableLocation(path.getDatabaseName(), path.getTableName());
+            return org.apache.seatunnel.connectors.seatunnel.hive.utils.HiveLocationUtils
+                    .qualifiedDefaultLocation(config, path.getDatabaseName(), path.getTableName());
         } catch (Exception e) {
             LOGGER.warn(
-                    "Failed to derive default table location from config, fallback to /user/hive/warehouse: {}",
+                    "Failed to derive qualified default table location, fallback to file:/tmp/hive/warehouse: {}",
                     e.getMessage());
-            return "/user/hive/warehouse";
+            return "file:/tmp/hive/warehouse";
         }
     }
 

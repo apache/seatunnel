@@ -616,9 +616,12 @@ public class HiveMetaStoreCatalog implements Catalog, Closeable, Serializable {
         sd.getSerdeInfo().setName(hiveTable.getTableName());
 
         String defaultLocation =
-                String.format(
-                        "/user/hive/warehouse/%s.db/%s",
-                        tablePath.getDatabaseName(), tablePath.getTableName());
+                org.apache.seatunnel.connectors.seatunnel.hive.utils.HiveLocationUtils
+                        .qualifiedDefaultLocation(
+                                hadoopConfDir,
+                                hiveSitePath,
+                                tablePath.getDatabaseName(),
+                                tablePath.getTableName());
         sd.setLocation(defaultLocation);
 
         sd.setCompressed(true);

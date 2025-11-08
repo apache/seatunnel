@@ -270,7 +270,7 @@ public class HiveSaveModeHandlerTest {
                 (org.apache.hadoop.hive.metastore.api.Table) m.invoke(handler);
 
         assertEquals("EXTERNAL_TABLE", table.getTableType());
-        assertEquals("/user/hive/warehouse/test_db.db/user_table", table.getSd().getLocation());
+        assertEquals("file:/tmp/hive/warehouse/test_db.db/user_table", table.getSd().getLocation());
         assertEquals("v1", table.getParameters().get("k1"));
         assertEquals("v2", table.getParameters().get("k2"));
         assertEquals(template, table.getParameters().get("seatunnel.creation.template"));

@@ -196,9 +196,18 @@ public class HiveSaveModeHandler implements SaveModeHandler, AutoCloseable {
     private void createTable() throws TException {
         // Try to create table via JDBC first if template is provided
         if (readonlyConfig.getOptional(HiveSinkOptions.SAVE_MODE_CREATE_TEMPLATE).isPresent()) {
-            String template = readonlyConfig.get(HiveSinkOptions.SAVE_MODE_CREATE_TEMPLATE);
+            String rawTemplate = readonlyConfig.get(HiveSinkOptions.SAVE_MODE_CREATE_TEMPLATE);
 
-            // Build complete SQL from template
+            // If template uses ${table_location}, qualify it based on Hadoop conf (HDFS or local)
+            String defaultLoc =
+                    org.apache.seatunnel.connectors.seatunnel.hive.utils.HiveLocationUtils
+                            .qualifiedDefaultLocation(readonlyConfig, dbName, tableName);
+            String template =
+                    rawTemplate.contains("${table_location}")
+                            ? rawTemplate.replace("${table_location}", defaultLoc)
+                            : rawTemplate;
+
+            // Build complete SQL from (possibly adjusted) template
             String createTableSql =
                     HiveTableTemplateUtils.buildCreateTableSQL(
                             template, dbName, tableName, tableSchema);
@@ -267,8 +276,10 @@ public class HiveSaveModeHandler implements SaveModeHandler, AutoCloseable {
                         });
         sd.setCols(cols);
 
-        // Set table location using default template's default location
-        String tableLocation = HiveTableTemplateUtils.getDefaultTableLocation(dbName, tableName);
+        // Set table location using dynamically qualified default location (HDFS if available)
+        String tableLocation =
+                org.apache.seatunnel.connectors.seatunnel.hive.utils.HiveLocationUtils
+                        .qualifiedDefaultLocation(readonlyConfig, dbName, tableName);
         sd.setLocation(tableLocation);
 
         configureStorageDescriptor(sd, "PARQUET");
@@ -334,13 +345,29 @@ public class HiveSaveModeHandler implements SaveModeHandler, AutoCloseable {
                         });
         sd.setCols(cols);
 
-        // Set table location: extract from template if present; fallback to default
-        String extractedLocation =
-                HiveTableTemplateUtils.extractLocationFromTemplate(template, dbName, tableName);
-        String tableLocation =
-                extractedLocation != null
-                        ? extractedLocation
-                        : HiveTableTemplateUtils.getDefaultTableLocation(dbName, tableName);
+        // Set table location:
+        // - If template defines LOCATION and uses ${table_location}, replace with qualified
+        // default.
+        // - If template defines explicit LOCATION (no variable), respect it.
+        // - Else, fallback to qualified default location.
+        String defaultLoc =
+                org.apache.seatunnel.connectors.seatunnel.hive.utils.HiveLocationUtils
+                        .qualifiedDefaultLocation(readonlyConfig, dbName, tableName);
+        String upperTpl = template != null ? template.toUpperCase() : "";
+        String tableLocation;
+        if (upperTpl.contains(" LOCATION ")) {
+            if (template.contains("${table_location}")) {
+                tableLocation = defaultLoc;
+            } else {
+                // Extract explicit LOCATION from template as-is
+                String extractedLocation =
+                        HiveTableTemplateUtils.extractLocationFromTemplate(
+                                template, dbName, tableName);
+                tableLocation = extractedLocation != null ? extractedLocation : defaultLoc;
+            }
+        } else {
+            tableLocation = defaultLoc;
+        }
         sd.setLocation(tableLocation);
 
         String storageFormat = extractStorageFormatFromTemplate();
@@ -363,6 +390,8 @@ public class HiveSaveModeHandler implements SaveModeHandler, AutoCloseable {
 
         return table;
     }
+
+    // use HiveLocationUtils for location resolution (no extra helpers needed here)
 
     private String extractStorageFormatFromTemplate() {
         if (readonlyConfig.getOptional(HiveSinkOptions.SAVE_MODE_CREATE_TEMPLATE).isPresent()) {
