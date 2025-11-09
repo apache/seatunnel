@@ -122,7 +122,9 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
                 }
                 continue;
             }
-            if (fileStatus.isFile() && filterFileByPattern(fileStatus) && fileStatus.getLen() > 0) {
+            if (fileStatus.isFile()
+                    && filterFileByPattern(path, fileStatus)
+                    && fileStatus.getLen() > 0) {
                 // filter '_SUCCESS' file
                 if (!fileStatus.getPath().getName().equals("_SUCCESS")
                         && !fileStatus.getPath().getName().startsWith(".")
@@ -405,8 +407,13 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
         return new SeaTunnelRowType(newFieldNames, newFieldTypes);
     }
 
-    protected boolean filterFileByPattern(FileStatus fileStatus) {
+    protected boolean filterFileByPattern(String path, FileStatus fileStatus) {
         if (Objects.nonNull(pattern)) {
+            if (pattern.pattern().startsWith(path)) {
+                // filter based on the file directory at the same time
+                return pattern.matcher(fileStatus.getPath().getName()).matches();
+            }
+            // filter based on file names
             return pattern.matcher(fileStatus.getPath().toUri().getPath()).matches();
         }
         return true;
