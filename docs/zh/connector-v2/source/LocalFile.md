@@ -26,15 +26,15 @@ import ChangeLog from '../changelog/connector-file-local.md';
 - [x] [并行度](../../concept/connector-v2-features.md)
 - [ ] [支持用户定义分片](../../concept/connector-v2-features.md)
 - [x] 文件格式类型
-  - [x] text
-  - [x] csv
-  - [x] parquet
-  - [x] orc
-  - [x] json
-  - [x] excel
-  - [x] xml
-  - [x] binary
-  - [x] markdown
+    - [x] text
+    - [x] csv
+    - [x] parquet
+    - [x] orc
+    - [x] json
+    - [x] excel
+    - [x] xml
+    - [x] binary
+    - [x] markdown
 
 ## 描述
 
@@ -304,12 +304,12 @@ markdown 解析器提取各种元素，包括标题、段落、列表、代码�
 
 ### file_filter_pattern [string]
 
-过滤模式，用于过滤文件。
+文件过滤模式，用于过滤文件。若只想根据文件名称筛选，则直接写文件名称的正则；若同时想根据文件目录进行过滤，则表达式以`path`起始。
 
 该模式遵循标准正则表达式。详情请参考 https://en.wikipedia.org/wiki/Regular_expression。
 以下是一些示例。
 
-文件结构示例：
+若`path`为`/data/seatunnel`,且文件结构示例：
 ```
 /data/seatunnel/20241001/report.txt
 /data/seatunnel/20241007/abch202410.csv
@@ -321,7 +321,7 @@ markdown 解析器提取各种元素，包括标题、段落、列表、代码�
 
 **示例 1**：*匹配所有 .txt 文件*，正则表达式：
 ```
-/data/seatunnel/20241001/.*\.txt
+.*.txt
 ```
 此示例匹配的结果是：
 ```
@@ -329,14 +329,14 @@ markdown 解析器提取各种元素，包括标题、段落、列表、代码�
 ```
 **示例 2**：*匹配所有以 abc 开头的文件*，正则表达式：
 ```
-/data/seatunnel/20241002/abc.*
+abc.*
 ```
 此示例匹配的结果是：
 ```
 /data/seatunnel/20241007/abch202410.csv
 /data/seatunnel/20241002/abcg202410.csv
 ```
-**示例 3**：*匹配所有以 abc 开头，且第四个字符是 h 或 g 的文件*，正则表达式：
+**示例 3**：*匹配20241007文件夹下所有以 abc 开头的文件，且第四个字符为 h 或 g*，正则表达式：
 ```
 /data/seatunnel/20241007/abc[h,g].*
 ```
@@ -346,7 +346,7 @@ markdown 解析器提取各种元素，包括标题、段落、列表、代码�
 ```
 **示例 4**：*匹配以 202410 开头的第三级文件夹和以 .csv 结尾的文件*，正则表达式：
 ```
-/data/seatunnel/202410\d*/.*\.csv
+/data/seatunnel/202410\d*/.*.csv
 ```
 此示例匹配的结果是：
 ```
