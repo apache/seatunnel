@@ -23,13 +23,13 @@ import ChangeLog from '../changelog/connector-file-sftp.md';
 - [x] [并行度](../../concept/connector-v2-features.md)
 - [ ] [支持用户定义的分片](../../concept/connector-v2-features.md)
 - [x] 文件格式类型
-    - [x] text
-    - [x] csv
-    - [x] json
-    - [x] excel
-    - [x] xml
-    - [x] binary
-    - [x] markdown
+  - [x] text
+  - [x] csv
+  - [x] json
+  - [x] excel
+  - [x] xml
+  - [x] binary
+  - [x] markdown
 
 ## 描述
 
@@ -145,7 +145,7 @@ abc.*
 /data/seatunnel/20241007/abch202410.csv
 /data/seatunnel/20241002/abcg202410.csv
 ```
-**示例 3**：*匹配20241007文件夹下所有以 abc 开头的文件，且第四个字符为 h 或 g*，正则表达式：
+**示例3**：*匹配20241007文件夹下所有以 abc 开头的文件，且第四个字符为 h 或 g*，正则表达式：
 ```
 /data/seatunnel/20241007/abc[h,g].*
 ```

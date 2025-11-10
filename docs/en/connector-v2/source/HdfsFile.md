@@ -27,15 +27,15 @@ import ChangeLog from '../changelog/connector-file-hadoop.md';
 - [ ] [support user-defined split](../../concept/connector-v2-features.md)
 - [x] [support multiple table read](../../concept/connector-v2-features.md)
 - [x] file format file
-    - [x] text
-    - [x] csv
-    - [x] parquet
-    - [x] orc
-    - [x] json
-    - [x] excel
-    - [x] xml
-    - [x] binary
-    - [x] markdown
+  - [x] text
+  - [x] csv
+  - [x] parquet
+  - [x] orc
+  - [x] json
+  - [x] excel
+  - [x] xml
+  - [x] binary
+  - [x] markdown
 
 ## Description
 

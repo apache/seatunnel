@@ -23,12 +23,12 @@ import ChangeLog from '../changelog/connector-file-ftp.md';
 - [x] [并行度](../../concept/connector-v2-features.md)
 - [ ] [支持用户自定义分片](../../concept/connector-v2-features.md)
 - [x] 文件格式类型
-    - [x] 文本
-    - [x] CSV
-    - [x] JSON
-    - [x] Excel
-    - [x] XML
-    - [x] 二进制
+  - [x] 文本
+  - [x] CSV
+  - [x] JSON
+  - [x] Excel
+  - [x] XML
+  - [x] 二进制
 
 ## 描述
 

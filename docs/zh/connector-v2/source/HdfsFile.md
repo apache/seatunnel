@@ -27,15 +27,15 @@ import ChangeLog from '../changelog/connector-file-hadoop.md';
 - [ ] [支持用户定义分片](../../concept/connector-v2-features.md)
 - [x] [支持多表读](../../concept/connector-v2-features.md)
 - [x] 文件格式类型
-    - [x] text
-    - [x] csv
-    - [x] parquet
-    - [x] orc
-    - [x] json
-    - [x] excel
-    - [x] xml
-    - [x] binary
-    - [x] markdown
+  - [x] text
+  - [x] csv
+  - [x] parquet
+  - [x] orc
+  - [x] json
+  - [x] excel
+  - [x] xml
+  - [x] binary
+  - [x] markdown
 
 ## 描述
 
