@@ -28,9 +28,11 @@ import org.apache.seatunnel.connectors.seatunnel.file.source.reader.JsonReadStra
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.io.File;
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.net.URL;
+import java.nio.file.Paths;
 import java.util.List;
 
 import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.FS_DEFAULT_NAME_DEFAULT;
@@ -46,16 +48,23 @@ public class FileFilterPatternTest {
     @Test
     public void testJsonFilterPatternWithFilePath() throws URISyntaxException, IOException {
         URL filterPattern = FileFilterPatternTest.class.getResource("/filter-pattern/json");
+        URL conf =
+                ExcelReadStrategyTest.class.getResource(
+                        "/filter-pattern/json/json2025/test_read_json.conf");
         Assertions.assertNotNull(filterPattern);
+        Assertions.assertNotNull(conf);
         // path
         String jsonPathDir = filterPattern.toURI().getPath();
         // the expression needs to start with `path`
         String fileFilterPattern = jsonPathDir + "/json2025[^/]*/.*.json";
+
+        String confPath = Paths.get(conf.toURI()).toString();
         Config pluginConfig =
-                ConfigFactory.empty()
+                ConfigFactory.parseFile(new File(confPath))
                         .withValue(
                                 FileBaseSourceOptions.FILE_FILTER_PATTERN.key(),
                                 ConfigValueFactory.fromAnyRef(fileFilterPattern));
+
         JsonReadStrategy jsonReadStrategy = new JsonReadStrategy();
         LocalConf localConf = new LocalConf(FS_DEFAULT_NAME_DEFAULT);
         jsonReadStrategy.setPluginConfig(pluginConfig);
@@ -76,13 +85,18 @@ public class FileFilterPatternTest {
     @Test
     public void testJsonFilterPatternWithFileName() throws URISyntaxException, IOException {
         URL filterPattern = FileFilterPatternTest.class.getResource("/filter-pattern/json");
+        URL conf =
+                ExcelReadStrategyTest.class.getResource(
+                        "/filter-pattern/json/json2025/test_read_json.conf");
         Assertions.assertNotNull(filterPattern);
+        Assertions.assertNotNull(conf);
         // path
         String jsonPathDir = filterPattern.toURI().getPath();
         // just simply write the regular file names
         String fileFilterPattern = ".*.json";
+        String confPath = Paths.get(conf.toURI()).toString();
         Config pluginConfig =
-                ConfigFactory.empty()
+                ConfigFactory.parseFile(new File(confPath))
                         .withValue(
                                 FileBaseSourceOptions.FILE_FILTER_PATTERN.key(),
                                 ConfigValueFactory.fromAnyRef(fileFilterPattern));
