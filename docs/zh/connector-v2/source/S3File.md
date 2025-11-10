@@ -26,15 +26,15 @@ import ChangeLog from '../changelog/connector-file-s3.md';
 - [x] [并行度](../../concept/connector-v2-features.md)
 - [ ] [支持用户定义的分片](../../concept/connector-v2-features.md)
 - [x] 文件格式类型
-  - [x] text
-  - [x] csv
-  - [x] parquet
-  - [x] orc
-  - [x] json
-  - [x] excel
-  - [x] xml
-  - [x] binary
-  - [x] markdown
+    - [x] text
+    - [x] csv
+    - [x] parquet
+    - [x] orc
+    - [x] json
+    - [x] excel
+    - [x] xml
+    - [x] binary
+    - [x] markdown
 
 ## 描述
 
