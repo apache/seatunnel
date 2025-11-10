@@ -79,9 +79,18 @@ The stop row of the scan
 
 Whether to include the start row in the scan range. When set to true, the start row is included in the scan results. Default: true (inclusive).
 
+**Note:** In most cases, you should keep the default value (true). Only modify this parameter if you have specific requirements for excluding the start row from your scan results.
+
 ### end_row_inclusive
 
 Whether to include the end row in the scan range. When set to false, the end row is excluded from the scan results, following the left-closed-right-open convention [start, end). Default: false (exclusive).
+
+**Note:** In most cases, you should keep the default value (false) which follows HBase's standard left-closed-right-open convention. Only modify this parameter if you need to include the end row in your scan results.
+
+**Important:** When using parallel reading with multiple splits, the combination of these two parameters is critical for data integrity:
+- **Default (start_row_inclusive=true, end_row_inclusive=false)**: This is the recommended configuration that ensures no data loss or duplication across splits. Each split follows the [start, end) convention.
+- **Both false (start_row_inclusive=false, end_row_inclusive=false)**: This may cause **data loss** at split boundaries, as the boundary rows will be excluded from all splits.
+- **Both true (start_row_inclusive=true, end_row_inclusive=true)**: This may cause **duplicate data** at split boundaries, as the boundary rows will be included in multiple adjacent splits.
 
 ### common-options
 
