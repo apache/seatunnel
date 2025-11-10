@@ -22,6 +22,7 @@ import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigValueFactory;
 
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
+import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.source.reader.JsonReadStrategy;
 
 import org.junit.jupiter.api.Assertions;
@@ -56,8 +57,7 @@ public class FileFilterPatternTest {
                                 FileBaseSourceOptions.FILE_FILTER_PATTERN.key(),
                                 ConfigValueFactory.fromAnyRef(fileFilterPattern));
         JsonReadStrategy jsonReadStrategy = new JsonReadStrategy();
-        ExcelReadStrategyTest.LocalConf localConf =
-                new ExcelReadStrategyTest.LocalConf(FS_DEFAULT_NAME_DEFAULT);
+        LocalConf localConf = new LocalConf(FS_DEFAULT_NAME_DEFAULT);
         jsonReadStrategy.setPluginConfig(pluginConfig);
         jsonReadStrategy.init(localConf);
 
@@ -87,8 +87,7 @@ public class FileFilterPatternTest {
                                 FileBaseSourceOptions.FILE_FILTER_PATTERN.key(),
                                 ConfigValueFactory.fromAnyRef(fileFilterPattern));
         JsonReadStrategy jsonReadStrategy = new JsonReadStrategy();
-        ExcelReadStrategyTest.LocalConf localConf =
-                new ExcelReadStrategyTest.LocalConf(FS_DEFAULT_NAME_DEFAULT);
+        LocalConf localConf = new LocalConf(FS_DEFAULT_NAME_DEFAULT);
         jsonReadStrategy.setPluginConfig(pluginConfig);
         jsonReadStrategy.init(localConf);
 
@@ -96,6 +95,25 @@ public class FileFilterPatternTest {
         Assertions.assertEquals(3, filterFileNames.size());
         for (String fileName : filterFileNames) {
             Assertions.assertTrue(fileName.endsWith(".json"));
+        }
+    }
+
+    public static class LocalConf extends HadoopConf {
+        private static final String HDFS_IMPL = "org.apache.hadoop.fs.LocalFileSystem";
+        private static final String SCHEMA = "file";
+
+        public LocalConf(String hdfsNameKey) {
+            super(hdfsNameKey);
+        }
+
+        @Override
+        public String getFsHdfsImpl() {
+            return HDFS_IMPL;
+        }
+
+        @Override
+        public String getSchema() {
+            return SCHEMA;
         }
     }
 }
