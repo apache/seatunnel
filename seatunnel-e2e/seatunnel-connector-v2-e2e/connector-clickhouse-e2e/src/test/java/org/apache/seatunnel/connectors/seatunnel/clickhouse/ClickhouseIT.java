@@ -263,6 +263,18 @@ public class ClickhouseIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
+    public void testClickhouseWithSqlAndFilterQuery(TestContainer testContainer)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                testContainer.executeJob("/clickhouse_with_sql_and_filter_query.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+        Assertions.assertEquals(100, countData(SOURCE_MERGE_TREE_TABLE));
+        // filter_query = "id < 47" should filter data to 47 rows (id from 0 to 46)
+        Assertions.assertEquals(47, countData(SINK_TABLE));
+        clearTable(SINK_TABLE);
+    }
+
+    @TestTemplate
     public void testClickhouseWithMultiTableSource(TestContainer testContainer)
             throws IOException, InterruptedException {
         Container.ExecResult execResult =
