@@ -124,6 +124,7 @@ final class ConfigParser {
                 Path path = pathStack.peekFirst();
 
                 if (path != null
+                        && pathStack.size() == 1
                         && !ConfigSyntax.JSON.equals(flavor)
                         && ("source".equals(path.first())
                                 || "transform".equals(path.first())
