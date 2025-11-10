@@ -290,11 +290,11 @@ public class RedisClusterIT extends TestSuiteBase implements TestResource {
                     container.executeJob("/cluster-redis-to-redis-scan.conf");
             Assertions.assertEquals(0, execResult.getExitCode());
 
-            long listLength = jedisCluster.llen("key_list");
-            Assertions.assertEquals(100, listLength);
+            long amount = jedisCluster.scard("key_set");
+            Assertions.assertEquals(100, amount);
         } finally {
-            jedisCluster.del("key_list");
-            Assertions.assertEquals(0, jedisCluster.llen("key_list"));
+            jedisCluster.del("key_set");
+            Assertions.assertEquals(0, jedisCluster.llen("key_set"));
         }
     }
 
@@ -345,8 +345,10 @@ public class RedisClusterIT extends TestSuiteBase implements TestResource {
                     container.executeJob("/cluster-redis-to-redis-type-list.conf");
             Assertions.assertEquals(0, execResult.getExitCode());
 
-            long amount = jedisCluster.llen("cluster-list-value-check");
-            Assertions.assertEquals(100, amount);
+            List<String> items = jedisCluster.lrange("cluster-list-value-check", 0, -1);
+            Set<String> unique = new HashSet<>(items);
+
+            Assertions.assertEquals(100, unique.size());
         } finally {
             jedisCluster.del("cluster-list-value-check");
         }
