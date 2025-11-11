@@ -37,6 +37,8 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.paimon.catalog.PaimonCatalog;
 import org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonHadoopConfiguration;
 import org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonSinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.paimon.exception.PaimonConnectorErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.paimon.exception.PaimonConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.paimon.handler.PaimonSaveModeHandler;
 import org.apache.seatunnel.connectors.seatunnel.paimon.security.PaimonSecurityContext;
 import org.apache.seatunnel.connectors.seatunnel.paimon.sink.bucket.PaimonBucketAssignerFactory;
@@ -112,8 +114,8 @@ public class PaimonSink
             if (StringUtils.isNotEmpty(branchName)) {
                 BranchManager branchManager = paimonTable.branchManager();
                 if (!branchManager.branchExists(branchName)) {
-                    throw new UnsupportedOperationException(
-                            "Branch: " + branchName + " not exists");
+                    throw new PaimonConnectorException(
+                            PaimonConnectorErrorCode.BRANCH_NOT_EXISTS, branchName);
                 }
                 if (!branchManager.DEFAULT_MAIN_BRANCH.equalsIgnoreCase(branchName)) {
                     this.paimonTable = paimonTable.switchToBranch(branchName);

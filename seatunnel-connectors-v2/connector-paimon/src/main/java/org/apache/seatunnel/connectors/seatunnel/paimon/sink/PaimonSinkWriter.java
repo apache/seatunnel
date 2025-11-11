@@ -279,6 +279,10 @@ public class PaimonSinkWriter
         String branchName = paimonSinkConfig.getBranch();
         if (StringUtils.isNotEmpty(branchName)) {
             BranchManager branchManager = paimonTable.branchManager();
+            if (!branchManager.branchExists(branchName)) {
+                throw new PaimonConnectorException(
+                        PaimonConnectorErrorCode.BRANCH_NOT_EXISTS, branchName);
+            }
             if (!branchManager.DEFAULT_MAIN_BRANCH.equalsIgnoreCase(branchName)) {
                 this.paimonTable = this.paimonTable.switchToBranch(branchName);
                 log.info("Re-switched to branch {} after reopening table", branchName);
