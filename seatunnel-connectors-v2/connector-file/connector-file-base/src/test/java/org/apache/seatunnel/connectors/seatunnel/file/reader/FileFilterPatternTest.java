@@ -56,14 +56,17 @@ public class FileFilterPatternTest {
         // path
         String jsonPathDir = filterPattern.toURI().getPath();
         // the expression needs to start with `path`
-        String fileFilterPattern = jsonPathDir + "/json2025[^/]*/.*.json";
+        String fileFilterPattern = jsonPathDir + "/json202[^/]*/.*.json";
 
         String confPath = Paths.get(conf.toURI()).toString();
         Config pluginConfig =
                 ConfigFactory.parseFile(new File(confPath))
                         .withValue(
                                 FileBaseSourceOptions.FILE_FILTER_PATTERN.key(),
-                                ConfigValueFactory.fromAnyRef(fileFilterPattern));
+                                ConfigValueFactory.fromAnyRef(fileFilterPattern))
+                        .withValue(
+                                FileBaseSourceOptions.FILE_PATH.key(),
+                                ConfigValueFactory.fromAnyRef(jsonPathDir));
 
         JsonReadStrategy jsonReadStrategy = new JsonReadStrategy();
         LocalConf localConf = new LocalConf(FS_DEFAULT_NAME_DEFAULT);
@@ -71,7 +74,7 @@ public class FileFilterPatternTest {
         jsonReadStrategy.init(localConf);
 
         List<String> filterFileNames = jsonReadStrategy.getFileNamesByPath(jsonPathDir);
-        Assertions.assertEquals(1, filterFileNames.size());
+        Assertions.assertEquals(2, filterFileNames.size());
         String fileName = filterFileNames.get(0);
         Assertions.assertTrue(fileName.endsWith(".json"));
     }
@@ -99,7 +102,10 @@ public class FileFilterPatternTest {
                 ConfigFactory.parseFile(new File(confPath))
                         .withValue(
                                 FileBaseSourceOptions.FILE_FILTER_PATTERN.key(),
-                                ConfigValueFactory.fromAnyRef(fileFilterPattern));
+                                ConfigValueFactory.fromAnyRef(fileFilterPattern))
+                        .withValue(
+                                FileBaseSourceOptions.FILE_PATH.key(),
+                                ConfigValueFactory.fromAnyRef(jsonPathDir));
         JsonReadStrategy jsonReadStrategy = new JsonReadStrategy();
         LocalConf localConf = new LocalConf(FS_DEFAULT_NAME_DEFAULT);
         jsonReadStrategy.setPluginConfig(pluginConfig);

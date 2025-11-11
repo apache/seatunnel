@@ -118,13 +118,11 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
             if (fileStatus.isDirectory()) {
                 // skip hidden tmp directory, such as .hive-staging_hive
                 if (!fileStatus.getPath().getName().startsWith(".")) {
-                    fileNames.addAll(getFileNamesByPath(fileStatus.getPath().toString()));
+                    fileNames.addAll(getFileNamesByPath(fileStatus.getPath().toUri().getPath()));
                 }
                 continue;
             }
-            if (fileStatus.isFile()
-                    && filterFileByPattern(path, fileStatus)
-                    && fileStatus.getLen() > 0) {
+            if (fileStatus.isFile() && filterFileByPattern(fileStatus) && fileStatus.getLen() > 0) {
                 // filter '_SUCCESS' file
                 if (!fileStatus.getPath().getName().equals("_SUCCESS")
                         && !fileStatus.getPath().getName().startsWith(".")
@@ -407,14 +405,15 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
         return new SeaTunnelRowType(newFieldNames, newFieldTypes);
     }
 
-    protected boolean filterFileByPattern(String path, FileStatus fileStatus) {
+    protected boolean filterFileByPattern(FileStatus fileStatus) {
         if (Objects.nonNull(pattern)) {
-            if (pattern.pattern().startsWith(path)) {
+            if (pattern.pattern()
+                    .startsWith(pluginConfig.getString(FileBaseSourceOptions.FILE_PATH.key()))) {
                 // filter based on the file directory at the same time
-                return pattern.matcher(fileStatus.getPath().getName()).matches();
+                return pattern.matcher(fileStatus.getPath().toUri().getPath()).matches();
             }
             // filter based on file names
-            return pattern.matcher(fileStatus.getPath().toUri().getPath()).matches();
+            return pattern.matcher(fileStatus.getPath().getName()).matches();
         }
         return true;
     }
