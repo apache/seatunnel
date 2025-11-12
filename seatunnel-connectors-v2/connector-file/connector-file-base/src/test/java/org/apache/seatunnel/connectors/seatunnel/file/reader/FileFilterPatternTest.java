@@ -27,6 +27,8 @@ import org.apache.seatunnel.connectors.seatunnel.file.source.reader.JsonReadStra
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.DisabledOnOs;
+import org.junit.jupiter.api.condition.OS;
 
 import java.io.File;
 import java.io.IOException;
@@ -46,6 +48,7 @@ public class FileFilterPatternTest {
      * @throws IOException
      */
     @Test
+    @DisabledOnOs(OS.WINDOWS)
     public void testJsonFilterPatternWithFilePath() throws URISyntaxException, IOException {
         URL filterPattern = FileFilterPatternTest.class.getResource("/filter-pattern/json");
         URL conf =
@@ -86,6 +89,7 @@ public class FileFilterPatternTest {
      * @throws IOException
      */
     @Test
+    @DisabledOnOs(OS.WINDOWS)
     public void testJsonFilterPatternWithFileName() throws URISyntaxException, IOException {
         URL filterPattern = FileFilterPatternTest.class.getResource("/filter-pattern/json");
         URL conf =

@@ -66,6 +66,50 @@ public class S3FileIT extends TestSuiteBase {
                 Assertions.assertEquals(0, extraCommands.getExitCode());
             };
 
+    @TestTemplate
+    public void testS3ToAssertForJsonFilter(TestContainer container)
+            throws IOException, InterruptedException {
+
+        // Copy test files to s3
+        S3Utils s3Utils = new S3Utils();
+
+        try {
+            s3Utils.uploadTestFiles(
+                    "/json/e2e.json",
+                    "test/seatunnel/read/filter/json/name=tyrantlucifer/hobby=codin/e2e.json",
+                    true);
+
+            s3Utils.uploadTestFiles(
+                    "/json/e2e.json",
+                    "test/seatunnel/read/filter/json2025/name=tyrantlucifer/hobby=codin/e2e.json",
+                    true);
+
+            s3Utils.uploadTestFiles(
+                    "/text/e2e.txt",
+                    "test/seatunnel/read/filter/json2025/name=tyrantlucifer/hobby=codin/e2e_2025.txt",
+                    true);
+
+            s3Utils.uploadTestFiles(
+                    "/json/e2e.json",
+                    "test/seatunnel/read/filter/json2024/name=tyrantlucifer/hobby=codin/e2e_2024.json",
+                    true);
+
+            s3Utils.uploadTestFiles(
+                    "/text/e2e.txt",
+                    "test/seatunnel/read/filter/text/name=tyrantlucifer/hobby=codin/e2e.txt",
+                    true);
+        } finally {
+            s3Utils.close();
+        }
+        TestHelper helper = new TestHelper(container);
+        // -----filter based on the file directory at the same time, the expression needs to start
+        // with `path`--------
+        helper.execute("/json/s3_to_access_for_json_path_filter.conf");
+
+        // -------filter based on file names, just simply write the regular file names--------
+        helper.execute("/json/s3_to_access_for_json_name_filter.conf");
+    }
+
     /** Copy data files to s3 */
     @TestTemplate
     public void testS3FileReadAndWrite(TestContainer container)
