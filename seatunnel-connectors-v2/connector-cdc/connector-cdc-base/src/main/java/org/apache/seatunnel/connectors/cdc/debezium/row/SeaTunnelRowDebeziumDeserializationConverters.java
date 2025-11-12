@@ -49,8 +49,15 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.OffsetDateTime;
 import java.time.ZoneId;
+import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeFormatterBuilder;
+import java.time.format.DateTimeParseException;
 import java.util.Arrays;
+import java.util.Date;
 import java.util.List;
 import java.util.Optional;
 
@@ -163,6 +170,8 @@ public class SeaTunnelRowDebeziumDeserializationConverters implements Serializab
                 return convertToTime();
             case TIMESTAMP:
                 return convertToTimestamp(serverTimeZone);
+            case TIMESTAMP_TZ:
+                return convertToTimestampWithTimezone();
             case FLOAT:
                 return wrapNumericConverter(convertToFloat());
             case DOUBLE:
@@ -415,6 +424,45 @@ public class SeaTunnelRowDebeziumDeserializationConverters implements Serializab
         };
     }
 
+    private static DebeziumDeserializationConverter convertToTimestampWithTimezone() {
+        return new DebeziumDeserializationConverter() {
+            private static final long serialVersionUID = 1L;
+
+            @Override
+            public Object convert(Object dbzObj, Schema schema) {
+                if (dbzObj == null) {
+                    return null;
+                }
+                if (dbzObj instanceof OffsetDateTime) {
+                    return dbzObj;
+                }
+                if (dbzObj instanceof Instant) {
+                    return OffsetDateTime.ofInstant((Instant) dbzObj, ZoneOffset.UTC);
+                }
+                if (dbzObj instanceof Date) {
+                    return OffsetDateTime.ofInstant(((Date) dbzObj).toInstant(), ZoneOffset.UTC);
+                }
+                if (dbzObj instanceof Long) {
+                    return OffsetDateTime.ofInstant(
+                            Instant.ofEpochMilli((Long) dbzObj), ZoneOffset.UTC);
+                }
+                if (dbzObj instanceof String) {
+                    try {
+                        return parseOffsetDateTime((String) dbzObj);
+                    } catch (DateTimeParseException e) {
+                        throw new IllegalArgumentException(
+                                "Unable to parse OffsetDateTime from value '" + dbzObj + "'", e);
+                    }
+                }
+                throw new IllegalArgumentException(
+                        "Unable to convert to OffsetDateTime from unexpected value '"
+                                + dbzObj
+                                + "' of type "
+                                + dbzObj.getClass().getName());
+            }
+        };
+    }
+
     @SuppressWarnings("MagicNumber")
     public static LocalDateTime toLocalDateTime(long millisecond, int nanoOfMillisecond) {
         // 86400000 = 24 * 60 * 60 * 1000
@@ -450,6 +498,58 @@ public class SeaTunnelRowDebeziumDeserializationConverters implements Serializab
                                 + dbzObj.getClass().getName());
             }
         };
+    }
+
+    private static OffsetDateTime parseOffsetDateTime(String value) {
+        if (value == null) {
+            return null;
+        }
+
+        String trimmed = value.trim();
+        if (trimmed.isEmpty()) {
+            return null;
+        }
+
+        try {
+            return OffsetDateTime.parse(trimmed);
+        } catch (DateTimeParseException ignore) {
+            // fall through
+        }
+
+        try {
+            String normalized = trimmed.replace(' ', 'T');
+            return OffsetDateTime.parse(normalized, DateTimeFormatter.ISO_OFFSET_DATE_TIME);
+        } catch (DateTimeParseException ignore) {
+            // fall through
+        }
+
+        try {
+            return ZonedDateTime.parse(trimmed).toOffsetDateTime();
+        } catch (DateTimeParseException ignore) {
+            // fall through
+        }
+
+        return parseSqlServerDateTimeOffset(trimmed);
+    }
+
+    private static OffsetDateTime parseSqlServerDateTimeOffset(String value) {
+        int lastSpaceIndex = value.lastIndexOf(' ');
+        if (lastSpaceIndex <= 0) {
+            throw new DateTimeParseException(
+                    "Invalid SQL Server DateTimeOffset format", value, lastSpaceIndex);
+        }
+
+        String dateTimePart = value.substring(0, lastSpaceIndex);
+        String offsetPart = value.substring(lastSpaceIndex + 1);
+        ZoneOffset offset = ZoneOffset.of(offsetPart);
+        DateTimeFormatter formatter =
+                new DateTimeFormatterBuilder()
+                        .append(DateTimeFormatter.ISO_LOCAL_DATE)
+                        .appendLiteral(' ')
+                        .append(DateTimeFormatter.ISO_LOCAL_TIME)
+                        .toFormatter();
+        LocalDateTime localDateTime = LocalDateTime.parse(dateTimePart, formatter);
+        return localDateTime.atOffset(offset);
     }
 
     private static DebeziumDeserializationConverter convertToString() {

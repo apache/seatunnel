@@ -34,6 +34,7 @@ import org.apache.kafka.connect.source.SourceRecord;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -126,5 +127,43 @@ public class SeaTunnelRowDebeziumDeserializationConvertersTest {
         Assertions.assertTrue(
                 Arrays.equals(
                         doubles, (Double[]) (converter.convert(Arrays.asList(doubles), null))));
+    }
+
+    @Test
+    void testTimestampTzConversion() throws Exception {
+        SeaTunnelRowDebeziumDeserializationConverters converters =
+                new SeaTunnelRowDebeziumDeserializationConverters(
+                        new SeaTunnelRowType(
+                                new String[] {"ts"},
+                                new SeaTunnelDataType[] {BasicType.OFFSET_DATE_TIME_TYPE}),
+                        new MetadataConverter[] {},
+                        ZoneId.systemDefault(),
+                        DebeziumDeserializationConverterFactory.DEFAULT);
+        Schema schema =
+                SchemaBuilder.struct()
+                        .field(
+                                "ts",
+                                SchemaBuilder.string()
+                                        .name("io.debezium.time.ZonedTimestamp")
+                                        .build())
+                        .build();
+        Struct value = new Struct(schema);
+        String timestampValue = "2025-11-04 21:10:06.891977 +00:00";
+        value.put("ts", timestampValue);
+        SourceRecord record =
+                new SourceRecord(
+                        new HashMap<>(),
+                        new HashMap<>(),
+                        "topicName",
+                        null,
+                        SchemaBuilder.int32().build(),
+                        1,
+                        schema,
+                        value,
+                        null,
+                        new ArrayList<>());
+        SeaTunnelRow row = converters.convert(record, value, schema);
+        Assertions.assertEquals(
+                OffsetDateTime.parse("2025-11-04T21:10:06.891977+00:00"), row.getField(0));
     }
 }
