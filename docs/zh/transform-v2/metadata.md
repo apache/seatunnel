@@ -1,85 +1,173 @@
 # Metadata
 
-> Metadata transform plugin
+> Metadata 转换插件
 
-## Description
-元数据转换插件，用于将元数据字段添加到数据中
+## 描述
 
-## 支持的元数据
+Metadata 转换插件用于将数据行中的元数据信息提取并转换为普通字段，方便后续处理和分析。
 
-|    Key    | DataType |          Description          |
-|:---------:|:--------:|:-----------------------------:|
-| Database  |  string  |           包含该行的数据库名           |
-|   Table   |  string  |           包含该行的数表名            |
-|  RowKind  |  string  |              行类型              |
-| EventTime |   Long   |    该行的对应的数据时间，统一格式是到毫秒的时间戳    |
-|   Delay   |   Long   | 数据抽取时间与数据库变更时间的差，统一格式是到毫秒的时间戳 |
-| Partition |  string  |    包含该行对应数表的分区字段，多个使用`,`连接    |
+**核心功能：**
+- 将元数据（如数据库名、表名、行类型等）提取为可见字段
+- 支持自定义输出字段名称
+- 不改变原有数据字段，只是新增元数据字段
 
-### 注意事项
-    `Delay` `EventTime`目前只适用于cdc系列连接器，TiDB-CDC除外
+**典型应用场景：**
+- CDC 数据同步时需要记录数据来源（库名、表名）
+- 需要追踪数据变更类型（INSERT、UPDATE、DELETE）
+- 需要记录数据的事件时间和延迟信息
+- 多表合并时需要标识数据来源
+
+## 支持的元数据字段
+
+|    元数据Key    | 输出类型 |          说明          | 数据来源 |
+|:---------:|:--------:|:-----------------------------:|:----:|
+| Database  |  string  |  数据所属的数据库名称  | 所有连接器 |
+|   Table   |  string  |  数据所属的表名称  | 所有连接器 |
+|  RowKind  |  string  |  行的变更类型，值为：+I（插入）、-U（更新前）、+U（更新后）、-D（删除）  | 所有连接器 |
+| EventTime |   long   |  数据变更的事件时间戳（毫秒）  | CDC 连接器 |
+|   Delay   |   long   |  数据采集延迟时间（毫秒），即数据抽取时间与数据库变更时间的差值  | CDC 连接器 |
+| Partition |  string  |  数据所属的分区信息，多个分区字段使用逗号分隔  | 支持分区的连接器 |
+
+### 重要说明
+
+1. **元数据字段区分大小写**：配置时必须严格按照上表中的 Key 名称（如 `Database`、`Table`、`RowKind` 等）
+2. **CDC 专有字段**：`EventTime` 和 `Delay` 仅在使用 CDC 连接器时有效（TiDB-CDC 除外）
 
 ## 配置选项
 
-|      name       | type | required | default value | Description       |
+|      参数名       | 类型 | 是否必填 | 默认值 | 说明       |
 |:---------------:|------|:--------:|:-------------:|-------------------|
-| metadata_fields | map  |    是     |       -       | 元数据字段与输入字段相应的映射关系 |
+| metadata_fields | map  |    否     |   空映射   | 元数据字段与输出字段的映射关系，格式为 `元数据Key = 输出字段名` |
 
 ### metadata_fields [map]
 
-元数据字段和相应的输出字段之间的映射关系
+定义元数据字段到输出字段的映射关系。
 
+**配置格式：**
 ```hocon
 metadata_fields {
-  database = c_database
-  table = c_table
-  rowKind = c_rowKind
-  ts_ms = c_ts_ms
-  delay = c_delay
+  <元数据Key> = <输出字段名>
+  <元数据Key> = <输出字段名>
+  ...
 }
 ```
 
-## 示例
+**配置示例：**
+```hocon
+metadata_fields {
+  Database = source_db      # 将数据库名映射到 source_db 字段
+  Table = source_table      # 将表名映射到 source_table 字段
+  RowKind = op_type         # 将行类型映射到 op_type 字段
+  EventTime = event_ts      # 将事件时间映射到 event_ts 字段
+  Delay = sync_delay        # 将延迟时间映射到 sync_delay 字段
+  Partition = partition_info # 将分区信息映射到 partition_info 字段
+}
+```
+
+**注意事项：**
+- 左侧必须是支持的元数据 Key（见上表），且严格区分大小写
+- 右侧是自定义的输出字段名，不能与原有字段重名
+- 可以只选择需要的元数据字段，不必全部配置
+
+## 完整示例
+
+### 示例 1：MySQL CDC 数据同步，提取所有元数据
+
+从 MySQL 数据库同步数据，并提取所有可用的元数据信息。
 
 ```yaml
-
 env {
-    parallelism = 1
-    job.mode = "STREAMING"
-    checkpoint.interval = 5000
-    read_limit.bytes_per_second = 7000000
-    read_limit.rows_per_second = 400
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 5000
 }
 
 source {
-    MySQL-CDC {
-        plugin_output = "customers_mysql_cdc"
-        server-id = 5652
-        username = "root"
-        password = "zdyk_Dev@2024"
-        table-names = ["source.user"]
-        url = "jdbc:mysql://172.16.17.123:3306/source"
-    }
+  MySQL-CDC {
+    plugin_output = "mysql_cdc_source"
+    server-id = 5652
+    username = "root"
+    password = "your_password"
+    table-names = ["mydb.users"]
+    url = "jdbc:mysql://localhost:3306/mydb"
+  }
 }
 
 transform {
   Metadata {
+    plugin_input = "mysql_cdc_source"
+    plugin_output = "metadata_added"
     metadata_fields {
-        Database = database
-        Table = table
-        RowKind = rowKind
-        EventTime = ts_ms
-        Delay = delay
+      Database = source_database    # 提取数据库名
+      Table = source_table          # 提取表名
+      RowKind = change_type         # 提取变更类型
+      EventTime = event_timestamp   # 提取事件时间
+      Delay = sync_delay_ms         # 提取同步延迟
     }
-    plugin_output = "trans_result"
   }
 }
 
 sink {
   Console {
-  plugin_input = "custom_name"
+    plugin_input = "metadata_added"
+  }
+}
+```
+
+**输入数据示例：**
+```
+原始数据行（来自 mydb.users 表）：
+id=1, name="张三", age=25
+RowKind: +I (INSERT)
+```
+
+**输出数据示例：**
+```
+转换后的数据行：
+id=1, name="张三", age=25, source_database="mydb", source_table="users",
+change_type="+I", event_timestamp=1699000000000, sync_delay_ms=100
+```
+
+---
+
+### 示例 2：只提取部分元数据
+
+只提取数据来源信息（库名和表名），用于多表合并场景。
+
+```yaml
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+}
+
+source {
+  MySQL-CDC {
+    plugin_output = "multi_table_source"
+    server-id = 5652
+    username = "root"
+    password = "your_password"
+    table-names = ["db1.orders", "db2.orders"]
+    url = "jdbc:mysql://localhost:3306"
   }
 }
 
-```
+transform {
+  Metadata {
+    plugin_input = "multi_table_source"
+    plugin_output = "with_source_info"
+    metadata_fields {
+      Database = db_name
+      Table = table_name
+    }
+  }
+}
 
+sink {
+  Jdbc {
+    plugin_input = "with_source_info"
+    url = "jdbc:mysql://localhost:3306/target_db"
+    table = "merged_orders"
+    # 目标表会包含 db_name 和 table_name 字段，用于标识数据来源
+  }
+}
+```

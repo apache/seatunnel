@@ -19,7 +19,7 @@ Milvus sink连接器将数据写入Milvus或Zilliz Cloud，它具有以下功能
 
 ##数据类型映射
 
-|  Milvus数据类型   | SeaTunnel 数据类型 |
+| Milvus数据类型          | SeaTunnel 数据类型      |
 |---------------------|---------------------|
 | INT8                | TINYINT             |
 | INT16               | SMALLINT            |
@@ -39,26 +39,47 @@ Milvus sink连接器将数据写入Milvus或Zilliz Cloud，它具有以下功能
 
 ## Sink 选项
 
-|         名字         | 类型    | 是否必传 |           默认值            | 描述                                               |
-|----------------------|---------|----------|------------------------------|-----------------------------------------------------------|
-| url                  | String  | 是      | -                            | 连接到Milvus或Zilliz Cloud的URL。             |
-| token                | String  | 是      | -                            | 用户：密码                                             |
-| database             | String  | 否       | -                            | 将数据写入哪个数据库，默认为源数据库。 |
-| schema_save_mode     | enum    | 否       | CREATE_SCHEMA_WHEN_NOT_EXIST | 当表不存在时自动创建表。                   |
-| enable_auto_id       | boolean | 否       | false                        | 主键列启用autoId。                         |
-| enable_upsert        | boolean | 否       | false                        | 是否启用upsert。                                   |
-| enable_dynamic_field | boolean | 否       | true                         | 是否启用带动态字段的创建表。                   |
-| batch_size           | int     | 否       | 1000                         | 写入批大小。                                         |
-| partition_key        | String  | 否       |                              | Milvus分区键字段                                |                                         
+| 名字                     | 类型                  | 是否必传 | 默认值                          | 描述                                                                  |
+|------------------------|---------------------|------|------------------------------|---------------------------------------------------------------------|
+| url                    | String              | 是    | -                            | 连接到Milvus或Zilliz Cloud的URL。                                         |
+| token                  | String              | 是    | -                            | 用户：密码                                                               |
+| database               | String              | 否    | -                            | 将数据写入哪个数据库，默认为源数据库。                                                 |
+| schema_save_mode       | enum                | 否    | CREATE_SCHEMA_WHEN_NOT_EXIST | 当表不存在时自动创建表。                                                        |
+| enable_auto_id         | boolean             | 否    | false                        | 主键列启用autoId。                                                        |
+| enable_upsert          | boolean             | 否    | false                        | 是否启用upsert。                                                         |
+| enable_dynamic_field   | boolean             | 否    | true                         | 是否启用带动态字段的创建表。                                                      |
+| batch_size             | int                 | 否    | 1000                         | 写入批大小。当缓冲记录数达到 `batch_size` 或时间达到 `checkpoint.interval` 时，将触发一次写入刷新 |
+| partition_key          | String              | 否    |                              | Milvus分区键字段                                                         |                                         
+| create_index           | boolean             | No   | false                        | 自动为集合创建向量索引以提高查询性能                                                  |
+| load_collection        | boolean             | No   | false                        | 将集合加载到 Milvus 内存中以便立即进行查询                                           |
+| collection_description | Map<String, String> | No   | {}                           | 集合描述映射，其中键是集合名称，值是描述                                                |                                         
 
 ## 任务示例
 
+### 基础配置
 ```bash
 sink {
   Milvus {
     url = "http://127.0.0.1:19530"
     token = "username:password"
     batch_size = 1000
+  }
+}
+```
+
+### 带 Index 和 Loading 的高级配置
+```bash
+sink {
+  Milvus {
+    url = "http://127.0.0.1:19530"
+    token = "username:password"
+    batch_size = 1000
+    create_index = true
+    load_collection = true
+    collection_description = {
+      "user_vectors" = "User embedding vectors for recommendation"
+      "product_vectors" = "Product feature vectors for search"
+    }
   }
 }
 ```
