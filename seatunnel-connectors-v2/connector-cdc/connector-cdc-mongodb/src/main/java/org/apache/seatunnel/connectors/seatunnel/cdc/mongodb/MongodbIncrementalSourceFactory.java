@@ -35,6 +35,7 @@ import org.apache.seatunnel.connectors.cdc.base.option.SourceOptions;
 import org.apache.seatunnel.connectors.cdc.base.option.StartupMode;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.exception.MongodbConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.source.schema.AutoSchemaUtils;
 
 import com.google.auto.service.AutoService;
 
@@ -71,7 +72,8 @@ public class MongodbIncrementalSourceFactory implements TableSourceFactory {
                         MongodbSourceOptions.HEARTBEAT_INTERVAL_MILLIS,
                         MongodbSourceOptions.INCREMENTAL_SNAPSHOT_CHUNK_SIZE_MB,
                         MongodbSourceOptions.STARTUP_MODE,
-                        MongodbSourceOptions.STOP_MODE)
+                        MongodbSourceOptions.STOP_MODE,
+                        MongodbSourceOptions.AUTO_SCHEMA)
                 .conditional(
                         MongodbSourceOptions.STARTUP_MODE,
                         StartupMode.TIMESTAMP,
@@ -153,6 +155,10 @@ public class MongodbIncrementalSourceFactory implements TableSourceFactory {
                                     CatalogTableUtil.buildWithConfig(
                                             factoryId, ReadonlyConfig.fromMap(map)))
                     .collect(Collectors.toList());
+        }
+        // auto schema
+        if (config.get(MongodbSourceOptions.AUTO_SCHEMA)) {
+            return AutoSchemaUtils.autoSchemaFromConfig(config);
         }
         return Collections.emptyList();
     }

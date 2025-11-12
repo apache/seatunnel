@@ -287,4 +287,11 @@ public class MongodbSourceOptions extends SourceOptions {
                     .withDescription(
                             "Optional stop mode for CDC source, valid enumerations are "
                                     + "\"never\", \"latest\", \"timestamp\"\n or \"specific\"");
+
+    public static final Option<Boolean> AUTO_SCHEMA =
+            Options.key("auto_schema")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription(
+                            "mongodb automatically infers the type based on a random piece of data");
 }
