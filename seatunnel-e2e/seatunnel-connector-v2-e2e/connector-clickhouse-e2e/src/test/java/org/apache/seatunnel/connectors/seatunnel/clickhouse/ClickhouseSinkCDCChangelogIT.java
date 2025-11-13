@@ -155,6 +155,18 @@ public class ClickhouseSinkCDCChangelogIT extends TestSuiteBase implements TestR
         dropSinkTable();
     }
 
+    @TestTemplate
+    public void testClickhouseLogEngineTable(TestContainer container) throws Exception {
+        initializeClickhouseLogEngineTable();
+
+        Container.ExecResult execResult =
+                container.executeJob("/clickhouse_sink_cdc_changelog_log_engine.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+
+        checkLogEngineTableRows();
+        dropSinkTable();
+    }
+
     private void initConnection() throws Exception {
         final Properties info = new Properties();
         info.put("user", this.container.getUsername());
@@ -215,6 +227,23 @@ public class ClickhouseSinkCDCChangelogIT extends TestSuiteBase implements TestR
         }
     }
 
+    private void initializeClickhouseLogEngineTable() {
+        try {
+            Statement statement = this.connection.createStatement();
+            String sql =
+                    String.format(
+                            "create table if not exists %s.%s(\n"
+                                    + "    `pk_id`         Int64,\n"
+                                    + "    `name`          String,\n"
+                                    + "    `score`         Int32\n"
+                                    + ")engine=Log",
+                            DATABASE, SINK_TABLE);
+            statement.execute(sql);
+        } catch (SQLException e) {
+            throw new RuntimeException("Initializing Clickhouse Log table failed!", e);
+        }
+    }
+
     private void checkSinkTableRows() throws SQLException {
         Set<List<Object>> actual = new HashSet<>();
         try (Statement statement = connection.createStatement();
@@ -239,6 +268,61 @@ public class ClickhouseSinkCDCChangelogIT extends TestSuiteBase implements TestR
                             "Actual results %s not equal expected results %s",
                             Arrays.toString(actual.toArray()),
                             Arrays.toString(expected.toArray())));
+        }
+    }
+
+    private void checkLogEngineTableRows() throws SQLException {
+        int actualCount = 0;
+        try (Statement statement = connection.createStatement();
+                ResultSet resultSet =
+                        statement.executeQuery(
+                                String.format(
+                                        "select count(*) as cnt from %s.%s",
+                                        DATABASE, SINK_TABLE))) {
+            if (resultSet.next()) {
+                actualCount = resultSet.getInt("cnt");
+            }
+        }
+        // Expected: 3 initial  + 3 duplicate  + 1 UPDATE_BEFORE + 1 UPDATE_AFTER + 1 DELETE = 9
+        // records
+        int expectedCount = 9;
+        Assertions.assertEquals(
+                expectedCount,
+                actualCount,
+                String.format(
+                        "Expected %d records in Log engine table, but got %d",
+                        expectedCount, actualCount));
+
+        Set<List<Object>> actual = new HashSet<>();
+        try (Statement statement = connection.createStatement();
+                ResultSet resultSet =
+                        statement.executeQuery(
+                                String.format("select * from %s.%s", DATABASE, SINK_TABLE))) {
+            while (resultSet.next()) {
+                List<Object> row =
+                        Arrays.asList(
+                                resultSet.getLong("pk_id"),
+                                resultSet.getString("name"),
+                                resultSet.getInt("score"));
+                actual.add(row);
+            }
+        }
+
+        Set<List<Object>> expectedUniqueRows =
+                Stream.<List<Object>>of(
+                                Arrays.asList(1L, "A", 100),
+                                Arrays.asList(1L, "A_1", 100),
+                                Arrays.asList(2L, "B", 100),
+                                Arrays.asList(3L, "C", 100))
+                        .collect(Collectors.toSet());
+
+        for (List<Object> expectedRow : expectedUniqueRows) {
+            if (!actual.contains(expectedRow)) {
+                throw new IllegalStateException(
+                        String.format(
+                                "Expected row %s not found in actual results %s",
+                                expectedRow, Arrays.toString(actual.toArray())));
+            }
         }
     }
 

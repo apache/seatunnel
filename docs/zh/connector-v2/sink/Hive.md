@@ -45,8 +45,13 @@ import ChangeLog from '../changelog/connector-hive.md';
 | krb5_path                             | string  | 否  | /etc/krb5.conf |
 | kerberos_principal                    | string  | 否  | -              |
 | kerberos_keytab_path                  | string  | 否  | -              |
-| abort_drop_partition_metadata         | boolean | 否  | true           |
+| abort_drop_partition_metadata         | boolean | 否  | false          |
 | parquet_avro_write_timestamp_as_int96 | boolean | 否  | false          |
+| overwrite                             | boolean | 否  | false          |
+| data_save_mode                        | enum    | 否  | APPEND_DATA    |
+
+| schema_save_mode                      | enum    | 否  | CREATE_SCHEMA_WHEN_NOT_EXIST |
+| save_mode_create_template             | string  | 否  | -              |
 | common-options                        |         | 否  | -              |
 
 ### table_name [string]
@@ -94,6 +99,43 @@ Kerberos 的 keytab 文件路径
 ### parquet_avro_write_timestamp_as_int96 [boolean]
 
 支持从时间戳写入 Parquet INT96，仅对 parquet 文件有效。
+
+### schema_save_mode [枚举]
+
+### data_save_mode [enum]
+
+在写入数据前，选择如何处理目标端已有数据：
+
+- APPEND_DATA（默认）：保留既有数据并追加写入
+- DROP_DATA：与 overwrite=true 等价。在提交前删除目标路径中已有数据（非分区表删除表目录；分区表删除相关分区目录），再写入新数据
+- CUSTOM_PROCESSING / ERROR_WHEN_DATA_EXISTS：如无特殊需求，不建议在 Hive sink 下使用
+
+注意：overwrite=true 与 data_save_mode=DROP_DATA 行为等价，二者择一配置即可，勿同时设置。
+
+在开始同步任务之前，针对目标端已存在的表结构选择不同的处理方案。
+
+**默认值**: `CREATE_SCHEMA_WHEN_NOT_EXIST`
+
+选项值：
+- `RECREATE_SCHEMA`: 表不存在时会创建，表存在时会删除并重建
+- `CREATE_SCHEMA_WHEN_NOT_EXIST`: 表不存在时会创建，表存在时会跳过
+- `ERROR_WHEN_SCHEMA_NOT_EXIST`: 表不存在时会报错
+- `IGNORE`: 忽略对表的处理
+
+
+
+### save_mode_create_template [字符串]
+
+我们使用模板来自动创建 Hive 表，它将根据上游数据类型和模式类型创建相应的建表语句，默认模板可以根据情况进行修改。可用的模板变量：${database}, ${table}, ${rowtype_fields}, ${rowtype_partition_fields}, ${table_location}。
+
+**默认值**: 当未指定时，使用默认的 PARQUET 非分区表模板：
+```sql
+CREATE TABLE IF NOT EXISTS `${database}`.`${table}` (
+  ${rowtype_fields}
+)
+STORED AS PARQUET
+LOCATION '${table_location}'
+```
 
 ### 通用选项
 
@@ -471,6 +513,54 @@ sink {
 }
 ```
 
+## 自动建表示例
+
+### 示例 1：基础自动建表
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  FakeSource {
+    schema = {
+      fields {
+        id = bigint
+        name = string
+        department = string
+        salary = decimal(10,2)
+        hire_date = date
+      }
+    }
+    rows = [
+      {
+        kind = INSERT
+        fields = [1, "张三", "工程部", 75000.50, "2022-01-15"]
+      }
+    ]
+  }
+}
+
+sink {
+  Hive {
+    table_name = "warehouse.employees"
+    metastore_uri = "thrift://metastore:9083"
+    schema_save_mode = "CREATE_SCHEMA_WHEN_NOT_EXIST"
+    save_mode_create_template = """
+      CREATE TABLE IF NOT EXISTS `${database}`.`${table}` (
+        ${rowtype_fields}
+      )
+      PARTITIONED BY (
+        department string COMMENT '部门分区'
+      )
+      STORED AS PARQUET
+      LOCATION '${table_location}'
+    """
+  }
+}
+```
 ## 变更日志
 
 <ChangeLog />

@@ -45,7 +45,7 @@ public class HttpSink extends AbstractSimpleSink<SeaTunnelRow, Void>
             httpParameter.setHeaders(pluginConfig.get(HttpSinkOptions.HEADERS));
         }
         if (pluginConfig.getOptional(HttpSinkOptions.PARAMS).isPresent()) {
-            httpParameter.setHeaders(pluginConfig.get(HttpSinkOptions.PARAMS));
+            httpParameter.setParams(pluginConfig.get(HttpSinkOptions.PARAMS));
         }
         if (pluginConfig.getOptional(HttpSinkOptions.ARRAY_MODE).isPresent()) {
             httpParameter.setArrayMode(pluginConfig.get(HttpSinkOptions.ARRAY_MODE));
