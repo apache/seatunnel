@@ -82,6 +82,10 @@ public class PostgresJdbcRowConverter extends AbstractJdbcRowConverter {
             @Nullable String sourceType)
             throws SQLException {
         if (seaTunnelDataType.getSqlType().equals(SqlType.TIMESTAMP_TZ)) {
+            if (value == null) {
+                statement.setNull(statementIndex, java.sql.Types.TIMESTAMP_WITH_TIMEZONE);
+                return;
+            }
             OffsetDateTime offsetDateTime = (OffsetDateTime) value;
             try {
                 statement.setObject(statementIndex, offsetDateTime);
@@ -372,15 +376,14 @@ public class PostgresJdbcRowConverter extends AbstractJdbcRowConverter {
         } catch (SQLException e) {
             log.debug("Failed to get object from ResultSet at column {}", columnIndex, e);
             // Best-effort fallback to string, still only a single read path for parsing
+            final String str;
             try {
-                final String str = rs.getString(columnIndex);
-                if (str != null && !str.trim().isEmpty()) {
-                    return parsePostgresTimestampTz(str);
-                }
+                str = rs.getString(columnIndex);
             } catch (SQLException se) {
                 log.debug("Failed to get string from ResultSet at column {}", columnIndex, se);
+                return null;
             }
-            return null;
+            return parseTimestampIfPresent(str);
         }
 
         if (obj == null) {
@@ -404,68 +407,93 @@ public class PostgresJdbcRowConverter extends AbstractJdbcRowConverter {
         // PostgreSQL specific objects (e.g., PGobject) or any org.postgresql.* class
         final String className = obj.getClass().getName();
         if (className.startsWith("org.postgresql.")) {
+            String str = null;
             try {
-                final String str = obj.toString();
-                if (str != null && !str.isEmpty()) {
-                    return parsePostgresTimestampTz(str);
-                }
+                str = obj.toString();
             } catch (Exception e) {
-                log.debug(
-                        "Failed to parse PostgreSQL timestamp object from string representation",
-                        e);
+                log.debug("Failed to get PostgreSQL timestamp object string representation", e);
+            }
+            if (str != null) {
+                OffsetDateTime parsed = parseTimestampIfPresent(str);
+                if (parsed != null) {
+                    return parsed;
+                }
             }
         }
 
         // String-like values
         if (obj instanceof CharSequence) {
-            final String str = obj.toString();
-            if (!str.trim().isEmpty()) {
-                return parsePostgresTimestampTz(str);
-            }
-            return null;
+            return parseTimestampIfPresent(obj.toString());
         }
 
         // Last resort: attempt to parse from toString() representation
+        final String str;
         try {
-            final String str = String.valueOf(obj);
-            if (str != null && !str.trim().isEmpty()) {
-                return parsePostgresTimestampTz(str);
-            }
-        } catch (Exception ignore) {
-            // ignore
+            str = String.valueOf(obj);
+        } catch (Throwable ignore) {
+            return null;
         }
-        return null;
+        return parseTimestampIfPresent(str);
     }
 
-    private OffsetDateTime parsePostgresTimestampTz(String str) {
-        if (str == null || str.trim().isEmpty()) {
+    private OffsetDateTime parseTimestampIfPresent(String str) throws SQLException {
+        if (str == null) {
+            return null;
+        }
+        return parsePostgresTimestampTz(str);
+    }
+
+    private OffsetDateTime parsePostgresTimestampTz(String str) throws SQLException {
+        String normalized = normalizeIsoTimestamp(str);
+        if (normalized == null) {
             return null;
         }
 
         try {
-            String s = str.trim();
-            if (s.endsWith(" UTC")) {
-                s = s.substring(0, s.length() - 4) + "Z";
-            }
-            String iso = s.replace(' ', 'T');
-            if (iso.matches(".*[+-]\\d{2}$")) {
-                iso = iso + ":00";
-            } else if (iso.matches(".*[+-]\\d{4}$")) {
-                iso = iso.substring(0, iso.length() - 2) + ":" + iso.substring(iso.length() - 2);
-            }
-
-            return OffsetDateTime.parse(iso);
-        } catch (Exception e) {
-            log.debug("Failed to parse PostgreSQL timestamptz string: {}", str, e);
+            return OffsetDateTime.parse(normalized);
+        } catch (Exception primary) {
+            log.debug("Failed to parse PostgreSQL timestamptz as ISO-8601: {}", str, primary);
             try {
                 String withoutOffset =
-                        str.replaceFirst("([+-]\\d{2}:?\\d{2}|\\s+UTC|Z)$", "").trim();
-                Timestamp ts = Timestamp.valueOf(withoutOffset);
+                        normalized.replaceFirst("([+-]\\d{2}:?\\d{2}|\\s+UTC|[zZ])$", "");
+                String fallback = withoutOffset.replace('T', ' ').trim();
+                Timestamp ts = Timestamp.valueOf(fallback);
                 return ts.toInstant().atOffset(ZoneOffset.UTC);
-            } catch (Exception e2) {
-                log.debug("Failed to parse PostgreSQL timestamptz as UTC timestamp: {}", str, e2);
-                return null;
+            } catch (Exception secondary) {
+                log.debug(
+                        "Failed to parse PostgreSQL timestamptz as UTC timestamp: {}",
+                        str,
+                        secondary);
+                throw new SQLException(
+                        "Failed to parse PostgreSQL timestamptz string: " + str, secondary);
             }
         }
+    }
+
+    private String normalizeIsoTimestamp(String value) {
+        if (value == null) {
+            return null;
+        }
+
+        String normalized = value.trim();
+        if (normalized.isEmpty()) {
+            return null;
+        }
+        if (normalized.endsWith(" UTC")) {
+            normalized = normalized.substring(0, normalized.length() - 4) + "Z";
+        }
+        normalized = normalized.replace(' ', 'T');
+        if (normalized.endsWith("z")) {
+            normalized = normalized.substring(0, normalized.length() - 1) + "Z";
+        }
+        if (normalized.matches(".*[+-]\\d{2}$")) {
+            return normalized + ":00";
+        }
+        if (normalized.matches(".*[+-]\\d{4}$")) {
+            return normalized.substring(0, normalized.length() - 2)
+                    + ":"
+                    + normalized.substring(normalized.length() - 2);
+        }
+        return normalized;
     }
 }
