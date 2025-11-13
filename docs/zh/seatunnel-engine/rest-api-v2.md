@@ -117,14 +117,6 @@ seatunnel:
 
 </details>
 
-#### 字段说明
-
-| 字段 | 描述 |
-| --- | --- |
-| `pipelineId` | 记录所属的 pipeline ID。 |
-| `checkpoint` | checkpoint 信息，字段同上文“Checkpoint 信息字段”表格。 |
-
-
 ------------------------------------------------------------------------------------------
 
 ### 返回作业的详细信息
@@ -1041,16 +1033,16 @@ curl --location 'http://127.0.0.1:8080/submit-job/upload' --form 'config_file=@"
 
 Checkpoint 信息字段：
 
-| 字段 | 描述 |
-| --- | --- |
-| `checkpointId` | checkpoint 编号。 |
-| `checkpointType` | checkpoint 类型。 |
+| 字段 | 描述                                      |
+| --- |-----------------------------------------|
+| `checkpointId` | checkpoint 编号。                          |
+| `checkpointType` | checkpoint 类型。                          |
 | `status` | 状态：`COMPLETED` / `FAILED` / `CANCELED`。 |
-| `triggerTimestamp` | 触发时间（毫秒）。 |
-| `completedTimestamp` | 完成时间（毫秒，成功时存在）。 |
-| `durationMillis` | 耗时（毫秒）。 |
-| `stateSize` | 状态体积（字节）。 |
-| `failureReason` | 失败/取消原因，可能为空。 |
+| `triggerTimestamp` | 触发时间（毫秒）。                               |
+| `completedTimestamp` | 完成时间（毫秒，成功时存在）。                         |
+| `durationMillis` | 耗时（毫秒）。                                 |
+| `stateSize` | 状态大小（字节）。                               |
+| `failureReason` | 失败/取消原因，可能为空。                           |
 
 ### 获取作业 Checkpoint 历史
 
@@ -1061,7 +1053,7 @@ Checkpoint 信息字段：
 
 | 参数 | 说明 |
 | --- | --- |
-| `jobId` | 必填，作业 ID（路径参数）。 |
+| `jobId` | 必填，作业 ID。 |
 | `pipelineId` | 可选，按 pipeline 过滤。 |
 | `limit` | 可选，限制返回条数，默认 20。 |
 | `status` | 可选，支持 `COMPLETED`、`FAILED`、`CANCELED`。 |
