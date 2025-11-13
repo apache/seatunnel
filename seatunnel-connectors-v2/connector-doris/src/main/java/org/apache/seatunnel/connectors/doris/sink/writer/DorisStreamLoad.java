@@ -88,6 +88,7 @@ public class DorisStreamLoad implements Serializable {
     private final ExecutorService executorService;
     private volatile boolean loadBatchFirstRecord;
     private volatile boolean loading = false;
+    private volatile boolean flushing = false;
     private String label;
     @Getter private long recordCount = 0;
 
@@ -207,21 +208,22 @@ public class DorisStreamLoad implements Serializable {
     }
 
     public String getLoadFailedMsg() {
-        if (!loading) {
-            return null;
-        }
-        if (this.getPendingLoadFuture() != null && this.getPendingLoadFuture().isDone()) {
-            String errorMessage;
-            try {
-                errorMessage =
-                        handlePreCommitResponse(
-                                        pendingLoadFuture.get(), "stream-load-write", loadUrlStr)
-                                .getMessage();
-            } catch (Exception e) {
-                errorMessage = ExceptionUtils.getMessage(e);
+        if (flushing || loading) {
+            if (this.getPendingLoadFuture() != null && this.getPendingLoadFuture().isDone()) {
+                String errorMessage;
+                try {
+                    errorMessage =
+                            handlePreCommitResponse(
+                                            pendingLoadFuture.get(), "stream-load-write", loadUrlStr)
+                                    .getMessage();
+                } catch (Exception e) {
+                    errorMessage = ExceptionUtils.getMessage(e);
+                }
+                recordStream.setErrorMessageByStreamLoad(errorMessage);
+                return errorMessage;
+            } else {
+                return null;
             }
-            recordStream.setErrorMessageByStreamLoad(errorMessage);
-            return errorMessage;
         } else {
             return null;
         }
@@ -253,6 +255,7 @@ public class DorisStreamLoad implements Serializable {
 
     public RespContent stopLoad() throws IOException {
         loading = false;
+        flushing = true;
         if (pendingLoadFuture != null) {
             log.info("stream load stopped.");
             recordStream.endInput();

@@ -290,14 +290,20 @@ public class DorisSinkWriter
 
     @Override
     public void close() throws IOException {
-        if (!dorisSinkConfig.getEnable2PC()) {
-            flush();
-        }
-        if (scheduledExecutorService != null) {
-            scheduledExecutorService.shutdownNow();
-        }
-        if (dorisStreamLoad != null) {
-            dorisStreamLoad.close();
+        try {
+            if (!dorisSinkConfig.getEnable2PC()) {
+                flush();
+            }
+        } catch (Exception e) {
+            log.error("Flush data failed when close doris writer.", e);
+            throw e;
+        } finally {
+            if (scheduledExecutorService != null) {
+                scheduledExecutorService.shutdownNow();
+            }
+            if (dorisStreamLoad != null) {
+                dorisStreamLoad.close();
+            }
         }
         if (controlStreamLoad != null && controlStreamLoad != dorisStreamLoad) {
             controlStreamLoad.close();
