@@ -233,4 +233,54 @@ public class CastFunctionTest {
         Assertions.assertEquals("John Doe", outRow.getField(0));
         Assertions.assertEquals("john@example.com", outRow.getField(1));
     }
+
+    @Test
+    public void testNestedFieldWithNullIntermediateValue() {
+        SQLEngine sqlEngine = SQLEngineFactory.getSQLEngine(SQLEngineFactory.EngineType.ZETA);
+
+        // Create multi-level nested row type structure: user -> address -> street
+        SeaTunnelRowType addressRowType =
+                new SeaTunnelRowType(
+                        new String[] {"street", "zipcode"},
+                        new SeaTunnelDataType[] {BasicType.STRING_TYPE, BasicType.STRING_TYPE});
+
+        SeaTunnelRowType userRowType =
+                new SeaTunnelRowType(
+                        new String[] {"name", "address"},
+                        new SeaTunnelDataType[] {BasicType.STRING_TYPE, addressRowType});
+
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(new String[] {"user"}, new SeaTunnelDataType[] {userRowType});
+
+        // Test case 1: Normal nested access (user.address.street should return "beijing")
+        SeaTunnelRow addressRow1 = new SeaTunnelRow(new Object[] {"beijing", "10001"});
+        SeaTunnelRow userRow1 = new SeaTunnelRow(new Object[] {"zhangsan", addressRow1});
+        SeaTunnelRow inputRow1 = new SeaTunnelRow(new Object[] {userRow1});
+
+        sqlEngine.init(
+                "test",
+                null,
+                rowType,
+                "select user.address.street as street, user.name as name from test");
+
+        SeaTunnelRowType outRowType = sqlEngine.typeMapping(null);
+        SeaTunnelRow outRow1 = sqlEngine.transformBySQL(inputRow1, outRowType).get(0);
+
+        // Verify normal nested field access
+        Assertions.assertEquals("beijing", outRow1.getField(0));
+        Assertions.assertEquals("zhangsan", outRow1.getField(1));
+
+        // Test case 2: Null intermediate value (user.address is null, user.address.street should
+        // return null)
+        SeaTunnelRow userRow2 = new SeaTunnelRow(new Object[] {"lisi", null});
+        SeaTunnelRow inputRow2 = new SeaTunnelRow(new Object[] {userRow2});
+
+        SeaTunnelRow outRow2 = sqlEngine.transformBySQL(inputRow2, outRowType).get(0);
+
+        // Verify that when intermediate value is null, the result should be null
+        Assertions.assertNull(
+                outRow2.getField(0),
+                "When accessing nested field where intermediate value is null, result should be null");
+        Assertions.assertEquals("lisi", outRow2.getField(1));
+    }
 }
