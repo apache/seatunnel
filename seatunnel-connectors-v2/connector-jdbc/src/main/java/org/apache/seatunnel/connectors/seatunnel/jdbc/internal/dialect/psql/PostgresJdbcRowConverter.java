@@ -218,6 +218,9 @@ public class PostgresJdbcRowConverter extends AbstractJdbcRowConverter {
                                 }
                                 intervalObject.setValue(intervalVal);
                                 statement.setObject(statementIndex, intervalObject);
+                            } else {
+                                statement.setString(
+                                        statementIndex, (String) row.getField(fieldIndex));
                             }
                         } else {
                             statement.setString(statementIndex, (String) row.getField(fieldIndex));
