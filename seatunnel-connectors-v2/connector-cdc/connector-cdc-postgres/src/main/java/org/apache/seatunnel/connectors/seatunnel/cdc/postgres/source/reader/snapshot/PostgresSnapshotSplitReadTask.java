@@ -166,7 +166,7 @@ public class PostgresSnapshotSplitReadTask
         EventDispatcher.SnapshotReceiver snapshotReceiver =
                 dispatcher.getSnapshotChangeEventReceiver();
         log.debug("Snapshotting table {}", tableId);
-        TableId newTableId = new TableId(null, tableId.schema(), tableId.table());
+        TableId newTableId = new TableId(tableId.catalog(), tableId.schema(), tableId.table());
         createDataEventsForTable(
                 snapshotContext, snapshotReceiver, databaseSchema.tableFor(newTableId));
         snapshotReceiver.completeSnapshot();
