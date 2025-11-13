@@ -117,6 +117,14 @@ seatunnel:
 
 </details>
 
+#### 字段说明
+
+| 字段 | 描述 |
+| --- | --- |
+| `pipelineId` | 记录所属的 pipeline ID。 |
+| `checkpoint` | checkpoint 信息，字段同上文“Checkpoint 信息字段”表格。 |
+
+
 ------------------------------------------------------------------------------------------
 
 ### 返回作业的详细信息
@@ -944,5 +952,147 @@ curl --location 'http://127.0.0.1:8080/submit-job/upload' --form 'config_file=@"
 你需要先打开`Telemetry`才能获取集群指标信息。否则将返回空信息。
 
 更多关于`Telemetry`的信息可以在[Telemetry](telemetry.md)文档中找到。
+
+</details>
+
+### 获取作业 Checkpoint 概览
+
+<details>
+ <summary><code>GET</code> <code><b>/jobs/checkpoints/:jobId</b></code> <code>(返回指定作业下所有 Pipeline 的 Checkpoint 概览。)</code></summary>
+
+#### 参数
+
+路径参数 `jobId`：必填，作业 ID。
+
+#### 响应示例
+
+```json
+{
+  "jobId": "1234567890",
+  "updatedAt": 1720000000123,
+  "pipelines": [
+    {
+      "pipelineId": 1,
+      "counts": {
+        "triggered": 10,
+        "completed": 8,
+        "failed": 1,
+        "inProgress": 1,
+        "restored": 2
+      },
+      "latestCompleted": {
+        "checkpointId": 9,
+        "checkpointType": "CHECKPOINT_TYPE",
+        "status": "COMPLETED",
+        "triggerTimestamp": 1720000000000,
+        "completedTimestamp": 1720000000450,
+        "durationMillis": 450,
+        "stateSize": 128934
+      },
+      "latestFailed": {
+        "checkpointId": 8,
+        "checkpointType": "CHECKPOINT_TYPE",
+        "status": "FAILED",
+        "triggerTimestamp": 1719999995000,
+        "failureReason": "CHECKPOINT_EXPIRED"
+      },
+      "latestSavepoint": null,
+      "inProgress": [
+        {
+          "checkpointId": 10,
+          "checkpointType": "CHECKPOINT_TYPE",
+          "triggerTimestamp": 1720000005000,
+          "acknowledged": 2,
+          "total": 4
+        }
+      ],
+      "history": [
+        {
+          "pipelineId": 1,
+          "checkpoint": {
+            "checkpointId": 9,
+            "checkpointType": "CHECKPOINT_TYPE",
+            "status": "COMPLETED",
+            "triggerTimestamp": 1720000000000,
+            "completedTimestamp": 1720000000450,
+            "durationMillis": 450,
+            "stateSize": 128934
+          }
+        }
+      ]
+    }
+]
+}
+```
+</details>
+
+#### 字段说明
+
+| 字段 | 描述 |
+| --- | --- |
+| `jobId` | 作业 ID。 |
+| `updatedAt` | 概览最近刷新时间（毫秒时间戳）。 |
+| `pipelines` | pipeline 统计列表。 |
+| `pipelines[].pipelineId` | pipeline ID。 |
+| `pipelines[].counts.triggered/completed/failed/inProgress/restored` | 触发、成功、失败、执行中、恢复次数。 |
+| `pipelines[].latestCompleted/latestFailed/latestSavepoint` | 最近一次成功/失败/保存点 checkpoint 信息（字段见下表）。 |
+| `pipelines[].inProgress` | 进行中的 checkpoint 列表，包含 `checkpointId`、`checkpointType`、`triggerTimestamp`、`acknowledged`、`total`。 |
+| `pipelines[].history` | 缓存的历史记录（默认 32 条），时间倒序。 |
+
+Checkpoint 信息字段：
+
+| 字段 | 描述 |
+| --- | --- |
+| `checkpointId` | checkpoint 编号。 |
+| `checkpointType` | checkpoint 类型。 |
+| `status` | 状态：`COMPLETED` / `FAILED` / `CANCELED`。 |
+| `triggerTimestamp` | 触发时间（毫秒）。 |
+| `completedTimestamp` | 完成时间（毫秒，成功时存在）。 |
+| `durationMillis` | 耗时（毫秒）。 |
+| `stateSize` | 状态体积（字节）。 |
+| `failureReason` | 失败/取消原因，可能为空。 |
+
+### 获取作业 Checkpoint 历史
+
+<details>
+ <summary><code>GET</code> <code><b>/jobs/checkpoints/history/:jobId</b></code> <code>(返回作业的 Checkpoint 历史记录。)</code></summary>
+
+#### 参数
+
+| 参数 | 说明 |
+| --- | --- |
+| `jobId` | 必填，作业 ID（路径参数）。 |
+| `pipelineId` | 可选，按 pipeline 过滤。 |
+| `limit` | 可选，限制返回条数，默认 20。 |
+| `status` | 可选，支持 `COMPLETED`、`FAILED`、`CANCELED`。 |
+
+#### 响应示例
+
+```json
+[
+  {
+    "pipelineId": 1,
+    "checkpoint": {
+      "checkpointId": 9,
+      "checkpointType": "CHECKPOINT_TYPE",
+      "status": "COMPLETED",
+      "triggerTimestamp": 1720000000000,
+      "completedTimestamp": 1720000000450,
+      "durationMillis": 450,
+      "stateSize": 128934
+    }
+  },
+  {
+    "pipelineId": 1,
+    "checkpoint": {
+      "checkpointId": 8,
+      "checkpointType": "CHECKPOINT_TYPE",
+      "status": "FAILED",
+      "triggerTimestamp": 1719999995000,
+      "failureReason": "CHECKPOINT_EXPIRED"
+    }
+  }
+]
+```
 
 </details>

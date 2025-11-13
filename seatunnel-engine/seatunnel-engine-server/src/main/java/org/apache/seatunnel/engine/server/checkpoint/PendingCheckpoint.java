@@ -34,6 +34,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.ScheduledFuture;
 
@@ -194,5 +195,15 @@ public class PendingCheckpoint implements Checkpoint {
                 this.getPipelineId(),
                 this.getCheckpointId(),
                 this.getCheckpointType());
+    }
+
+    public int getAcknowledgedSubtasks() {
+        return taskStatistics.values().stream()
+                .mapToInt(TaskStatistics::getNumAcknowledgedSubtasks)
+                .sum();
+    }
+
+    public int getTotalSubtasks() {
+        return taskStatistics.values().stream().mapToInt(TaskStatistics::getParallelism).sum();
     }
 }
