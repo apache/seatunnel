@@ -60,6 +60,7 @@ Please refer [security](security.md)
     "unassignedSlot":"0",
     "works":"1",
     "runningJobs":"0",
+    "pendingJobs":"0",
     "finishedJobs":"0",
     "failedJobs":"0",
     "cancelledJobs":"0"

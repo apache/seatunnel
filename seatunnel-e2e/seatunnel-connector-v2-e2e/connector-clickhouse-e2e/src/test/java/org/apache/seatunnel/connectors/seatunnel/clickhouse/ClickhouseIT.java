@@ -17,6 +17,10 @@
 
 package org.apache.seatunnel.connectors.seatunnel.clickhouse;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.Column;
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
@@ -25,6 +29,7 @@ import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.connectors.seatunnel.clickhouse.catalog.ClickhouseCatalog;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
@@ -67,7 +72,9 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Properties;
 import java.util.concurrent.TimeUnit;
@@ -263,6 +270,18 @@ public class ClickhouseIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
+    public void testClickhouseWithSqlAndFilterQuery(TestContainer testContainer)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                testContainer.executeJob("/clickhouse_with_sql_and_filter_query.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+        Assertions.assertEquals(100, countData(SOURCE_MERGE_TREE_TABLE));
+        // filter_query = "id < 47" should filter data to 47 rows (id from 0 to 46)
+        Assertions.assertEquals(47, countData(SINK_TABLE));
+        clearTable(SINK_TABLE);
+    }
+
+    @TestTemplate
     public void testClickhouseWithMultiTableSource(TestContainer testContainer)
             throws IOException, InterruptedException {
         Container.ExecResult execResult =
@@ -272,6 +291,161 @@ public class ClickhouseIT extends TestSuiteBase implements TestResource {
         Assertions.assertEquals(100, countData(MULTI_SOURCE_SINK_TABLES.get(0)));
         Assertions.assertEquals(47, countData(MULTI_SOURCE_SINK_TABLES.get(1)));
         MULTI_SOURCE_SINK_TABLES.forEach(this::clearTable);
+    }
+
+    @TestTemplate
+    public void testClickhouseCatalogGetTableColumnsCorrectly(TestContainer testContainer)
+            throws Exception {
+        String testTableName = "test_column_names_table";
+        String createTableSql =
+                String.format(
+                        "CREATE TABLE IF NOT EXISTS %s.%s ("
+                                + "user_id UInt64, "
+                                + "user_name String, "
+                                + "user_age UInt32, "
+                                + "created_at DateTime, "
+                                + "balance Decimal(10, 2)"
+                                + ") ENGINE = MergeTree() ORDER BY user_id",
+                        DATABASE, testTableName);
+
+        try (Statement statement = connection.createStatement()) {
+            statement.execute(createTableSql);
+
+            String insertSql =
+                    String.format(
+                            "INSERT INTO %s.%s VALUES (1, 'Alice', 25, '2024-01-01 10:00:00', 100.50)",
+                            DATABASE, testTableName);
+            statement.execute(insertSql);
+        }
+
+        Map<String, Object> catalogConfig = new HashMap<>();
+        catalogConfig.put("host", container.getHost() + ":" + container.getMappedPort(8123));
+        catalogConfig.put("database", DATABASE);
+        catalogConfig.put("username", container.getUsername());
+        catalogConfig.put("password", container.getPassword());
+
+        ClickhouseCatalog catalog =
+                new ClickhouseCatalog(ReadonlyConfig.fromMap(catalogConfig), "test_catalog");
+
+        try {
+            catalog.open();
+
+            TablePath tablePath = TablePath.of(DATABASE, testTableName);
+            CatalogTable catalogTable = catalog.getTable(tablePath);
+
+            List<String> actualColumnNames = new ArrayList<>();
+            for (Column column : catalogTable.getTableSchema().getColumns()) {
+                actualColumnNames.add(column.getName());
+            }
+
+            List<String> expectedColumnNames =
+                    Arrays.asList("user_id", "user_name", "user_age", "created_at", "balance");
+
+            Assertions.assertEquals(
+                    expectedColumnNames.size(),
+                    actualColumnNames.size(),
+                    "Column count should match");
+
+            for (int i = 0; i < expectedColumnNames.size(); i++) {
+                Assertions.assertEquals(
+                        expectedColumnNames.get(i),
+                        actualColumnNames.get(i),
+                        String.format(
+                                "Column %d name should be '%s' but got '%s'",
+                                i, expectedColumnNames.get(i), actualColumnNames.get(i)));
+            }
+
+            // Verify we don't have DESC result column names like 'name', 'type', 'default_type'
+            Assertions.assertFalse(
+                    actualColumnNames.contains("name"),
+                    "Should not contain DESC result column 'name'");
+            Assertions.assertFalse(
+                    actualColumnNames.contains("type"),
+                    "Should not contain DESC result column 'type'");
+            Assertions.assertFalse(
+                    actualColumnNames.contains("default_type"),
+                    "Should not contain DESC result column 'default_type'");
+
+        } finally {
+            catalog.close();
+            dropTable(DATABASE + "." + testTableName);
+        }
+    }
+
+    @TestTemplate
+    public void testClickhouseCatalogSourceTypeNotNull(TestContainer testContainer)
+            throws Exception {
+        String testTableName = "test_source_type_table";
+        String createTableSql =
+                String.format(
+                        "CREATE TABLE IF NOT EXISTS %s.%s ("
+                                + "id UInt64, "
+                                + "name String, "
+                                + "age UInt32, "
+                                + "score Int32, "
+                                + "balance Decimal(18, 4), "
+                                + "created_at DateTime, "
+                                + "is_active UInt8, "
+                                + "description Nullable(String), "
+                                + "tags Array(String)"
+                                + ") ENGINE = MergeTree() ORDER BY id",
+                        DATABASE, testTableName);
+
+        try (Statement statement = connection.createStatement()) {
+            statement.execute(createTableSql);
+
+            String insertSql =
+                    String.format(
+                            "INSERT INTO %s.%s VALUES "
+                                    + "(1, 'Alice', 25, 95, 1000.5000, '2024-01-01 10:00:00', 1, 'Test user', ['tag1', 'tag2'])",
+                            DATABASE, testTableName);
+            statement.execute(insertSql);
+        }
+
+        Map<String, Object> catalogConfig = new HashMap<>();
+        catalogConfig.put("host", container.getHost() + ":" + container.getMappedPort(8123));
+        catalogConfig.put("database", DATABASE);
+        catalogConfig.put("username", container.getUsername());
+        catalogConfig.put("password", container.getPassword());
+
+        ClickhouseCatalog catalog =
+                new ClickhouseCatalog(ReadonlyConfig.fromMap(catalogConfig), "test_catalog");
+
+        try {
+            catalog.open();
+
+            TablePath tablePath = TablePath.of(DATABASE, testTableName);
+            CatalogTable catalogTable = catalog.getTable(tablePath);
+
+            Map<String, String> expectedSourceTypes = new HashMap<>();
+            expectedSourceTypes.put("id", "UInt64");
+            expectedSourceTypes.put("name", "String");
+            expectedSourceTypes.put("age", "UInt32");
+            expectedSourceTypes.put("score", "Int32");
+            expectedSourceTypes.put("balance", "Decimal(18, 4)");
+            expectedSourceTypes.put("created_at", "DateTime");
+            expectedSourceTypes.put("is_active", "UInt8");
+            expectedSourceTypes.put("description", "Nullable(String)");
+            expectedSourceTypes.put("tags", "Array(String)");
+
+            for (Column column : catalogTable.getTableSchema().getColumns()) {
+                String columnName = column.getName();
+                String sourceType = column.getSourceType();
+
+                Assertions.assertNotNull(
+                        sourceType,
+                        String.format("Column '%s' sourceType should not be null", columnName));
+
+                String expectedSourceType = expectedSourceTypes.get(columnName);
+                Assertions.assertNotNull(expectedSourceType);
+
+                Assertions.assertEquals(expectedSourceType, sourceType);
+            }
+
+        } finally {
+            catalog.close();
+            dropTable(DATABASE + "." + testTableName);
+        }
     }
 
     @BeforeAll

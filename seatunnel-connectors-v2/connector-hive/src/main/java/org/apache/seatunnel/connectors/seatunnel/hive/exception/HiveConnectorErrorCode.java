@@ -26,6 +26,7 @@ public enum HiveConnectorErrorCode implements SeaTunnelErrorCode {
             "HIVE-03", "Get hive table information from hive metastore service failed"),
     HIVE_TABLE_NAME_ERROR("HIVE-04", "Hive table name is invalid"),
     LOAD_HIVE_BASE_HADOOP_CONFIG_FAILED("HIVE-05", "Load hive base hadoop config failed"),
+    CREATE_HIVE_TABLE_FAILED("HIVE-06", "Create hive table from hive metastore service failed"),
     ;
 
     private final String code;

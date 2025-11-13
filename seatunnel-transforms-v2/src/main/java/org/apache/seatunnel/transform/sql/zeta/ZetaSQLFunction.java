@@ -244,10 +244,10 @@ public class ZetaSQLFunction {
 
         if (expression instanceof TrimFunction) {
             TrimFunction function = (TrimFunction) expression;
-            Column column = (Column) function.getExpression();
+            Expression innerExpression = function.getExpression();
             List<Object> functionArgs = new ArrayList<>();
-            if (column != null) {
-                functionArgs.add(computeForValue(column, inputFields));
+            if (innerExpression != null) {
+                functionArgs.add(computeForValue(innerExpression, inputFields));
                 if (function.getFromExpression() != null) {
                     functionArgs.add(((StringValue) function.getFromExpression()).getValue());
                 }

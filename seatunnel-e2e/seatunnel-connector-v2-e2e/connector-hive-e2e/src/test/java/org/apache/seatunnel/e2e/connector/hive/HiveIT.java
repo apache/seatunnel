@@ -205,10 +205,7 @@ public class HiveIT extends TestSuiteBase implements TestResource {
     }
 
     private void prepareTable() throws Exception {
-        log.info(
-                String.format(
-                        "Databases are %s",
-                        this.hmsContainer.createMetaStoreClient().getAllDatabases()));
+        // Avoid fragile HMS list calls; rely on default database existing in test images
         try (Statement statement = this.hiveConnection.createStatement()) {
             statement.execute(CREATE_SQL);
         } catch (Exception exception) {
@@ -258,5 +255,87 @@ public class HiveIT extends TestSuiteBase implements TestResource {
             "[HDFS/COS/OSS/S3] is not available in CI, if you want to run this test, please set up your own environment in the test case file, hadoop_hive_conf_path_local and ip below}")
     public void testFakeSinkHiveOnCos(TestContainer container) throws Exception {
         executeJob(container, "/fake_to_hive_on_cos.conf", "/hive_on_cos_to_assert.conf");
+    }
+
+    @TestTemplate
+    public void testAutoTableCreationCreateWhenNotExist(TestContainer container) throws Exception {
+        executeJob(
+                container,
+                "/auto_table_creation/fake_to_hive_create_when_not_exist.conf",
+                "/auto_table_creation/hive_auto_create_to_assert.conf");
+    }
+
+    @TestTemplate
+    public void testAutoTableCreationRecreateSchema(TestContainer container) throws Exception {
+        executeJob(
+                container,
+                "/auto_table_creation/fake_to_hive_recreate_schema.conf",
+                "/auto_table_creation/hive_auto_recreate_to_assert.conf");
+    }
+
+    @TestTemplate
+    public void testAutoTableCreationORCFormat(TestContainer container) throws Exception {
+        executeJob(
+                container,
+                "/auto_table_creation/fake_to_hive_custom_template.conf",
+                "/auto_table_creation/hive_auto_orc_format_to_assert.conf");
+    }
+
+    @TestTemplate
+    public void testAutoTableCreationDefaultTemplate(TestContainer container) throws Exception {
+        executeJob(
+                container,
+                "/auto_table_creation/fake_to_hive_default_template.conf",
+                "/auto_table_creation/hive_auto_create_default_to_assert.conf");
+    }
+
+    @TestTemplate
+    public void testAutoTableCreationAllTypes(TestContainer container) throws Exception {
+        // Run the all-types job
+        Container.ExecResult execResult =
+                container.executeJob("/auto_table_creation/fake_to_hive_all_types.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+
+        // Verify column types via DESCRIBE (name, type)
+        java.util.Map<String, String> expected = new java.util.LinkedHashMap<>();
+        expected.put("c_string", "string");
+        expected.put("c_boolean", "boolean");
+        expected.put("c_tinyint", "tinyint");
+        expected.put("c_smallint", "smallint");
+        expected.put("c_int", "int");
+        expected.put("c_bigint", "bigint");
+        expected.put("c_float", "float");
+        expected.put("c_double", "double");
+        expected.put("c_decimal", "decimal(10,2)");
+        expected.put("c_bytes", "binary");
+        expected.put("c_date", "date");
+        expected.put("c_timestamp", "timestamp");
+        expected.put("c_array", "array<int>");
+        expected.put("c_map", "map<string,int>");
+        expected.put("c_row", "struct<f1:int,f2:string,f3:array<double>,f4:map<string,string>>");
+
+        try (java.sql.Statement stmt = this.hiveConnection.createStatement();
+                java.sql.ResultSet rs = stmt.executeQuery("DESCRIBE default.test_all_types")) {
+            java.util.Map<String, String> actual = new java.util.LinkedHashMap<>();
+            while (rs.next()) {
+                String col = rs.getString(1);
+                String typ = rs.getString(2);
+                if (col == null || typ == null) {
+                    continue;
+                }
+                col = col.trim();
+                typ = typ.trim().toLowerCase().replaceAll("\\s+", "");
+                if (expected.containsKey(col)) {
+                    actual.put(col, typ);
+                }
+            }
+            // normalize expected formatting
+            java.util.Map<String, String> normalizedExpected = new java.util.LinkedHashMap<>();
+            expected.forEach(
+                    (k, v) -> normalizedExpected.put(k, v.toLowerCase().replaceAll("\\s+", "")));
+
+            // Assert all expected columns present and types match (case/space insensitive)
+            Assertions.assertEquals(normalizedExpected, actual);
+        }
     }
 }
