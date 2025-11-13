@@ -92,6 +92,7 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
     protected Pattern pattern;
     protected Date fileModifiedStartDate;
     protected Date fileModifiedEndDate;
+    protected String fileBasePath;
 
     @Override
     public void init(HadoopConf conf) {
@@ -236,6 +237,7 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
                             pluginConfig.getString(
                                     FileBaseSourceOptions.FILE_FILTER_MODIFIED_END.key()));
         }
+        fileBasePath = pluginConfig.getString(FileBaseSourceOptions.FILE_PATH.key());
     }
 
     @Override
@@ -407,10 +409,12 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
 
     protected boolean filterFileByPattern(FileStatus fileStatus) {
         if (Objects.nonNull(pattern)) {
-            if (pattern.pattern()
-                    .startsWith(pluginConfig.getString(FileBaseSourceOptions.FILE_PATH.key()))) {
+            if (pattern.pattern().startsWith(fileBasePath)) {
                 // filter based on the file directory at the same time
-                return pattern.matcher(fileStatus.getPath().toUri().getPath()).matches();
+                String absPath = fileStatus.getPath().toUri().getPath();
+                // absPath.substring(absPath.indexOf(fileBasePath), It is to be compatible with
+                // scenarios where fileBasePath is a relative path
+                return pattern.matcher(absPath.substring(absPath.indexOf(fileBasePath))).matches();
             }
             // filter based on file names
             return pattern.matcher(fileStatus.getPath().getName()).matches();
