@@ -174,11 +174,13 @@ public class PostgresJdbcRowConverter extends AbstractJdbcRowConverter {
             PreparedStatement statement)
             throws SQLException {
         SeaTunnelRowType rowType = tableSchema.toPhysicalRowDataType();
-        String[] sourceTypes =
-                tableSchema.getColumns().stream()
-                        .filter(Column::isPhysical)
-                        .map(Column::getSourceType)
-                        .toArray(String[]::new);
+        String[] sinkDataBaseTypes = null;
+        if (databaseTableSchema != null) {
+            sinkDataBaseTypes =
+                    databaseTableSchema.getColumns().stream()
+                            .map(Column::getSourceType)
+                            .toArray(String[]::new);
+        }
         for (int fieldIndex = 0; fieldIndex < rowType.getTotalFields(); fieldIndex++) {
             try {
                 SeaTunnelDataType<?> seaTunnelDataType = rowType.getFieldType(fieldIndex);
@@ -191,28 +193,32 @@ public class PostgresJdbcRowConverter extends AbstractJdbcRowConverter {
 
                 switch (seaTunnelDataType.getSqlType()) {
                     case STRING:
-                        String sourceType = sourceTypes[fieldIndex];
-                        if (PG_INET.equalsIgnoreCase(sourceType)
-                                || PG_CIDR.equalsIgnoreCase(sourceType)
-                                || PG_MAC_ADDR.equalsIgnoreCase(sourceType)
-                                || PG_MAC_ADDR8.equalsIgnoreCase(sourceType)) {
-                            // handle network address types of postgres
-                            PGobject networkTypeObject = new PGobject();
-                            networkTypeObject.setType(sourceType);
-                            networkTypeObject.setValue(String.valueOf(row.getField(fieldIndex)));
-                            statement.setObject(statementIndex, networkTypeObject);
-                        } else if (PG_INTERVAL.equalsIgnoreCase(sourceType)) {
-                            PGobject intervalObject = new PGobject();
-                            intervalObject.setType(PG_INTERVAL);
-                            String intervalVal = String.valueOf(row.getField(fieldIndex));
-                            if (NumberUtils.isCreatable(intervalVal)) {
-                                // postgres interval types are converted to microseconds (long) in
-                                // Debezium, so if it is a number,
-                                // it is formatted as a postgres interval value.
-                                intervalVal = microsecondsToIntervalFormatVal(intervalVal);
+                        if (sinkDataBaseTypes != null) {
+                            String sinkDataBaseType = sinkDataBaseTypes[fieldIndex];
+                            if (PG_INET.equalsIgnoreCase(sinkDataBaseType)
+                                    || PG_CIDR.equalsIgnoreCase(sinkDataBaseType)
+                                    || PG_MAC_ADDR.equalsIgnoreCase(sinkDataBaseType)
+                                    || PG_MAC_ADDR8.equalsIgnoreCase(sinkDataBaseType)) {
+                                // handle network address types of postgres
+                                PGobject networkTypeObject = new PGobject();
+                                networkTypeObject.setType(sinkDataBaseType);
+                                networkTypeObject.setValue(
+                                        String.valueOf(row.getField(fieldIndex)));
+                                statement.setObject(statementIndex, networkTypeObject);
+                            } else if (PG_INTERVAL.equalsIgnoreCase(sinkDataBaseType)) {
+                                PGobject intervalObject = new PGobject();
+                                intervalObject.setType(PG_INTERVAL);
+                                String intervalVal = String.valueOf(row.getField(fieldIndex));
+                                if (NumberUtils.isCreatable(intervalVal)) {
+                                    // postgres interval types are converted to microseconds (long)
+                                    // in
+                                    // Debezium, so if it is a number,
+                                    // it is formatted as a postgres interval value.
+                                    intervalVal = microsecondsToIntervalFormatVal(intervalVal);
+                                }
+                                intervalObject.setValue(intervalVal);
+                                statement.setObject(statementIndex, intervalObject);
                             }
-                            intervalObject.setValue(intervalVal);
-                            statement.setObject(statementIndex, intervalObject);
                         } else {
                             statement.setString(statementIndex, (String) row.getField(fieldIndex));
                         }
