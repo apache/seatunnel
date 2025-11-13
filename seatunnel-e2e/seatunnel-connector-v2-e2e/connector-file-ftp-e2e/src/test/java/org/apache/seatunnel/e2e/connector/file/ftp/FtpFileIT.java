@@ -232,6 +232,9 @@ public class FtpFileIT extends TestSuiteBase implements TestResource {
                 "/home/vsftpd/seatunnel/tmp/seatunnel/read/filter/text/name=tyrantlucifer/hobby=coding/e2e.txt",
                 ftpContainer);
 
+        ftpContainer.execInContainer("sh", "-c", "chmod -R 777 /home/vsftpd/seatunnel/");
+        ftpContainer.execInContainer("sh", "-c", "chown -R ftp:ftp /home/vsftpd/seatunnel/");
+
         TestHelper helper = new TestHelper(container);
         // -----filter based on the file directory at the same time, the expression needs to start
         // with `path`--------

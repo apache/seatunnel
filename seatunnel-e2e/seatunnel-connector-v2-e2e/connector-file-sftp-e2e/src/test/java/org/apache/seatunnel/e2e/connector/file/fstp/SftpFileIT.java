@@ -152,6 +152,8 @@ public class SftpFileIT extends TestSuiteBase implements TestResource {
                 "/text/e2e.txt",
                 "/home/seatunnel/tmp/seatunnel/read/filter/text/name=tyrantlucifer/hobby=coding/e2e.txt",
                 sftpContainer);
+        sftpContainer.execInContainer("sh", "-c", "chown -R seatunnel /home/seatunnel/tmp/");
+
         TestHelper helper = new TestHelper(container);
         // -----filter based on the file directory at the same time, the expression needs to start
         // with `path`--------
