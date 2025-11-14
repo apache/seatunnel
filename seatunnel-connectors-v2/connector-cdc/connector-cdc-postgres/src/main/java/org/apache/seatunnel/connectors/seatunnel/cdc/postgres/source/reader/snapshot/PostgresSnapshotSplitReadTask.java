@@ -166,7 +166,23 @@ public class PostgresSnapshotSplitReadTask
         EventDispatcher.SnapshotReceiver snapshotReceiver =
                 dispatcher.getSnapshotChangeEventReceiver();
         log.debug("Snapshotting table {}", tableId);
-        TableId newTableId = new TableId(tableId.catalog(), tableId.schema(), tableId.table());
+        String catalog = tableId.catalog();
+        log.debug(catalog);
+        if (catalog == null) {
+            log.warn(
+                    "TableId catalog is null/empty for table {}.{}, using database name as fallback",
+                    tableId.schema(),
+                    tableId.table());
+            catalog = connectorConfig.databaseName();
+            if (catalog == null || catalog.isEmpty()) {
+                throw new IllegalStateException(
+                        String.format(
+                                "Cannot determine catalog for table %s.%s. "
+                                        + "Please check your PostgreSQL CDC configuration.",
+                                tableId.schema(), tableId.table()));
+            }
+        }
+        TableId newTableId = new TableId(catalog, tableId.schema(), tableId.table());
         createDataEventsForTable(
                 snapshotContext, snapshotReceiver, databaseSchema.tableFor(newTableId));
         snapshotReceiver.completeSnapshot();
