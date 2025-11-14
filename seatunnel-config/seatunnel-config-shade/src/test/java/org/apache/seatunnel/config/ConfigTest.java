@@ -19,6 +19,7 @@ package org.apache.seatunnel.config;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigObject;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigRenderOptions;
 
 import org.apache.seatunnel.config.utils.FileUtils;
@@ -60,5 +61,46 @@ public class ConfigTest {
                 "\\\"\\\"", config.getObject("object").toConfig().getString("\"\\\"\\\"\""));
         Assertions.assertEquals(
                 "\\\\\\\"", config.getObject("object").toConfig().getString("\\\""));
+    }
+
+    @Test
+    public void testParseSchemaWithFields() throws URISyntaxException {
+        Config config =
+                ConfigFactory.parseFile(
+                        FileUtils.getFileFromResources("/seatunnel/schema_fields.conf"));
+        List<? extends Config> sourceRoot = config.getConfigList("source");
+        Config row = getNestedConfig(sourceRoot.get(0), "schema", "fields", "row");
+        Assertions.assertInstanceOf(ConfigObject.class, row.root());
+        Assertions.assertInstanceOf(ConfigObject.class, row.getConfig("row").root());
+
+        Config source = getNestedConfig(sourceRoot.get(0), "schema", "fields", "source");
+        Assertions.assertInstanceOf(ConfigObject.class, source.root());
+        Assertions.assertInstanceOf(ConfigObject.class, source.getConfig("source").root());
+    }
+
+    @Test
+    public void testParseSchemaWithColumns() throws URISyntaxException {
+        Config config =
+                ConfigFactory.parseFile(
+                        FileUtils.getFileFromResources("/seatunnel/schema_columns.conf"));
+        List<? extends Config> sourceRoot = config.getConfigList("source");
+        List<? extends Config> columns =
+                sourceRoot.get(0).getConfig("schema").getConfigList("columns");
+        Config row = getNestedConfig(columns.get(2), "type", "row");
+        Assertions.assertInstanceOf(ConfigObject.class, row.root());
+
+        Config source = getNestedConfig(columns.get(3), "type", "source");
+        Assertions.assertInstanceOf(ConfigObject.class, source.root());
+    }
+
+    private Config getNestedConfig(Config initialConfig, String... pathSegments) {
+        if (pathSegments == null || pathSegments.length == 0) {
+            return initialConfig;
+        }
+        Config currentConfig = initialConfig;
+        for (String segment : pathSegments) {
+            currentConfig = currentConfig.getConfig(segment);
+        }
+        return currentConfig;
     }
 }

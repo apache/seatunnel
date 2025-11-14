@@ -266,6 +266,26 @@ public class MongodbIT extends AbstractMongodbIT {
         clearData(MONGODB_DOUBLE_TABLE_RESULT);
     }
 
+    @TestTemplate
+    public void testFakeSourceToMongodbMultipleTable(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult insertResult =
+                container.executeJob("/fake_source_to_mongodb_multiple_table.conf");
+        Assertions.assertEquals(0, insertResult.getExitCode(), insertResult.getStderr());
+        String collectionOneStr = "testDatabase1_testSchema1_testTable1_check";
+        MongoCollection<BsonDocument> collectionOne =
+                client.getDatabase(MONGODB_DATABASE)
+                        .getCollection(collectionOneStr, BsonDocument.class);
+        Assertions.assertEquals(1, collectionOne.countDocuments());
+        String collectionTwoStr = "testDatabase2_testSchema2_testTable2_check";
+        MongoCollection<BsonDocument> collectionTwo =
+                client.getDatabase(MONGODB_DATABASE)
+                        .getCollection(collectionTwoStr, BsonDocument.class);
+        Assertions.assertEquals(1, collectionTwo.countDocuments());
+        clearData(collectionOneStr);
+        clearData(collectionTwoStr);
+    }
+
     @SneakyThrows
     @TestTemplate
     public void testDropDataSaveMode(TestContainer container) {
