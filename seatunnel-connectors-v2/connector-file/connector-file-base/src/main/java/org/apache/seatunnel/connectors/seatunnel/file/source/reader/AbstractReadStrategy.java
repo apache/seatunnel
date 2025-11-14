@@ -224,6 +224,11 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
             String filterPattern =
                     pluginConfig.getString(FileBaseSourceOptions.FILE_FILTER_PATTERN.key());
             this.pattern = Pattern.compile(filterPattern);
+            // because 'ConfigFactory.systemProperties()' has a 'path' parameter, it is necessary to
+            // obtain 'path' under the premise of 'FILE_FILTER_PATTERN'
+            if (pluginConfig.hasPath(FileBaseSourceOptions.FILE_PATH.key())) {
+                fileBasePath = pluginConfig.getString(FileBaseSourceOptions.FILE_PATH.key());
+            }
         }
         if (pluginConfig.hasPath(FileBaseSourceOptions.FILE_FILTER_MODIFIED_START.key())) {
             fileModifiedStartDate =
@@ -236,10 +241,6 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
                     getFileModifiedDate(
                             pluginConfig.getString(
                                     FileBaseSourceOptions.FILE_FILTER_MODIFIED_END.key()));
-        }
-
-        if (pluginConfig.hasPath(FileBaseSourceOptions.FILE_PATH.key())) {
-            fileBasePath = pluginConfig.getString(FileBaseSourceOptions.FILE_PATH.key());
         }
     }
 
