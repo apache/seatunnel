@@ -237,7 +237,10 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
                             pluginConfig.getString(
                                     FileBaseSourceOptions.FILE_FILTER_MODIFIED_END.key()));
         }
-        fileBasePath = pluginConfig.getString(FileBaseSourceOptions.FILE_PATH.key());
+
+        if (pluginConfig.hasPath(FileBaseSourceOptions.FILE_PATH.key())) {
+            fileBasePath = pluginConfig.getString(FileBaseSourceOptions.FILE_PATH.key());
+        }
     }
 
     @Override
@@ -408,7 +411,7 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
     }
 
     protected boolean filterFileByPattern(FileStatus fileStatus) {
-        if (Objects.nonNull(pattern)) {
+        if (Objects.nonNull(pattern) && Objects.nonNull(fileBasePath)) {
             if (pattern.pattern().startsWith(fileBasePath)) {
                 // filter based on the file directory at the same time
                 String absPath = fileStatus.getPath().toUri().getPath();
