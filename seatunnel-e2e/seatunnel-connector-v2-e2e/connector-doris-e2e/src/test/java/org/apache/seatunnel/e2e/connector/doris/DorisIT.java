@@ -172,6 +172,22 @@ public class DorisIT extends AbstractDorisIT {
             };
 
     @TestTemplate
+    public void testDorisCastError(TestContainer container)
+            throws IOException, InterruptedException {
+        initializeJdbcTable();
+        batchInsertUniqueTableData();
+        // Test that the task can terminate normally instead of being blocked when Doris parsing
+        // error occurs
+        // Verify that when source and target table data types are incompatible (e.g., varchar to
+        // bitmap),
+        // the task should fail gracefully and exit rather than hang indefinitely
+        Container.ExecResult execResult =
+                container.executeJob("/doris_source_and_sink_with_cast_error.conf");
+        Assertions.assertEquals(1, execResult.getExitCode());
+        Assertions.assertTrue(execResult.getStderr().contains("can not cast from origin type"));
+    }
+
+    @TestTemplate
     public void testCustomSql(TestContainer container) throws IOException, InterruptedException {
         initializeJdbcTable();
         Container.ExecResult execResult =
@@ -211,22 +227,6 @@ public class DorisIT extends AbstractDorisIT {
         Container.ExecResult execResult1 = container.executeJob("/doris_source_no_schema.conf");
         Assertions.assertEquals(0, execResult1.getExitCode());
         checkSinkData();
-    }
-
-    @TestTemplate
-    public void testDorisCastError(TestContainer container)
-            throws IOException, InterruptedException {
-        initializeJdbcTable();
-        batchInsertUniqueTableData();
-        // Test that the task can terminate normally instead of being blocked when Doris parsing
-        // error occurs
-        // Verify that when source and target table data types are incompatible (e.g., varchar to
-        // bitmap),
-        // the task should fail gracefully and exit rather than hang indefinitely
-        Container.ExecResult execResult =
-                container.executeJob("/doris_source_and_sink_with_cast_error.conf");
-        Assertions.assertEquals(1, execResult.getExitCode());
-        Assertions.assertTrue(execResult.getStderr().contains("can not cast from origin type"));
     }
 
     private void checkAllTypeSinkData() {
