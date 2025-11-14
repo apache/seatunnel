@@ -85,6 +85,7 @@ public class RecordBuffer {
             if (!isEmpty) {
                 ByteBuffer byteBuffer = null;
                 while (byteBuffer == null) {
+                    log.info("stopping buffer data...");
                     checkErrorMessageByStreamLoad();
                     byteBuffer = writeQueue.poll(100, TimeUnit.MILLISECONDS);
                 }
