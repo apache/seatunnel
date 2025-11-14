@@ -4,196 +4,196 @@
 
 ## dev
 
-### API Changes
+### API 变更
 
-### Configuration Changes
+### 配置变更
 
-### Connector Changes
+### 连接器变更
 
-### Transform Changes
+### 转换变更
 
-### Engine Behavior Changes
+### 引擎行为变更
 
-### Dependency Upgrades
+### 依赖升级
 
 ## 2.3.12
 
-### API Changes
+### API 变更
 
-### Configuration Changes
+### 配置变更
 
-### Connector Changes
+### 连接器变更
 
-### Transform Changes
+### 转换变更
 
-### Engine Behavior Changes
+### 引擎行为变更
 
-### Dependency Upgrades
+### 依赖升级
 
 ## 2.3.11
 
-### API Changes
+### API 变更
 
-### Configuration Changes
+### 配置变更
 
-### Connector Changes
+### 连接器变更
 
-### Transform Changes
+### 转换变更
 
-### Engine Behavior Changes
+### 引擎行为变更
 
-### Dependency Upgrades
+### 依赖升级
 
 ## 2.3.10
 
-### API Changes
+### API 变更
 
-### Configuration Changes
+### 配置变更
 
-### Connector Changes
+### 连接器变更
 
-### Transform Changes
+### 转换变更
 
-### Engine Behavior Changes
+### 引擎行为变更
 
-### Dependency Upgrades
+### 依赖升级
 
 ## 2.3.9
 
-### API Changes
+### API 变更
 
-### Configuration Changes
+### 配置变更
 
-### Connector Changes
+### 连接器变更
 
-### Transform Changes
+### 转换变更
 
-### Engine Behavior Changes
+### 引擎行为变更
 
-### Dependency Upgrades
+### 依赖升级
 
 ## 2.3.8
 
-### API Changes
+### API 变更
 
-### Configuration Changes
+### 配置变更
 
-### Connector Changes
+### 连接器变更
 
-### Transform Changes
+### 转换变更
 
-### Engine Behavior Changes
+### 引擎行为变更
 
-### Dependency Upgrades
+### 依赖升级
 
 ## 2.3.7
 
-### API Changes
+### API 变更
 
-### Configuration Changes
+### 配置变更
 
-### Connector Changes
+### 连接器变更
 
-### Transform Changes
+### 转换变更
 
-### Engine Behavior Changes
+### 引擎行为变更
 
-### Dependency Upgrades
+### 依赖升级
 
 ## 2.3.6
 
-### API Changes
+### API 变更
 
-### Configuration Changes
+### 配置变更
 
-### Connector Changes
+### 连接器变更
 
-### Transform Changes
+### 转换变更
 
-### Engine Behavior Changes
+### 引擎行为变更
 
-### Dependency Upgrades
+### 依赖升级
 
 ## 2.3.5
 
-### API Changes
+### API 变更
 
-### Configuration Changes
+### 配置变更
 
-### Connector Changes
+### 连接器变更
 
-### Transform Changes
+### 转换变更
 
-### Engine Behavior Changes
+### 引擎行为变更
 
-### Dependency Upgrades
+### 依赖升级
 
 ## 2.3.4
 
-### API Changes
+### API 变更
 
-### Configuration Changes
+### 配置变更
 
-### Connector Changes
+### 连接器变更
 
-### Transform Changes
+### 转换变更
 
-### Engine Behavior Changes
+### 引擎行为变更
 
-### Dependency Upgrades
+### 依赖升级
 
 ## 2.3.3
 
-### API Changes
+### API 变更
 
-### Configuration Changes
+### 配置变更
 
-### Connector Changes
+### 连接器变更
 
-### Transform Changes
+### 转换变更
 
-### Engine Behavior Changes
+### 引擎行为变更
 
-### Dependency Upgrades
+### 依赖升级
 
 ## 2.3.2
 
-### API Changes
+### API 变更
 
-### Configuration Changes
+### 配置变更
 
-### Connector Changes
+### 连接器变更
 
-### Transform Changes
+### 转换变更
 
-### Engine Behavior Changes
+### 引擎行为变更
 
-### Dependency Upgrades
+### 依赖升级
 
 ## 2.3.1
 
-### API Changes
+### API 变更
 
-### Configuration Changes
+### 配置变更
 
-### Connector Changes
+### 连接器变更
 
-### Transform Changes
+### 转换变更
 
-### Engine Behavior Changes
+### 引擎行为变更
 
-### Dependency Upgrades
+### 依赖升级
 
 ## 2.3.0
 
-### API Changes
+### API 变更
 
-### Configuration Changes
+### 配置变更
 
-### Connector Changes
+### 连接器变更
 
-### Transform Changes
+### 转换变更
 
-### Engine Behavior Changes
+### 引擎行为变更
 
-### Dependency Upgrades
+### 依赖升级
