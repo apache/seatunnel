@@ -53,6 +53,7 @@ import java.lang.reflect.Field;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -1210,31 +1211,41 @@ public class RestApiIT {
         AtomicReference<Map<String, Object>> overviewRef = new AtomicReference<>();
         Awaitility.await()
                 .atMost(2, TimeUnit.MINUTES)
-                .untilAsserted(
+                .until(
                         () -> {
                             Map<String, Object> overview =
                                     getCheckpointOverview(
                                             jobId, buildHttpBaseUrl(httpPorts.get(0)));
                             List<Map<String, Object>> pipelines =
                                     castList(overview.get("pipelines"));
-                            Assertions.assertFalse(pipelines.isEmpty());
+                            if (pipelines.isEmpty()) {
+                                return false;
+                            }
                             Map<String, Object> pipeline = pipelines.get(0);
                             Map<String, Object> counts = castMap(pipeline.get("counts"));
-                            if (((Number) counts.get("completed")).longValue() > 0) {
-                                overviewRef.set(overview);
+                            if (counts.isEmpty()) {
+                                return false;
                             }
-                            Assertions.assertNotNull(overviewRef.get());
+                            if (getLong(counts, "completed") > 0L) {
+                                overviewRef.set(overview);
+                                return true;
+                            }
+                            return false;
                         });
 
         Map<String, Object> latestOverview = overviewRef.get();
-        @SuppressWarnings("unchecked")
-        Map<String, Object> pipeline =
-                (Map<String, Object>) castList(latestOverview.get("pipelines")).get(0);
+        Assertions.assertNotNull(
+                latestOverview, "Failed to fetch checkpoint overview with completed counts");
+        List<Map<String, Object>> pipelines = castList(latestOverview.get("pipelines"));
+        Assertions.assertFalse(
+                pipelines.isEmpty(), "Checkpoint overview does not contain any pipelines");
+        Map<String, Object> pipeline = pipelines.get(0);
         int pipelineId = ((Number) pipeline.get("pipelineId")).intValue();
         Map<String, Object> counts = castMap(pipeline.get("counts"));
-        Assertions.assertTrue(((Number) counts.get("triggered")).longValue() >= 1L);
-        Assertions.assertTrue(((Number) counts.get("completed")).longValue() >= 1L);
-        Assertions.assertEquals(0L, ((Number) counts.get("failed")).longValue());
+        Assertions.assertFalse(counts.isEmpty(), "Checkpoint overview missing count metrics");
+        Assertions.assertTrue(getLong(counts, "triggered") >= 1L);
+        Assertions.assertTrue(getLong(counts, "completed") >= 1L);
+        Assertions.assertEquals(0L, getLong(counts, "failed"));
 
         long failedCheckpointId = System.currentTimeMillis();
         checkpointMonitorService.onCheckpointFailed(
@@ -1272,12 +1283,9 @@ public class RestApiIT {
                                                     Map<String, Object> targetCounts =
                                                             castMap(targetPipeline.get("counts"));
                                                     Assertions.assertTrue(
-                                                            ((Number) targetCounts.get("failed"))
-                                                                            .longValue()
-                                                                    >= 1L);
+                                                            getLong(targetCounts, "failed") >= 1L);
                                                     Assertions.assertTrue(
-                                                            ((Number) targetCounts.get("restored"))
-                                                                            .longValue()
+                                                            getLong(targetCounts, "restored")
                                                                     >= 1L);
                                                     List<Map<String, Object>> inProgress =
                                                             castList(
@@ -1285,25 +1293,20 @@ public class RestApiIT {
                                                                             "inProgress"));
                                                     Assertions.assertTrue(
                                                             inProgress.stream()
+                                                                    .map(this::castMap)
                                                                     .anyMatch(
                                                                             info ->
-                                                                                    ((Number)
-                                                                                                                    info
-                                                                                                                            .get(
-                                                                                                                                    "checkpointId"))
-                                                                                                            .longValue()
+                                                                                    getLong(
+                                                                                                            info,
+                                                                                                            "checkpointId")
                                                                                                     == inProgressCheckpointId
-                                                                                            && ((Number)
-                                                                                                                    info
-                                                                                                                            .get(
-                                                                                                                                    "acknowledged"))
-                                                                                                            .intValue()
+                                                                                            && getInt(
+                                                                                                            info,
+                                                                                                            "acknowledged")
                                                                                                     == 2
-                                                                                            && ((Number)
-                                                                                                                    info
-                                                                                                                            .get(
-                                                                                                                                    "total"))
-                                                                                                            .intValue()
+                                                                                            && getInt(
+                                                                                                            info,
+                                                                                                            "total")
                                                                                                     == 4));
                                                     List<Map<String, Object>> history =
                                                             getCheckpointHistory(
@@ -1318,11 +1321,9 @@ public class RestApiIT {
                                                                                                             "checkpoint")))
                                                                     .anyMatch(
                                                                             checkpoint ->
-                                                                                    ((Number)
-                                                                                                            checkpoint
-                                                                                                                    .get(
-                                                                                                                            "checkpointId"))
-                                                                                                    .longValue()
+                                                                                    getLong(
+                                                                                                    checkpoint,
+                                                                                                    "checkpointId")
                                                                                             == failedCheckpointId));
                                                 }));
     }
@@ -1343,12 +1344,28 @@ public class RestApiIT {
 
     @SuppressWarnings("unchecked")
     private <T> List<T> castList(Object value) {
+        if (value == null) {
+            return Collections.emptyList();
+        }
         return (List<T>) value;
     }
 
     @SuppressWarnings("unchecked")
     private Map<String, Object> castMap(Object value) {
+        if (value == null) {
+            return Collections.emptyMap();
+        }
         return (Map<String, Object>) value;
+    }
+
+    private long getLong(Map<String, Object> source, String key) {
+        Object value = source.get(key);
+        return value instanceof Number ? ((Number) value).longValue() : 0L;
+    }
+
+    private int getInt(Map<String, Object> source, String key) {
+        Object value = source.get(key);
+        return value instanceof Number ? ((Number) value).intValue() : 0;
     }
 
     private Map<String, Object> getCheckpointOverview(long jobId, String baseUrl) {
