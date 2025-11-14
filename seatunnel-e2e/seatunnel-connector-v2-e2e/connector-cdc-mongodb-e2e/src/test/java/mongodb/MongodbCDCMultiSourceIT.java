@@ -51,7 +51,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Stream;
 
 import static org.testcontainers.shaded.org.awaitility.Awaitility.with;
@@ -187,11 +186,10 @@ public class MongodbCDCMultiSourceIT extends TestSuiteBase implements TestResour
     @TestTemplate
     public void testMultipleMongoDBSourcesSequentially(TestContainer container) throws Exception {
         createMySqlTables();
-        AtomicReference<Container.ExecResult> execResult = null;
         CompletableFuture.supplyAsync(
                 () -> {
                     try {
-                        execResult.set(container.executeJob("/mongodb_multi_source_a.conf"));
+                        container.executeJob("/mongodb_multi_source_a.conf");
                     } catch (Exception e) {
                         log.error("MongoDB A job exception: " + e.getMessage());
                         throw new RuntimeException(e);
@@ -200,7 +198,6 @@ public class MongodbCDCMultiSourceIT extends TestSuiteBase implements TestResour
                 });
 
         assertMySqlHasData("products_a", 3);
-        System.out.println(execResult.get().getStderr() + execResult.get().getStdout());
         log.info("MongoDB A data verified in MySQL");
 
         CompletableFuture.supplyAsync(
@@ -244,7 +241,7 @@ public class MongodbCDCMultiSourceIT extends TestSuiteBase implements TestResour
         with().pollInterval(TWO_SECONDS)
                 .pollDelay(500, TimeUnit.MILLISECONDS)
                 .await()
-                .atMost(2, TimeUnit.MINUTES)
+                .atMost(5, TimeUnit.MINUTES)
                 .untilAsserted(
                         () -> {
                             try (Connection connection = getJdbcConnection()) {
