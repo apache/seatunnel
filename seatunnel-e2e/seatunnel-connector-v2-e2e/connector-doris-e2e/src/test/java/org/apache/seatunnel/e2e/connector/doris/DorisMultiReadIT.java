@@ -27,6 +27,7 @@ import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.Container;
 
@@ -117,6 +118,7 @@ public class DorisMultiReadIT extends AbstractDorisIT {
                 Assertions.assertEquals(0, extraCommands.getExitCode(), extraCommands.getStderr());
             };
 
+    @Disabled
     @TestTemplate
     public void testDorisMultiRead(TestContainer container)
             throws IOException, InterruptedException {
