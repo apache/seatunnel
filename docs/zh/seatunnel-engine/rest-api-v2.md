@@ -1026,10 +1026,10 @@ curl --location 'http://127.0.0.1:8080/submit-job/upload' --form 'config_file=@"
 | `updatedAt` | 概览最近刷新时间（毫秒时间戳）。 |
 | `pipelines` | pipeline 统计列表。 |
 | `pipelines[].pipelineId` | pipeline ID。 |
-| `pipelines[].counts.triggered/completed/failed/inProgress/restored` | 触发、成功、失败、执行中、恢复次数。 |
-| `pipelines[].latestCompleted/latestFailed/latestSavepoint` | 最近一次成功/失败/保存点 checkpoint 信息（字段见下表）。 |
-| `pipelines[].inProgress` | 进行中的 checkpoint 列表，包含 `checkpointId`、`checkpointType`、`triggerTimestamp`、`acknowledged`、`total`。 |
-| `pipelines[].history` | 缓存的历史记录（默认 32 条），时间倒序。 |
+| `pipelines[].counts.triggered/completed/failed/inProgress/restored` | Checkpoint 统计：<br/>- `triggered`：自作业启动以来触发次数。<br/>- `completed`：成功完成次数。<br/>- `failed`：失败次数。<br/>- `inProgress`：当前正在执行的 checkpoint 数量。<br/>- `restored`：触发恢复（包括 savepoint 恢复）的次数。 |
+| `pipelines[].latestCompleted/latestFailed/latestSavepoint` | 最近一次成功/失败/保存点 checkpoint 元信息（字段同“Checkpoint 信息字段”表）。 |
+| `pipelines[].inProgress` | 进行中的 checkpoint 列表，如下所示：<br/>- `checkpointId`：当前执行中的 checkpoint 编号。<br/>- `checkpointType`：类型（普通 checkpoint、savepoint 等）。<br/>- `triggerTimestamp`：该 checkpoint 触发时间（毫秒）。<br/>- `acknowledged`：已完成 ACK 的 subtask 数。<br/>- `total`：该 pipeline 中需要 ACK 的 subtask 总数。 |
+| `pipelines[].history` | 环形缓冲中的历史记录（默认保留 32 条），每条包含 `pipelineId` 和对应的 checkpoint 元信息，按触发时间倒序。 |
 
 Checkpoint 信息字段：
 
