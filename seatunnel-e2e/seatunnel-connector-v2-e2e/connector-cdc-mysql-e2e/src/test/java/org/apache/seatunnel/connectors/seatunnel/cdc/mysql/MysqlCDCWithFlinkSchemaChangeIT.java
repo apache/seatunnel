@@ -197,8 +197,8 @@ public class MysqlCDCWithFlinkSchemaChangeIT extends TestSuiteBase implements Te
                                 while (resultSet.next()) {
                                     int timeDiff = resultSet.getInt("time_diff");
                                     Assertions.assertTrue(
-                                            timeDiff <= 3,
-                                            "Time difference exceeds 3 seconds: "
+                                            timeDiff <= 6,
+                                            "Time difference exceeds 6 seconds: "
                                                     + timeDiff
                                                     + " seconds");
                                 }

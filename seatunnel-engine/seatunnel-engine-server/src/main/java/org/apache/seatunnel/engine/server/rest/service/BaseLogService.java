@@ -29,12 +29,18 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 
 @Slf4j
 public class BaseLogService extends BaseService {
+
     public BaseLogService(NodeEngineImpl nodeEngine) {
         super(nodeEngine);
     }
+
+    private static final String AUTHORIZATION_HEADER = "Authorization";
+    private static final String BASIC_PREFIX = "Basic ";
 
     /** Get configuration log path */
     public String getLogPath() {
@@ -46,29 +52,81 @@ public class BaseLogService extends BaseService {
         }
     }
 
+    /**
+     * Send a simple HTTP GET request.
+     *
+     * @param urlString url
+     * @return the response body as a string, or {@code null} if the request failed
+     */
     protected String sendGet(String urlString) {
+        return sendGet(urlString, null, null);
+    }
+
+    /**
+     * Send GET request (optionally with Basic Auth)
+     *
+     * @param urlString url
+     * @param user username, nullable
+     * @param pass password, nullable
+     * @return the response body as a string, or {@code null} if the request failed
+     */
+    protected String sendGet(String urlString, String user, String pass) {
+        HttpURLConnection connection = null;
         try {
-            HttpURLConnection connection = (HttpURLConnection) new URL(urlString).openConnection();
+            connection = (HttpURLConnection) new URL(urlString).openConnection();
             connection.setRequestMethod("GET");
             connection.setConnectTimeout(5000);
             connection.setReadTimeout(5000);
+
+            // Basic Auth
+            if (user != null && pass != null) {
+                String auth = user + ":" + pass;
+                String token =
+                        Base64.getEncoder().encodeToString(auth.getBytes(StandardCharsets.UTF_8));
+                connection.setRequestProperty(AUTHORIZATION_HEADER, BASIC_PREFIX + token);
+            }
+
             connection.connect();
 
-            if (connection.getResponseCode() == 200) {
-                try (InputStream is = connection.getInputStream();
-                        ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
-                    byte[] buffer = new byte[1024];
-                    int len;
-                    while ((len = is.read(buffer)) != -1) {
-                        baos.write(buffer, 0, len);
-                    }
-                    return baos.toString();
-                }
+            int code = connection.getResponseCode();
+            if (code == HttpURLConnection.HTTP_OK) {
+                return readResponseBody(connection.getInputStream());
+            } else {
+                log.warn("GET {} -> HTTP {}", urlString, code);
+                drainErrorStream(connection);
             }
         } catch (IOException e) {
-            log.error("Send get Fail.{}", ExceptionUtils.getMessage(e));
+            log.error("Send GET failed: url={}, err={}", urlString, ExceptionUtils.getMessage(e));
+        } finally {
+            if (connection != null) {
+                connection.disconnect();
+            }
         }
         return null;
+    }
+
+    private String readResponseBody(InputStream is) throws IOException {
+        try (InputStream input = is;
+                ByteArrayOutputStream output = new ByteArrayOutputStream()) {
+
+            byte[] buf = new byte[4096];
+            int len;
+            while ((len = input.read(buf)) != -1) {
+                output.write(buf, 0, len);
+            }
+            return output.toString(StandardCharsets.UTF_8.name());
+        }
+    }
+
+    private void drainErrorStream(HttpURLConnection connection) throws IOException {
+        try (InputStream err = connection.getErrorStream()) {
+            if (err != null) {
+                byte[] buffer = new byte[1024];
+                while (err.read(buffer) != -1) {
+                    // discard
+                }
+            }
+        }
     }
 
     public String getLogParam(String uri, String contextPath) {
