@@ -231,12 +231,17 @@ public class DorisIT extends AbstractDorisIT {
         initializeJdbcTable();
         batchInsertUniqueTableData();
         // Test that the task can terminate normally instead of being blocked
-        // when Doris parsing error occurs(e.g., ANALYSIS_ERROR),
-        // the task should fail gracefully and exit rather than hang indefinitely.
+        // when Doris return parsing error(e.g., ANALYSIS_ERROR),
+        // the seatunnel task should fail gracefully and exit rather than hang indefinitely.
         Container.ExecResult execResult =
                 container.executeJob("/doris_source_and_sink_with_cast_error.conf");
         Assertions.assertEquals(1, execResult.getExitCode());
         Assertions.assertTrue(execResult.getStderr().contains("can not cast from origin type"));
+
+        Container.ExecResult execResult2 =
+                container.executeJob("/doris_source_and_sink_with_cast_error_2pc_true.conf");
+        Assertions.assertEquals(1, execResult2.getExitCode());
+        Assertions.assertTrue(execResult2.getStderr().contains("can not cast from origin type"));
     }
 
     private void checkAllTypeSinkData() {
