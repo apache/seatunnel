@@ -265,6 +265,7 @@ public class DorisStreamLoad implements Serializable {
             } catch (Exception e) {
                 throw new DorisConnectorException(DorisConnectorErrorCode.STREAM_LOAD_FAILED, e);
             } finally {
+                flushing = false;
                 pendingLoadFuture = null;
             }
         } else {

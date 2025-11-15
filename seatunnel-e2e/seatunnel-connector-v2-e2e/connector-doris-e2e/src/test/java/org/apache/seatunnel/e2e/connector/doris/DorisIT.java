@@ -220,9 +220,6 @@ public class DorisIT extends AbstractDorisIT {
             throws IOException, InterruptedException {
         initializeJdbcTable();
         batchInsertUniqueTableData();
-        // Test that the task can terminate normally instead of being blocked when Doris parsing error occurs
-        // Verify that when source and target table data types are incompatible (e.g., varchar to bitmap),
-        // the task should fail gracefully and exit rather than hang indefinitely
         Container.ExecResult execResult1 = container.executeJob("/doris_source_no_schema.conf");
         Assertions.assertEquals(0, execResult1.getExitCode());
         checkSinkData();
@@ -233,6 +230,9 @@ public class DorisIT extends AbstractDorisIT {
             throws IOException, InterruptedException {
         initializeJdbcTable();
         batchInsertUniqueTableData();
+        // Test that the task can terminate normally instead of being blocked
+        // when Doris parsing error occurs(e.g., ANALYSIS_ERROR),
+        // the task should fail gracefully and exit rather than hang indefinitely.
         Container.ExecResult execResult =
                 container.executeJob("/doris_source_and_sink_with_cast_error.conf");
         Assertions.assertEquals(1, execResult.getExitCode());
@@ -508,7 +508,8 @@ public class DorisIT extends AbstractDorisIT {
 
     private String createTypeCastErrorSinkTableForTest(String db) {
         // The type of column MAP_VARCHAR_STRING in sink table bitmap, source table is varchar type.
-        // In this case, doris will report an error. After seatunnel receives the error msg from doris,
+        // In this case, doris will report an error. After seatunnel receives the error msg from
+        // doris,
         // it should stop the task normally instead of being blocked and unable to terminate.
         String createTableSql =
                 "create table if not exists `%s`.`%s`(\n"
