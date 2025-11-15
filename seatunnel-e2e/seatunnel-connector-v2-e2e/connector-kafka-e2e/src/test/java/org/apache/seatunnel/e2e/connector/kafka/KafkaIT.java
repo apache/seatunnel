@@ -1459,7 +1459,7 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
             producer.flush();
         }
 
-        endOffset = endOffsetOnP0(producerTopic);
+        endOffset = endOffsetOnP0(producerTopic) - finalEndOffset1;
         long finalEndOffset2 = endOffset;
         CompletableFuture.runAsync(
                 () -> {
@@ -1496,7 +1496,7 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
             producer.send(record);
             producer.flush();
         }
-        long endOffset = endOffsetOnP0(producerTopic);
+
         // async execute
         CompletableFuture.supplyAsync(
                 () -> {
@@ -1509,15 +1509,12 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                     return null;
                 });
         // wait for data written to kafka
-        long finalEndOffset = endOffset;
-        given().pollDelay(30, SECONDS)
+        given().pollDelay(60, SECONDS)
                 .pollInterval(5, SECONDS)
                 .await()
                 .atMost(5, MINUTES)
                 .untilAsserted(
-                        () ->
-                                Assertions.assertTrue(
-                                        checkData(consumerTopic, finalEndOffset, sourceData)));
+                        () -> Assertions.assertTrue(checkData(consumerTopic, 10, sourceData)));
     }
 
     @TestTemplate
