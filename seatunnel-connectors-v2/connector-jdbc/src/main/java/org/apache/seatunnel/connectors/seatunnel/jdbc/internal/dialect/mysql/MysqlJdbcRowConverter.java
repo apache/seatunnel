@@ -95,11 +95,7 @@ public class MysqlJdbcRowConverter extends AbstractJdbcRowConverter {
                     Timestamp sqlTimestampTz = JdbcFieldTypeUtils.getTimestamp(rs, resultSetIndex);
                     fields[fieldIndex] =
                             Optional.ofNullable(sqlTimestampTz)
-                                    .map(
-                                            e ->
-                                                    e.toInstant()
-                                                            .atZone(SYSTEM_ZONE)
-                                                            .toOffsetDateTime())
+                                    .map(e -> e.toInstant().atZone(SYSTEM_ZONE).toOffsetDateTime())
                                     .orElse(null);
                     break;
                 case BYTES:
