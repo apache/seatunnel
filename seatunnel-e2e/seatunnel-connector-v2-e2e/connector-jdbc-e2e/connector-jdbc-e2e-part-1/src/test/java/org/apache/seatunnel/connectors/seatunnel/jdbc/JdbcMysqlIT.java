@@ -67,6 +67,7 @@ import java.sql.Date;
 import java.sql.SQLException;
 import java.sql.Time;
 import java.sql.Timestamp;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -139,6 +140,7 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
                     + "    `c_datetime`             datetime              DEFAULT NULL,\n"
                     + "    `c_time`                 time                  DEFAULT NULL,\n"
                     + "    `c_timestamp`            timestamp NULL        DEFAULT NULL,\n"
+                    + "    `c_timestamp_tz`         timestamp NULL        DEFAULT NULL,\n"
                     + "    `c_tinyblob`             tinyblob,\n"
                     + "    `c_mediumblob`           mediumblob,\n"
                     + "    `c_blob`                 blob,\n"
@@ -229,6 +231,7 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
                     "c_datetime",
                     "c_time",
                     "c_timestamp",
+                    "c_timestamp_tz",
                     "c_tinyblob",
                     "c_mediumblob",
                     "c_blob",
@@ -287,6 +290,7 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
                     "c_datetime",
                     "c_time",
                     "c_timestamp",
+                    "c_timestamp_tz",
                     "c_tinyblob",
                     "c_mediumblob",
                     "c_blob",
@@ -308,6 +312,7 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
                 row =
                         new SeaTunnelRow(
                                 new Object[] {
+                                    null,
                                     null,
                                     null,
                                     null,
@@ -401,6 +406,7 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
                                     Timestamp.valueOf(LocalDateTime.now()),
                                     Time.valueOf(LocalTime.now()),
                                     new Timestamp(System.currentTimeMillis()),
+                                    Timestamp.from(Instant.now()),
                                     "test".getBytes(),
                                     "test".getBytes(),
                                     "test".getBytes(),

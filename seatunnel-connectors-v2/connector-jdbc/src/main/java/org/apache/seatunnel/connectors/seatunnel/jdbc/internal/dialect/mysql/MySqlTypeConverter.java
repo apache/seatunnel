@@ -317,8 +317,11 @@ public class MySqlTypeConverter implements TypeConverter<BasicTypeDefine<MysqlTy
                 builder.scale(typeDefine.getScale());
                 break;
             case MYSQL_DATETIME:
-            case MYSQL_TIMESTAMP:
                 builder.dataType(LocalTimeType.LOCAL_DATE_TIME_TYPE);
+                builder.scale(typeDefine.getScale());
+                break;
+            case MYSQL_TIMESTAMP:
+                builder.dataType(LocalTimeType.OFFSET_DATE_TIME_TYPE);
                 builder.scale(typeDefine.getScale());
                 break;
             default:
