@@ -191,7 +191,7 @@ public class SinkFlowTestUtils {
                         .mapToObj(i -> Collections.synchronizedList(new ArrayList<>()))
                         .collect(Collectors.toList());
 
-        List<RuntimeException> asyncErrors = Collections.synchronizedList(new ArrayList<>());
+        List<Throwable> asyncErrors = Collections.synchronizedList(new ArrayList<>());
         IntStream.range(0, parallelism)
                 .parallel()
                 .forEach(
@@ -205,14 +205,14 @@ public class SinkFlowTestUtils {
                                         parallelism,
                                         writerCheckpointInfos.get(writerIndex));
                             } catch (Throwable t) {
-                                asyncErrors.add(
-                                        new RuntimeException(
-                                                "Writer " + writerIndex + " failed", t));
+                                t.addSuppressed(
+                                        new RuntimeException("Writer " + writerIndex + " failed"));
+                                asyncErrors.add(t);
                             }
                         });
 
         if (!asyncErrors.isEmpty()) {
-            throw asyncErrors.get(0);
+            rethrow(asyncErrors.get(0));
         }
 
         LinkedHashMap<Long, List<Object>> checkpointCommitInfos =
@@ -365,6 +365,11 @@ public class SinkFlowTestUtils {
         private void incrementTriggeredCount() {
             triggeredCount++;
         }
+    }
+
+    @SuppressWarnings("unchecked")
+    private static <E extends Throwable> void rethrow(Throwable throwable) throws E {
+        throw (E) throwable;
     }
 
     public static final class PeriodicCheckpointOptions {
