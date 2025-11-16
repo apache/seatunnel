@@ -35,8 +35,11 @@ import org.apache.seatunnel.common.constants.JobMode;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 public class SinkFlowTestUtils {
 
@@ -183,44 +186,43 @@ public class SinkFlowTestUtils {
         SeaTunnelSink<SeaTunnelRow, ?, ?, ?> sink =
                 factory.createSink(tableSinkFactoryContext).createSink();
         sink.setJobContext(context);
-        List<Object> commitInfos = new ArrayList<>();
-        for (int i = 0; i < parallelism; i++) {
-            SinkWriter<SeaTunnelRow, ?, ?> sinkWriter =
-                    sink.createWriter(new DefaultSinkWriterContext(i, parallelism));
-            long lastCheckpointTs = System.currentTimeMillis();
-            int recordsSinceLastCheckpoint = 0;
-            CheckpointState checkpointState = new CheckpointState();
-            for (SeaTunnelRow row : rows) {
-                sinkWriter.write(row);
-                recordsSinceLastCheckpoint++;
-                if (shouldTriggerCheckpoint(
-                                checkpointOptions, recordsSinceLastCheckpoint, lastCheckpointTs)
-                        && triggerCheckpoint(
-                                sinkWriter,
-                                checkpointOptions,
-                                checkpointState,
-                                commitInfos,
-                                false)) {
-                    recordsSinceLastCheckpoint = 0;
-                    lastCheckpointTs = System.currentTimeMillis();
-                }
-            }
-            boolean needsFinalCheckpoint =
-                    recordsSinceLastCheckpoint > 0
-                            || checkpointState.triggeredCount == 0
-                            || checkpointOptions.isTriggerOnFinish();
-            if (needsFinalCheckpoint) {
-                triggerCheckpoint(
-                        sinkWriter, checkpointOptions, checkpointState, commitInfos, true);
-            }
-            sinkWriter.close();
+        List<List<Object>> writerCheckpointInfos =
+                IntStream.range(0, parallelism)
+                        .mapToObj(i -> Collections.synchronizedList(new ArrayList<>()))
+                        .collect(Collectors.toList());
+
+        List<RuntimeException> asyncErrors = Collections.synchronizedList(new ArrayList<>());
+        IntStream.range(0, parallelism)
+                .parallel()
+                .forEach(
+                        writerIndex -> {
+                            try {
+                                runWriter(
+                                        sink,
+                                        rows,
+                                        checkpointOptions,
+                                        writerIndex,
+                                        parallelism,
+                                        writerCheckpointInfos.get(writerIndex));
+                            } catch (Throwable t) {
+                                asyncErrors.add(
+                                        new RuntimeException(
+                                                "Writer " + writerIndex + " failed", t));
+                            }
+                        });
+
+        if (!asyncErrors.isEmpty()) {
+            throw asyncErrors.get(0);
         }
+
+        LinkedHashMap<Long, List<Object>> checkpointCommitInfos =
+                buildCheckpointMap(writerCheckpointInfos);
 
         Optional<? extends SinkCommitter<?>> sinkCommitter = sink.createCommitter();
         Optional<? extends SinkAggregatedCommitter<?, ?>> aggregatedCommitterOptional =
                 sink.createAggregatedCommitter();
 
-        if (!commitInfos.isEmpty()) {
+        if (!checkpointCommitInfos.isEmpty()) {
             if (aggregatedCommitterOptional.isPresent()) {
                 SinkAggregatedCommitter<?, ?> aggregatedCommitter =
                         aggregatedCommitterOptional.get();
@@ -236,17 +238,61 @@ public class SinkFlowTestUtils {
                             .setMultiTableResourceManager(resourceManager, 0);
                 }
 
-                Object aggregatedCommitInfoT =
-                        ((SinkAggregatedCommitter) aggregatedCommitter).combine(commitInfos);
-                ((SinkAggregatedCommitter) aggregatedCommitter)
-                        .commit(Collections.singletonList(aggregatedCommitInfoT));
+                for (List<Object> commitInfos : checkpointCommitInfos.values()) {
+                    Object aggregatedCommitInfoT =
+                            ((SinkAggregatedCommitter) aggregatedCommitter).combine(commitInfos);
+                    ((SinkAggregatedCommitter) aggregatedCommitter)
+                            .commit(Collections.singletonList(aggregatedCommitInfoT));
+                }
                 aggregatedCommitter.close();
             } else if (sinkCommitter.isPresent()) {
-                ((SinkCommitter) sinkCommitter.get()).commit(commitInfos);
+                SinkCommitter sinkCommitterInstance = (SinkCommitter) sinkCommitter.get();
+                for (List<Object> commitInfos : checkpointCommitInfos.values()) {
+                    sinkCommitterInstance.commit(commitInfos);
+                }
             } else {
                 throw new RuntimeException("No committer found");
             }
         }
+    }
+
+    private static void runWriter(
+            SeaTunnelSink<SeaTunnelRow, ?, ?, ?> sink,
+            List<SeaTunnelRow> rows,
+            PeriodicCheckpointOptions checkpointOptions,
+            int writerIndex,
+            int parallelism,
+            List<Object> currentWriterCommits)
+            throws IOException {
+        SinkWriter<SeaTunnelRow, ?, ?> sinkWriter =
+                sink.createWriter(new DefaultSinkWriterContext(writerIndex, parallelism));
+        long lastCheckpointTs = System.currentTimeMillis();
+        int recordsSinceLastCheckpoint = 0;
+        CheckpointState checkpointState = new CheckpointState();
+        for (SeaTunnelRow row : rows) {
+            sinkWriter.write(row);
+            recordsSinceLastCheckpoint++;
+            if (shouldTriggerCheckpoint(
+                            checkpointOptions, recordsSinceLastCheckpoint, lastCheckpointTs)
+                    && triggerCheckpoint(
+                            sinkWriter,
+                            checkpointOptions,
+                            checkpointState,
+                            currentWriterCommits,
+                            false)) {
+                recordsSinceLastCheckpoint = 0;
+                lastCheckpointTs = System.currentTimeMillis();
+            }
+        }
+        boolean needsFinalCheckpoint =
+                recordsSinceLastCheckpoint > 0
+                        || checkpointState.triggeredCount == 0
+                        || checkpointOptions.isTriggerOnFinish();
+        if (needsFinalCheckpoint) {
+            triggerCheckpoint(
+                    sinkWriter, checkpointOptions, checkpointState, currentWriterCommits, true);
+        }
+        sinkWriter.close();
     }
 
     private static boolean shouldTriggerCheckpoint(
@@ -270,7 +316,7 @@ public class SinkFlowTestUtils {
             SinkWriter<SeaTunnelRow, ?, ?> sinkWriter,
             PeriodicCheckpointOptions options,
             CheckpointState checkpointState,
-            List<Object> commitInfos,
+            List<Object> writerCheckpointInfos,
             boolean force)
             throws IOException {
         if (!force && !options.canTrigger(checkpointState.triggeredCount)) {
@@ -280,10 +326,32 @@ public class SinkFlowTestUtils {
         Optional<?> commitInfo = sinkWriter.prepareCommit(checkpointId);
         sinkWriter.snapshotState(checkpointId);
         if (commitInfo.isPresent()) {
-            commitInfos.add(commitInfo.get());
+            writerCheckpointInfos.add(commitInfo.get());
         }
         checkpointState.incrementTriggeredCount();
         return true;
+    }
+
+    private static LinkedHashMap<Long, List<Object>> buildCheckpointMap(
+            List<List<Object>> writerCheckpointInfos) {
+        LinkedHashMap<Long, List<Object>> checkpointCommitInfos = new LinkedHashMap<>();
+        int rounds = 0;
+        for (List<Object> infos : writerCheckpointInfos) {
+            rounds = Math.max(rounds, infos.size());
+        }
+        long checkpointId = 1L;
+        for (int round = 0; round < rounds; round++) {
+            List<Object> aggregatedInfos = new ArrayList<>();
+            for (List<Object> writerInfos : writerCheckpointInfos) {
+                if (round < writerInfos.size()) {
+                    aggregatedInfos.add(writerInfos.get(round));
+                }
+            }
+            if (!aggregatedInfos.isEmpty()) {
+                checkpointCommitInfos.put(checkpointId++, aggregatedInfos);
+            }
+        }
+        return checkpointCommitInfos;
     }
 
     private static class CheckpointState {
