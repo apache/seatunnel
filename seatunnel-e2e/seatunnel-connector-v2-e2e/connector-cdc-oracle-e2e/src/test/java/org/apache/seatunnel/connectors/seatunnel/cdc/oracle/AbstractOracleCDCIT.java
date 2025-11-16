@@ -53,9 +53,9 @@ import static org.junit.Assert.assertNotNull;
 @Slf4j
 public class AbstractOracleCDCIT extends TestSuiteBase {
 
-    protected static final String ORACLE_IMAGE = "goodboy008/oracle-19.3.0-ee:non-cdb";
+    protected static final String ORACLE_IMAGE = "seatunnelhub/oracle-19.3.0-ee:non-cdb";
 
-    protected static final String ORACLE_IMAGE_ARM = "goodboy008/oracle-19.3.0-ee:arm-non-cdb";
+    protected static final String ORACLE_IMAGE_ARM = "seatunnelhub/oracle-19.3.0-ee:arm-non-cdb";
 
     protected static final String HOST = "oracle-host";
 
