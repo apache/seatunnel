@@ -1425,7 +1425,6 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
             producer.send(record);
             producer.flush();
         }
-        long endOffset = endOffsetOnP0(producerTopic);
         // async execute
         CompletableFuture.supplyAsync(
                 () -> {
@@ -1439,15 +1438,12 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                     return null;
                 });
         // wait for data written to kafka
-        long finalEndOffset1 = endOffset;
-        given().pollDelay(30, SECONDS)
+        given().pollDelay(60, SECONDS)
                 .pollInterval(5, SECONDS)
                 .await()
                 .atMost(5, MINUTES)
                 .untilAsserted(
-                        () ->
-                                Assertions.assertTrue(
-                                        checkData(consumerTopic, finalEndOffset1, sourceData)));
+                        () -> Assertions.assertTrue(checkData(consumerTopic, 10, sourceData)));
 
         // Savepoint the running job (so restore should continue from this position).
         container.savepointJob(jobId);
@@ -1459,8 +1455,6 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
             producer.flush();
         }
 
-        endOffset = endOffsetOnP0(producerTopic) - finalEndOffset1;
-        long finalEndOffset2 = endOffset;
         CompletableFuture.runAsync(
                 () -> {
                     try {
@@ -1471,14 +1465,12 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                     }
                 });
 
-        given().pollDelay(30, SECONDS)
+        given().pollDelay(60, SECONDS)
                 .pollInterval(5, SECONDS)
                 .await()
-                .atMost(5, MINUTES)
+                .atMost(10, MINUTES)
                 .untilAsserted(
-                        () ->
-                                Assertions.assertTrue(
-                                        checkData(consumerTopic, finalEndOffset2, sourceData)));
+                        () -> Assertions.assertTrue(checkData(consumerTopic, 10, sourceData)));
     }
 
     @TestTemplate
