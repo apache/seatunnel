@@ -50,7 +50,8 @@ class KafkaRecordEmitterTest {
         SeaTunnelRowType rowType =
                 new SeaTunnelRowType(
                         new String[] {"f0"}, new SeaTunnelDataType[] {BasicType.STRING_TYPE});
-        DeserializationSchema<SeaTunnelRow> schema = new SimpleStringRowSchema(rowType);
+        DeserializationSchema<SeaTunnelRow> schema =
+                new KafkaEventTimeDeserializationSchema(new SimpleStringRowSchema(rowType));
 
         // Build ConsumerMetadata map for the table
         ConsumerMetadata metadata = new ConsumerMetadata();
@@ -94,7 +95,8 @@ class KafkaRecordEmitterTest {
         SeaTunnelRowType rowType =
                 new SeaTunnelRowType(
                         new String[] {"f0"}, new SeaTunnelDataType[] {BasicType.STRING_TYPE});
-        DeserializationSchema<SeaTunnelRow> schema = new SimpleStringRowSchema(rowType);
+        DeserializationSchema<SeaTunnelRow> schema =
+                new KafkaEventTimeDeserializationSchema(new SimpleStringRowSchema(rowType));
 
         ConsumerMetadata metadata = new ConsumerMetadata();
         metadata.setDeserializationSchema(schema);
