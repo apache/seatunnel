@@ -1163,6 +1163,154 @@ public class ClusterSeaTunnelEngineContainer extends SeaTunnelEngineContainer {
                         });
     }
 
+    @Test
+    public void testForceStopJob() {
+        AtomicInteger i = new AtomicInteger();
+
+        Arrays.asList(server, secondServer)
+                .forEach(
+                        container -> {
+                            Tuple3<Integer, String, Long> task = tasks.get(0);
+                            String jobId =
+                                    submitJob(
+                                                    container,
+                                                    task._1(),
+                                                    task._2(),
+                                                    "STREAMING",
+                                                    jobName,
+                                                    paramJobName)
+                                            .getBody()
+                                            .jsonPath()
+                                            .getString("jobId");
+
+                            Awaitility.await()
+                                    .atMost(2, TimeUnit.MINUTES)
+                                    .untilAsserted(
+                                            () ->
+                                                    given().get(
+                                                                    http
+                                                                            + container.getHost()
+                                                                            + colon
+                                                                            + task._1()
+                                                                            + task._2()
+                                                                            + RestConstant
+                                                                                    .REST_URL_RUNNING_JOB
+                                                                            + "/"
+                                                                            + jobId)
+                                                            .then()
+                                                            .statusCode(200)
+                                                            .body("jobStatus", equalTo("RUNNING")));
+
+                            String parameters =
+                                    "{" + "\"jobId\":" + jobId + "," + "\"force\":true}";
+
+                            given().body(parameters)
+                                    .post(
+                                            http
+                                                    + container.getHost()
+                                                    + colon
+                                                    + task._1()
+                                                    + task._2()
+                                                    + RestConstant.REST_URL_STOP_JOB)
+                                    .then()
+                                    .statusCode(200)
+                                    .body("jobId", equalTo(jobId));
+
+                            Awaitility.await()
+                                    .atMost(6, TimeUnit.MINUTES)
+                                    .untilAsserted(
+                                            () ->
+                                                    given().get(
+                                                                    http
+                                                                            + container.getHost()
+                                                                            + colon
+                                                                            + task._1()
+                                                                            + task._2()
+                                                                            + RestConstant
+                                                                                    .REST_URL_FINISHED_JOBS
+                                                                            + "/CANCELED")
+                                                            .then()
+                                                            .statusCode(200)
+                                                            .body(
+                                                                    "[" + i.get() + "].jobId",
+                                                                    equalTo(jobId)));
+                        });
+    }
+
+    @Test
+    public void testForceStopJobV2() {
+        AtomicInteger i = new AtomicInteger();
+
+        Arrays.asList(server, secondServer)
+                .forEach(
+                        container -> {
+                            Tuple3<Integer, String, Long> task = tasks.get(1);
+                            String jobId =
+                                    submitJob(
+                                                    container,
+                                                    task._1(),
+                                                    task._2(),
+                                                    "STREAMING",
+                                                    jobName,
+                                                    paramJobName)
+                                            .getBody()
+                                            .jsonPath()
+                                            .getString("jobId");
+
+                            Awaitility.await()
+                                    .atMost(2, TimeUnit.MINUTES)
+                                    .untilAsserted(
+                                            () ->
+                                                    given().get(
+                                                                    http
+                                                                            + container.getHost()
+                                                                            + colon
+                                                                            + task._1()
+                                                                            + task._2()
+                                                                            + RestConstant
+                                                                                    .REST_URL_RUNNING_JOB
+                                                                            + "/"
+                                                                            + jobId)
+                                                            .then()
+                                                            .statusCode(200)
+                                                            .body("jobStatus", equalTo("RUNNING")));
+
+                            String parameters =
+                                    "{" + "\"jobId\":" + jobId + "," + "\"force\":true}";
+
+                            given().body(parameters)
+                                    .post(
+                                            http
+                                                    + container.getHost()
+                                                    + colon
+                                                    + task._1()
+                                                    + task._2()
+                                                    + RestConstant.REST_URL_STOP_JOB)
+                                    .then()
+                                    .statusCode(200)
+                                    .body("jobId", equalTo(jobId));
+
+                            Awaitility.await()
+                                    .atMost(6, TimeUnit.MINUTES)
+                                    .untilAsserted(
+                                            () ->
+                                                    given().get(
+                                                                    http
+                                                                            + container.getHost()
+                                                                            + colon
+                                                                            + task._1()
+                                                                            + task._2()
+                                                                            + RestConstant
+                                                                                    .REST_URL_FINISHED_JOBS
+                                                                            + "/CANCELED")
+                                                            .then()
+                                                            .statusCode(200)
+                                                            .body(
+                                                                    "[" + i.get() + "].jobId",
+                                                                    equalTo(jobId)));
+                        });
+    }
+
     private void submitJobs(
             String jobMode,
             GenericContainer<?> container,

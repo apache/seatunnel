@@ -606,7 +606,13 @@ public class CheckpointCoordinator {
         CompletableFuture<PendingCheckpoint> savepoint;
         synchronized (lock) {
             while (pendingCounter.get() > 0 && !shutdown) {
-                Thread.sleep(500);
+                try {
+                    lock.wait(500);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    return completableFutureWithError(
+                            CheckpointCloseReason.CHECKPOINT_COORDINATOR_SHUTDOWN);
+                }
             }
             if (shutdown || isCompleted()) {
                 return completableFutureWithError(
@@ -714,7 +720,10 @@ public class CheckpointCoordinator {
                                         TimeUnit.MILLISECONDS));
                     }
                 });
-        pendingCounter.incrementAndGet();
+        synchronized (lock) {
+            pendingCounter.incrementAndGet();
+            lock.notifyAll();
+        }
     }
 
     private CompletableFuture<PendingCheckpoint> createPendingCheckpoint(
@@ -854,7 +863,10 @@ public class CheckpointCoordinator {
             readyToCloseStartingTask.clear();
             readyToCloseIdleTask.clear();
             closedIdleTask.clear();
-            pendingCounter.set(0);
+            synchronized (lock) {
+                pendingCounter.set(0);
+                lock.notifyAll();
+            }
             schemaChanging.set(false);
             scheduler.shutdownNow();
             scheduler =
@@ -950,7 +962,10 @@ public class CheckpointCoordinator {
         latestCompletedCheckpoint = completedCheckpoint;
         notifyCompleted(completedCheckpoint);
         pendingCheckpoints.remove(checkpointId).abortCheckpointTimeoutFutureWhenIsCompleted();
-        pendingCounter.decrementAndGet();
+        synchronized (lock) {
+            pendingCounter.decrementAndGet();
+            lock.notifyAll();
+        }
 
         if (isCompleted()) {
             cleanPendingCheckpoint(CheckpointCloseReason.CHECKPOINT_COORDINATOR_COMPLETED);

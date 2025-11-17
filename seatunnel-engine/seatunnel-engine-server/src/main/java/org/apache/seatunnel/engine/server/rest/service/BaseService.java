@@ -47,6 +47,7 @@ import org.apache.seatunnel.engine.server.operation.GetClusterHealthMetricsOpera
 import org.apache.seatunnel.engine.server.operation.GetJobMetricsOperation;
 import org.apache.seatunnel.engine.server.operation.GetJobStatusOperation;
 import org.apache.seatunnel.engine.server.operation.SavePointJobOperation;
+import org.apache.seatunnel.engine.server.operation.StopJobOperation;
 import org.apache.seatunnel.engine.server.operation.SubmitJobOperation;
 import org.apache.seatunnel.engine.server.rest.RestConstant;
 import org.apache.seatunnel.engine.server.rest.RestJobExecutionEnvironment;
@@ -472,8 +473,18 @@ public abstract class BaseService {
             isStopWithSavePoint =
                     Boolean.parseBoolean(map.get(RestConstant.IS_STOP_WITH_SAVE_POINT).toString());
         }
+        boolean forceStop = false;
+        if (map.get(RestConstant.FORCE) != null) {
+            forceStop = Boolean.parseBoolean(map.get(RestConstant.FORCE).toString());
+        }
 
         if (!seaTunnelServer.isMasterNode()) {
+            if (forceStop) {
+                NodeEngineUtil.sendOperationToMasterNode(
+                                node.nodeEngine, new StopJobOperation(jobId))
+                        .join();
+                return;
+            }
             if (isStopWithSavePoint) {
                 NodeEngineUtil.sendOperationToMasterNode(
                                 node.nodeEngine, new SavePointJobOperation(jobId))
@@ -486,7 +497,10 @@ public abstract class BaseService {
 
         } else {
             CoordinatorService coordinatorService = seaTunnelServer.getCoordinatorService();
-
+            if (forceStop) {
+                coordinatorService.stopJob(jobId);
+                return;
+            }
             if (isStopWithSavePoint) {
                 coordinatorService.savePoint(jobId);
             } else {

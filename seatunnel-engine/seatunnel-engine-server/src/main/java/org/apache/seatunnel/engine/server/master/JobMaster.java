@@ -772,6 +772,10 @@ public class JobMaster {
         physicalPlan.cancelJob();
     }
 
+    public synchronized void stopJob() {
+        physicalPlan.stopJob();
+    }
+
     public ResourceManager getResourceManager() {
         return resourceManager;
     }
@@ -1046,6 +1050,11 @@ public class JobMaster {
         jobMasterCompleteFuture.completeExceptionally(new InterruptedException());
     }
 
+    public void interruptAll() {
+        isRunning = false;
+        jobMasterCompleteFuture.cancel(true);
+    }
+
     public void neverNeedRestore() {
         this.needRestore = false;
     }
@@ -1061,5 +1070,9 @@ public class JobMaster {
     @VisibleForTesting
     public IMap<Object, Object> getRunningJobStateIMap() {
         return runningJobStateIMap;
+    }
+
+    public IMap<PipelineLocation, Map<TaskGroupLocation, SlotProfile>> getOwnedSlotProfilesIMap() {
+        return ownedSlotProfilesIMap;
     }
 }

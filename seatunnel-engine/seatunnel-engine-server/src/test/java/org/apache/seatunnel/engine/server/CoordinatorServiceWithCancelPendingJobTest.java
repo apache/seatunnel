@@ -142,6 +142,32 @@ public class CoordinatorServiceWithCancelPendingJobTest extends AbstractSeaTunne
                                         JobStatus.CANCELED, jobMaster.getJobStatus()));
     }
 
+    @Test
+    public void testStopPendingJob() throws InterruptedException {
+
+        long jobId = instance.getFlakeIdGenerator("testStopPendingJob").newId();
+        JobMaster jobMaster = newJobInstanceWithRunningState(jobId);
+
+        // Verify that the task is pending
+        Assertions.assertTrue(server.getCoordinatorService().getPendingJobQueue().contains(jobId));
+
+        // Cancel Task
+        PassiveCompletableFuture<Void> voidPassiveCompletableFuture =
+                server.getCoordinatorService().stopJob(jobId);
+        voidPassiveCompletableFuture.join();
+
+        // Verify if the task has been deleted in pending
+        Assertions.assertFalse(server.getCoordinatorService().getPendingJobQueue().contains(jobId));
+
+        // Verify if the final status of the task is cancelled
+        await().pollDelay(3, TimeUnit.SECONDS)
+                .atMost(120, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        JobStatus.CANCELED, jobMaster.getJobStatus()));
+    }
+
     private JobMaster newJobInstanceWithRunningState(long jobId) throws InterruptedException {
         return newJobInstanceWithRunningState(jobId, false);
     }

@@ -767,6 +767,42 @@ public class CoordinatorService {
         }
     }
 
+    public PassiveCompletableFuture<Void> stopJob(long jobId) {
+        JobMaster runningJobMaster = getJobMaster(jobId);
+        if (runningJobMaster == null) {
+            CompletableFuture<Void> future = new CompletableFuture<>();
+            future.complete(null);
+            return new PassiveCompletableFuture<>(future);
+        } else {
+            boolean isPendingJob = pendingJobQueue.contains(jobId);
+            // Cancel pending tasks
+            if (isPendingJob) {
+                pendingJobQueue.removeById(jobId);
+                logger.fine(String.format("Stop pending tasks : %s", jobId));
+            }
+            return new PassiveCompletableFuture<>(
+                    CompletableFuture.supplyAsync(
+                            () -> {
+                                try {
+                                    runningJobMaster.stopJob();
+                                } catch (Exception e) {
+                                    logger.warning(
+                                            "Stop job failed. Try force stop: " + e.getMessage());
+                                    runningJobMaster.interruptAll();
+                                }
+                                // The pending task "JobMaster.init" has not been executed, so the
+                                // job status (JobStatus) will not be stored in the
+                                // jobHistoryService. Here, storeJobEndState is called to store the
+                                // `CANCELED` status in the jobHistoryService.
+                                if (isPendingJob) {
+                                    runningJobMaster.storeJobEndState();
+                                }
+                                return null;
+                            },
+                            executorService));
+        }
+    }
+
     public JobStatus getJobStatus(long jobId) {
         if (pendingJobQueue.contains(jobId)) {
             return JobStatus.PENDING;
@@ -1086,5 +1122,10 @@ public class CoordinatorService {
     @VisibleForTesting
     public PeekBlockingQueue<PendingJobInfo> getPendingJobQueue() {
         return pendingJobQueue;
+    }
+
+    @VisibleForTesting
+    public IMap<PipelineLocation, Map<TaskGroupLocation, SlotProfile>> getOwnedSlotProfilesIMap() {
+        return ownedSlotProfilesIMap;
     }
 }

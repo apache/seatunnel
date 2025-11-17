@@ -220,6 +220,46 @@ public class PhysicalPlan {
         updateJobState(JobStatus.DOING_SAVEPOINT);
     }
 
+    public void stopJob() {
+        JobStatus jobStatus = getJobStatus();
+        if (jobStatus.isEndState()) {
+            log.warn(
+                    String.format(
+                            "%s is in end state %s, can not be stop", jobFullName, jobStatus));
+            return;
+        }
+
+        if (jobStatus.ordinal() <= JobStatus.PENDING.ordinal()) {
+            // Tasks with the status 'INITIALIZING', 'CREATED', 'PENDING' need to be set directly to
+            // the 'CANCELLED' state because it has not yet started running
+            updateJobState(JobStatus.CANCELED);
+        } else {
+            try {
+                jobMaster.neverNeedRestore();
+                List<SubPlan> subPlans = getPipelineList();
+                subPlans.forEach(SubPlan::cancelPipeline);
+                subPlans.forEach(
+                        subPlan -> {
+                            List<PhysicalVertex> coordinatorVertices =
+                                    subPlan.getCoordinatorVertexList();
+                            coordinatorVertices.forEach(
+                                    task -> {
+                                        task.startPhysicalVertex();
+                                        task.cancel();
+                                    });
+                            List<PhysicalVertex> physicalVertices = subPlan.getPhysicalVertexList();
+                            physicalVertices.forEach(
+                                    task -> {
+                                        task.startPhysicalVertex();
+                                        task.cancel();
+                                    });
+                        });
+            } finally {
+                updateJobState(JobStatus.CANCELED);
+            }
+        }
+    }
+
     public List<SubPlan> getPipelineList() {
         return pipelineList;
     }
