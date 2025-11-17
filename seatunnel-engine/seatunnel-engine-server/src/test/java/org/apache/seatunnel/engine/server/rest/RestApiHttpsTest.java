@@ -149,7 +149,8 @@ public class RestApiHttpsTest extends AbstractSeaTunnelServerTest {
 
         // wait until all jobs are finished
         await().pollDelay(5, TimeUnit.SECONDS)
-                .atMost(30000, TimeUnit.MILLISECONDS)
+                .atMost(30, TimeUnit.SECONDS)
+                .pollInterval(100, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () -> {
                             while (jobInformation
@@ -209,7 +210,8 @@ public class RestApiHttpsTest extends AbstractSeaTunnelServerTest {
         }
 
         // wait until all jobs are running
-        await().atMost(30000, TimeUnit.MILLISECONDS)
+        await().atMost(60, TimeUnit.SECONDS)
+                .pollInterval(100, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () -> {
                             while (jobInformation.coordinatorService.getRunningJobMetrics().size()
@@ -254,7 +256,8 @@ public class RestApiHttpsTest extends AbstractSeaTunnelServerTest {
 
         // wait until all jobs are finished
         await().pollDelay(5, TimeUnit.SECONDS)
-                .atMost(30000, TimeUnit.MILLISECONDS)
+                .atMost(30, TimeUnit.SECONDS)
+                .pollInterval(100, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () -> {
                             while (jobInformation
