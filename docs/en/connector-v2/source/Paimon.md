@@ -95,7 +95,11 @@ The filter condition of the table read. For example: `select * from st_test wher
 Currently, where conditions only support <, <=, >, >=, =, !=, or, and,is null, is not null, between...and, in, not in, like, and others are not supported.
 The Having, Group By, Order By clauses are currently unsupported, because these clauses are not supported by Paimon.
 you can also project specific columns, for example: select id, name from st_test where id > 100.
-The limit will be supported in the future.
+
+Supports dynamic options settings:
+```sql
+SELECT * FROM table /*+ OPTIONS('incremental-between' = 'test-tag1,test-tag2') */;
+```
 
 Note: When the field after the where condition is a string or boolean value, its value must be enclosed in single quotes, otherwise an error will be reported. `For example: name='abc' or tag='true'`
 The field data types currently supported by where conditions are as follows:

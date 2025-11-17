@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.hive.sink;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.sink.DataSaveMode;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
@@ -51,6 +52,11 @@ public class HiveSinkFactory
                 .optional(HiveConfig.HADOOP_CONF)
                 .optional(HiveConfig.HADOOP_CONF_PATH)
                 .optional(FileBaseSinkOptions.PARQUET_AVRO_WRITE_TIMESTAMP_AS_INT96)
+                // SaveMode related options
+                .optional(HiveSinkOptions.SCHEMA_SAVE_MODE)
+                .optional(HiveSinkOptions.DATA_SAVE_MODE)
+                .optional(HiveSinkOptions.OVERWRITE)
+                .optional(HiveSinkOptions.SAVE_MODE_CREATE_TEMPLATE)
                 .build();
     }
 
@@ -59,7 +65,18 @@ public class HiveSinkFactory
             createSink(TableSinkFactoryContext context) {
         ReadonlyConfig readonlyConfig = context.getOptions();
         CatalogTable catalogTable = context.getCatalogTable();
-        return () -> new HiveSink(readonlyConfig, catalogTable);
+
+        return () -> {
+            java.util.Map<String, Object> conf =
+                    new java.util.LinkedHashMap<>(readonlyConfig.getSourceMap());
+            java.util.Optional<Boolean> overwriteOptional =
+                    readonlyConfig.getOptional(HiveSinkOptions.OVERWRITE);
+            if (overwriteOptional.isPresent() && overwriteOptional.get()) {
+                conf.put(HiveSinkOptions.DATA_SAVE_MODE.key(), DataSaveMode.DROP_DATA.name());
+            }
+            ReadonlyConfig adjusted = ReadonlyConfig.fromMap(conf);
+            return new HiveSink(adjusted, catalogTable);
+        };
     }
 
     @Override

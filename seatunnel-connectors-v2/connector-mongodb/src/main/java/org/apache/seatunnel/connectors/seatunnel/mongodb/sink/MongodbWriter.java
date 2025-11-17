@@ -151,11 +151,14 @@ public class MongodbWriter
 
     @Override
     public void close() {
-        if (!transaction) {
-            doBulkWrite();
-        }
-        if (collectionProvider != null) {
-            collectionProvider.close();
+        try {
+            if (!transaction) {
+                doBulkWrite();
+            }
+        } finally {
+            if (collectionProvider != null) {
+                collectionProvider.close();
+            }
         }
     }
 
