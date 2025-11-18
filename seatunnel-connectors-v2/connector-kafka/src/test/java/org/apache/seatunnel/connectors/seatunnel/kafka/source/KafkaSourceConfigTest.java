@@ -66,14 +66,12 @@ public class KafkaSourceConfigTest {
         DeserializationSchema<SeaTunnelRow> deserializationSchema =
                 sourceConfig.getMapMetadata().get(TablePath.of("test")).getDeserializationSchema();
 
-        Assertions.assertTrue(
-                deserializationSchema instanceof KafkaEventTimeDeserializationSchema);
+        Assertions.assertTrue(deserializationSchema instanceof KafkaEventTimeDeserializationSchema);
 
         DeserializationSchema<SeaTunnelRow> innerSchema =
                 ((KafkaEventTimeDeserializationSchema) deserializationSchema).getDelegate();
 
-        Assertions.assertTrue(
-                innerSchema instanceof DebeziumJsonDeserializationSchemaDispatcher);
+        Assertions.assertTrue(innerSchema instanceof DebeziumJsonDeserializationSchemaDispatcher);
         Assertions.assertNotNull(
                 ((DebeziumJsonDeserializationSchemaDispatcher) innerSchema)
                         .getTableDeserializationMap()
