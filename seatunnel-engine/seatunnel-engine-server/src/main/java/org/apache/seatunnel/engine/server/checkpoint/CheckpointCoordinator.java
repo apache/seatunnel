@@ -722,7 +722,6 @@ public class CheckpointCoordinator {
                 });
         synchronized (lock) {
             pendingCounter.incrementAndGet();
-            lock.notifyAll();
         }
     }
 
