@@ -610,9 +610,7 @@ public class CheckpointCoordinator {
                     lock.wait(500);
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
-                    handleCoordinatorError(
-                            "start checkpoint failed",
-                            e,
+                    return completableFutureWithError(
                             CheckpointCloseReason.CHECKPOINT_INSIDE_ERROR);
                 }
             }
