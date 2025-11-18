@@ -82,7 +82,7 @@ public class MongodbFetchTaskContext implements FetchTask.Context {
     private final ChangeStreamDescriptor changeStreamDescriptor;
     private ChangeEventQueue<DataChangeEvent> changeEventQueue;
 
-    private MongoClient mongoClient;
+    private final MongoClient mongoClient;
 
     public MongodbFetchTaskContext(
             MongodbDialect dialect,
