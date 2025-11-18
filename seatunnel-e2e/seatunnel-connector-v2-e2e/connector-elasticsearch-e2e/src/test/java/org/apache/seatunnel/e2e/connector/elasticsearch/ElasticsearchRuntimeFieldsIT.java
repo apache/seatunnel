@@ -17,19 +17,15 @@
 
 package org.apache.seatunnel.e2e.connector.elasticsearch;
 
-import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
-import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.client.EsRestClient;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.BulkResponse;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
-import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
-import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
@@ -46,8 +42,6 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.time.Duration;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -55,8 +49,8 @@ import java.util.Map;
 import java.util.stream.Stream;
 
 /**
- * E2E test for Elasticsearch Runtime Fields feature (available in Elasticsearch 7.11+)
- * Runtime fields allow computing field values at query time without reindexing data
+ * E2E test for Elasticsearch Runtime Fields feature (available in Elasticsearch 7.11+) Runtime
+ * fields allow computing field values at query time without reindexing data
  */
 @Slf4j
 public class ElasticsearchRuntimeFieldsIT extends TestSuiteBase implements TestResource {
@@ -111,19 +105,17 @@ public class ElasticsearchRuntimeFieldsIT extends TestSuiteBase implements TestR
         }
     }
 
-    /**
-     * Create test index with sample data for runtime fields testing
-     */
+    /** Create test index with sample data for runtime fields testing */
     private void createTestIndexWithData() throws IOException, InterruptedException {
         String indexName = "st_index_runtime";
-        
+
         // Create index
         esRestClient.createIndex(indexName);
         log.info("Created index: {}", indexName);
 
         // Prepare test data
         List<String> testData = generateTestData();
-        
+
         // Bulk insert data
         StringBuilder bulkRequestBody = new StringBuilder();
         for (String doc : testData) {
@@ -144,51 +136,49 @@ public class ElasticsearchRuntimeFieldsIT extends TestSuiteBase implements TestR
     }
 
     /**
-     * Generate test data with timestamp and numeric fields for runtime field computation
-     * Using fixed dates for predictable runtime field results
+     * Generate test data with timestamp and numeric fields for runtime field computation Using
+     * fixed dates for predictable runtime field results
      */
     private List<String> generateTestData() throws IOException {
         List<String> testData = new ArrayList<>();
-        
+
         // Use a fixed date: 2024-01-15 (Monday) for predictable day_of_week
         Map<String, Object> doc = new HashMap<>();
         doc.put("c_string", "test_1");
         doc.put("c_int", 10);
         doc.put("c_timestamp", "2024-01-15T10:00:00");
         testData.add(OBJECT_MAPPER.writeValueAsString(doc));
-        
+
         return testData;
     }
 
     /**
-     * Test Elasticsearch source with runtime fields
-     * Runtime fields are computed at query time:
-     * - day_of_week: extracts day of week from timestamp
-     * - c_int_doubled: doubles the c_int value
-     * - full_name: concatenates c_string with '_computed'
+     * Test Elasticsearch source with runtime fields Runtime fields are computed at query time: -
+     * day_of_week: extracts day of week from timestamp - c_int_doubled: doubles the c_int value -
+     * full_name: concatenates c_string with '_computed'
      */
     @TestTemplate
     public void testElasticsearchSourceWithRuntimeFields(TestContainer container)
             throws IOException, InterruptedException {
         Container.ExecResult execResult =
-                container.executeJob("/elasticsearch/elasticsearch_source_with_runtime_fields.conf");
+                container.executeJob(
+                        "/elasticsearch/elasticsearch_source_with_runtime_fields.conf");
         Assertions.assertEquals(0, execResult.getExitCode(), "Job should complete successfully");
-        
+
         log.info("Runtime fields test completed successfully");
         log.info("Job output: {}", execResult.getStdout());
     }
 
-    /**
-     * Test runtime fields with Scroll API
-     */
+    /** Test runtime fields with Scroll API */
     @TestTemplate
     public void testRuntimeFieldsWithScrollApi(TestContainer container)
             throws IOException, InterruptedException {
         // This test verifies that runtime fields work correctly with Scroll API
         Container.ExecResult execResult =
-                container.executeJob("/elasticsearch/elasticsearch_source_with_runtime_fields.conf");
+                container.executeJob(
+                        "/elasticsearch/elasticsearch_source_with_runtime_fields.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
-        
+
         // Verify that runtime fields are included in the output
         String output = execResult.getStdout();
         Assertions.assertTrue(

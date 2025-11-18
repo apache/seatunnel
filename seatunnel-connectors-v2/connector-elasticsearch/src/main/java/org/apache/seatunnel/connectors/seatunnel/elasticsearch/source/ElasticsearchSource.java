@@ -188,8 +188,9 @@ public class ElasticsearchSource
         // Parse runtime fields configuration
         Map<String, Object> runtimeFields = null;
         if (readonlyConfig.getOptional(ElasticsearchSourceOptions.RUNTIME_FIELDS).isPresent()) {
-            runtimeFields = parseRuntimeFields(
-                    readonlyConfig.get(ElasticsearchSourceOptions.RUNTIME_FIELDS));
+            runtimeFields =
+                    parseRuntimeFields(
+                            readonlyConfig.get(ElasticsearchSourceOptions.RUNTIME_FIELDS));
         }
 
         ElasticsearchConfig elasticsearchConfig = new ElasticsearchConfig();
@@ -226,7 +227,7 @@ public class ElasticsearchSource
             String name = (String) fieldConfig.get("name");
             String type = (String) fieldConfig.get("type");
             String script = (String) fieldConfig.get("script");
-            
+
             if (name == null || type == null || script == null) {
                 log.warn("Invalid runtime field configuration: {}, skipping", fieldConfig);
                 continue;
@@ -234,20 +235,20 @@ public class ElasticsearchSource
 
             Map<String, Object> fieldDef = new java.util.LinkedHashMap<>();
             fieldDef.put("type", type);
-            
+
             Map<String, Object> scriptDef = new java.util.LinkedHashMap<>();
             scriptDef.put("source", script);
-            
+
             // Optional: script language (default is painless)
             if (fieldConfig.containsKey("script_lang")) {
                 scriptDef.put("lang", fieldConfig.get("script_lang"));
             }
-            
+
             // Optional: script parameters
             if (fieldConfig.containsKey("script_params")) {
                 scriptDef.put("params", fieldConfig.get("script_params"));
             }
-            
+
             fieldDef.put("script", scriptDef);
             runtimeMappings.put(name, fieldDef);
         }

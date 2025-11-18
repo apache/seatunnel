@@ -223,12 +223,12 @@ public class EsRestClient implements Closeable {
         param.put("_source", source);
         param.put("sort", new String[] {"_doc"});
         param.put("size", scrollSize);
-        
+
         // Add runtime fields if provided (Elasticsearch 7.11+)
         if (runtimeFields != null && !runtimeFields.isEmpty()) {
             param.put("runtime_mappings", runtimeFields);
         }
-        
+
         String endpoint = "/" + index + "/_search?scroll=" + scrollTime;
         return getDocsFromScrollRequest(endpoint, JsonUtils.toJsonString(param));
     }
