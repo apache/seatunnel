@@ -198,11 +198,37 @@ public class EsRestClient implements Closeable {
             Map<String, Object> query,
             String scrollTime,
             int scrollSize) {
+        return searchByScroll(index, source, query, scrollTime, scrollSize, null);
+    }
+
+    /**
+     * Search documents by scroll with runtime fields support
+     *
+     * @param index index name
+     * @param source select fields
+     * @param query query DSL
+     * @param scrollTime scroll time such as:1m
+     * @param scrollSize fetch documents count in one request
+     * @param runtimeFields runtime fields definition (Elasticsearch 7.11+)
+     */
+    public ScrollResult searchByScroll(
+            String index,
+            List<String> source,
+            Map<String, Object> query,
+            String scrollTime,
+            int scrollSize,
+            Map<String, Object> runtimeFields) {
         Map<String, Object> param = new HashMap<>();
         param.put("query", query);
         param.put("_source", source);
         param.put("sort", new String[] {"_doc"});
         param.put("size", scrollSize);
+        
+        // Add runtime fields if provided (Elasticsearch 7.11+)
+        if (runtimeFields != null && !runtimeFields.isEmpty()) {
+            param.put("runtime_mappings", runtimeFields);
+        }
+        
         String endpoint = "/" + index + "/_search?scroll=" + scrollTime;
         return getDocsFromScrollRequest(endpoint, JsonUtils.toJsonString(param));
     }
@@ -875,11 +901,39 @@ public class EsRestClient implements Closeable {
             int batchSize,
             Object[] searchAfter,
             long keepAlive) {
+        return searchWithPointInTime(pitId, source, query, batchSize, searchAfter, keepAlive, null);
+    }
+
+    /**
+     * Search documents using Point-in-Time with runtime fields support
+     *
+     * @param pitId The PIT ID
+     * @param source Fields to return
+     * @param query Query DSL
+     * @param batchSize Number of documents to return
+     * @param searchAfter Pagination cursor
+     * @param keepAlive Keep alive time in milliseconds
+     * @param runtimeFields Runtime fields definition (Elasticsearch 7.11+)
+     * @return Search results
+     */
+    public PointInTimeResult searchWithPointInTime(
+            String pitId,
+            List<String> source,
+            Map<String, Object> query,
+            int batchSize,
+            Object[] searchAfter,
+            long keepAlive,
+            Map<String, Object> runtimeFields) {
 
         Map<String, Object> requestBody = new HashMap<>();
         requestBody.put("size", batchSize);
         requestBody.put("query", query);
         requestBody.put("_source", source);
+
+        // Add runtime fields if provided (Elasticsearch 7.11+)
+        if (runtimeFields != null && !runtimeFields.isEmpty()) {
+            requestBody.put("runtime_mappings", runtimeFields);
+        }
 
         // Add PIT information
         Map<String, Object> pit = new HashMap<>();
