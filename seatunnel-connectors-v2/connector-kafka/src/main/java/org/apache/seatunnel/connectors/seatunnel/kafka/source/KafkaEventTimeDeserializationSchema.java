@@ -43,6 +43,10 @@ public class KafkaEventTimeDeserializationSchema implements DeserializationSchem
         this.delegate = delegate;
     }
 
+    public DeserializationSchema<SeaTunnelRow> getDelegate() {
+        return delegate;
+    }
+
     public void setCurrentRecordTimestamp(Long timestamp) {
         this.currentRecordTimestamp = timestamp;
     }
