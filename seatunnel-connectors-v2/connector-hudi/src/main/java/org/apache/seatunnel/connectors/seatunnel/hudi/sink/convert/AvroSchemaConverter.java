@@ -89,6 +89,7 @@ public class AvroSchemaConverter implements Serializable {
                 Schema binary = SchemaBuilder.builder().bytesType();
                 return nullableSchema(binary);
             case TIMESTAMP:
+            case TIMESTAMP_TZ:
                 // use long to represents Timestamp
                 LogicalType avroLogicalType;
                 avroLogicalType = LogicalTypes.timestampMillis();

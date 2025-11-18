@@ -27,6 +27,7 @@ import org.apache.seatunnel.connectors.seatunnel.starrocks.exception.StarRocksCo
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeFormatterBuilder;
 import java.time.temporal.ChronoField;
@@ -64,6 +65,8 @@ public class StarRocksBaseSerializer {
                 return TimeUtils.toString((LocalTime) val, timeFormatter);
             case TIMESTAMP:
                 return ((LocalDateTime) val).format(dateTimeFormatter);
+            case TIMESTAMP_TZ:
+                return ((OffsetDateTime) val).toLocalDateTime().format(dateTimeFormatter);
             case ARRAY:
             case MAP:
                 return JsonUtils.toJsonString(val);

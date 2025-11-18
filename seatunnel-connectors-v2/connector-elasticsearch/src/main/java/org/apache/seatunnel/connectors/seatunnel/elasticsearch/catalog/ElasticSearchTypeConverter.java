@@ -279,6 +279,7 @@ public class ElasticSearchTypeConverter implements BasicTypeConverter<BasicTypeD
                 break;
             case DATE:
             case TIMESTAMP:
+            case TIMESTAMP_TZ:
                 Map<String, Object> option = new HashMap<>();
                 if (column.getScale() != null && column.getScale() > 3) {
                     option.put("format", "strict_date_optional_time||epoch_millis");

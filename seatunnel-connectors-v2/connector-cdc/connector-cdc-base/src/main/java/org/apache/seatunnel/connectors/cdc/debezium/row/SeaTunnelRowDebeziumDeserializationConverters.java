@@ -163,6 +163,8 @@ public class SeaTunnelRowDebeziumDeserializationConverters implements Serializab
                 return convertToTime();
             case TIMESTAMP:
                 return convertToTimestamp(serverTimeZone);
+            case TIMESTAMP_TZ:
+                return convertToTimestampTz(serverTimeZone);
             case FLOAT:
                 return wrapNumericConverter(convertToFloat());
             case DOUBLE:
@@ -411,6 +413,23 @@ public class SeaTunnelRowDebeziumDeserializationConverters implements Serializab
                     }
                 }
                 return TemporalConversions.toLocalDateTime(dbzObj, serverTimeZone);
+            }
+        };
+    }
+
+    private static DebeziumDeserializationConverter convertToTimestampTz(ZoneId serverTimeZone) {
+        DebeziumDeserializationConverter baseConverter = convertToTimestamp(serverTimeZone);
+        return new DebeziumDeserializationConverter() {
+            private static final long serialVersionUID = 1L;
+
+            @Override
+            public Object convert(Object dbzObj, Schema schema) throws Exception {
+                Object value = baseConverter.convert(dbzObj, schema);
+                if (value == null) {
+                    return null;
+                }
+                LocalDateTime localDateTime = (LocalDateTime) value;
+                return localDateTime.atZone(serverTimeZone).toOffsetDateTime();
             }
         };
     }

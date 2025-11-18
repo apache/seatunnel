@@ -29,6 +29,7 @@ import java.io.Serializable;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Function;
@@ -80,12 +81,15 @@ public class KeyExtractor implements Function<SeaTunnelRow, String>, Serializabl
                 case DATE:
                     LocalDate localDate = (LocalDate) row.getField(fieldIndex);
                     return localDate.toString();
-                case TIME:
-                    LocalTime localTime = (LocalTime) row.getField(fieldIndex);
-                    return localTime.toString();
-                case TIMESTAMP:
-                    LocalDateTime localDateTime = (LocalDateTime) row.getField(fieldIndex);
-                    return localDateTime.toString();
+            case TIME:
+                LocalTime localTime = (LocalTime) row.getField(fieldIndex);
+                return localTime.toString();
+            case TIMESTAMP:
+                LocalDateTime localDateTime = (LocalDateTime) row.getField(fieldIndex);
+                return localDateTime.toString();
+            case TIMESTAMP_TZ:
+                OffsetDateTime offsetDateTime = (OffsetDateTime) row.getField(fieldIndex);
+                return offsetDateTime.toString();
                 default:
                     return row.getField(fieldIndex).toString();
             }

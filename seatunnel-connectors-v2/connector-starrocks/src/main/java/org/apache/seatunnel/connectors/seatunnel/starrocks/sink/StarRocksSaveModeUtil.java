@@ -88,6 +88,7 @@ public class StarRocksSaveModeUtil extends CatalogUtil {
             case DATE:
                 return "DATE";
             case TIMESTAMP:
+            case TIMESTAMP_TZ:
                 return "DATETIME";
             case ARRAY:
                 return "ARRAY<"

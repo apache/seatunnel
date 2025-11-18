@@ -34,6 +34,7 @@ import java.nio.ByteBuffer;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.OffsetDateTime;
 import java.time.temporal.ChronoField;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -159,6 +160,17 @@ public class RowDataToAvroConverters implements Serializable {
                                 return ((LocalDateTime) object)
                                         .toInstant(java.time.ZoneOffset.UTC)
                                         .toEpochMilli();
+                            }
+                        };
+                break;
+            case TIMESTAMP_TZ:
+                converter =
+                        new RowDataToAvroConverter() {
+                            private static final long serialVersionUID = 1L;
+
+                            @Override
+                            public Object convert(Schema schema, Object object) {
+                                return ((OffsetDateTime) object).toInstant().toEpochMilli();
                             }
                         };
                 break;

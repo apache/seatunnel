@@ -316,6 +316,7 @@ public class StarRocksTypeConverter implements TypeConverter<BasicTypeDefine<Sta
                 builder.dataType(SR_DATE);
                 break;
             case TIMESTAMP:
+            case TIMESTAMP_TZ:
                 builder.columnType(SR_DATETIME);
                 builder.dataType(SR_DATETIME);
                 break;
@@ -547,6 +548,7 @@ public class StarRocksTypeConverter implements TypeConverter<BasicTypeDefine<Sta
                 builder.dataType(SR_DATE_ARRAY);
                 break;
             case TIMESTAMP:
+            case TIMESTAMP_TZ:
                 builder.columnType(SR_DATETIME_ARRAY);
                 builder.dataType(SR_DATETIME_ARRAY);
                 break;

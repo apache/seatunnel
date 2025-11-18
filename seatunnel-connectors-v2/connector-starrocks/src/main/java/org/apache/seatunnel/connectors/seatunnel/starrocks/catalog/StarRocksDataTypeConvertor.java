@@ -189,6 +189,7 @@ public class StarRocksDataTypeConvertor implements DataTypeConvertor<MysqlType> 
             case TIME:
                 return MysqlType.DATETIME;
             case TIMESTAMP:
+            case TIMESTAMP_TZ:
                 return MysqlType.TIMESTAMP;
             default:
                 throw CommonError.convertToConnectorTypeError(

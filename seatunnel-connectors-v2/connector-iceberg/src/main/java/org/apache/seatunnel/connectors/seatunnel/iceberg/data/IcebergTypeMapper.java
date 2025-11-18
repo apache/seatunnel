@@ -173,6 +173,7 @@ public class IcebergTypeMapper {
             case TIME:
                 return Types.TimeType.get();
             case TIMESTAMP:
+            case TIMESTAMP_TZ:
                 return Types.TimestampType.withZone();
             case STRING:
             default:
