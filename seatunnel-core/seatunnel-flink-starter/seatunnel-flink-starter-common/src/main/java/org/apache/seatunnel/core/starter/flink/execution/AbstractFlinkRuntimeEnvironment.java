@@ -77,19 +77,33 @@ public abstract class AbstractFlinkRuntimeEnvironment implements RuntimeEnvironm
     }
 
     protected void setCheckpoint() {
-        if (jobMode == JobMode.BATCH) {
-            log.warn(
-                    "Disabled Checkpointing. In flink execution environment, checkpointing is not supported and not needed when executing jobs in BATCH mode");
-        }
-        long interval;
+        long interval = 10000L;
+        boolean hasExplicitInterval = false;
         if (config.hasPath(EnvCommonOptions.CHECKPOINT_INTERVAL.key())) {
             interval = config.getLong(EnvCommonOptions.CHECKPOINT_INTERVAL.key());
+            hasExplicitInterval = true;
         } else if (config.hasPath(ConfigKeyName.CHECKPOINT_INTERVAL)) {
             log.warn(
                     "the parameter 'execution.checkpoint.interval' will be deprecated, please use common parameter 'checkpoint.interval' to set it");
             interval = config.getLong(ConfigKeyName.CHECKPOINT_INTERVAL);
-        } else {
+        }
+
+        if (hasExplicitInterval && interval <= 0) {
+            log.warn(
+                    "checkpoint.interval is set to {} which is not positive, checkpoint will be disabled for batch job and default interval will be used for streaming job.",
+                    interval);
             interval = 10000L;
+        }
+
+        boolean enableCheckpoint =
+                JobMode.STREAMING.equals(jobMode) || (hasExplicitInterval && interval > 0);
+
+        if (!enableCheckpoint) {
+            if (jobMode == JobMode.BATCH) {
+                log.info(
+                        "Checkpoint is disabled for batch job because 'checkpoint.interval' is not set or <= 0.");
+            }
+            return;
         }
 
         CheckpointConfig checkpointConfig = environment.getCheckpointConfig();
@@ -195,7 +209,12 @@ public abstract class AbstractFlinkRuntimeEnvironment implements RuntimeEnvironm
         }
 
         if (this.jobMode.equals(JobMode.BATCH)) {
-            environment.setRuntimeMode(RuntimeExecutionMode.BATCH);
+            boolean enableCheckpointForBatch =
+                    config.hasPath(EnvCommonOptions.CHECKPOINT_INTERVAL.key())
+                            && config.getLong(EnvCommonOptions.CHECKPOINT_INTERVAL.key()) > 0;
+            if (!enableCheckpointForBatch) {
+                environment.setRuntimeMode(RuntimeExecutionMode.BATCH);
+            }
         }
     }
 

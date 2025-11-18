@@ -135,11 +135,21 @@ public class FlinkExecution implements TaskExecution {
                 "Flink Execution Plan: {}",
                 flinkRuntimeEnvironment.getStreamExecutionEnvironment().getExecutionPlan());
         LOGGER.info("Flink job name: {}", flinkRuntimeEnvironment.getJobName());
-        if (!flinkRuntimeEnvironment.isStreaming()) {
-            flinkRuntimeEnvironment
-                    .getStreamExecutionEnvironment()
-                    .setRuntimeMode(RuntimeExecutionMode.BATCH);
-            LOGGER.info("Flink job Mode: {}", JobMode.BATCH);
+        if (flinkRuntimeEnvironment.getJobMode() == JobMode.BATCH) {
+            boolean enableCheckpointForBatch =
+                    flinkRuntimeEnvironment
+                                    .getConfig()
+                                    .hasPath(EnvCommonOptions.CHECKPOINT_INTERVAL.key())
+                            && flinkRuntimeEnvironment
+                                            .getConfig()
+                                            .getLong(EnvCommonOptions.CHECKPOINT_INTERVAL.key())
+                                    > 0;
+            if (!enableCheckpointForBatch) {
+                flinkRuntimeEnvironment
+                        .getStreamExecutionEnvironment()
+                        .setRuntimeMode(RuntimeExecutionMode.BATCH);
+                LOGGER.info("Flink job Mode: {}", JobMode.BATCH);
+            }
         }
         try {
             final long jobStartTime = System.currentTimeMillis();
