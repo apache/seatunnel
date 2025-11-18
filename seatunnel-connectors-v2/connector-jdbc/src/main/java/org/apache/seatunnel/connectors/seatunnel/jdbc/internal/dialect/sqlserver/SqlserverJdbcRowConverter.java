@@ -35,6 +35,7 @@ import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.OffsetDateTime;
 import java.util.Optional;
 
 public class SqlserverJdbcRowConverter extends AbstractJdbcRowConverter {
@@ -104,6 +105,11 @@ public class SqlserverJdbcRowConverter extends AbstractJdbcRowConverter {
                     LocalDateTime localDateTime = (LocalDateTime) row.getField(fieldIndex);
                     statement.setTimestamp(
                             statementIndex, java.sql.Timestamp.valueOf(localDateTime));
+                    break;
+                case TIMESTAMP_TZ:
+                    OffsetDateTime offsetDateTime = (OffsetDateTime) row.getField(fieldIndex);
+                    statement.setTimestamp(
+                            statementIndex, Timestamp.from(offsetDateTime.toInstant()));
                     break;
                 case BYTES:
                     if (row.getField(fieldIndex) == null) {

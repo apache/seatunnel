@@ -424,6 +424,7 @@ public class PostgresTypeConverter implements TypeConverter<BasicTypeDefine> {
                 builder.scale(timeScale);
                 break;
             case TIMESTAMP:
+            case TIMESTAMP_TZ:
                 Integer timestampScale = column.getScale();
                 if (timestampScale != null && timestampScale > MAX_TIMESTAMP_SCALE) {
                     timestampScale = MAX_TIMESTAMP_SCALE;

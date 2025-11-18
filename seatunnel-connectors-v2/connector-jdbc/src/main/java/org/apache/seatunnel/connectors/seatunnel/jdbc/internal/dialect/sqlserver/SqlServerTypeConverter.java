@@ -479,6 +479,19 @@ public class SqlServerTypeConverter implements TypeConverter<BasicTypeDefine> {
                 }
                 builder.dataType(SQLSERVER_DATETIME2);
                 break;
+            case TIMESTAMP_TZ:
+                int tzScale = column.getScale() == null ? 0 : column.getScale();
+                if (tzScale > MAX_TIMESTAMP_SCALE) {
+                    tzScale = MAX_TIMESTAMP_SCALE;
+                }
+                if (tzScale > 0) {
+                    builder.columnType(String.format("%s(%s)", SQLSERVER_DATETIMEOFFSET, tzScale));
+                } else {
+                    builder.columnType(SQLSERVER_DATETIMEOFFSET);
+                }
+                builder.dataType(SQLSERVER_DATETIMEOFFSET);
+                builder.scale(tzScale);
+                break;
             default:
                 throw CommonError.convertToConnectorTypeError(
                         DatabaseIdentifier.SQLSERVER,
