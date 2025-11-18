@@ -63,6 +63,8 @@ public class RestConstant {
     public static final String CONTEXT_PATH = "/hazelcast/rest/maps";
     public static final String INSTANCE_CONTEXT_PATH = "/hazelcast/rest/instance";
 
+    public static final String PRETTY = "pretty";
+
     // api path start
     public static final String REST_URL_OVERVIEW = "/overview";
     public static final String REST_URL_RUNNING_JOBS = "/running-jobs";

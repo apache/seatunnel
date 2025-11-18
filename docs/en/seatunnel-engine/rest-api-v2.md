@@ -134,6 +134,7 @@ Please refer [security](security.md)
 > |----------|----------|-----------|-----------------------------------------------------------------------------|
 > | jobId    | optional | long      | If set, only returns the diagnostics for the specified job.                 |
 > | limit    | optional | integer   | Limits the number of jobs returned (ignored when `jobId` is provided).      |
+> | pretty   | optional | boolean   | When `true`, pretty-print JSON and format timestamp fields.                 |
 
 #### Responses
 
@@ -227,6 +228,8 @@ Please refer [security](security.md)
   ]
 }
 ```
+
+When `pretty=true`, the endpoint returns a pretty-printed JSON response and formats `oldestEnqueueTimestamp`, `newestEnqueueTimestamp`, `enqueueTimestamp`, and `checkTime` as `yyyy-MM-dd HH:mm:ss`.
 
 This endpoint helps troubleshoot why jobs stay in `PENDING` by showing the pending queue order, aggregated resource view, and per task-group slot request failures (tag mismatch, worker busy, resource exhausted, etc.).
 

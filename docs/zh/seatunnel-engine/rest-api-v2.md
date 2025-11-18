@@ -130,6 +130,8 @@ seatunnel:
 > |----------|----------|----------|--------------------------------|
 > | jobId    | 可选     | long     | 只查看指定作业的诊断信息。                  |
 > | limit    | 可选     | integer  | 限制返回的PENDING作业数量，和 jobId 参数互斥。 |
+> | tag_*    | 可选     | string   | 标签过滤条件，语义与 `/overview` 相同。        |
+> | pretty   | 可选     | boolean  | 传入 `true` 时返回格式化 JSON，并格式化时间戳。   |
 
 #### 响应
 
@@ -223,6 +225,8 @@ seatunnel:
   ]
 }
 ```
+
+当 `pretty=true` 时，接口会返回格式化后的 JSON，并把 `oldestEnqueueTimestamp`、`newestEnqueueTimestamp`、`enqueueTimestamp`、`checkTime` 转为 `yyyy-MM-dd HH:mm:ss` 字符串，方便排查。
 
 响应中包含：
 

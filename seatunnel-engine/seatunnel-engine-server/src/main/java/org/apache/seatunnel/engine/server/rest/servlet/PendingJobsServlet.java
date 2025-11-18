@@ -21,6 +21,12 @@ import org.apache.seatunnel.engine.server.diagnostic.PendingJobsResponse;
 import org.apache.seatunnel.engine.server.rest.RestConstant;
 import org.apache.seatunnel.engine.server.rest.service.PendingJobsService;
 
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonPrimitive;
 import com.hazelcast.spi.impl.NodeEngineImpl;
 import lombok.extern.slf4j.Slf4j;
 
@@ -29,13 +35,29 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 import java.io.IOException;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 
 @Slf4j
 public class PendingJobsServlet extends BaseServlet {
 
     private final PendingJobsService pendingJobsService;
+    private static final Set<String> TIMESTAMP_FIELDS =
+            new HashSet<>(
+                    Arrays.asList(
+                            "oldestEnqueueTimestamp",
+                            "newestEnqueueTimestamp",
+                            "enqueueTimestamp",
+                            "checkTime"));
+    private static final DateTimeFormatter PRETTY_TIME_FORMATTER =
+            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss").withZone(ZoneId.systemDefault());
+    private static final Gson PRETTY_GSON = new GsonBuilder().setPrettyPrinting().create();
 
     public PendingJobsServlet(NodeEngineImpl nodeEngine) {
         super(nodeEngine);
@@ -49,6 +71,7 @@ public class PendingJobsServlet extends BaseServlet {
         Map<String, String> params = new HashMap<>(getParameterMap(req));
         Long jobId = null;
         int limit = 0;
+        boolean pretty = false;
         if (params.containsKey(RestConstant.JOB_ID)) {
             try {
                 jobId = Long.parseLong(params.remove(RestConstant.JOB_ID));
@@ -67,7 +90,62 @@ public class PendingJobsServlet extends BaseServlet {
             }
         }
 
+        if (params.containsKey(RestConstant.PRETTY)) {
+            pretty = Boolean.parseBoolean(params.remove(RestConstant.PRETTY));
+        }
+
         PendingJobsResponse response = pendingJobsService.getPendingJobs(params, jobId, limit);
-        writeJson(resp, response);
+        if (pretty) {
+            writePrettyResponse(resp, response);
+        } else {
+            writeJson(resp, response);
+        }
+    }
+
+    private void writePrettyResponse(HttpServletResponse resp, PendingJobsResponse response)
+            throws IOException {
+        JsonElement tree = PRETTY_GSON.toJsonTree(response);
+        formatTimestampFields(tree);
+        resp.setCharacterEncoding("UTF-8");
+        resp.setContentType("application/json; charset=UTF-8");
+        resp.getWriter().write(PRETTY_GSON.toJson(tree));
+    }
+
+    private void formatTimestampFields(JsonElement element) {
+        if (element == null || element.isJsonNull()) {
+            return;
+        }
+        if (element.isJsonObject()) {
+            JsonObject object = element.getAsJsonObject();
+            for (Map.Entry<String, JsonElement> entry : object.entrySet()) {
+                JsonElement value = entry.getValue();
+                if (shouldFormatTimestamp(entry.getKey(), value)) {
+                    long timestamp = value.getAsLong();
+                    object.addProperty(entry.getKey(), formatTimestamp(timestamp));
+                } else {
+                    formatTimestampFields(value);
+                }
+            }
+        } else if (element.isJsonArray()) {
+            JsonArray array = element.getAsJsonArray();
+            for (JsonElement child : array) {
+                formatTimestampFields(child);
+            }
+        }
+    }
+
+    private boolean shouldFormatTimestamp(String key, JsonElement element) {
+        if (!TIMESTAMP_FIELDS.contains(key) || element == null) {
+            return false;
+        }
+        if (!element.isJsonPrimitive()) {
+            return false;
+        }
+        JsonPrimitive primitive = element.getAsJsonPrimitive();
+        return primitive.isNumber();
+    }
+
+    private String formatTimestamp(long timestamp) {
+        return PRETTY_TIME_FORMATTER.format(Instant.ofEpochMilli(timestamp));
     }
 }
