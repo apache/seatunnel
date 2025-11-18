@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.connectors.seatunnel.hive.utils;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
@@ -35,16 +34,41 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-class HiveMetaStoreProxyKerberosRenewTest {
+class HiveMetaStoreCatalogKerberosRenewTest {
 
     private static void set(Object target, String field, Object value) throws Exception {
-        Field f = target.getClass().getDeclaredField(field);
+        Field f = null;
+        Class<?> cls = target.getClass();
+        // Fields are declared on HiveMetaStoreCatalog; if a subclass instance is passed, climb up
+        while (cls != null) {
+            try {
+                f = cls.getDeclaredField(field);
+                break;
+            } catch (NoSuchFieldException ignore) {
+                cls = cls.getSuperclass();
+            }
+        }
+        if (f == null) {
+            throw new NoSuchFieldException(field);
+        }
         f.setAccessible(true);
         f.set(target, value);
     }
 
     private static Object invoke(Object target, String method) throws Exception {
-        Method m = target.getClass().getDeclaredMethod(method);
+        Method m = null;
+        Class<?> cls = target.getClass();
+        while (cls != null) {
+            try {
+                m = cls.getDeclaredMethod(method);
+                break;
+            } catch (NoSuchMethodException ignore) {
+                cls = cls.getSuperclass();
+            }
+        }
+        if (m == null) {
+            throw new NoSuchMethodException(method);
+        }
         m.setAccessible(true);
         return m.invoke(target);
     }
@@ -52,17 +76,17 @@ class HiveMetaStoreProxyKerberosRenewTest {
     @Test
     void testGetClientTriggersMaybeReloginFromKeytab() throws Exception {
         ReadonlyConfig cfg = Mockito.mock(ReadonlyConfig.class);
-        HiveMetaStoreProxy proxy = new HiveMetaStoreProxy(cfg);
+        HiveMetaStoreCatalog catalog = new HiveMetaStoreCatalog(cfg);
 
         HiveMetaStoreClient client = Mockito.mock(HiveMetaStoreClient.class);
         UserGroupInformation ugi = Mockito.mock(UserGroupInformation.class);
         when(ugi.isFromKeytab()).thenReturn(true);
 
-        set(proxy, "hiveClient", client);
-        set(proxy, "userGroupInformation", ugi);
-        set(proxy, "kerberosEnabled", true);
+        set(catalog, "hiveClient", client);
+        set(catalog, "userGroupInformation", ugi);
+        set(catalog, "kerberosEnabled", true);
 
-        HiveMetaStoreClient out = (HiveMetaStoreClient) invoke(proxy, "getClient");
+        HiveMetaStoreClient out = (HiveMetaStoreClient) invoke(catalog, "getClient");
         Assertions.assertNotNull(out);
         verify(ugi, times(1)).checkTGTAndReloginFromKeytab();
     }
@@ -70,17 +94,17 @@ class HiveMetaStoreProxyKerberosRenewTest {
     @Test
     void testGetClientTriggersMaybeReloginNotFromKeytab() throws Exception {
         ReadonlyConfig cfg = Mockito.mock(ReadonlyConfig.class);
-        HiveMetaStoreProxy proxy = new HiveMetaStoreProxy(cfg);
+        HiveMetaStoreCatalog catalog = new HiveMetaStoreCatalog(cfg);
 
         HiveMetaStoreClient client = Mockito.mock(HiveMetaStoreClient.class);
         UserGroupInformation ugi = Mockito.mock(UserGroupInformation.class);
         when(ugi.isFromKeytab()).thenReturn(false);
 
-        set(proxy, "hiveClient", client);
-        set(proxy, "userGroupInformation", ugi);
-        set(proxy, "kerberosEnabled", true);
+        set(catalog, "hiveClient", client);
+        set(catalog, "userGroupInformation", ugi);
+        set(catalog, "kerberosEnabled", true);
 
-        HiveMetaStoreClient out = (HiveMetaStoreClient) invoke(proxy, "getClient");
+        HiveMetaStoreClient out = (HiveMetaStoreClient) invoke(catalog, "getClient");
         Assertions.assertNotNull(out);
         verify(ugi, never()).checkTGTAndReloginFromKeytab();
     }
@@ -88,21 +112,21 @@ class HiveMetaStoreProxyKerberosRenewTest {
     @Test
     void testGetClientReloginThrowsSwallowed() throws Exception {
         ReadonlyConfig cfg = Mockito.mock(ReadonlyConfig.class);
-        HiveMetaStoreProxy proxy = new HiveMetaStoreProxy(cfg);
+        HiveMetaStoreCatalog catalog = new HiveMetaStoreCatalog(cfg);
 
         HiveMetaStoreClient client = Mockito.mock(HiveMetaStoreClient.class);
         UserGroupInformation ugi = Mockito.mock(UserGroupInformation.class);
         when(ugi.isFromKeytab()).thenReturn(true);
         doThrow(new RuntimeException("test")).when(ugi).checkTGTAndReloginFromKeytab();
 
-        set(proxy, "hiveClient", client);
-        set(proxy, "userGroupInformation", ugi);
-        set(proxy, "kerberosEnabled", true);
+        set(catalog, "hiveClient", client);
+        set(catalog, "userGroupInformation", ugi);
+        set(catalog, "kerberosEnabled", true);
 
         Assertions.assertDoesNotThrow(
                 () -> {
                     try {
-                        invoke(proxy, "getClient");
+                        invoke(catalog, "getClient");
                     } catch (Exception e) {
                         throw new RuntimeException(e);
                     }

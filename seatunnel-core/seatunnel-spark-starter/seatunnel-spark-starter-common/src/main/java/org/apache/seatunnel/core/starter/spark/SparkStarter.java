@@ -152,6 +152,11 @@ public class SparkStarter implements Starter {
         pluginJars.addAll(
                 seaTunnelSourcePluginDiscovery.getPluginJarAndDependencyPaths(
                         getPluginIdentifiers(config, PluginType.SOURCE)));
+        if (config.hasPath(PluginType.TRANSFORM.getType())) {
+            pluginJars.addAll(
+                    seaTunnelSinkPluginDiscovery.getPluginJarAndDependencyPaths(
+                            getPluginIdentifiers(config, PluginType.TRANSFORM)));
+        }
         pluginJars.addAll(
                 seaTunnelSinkPluginDiscovery.getPluginJarAndDependencyPaths(
                         getPluginIdentifiers(config, PluginType.SINK)));

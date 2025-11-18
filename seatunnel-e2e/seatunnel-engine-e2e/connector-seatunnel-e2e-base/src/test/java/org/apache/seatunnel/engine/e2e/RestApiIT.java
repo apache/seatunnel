@@ -667,7 +667,8 @@ public class RestApiIT {
                                                 .statusCode(200)
                                                 .body("projectVersion", notNullValue())
                                                 .body("totalSlot", equalTo("40"))
-                                                .body("workers", equalTo("2"));
+                                                .body("workers", equalTo("2"))
+                                                .body("pendingJobs", notNullValue());
                                         given().get(
                                                         HOST
                                                                 + value
@@ -680,7 +681,8 @@ public class RestApiIT {
                                                 .statusCode(200)
                                                 .body("projectVersion", notNullValue())
                                                 .body("totalSlot", equalTo("40"))
-                                                .body("workers", equalTo("2"));
+                                                .body("workers", equalTo("2"))
+                                                .body("pendingJobs", notNullValue());
                                     });
                         });
     }

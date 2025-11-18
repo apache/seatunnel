@@ -48,6 +48,10 @@ By default, we use 2PC commit to ensure `exactly-once`
 | abort_drop_partition_metadata         | boolean | no       | true           |
 | parquet_avro_write_timestamp_as_int96 | boolean | no       | false          |
 | overwrite                             | boolean | no       | false          |
+| data_save_mode                        | enum    | no       | APPEND_DATA    |
+
+| schema_save_mode                      | enum    | no       | CREATE_SCHEMA_WHEN_NOT_EXIST |
+| save_mode_create_template             | string  | no       | -              |
 | common-options                        |         | no       | -              |
 
 ### table_name [string]
@@ -98,7 +102,44 @@ Support writing Parquet INT96 from a timestamp, only valid for parquet files.
 
 ### overwrite [boolean]
 
+### data_save_mode [enum]
+
+Select how to handle existing data on the target before writing new data.
+
+- APPEND_DATA (default): Keep existing data and append new records.
+- DROP_DATA: Behaves the same as overwrite=true. Before commit, delete the existing data in the target path (for non-partitioned tables, delete the table directory; for partitioned tables, delete the related partition directories), then write new data.
+- CUSTOM_PROCESSING / ERROR_WHEN_DATA_EXISTS: Currently not recommended for Hive sink unless you have specific requirements.
+
+Note: overwrite=true and data_save_mode=DROP_DATA are equivalent. Use either one; do not set both.
+
 Flag to decide whether to use overwrite mode when inserting data into Hive. If set to true, for non-partitioned tables, the existing data in the table will be deleted before inserting new data. For partitioned tables, the data in the relevant partition will be deleted before inserting new data.
+
+### schema_save_mode [enum]
+
+Before starting the synchronization task, different processing schemes are selected for the existing table structure on the target side.
+
+**Default value**: `CREATE_SCHEMA_WHEN_NOT_EXIST`
+
+Option values:
+- `RECREATE_SCHEMA`: Will create when the table does not exist, delete and rebuild when the table exists
+- `CREATE_SCHEMA_WHEN_NOT_EXIST`: Will create when the table does not exist, skip when the table exists
+- `ERROR_WHEN_SCHEMA_NOT_EXIST`: Error will be reported when the table does not exist
+- `IGNORE`: Ignore the treatment of the table
+
+
+
+### save_mode_create_template [string]
+
+We use templates to automatically create Hive tables, which will create corresponding table creation statements based on the type of upstream data and schema type, and the default template can be modified according to the situation. Available template variables: ${database}, ${table}, ${rowtype_fields}, ${rowtype_partition_fields}, ${table_location}.
+
+**Default value**: When not specified, uses a default PARQUET non-partitioned table template:
+```sql
+CREATE TABLE IF NOT EXISTS `${database}`.`${table}` (
+  ${rowtype_fields}
+)
+STORED AS PARQUET
+LOCATION '${table_location}'
+```
 
 ### common options
 
@@ -480,6 +521,57 @@ sink {
 }
 ```
 
+## Auto Table Creation Examples
+
+### Example 1: Basic Auto Table Creation
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  FakeSource {
+    schema = {
+      fields {
+        id = bigint
+        name = string
+        department = string
+        salary = decimal(10,2)
+        hire_date = date
+      }
+    }
+    rows = [
+      {
+        kind = INSERT
+        fields = [1, "John Doe", "Engineering", 75000.50, "2022-01-15"]
+      }
+    ]
+  }
+}
+
+sink {
+  Hive {
+    table_name = "warehouse.employees"
+    metastore_uri = "thrift://metastore:9083"
+    schema_save_mode = "CREATE_SCHEMA_WHEN_NOT_EXIST"
+    save_mode_create_template = """
+      CREATE TABLE IF NOT EXISTS `${database}`.`${table}` (
+        ${rowtype_fields}
+      )
+      PARTITIONED BY (
+        department string COMMENT 'Department partition'
+      )
+      STORED AS PARQUET
+      LOCATION '${table_location}'
+      TBLPROPERTIES (
+        'seatunnel.creation.mode' = 'template'
+      )
+    """
+  }
+}
+```
 ## Changelog
 
 <ChangeLog />

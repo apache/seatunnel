@@ -75,6 +75,12 @@ public class HbaseParameters implements Serializable {
     @Builder.Default
     private HbaseSinkOptions.EnCoding enCoding = HbaseSinkOptions.ENCODING.defaultValue();
 
+    @Builder.Default
+    private boolean startRowInclusive = HbaseSourceOptions.START_ROW_INCLUSIVE.defaultValue();
+
+    @Builder.Default
+    private boolean endRowInclusive = HbaseSourceOptions.END_ROW_INCLUSIVE.defaultValue();
+
     public static HbaseParameters buildWithConfig(ReadonlyConfig config) {
         HbaseParametersBuilder builder = HbaseParameters.builder();
         String table = config.get(HbaseBaseOptions.TABLE);
@@ -142,6 +148,12 @@ public class HbaseParameters implements Serializable {
         }
         if (pluginConfig.getOptional(HbaseSourceOptions.END_ROW_KEY).isPresent()) {
             builder.endRowkey(pluginConfig.get(HbaseSourceOptions.END_ROW_KEY));
+        }
+        if (pluginConfig.getOptional(HbaseSourceOptions.START_ROW_INCLUSIVE).isPresent()) {
+            builder.startRowInclusive(pluginConfig.get(HbaseSourceOptions.START_ROW_INCLUSIVE));
+        }
+        if (pluginConfig.getOptional(HbaseSourceOptions.END_ROW_INCLUSIVE).isPresent()) {
+            builder.endRowInclusive(pluginConfig.get(HbaseSourceOptions.END_ROW_INCLUSIVE));
         }
         return builder.build();
     }
