@@ -40,7 +40,8 @@ import org.apache.flink.streaming.api.environment.CheckpointConfig;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.util.TernaryBoolean;
 
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.net.URL;
 import java.util.ArrayList;
@@ -48,8 +49,10 @@ import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
-@Slf4j
 public abstract class AbstractFlinkRuntimeEnvironment implements RuntimeEnvironment {
+
+    private static final Logger LOGGER =
+            LoggerFactory.getLogger(AbstractFlinkRuntimeEnvironment.class);
 
     protected Config config;
     protected StreamExecutionEnvironment environment;
@@ -78,14 +81,14 @@ public abstract class AbstractFlinkRuntimeEnvironment implements RuntimeEnvironm
 
     protected void setCheckpoint() {
         if (jobMode == JobMode.BATCH) {
-            log.warn(
+            LOGGER.warn(
                     "Disabled Checkpointing. In flink execution environment, checkpointing is not supported and not needed when executing jobs in BATCH mode");
         }
         long interval;
         if (config.hasPath(EnvCommonOptions.CHECKPOINT_INTERVAL.key())) {
             interval = config.getLong(EnvCommonOptions.CHECKPOINT_INTERVAL.key());
         } else if (config.hasPath(ConfigKeyName.CHECKPOINT_INTERVAL)) {
-            log.warn(
+            LOGGER.warn(
                     "the parameter 'execution.checkpoint.interval' will be deprecated, please use common parameter 'checkpoint.interval' to set it");
             interval = config.getLong(ConfigKeyName.CHECKPOINT_INTERVAL);
         } else {
@@ -116,7 +119,7 @@ public abstract class AbstractFlinkRuntimeEnvironment implements RuntimeEnvironm
                     checkpointConfig.setCheckpointingMode(CheckpointingMode.AT_LEAST_ONCE);
                     break;
                 default:
-                    log.warn(
+                    LOGGER.warn(
                             "set checkpoint.mode failed, unknown checkpoint.mode [{}],only support exactly-once,at-least-once",
                             mode);
                     break;
@@ -183,7 +186,7 @@ public abstract class AbstractFlinkRuntimeEnvironment implements RuntimeEnvironm
             int parallelism = config.getInt(EnvCommonOptions.PARALLELISM.key());
             environment.setParallelism(parallelism);
         } else if (config.hasPath(ConfigKeyName.PARALLELISM)) {
-            log.warn(
+            LOGGER.warn(
                     "the parameter 'execution.parallelism' will be deprecated, please use common parameter 'parallelism' to set it");
             int parallelism = config.getInt(ConfigKeyName.PARALLELISM);
             environment.setParallelism(parallelism);
@@ -213,7 +216,7 @@ public abstract class AbstractFlinkRuntimeEnvironment implements RuntimeEnvironm
                     environment.setStreamTimeCharacteristic(TimeCharacteristic.ProcessingTime);
                     break;
                 default:
-                    log.warn(
+                    LOGGER.warn(
                             "set time-characteristic failed, unknown time-characteristic [{}],only support event-time,ingestion-time,processing-time",
                             timeType);
                     break;
@@ -236,7 +239,7 @@ public abstract class AbstractFlinkRuntimeEnvironment implements RuntimeEnvironm
 
     @Override
     public void registerPlugin(List<URL> pluginPaths) {
-        pluginPaths.forEach(url -> log.info("register plugins : {}", url));
+        pluginPaths.forEach(url -> LOGGER.info("register plugins : {}", url));
         List<Configuration> configurations = new ArrayList<>();
         try {
             configurations.add(
