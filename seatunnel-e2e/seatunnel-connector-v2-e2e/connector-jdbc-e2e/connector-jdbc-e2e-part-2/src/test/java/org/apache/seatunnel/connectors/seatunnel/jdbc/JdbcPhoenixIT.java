@@ -38,7 +38,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 public class JdbcPhoenixIT extends AbstractJdbcIT {
-    private static final String PHOENIX_IMAGE = "iteblog/hbase-phoenix-docker:1.0";
+    private static final String PHOENIX_IMAGE = "seatunnelhub/hbase-phoenix-docker:1.0";
     private static final String PHOENIX_CONTAINER_HOST = "seatunnel_e2e_phoenix";
     private static final String PHOENIX_DATABASE = "test";
 
