@@ -607,7 +607,7 @@ public class CheckpointCoordinator {
         synchronized (lock) {
             while (pendingCounter.get() > 0 && !shutdown) {
                 try {
-                    lock.wait();
+                    lock.wait(30_000);
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
                     return completableFutureWithError(
