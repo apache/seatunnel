@@ -119,7 +119,7 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
             if (fileStatus.isDirectory()) {
                 // skip hidden tmp directory, such as .hive-staging_hive
                 if (!fileStatus.getPath().getName().startsWith(".")) {
-                    fileNames.addAll(getFileNamesByPath(fileStatus.getPath().toUri().getPath()));
+                    fileNames.addAll(getFileNamesByPath(fileStatus.getPath().toString()));
                 }
                 continue;
             }
