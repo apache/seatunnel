@@ -109,9 +109,19 @@ public class ElasticsearchRuntimeFieldsIT extends TestSuiteBase implements TestR
     private void createTestIndexWithData() throws IOException, InterruptedException {
         String indexName = "st_index_runtime";
 
-        // Create index
-        esRestClient.createIndex(indexName);
-        log.info("Created index: {}", indexName);
+        // Create index with explicit mapping for timestamp field
+        String mapping =
+                "{"
+                        + "  \"mappings\": {"
+                        + "    \"properties\": {"
+                        + "      \"c_string\": { \"type\": \"keyword\" },"
+                        + "      \"c_int\": { \"type\": \"integer\" },"
+                        + "      \"c_timestamp\": { \"type\": \"date\" }"
+                        + "    }"
+                        + "  }"
+                        + "}";
+        esRestClient.createIndex(indexName, mapping);
+        log.info("Created index with mapping: {}", indexName);
 
         // Prepare test data
         List<String> testData = generateTestData();
