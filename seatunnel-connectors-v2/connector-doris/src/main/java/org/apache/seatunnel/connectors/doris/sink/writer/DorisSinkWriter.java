@@ -200,6 +200,7 @@ public class DorisSinkWriter
     private RespContent flush() throws IOException {
         // disable exception checker before stop load.
         checkState(dorisStreamLoad != null);
+        checkDone();
         RespContent respContent = dorisStreamLoad.stopLoad();
         if (respContent != null && !DORIS_SUCCESS_STATUS.contains(respContent.getStatus())) {
             String errMsg =
