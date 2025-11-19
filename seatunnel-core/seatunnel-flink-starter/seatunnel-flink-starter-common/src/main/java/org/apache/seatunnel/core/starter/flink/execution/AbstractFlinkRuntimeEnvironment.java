@@ -212,7 +212,10 @@ public abstract class AbstractFlinkRuntimeEnvironment implements RuntimeEnvironm
             boolean enableCheckpointForBatch =
                     config.hasPath(EnvCommonOptions.CHECKPOINT_INTERVAL.key())
                             && config.getLong(EnvCommonOptions.CHECKPOINT_INTERVAL.key()) > 0;
-            if (!enableCheckpointForBatch) {
+            if (enableCheckpointForBatch) {
+                log.info(
+                        "Flink batch runtime does not support checkpoint-based restore; 'checkpoint.interval' > 0 will make this batch job run in streaming runtime.");
+            } else {
                 environment.setRuntimeMode(RuntimeExecutionMode.BATCH);
             }
         }
