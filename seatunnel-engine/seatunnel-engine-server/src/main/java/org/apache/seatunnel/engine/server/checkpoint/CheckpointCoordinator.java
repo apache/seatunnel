@@ -862,10 +862,10 @@ public class CheckpointCoordinator {
             readyToCloseStartingTask.clear();
             readyToCloseIdleTask.clear();
             closedIdleTask.clear();
-            synchronized (lock) {
-                pendingCounter.set(0);
-                lock.notifyAll();
-            }
+
+            pendingCounter.set(0);
+            lock.notifyAll();
+
             schemaChanging.set(false);
             scheduler.shutdownNow();
             scheduler =
@@ -961,6 +961,7 @@ public class CheckpointCoordinator {
         latestCompletedCheckpoint = completedCheckpoint;
         notifyCompleted(completedCheckpoint);
         pendingCheckpoints.remove(checkpointId).abortCheckpointTimeoutFutureWhenIsCompleted();
+
         synchronized (lock) {
             pendingCounter.decrementAndGet();
             lock.notifyAll();
