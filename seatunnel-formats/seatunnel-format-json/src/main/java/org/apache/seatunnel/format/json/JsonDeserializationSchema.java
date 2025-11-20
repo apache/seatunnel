@@ -40,6 +40,7 @@ import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.format.json.exception.SeaTunnelJsonFormatException;
 
 import java.io.IOException;
+import java.util.Objects;
 import java.util.Optional;
 
 import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkNotNull;
@@ -145,13 +146,17 @@ public class JsonDeserializationSchema implements DeserializationSchema<SeaTunne
             ArrayNode arrayNode = (ArrayNode) jsonNode;
             for (int i = 0; i < arrayNode.size(); i++) {
                 SeaTunnelRow deserialize = convertJsonNode(arrayNode.get(i));
-                setCollectorTablePath(deserialize, catalogTable);
-                out.collect(deserialize);
+                if (Objects.nonNull(deserialize)) {
+                    setCollectorTablePath(deserialize, catalogTable);
+                    out.collect(deserialize);
+                }
             }
         } else {
             SeaTunnelRow deserialize = convertJsonNode(jsonNode);
-            setCollectorTablePath(deserialize, catalogTable);
-            out.collect(deserialize);
+            if (Objects.nonNull(deserialize)) {
+                setCollectorTablePath(deserialize, catalogTable);
+                out.collect(deserialize);
+            }
         }
     }
 
