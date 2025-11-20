@@ -1472,7 +1472,9 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                 .await()
                 .atMost(10, MINUTES)
                 .untilAsserted(
-                        () -> Assertions.assertTrue(checkData(consumerTopic, 10, sourceDataRestore)));
+                        () ->
+                                Assertions.assertTrue(
+                                        checkData(consumerTopic, 10, sourceDataRestore)));
     }
 
     @TestTemplate
