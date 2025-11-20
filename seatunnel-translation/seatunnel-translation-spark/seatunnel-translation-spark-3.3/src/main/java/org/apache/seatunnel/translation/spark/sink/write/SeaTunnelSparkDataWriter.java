@@ -122,5 +122,7 @@ public class SeaTunnelSparkDataWriter<CommitInfoT, StateT> implements DataWriter
     }
 
     @Override
-    public void close() throws IOException {}
+    public void close() throws IOException {
+        sinkWriter.close();
+    }
 }

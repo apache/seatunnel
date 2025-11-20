@@ -256,22 +256,11 @@ public class DorisSinkWriter
 
     @Override
     public void abortPrepare() {
-        try {
-            if (dorisSinkConfig.getEnable2PC()) {
+        if (dorisSinkConfig.getEnable2PC()) {
+            try {
                 controlStreamLoad.abortPreCommit(labelPrefix, lastCheckpointId + 1);
-            }
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        } finally {
-            if (scheduledExecutorService != null) {
-                scheduledExecutorService.shutdownNow();
-            }
-            if (dorisStreamLoad != null) {
-                try {
-                    dorisStreamLoad.close();
-                } catch (IOException e) {
-                    log.warn("Error closing doris stream load during abort prepare", e);
-                }
+            } catch (Exception e) {
+                throw new RuntimeException(e);
             }
         }
     }
