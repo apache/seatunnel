@@ -94,13 +94,13 @@ export default defineComponent({
     const sourceCell = (
       row: Vertex,
       key:
-        | 'TableSourceReceivedBytes'
-        | 'TableSourceReceivedCount'
-        | 'TableSourceReceivedQPS'
-        | 'TableSourceReceivedBytesPerSeconds'
+        | 'SourceReceivedBytes'
+        | 'SourceReceivedCount'
+        | 'SourceReceivedQPS'
+        | 'SourceReceivedBytesPerSeconds'
     ) => {
       if (row.type === 'source') {
-        return row.tablePaths.reduce((s, path) => s + Number(job.metrics?.[key][path]), 0)
+        return row.tablePaths.reduce((s, path) => s + Number(job.metrics?.[key]), 0)
       }
       return 0
     }
@@ -113,7 +113,7 @@ export default defineComponent({
         | 'TableSinkWriteBytesPerSeconds'
     ) => {
       if (row.type === 'sink') {
-        return row.tablePaths.reduce((s, path) => s + Number(job.metrics?.[key][path]), 0)
+        return row.tablePaths.reduce((s, path) => s + Number(job.metrics?.[key]), 0)
       }
       return 0
     }
@@ -125,42 +125,42 @@ export default defineComponent({
       {
         title: 'Received Bytes',
         key: 'key',
-        render: (row) => sourceCell(row, 'TableSourceReceivedBytes')
+        render: (row) => sourceCell(row, 'SourceReceivedBytes')
       },
       {
         title: 'Write Bytes',
         key: 'key',
-        render: (row) => sinkCell(row, 'TableSinkWriteBytes')
+        render: (row) => sinkCell(row, 'SinkWriteBytes')
       },
       {
         title: 'Received Count',
         key: 'key',
-        render: (row) => sourceCell(row, 'TableSourceReceivedCount')
+        render: (row) => sourceCell(row, 'SourceReceivedCount')
       },
       {
         title: 'Write Count',
         key: 'key',
-        render: (row) => sinkCell(row, 'TableSinkWriteCount')
+        render: (row) => sinkCell(row, 'SinkWriteCount')
       },
       {
         title: 'Received QPS',
         key: 'key',
-        render: (row) => sourceCell(row, 'TableSourceReceivedQPS')
+        render: (row) => sourceCell(row, 'SourceReceivedQPS')
       },
       {
         title: 'Write QPS',
         key: 'key',
-        render: (row) => sinkCell(row, 'TableSinkWriteQPS')
+        render: (row) => sinkCell(row, 'SinkWriteQPS')
       },
       {
         title: 'Received Bytes PerSecond',
         key: 'key',
-        render: (row) => sourceCell(row, 'TableSourceReceivedBytesPerSeconds')
+        render: (row) => sourceCell(row, 'SourceReceivedBytesPerSeconds')
       },
       {
         title: 'Write Bytes PerSecond',
         key: 'key',
-        render: (row) => sinkCell(row, 'TableSinkWriteBytesPerSeconds')
+        render: (row) => sinkCell(row, 'SinkWriteBytesPerSeconds')
       }
     ]
 
