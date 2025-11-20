@@ -84,31 +84,13 @@ public class PostgresJdbcRowConverter extends AbstractJdbcRowConverter {
         if (seaTunnelDataType.getSqlType().equals(SqlType.TIMESTAMP_TZ)) {
             if (value == null) {
                 statement.setNull(statementIndex, java.sql.Types.TIMESTAMP_WITH_TIMEZONE);
-                return;
+            } else {
+                PGobject timestampTzObject = new PGobject();
+                timestampTzObject.setType("timestamptz");
+                timestampTzObject.setValue(((OffsetDateTime) value).toString());
+                statement.setObject(statementIndex, timestampTzObject);
             }
-            OffsetDateTime offsetDateTime = (OffsetDateTime) value;
-            try {
-                statement.setObject(statementIndex, offsetDateTime);
-                return;
-            } catch (AbstractMethodError | SQLException e) {
-                try {
-                    PGobject timestampTzObject = new PGobject();
-                    timestampTzObject.setType("timestamptz");
-                    timestampTzObject.setValue(offsetDateTime.toString());
-                    statement.setObject(statementIndex, timestampTzObject);
-                    return;
-                } catch (SQLException pge) {
-                    try {
-                        statement.setTimestamp(
-                                statementIndex, Timestamp.from(offsetDateTime.toInstant()));
-                        return;
-                    } catch (SQLException se) {
-                        throw new SQLException(
-                                "Failed to set TIMESTAMP_TZ value for PostgreSQL using all methods",
-                                se);
-                    }
-                }
-            }
+            return;
         }
         super.setValueToStatementByDataType(
                 value, statement, seaTunnelDataType, statementIndex, sourceType);
@@ -369,22 +351,8 @@ public class PostgresJdbcRowConverter extends AbstractJdbcRowConverter {
 
     private OffsetDateTime getPostgresOffsetDateTime(ResultSet rs, int columnIndex)
             throws SQLException {
-        // Read the value ONCE to avoid drivers returning null on subsequent reads
-        final Object obj;
-        try {
-            obj = rs.getObject(columnIndex);
-        } catch (SQLException e) {
-            log.debug("Failed to get object from ResultSet at column {}", columnIndex, e);
-            // Best-effort fallback to string, still only a single read path for parsing
-            final String str;
-            try {
-                str = rs.getString(columnIndex);
-            } catch (SQLException se) {
-                log.debug("Failed to get string from ResultSet at column {}", columnIndex, se);
-                return null;
-            }
-            return parseTimestampIfPresent(str);
-        }
+        // Read the value once to avoid drivers returning null on subsequent reads
+        final Object obj = rs.getObject(columnIndex);
 
         if (obj == null) {
             return null;
@@ -483,8 +451,11 @@ public class PostgresJdbcRowConverter extends AbstractJdbcRowConverter {
             normalized = normalized.substring(0, normalized.length() - 4) + "Z";
         }
         normalized = normalized.replace(' ', 'T');
-        if (normalized.endsWith("z")) {
-            normalized = normalized.substring(0, normalized.length() - 1) + "Z";
+        if (!normalized.isEmpty()) {
+            char lastChar = normalized.charAt(normalized.length() - 1);
+            if (lastChar == 'z' || lastChar == 'Z') {
+                normalized = normalized.substring(0, normalized.length() - 1) + "Z";
+            }
         }
         if (normalized.matches(".*[+-]\\d{2}$")) {
             return normalized + ":00";
