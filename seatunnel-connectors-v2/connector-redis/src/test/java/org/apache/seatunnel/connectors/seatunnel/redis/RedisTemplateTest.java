@@ -65,7 +65,7 @@ import static org.apache.seatunnel.connectors.seatunnel.redis.config.RedisBaseOp
 
 @Slf4j
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
-public abstract class RedisTestTemplate {
+public abstract class RedisTemplateTest {
 
     protected String host;
     protected int port;
