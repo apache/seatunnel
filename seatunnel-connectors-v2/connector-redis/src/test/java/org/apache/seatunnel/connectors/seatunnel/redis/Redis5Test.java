@@ -18,7 +18,7 @@ package org.apache.seatunnel.connectors.seatunnel.redis;
 
 import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisContainerInfo;
 
-public class Redis5Test extends RedisTestTemplate {
+public class Redis5Test extends RedisTemplateTest {
 
     @Override
     public RedisContainerInfo getRedisContainerInfo() {
