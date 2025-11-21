@@ -94,7 +94,8 @@ public final class PendingDiagnosticsCollector {
                         .sum());
 
         updateFailureReason(diagnostic);
-        diagnostic.setBlockingJobIds(collectBlockingJobs(resourceManager, jobMaster.getJobId()));
+        diagnostic.setBlockingJobIds(
+                collectBlockingJobs(resourceManager, jobMaster.getJobId(), tagFilter));
 
         return diagnostic;
     }
@@ -216,13 +217,16 @@ public final class PendingDiagnosticsCollector {
                         .collect(Collectors.joining("; ")));
     }
 
-    private static List<Long> collectBlockingJobs(ResourceManager resourceManager, long jobId) {
+    private static List<Long> collectBlockingJobs(
+            ResourceManager resourceManager, long jobId, Map<String, String> tagFilter) {
         if (resourceManager == null) {
             return Collections.emptyList();
         }
+        Map<String, String> tags =
+                tagFilter == null ? Collections.emptyMap() : new HashMap<>(tagFilter);
         List<SlotProfile> assignedSlots = Collections.emptyList();
         try {
-            assignedSlots = resourceManager.getAssignedSlots(Collections.emptyMap());
+            assignedSlots = resourceManager.getAssignedSlots(tags);
         } catch (Exception e) {
             log.warn("Collect assigned slots failed: {}", ExceptionUtils.getMessage(e));
         }
@@ -278,6 +282,10 @@ public final class PendingDiagnosticsCollector {
                 .collect(Collectors.toList());
     }
 
+    /**
+     * TODO The current tagFilter does not actually filter. When the cluster is particularly large,
+     * tagFilter filtering should be supported, and it will be supported in the future
+     */
     private static WorkerResourceDiagnostic convertWorker(
             WorkerProfile workerProfile, Map<String, String> tagFilter) {
         WorkerResourceDiagnostic diagnostic = new WorkerResourceDiagnostic();

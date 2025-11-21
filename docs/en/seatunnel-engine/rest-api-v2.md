@@ -132,8 +132,8 @@ Please refer [security](security.md)
 
 > |   name   |   type   | data type | description                                                                 |
 > |----------|----------|-----------|-----------------------------------------------------------------------------|
-> | jobId    | optional | long      | If set, only returns the diagnostics for the specified job.                 |
-> | limit    | optional | integer   | Limits the number of jobs returned (ignored when `jobId` is provided).      |
+> | jobId    | optional | long      | If set, only returns the diagnostics for the specified job. When both `jobId` and `limit` are provided, `jobId` takes precedence and `limit` is ignored. |
+> | limit    | optional | integer   | Limits the number of jobs returned. This parameter is ignored when `jobId` is provided. |
 > | pretty   | optional | boolean   | When `true`, pretty-print JSON and format timestamp fields.                 |
 
 #### Responses
@@ -239,7 +239,7 @@ This endpoint helps troubleshoot why jobs stay in `PENDING` by showing the pendi
   - `size`: number of jobs currently pending.
   - `scheduleStrategy`: strategy in use (e.g. `WAIT`, `FAIL_FAST`) that dictates what happens when resources are insufficient.
   - `oldestEnqueueTimestamp` / `newestEnqueueTimestamp`: timestamps (ms) of the oldest/latest job in the queue.
-  - `lackingTaskGroups`: total TaskGroup count still waiting for slots among all pending jobs.
+  - `lackingTaskGroups`: total TaskGroup count still waiting for slots. **Note**: This value reflects only the jobs included in the current response (i.e., the subset limited by the `limit` parameter or filtered by `jobId`), not the entire pending queue. To view the complete statistics for all pending jobs, call this API without the `limit` parameter.
 - **clusterSnapshot** – cluster resource snapshot (can be filtered by tags).
   - `totalSlots` / `assignedSlots` / `freeSlots`: total, allocated and remaining slots in the filtered view.
   - `workerCount`: number of workers that match the tag filters.

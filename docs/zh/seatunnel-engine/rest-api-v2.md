@@ -128,8 +128,8 @@ seatunnel:
 
 > | 参数名称 | 是否必传 | 参数类型 | 描述                             |
 > |----------|----------|----------|--------------------------------|
-> | jobId    | 可选     | long     | 只查看指定作业的诊断信息。                  |
-> | limit    | 可选     | integer  | 限制返回的PENDING作业数量，和 jobId 参数互斥。 |
+> | jobId    | 可选     | long     | 只查看指定作业的诊断信息。当同时提供 `jobId` 和 `limit` 时，`jobId` 优先生效，`limit` 将被忽略。 |
+> | limit    | 可选     | integer  | 限制返回的PENDING作业数量。当提供 `jobId` 参数时此参数将被忽略。 |
 > | pretty   | 可选     | boolean  | 传入 `true` 时返回格式化 JSON，并格式化时间戳。   |
 
 #### 响应
@@ -233,7 +233,7 @@ seatunnel:
   - `size`：当前排队的 Job 数量。
   - `scheduleStrategy`：调度策略，决定资源不足时的处理方式。
   - `oldestEnqueueTimestamp` / `newestEnqueueTimestamp`：最久/最新进入 Pending 队列 Job 的时间戳（毫秒）。
-  - `lackingTaskGroups`：所有 Pending Job 中尚未分配 Slot 的 TaskGroup 数量。
+  - `lackingTaskGroups`：尚未分配 Slot 的 TaskGroup 数量。**注意**：该值仅统计当前响应中返回的作业子集（即受 `limit` 参数限制或 `jobId` 过滤后的作业），而非整个 Pending 队列的完整统计。如需查看所有 Pending 作业的完整统计信息，请不带 `limit` 参数调用此接口。
 - **clusterSnapshot**：当前集群的资源视图。
   - `totalSlots` / `assignedSlots` / `freeSlots`：Slot 总数、已分配数、剩余数。
   - `workerCount`：Worker 数量。
