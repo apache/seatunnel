@@ -167,6 +167,10 @@ Please refer [security](security.md)
     "SinkWriteQPS": "",
     "SinkWriteBytes": "",
     "SinkWriteBytesPerSeconds": "",
+    "SinkCommittedCount": "",
+    "SinkCommittedQPS": "",
+    "SinkCommittedBytes": "",
+    "SinkCommittedBytesPerSeconds": "",
     "TableSourceReceivedCount": {},
     "TableSourceReceivedBytes": {},
     "TableSourceReceivedBytesPerSeconds": {},
@@ -174,7 +178,11 @@ Please refer [security](security.md)
     "TableSinkWriteCount": {},
     "TableSinkWriteQPS": {},
     "TableSinkWriteBytes": {},
-    "TableSinkWriteBytesPerSeconds": {}
+    "TableSinkWriteBytesPerSeconds": {},
+    "TableSinkCommittedCount": {},
+    "TableSinkCommittedQPS": {},
+    "TableSinkCommittedBytes": {},
+    "TableSinkCommittedBytesPerSeconds": {}
   },
   "finishedTime": "",
   "errorMsg": null,
@@ -189,6 +197,27 @@ Please refer [security](security.md)
 `jobId`, `jobName`, `jobStatus`, `createTime`, `jobDag`, `metrics` always be returned.
 `envOptions`, `pluginJarsUrls`, `isStartWithSavePoint` will return when job is running.
 `finishedTime`, `errorMsg` will return when job is finished.
+
+#### Metrics field description
+
+| Field | Description |
+| --- | --- |
+| IntermediateQueueSize | Size of intermediate queue between operators |
+| SourceReceivedCount | Total rows received from sources |
+| SourceReceivedQPS | Source receive rate (rows/s) |
+| SourceReceivedBytes | Total bytes received from sources |
+| SourceReceivedBytesPerSeconds | Source receive rate (bytes/s) |
+| SinkWriteCount | Sink write attempts (rows) |
+| SinkWriteQPS | Sink write attempt rate (rows/s) |
+| SinkWriteBytes | Sink write attempts (bytes) |
+| SinkWriteBytesPerSeconds | Sink write attempt rate (bytes/s) |
+| SinkCommittedCount | Sink committed rows after checkpoint succeeds |
+| SinkCommittedQPS | Sink committed rate (rows/s) |
+| SinkCommittedBytes | Sink committed bytes after checkpoint succeeds |
+| SinkCommittedBytesPerSeconds | Sink committed rate (bytes/s) |
+| TableSourceReceived* | Per-table source metrics, key format `TableSourceReceivedXXX#<table>` |
+| TableSinkWrite* | Per-table sink write attempts, key format `TableSinkWriteXXX#<table>` |
+| TableSinkCommitted* | Per-table sink committed metrics, key format `TableSinkCommittedXXX#<table>` |
 
 When we can't get the job info, the response will be:
 
