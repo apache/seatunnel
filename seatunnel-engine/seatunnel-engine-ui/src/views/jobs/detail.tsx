@@ -53,7 +53,11 @@ export default defineComponent({
       Object.assign(job, res)
       clearInterval(timer)
       const d = parse(res.createTime, 'yyyy-MM-dd HH:mm:ss', new Date())
-      duration.value = getRemainTime(Math.abs(Date.now() - d.getTime()))
+      let e = Date.now()
+      if (res.finishTime) {
+          e = parse(res.finishTime, 'yyyy-MM-dd HH:mm:ss', new Date()).getTime()
+      }
+      duration.value = getRemainTime(Math.abs(e - d.getTime()))
       if (isTerminalState(job.jobStatus)) {
         clearTimeout(fetchTimer)
         return
@@ -107,10 +111,10 @@ export default defineComponent({
     const sinkCell = (
       row: Vertex,
       key:
-        | 'TableSinkWriteBytes'
-        | 'TableSinkWriteCount'
-        | 'TableSinkWriteQPS'
-        | 'TableSinkWriteBytesPerSeconds'
+        | 'SinkWriteBytes'
+        | 'SinkWriteCount'
+        | 'SinkWriteQPS'
+        | 'SinkWriteBytesPerSeconds'
     ) => {
       if (row.type === 'sink') {
         return row.tablePaths.reduce((s, path) => s + Number(job.metrics?.[key]), 0)
