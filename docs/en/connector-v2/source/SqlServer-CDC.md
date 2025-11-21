@@ -160,6 +160,7 @@ sink {
   console {
     plugin_input = "customers"
   }
+}
 ```
 
 ### increment read Simple
@@ -196,6 +197,7 @@ sink {
   console {
     plugin_input = "customers"
   }
+}
 ```
 
 ### Support custom primary key for table
@@ -227,6 +229,7 @@ source {
 sink {
   console {
   }
+}
 ```
 
 ## Changelog
