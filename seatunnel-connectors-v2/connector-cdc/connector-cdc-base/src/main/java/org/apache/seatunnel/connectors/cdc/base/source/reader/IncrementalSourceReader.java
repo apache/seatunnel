@@ -44,10 +44,10 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -94,7 +94,7 @@ public class IncrementalSourceReader<T, C extends SourceConfig>
                 context);
         this.dataSourceDialect = dataSourceDialect;
         this.sourceConfig = sourceConfig;
-        this.finishedUnackedSplits = new HashMap<>();
+        this.finishedUnackedSplits = new ConcurrentHashMap<>();
         this.subtaskId = context.getIndexOfSubtask();
         this.debeziumDeserializationSchema = debeziumDeserializationSchema;
     }
