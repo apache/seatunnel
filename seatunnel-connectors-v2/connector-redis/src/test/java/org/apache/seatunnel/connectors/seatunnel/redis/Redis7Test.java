@@ -14,14 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.seatunnel.e2e.connector.redis;
+package org.apache.seatunnel.connectors.seatunnel.redis;
 
 import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisContainerInfo;
 
-public class Redis5IT extends RedisTestCaseTemplateIT {
+public class Redis7Test extends RedisTestTemplate {
 
     @Override
     public RedisContainerInfo getRedisContainerInfo() {
-        return new RedisContainerInfo("redis-e2e", 6379, "SeaTunnel", "redis:5");
+        return new RedisContainerInfo("redis-e2e", 6379, "SeaTunnel", "redis:7");
     }
 }

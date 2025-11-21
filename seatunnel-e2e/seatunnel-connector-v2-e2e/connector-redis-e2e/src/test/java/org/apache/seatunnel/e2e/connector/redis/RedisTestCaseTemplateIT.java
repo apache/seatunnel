@@ -35,9 +35,8 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.utils.JsonUtils;
+import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisContainerInfo;
 import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisDataType;
-import org.apache.seatunnel.connectors.seatunnel.redis.sink.RedisSinkFactory;
-import org.apache.seatunnel.connectors.seatunnel.sink.SinkFlowTestUtils;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.EngineType;
@@ -48,7 +47,6 @@ import org.apache.seatunnel.format.json.JsonSerializationSchema;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestTemplate;
 import org.junit.jupiter.api.condition.DisabledOnOs;
 import org.junit.jupiter.api.condition.OS;
@@ -621,109 +619,6 @@ public abstract class RedisTestCaseTemplateIT extends TestSuiteBase implements T
             Assertions.assertEquals("string", jedis.hget("custom-hash-check", String.valueOf(i)));
         }
         jedis.del("custom-hash-check");
-    }
-
-    @Test
-    public void testFakeToRedisDeleteHashTest() throws IOException {
-        String key = "hash_check";
-        Map<String, Object> otherParams = new HashMap<>();
-        otherParams.put("hash_key_field", "id");
-        SinkFlowTestUtils.runBatchWithCheckpointDisabled(
-                getCatalogTable(0, key),
-                getDefaultReadonlyConfig(RedisDataType.HASH, key, otherParams),
-                new RedisSinkFactory(),
-                Arrays.asList(
-                        getSeaTunnelRowInsert1(),
-                        getSeaTunnelRowInsert2(),
-                        getSeaTunnelRowInsert3(),
-                        getSeaTunnelRowUpdateBefore(),
-                        getSeaTunnelRowUpdateAfter(),
-                        getSeaTunnelRowDelete()));
-        Assertions.assertEquals(2, jedis.hlen(key));
-        jedis.del(key);
-    }
-
-    @Test
-    public void testFakeToRedisDeleteKeyTest() throws IOException {
-        String key = "key_check:{id}";
-        Map<String, Object> otherParams = new HashMap<>();
-        otherParams.put("support_custom_key", true);
-        SinkFlowTestUtils.runBatchWithCheckpointDisabled(
-                getCatalogTable(0, key),
-                getDefaultReadonlyConfig(RedisDataType.KEY, key, otherParams),
-                new RedisSinkFactory(),
-                Arrays.asList(
-                        getSeaTunnelRowInsert1(),
-                        getSeaTunnelRowInsert2(),
-                        getSeaTunnelRowInsert3(),
-                        getSeaTunnelRowUpdateBefore(),
-                        getSeaTunnelRowUpdateAfter(),
-                        getSeaTunnelRowDelete()));
-        int count = 0;
-        for (int i = 1; i <= 3; i++) {
-            String data = jedis.get("key_check:" + i);
-            if (data != null) {
-                count++;
-            }
-        }
-        Assertions.assertEquals(2, count);
-        for (int i = 1; i <= 3; i++) {
-            jedis.del("key_check:" + i);
-        }
-    }
-
-    @Test
-    public void testFakeToRedisDeleteListTest() throws IOException {
-        String key = "list_check";
-        SinkFlowTestUtils.runBatchWithCheckpointDisabled(
-                getCatalogTable(0, key),
-                getDefaultReadonlyConfig(RedisDataType.LIST, key, new HashMap<>()),
-                new RedisSinkFactory(),
-                Arrays.asList(
-                        getSeaTunnelRowInsert1(),
-                        getSeaTunnelRowInsert2(),
-                        getSeaTunnelRowInsert3(),
-                        getSeaTunnelRowUpdateBefore(),
-                        getSeaTunnelRowUpdateAfter(),
-                        getSeaTunnelRowDelete()));
-        Assertions.assertEquals(2, jedis.llen(key));
-        jedis.del(key);
-    }
-
-    @Test
-    public void testFakeToRedisDeleteSetTest() throws IOException {
-        String key = "set_check";
-        SinkFlowTestUtils.runBatchWithCheckpointDisabled(
-                getCatalogTable(0, key),
-                getDefaultReadonlyConfig(RedisDataType.SET, key, new HashMap<>()),
-                new RedisSinkFactory(),
-                Arrays.asList(
-                        getSeaTunnelRowInsert1(),
-                        getSeaTunnelRowInsert2(),
-                        getSeaTunnelRowInsert3(),
-                        getSeaTunnelRowUpdateBefore(),
-                        getSeaTunnelRowUpdateAfter(),
-                        getSeaTunnelRowDelete()));
-        Assertions.assertEquals(2, jedis.scard(key));
-        jedis.del(key);
-    }
-
-    @Test
-    public void testFakeToToRedisDeleteZSetTest() throws IOException {
-        String key = "zset_check";
-        SinkFlowTestUtils.runBatchWithCheckpointDisabled(
-                getCatalogTable(0, key),
-                getDefaultReadonlyConfig(RedisDataType.ZSET, key, new HashMap<>()),
-                new RedisSinkFactory(),
-                Arrays.asList(
-                        getSeaTunnelRowInsert1(),
-                        getSeaTunnelRowInsert2(),
-                        getSeaTunnelRowInsert3(),
-                        getSeaTunnelRowUpdateBefore(),
-                        getSeaTunnelRowUpdateAfter(),
-                        getSeaTunnelRowDelete()));
-        Assertions.assertEquals(2, jedis.zcard(key));
-        jedis.del(key);
     }
 
     @TestTemplate
