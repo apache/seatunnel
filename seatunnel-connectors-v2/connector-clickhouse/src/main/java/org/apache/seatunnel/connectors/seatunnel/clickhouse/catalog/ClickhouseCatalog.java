@@ -100,6 +100,9 @@ public class ClickhouseCatalog implements Catalog {
         List<ClickHouseColumn> clickHouseColumns =
                 proxy.getClickHouseColumns(tablePath.getFullNameWithQuoted());
 
+        // Get source type mapping from DESC query
+        Map<String, String> sourceTypeMap =
+                proxy.getClickhouseTableSchema(tablePath.getFullNameWithQuoted());
         try {
             Optional<PrimaryKey> primaryKey =
                     proxy.getPrimaryKey(tablePath.getDatabaseName(), tablePath.getTableName());
@@ -118,7 +121,9 @@ public class ClickhouseCatalog implements Catalog {
                                     column.getScale(),
                                     column.isNullable(),
                                     null,
-                                    null));
+                                    null,
+                                    null,
+                                    sourceTypeMap.get(column.getColumnName())));
 
             TableIdentifier tableIdentifier =
                     TableIdentifier.of(

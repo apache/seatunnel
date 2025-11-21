@@ -57,7 +57,7 @@ public class HbaseCluster {
     private static final int REGION_PORT = 16020;
     private static final String HOST = "hbase_e2e";
 
-    private static final String DOCKER_NAME = "jcjabouille/hbase-standalone:2.4.9";
+    private static final String DOCKER_NAME = "seatunnelhub/hbase-standalone:2.4.9";
     private static final DockerImageName HBASE_DOCKER_IMAGE = DockerImageName.parse(DOCKER_NAME);
 
     private Connection connection;
