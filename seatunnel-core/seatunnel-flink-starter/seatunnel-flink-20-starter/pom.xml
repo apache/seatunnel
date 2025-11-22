@@ -38,20 +38,11 @@
             <version>${project.version}</version>
         </dependency>
 
-        <!-- Flink 1.20 specific translation - higher priority -->
+        <!-- Flink 1.20 specific translation -->
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
             <artifactId>seatunnel-translation-flink-20</artifactId>
             <version>${project.version}</version>
-            <scope>compile</scope>
-        </dependency>
-
-        <!-- Common translation - fallback for missing classes -->
-        <dependency>
-            <groupId>org.apache.seatunnel</groupId>
-            <artifactId>seatunnel-translation-flink-common</artifactId>
-            <version>${project.version}</version>
-            <scope>compile</scope>
         </dependency>
 
         <dependency>
@@ -82,57 +73,5 @@
             <scope>${flink.scope}</scope>
         </dependency>
 
-        <dependency>
-            <groupId>org.apache.seatunnel</groupId>
-            <artifactId>connector-common</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-
-        <dependency>
-            <groupId>org.apache.seatunnel</groupId>
-            <artifactId>seatunnel-transforms-v2</artifactId>
-            <version>${project.version}</version>
-        </dependency>
     </dependencies>
-
-    <build>
-        <plugins>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-shade-plugin</artifactId>
-                <executions>
-                    <execution>
-                        <goals>
-                            <goal>shade</goal>
-                        </goals>
-                        <phase>package</phase>
-                        <configuration>
-                            <finalName>${project.artifactId}</finalName>
-                            <createDependencyReducedPom>true</createDependencyReducedPom>
-                            <filters>
-                                <filter>
-                                    <artifact>*:*</artifact>
-                                    <excludes>
-                                        <exclude>META-INF/*.SF</exclude>
-                                        <exclude>META-INF/*.DSA</exclude>
-                                        <exclude>META-INF/*.RSA</exclude>
-                                    </excludes>
-                                </filter>
-                            </filters>
-                            <transformers>
-                                <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
-                                    <mainClass>org.apache.seatunnel.core.starter.flink.SeaTunnelFlink</mainClass>
-                                </transformer>
-                                <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer" />
-                                <transformer implementation="org.apache.maven.plugins.shade.resource.IncludeResourceTransformer">
-                                    <resource>META-INF/services</resource>
-                                    <file>META-INF/services</file>
-                                </transformer>
-                            </transformers>
-                        </configuration>
-                    </execution>
-                </executions>
-            </plugin>
-        </plugins>
-    </build>
 </project>

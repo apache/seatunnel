@@ -68,7 +68,8 @@ public class FlinkMetricContext implements MetricsContext {
             return existingCounter;
         }
 
-        org.apache.flink.metrics.Counter flinkCounter = metricGroup.counter(name);
+        org.apache.flink.metrics.Counter flinkCounter =
+                metricGroup != null ? metricGroup.counter(name) : null;
 
         if (isKeyMetric(name) && generalRuntimeContext != null) {
             try {
@@ -90,7 +91,8 @@ public class FlinkMetricContext implements MetricsContext {
 
     @Override
     public <C extends Counter> C counter(String name, C counter) {
-        return null;
+        counters.put(name, counter);
+        return counter;
     }
 
     @Override
@@ -101,15 +103,19 @@ public class FlinkMetricContext implements MetricsContext {
         }
 
         org.apache.flink.metrics.Meter flinkMeter =
-                metricGroup.meter(name, new org.apache.flink.metrics.MeterView(60));
-        Meter meter = new FlinkMeter(name, flinkMeter);
+                metricGroup != null
+                        ? metricGroup.meter(name, new org.apache.flink.metrics.MeterView(60))
+                        : null;
+        Meter meter =
+                new org.apache.seatunnel.translation.flink.metric.FlinkMeter(name, flinkMeter);
         meters.put(name, meter);
         return meter;
     }
 
     @Override
     public <M extends Meter> M meter(String name, M meter) {
-        return null;
+        meters.put(name, meter);
+        return meter;
     }
 
     private boolean isKeyMetric(String name) {

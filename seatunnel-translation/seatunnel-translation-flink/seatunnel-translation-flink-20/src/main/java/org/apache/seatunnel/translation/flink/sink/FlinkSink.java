@@ -102,7 +102,21 @@ public class FlinkSink<CommT, WriterStateT, GlobalCommT>
 
     @Override
     public SimpleVersionedSerializer<CommitWrapper<CommT>> getCommittableSerializer() {
-        return new CommitWrapperSerializer<>();
+        try {
+            if (seaTunnelSink.createCommitter().isPresent()
+                    || seaTunnelSink.createAggregatedCommitter().isPresent()) {
+                return seaTunnelSink
+                        .getCommitInfoSerializer()
+                        .map(CommitWrapperSerializer::new)
+                        .orElseThrow(
+                                () ->
+                                        new IllegalStateException(
+                                                "Committer is present but commit serializer is missing"));
+            }
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+        return null;
     }
 
     // SupportsWriterState interface methods
