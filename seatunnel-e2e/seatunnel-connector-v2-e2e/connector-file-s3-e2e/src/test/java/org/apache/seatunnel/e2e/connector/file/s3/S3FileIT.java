@@ -82,8 +82,8 @@ public class S3FileIT extends TestSuiteBase implements TestResource {
                                                         Ports.Binding.bindPort(9000),
                                                         new ExposedPort(9000))))
                         .withLogConsumer(new Slf4jLogConsumer(log))
-                        .withEnv("MINIO_ROOT_USER", "myuser")
-                        .withEnv("MINIO_ROOT_PASSWORD", "mypassword")
+                        .withEnv("MINIO_ROOT_USER", "minioadmin")
+                        .withEnv("MINIO_ROOT_PASSWORD", "minioadmin")
                         .withCommand("server", "/data")
                         .waitingFor(Wait.forLogMessage(".*", 1));
 
