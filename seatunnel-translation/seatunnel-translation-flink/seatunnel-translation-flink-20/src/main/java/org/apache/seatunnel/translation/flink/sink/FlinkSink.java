@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.translation.flink.sink;
 
+import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -116,7 +117,23 @@ public class FlinkSink<CommT, WriterStateT, GlobalCommT>
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
-        return null;
+        // No committer path: still need a non-null serializer to satisfy Flink sink2 contract.
+        return new CommitWrapperSerializer<>(new NoOpCommitSerializer<>());
+    }
+
+    /**
+     * Minimal no-op serializer to satisfy Flink's serializer requirement when no committer is used.
+     */
+    private static class NoOpCommitSerializer<T> implements Serializer<T> {
+        @Override
+        public byte[] serialize(T obj) {
+            return new byte[0];
+        }
+
+        @Override
+        public T deserialize(byte[] bytes) {
+            return null;
+        }
     }
 
     // SupportsWriterState interface methods
