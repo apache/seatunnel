@@ -39,18 +39,19 @@ public class S3Utils {
     private static final String ACCESS_KEY = "myuser";
     private static final String SECRET_KEY = "mypassword";
     private static final String REGION = "cn-north-1";
+    private static final String ENDPOINT = "http://localhost:9000";
     private String bucket = "ws-package";
 
     private final AmazonS3 s3Client;
 
-    public S3Utils(String endpoint) {
+    public S3Utils() {
         BasicAWSCredentials credentials = new BasicAWSCredentials(ACCESS_KEY, SECRET_KEY);
 
         this.s3Client =
                 AmazonS3ClientBuilder.standard()
                         .withCredentials(new AWSStaticCredentialsProvider(credentials))
                         .withEndpointConfiguration(
-                                new AwsClientBuilder.EndpointConfiguration(endpoint, REGION))
+                                new AwsClientBuilder.EndpointConfiguration(ENDPOINT, REGION))
                         .build();
 
         s3Client.deleteBucket(bucket);

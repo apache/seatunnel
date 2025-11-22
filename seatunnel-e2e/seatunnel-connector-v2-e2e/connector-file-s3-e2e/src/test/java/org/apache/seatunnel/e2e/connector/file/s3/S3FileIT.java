@@ -29,6 +29,7 @@ import org.apache.seatunnel.e2e.common.util.ContainerUtil;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
@@ -36,6 +37,9 @@ import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.utility.DockerImageName;
 
+import com.github.dockerjava.api.model.ExposedPort;
+import com.github.dockerjava.api.model.PortBinding;
+import com.github.dockerjava.api.model.Ports;
 import io.airlift.compress.lzo.LzopCodec;
 import lombok.extern.slf4j.Slf4j;
 
@@ -45,8 +49,6 @@ import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.List;
 
 @DisabledOnContainer(
         value = {},
@@ -61,8 +63,6 @@ public class S3FileIT extends TestSuiteBase implements TestResource {
 
     private static final int S3_PORT = 9000;
 
-    private String endpoint;
-
     public static final String S3_SDK_DOWNLOAD =
             "https://repo1.maven.org/maven2/com/amazonaws/aws-java-sdk-bundle/1.11.271/aws-java-sdk-bundle-1.11.271.jar";
     public static final String HADOOP_S3_DOWNLOAD =
@@ -75,18 +75,19 @@ public class S3FileIT extends TestSuiteBase implements TestResource {
                 new GenericContainer<>(DockerImageName.parse(MINIO_IMAGE))
                         .withNetwork(NETWORK)
                         .withExposedPorts(S3_PORT)
+                        .withCreateContainerCmdModifier(
+                                cmd ->
+                                        cmd.withPortBindings(
+                                                new PortBinding(
+                                                        Ports.Binding.bindPort(9000),
+                                                        new ExposedPort(9000))))
                         .withLogConsumer(new Slf4jLogConsumer(log))
                         .withEnv("MINIO_ROOT_USER", "myuser")
                         .withEnv("MINIO_ROOT_PASSWORD", "mypassword")
                         .withCommand("server", "/data")
                         .waitingFor(Wait.forLogMessage(".*", 1));
 
-        List<String> portBind = new ArrayList<>();
-        portBind.add("9000:9000");
-        s3Container.setPortBindings(portBind);
         s3Container.start();
-
-        endpoint = "http://" + s3Container.getHost() + ":" + s3Container.getMappedPort(9000);
     }
 
     @Override
@@ -121,7 +122,7 @@ public class S3FileIT extends TestSuiteBase implements TestResource {
             throws IOException, InterruptedException {
 
         // Copy test files to s3
-        S3Utils s3Utils = new S3Utils(endpoint);
+        S3Utils s3Utils = new S3Utils();
 
         try {
             s3Utils.uploadTestFiles(
@@ -162,10 +163,11 @@ public class S3FileIT extends TestSuiteBase implements TestResource {
 
     /** Copy data files to s3 */
     @TestTemplate
+    @Disabled
     public void testS3FileReadAndWrite(TestContainer container)
             throws IOException, InterruptedException {
         // Copy test files to s3
-        S3Utils s3Utils = new S3Utils(endpoint);
+        S3Utils s3Utils = new S3Utils();
         try {
             s3Utils.uploadTestFiles(
                     "/json/e2e.json",

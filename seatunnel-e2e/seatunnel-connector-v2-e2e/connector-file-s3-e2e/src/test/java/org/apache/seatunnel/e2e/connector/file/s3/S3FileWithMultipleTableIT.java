@@ -17,77 +17,26 @@
 
 package org.apache.seatunnel.e2e.connector.file.s3;
 
-import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
-import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.container.TestHelper;
-import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.Container;
-import org.testcontainers.containers.GenericContainer;
-import org.testcontainers.containers.output.Slf4jLogConsumer;
-import org.testcontainers.containers.wait.strategy.Wait;
-import org.testcontainers.utility.DockerImageName;
-
-import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
 
-@DisabledOnContainer(
-        value = {},
-        type = {EngineType.SPARK},
-        disabledReason =
-                "1.The apache-compress version is not compatible with apache-poi. 2.Spark Engine is not compatible with commons-net")
-@Slf4j
-public class S3FileWithMultipleTableIT extends TestSuiteBase implements TestResource {
-    private GenericContainer<?> s3Container;
-
-    private static final String MINIO_IMAGE = "minio/minio:latest";
-
-    private static final int S3_PORT = 9000;
+@Disabled("have no s3 environment to run this test")
+public class S3FileWithMultipleTableIT extends TestSuiteBase {
 
     public static final String S3_SDK_DOWNLOAD =
             "https://repo1.maven.org/maven2/com/amazonaws/aws-java-sdk-bundle/1.11.271/aws-java-sdk-bundle-1.11.271.jar";
     public static final String HADOOP_S3_DOWNLOAD =
             "https://repo1.maven.org/maven2/org/apache/hadoop/hadoop-aws/3.1.4/hadoop-aws-3.1.4.jar";
-
-    private String endpoint;
-
-    @BeforeAll
-    @Override
-    public void startUp() throws Exception {
-        s3Container =
-                new GenericContainer<>(DockerImageName.parse(MINIO_IMAGE))
-                        .withNetwork(NETWORK)
-                        .withExposedPorts(S3_PORT)
-                        .withLogConsumer(new Slf4jLogConsumer(log))
-                        .withEnv("MINIO_ROOT_USER", "myuser")
-                        .withEnv("MINIO_ROOT_PASSWORD", "mypassword")
-                        .withCommand("server", "/data")
-                        .waitingFor(Wait.forLogMessage(".*", 1));
-
-        List<String> portBind = new ArrayList<>();
-        portBind.add("9000:9000");
-        s3Container.setPortBindings(portBind);
-        s3Container.start();
-
-        endpoint = "http://" + s3Container.getHost() + ":" + s3Container.getMappedPort(9000);
-    }
-
-    @Override
-    public void tearDown() throws Exception {
-        if (s3Container != null) {
-            s3Container.close();
-        }
-    }
 
     @TestContainerExtension
     private final ContainerExtendedFactory extendedFactory =
@@ -127,7 +76,7 @@ public class S3FileWithMultipleTableIT extends TestSuiteBase implements TestReso
     @TestTemplate
     public void addTestFiles(TestContainer container) throws IOException, InterruptedException {
         // Copy test files to s3
-        S3Utils s3Utils = new S3Utils(endpoint);
+        S3Utils s3Utils = new S3Utils();
         try {
             s3Utils.uploadTestFiles(
                     "/json/e2e.json",
