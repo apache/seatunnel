@@ -340,7 +340,7 @@ public abstract class BaseService {
                 metricsMap,
                 tableMetricsMaps,
                 ArrayUtils.addAll(tableCountMetricsNames, tableRateMetricsNames),
-                countMetricsNames.length);
+                tableCountMetricsNames.length);
         populateMetricsMap(
                 metricsMap,
                 Stream.concat(Arrays.stream(metricsSums), Arrays.stream(metricsRates))
