@@ -25,7 +25,6 @@ import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.constants.PluginType;
 
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -341,7 +340,7 @@ public class ConnectorMetricsCalcContext {
     private static final class PendingMetrics {
         private long count;
         private long bytes;
-        private final Map<String, TablePendingMetrics> tableMetrics = new HashMap<>();
+        private final Map<String, TablePendingMetrics> tableMetrics = new ConcurrentHashMap<>();
 
         void add(String tableName, long rowBytes) {
             count++;
@@ -354,7 +353,7 @@ public class ConnectorMetricsCalcContext {
         }
 
         boolean isEmpty() {
-            return count == 0 && bytes == 0 && tableMetrics.isEmpty();
+            return count == 0;
         }
 
         void merge(PendingMetrics other) {
