@@ -54,8 +54,9 @@ public class S3Utils {
                                 new AwsClientBuilder.EndpointConfiguration(ENDPOINT, REGION))
                         .build();
 
-        s3Client.deleteBucket(bucket);
-        s3Client.createBucket(bucket);
+        if (!s3Client.doesBucketExistV2(bucket)) {
+            s3Client.createBucket(bucket);
+        }
     }
 
     public void uploadTestFiles(
