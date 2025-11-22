@@ -36,24 +36,25 @@ import java.io.InputStream;
 
 public class S3Utils {
     private static Logger logger = LoggerFactory.getLogger(S3Utils.class);
-    private static final String ACCESS_KEY = "XXXXXX";
-    private static final String SECRET_KEY = "AWS_XXXX";
+    private static final String ACCESS_KEY = "myuser";
+    private static final String SECRET_KEY = "mypassword";
     private static final String REGION = "cn-north-1";
-    private static final String ENDPOINT =
-            "s3.cn-north-1.amazonaws.com.cn"; // For example, "https://s3.amazonaws.com"
     private String bucket = "ws-package";
 
     private final AmazonS3 s3Client;
 
-    public S3Utils() {
+    public S3Utils(String endpoint) {
         BasicAWSCredentials credentials = new BasicAWSCredentials(ACCESS_KEY, SECRET_KEY);
 
         this.s3Client =
                 AmazonS3ClientBuilder.standard()
                         .withCredentials(new AWSStaticCredentialsProvider(credentials))
                         .withEndpointConfiguration(
-                                new AwsClientBuilder.EndpointConfiguration(ENDPOINT, REGION))
+                                new AwsClientBuilder.EndpointConfiguration(endpoint, REGION))
                         .build();
+
+        s3Client.deleteBucket(bucket);
+        s3Client.createBucket(bucket);
     }
 
     public void uploadTestFiles(
