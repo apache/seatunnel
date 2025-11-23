@@ -914,6 +914,9 @@
                             <version>1.7</version>
                             <style>AOSP</style>
                         </googleJavaFormat>
+                        <licenseHeader>
+                            <file>${maven.multiModuleProjectDirectory}/license-header.txt</file>
+                        </licenseHeader>
                         <removeUnusedImports />
                         <formatAnnotations />
                         <importOrder>

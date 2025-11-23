@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package io.debezium.connector.mysql.legacy;
 
 import org.apache.kafka.connect.data.Struct;

@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.seatunnel.connectors.seatunnel.tablestore.serialize;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;

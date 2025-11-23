@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.highgo;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
