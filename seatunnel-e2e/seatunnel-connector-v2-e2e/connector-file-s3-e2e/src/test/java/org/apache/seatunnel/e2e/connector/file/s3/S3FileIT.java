@@ -79,14 +79,13 @@ public class S3FileIT extends TestSuiteBase implements TestResource {
                                 cmd ->
                                         cmd.withPortBindings(
                                                 new PortBinding(
-                                                        Ports.Binding.bindPort(9000),
-                                                        new ExposedPort(9000))))
+                                                        Ports.Binding.bindPort(S3_PORT),
+                                                        new ExposedPort(S3_PORT))))
                         .withLogConsumer(new Slf4jLogConsumer(log))
                         .withEnv("MINIO_ROOT_USER", "minioadmin")
                         .withEnv("MINIO_ROOT_PASSWORD", "minioadmin")
                         .withCommand("server", "/data")
                         .waitingFor(Wait.forLogMessage(".*", 1));
-
         s3Container.start();
     }
 
@@ -124,34 +123,30 @@ public class S3FileIT extends TestSuiteBase implements TestResource {
         // Copy test files to s3
         S3Utils s3Utils = new S3Utils();
 
-        try {
-            s3Utils.uploadTestFiles(
-                    "/json/e2e.json",
-                    "test/seatunnel/read/filter/json/name=tyrantlucifer/hobby=codin/e2e.json",
-                    true);
+        S3Utils.uploadTestFiles(
+                "/json/e2e.json",
+                "test/seatunnel/read/filter/json/name=tyrantlucifer/hobby=codin/e2e.json",
+                true);
 
-            s3Utils.uploadTestFiles(
-                    "/json/e2e.json",
-                    "test/seatunnel/read/filter/json2025/name=tyrantlucifer/hobby=codin/e2e.json",
-                    true);
+        S3Utils.uploadTestFiles(
+                "/json/e2e.json",
+                "test/seatunnel/read/filter/json2025/name=tyrantlucifer/hobby=codin/e2e.json",
+                true);
 
-            s3Utils.uploadTestFiles(
-                    "/text/e2e.txt",
-                    "test/seatunnel/read/filter/json2025/name=tyrantlucifer/hobby=codin/e2e_2025.txt",
-                    true);
+        S3Utils.uploadTestFiles(
+                "/text/e2e.txt",
+                "test/seatunnel/read/filter/json2025/name=tyrantlucifer/hobby=codin/e2e_2025.txt",
+                true);
 
-            s3Utils.uploadTestFiles(
-                    "/json/e2e.json",
-                    "test/seatunnel/read/filter/json2024/name=tyrantlucifer/hobby=codin/e2e_2024.json",
-                    true);
+        S3Utils.uploadTestFiles(
+                "/json/e2e.json",
+                "test/seatunnel/read/filter/json2024/name=tyrantlucifer/hobby=codin/e2e_2024.json",
+                true);
 
-            s3Utils.uploadTestFiles(
-                    "/text/e2e.txt",
-                    "test/seatunnel/read/filter/text/name=tyrantlucifer/hobby=codin/e2e.txt",
-                    true);
-        } finally {
-            s3Utils.close();
-        }
+        S3Utils.uploadTestFiles(
+                "/text/e2e.txt",
+                "test/seatunnel/read/filter/text/name=tyrantlucifer/hobby=codin/e2e.txt",
+                true);
         TestHelper helper = new TestHelper(container);
         // -----filter based on the file directory at the same time, the expression needs to start
         // with `path`--------
@@ -167,50 +162,41 @@ public class S3FileIT extends TestSuiteBase implements TestResource {
     public void testS3FileReadAndWrite(TestContainer container)
             throws IOException, InterruptedException {
         // Copy test files to s3
-        S3Utils s3Utils = new S3Utils();
-        try {
-            s3Utils.uploadTestFiles(
-                    "/json/e2e.json",
-                    "test/seatunnel/read/json/name=tyrantlucifer/hobby=coding/e2e.json",
-                    true);
-            Path jsonLzo = convertToLzoFile(ContainerUtil.getResourcesFile("/json/e2e.json"));
-            s3Utils.uploadTestFiles(
-                    jsonLzo.toString(), "test/seatunnel/read/lzo_json/e2e.json", false);
-            s3Utils.uploadTestFiles(
-                    "/text/e2e.txt",
-                    "test/seatunnel/read/text/name=tyrantlucifer/hobby=coding/e2e.txt",
-                    true);
-            s3Utils.uploadTestFiles(
-                    "/text/e2e_delimiter.txt", "test/seatunnel/read/text_delimiter/e2e.txt", true);
-            s3Utils.uploadTestFiles(
-                    "/text/e2e_time_format.txt",
-                    "test/seatunnel/read/text_time_format/e2e.txt",
-                    true);
-            Path txtLzo = convertToLzoFile(ContainerUtil.getResourcesFile("/text/e2e.txt"));
-            s3Utils.uploadTestFiles(
-                    txtLzo.toString(), "test/seatunnel/read/lzo_text/e2e.txt", false);
-            s3Utils.uploadTestFiles(
-                    "/excel/e2e.xlsx",
-                    "test/seatunnel/read/excel/name=tyrantlucifer/hobby=coding/e2e.xlsx",
-                    true);
-            s3Utils.uploadTestFiles(
-                    "/orc/e2e.orc",
-                    "test/seatunnel/read/orc/name=tyrantlucifer/hobby=coding/e2e.orc",
-                    true);
-            s3Utils.uploadTestFiles(
-                    "/parquet/e2e.parquet",
-                    "test/seatunnel/read/parquet/name=tyrantlucifer/hobby=coding/e2e.parquet",
-                    true);
-            s3Utils.uploadTestFiles(
-                    "/excel/e2e.xlsx",
-                    "test/seatunnel/read/excel_filter/name=tyrantlucifer/hobby=coding/e2e_filter.xlsx",
-                    true);
-            s3Utils.uploadTestFiles(
-                    "/text/e2e-text.zip", "test/seatunnel/read/text_zip/e2e-text.zip", true);
-            s3Utils.createDir("tmp/fake_empty");
-        } finally {
-            s3Utils.close();
-        }
+        S3Utils.uploadTestFiles(
+                "/json/e2e.json",
+                "test/seatunnel/read/json/name=tyrantlucifer/hobby=coding/e2e.json",
+                true);
+        Path jsonLzo = convertToLzoFile(ContainerUtil.getResourcesFile("/json/e2e.json"));
+        S3Utils.uploadTestFiles(jsonLzo.toString(), "test/seatunnel/read/lzo_json/e2e.json", false);
+        S3Utils.uploadTestFiles(
+                "/text/e2e.txt",
+                "test/seatunnel/read/text/name=tyrantlucifer/hobby=coding/e2e.txt",
+                true);
+        S3Utils.uploadTestFiles(
+                "/text/e2e_delimiter.txt", "test/seatunnel/read/text_delimiter/e2e.txt", true);
+        S3Utils.uploadTestFiles(
+                "/text/e2e_time_format.txt", "test/seatunnel/read/text_time_format/e2e.txt", true);
+        Path txtLzo = convertToLzoFile(ContainerUtil.getResourcesFile("/text/e2e.txt"));
+        S3Utils.uploadTestFiles(txtLzo.toString(), "test/seatunnel/read/lzo_text/e2e.txt", false);
+        S3Utils.uploadTestFiles(
+                "/excel/e2e.xlsx",
+                "test/seatunnel/read/excel/name=tyrantlucifer/hobby=coding/e2e.xlsx",
+                true);
+        S3Utils.uploadTestFiles(
+                "/orc/e2e.orc",
+                "test/seatunnel/read/orc/name=tyrantlucifer/hobby=coding/e2e.orc",
+                true);
+        S3Utils.uploadTestFiles(
+                "/parquet/e2e.parquet",
+                "test/seatunnel/read/parquet/name=tyrantlucifer/hobby=coding/e2e.parquet",
+                true);
+        S3Utils.uploadTestFiles(
+                "/excel/e2e.xlsx",
+                "test/seatunnel/read/excel_filter/name=tyrantlucifer/hobby=coding/e2e_filter.xlsx",
+                true);
+        S3Utils.uploadTestFiles(
+                "/text/e2e-text.zip", "test/seatunnel/read/text_zip/e2e-text.zip", true);
+        S3Utils.createDir("tmp/fake_empty");
 
         TestHelper helper = new TestHelper(container);
 
