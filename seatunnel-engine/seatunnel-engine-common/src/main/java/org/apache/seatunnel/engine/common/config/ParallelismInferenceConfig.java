@@ -29,8 +29,8 @@ public class ParallelismInferenceConfig implements Serializable {
     private int maxParallelism = 128;
 
     public void validate() {
-        if (maxParallelism > 0) {
-            throw new IllegalArgumentException("maxParallelism must be a power of 2");
+        if (maxParallelism <= 0) {
+            throw new IllegalArgumentException("max-parallelism must be greater than 0");
         }
     }
 }
