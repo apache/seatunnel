@@ -32,6 +32,7 @@ import org.apache.seatunnel.engine.server.checkpoint.CheckpointCoordinator;
 import org.apache.seatunnel.engine.server.dag.physical.PhysicalVertex;
 import org.apache.seatunnel.engine.server.dag.physical.PipelineLocation;
 import org.apache.seatunnel.engine.server.dag.physical.SubPlan;
+import org.apache.seatunnel.engine.server.dag.physical.UnknownPhysicalPlanException;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
 import org.apache.seatunnel.engine.server.service.slot.SlotService;
@@ -246,6 +247,19 @@ public class JobMasterTest extends AbstractSeaTunnelServerTest {
         Assertions.assertEquals(JobStatus.RUNNING, jobMaster.getJobStatus());
 
         assertCloseIdleTask(jobMaster);
+    }
+
+    @Test
+    void testFilteringFinishedPipelinesInPhysicalPlanGenerator() throws Exception {
+        long jobId = instance.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME).newId();
+        JobMaster jobMaster = newJobInstanceWithRunningState(jobId);
+
+        jobMaster
+                .getRunningJobStateIMap()
+                .put(new PipelineLocation(jobId, 1), PipelineStatus.FINISHED);
+        Assertions.assertThrows(
+                UnknownPhysicalPlanException.class,
+                () -> jobMaster.init(System.currentTimeMillis(), false));
     }
 
     private void assertCloseIdleTask(JobMaster jobMaster) {

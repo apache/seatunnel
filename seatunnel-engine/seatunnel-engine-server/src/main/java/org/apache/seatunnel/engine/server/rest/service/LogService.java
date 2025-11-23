@@ -49,7 +49,7 @@ public class LogService extends BaseLogService {
         String logPath = getLogPath();
         List<File> logFileList = FileUtils.listFile(logPath);
         if (logFileList == null) {
-            return null;
+            return new ArrayList<>();
         }
         return logFileList.stream().map(File::getName).collect(Collectors.toList());
     }
@@ -70,8 +70,25 @@ public class LogService extends BaseLogService {
                 systemMonitoringInformation -> {
                     String host = systemMonitoringInformation.asObject().get("host").asString();
                     String url = "http://" + host + ":" + port + contextPath;
-                    String allName = sendGet(url + REST_URL_GET_ALL_LOG_NAME);
-                    log.debug(String.format("Request: %s , Result: %s", url, allName));
+                    String logUrl = url + REST_URL_GET_ALL_LOG_NAME;
+
+                    String allName =
+                            httpConfig.isEnableBasicAuth()
+                                    ? sendGet(
+                                            logUrl,
+                                            httpConfig.getBasicAuthUsername(),
+                                            httpConfig.getBasicAuthPassword())
+                                    : sendGet(logUrl);
+
+                    if (StringUtils.isBlank(allName)) {
+                        log.warn(
+                                "GET {} returned empty body (null/empty). Skip this node.", logUrl);
+                        return;
+                    }
+
+                    if (log.isDebugEnabled()) {
+                        log.debug("Request: {} , Result: {}", url, allName);
+                    }
                     ArrayNode jsonNodes = JsonUtils.parseArray(allName);
 
                     jsonNodes.forEach(
@@ -113,7 +130,7 @@ public class LogService extends BaseLogService {
         return buildWebSiteContent(logLink);
     }
 
-    public String currentNodeLog(String uri) {
+    public String currentNodeLog() {
         List<File> logFileList = FileUtils.listFile(getLogPath());
         StringBuffer logLink = new StringBuffer();
         if (logFileList != null) {

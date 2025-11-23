@@ -115,6 +115,7 @@ public class GetOverviewOperation extends Operation implements IdentifiedDataSer
                                                 .name()
                                                 .equals(JobStatus.FINISHED.toString()))
                         .count());
+        overviewInfo.setPendingJobs(server.getCoordinatorService().getPendingJobCount());
 
         return overviewInfo;
     }
