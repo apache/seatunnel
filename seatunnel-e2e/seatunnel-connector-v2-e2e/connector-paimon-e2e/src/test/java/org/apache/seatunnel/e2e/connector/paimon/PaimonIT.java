@@ -207,7 +207,6 @@ public class PaimonIT extends TestSuiteBase implements TestResource {
 
     @TestTemplate
     public void inferParallelism(TestContainer container) throws Exception {
-        // fake to paimon
         Container.ExecResult execResult =
                 container.executeJob("/fake_to_paimon_parallelism_inference.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
