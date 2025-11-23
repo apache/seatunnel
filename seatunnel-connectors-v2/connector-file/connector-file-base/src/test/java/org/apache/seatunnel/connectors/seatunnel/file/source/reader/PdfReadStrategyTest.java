@@ -42,12 +42,6 @@ public class PdfReadStrategyTest {
 
         List<SeaTunnelRow> rows = tempCollector.getRows();
 
-        for (SeaTunnelRow row : rows) {
-            System.out.println(row);
-        }
-
-        System.out.println("rows.size: " + rows.size());
-
         List<SeaTunnelRow> headingElements = getHeadingElements(rows);
 
         // verify heading elements count
