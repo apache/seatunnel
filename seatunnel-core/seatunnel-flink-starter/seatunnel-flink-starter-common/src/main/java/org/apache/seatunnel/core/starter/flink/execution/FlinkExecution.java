@@ -52,6 +52,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.OptionalLong;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -136,14 +137,10 @@ public class FlinkExecution implements TaskExecution {
                 flinkRuntimeEnvironment.getStreamExecutionEnvironment().getExecutionPlan());
         LOGGER.info("Flink job name: {}", flinkRuntimeEnvironment.getJobName());
         if (flinkRuntimeEnvironment.getJobMode() == JobMode.BATCH) {
+            OptionalLong checkpointInterval =
+                    flinkRuntimeEnvironment.resolveCheckpointInterval(false);
             boolean enableCheckpointForBatch =
-                    flinkRuntimeEnvironment
-                                    .getConfig()
-                                    .hasPath(EnvCommonOptions.CHECKPOINT_INTERVAL.key())
-                            && flinkRuntimeEnvironment
-                                            .getConfig()
-                                            .getLong(EnvCommonOptions.CHECKPOINT_INTERVAL.key())
-                                    > 0;
+                    checkpointInterval.isPresent() && checkpointInterval.getAsLong() > 0;
             if (!enableCheckpointForBatch) {
                 flinkRuntimeEnvironment
                         .getStreamExecutionEnvironment()
