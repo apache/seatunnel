@@ -115,4 +115,23 @@ public class EnvCommonOptions {
                     .mapType()
                     .noDefaultValue()
                     .withDescription("Define the worker where the job runs by tag");
+
+    // ==================== Parallelism Inference Options ====================
+
+    public static Option<Boolean> PARALLELISM_INFERENCE_ENABLED =
+            Options.key("parallelism.inference.enabled")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription(
+                            "Enable automatic parallelism inference based on data volume. "
+                                    + "When enabled, operators with parallelism=-1 will have their parallelism "
+                                    + "automatically determined based on the size of consumed data.");
+
+    public static Option<Integer> PARALLELISM_INFERENCE_MAX_PARALLELISM =
+            Options.key("parallelism.inference.max-parallelism")
+                    .intType()
+                    .defaultValue(128)
+                    .withDescription(
+                            "The maximum parallelism for operators when using automatic inference. "
+                                    + "Must be a power of 2 to ensure even distribution of subpartitions.");
 }

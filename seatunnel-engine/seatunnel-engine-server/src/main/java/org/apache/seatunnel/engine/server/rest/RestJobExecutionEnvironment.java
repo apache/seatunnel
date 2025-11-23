@@ -110,7 +110,8 @@ public class RestJobExecutionEnvironment extends AbstractJobEnvironment {
                 jobConfig,
                 commonPluginJars,
                 isStartWithSavePoint,
-                pipelineCheckpoints);
+                pipelineCheckpoints,
+                seaTunnelServer.getSeaTunnelConfig().getEngineConfig());
     }
 
     public JobImmutableInformation build() {

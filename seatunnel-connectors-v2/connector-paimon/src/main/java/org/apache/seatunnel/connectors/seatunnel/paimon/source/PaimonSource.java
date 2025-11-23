@@ -26,6 +26,7 @@ import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
+import org.apache.seatunnel.api.source.SupportParallelismInference;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -38,6 +39,7 @@ import org.apache.seatunnel.connectors.seatunnel.paimon.source.enumerator.Paimon
 import org.apache.seatunnel.connectors.seatunnel.paimon.source.enumerator.PaimonStreamSourceSplitEnumerator;
 import org.apache.seatunnel.connectors.seatunnel.paimon.utils.RowTypeConverter;
 
+import org.apache.paimon.manifest.PartitionEntry;
 import org.apache.paimon.predicate.Predicate;
 import org.apache.paimon.table.FileStoreTable;
 import org.apache.paimon.table.source.ReadBuilder;
@@ -57,7 +59,8 @@ import static org.apache.seatunnel.connectors.seatunnel.paimon.source.converter.
 /** Paimon connector source class. */
 @Slf4j
 public class PaimonSource
-        implements SeaTunnelSource<SeaTunnelRow, PaimonSourceSplit, PaimonSourceState> {
+        implements SeaTunnelSource<SeaTunnelRow, PaimonSourceSplit, PaimonSourceState>,
+                SupportParallelismInference {
 
     private static final long serialVersionUID = 1L;
 
@@ -178,5 +181,32 @@ public class PaimonSource
                 checkpointState.getCurrentSnapshotId(),
                 readBuilders,
                 1);
+    }
+
+    /** Infer parallelism based on Paimon data partition count. */
+    @Override
+    public int inferParallelism() {
+        try {
+            for (Map.Entry<String, ReadBuilder> entry : readBuilders.entrySet()) {
+                String tableKey = entry.getKey();
+                ReadBuilder readBuilder = entry.getValue();
+                try {
+                    List<PartitionEntry> partitionEntries =
+                            readBuilder.newScan().listPartitionEntries();
+                    return !partitionEntries.isEmpty() ? partitionEntries.size() : 1;
+                } catch (Exception e) {
+                    log.warn(
+                            "Failed to get partition info for table {}, skipping parallelism inference",
+                            tableKey,
+                            e);
+                    return -1;
+                }
+            }
+
+        } catch (Exception e) {
+            log.warn("Failed to infer parallelism for Paimon source", e);
+            return -1;
+        }
+        return 1;
     }
 }

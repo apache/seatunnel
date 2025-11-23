@@ -21,6 +21,7 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
+import org.apache.seatunnel.engine.common.config.ParallelismInferenceConfig;
 
 import java.util.Map;
 
@@ -382,6 +383,28 @@ public class ServerConfigOptions {
                         .defaultValue(new CoordinatorServiceConfig())
                         .withDescription("The coordinator service configuration.");
         // The options for coordinator service end
+        /////////////////////////////////////////////////
+
+        /////////////////////////////////////////////////
+        // The options for parallelism inference start
+        public static final Option<Boolean> PARALLELISM_INFERENCE_ENABLED =
+                Options.key("enabled")
+                        .booleanType()
+                        .defaultValue(false)
+                        .withDescription("Whether to enable automatic parallelism inference.");
+
+        public static final Option<Integer> PARALLELISM_INFERENCE_MAX_PARALLELISM =
+                Options.key("max-parallelism")
+                        .intType()
+                        .defaultValue(64)
+                        .withDescription("The maximum parallelism for operators.");
+
+        public static final Option<ParallelismInferenceConfig> PARALLELISM_INFERENCE =
+                Options.key("parallelism-inference")
+                        .type(new TypeReference<ParallelismInferenceConfig>() {})
+                        .defaultValue(new ParallelismInferenceConfig())
+                        .withDescription("The parallelism inference configuration.");
+        // The options for parallelism inference end
         /////////////////////////////////////////////////
 
     }

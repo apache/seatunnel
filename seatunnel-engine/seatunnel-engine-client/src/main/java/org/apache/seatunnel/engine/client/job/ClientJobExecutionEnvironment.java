@@ -113,7 +113,8 @@ public class ClientJobExecutionEnvironment extends AbstractJobEnvironment {
                 jobConfig,
                 commonPluginJars,
                 isStartWithSavePoint,
-                pipelineCheckpoints);
+                pipelineCheckpoints,
+                seaTunnelConfig.getEngineConfig());
     }
 
     @VisibleForTesting

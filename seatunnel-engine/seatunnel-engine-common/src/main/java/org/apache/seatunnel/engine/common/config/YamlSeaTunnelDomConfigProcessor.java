@@ -138,6 +138,32 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
         return coordinatorServiceConfig;
     }
 
+    private ParallelismInferenceConfig parseParallelismInferenceConfig(
+            Node parallelismInferenceNode) {
+        ParallelismInferenceConfig config = new ParallelismInferenceConfig();
+        for (Node node : childElements(parallelismInferenceNode)) {
+            String name = cleanNodeName(node);
+            if (ServerConfigOptions.MasterServerConfigOptions.PARALLELISM_INFERENCE_ENABLED
+                    .key()
+                    .equals(name)) {
+                config.setEnabled(getBooleanValue(getTextContent(node)));
+            } else if (ServerConfigOptions.MasterServerConfigOptions
+                    .PARALLELISM_INFERENCE_MAX_PARALLELISM
+                    .key()
+                    .equals(name)) {
+                config.setMaxParallelism(
+                        getIntegerValue(
+                                ServerConfigOptions.MasterServerConfigOptions
+                                        .PARALLELISM_INFERENCE_MAX_PARALLELISM
+                                        .key(),
+                                getTextContent(node)));
+            } else {
+                LOGGER.warning("Unrecognized element: " + name);
+            }
+        }
+        return config;
+    }
+
     private void parseEngineConfig(Node engineNode, SeaTunnelConfig config) {
         final EngineConfig engineConfig = config.getEngineConfig();
         for (Node node : childElements(engineNode)) {
@@ -259,6 +285,10 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
                     .key()
                     .equals(name)) {
                 engineConfig.setCoordinatorServiceConfig(parseCoordinatorServiceConfig(node));
+            } else if (ServerConfigOptions.MasterServerConfigOptions.PARALLELISM_INFERENCE
+                    .key()
+                    .equals(name)) {
+                engineConfig.setParallelismInferenceConfig(parseParallelismInferenceConfig(node));
             } else {
                 LOGGER.warning("Unrecognized element: " + name);
             }

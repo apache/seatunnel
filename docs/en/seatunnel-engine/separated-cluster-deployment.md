@@ -189,7 +189,58 @@ seatunnel:
     classloader-cache-mode: true
 ```
 
-### 4.6 Persistence Configuration of IMap (This parameter is invalid on the Worker node)
+### 4.6 Parallelism Inference Configuration (This parameter is invalid on the Worker node)
+
+SeaTunnel Engine supports automatic parallelism inference for sources that implement the `SupportParallelismInference` interface (e.g., Paimon connector). When enabled, the engine will automatically determine the optimal parallelism based on data characteristics instead of using a fixed parallelism value.
+
+**enabled**
+
+Whether to enable automatic parallelism inference. When enabled, sources that support parallelism inference will automatically calculate the optimal parallelism based on their data characteristics.
+
+Default: `false`
+
+**max-parallelism**
+
+The maximum limit for inferred parallelism. 
+
+Default: `64`
+
+**Server-Level Configuration Example**
+
+Configure in `seatunnel.yaml`:
+
+```yaml
+seatunnel:
+  engine:
+    parallelism-inference:
+      enabled: true
+      max-parallelism: 100
+```
+
+**Job-Level Configuration Example**
+
+Configure in the job config `env` block:
+
+```hocon
+env {
+  # Enable parallelism inference
+  parallelism.inference.enabled = true
+  # Set maximum parallelism
+  parallelism.inference.max-parallelism = 50
+}
+
+source {
+  Paimon {
+    warehouse = "hdfs://localhost:9000/paimon"
+    database = "default"
+    table = "users"
+  }
+}
+```
+
+For more details about parallelism inference, see [Parallelism Inference](../concept/parallelism-inference.md).
+
+### 4.7 Persistence Configuration of IMap (This parameter is invalid on the Worker node)
 
 :::tip
 

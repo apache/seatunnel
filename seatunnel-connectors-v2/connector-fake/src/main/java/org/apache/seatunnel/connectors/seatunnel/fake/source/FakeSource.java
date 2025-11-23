@@ -25,6 +25,7 @@ import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.api.source.SupportColumnProjection;
 import org.apache.seatunnel.api.source.SupportParallelism;
+import org.apache.seatunnel.api.source.SupportParallelismInference;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.constants.JobMode;
@@ -42,7 +43,8 @@ import java.util.stream.Collectors;
 public class FakeSource
         implements SeaTunnelSource<SeaTunnelRow, FakeSourceSplit, FakeSourceState>,
                 SupportParallelism,
-                SupportColumnProjection {
+                SupportColumnProjection,
+                SupportParallelismInference {
 
     private JobContext jobContext;
     private final MultipleTableFakeSourceConfig multipleTableFakeSourceConfig;
@@ -97,5 +99,17 @@ public class FakeSource
     @Override
     public void setJobContext(JobContext jobContext) {
         this.jobContext = jobContext;
+    }
+
+    @Override
+    public int inferParallelism() {
+        // For testing purposes, infer parallelism based on the number of tables
+        int tableCount = multipleTableFakeSourceConfig.getFakeConfigs().size();
+        int inferredParallelism = Math.max(1, tableCount * 2);
+        log.info(
+                "FakeSource inferred parallelism: {} (based on {} tables)",
+                inferredParallelism,
+                tableCount);
+        return inferredParallelism;
     }
 }

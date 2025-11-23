@@ -25,6 +25,7 @@ import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.config.DeployMode;
 import org.apache.seatunnel.core.starter.utils.ConfigBuilder;
+import org.apache.seatunnel.engine.common.config.EngineConfig;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.loader.SeaTunnelChildFirstClassLoader;
 import org.apache.seatunnel.engine.common.utils.IdGenerator;
@@ -240,5 +241,161 @@ public class MultipleTableJobConfigParserTest {
             checkExp = e;
         }
         Assertions.assertInstanceOf(IllegalArgumentException.class, checkExp);
+    }
+
+    @Test
+    public void testParallelismInferenceDisabled() {
+        Common.setDeployMode(DeployMode.CLIENT);
+        String filePath =
+                ContentFormatUtilTest.getResource("/parallelism_inference_disabled_test.conf");
+        JobConfig jobConfig = new JobConfig();
+        jobConfig.setJobContext(new JobContext());
+        EngineConfig engineConfig = new EngineConfig();
+        MultipleTableJobConfigParser jobConfigParser =
+                new MultipleTableJobConfigParser(
+                        filePath,
+                        null,
+                        new IdGenerator(),
+                        jobConfig,
+                        null,
+                        false,
+                        null,
+                        engineConfig);
+        ImmutablePair<List<Action>, Set<URL>> parse = jobConfigParser.parse(null);
+        List<Action> actions = parse.getLeft();
+
+        // Should use env parallelism since inference is disabled
+        Assertions.assertEquals(1, actions.get(0).getUpstream().get(0).getParallelism());
+    }
+
+    @Test
+    public void testParallelismInferenceWithEnvConfig() {
+        Common.setDeployMode(DeployMode.CLIENT);
+        String filePath =
+                ContentFormatUtilTest.getResource("/parallelism_inference_enabled_test.conf");
+        JobConfig jobConfig = new JobConfig();
+        jobConfig.setJobContext(new JobContext());
+        EngineConfig engineConfig = new EngineConfig();
+        MultipleTableJobConfigParser jobConfigParser =
+                new MultipleTableJobConfigParser(
+                        filePath,
+                        null,
+                        new IdGenerator(),
+                        jobConfig,
+                        null,
+                        false,
+                        null,
+                        engineConfig);
+        ImmutablePair<List<Action>, Set<URL>> parse = jobConfigParser.parse(null);
+        List<Action> actions = parse.getLeft();
+
+        // FakeSource has 2 tables, infers parallelism = 2 * 2 = 4
+        // max-parallelism = 10, so final parallelism should be min(4, 10) = 4
+        Assertions.assertEquals(4, actions.get(0).getUpstream().get(0).getParallelism());
+    }
+
+    @Test
+    public void testParallelismConfigPriority() {
+        Common.setDeployMode(DeployMode.CLIENT);
+        String filePath =
+                ContentFormatUtilTest.getResource("/parallelism_inference_disabled_test.conf");
+        JobConfig jobConfig = new JobConfig();
+        jobConfig.setJobContext(new JobContext());
+        EngineConfig engineConfig = new EngineConfig();
+        engineConfig.getParallelismInferenceConfig().setEnabled(true);
+        engineConfig.getParallelismInferenceConfig().setMaxParallelism(50);
+
+        MultipleTableJobConfigParser jobConfigParser =
+                new MultipleTableJobConfigParser(
+                        filePath,
+                        null,
+                        new IdGenerator(),
+                        jobConfig,
+                        null,
+                        false,
+                        null,
+                        engineConfig);
+        ImmutablePair<List<Action>, Set<URL>> parse = jobConfigParser.parse(null);
+        List<Action> actions = parse.getLeft();
+        Assertions.assertEquals(4, actions.get(0).getUpstream().get(0).getParallelism());
+
+        filePath = ContentFormatUtilTest.getResource("/parallelism_inference_enabled_test.conf");
+        engineConfig.getParallelismInferenceConfig().setEnabled(false);
+        engineConfig.getParallelismInferenceConfig().setMaxParallelism(50);
+
+        jobConfigParser =
+                new MultipleTableJobConfigParser(
+                        filePath,
+                        null,
+                        new IdGenerator(),
+                        jobConfig,
+                        null,
+                        false,
+                        null,
+                        engineConfig);
+        parse = jobConfigParser.parse(null);
+        actions = parse.getLeft();
+
+        // Env config should override engine config
+        // parallelism.inference.enabled = true in env, so it should be enabled
+        // FakeSource has 2 tables, infers parallelism = 2 * 2 = 4, max = 10, so final = 4
+        Assertions.assertEquals(4, actions.get(0).getUpstream().get(0).getParallelism());
+    }
+
+    @Test
+    public void testParallelismInferenceWithMaxLimit() {
+        Common.setDeployMode(DeployMode.CLIENT);
+        String filePath =
+                ContentFormatUtilTest.getResource("/parallelism_inference_with_limit_test.conf");
+        JobConfig jobConfig = new JobConfig();
+        jobConfig.setJobContext(new JobContext());
+
+        EngineConfig engineConfig = new EngineConfig();
+        MultipleTableJobConfigParser jobConfigParser =
+                new MultipleTableJobConfigParser(
+                        filePath,
+                        null,
+                        new IdGenerator(),
+                        jobConfig,
+                        null,
+                        false,
+                        null,
+                        engineConfig);
+        ImmutablePair<List<Action>, Set<URL>> parse = jobConfigParser.parse(null);
+        List<Action> actions = parse.getLeft();
+
+        // FakeSource has 3 tables, infers parallelism = 3 * 2 = 6
+        // But max-parallelism = 3, so final parallelism should be min(6, 3) = 3
+        Assertions.assertEquals(3, actions.get(0).getUpstream().get(0).getParallelism());
+    }
+
+    @Test
+    public void testParallelismInferenceServerConfigFallback() {
+        Common.setDeployMode(DeployMode.CLIENT);
+        String filePath =
+                ContentFormatUtilTest.getResource("/parallelism_inference_no_env_config_test.conf");
+        JobConfig jobConfig = new JobConfig();
+        jobConfig.setJobContext(new JobContext());
+
+        // Engine config with inference enabled
+        EngineConfig engineConfig = new EngineConfig();
+        engineConfig.getParallelismInferenceConfig().setEnabled(true);
+        engineConfig.getParallelismInferenceConfig().setMaxParallelism(5);
+
+        MultipleTableJobConfigParser jobConfigParser =
+                new MultipleTableJobConfigParser(
+                        filePath,
+                        null,
+                        new IdGenerator(),
+                        jobConfig,
+                        null,
+                        false,
+                        null,
+                        engineConfig);
+        ImmutablePair<List<Action>, Set<URL>> parse = jobConfigParser.parse(null);
+        List<Action> actions = parse.getLeft();
+
+        // should use engine config
+        Assertions.assertEquals(2, actions.get(0).getUpstream().get(0).getParallelism());
     }
 }

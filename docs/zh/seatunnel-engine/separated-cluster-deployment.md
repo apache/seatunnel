@@ -192,7 +192,58 @@ seatunnel:
     classloader-cache-mode: true
 ```
 
-### 4.6 IMap持久化配置(该参数在Worker节点无效)
+### 4.6 并行度推断配置(该参数在Worker节点无效)
+
+SeaTunnel Engine 支持对实现了 `SupportParallelismInference` 接口的数据源（例如 Paimon 连接器）进行自动并行度推断。启用后，引擎将根据数据特征自动确定最佳并行度，而不是使用固定的并行度值。
+
+**enabled**
+
+是否启用自动并行度推断。启用后，支持并行度推断的数据源将根据其数据特征自动计算最佳并行度。
+
+默认值：`false`
+
+**max-parallelism**
+
+并行度推断的最大限制。即使推断出的并行度更高，也会被限制在此值以内。这有助于防止资源过度使用。
+
+默认值：`64`
+
+**服务器级别配置示例**
+
+在 `seatunnel.yaml` 中配置：
+
+```yaml
+seatunnel:
+  engine:
+    parallelism-inference:
+      enabled: true
+      max-parallelism: 100
+```
+
+**作业级别配置示例**
+
+在作业配置文件的 `env` 块中配置：
+
+```hocon
+env {
+  # 启用并行度推断
+  parallelism.inference.enabled = true
+  # 设置最大并行度
+  parallelism.inference.max-parallelism = 50
+}
+
+source {
+  Paimon {
+    warehouse = "hdfs://localhost:9000/paimon"
+    database = "default"
+    table = "users"
+  }
+}
+```
+
+有关并行度推断的更多详细信息，请参阅[并行度推断](../concept/parallelism-inference.md)。
+
+### 4.7 IMap持久化配置(该参数在Worker节点无效)
 
 :::tip
 
