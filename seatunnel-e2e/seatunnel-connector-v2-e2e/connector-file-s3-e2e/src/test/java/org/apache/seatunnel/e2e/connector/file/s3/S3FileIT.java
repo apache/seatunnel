@@ -63,6 +63,8 @@ public class S3FileIT extends TestSuiteBase implements TestResource {
 
     private static final int S3_PORT = 9000;
 
+    private static final String S3_CONTAINER_HOST = "s3";
+
     public static final String S3_SDK_DOWNLOAD =
             "https://repo1.maven.org/maven2/com/amazonaws/aws-java-sdk-bundle/1.11.271/aws-java-sdk-bundle-1.11.271.jar";
     public static final String HADOOP_S3_DOWNLOAD =
@@ -75,6 +77,7 @@ public class S3FileIT extends TestSuiteBase implements TestResource {
                 new GenericContainer<>(DockerImageName.parse(MINIO_IMAGE))
                         .withNetwork(NETWORK)
                         .withExposedPorts(S3_PORT)
+                        .withNetworkAliases(S3_CONTAINER_HOST)
                         .withCreateContainerCmdModifier(
                                 cmd ->
                                         cmd.withPortBindings(
