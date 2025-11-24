@@ -39,6 +39,30 @@ public class PhysicalColumn extends Column {
         super(name, dataType, columnLength, scale);
     }
 
+    public PhysicalColumn(
+            String name,
+            SeaTunnelDataType<?> dataType,
+            Long columnLength,
+            Integer scale,
+            boolean nullable,
+            Object defaultValue,
+            String comment,
+            String sinkType,
+            String sourceType,
+            Map<String, Object> options) {
+        super(
+                name,
+                dataType,
+                columnLength,
+                scale,
+                nullable,
+                defaultValue,
+                comment,
+                sinkType,
+                sourceType,
+                options);
+    }
+
     protected PhysicalColumn(
             String name,
             SeaTunnelDataType<?> dataType,
@@ -241,6 +265,29 @@ public class PhysicalColumn extends Column {
                 comment,
                 sourceType,
                 options);
+    }
+
+    public static PhysicalColumn of(
+            String name,
+            SeaTunnelDataType<?> dataType,
+            Long columnLength,
+            Integer scale,
+            boolean nullable,
+            Object defaultValue,
+            String comment,
+            String sinkType,
+            String sourceType) {
+        return new PhysicalColumn(
+                name,
+                dataType,
+                columnLength,
+                scale,
+                nullable,
+                defaultValue,
+                comment,
+                sinkType,
+                sourceType,
+                null);
     }
 
     @Deprecated

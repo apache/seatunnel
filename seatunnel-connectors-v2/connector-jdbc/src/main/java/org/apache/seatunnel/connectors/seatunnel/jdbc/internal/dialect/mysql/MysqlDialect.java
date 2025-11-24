@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.mysql;
 
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
+
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
 import org.apache.seatunnel.api.table.converter.TypeConverter;
@@ -27,8 +29,6 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDiale
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.SQLUtils;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.dialectenum.FieldIdeEnum;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.source.JdbcSourceTable;
-
-import org.apache.commons.lang3.StringUtils;
 
 import com.mysql.cj.MysqlType;
 import lombok.extern.slf4j.Slf4j;
@@ -135,6 +135,11 @@ public class MysqlDialect implements JdbcDialect {
         HashMap<String, String> map = new HashMap<>();
         map.put("rewriteBatchedStatements", "true");
         return map;
+    }
+
+    @Override
+    public String hashModForField(String fieldName, int mod) {
+        return "ABS(CRC32(" + quoteIdentifier(fieldName) + ") % " + mod + ")";
     }
 
     @Override

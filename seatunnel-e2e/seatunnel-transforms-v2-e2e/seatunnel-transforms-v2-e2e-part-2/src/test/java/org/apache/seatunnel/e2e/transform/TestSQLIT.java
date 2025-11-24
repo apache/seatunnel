@@ -84,6 +84,10 @@ public class TestSQLIT extends TestSuiteBase {
 
         Container.ExecResult multiIfSql = container.executeJob("/sql_transform/func_multi_if.conf");
         Assertions.assertEquals(0, multiIfSql.getExitCode());
+
+        Container.ExecResult nullReturnSql =
+                container.executeJob("/sql_transform/func_null_return.conf");
+        Assertions.assertEquals(0, nullReturnSql.getExitCode());
     }
 
     @TestTemplate
@@ -114,5 +118,16 @@ public class TestSQLIT extends TestSuiteBase {
         Container.ExecResult innerQuerySql =
                 container.executeJob("/sql_transform/inner_query.conf");
         Assertions.assertEquals(0, innerQuerySql.getExitCode());
+    }
+
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK, EngineType.FLINK},
+            disabledReason = "Spark and Flink translation has some issue on nested type")
+    public void testNestedType(TestContainer container) throws IOException, InterruptedException {
+        Container.ExecResult nestedTypeSql =
+                container.executeJob("/sql_transform/nested_type.conf");
+        Assertions.assertEquals(0, nestedTypeSql.getExitCode());
     }
 }

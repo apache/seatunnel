@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.format.json.debezium;
 
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
+
 import org.apache.seatunnel.api.serialization.SerializationSchema;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.BasicType;
@@ -27,8 +29,6 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.format.json.JsonSerializationSchema;
-
-import org.apache.commons.lang3.StringUtils;
 
 import java.nio.charset.Charset;
 import java.util.HashMap;

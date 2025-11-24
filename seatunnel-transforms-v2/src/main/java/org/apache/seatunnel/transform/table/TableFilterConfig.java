@@ -88,30 +88,17 @@ public class TableFilterConfig implements Serializable {
     @JsonAlias("pattern_mode")
     private PatternMode patternMode;
 
-    public boolean isMatch(TablePath tablePath) {
+    public boolean isIncluded(TablePath tablePath) {
         if (PatternMode.INCLUDE.equals(patternMode)) {
-            if (databasePattern != null && !tablePath.getDatabaseName().matches(databasePattern)) {
-                return false;
-            }
-            if (schemaPattern != null && !tablePath.getSchemaName().matches(schemaPattern)) {
-                return false;
-            }
-            if (tablePattern != null && !tablePath.getTableName().matches(tablePattern)) {
-                return false;
-            }
-            return true;
+            return isMatch(tablePath);
         }
+        return !isMatch(tablePath);
+    }
 
-        if (databasePattern != null && tablePath.getDatabaseName().matches(databasePattern)) {
-            return false;
-        }
-        if (schemaPattern != null && tablePath.getSchemaName().matches(schemaPattern)) {
-            return false;
-        }
-        if (tablePattern != null && tablePath.getTableName().matches(tablePattern)) {
-            return false;
-        }
-        return true;
+    private boolean isMatch(TablePath tablePath) {
+        return (databasePattern == null || tablePath.getDatabaseName().matches(databasePattern))
+                && (schemaPattern == null || tablePath.getSchemaName().matches(schemaPattern))
+                && (tablePattern == null || tablePath.getTableName().matches(tablePattern));
     }
 
     public static TableFilterConfig of(ReadonlyConfig config) {

@@ -109,8 +109,15 @@ public class RedisBaseOptions {
                             "batch_size is used to control the size of a batch of data during read and write operations"
                                     + ",default 10");
 
+    public static final Option<String> FIELD_DELIMITER =
+            Options.key("field_delimiter")
+                    .stringType()
+                    .defaultValue(",")
+                    .withDescription(
+                            "The separator between columns in a row of data. Only needed by `text` file format. default is ','");
+
     public enum Format {
         JSON,
-        // TEXT will be supported later
+        TEXT,
     }
 }

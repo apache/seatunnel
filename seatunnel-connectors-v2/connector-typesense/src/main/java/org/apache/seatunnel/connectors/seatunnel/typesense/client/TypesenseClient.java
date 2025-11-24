@@ -17,14 +17,14 @@
 
 package org.apache.seatunnel.connectors.seatunnel.typesense.client;
 
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
+
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
 import org.apache.seatunnel.connectors.seatunnel.typesense.config.TypesenseBaseOptions;
 import org.apache.seatunnel.connectors.seatunnel.typesense.config.TypesenseSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.typesense.exception.TypesenseConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.typesense.util.URLParamsConverter;
-
-import org.apache.commons.lang3.StringUtils;
 
 import org.typesense.api.Client;
 import org.typesense.api.Collections;

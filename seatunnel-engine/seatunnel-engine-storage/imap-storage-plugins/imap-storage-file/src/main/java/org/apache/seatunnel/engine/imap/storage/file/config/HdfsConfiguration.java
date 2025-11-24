@@ -20,9 +20,10 @@
 
 package org.apache.seatunnel.engine.imap.storage.file.config;
 
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
+
 import org.apache.seatunnel.engine.imap.storage.api.exception.IMapStorageException;
 
-import org.apache.commons.lang3.StringUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.security.UserGroupInformation;

@@ -39,10 +39,11 @@ import org.apache.seatunnel.connectors.seatunnel.paimon.source.enumerator.Paimon
 import org.apache.seatunnel.connectors.seatunnel.paimon.utils.RowTypeConverter;
 
 import org.apache.paimon.predicate.Predicate;
-import org.apache.paimon.table.Table;
+import org.apache.paimon.table.FileStoreTable;
 import org.apache.paimon.table.source.ReadBuilder;
 import org.apache.paimon.types.RowType;
 
+import lombok.extern.slf4j.Slf4j;
 import net.sf.jsqlparser.statement.select.PlainSelect;
 
 import java.util.LinkedList;
@@ -54,6 +55,7 @@ import static org.apache.seatunnel.connectors.seatunnel.paimon.source.converter.
 import static org.apache.seatunnel.connectors.seatunnel.paimon.source.converter.SqlToPaimonPredicateConverter.convertToPlainSelect;
 
 /** Paimon connector source class. */
+@Slf4j
 public class PaimonSource
         implements SeaTunnelSource<SeaTunnelRow, PaimonSourceSplit, PaimonSourceState> {
 
@@ -64,7 +66,7 @@ public class PaimonSource
     private JobContext jobContext;
 
     private List<CatalogTable> catalogTables = Lists.newArrayList();
-    private Map<String, Table> paimonTables = Maps.newHashMap();
+    private Map<String, FileStoreTable> paimonTables = Maps.newHashMap();
     private Map<String, SeaTunnelRowType> seaTunnelRowTypes = Maps.newHashMap();
     private Map<String, ReadBuilder> readBuilders = Maps.newHashMap();
 
@@ -75,12 +77,18 @@ public class PaimonSource
                         tableConfig -> {
                             TablePath tablePath = tableConfig.getTablePath();
                             CatalogTable catalogTable = paimonCatalog.getTable(tablePath);
-                            Table paimonTable = paimonCatalog.getPaimonTable(tablePath);
+                            FileStoreTable paimonTable =
+                                    (FileStoreTable) paimonCatalog.getPaimonTable(tablePath);
+                            String query = tableConfig.getQuery();
+                            Map<String, String> dynamicOptions =
+                                    SqlToPaimonPredicateConverter.parseDynamicOptions(query);
+                            if (!dynamicOptions.isEmpty()) {
+                                paimonTable = paimonTable.copy(dynamicOptions);
+                            }
                             RowType paimonRowType = paimonTable.rowType();
                             String[] filedNames =
                                     paimonRowType.getFieldNames().toArray(new String[0]);
-
-                            PlainSelect plainSelect = convertToPlainSelect(tableConfig.getQuery());
+                            PlainSelect plainSelect = convertToPlainSelect(query);
                             Predicate predicate = null;
                             int[] projectionIndex = null;
                             if (!Objects.isNull(plainSelect)) {
@@ -102,13 +110,11 @@ public class PaimonSource
                             this.seaTunnelRowTypes.put(
                                     tableKey,
                                     RowTypeConverter.convert(paimonRowType, projectionIndex));
-
                             ReadBuilder readBuilder =
                                     paimonTable
                                             .newReadBuilder()
                                             .withProjection(projectionIndex)
                                             .withFilter(predicate);
-
                             this.paimonTables.put(tableKey, paimonTable);
                             this.readBuilders.put(tableKey, readBuilder);
                         });

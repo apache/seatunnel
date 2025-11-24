@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cdc.oracle.source.parser;
 
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
+
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.schema.event.AlterTableAddColumnEvent;
@@ -26,8 +28,6 @@ import org.apache.seatunnel.api.table.schema.event.AlterTableDropColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableModifyColumnEvent;
 import org.apache.seatunnel.connectors.cdc.base.source.parser.SeatunnelDDLParser;
 import org.apache.seatunnel.connectors.seatunnel.cdc.oracle.utils.OracleTypeUtils;
-
-import org.apache.commons.lang3.StringUtils;
 
 import org.antlr.v4.runtime.tree.ParseTreeListener;
 

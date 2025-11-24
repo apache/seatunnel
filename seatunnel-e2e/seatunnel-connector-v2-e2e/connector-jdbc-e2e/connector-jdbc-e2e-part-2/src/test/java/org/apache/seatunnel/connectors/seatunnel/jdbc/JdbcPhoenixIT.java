@@ -18,11 +18,10 @@
 package org.apache.seatunnel.connectors.seatunnel.jdbc;
 
 import org.apache.seatunnel.shade.com.google.common.collect.Lists;
+import org.apache.seatunnel.shade.org.apache.commons.lang3.tuple.Pair;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
-
-import org.apache.commons.lang3.tuple.Pair;
 
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
@@ -39,7 +38,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 public class JdbcPhoenixIT extends AbstractJdbcIT {
-    private static final String PHOENIX_IMAGE = "iteblog/hbase-phoenix-docker:1.0";
+    private static final String PHOENIX_IMAGE = "seatunnelhub/hbase-phoenix-docker:1.0";
     private static final String PHOENIX_CONTAINER_HOST = "seatunnel_e2e_phoenix";
     private static final String PHOENIX_DATABASE = "test";
 
