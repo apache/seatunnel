@@ -452,7 +452,7 @@ public class PdfReadStrategy extends AbstractReadStrategy {
                 }
             }
 
-            // 创建提取区域
+            // Create an extraction area
             Rectangle2D region =
                     new Rectangle2D.Float(0, regionStartY, mediaBox.getWidth(), regionHeight);
 
