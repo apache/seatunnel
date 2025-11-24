@@ -48,4 +48,4 @@ GoogleFirestore {
 
 ## 变更日志
 
-import ChangeLog from '../changelog/connector-google-firestore.md';
+<ChangeLog />

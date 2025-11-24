@@ -171,4 +171,4 @@ sink {
 
 ## 变更日志
 
-import ChangeLog from '../changelog/connector-cloudberry.md';
+<ChangeLog />
