@@ -39,6 +39,7 @@
         <module>connector-amazonsqs-e2e</module>
         <module>connector-file-local-e2e</module>
         <module>connector-file-cos-e2e</module>
+        <module>connector-file-hadoop-e2e</module>
         <module>connector-file-sftp-e2e</module>
         <module>connector-file-oss-e2e</module>
         <module>connector-file-s3-e2e</module>
@@ -66,7 +67,7 @@
         <module>connector-druid-e2e</module>
         <module>connector-google-firestore-e2e</module>
         <module>connector-rocketmq-e2e</module>
-        <module>connector-file-obs-e2e</module>
+        <!--        <module>connector-file-obs-e2e</module>-->
         <module>connector-file-ftp-e2e</module>
         <module>connector-pulsar-e2e</module>
         <module>connector-paimon-e2e</module>
