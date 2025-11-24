@@ -372,36 +372,8 @@ public class PostgresJdbcRowConverter extends AbstractJdbcRowConverter {
             return ((java.util.Date) obj).toInstant().atOffset(ZoneOffset.UTC);
         }
 
-        // PostgreSQL specific objects (e.g., PGobject) or any org.postgresql.* class
-        final String className = obj.getClass().getName();
-        if (className.startsWith("org.postgresql.")) {
-            String str = null;
-            try {
-                str = obj.toString();
-            } catch (Exception e) {
-                log.debug("Failed to get PostgreSQL timestamp object string representation", e);
-            }
-            if (str != null) {
-                OffsetDateTime parsed = parseTimestampIfPresent(str);
-                if (parsed != null) {
-                    return parsed;
-                }
-            }
-        }
-
-        // String-like values
-        if (obj instanceof CharSequence) {
-            return parseTimestampIfPresent(obj.toString());
-        }
-
-        // Last resort: attempt to parse from toString() representation
-        final String str;
-        try {
-            str = String.valueOf(obj);
-        } catch (Throwable ignore) {
-            return null;
-        }
-        return parseTimestampIfPresent(str);
+        // Remaining PostgreSQL-specific or driver types: fall back to string representation
+        return parseTimestampFromObjectString(obj);
     }
 
     private OffsetDateTime parseTimestampIfPresent(String str) throws SQLException {
@@ -438,18 +410,39 @@ public class PostgresJdbcRowConverter extends AbstractJdbcRowConverter {
         }
     }
 
+    @Nullable private OffsetDateTime parseTimestampFromObjectString(Object obj) throws SQLException {
+        final String str;
+        try {
+            str = String.valueOf(obj);
+        } catch (Throwable e) {
+            log.debug(
+                    "Failed to get PostgreSQL timestamp object string representation from class: {}",
+                    obj.getClass().getName(),
+                    e);
+            return null;
+        }
+        return parseTimestampIfPresent(str);
+    }
+
     private String normalizeIsoTimestamp(String value) {
         if (value == null) {
             return null;
         }
-
+        // PostgreSQL timestamptz format examples:
+        // "2023-12-25 10:30:45.123456+08:00"
+        // "2023-12-25 10:30:45+08"
+        // "2023-12-25 10:30:45.123456 UTC"
         String normalized = value.trim();
         if (normalized.isEmpty()) {
             return null;
         }
+        // Handle UTC timezone
         if (normalized.endsWith(" UTC")) {
             normalized = normalized.substring(0, normalized.length() - 4) + "Z";
         }
+        // Normalize to ISO-8601 format examples:
+        // "2024-01-01T10:15:30+08:00"
+        // "2024-01-01T10:15:30Z"
         normalized = normalized.replace(' ', 'T');
         if (!normalized.isEmpty()) {
             char lastChar = normalized.charAt(normalized.length() - 1);
@@ -457,10 +450,12 @@ public class PostgresJdbcRowConverter extends AbstractJdbcRowConverter {
                 normalized = normalized.substring(0, normalized.length() - 1) + "Z";
             }
         }
+        // Add colon to offsets like +HH -> +HH:00
         if (normalized.matches(".*[+-]\\d{2}$")) {
             return normalized + ":00";
         }
         if (normalized.matches(".*[+-]\\d{4}$")) {
+            // Add colon to offsets like +HHMM -> +HH:MM
             return normalized.substring(0, normalized.length() - 2)
                     + ":"
                     + normalized.substring(normalized.length() - 2);

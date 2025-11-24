@@ -457,11 +457,11 @@ public class PostgresTypeConverter implements TypeConverter<BasicTypeDefine> {
                 if (timestampTzScale != null && timestampTzScale > MAX_TIMESTAMP_SCALE) {
                     timestampTzScale = MAX_TIMESTAMP_SCALE;
                 }
-                if (timestampTzScale != null && timestampTzScale > 0) {
-                    builder.columnType(String.format("%s(%s)", PG_TIMESTAMP_TZ, timestampTzScale));
-                } else {
-                    builder.columnType(PG_TIMESTAMP_TZ);
-                }
+                String timestampTzColumnType =
+                        (timestampTzScale != null && timestampTzScale > 0)
+                                ? String.format("%s(%s)", PG_TIMESTAMP_TZ, timestampTzScale)
+                                : PG_TIMESTAMP_TZ;
+                builder.columnType(timestampTzColumnType);
                 builder.dataType(PG_TIMESTAMP_TZ);
                 builder.scale(timestampTzScale);
                 break;

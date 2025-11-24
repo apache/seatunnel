@@ -154,19 +154,50 @@ public final class JdbcFieldTypeUtils {
 
     public static OffsetDateTime parseOffsetDateTimeFromString(String str)
             throws DateTimeParseException {
-        if (str == null || str.trim().isEmpty()) {
+        String trimmed = str.trim();
+        // Treat empty string as "no value"
+        if (trimmed.isEmpty()) {
             return null;
         }
-
-        String original = str.trim();
-
-        try {
-            return OffsetDateTime.parse(original);
-        } catch (DateTimeParseException ignore) {
-            // fall through
+        // Try parsing as standard ISO-8601 OffsetDateTime
+        OffsetDateTime directParsed = tryParseOffsetDateTime(trimmed);
+        if (directParsed != null) {
+            return directParsed;
+        }
+        // Normalize common relaxed forms and try again
+        String normalized = normalizeOffsetDateTimeString(trimmed);
+        OffsetDateTime normalizedParsed = tryParseOffsetDateTime(normalized);
+        if (normalizedParsed != null) {
+            return normalizedParsed;
+        }
+        // Finally, try parsing as ZonedDateTime and convert to OffsetDateTime
+        OffsetDateTime zonedParsed = tryParseZonedDateTime(trimmed);
+        if (zonedParsed != null) {
+            return zonedParsed;
         }
 
-        String normalized = original;
+        throw new DateTimeParseException(
+                "Unable to parse OffsetDateTime from string: " + str, trimmed, 0);
+    }
+
+    private static OffsetDateTime tryParseOffsetDateTime(String value) {
+        try {
+            return OffsetDateTime.parse(value);
+        } catch (DateTimeParseException ignore) {
+            return null;
+        }
+    }
+
+    private static OffsetDateTime tryParseZonedDateTime(String value) {
+        try {
+            return ZonedDateTime.parse(value).toOffsetDateTime();
+        } catch (DateTimeParseException ignore) {
+            return null;
+        }
+    }
+
+    private static String normalizeOffsetDateTimeString(String value) {
+        String normalized = value;
         if (normalized.endsWith(" UTC")) {
             normalized = normalized.substring(0, normalized.length() - 4) + "Z";
         }
@@ -179,21 +210,7 @@ public final class JdbcFieldTypeUtils {
                             + ":"
                             + normalized.substring(normalized.length() - 2);
         }
-
-        try {
-            return OffsetDateTime.parse(normalized);
-        } catch (DateTimeParseException ignore) {
-            // fall through
-        }
-
-        try {
-            return ZonedDateTime.parse(original).toOffsetDateTime();
-        } catch (DateTimeParseException ignore) {
-            // fall through
-        }
-
-        throw new DateTimeParseException(
-                "Unable to parse OffsetDateTime from string: " + str, original, 0);
+        return normalized;
     }
 
     private static <T> T getNullableValue(
