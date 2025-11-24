@@ -18,6 +18,9 @@ package org.apache.seatunnel.connectors.seatunnel.redis;
 
 import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisContainerInfo;
 
+import org.testcontainers.junit.jupiter.EnabledIfDockerAvailable;
+
+@EnabledIfDockerAvailable
 public class Redis5Test extends RedisTemplateTest {
 
     @Override
