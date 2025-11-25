@@ -27,6 +27,8 @@ The tested email version is 1.5.6.
 | email_authorization_code | string  | no       | -             |
 | email_message_headline   | string  | yes      | -             |
 | email_message_content    | string  | yes      | -             |
+| email_attachment_name    | string  | no       | emailsink.csv |
+| email_field_delimiter    | string  | no       | ,             |
 | common-options           |         | no       | -             |
 
 ### email_from_address [string]
@@ -65,6 +67,14 @@ The subject line of the entire message.
 
 The body of the entire message.
 
+### email_attachment_name [string]
+
+The name of the email attachment file. Default is `emailsink.csv`.
+
+### email_field_delimiter [string]
+
+The delimiter used to separate fields in the attachment file. Default is comma `,`.
+
 ### common options
 
 Sink plugin common parameters, please refer to [Sink Common Options](../sink-common-options.md) for details.
@@ -82,6 +92,8 @@ Sink plugin common parameters, please refer to [Sink Common Options](../sink-com
       email_authorization_code=""
       email_message_headline=""
       email_message_content=""
+      email_attachment_name="report.csv"  # Optional, default is emailsink.csv
+      email_field_delimiter="|"           # Optional, default is ,
    }
 
 ```
