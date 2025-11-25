@@ -2,7 +2,7 @@
 id: x2seatunnel
 title: x2SeaTunnel
 ---
-# x2SeaTunnel
+# X2SeaTunnel
 
 ## 概览
 

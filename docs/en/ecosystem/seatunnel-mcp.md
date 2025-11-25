@@ -39,7 +39,7 @@ https://www.youtube.com/watch?v=JaLA8EkZD7Q
 
 ```bash
 # Clone repository
-git clone <repository_url>
+git clone https://github.com/apache/seatunnel-tools.git
 cd seatunnel-mcp
 
 # Create virtual environment and install
@@ -152,7 +152,7 @@ npx @modelcontextprotocol/inspector python -m src.seatunnel_mcp
 
 ## Changelog
 
-### v1.2.0 (2025-06-10)
+### v1.2.0 (2025-06-09)
 
 **New Features in v1.2.0**
 - **SSE Support**: Added `st-mcp-sse` for real-time communication with SeaTunnel MCP via Server-Sent Events (SSE). Corresponding sse branch
@@ -195,4 +195,4 @@ npx @modelcontextprotocol/inspector python -m src.seatunnel_mcp
 
 ## License
 
-Apache License 
+[Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0)

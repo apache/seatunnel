@@ -37,7 +37,7 @@ https://www.bilibili.com/video/BV1UXZgY8EqS
 
 ```bash
 # 克隆仓库
-git clone <仓库URL>
+git clone https://github.com/apache/seatunnel-tools.git
 cd seatunnel-mcp
 
 # 创建虚拟环境并安装
@@ -250,4 +250,4 @@ npx @modelcontextprotocol/inspector python -m src.seatunnel_mcp
 
 ## 许可证
 
-Apache License 
+[Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0)

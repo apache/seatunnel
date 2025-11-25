@@ -2,7 +2,7 @@
 id: x2seatunnel
 title: x2SeaTunnel
 ---
-# x2SeaTunnel
+# X2SeaTunnel
 
 ## Overview
 
@@ -10,7 +10,7 @@ X2SeaTunnel is a tool for converting DataX and other configuration files to SeaT
 
 ## Related Links
 
-- x2SeaTunnel on GitHub: https://github.com/apache/seatunnel-tools/tree/main/x2seatunnel
+- X2SeaTunnel on GitHub: https://github.com/apache/seatunnel-tools/tree/main/x2seatunnel
 
 ## 🚀 Quick Start
 
