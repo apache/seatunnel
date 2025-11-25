@@ -606,13 +606,7 @@ public class CheckpointCoordinator {
         CompletableFuture<PendingCheckpoint> savepoint;
         synchronized (lock) {
             while (pendingCounter.get() > 0 && !shutdown) {
-                try {
-                    lock.wait(500);
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    return completableFutureWithError(
-                            CheckpointCloseReason.CHECKPOINT_COORDINATOR_SHUTDOWN);
-                }
+                Thread.sleep(500);
             }
             if (shutdown || isCompleted()) {
                 return completableFutureWithError(
@@ -720,9 +714,7 @@ public class CheckpointCoordinator {
                                         TimeUnit.MILLISECONDS));
                     }
                 });
-        synchronized (lock) {
-            pendingCounter.incrementAndGet();
-        }
+        pendingCounter.incrementAndGet();
     }
 
     private CompletableFuture<PendingCheckpoint> createPendingCheckpoint(
@@ -862,10 +854,7 @@ public class CheckpointCoordinator {
             readyToCloseStartingTask.clear();
             readyToCloseIdleTask.clear();
             closedIdleTask.clear();
-            synchronized (lock) {
-                pendingCounter.set(0);
-                lock.notifyAll();
-            }
+            pendingCounter.set(0);
             schemaChanging.set(false);
             scheduler.shutdownNow();
             scheduler =
@@ -961,10 +950,7 @@ public class CheckpointCoordinator {
         latestCompletedCheckpoint = completedCheckpoint;
         notifyCompleted(completedCheckpoint);
         pendingCheckpoints.remove(checkpointId).abortCheckpointTimeoutFutureWhenIsCompleted();
-        synchronized (lock) {
-            pendingCounter.decrementAndGet();
-            lock.notifyAll();
-        }
+        pendingCounter.decrementAndGet();
 
         if (isCompleted()) {
             cleanPendingCheckpoint(CheckpointCloseReason.CHECKPOINT_COORDINATOR_COMPLETED);
