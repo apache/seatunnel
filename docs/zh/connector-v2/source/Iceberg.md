@@ -142,10 +142,10 @@ source {
     namespace = "database1"
     table_list = [
       {
-        table = "table_1
+        table = "table_1"
       },
       {
-        table = "table_2
+        table = "table_2"
         query = "select fn from table where f1 > 100"
       }
     ]
