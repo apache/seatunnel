@@ -71,6 +71,7 @@ public class JdbcSinkFactory implements TableSinkFactory {
     @Override
     public TableSink createSink(TableSinkFactoryContext context) {
         ReadonlyConfig config = context.getOptions();
+        JdbcSinkConfigChecker.check(config);
         CatalogTable catalogTable = context.getCatalogTable();
         ReadonlyConfig catalogOptions = getCatalogOptions(context);
         Optional<String> optionalTable = config.getOptional(JdbcSinkOptions.TABLE);

@@ -19,7 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.executor;
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 
 import com.microsoft.sqlserver.jdbc.ISQLServerBulkData;
@@ -200,7 +200,7 @@ public class SqlserverBulkCopyBatchStatementExecutor
                     return java.sql.Types.NULL;
                 default:
                     throw new JdbcConnectorException(
-                            CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
+                            CommonErrorCode.UNSUPPORTED_DATA_TYPE,
                             "Unexpected columnName: " + columnName);
             }
         }
