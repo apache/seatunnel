@@ -24,11 +24,16 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseI
 
 import javax.annotation.Nullable;
 
-import java.io.ByteArrayInputStream;
+import java.sql.Blob;
+import java.sql.Clob;
+import java.sql.Connection;
+import java.sql.NClob;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.oracle.OracleTypeConverter.ORACLE_BLOB;
+import static org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.oracle.OracleTypeConverter.ORACLE_CLOB;
+import static org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.oracle.OracleTypeConverter.ORACLE_NCLOB;
 
 public class OracleJdbcRowConverter extends AbstractJdbcRowConverter {
 
@@ -47,9 +52,28 @@ public class OracleJdbcRowConverter extends AbstractJdbcRowConverter {
             throws SQLException {
         if (seaTunnelDataType.getSqlType().equals(SqlType.BYTES)) {
             if (ORACLE_BLOB.equals(sourceType)) {
-                statement.setBinaryStream(statementIndex, new ByteArrayInputStream((byte[]) value));
+                // Use BLOB object instead of setBinaryStream for Oracle LOB columns
+                // to avoid ORA-01461 error and compatibility with FieldNamedPreparedStatement
+                Connection connection = statement.getConnection();
+                Blob blob = connection.createBlob();
+                blob.setBytes(1, (byte[]) value);
+                statement.setBlob(statementIndex, blob);
             } else {
                 statement.setBytes(statementIndex, (byte[]) value);
+            }
+        } else if (seaTunnelDataType.getSqlType().equals(SqlType.STRING)) {
+            if (ORACLE_CLOB.equals(sourceType)) {
+                Connection connection = statement.getConnection();
+                Clob clob = connection.createClob();
+                clob.setString(1, (String) value);
+                statement.setClob(statementIndex, clob);
+            } else if (ORACLE_NCLOB.equals(sourceType)) {
+                Connection connection = statement.getConnection();
+                NClob nclob = connection.createNClob();
+                nclob.setString(1, (String) value);
+                statement.setNClob(statementIndex, nclob);
+            } else {
+                statement.setString(statementIndex, (String) value);
             }
         } else {
             super.setValueToStatementByDataType(

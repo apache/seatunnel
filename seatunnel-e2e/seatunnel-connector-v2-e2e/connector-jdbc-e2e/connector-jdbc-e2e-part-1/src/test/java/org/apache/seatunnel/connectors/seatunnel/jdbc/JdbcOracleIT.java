@@ -181,6 +181,13 @@ public class JdbcOracleIT extends AbstractJdbcIT {
         Assertions.assertEquals(0, execResult.getExitCode());
     }
 
+    @TestTemplate
+    public void testOracleLobWithFakeSource(TestContainer container) throws Exception {
+        Container.ExecResult execResult =
+                container.executeJob("/jdbc_oracle_fake_source_to_sink_with_lob.conf");
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+    }
+
     @Override
     JdbcCase getJdbcCase() {
         Map<String, String> containerEnv = new HashMap<>();
