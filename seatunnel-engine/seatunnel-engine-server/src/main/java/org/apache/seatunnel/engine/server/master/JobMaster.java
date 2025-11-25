@@ -114,6 +114,8 @@ import static org.apache.seatunnel.common.constants.JobMode.BATCH;
 public class JobMaster {
     private static final ILogger LOGGER = Logger.getLogger(JobMaster.class);
 
+    public static final long DEFAULT_STOP_JOB_WAIT_MS = 5000L;
+
     private PhysicalPlan physicalPlan;
 
     private final Data jobImmutableInformationData;
@@ -538,6 +540,7 @@ public class JobMaster {
 
     public void run() {
         try {
+
             physicalPlan.startJob();
         } catch (Throwable e) {
             LOGGER.severe(
@@ -773,6 +776,15 @@ public class JobMaster {
     }
 
     public synchronized void stopJob() {
+        physicalPlan.interruptStateThread();
+
+        boolean stoppedGracefully =
+                physicalPlan.waitStateThreadTermination(DEFAULT_STOP_JOB_WAIT_MS);
+        if (!stoppedGracefully) {
+            throw new SeaTunnelEngineException(
+                    "Failed to stop job gracefully within timeout period.");
+        }
+
         physicalPlan.stopJob();
     }
 
@@ -1048,11 +1060,6 @@ public class JobMaster {
     public void interrupt() {
         isRunning = false;
         jobMasterCompleteFuture.completeExceptionally(new InterruptedException());
-    }
-
-    public void interruptAll() {
-        isRunning = false;
-        jobMasterCompleteFuture.cancel(true);
     }
 
     public void neverNeedRestore() {

@@ -48,6 +48,8 @@ import java.util.concurrent.atomic.AtomicReference;
 @Slf4j
 public class PhysicalPlan {
 
+    private final AtomicReference<Thread> updateStateThread = new AtomicReference<>();
+
     private final List<SubPlan> pipelineList;
 
     private final AtomicInteger finishedPipelineNum = new AtomicInteger(0);
@@ -220,6 +222,43 @@ public class PhysicalPlan {
         updateJobState(JobStatus.DOING_SAVEPOINT);
     }
 
+    public void interruptStateThread() {
+        Thread thread = updateStateThread.get();
+        if (thread != null) {
+            try {
+                thread.interrupt();
+            } catch (Exception ignore) {
+                log.warn("interrupt failed", ignore);
+            }
+        }
+    }
+
+    public boolean waitStateThreadTermination(long timeoutMs) {
+        Thread thread = updateStateThread.get();
+        if (thread == null) {
+            return true;
+        }
+        try {
+            long start = System.currentTimeMillis();
+            long remaining = timeoutMs;
+            while (remaining > 0) {
+                try {
+                    thread.join(500);
+                    if (!thread.isAlive()) {
+                        return true;
+                    }
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    break;
+                }
+                remaining = timeoutMs - (System.currentTimeMillis() - start);
+            }
+        } catch (Exception e) {
+            log.warn("Failed to wait state thread termination", e);
+        }
+        return !thread.isAlive();
+    }
+
     public void stopJob() {
         JobStatus jobStatus = getJobStatus();
         if (jobStatus.isEndState()) {
@@ -233,30 +272,28 @@ public class PhysicalPlan {
             // Tasks with the status 'INITIALIZING', 'CREATED', 'PENDING' need to be set directly to
             // the 'CANCELLED' state because it has not yet started running
             updateJobState(JobStatus.CANCELED);
+        } else if (JobStatus.CANCELING == jobStatus) {
+            jobMaster.neverNeedRestore();
+            List<SubPlan> subPlans = getPipelineList();
+            subPlans.forEach(SubPlan::cancelPipeline);
+            subPlans.forEach(
+                    subPlan -> {
+                        List<PhysicalVertex> coordinatorVertices =
+                                subPlan.getCoordinatorVertexList();
+                        coordinatorVertices.forEach(
+                                task -> {
+                                    task.startPhysicalVertex();
+                                    task.cancel();
+                                });
+                        List<PhysicalVertex> physicalVertices = subPlan.getPhysicalVertexList();
+                        physicalVertices.forEach(
+                                task -> {
+                                    task.startPhysicalVertex();
+                                    task.cancel();
+                                });
+                    });
         } else {
-            try {
-                jobMaster.neverNeedRestore();
-                List<SubPlan> subPlans = getPipelineList();
-                subPlans.forEach(SubPlan::cancelPipeline);
-                subPlans.forEach(
-                        subPlan -> {
-                            List<PhysicalVertex> coordinatorVertices =
-                                    subPlan.getCoordinatorVertexList();
-                            coordinatorVertices.forEach(
-                                    task -> {
-                                        task.startPhysicalVertex();
-                                        task.cancel();
-                                    });
-                            List<PhysicalVertex> physicalVertices = subPlan.getPhysicalVertexList();
-                            physicalVertices.forEach(
-                                    task -> {
-                                        task.startPhysicalVertex();
-                                        task.cancel();
-                                    });
-                        });
-            } finally {
-                updateJobState(JobStatus.CANCELED);
-            }
+            updateJobState(JobStatus.CANCELING);
         }
     }
 
@@ -281,6 +318,7 @@ public class PhysicalPlan {
     }
 
     public synchronized void updateJobState(@NonNull JobStatus targetState) {
+        updateStateThread.set(Thread.currentThread());
         try {
             JobStatus current = (JobStatus) runningJobStateIMap.get(jobId);
             log.debug(
@@ -321,6 +359,7 @@ public class PhysicalPlan {
                 makeJobFailing(e);
             }
         }
+        updateStateThread.set(null);
     }
 
     public JobImmutableInformation getJobImmutableInformation() {

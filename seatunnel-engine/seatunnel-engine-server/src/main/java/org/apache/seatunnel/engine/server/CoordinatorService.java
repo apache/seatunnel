@@ -786,9 +786,9 @@ public class CoordinatorService {
                                 try {
                                     runningJobMaster.stopJob();
                                 } catch (Exception e) {
-                                    logger.warning(
-                                            "Stop job failed. Try force stop: " + e.getMessage());
-                                    runningJobMaster.interruptAll();
+                                    logger.severe(
+                                            "Failed to force stop jobMaster. jobId : "
+                                                    + runningJobMaster.getJobId());
                                 }
                                 // The pending task "JobMaster.init" has not been executed, so the
                                 // job status (JobStatus) will not be stored in the

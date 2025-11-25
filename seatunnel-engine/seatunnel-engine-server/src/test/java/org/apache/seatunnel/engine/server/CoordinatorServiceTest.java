@@ -165,12 +165,12 @@ public class CoordinatorServiceTest {
     }
 
     @Test
-    public void testStopRunningJob() {
+    void testStopRunningJob() {
         JobInformation jobInformation =
                 submitJob(
-                        "CoordinatorServiceTest_testCleanupRunningJobStateIMap",
+                        "CoordinatorServiceTest_testStopRunningJob",
                         "batch_fake_to_console.conf",
-                        "test_cleanup_running_job_state_imap");
+                        "test_stop_running_job");
         CoordinatorService coordinatorService = jobInformation.coordinatorService;
 
         await().atMost(10000, TimeUnit.MILLISECONDS)
@@ -199,8 +199,60 @@ public class CoordinatorServiceTest {
                             Assertions.assertEquals(
                                     JobStatus.CANCELED,
                                     coordinatorService.getJobStatus(jobInformation.jobId));
+                            Assertions.assertEquals(0, ownedSlotProfilesIMap.size());
                         });
-        Assertions.assertEquals(0, ownedSlotProfilesIMap.size());
+        jobInformation.coordinatorService.clearCoordinatorService();
+        jobInformation.coordinatorServiceTest.shutdown();
+    }
+
+    @Test
+    void testStopCancellingJob() {
+        JobInformation jobInformation =
+                submitJob(
+                        "CoordinatorServiceTest_testStopCancellingJob",
+                        "batch_fake_to_console.conf",
+                        "test_stop_cancelling_job");
+        CoordinatorService coordinatorService = jobInformation.coordinatorService;
+
+        await().atMost(10000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> {
+                            Assertions.assertEquals(
+                                    JobStatus.RUNNING,
+                                    coordinatorService.getJobStatus(jobInformation.jobId));
+                            JobMaster jobMaster =
+                                    coordinatorService.getJobMaster(jobInformation.jobId);
+                            Assertions.assertNotNull(jobMaster);
+                            Assertions.assertTrue(
+                                    jobMaster
+                                            .getRunningJobStateIMap()
+                                            .containsKey(jobInformation.jobId));
+                        });
+        JobMaster jobMaster = coordinatorService.getJobMaster(jobInformation.jobId);
+        IMap<PipelineLocation, Map<TaskGroupLocation, SlotProfile>> ownedSlotProfilesIMap =
+                jobMaster.getOwnedSlotProfilesIMap();
+        Assertions.assertNotEquals(0, ownedSlotProfilesIMap.size());
+
+        ExecutorService single = Executors.newSingleThreadExecutor();
+        try {
+            single.submit(
+                    () -> {
+                        jobMaster.getPhysicalPlan().updateJobState(JobStatus.CANCELING);
+                    });
+
+            coordinatorService.stopJob(jobInformation.jobId).join();
+
+            await().atMost(10000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () -> {
+                                Assertions.assertEquals(
+                                        JobStatus.CANCELED,
+                                        coordinatorService.getJobStatus(jobInformation.jobId));
+                                Assertions.assertEquals(0, ownedSlotProfilesIMap.size());
+                            });
+        } finally {
+            single.shutdownNow();
+        }
         jobInformation.coordinatorService.clearCoordinatorService();
         jobInformation.coordinatorServiceTest.shutdown();
     }
