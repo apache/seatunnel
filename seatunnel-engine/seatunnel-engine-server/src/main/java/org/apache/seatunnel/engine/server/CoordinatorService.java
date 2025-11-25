@@ -783,13 +783,7 @@ public class CoordinatorService {
             return new PassiveCompletableFuture<>(
                     CompletableFuture.supplyAsync(
                             () -> {
-                                try {
-                                    runningJobMaster.stopJob();
-                                } catch (Exception e) {
-                                    logger.severe(
-                                            "Failed to force stop jobMaster. jobId : "
-                                                    + runningJobMaster.getJobId());
-                                }
+                                runningJobMaster.stopJob();
                                 // The pending task "JobMaster.init" has not been executed, so the
                                 // job status (JobStatus) will not be stored in the
                                 // jobHistoryService. Here, storeJobEndState is called to store the
