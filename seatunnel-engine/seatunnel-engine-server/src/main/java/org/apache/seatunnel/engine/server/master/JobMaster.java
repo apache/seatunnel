@@ -115,6 +115,8 @@ import static org.apache.seatunnel.common.constants.JobMode.BATCH;
 public class JobMaster {
     private static final ILogger LOGGER = Logger.getLogger(JobMaster.class);
 
+    public static final long DEFAULT_STOP_JOB_WAIT_MS = 5000L;
+
     private final AtomicReference<Thread> runThread = new AtomicReference<>();
 
     private PhysicalPlan physicalPlan;
@@ -780,6 +782,11 @@ public class JobMaster {
     public synchronized void stopJob() {
         physicalPlan.stopJob();
         interruptRunThread();
+        boolean threadTermination = waitThreadTermination(DEFAULT_STOP_JOB_WAIT_MS);
+        if (!threadTermination) {
+            LOGGER.warning(
+                    "RunThread did not terminate within the timeout period after stopping the job.");
+        }
     }
 
     private synchronized void interruptRunThread() {
@@ -791,6 +798,32 @@ public class JobMaster {
                 LOGGER.warning("Failed to interrupt", ignore);
             }
         }
+    }
+
+    private boolean waitThreadTermination(long timeoutMs) {
+        Thread thread = runThread.get();
+        if (thread == null) {
+            return true;
+        }
+        try {
+            long start = System.currentTimeMillis();
+            long remaining = timeoutMs;
+            while (remaining > 0) {
+                try {
+                    thread.join(500);
+                    if (!thread.isAlive()) {
+                        return true;
+                    }
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    break;
+                }
+                remaining = timeoutMs - (System.currentTimeMillis() - start);
+            }
+        } catch (Exception e) {
+            LOGGER.warning("Failed to wait state thread termination", e);
+        }
+        return !thread.isAlive();
     }
 
     public ResourceManager getResourceManager() {
