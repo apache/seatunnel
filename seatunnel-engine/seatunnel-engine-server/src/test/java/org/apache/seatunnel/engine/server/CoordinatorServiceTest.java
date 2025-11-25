@@ -233,26 +233,18 @@ public class CoordinatorServiceTest {
                 jobMaster.getOwnedSlotProfilesIMap();
         Assertions.assertNotEquals(0, ownedSlotProfilesIMap.size());
 
-        ExecutorService single = Executors.newSingleThreadExecutor();
-        try {
-            single.submit(
-                    () -> {
-                        jobMaster.getPhysicalPlan().updateJobState(JobStatus.CANCELING);
-                    });
+        jobMaster.getPhysicalPlan().updateJobState(JobStatus.CANCELING);
 
-            coordinatorService.stopJob(jobInformation.jobId).join();
+        coordinatorService.stopJob(jobInformation.jobId).join();
+        await().atMost(10000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> {
+                            Assertions.assertEquals(
+                                    JobStatus.CANCELED,
+                                    coordinatorService.getJobStatus(jobInformation.jobId));
+                            Assertions.assertEquals(0, ownedSlotProfilesIMap.size());
+                        });
 
-            await().atMost(10000, TimeUnit.MILLISECONDS)
-                    .untilAsserted(
-                            () -> {
-                                Assertions.assertEquals(
-                                        JobStatus.CANCELED,
-                                        coordinatorService.getJobStatus(jobInformation.jobId));
-                                Assertions.assertEquals(0, ownedSlotProfilesIMap.size());
-                            });
-        } finally {
-            single.shutdownNow();
-        }
         jobInformation.coordinatorService.clearCoordinatorService();
         jobInformation.coordinatorServiceTest.shutdown();
     }
@@ -539,7 +531,7 @@ public class CoordinatorServiceTest {
 
     @Test
     @Disabled("Disabled because we can't know when the master node switches in the unit tests")
-    public void testJobRestoreWhenMasterNodeSwitch() {
+    void testJobRestoreWhenMasterNodeSwitch() {
         HazelcastInstanceImpl instance1 =
                 SeaTunnelServerStarter.createHazelcastInstance(
                         TestUtils.getClusterName(

@@ -48,8 +48,6 @@ import java.util.concurrent.atomic.AtomicReference;
 @Slf4j
 public class PhysicalPlan {
 
-    private final AtomicReference<Thread> updateStateThread = new AtomicReference<>();
-
     private final List<SubPlan> pipelineList;
 
     private final AtomicInteger finishedPipelineNum = new AtomicInteger(0);
@@ -222,49 +220,10 @@ public class PhysicalPlan {
         updateJobState(JobStatus.DOING_SAVEPOINT);
     }
 
-    public void interruptStateThread() {
-        Thread thread = updateStateThread.get();
-        if (thread != null) {
-            try {
-                thread.interrupt();
-            } catch (Exception ignore) {
-                log.warn("interrupt failed", ignore);
-            }
-        }
-    }
-
-    public boolean waitStateThreadTermination(long timeoutMs) {
-        Thread thread = updateStateThread.get();
-        if (thread == null) {
-            return true;
-        }
-        try {
-            long start = System.currentTimeMillis();
-            long remaining = timeoutMs;
-            while (remaining > 0) {
-                try {
-                    thread.join(500);
-                    if (!thread.isAlive()) {
-                        return true;
-                    }
-                } catch (InterruptedException ie) {
-                    Thread.currentThread().interrupt();
-                    break;
-                }
-                remaining = timeoutMs - (System.currentTimeMillis() - start);
-            }
-        } catch (Exception e) {
-            log.warn("Failed to wait state thread termination", e);
-        }
-        return !thread.isAlive();
-    }
-
     public void stopJob() {
         JobStatus jobStatus = getJobStatus();
         if (jobStatus.isEndState()) {
-            log.warn(
-                    String.format(
-                            "%s is in end state %s, can not be stop", jobFullName, jobStatus));
+            log.warn("{} is in end state {}, can not be stop", jobFullName, jobStatus);
             return;
         }
 
@@ -318,7 +277,6 @@ public class PhysicalPlan {
     }
 
     public synchronized void updateJobState(@NonNull JobStatus targetState) {
-        updateStateThread.set(Thread.currentThread());
         try {
             JobStatus current = (JobStatus) runningJobStateIMap.get(jobId);
             log.debug(
@@ -359,7 +317,6 @@ public class PhysicalPlan {
                 makeJobFailing(e);
             }
         }
-        updateStateThread.set(null);
     }
 
     public JobImmutableInformation getJobImmutableInformation() {

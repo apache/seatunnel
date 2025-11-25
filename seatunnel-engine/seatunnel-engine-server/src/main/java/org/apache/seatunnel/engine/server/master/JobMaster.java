@@ -105,6 +105,7 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
 import static com.hazelcast.jet.impl.util.ExceptionUtil.withTryCatch;
@@ -114,7 +115,7 @@ import static org.apache.seatunnel.common.constants.JobMode.BATCH;
 public class JobMaster {
     private static final ILogger LOGGER = Logger.getLogger(JobMaster.class);
 
-    public static final long DEFAULT_STOP_JOB_WAIT_MS = 5000L;
+    private final AtomicReference<Thread> runThread = new AtomicReference<>();
 
     private PhysicalPlan physicalPlan;
 
@@ -540,6 +541,7 @@ public class JobMaster {
 
     public void run() {
         try {
+            runThread.set(Thread.currentThread());
             physicalPlan.startJob();
         } catch (Throwable e) {
             LOGGER.severe(
@@ -549,6 +551,7 @@ public class JobMaster {
                             physicalPlan.getJobImmutableInformation().getJobId(),
                             ExceptionUtils.getMessage(e)));
         } finally {
+            runThread.set(null);
             jobMasterCompleteFuture.join();
             if (engineConfig.getConnectorJarStorageConfig().getEnable()) {
                 List<ConnectorJarIdentifier> pluginJarIdentifiers =
@@ -775,16 +778,19 @@ public class JobMaster {
     }
 
     public synchronized void stopJob() {
-        physicalPlan.interruptStateThread();
-
-        boolean stoppedGracefully =
-                physicalPlan.waitStateThreadTermination(DEFAULT_STOP_JOB_WAIT_MS);
-        if (!stoppedGracefully) {
-            throw new SeaTunnelEngineException(
-                    "Failed to stop job gracefully within timeout period.");
-        }
-
         physicalPlan.stopJob();
+        interruptRunThread();
+    }
+
+    private synchronized void interruptRunThread() {
+        Thread thread = runThread.get();
+        if (thread != null) {
+            try {
+                thread.interrupt();
+            } catch (Exception ignore) {
+                LOGGER.warning("Failed to interrupt", ignore);
+            }
+        }
     }
 
     public ResourceManager getResourceManager() {
