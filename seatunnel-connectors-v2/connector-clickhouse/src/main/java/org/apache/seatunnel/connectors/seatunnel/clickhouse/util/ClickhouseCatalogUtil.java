@@ -38,6 +38,12 @@ public class ClickhouseCatalogUtil extends CatalogUtil {
         } else {
             columnType = ClickhouseTypeConverter.INSTANCE.reconvert(column).getColumnType();
         }
+
+        // Add Nullable() wrapper if column is nullable
+        if (column.isNullable()) {
+            columnType = "Nullable(" + columnType + ")";
+        }
+
         return String.format(
                 "`%s` %s %s",
                 column.getName(),
