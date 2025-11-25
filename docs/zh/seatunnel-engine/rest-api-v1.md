@@ -574,8 +574,8 @@ network:
 ```json
 {
     "jobId": 733584788375666689,
-    "isStopWithSavePoint": false # if job is stopped with save point
-    "force": false # if force stopping (If true, ignore isStopWithSavePoint)
+    "isStopWithSavePoint": false # If the job is stopped with a savepoint.
+    "force": false # If true, the job is force-stopped (ignores isStopWithSavePoint).
 }
 ```
 
@@ -603,11 +603,13 @@ network:
 [
   {
     "jobId": 881432421482889220,
-    "isStopWithSavePoint": false
+    "isStopWithSavePoint": false,
+    "force": false
   },
   {
     "jobId": 881432456517910529,
-    "isStopWithSavePoint": false
+    "isStopWithSavePoint": false,
+    "force": false
   }
 ]
 ```

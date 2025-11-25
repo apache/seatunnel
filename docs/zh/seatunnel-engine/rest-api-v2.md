@@ -660,8 +660,8 @@ curl --location 'http://127.0.0.1:8080/submit-job/upload' --form 'config_file=@"
 ```json
 {
     "jobId": 733584788375666689,
-    "isStopWithSavePoint": false # if job is stopped with save point
-    "force": false # if force stopping (If true, ignore isStopWithSavePoint)
+    "isStopWithSavePoint": false # If the job is stopped with a savepoint.
+    "force": false # If true, the job is force-stopped (ignores isStopWithSavePoint).
 }
 ```
 
