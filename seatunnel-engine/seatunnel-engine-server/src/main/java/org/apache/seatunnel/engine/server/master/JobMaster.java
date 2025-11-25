@@ -540,7 +540,6 @@ public class JobMaster {
 
     public void run() {
         try {
-
             physicalPlan.startJob();
         } catch (Throwable e) {
             LOGGER.severe(
