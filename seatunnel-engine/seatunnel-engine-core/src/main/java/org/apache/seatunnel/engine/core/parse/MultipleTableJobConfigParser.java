@@ -448,25 +448,34 @@ public class MultipleTableJobConfigParser {
                         .orElse(parallelismInferenceConfig.isEnabled());
 
         if (inferenceEnabled && source instanceof SupportParallelismInference) {
-            int inferredParallelism = ((SupportParallelismInference) source).inferParallelism();
-            if (inferredParallelism > 0) {
-                int maxParallelism =
-                        envOptions
-                                .getOptional(EnvCommonOptions.PARALLELISM_INFERENCE_MAX_PARALLELISM)
-                                .orElse(parallelismInferenceConfig.getMaxParallelism());
-                int finalParallelism = Math.min(inferredParallelism, maxParallelism);
-                log.info(
-                        "Using inferred parallelism {} for source {} (inferred={}, max={})",
-                        finalParallelism,
+            try {
+                int inferredParallelism = ((SupportParallelismInference) source).inferParallelism();
+                if (inferredParallelism > 0) {
+                    int maxParallelism =
+                            envOptions
+                                    .getOptional(
+                                            EnvCommonOptions.PARALLELISM_INFERENCE_MAX_PARALLELISM)
+                                    .orElse(parallelismInferenceConfig.getMaxParallelism());
+                    int finalParallelism = Math.min(inferredParallelism, maxParallelism);
+                    log.info(
+                            "Using inferred parallelism {} for source {} (inferred={}, max={})",
+                            finalParallelism,
+                            source.getPluginName(),
+                            inferredParallelism,
+                            maxParallelism);
+                    return finalParallelism;
+                } else {
+                    log.warn(
+                            "Source {} returned invalid inferred parallelism {}, using default",
+                            source.getPluginName(),
+                            inferredParallelism);
+                }
+            } catch (Exception e) {
+                log.warn(
+                        "Failed to infer parallelism for source {}, using default: {}",
                         source.getPluginName(),
-                        inferredParallelism,
-                        maxParallelism);
-                return finalParallelism;
-            } else {
-                log.debug(
-                        "Source {} returned invalid inferred parallelism {}, using default",
-                        source.getPluginName(),
-                        inferredParallelism);
+                        EnvCommonOptions.PARALLELISM.defaultValue(),
+                        e);
             }
         }
         return EnvCommonOptions.PARALLELISM.defaultValue();

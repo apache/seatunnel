@@ -241,7 +241,22 @@ source {
 }
 ```
 
-有关并行度推断的更多详细信息，请参阅[并行度推断](../concept/parallelism-inference.md)。
+注意：
+
+并行度配置遵循以下优先级顺序（从高到低）：
+
+1. **作业级别的 `env.parallelism`**：如果在作业配置的 `env` 块中设置了 `parallelism`，将使用该值
+2. **并行度推断**：如果启用了并行度推断且数据源支持推断，将使用推断出的并行度（受 `max-parallelism` 限制）
+
+   - **作业级别（env 配置）优先级更高**：
+     - `env.parallelism.inference.enabled` 会覆盖 `seatunnel.yaml` 中的 `parallelism-inference.enabled`
+     - `env.parallelism.inference.max-parallelism` 会覆盖 `seatunnel.yaml` 中的 `parallelism-inference.max-parallelism`
+   - **服务器级别（seatunnel.yaml）作为默认配置**：
+     - 当作业配置中未指定时，使用服务器级别的配置
+     - 适合为所有作业设置统一的默认行为
+
+3. **默认并行度**：如果以上都未配置，使用默认值 `1`
+
 
 ### 4.7 IMap持久化配置(该参数在Worker节点无效)
 

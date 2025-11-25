@@ -122,16 +122,12 @@ public class EnvCommonOptions {
             Options.key("parallelism.inference.enabled")
                     .booleanType()
                     .defaultValue(false)
-                    .withDescription(
-                            "Enable automatic parallelism inference based on data volume. "
-                                    + "When enabled, operators with parallelism=-1 will have their parallelism "
-                                    + "automatically determined based on the size of consumed data.");
+                    .withDescription("Enable automatic parallelism inference.");
 
     public static Option<Integer> PARALLELISM_INFERENCE_MAX_PARALLELISM =
             Options.key("parallelism.inference.max-parallelism")
                     .intType()
-                    .defaultValue(128)
+                    .defaultValue(64)
                     .withDescription(
-                            "The maximum parallelism for operators when using automatic inference. "
-                                    + "Must be a power of 2 to ensure even distribution of subpartitions.");
+                            "The maximum parallelism for operators when using automatic inference.");
 }

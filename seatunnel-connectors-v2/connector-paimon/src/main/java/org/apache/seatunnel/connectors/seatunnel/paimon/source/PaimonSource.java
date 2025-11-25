@@ -186,6 +186,7 @@ public class PaimonSource
     /** Infer parallelism based on Paimon data partition count. */
     @Override
     public int inferParallelism() {
+        int inferParallelism = 0;
         try {
             for (Map.Entry<String, ReadBuilder> entry : readBuilders.entrySet()) {
                 String tableKey = entry.getKey();
@@ -193,7 +194,7 @@ public class PaimonSource
                 try {
                     List<PartitionEntry> partitionEntries =
                             readBuilder.newScan().listPartitionEntries();
-                    return !partitionEntries.isEmpty() ? partitionEntries.size() : 1;
+                    inferParallelism += partitionEntries.size();
                 } catch (Exception e) {
                     log.warn(
                             "Failed to get partition info for table {}, skipping parallelism inference",
@@ -207,6 +208,6 @@ public class PaimonSource
             log.warn("Failed to infer parallelism for Paimon source", e);
             return -1;
         }
-        return 1;
+        return inferParallelism <= 0 ? 1 : inferParallelism;
     }
 }

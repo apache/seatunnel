@@ -105,6 +105,36 @@ public class PaimonParallelismInferenceTest {
         Assertions.assertEquals(1, parallelism);
     }
 
+    @Test
+    public void testInferParallelismWithMultipleTables() throws Exception {
+        // Create first table with 2 partitions
+        String table1 = "multi_table_1";
+        int bucketCount1 = 2;
+        createPaimonTable(table1, bucketCount1, "dt");
+        writeTestDataToPartition(table1, bucketCount1, "2024-01-01", 50);
+        writeTestDataToPartition(table1, bucketCount1, "2024-01-02", 50);
+
+        // Create second table with 3 partitions
+        String table2 = "multi_table_2";
+        int bucketCount2 = 2;
+        createPaimonTable(table2, bucketCount2, "dt");
+        writeTestDataToPartition(table2, bucketCount2, "2024-02-01", 50);
+        writeTestDataToPartition(table2, bucketCount2, "2024-02-02", 50);
+        writeTestDataToPartition(table2, bucketCount2, "2024-02-03", 50);
+
+        // Create third table with 1 partition
+        String table3 = "multi_table_3";
+        int bucketCount3 = 2;
+        createPaimonTable(table3, bucketCount3, "dt");
+        writeTestDataToPartition(table3, bucketCount3, "2024-03-01", 50);
+
+        PaimonSource source = createPaimonSourceWithMultipleTables(table1, table2, table3);
+        int parallelism = source.inferParallelism();
+
+        // Expected: 2 (table1) + 3 (table2) + 1 (table3) = 7
+        Assertions.assertEquals(6, parallelism);
+    }
+
     private PaimonCatalog createPaimonCatalog() {
         Map<String, Object> properties = new HashMap<>();
         properties.put(PaimonBaseOptions.WAREHOUSE.key(), warehouse);
@@ -212,6 +242,24 @@ public class PaimonParallelismInferenceTest {
         configMap.put(PaimonBaseOptions.DATABASE.key(), DATABASE);
         configMap.put(PaimonBaseOptions.TABLE.key(), table);
         configMap.put(PaimonBaseOptions.CATALOG_NAME.key(), CATALOG_NAME);
+
+        ReadonlyConfig config = ReadonlyConfig.fromMap(configMap);
+        return new PaimonSource(config, paimonCatalog);
+    }
+
+    private PaimonSource createPaimonSourceWithMultipleTables(String... tables) {
+        Map<String, Object> configMap = new HashMap<>();
+        configMap.put(PaimonBaseOptions.WAREHOUSE.key(), warehouse);
+        configMap.put(PaimonBaseOptions.CATALOG_NAME.key(), CATALOG_NAME);
+
+        List<Map<String, Object>> tableList = new ArrayList<>();
+        for (String table : tables) {
+            Map<String, Object> tableConfig = new HashMap<>();
+            tableConfig.put(PaimonBaseOptions.DATABASE.key(), DATABASE);
+            tableConfig.put(PaimonBaseOptions.TABLE.key(), table);
+            tableList.add(tableConfig);
+        }
+        configMap.put("table_list", tableList);
 
         ReadonlyConfig config = ReadonlyConfig.fromMap(configMap);
         return new PaimonSource(config, paimonCatalog);

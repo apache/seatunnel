@@ -238,7 +238,21 @@ source {
 }
 ```
 
-For more details about parallelism inference, see [Parallelism Inference](../concept/parallelism-inference.md).
+Note:
+
+Parallelism configuration follows this priority order (from highest to lowest):
+
+1. **`env.parallelism` at Job Level**: If set in the job's `env` block, this value will be used
+2. **Parallelism Inference**: If parallelism inference is enabled and the source supports inference, the inferred parallelism will be used (limited by `max-parallelism`)
+
+   - **Job-level (env configuration) has higher priority**:
+     - `env.parallelism.inference.enabled` overrides `parallelism-inference.enabled` in `seatunnel.yaml`
+     - `env.parallelism.inference.max-parallelism` overrides `parallelism-inference.max-parallelism` in `seatunnel.yaml`
+   - **Server-level (seatunnel.yaml) serves as default configuration**:
+     - Used when not specified in job configuration
+     - Suitable for setting unified default behavior for all jobs
+
+3. **Default Parallelism**: If none of the above are configured, the default value of `1` is used
 
 ### 4.7 Persistence Configuration of IMap (This parameter is invalid on the Worker node)
 
