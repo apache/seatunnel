@@ -574,6 +574,7 @@ When we can't get the job info, the response will be:
 {
     "jobId": 733584788375666689,
     "isStopWithSavePoint": false # if job is stopped with save point
+    "force": false # if force stopping (If true, ignore isStopWithSavePoint)
 }
 ```
 

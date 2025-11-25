@@ -575,6 +575,7 @@ network:
 {
     "jobId": 733584788375666689,
     "isStopWithSavePoint": false # if job is stopped with save point
+    "force": false # if force stopping (If true, ignore isStopWithSavePoint)
 }
 ```
 
