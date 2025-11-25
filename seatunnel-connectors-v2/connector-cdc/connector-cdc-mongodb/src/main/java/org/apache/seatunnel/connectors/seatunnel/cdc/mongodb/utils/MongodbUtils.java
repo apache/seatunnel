@@ -51,9 +51,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Pattern;
 
 import static com.mongodb.client.model.Aggregates.match;
@@ -86,8 +84,6 @@ import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.utils.Collec
 
 @Slf4j
 public class MongodbUtils {
-
-    private static final Map<TableId, MongoCollection<?>> cache = new ConcurrentHashMap<>();
 
     public static ChangeStreamDescriptor getChangeStreamDescriptor(
             @Nonnull MongodbSourceConfig sourceConfig,
@@ -364,16 +360,9 @@ public class MongodbUtils {
     @SuppressWarnings("unchecked")
     public static <T> @Nonnull MongoCollection<T> getCollection(
             MongoClient mongoClient, TableId collectionId, Class<T> documentClass) {
-        MongoCollection<?> cachedCollection = cache.get(collectionId);
-        if (cachedCollection == null) {
-            MongoCollection<T> collection =
-                    mongoClient
-                            .getDatabase(collectionId.catalog())
-                            .getCollection(collectionId.table(), documentClass);
-            cache.put(collectionId, collection);
-            return collection;
-        }
-        return (MongoCollection<T>) cachedCollection;
+        return mongoClient
+                .getDatabase(collectionId.catalog())
+                .getCollection(collectionId.table(), documentClass);
     }
 
     public static MongoClient createMongoClient(MongodbSourceConfig sourceConfig) {
