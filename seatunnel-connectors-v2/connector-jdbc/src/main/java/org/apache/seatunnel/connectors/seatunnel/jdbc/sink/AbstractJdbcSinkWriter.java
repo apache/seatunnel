@@ -61,6 +61,9 @@ public abstract class AbstractJdbcSinkWriter<ResourceT>
     @Override
     public void applySchemaChange(SchemaChangeEvent event) throws IOException {
         this.tableSchema = tableSchemaChanger.reset(tableSchema).apply(event);
+        if (databaseTableSchema != null) {
+            this.databaseTableSchema = tableSchemaChanger.reset(databaseTableSchema).apply(event);
+        }
         reOpenOutputFormat(event);
     }
 
