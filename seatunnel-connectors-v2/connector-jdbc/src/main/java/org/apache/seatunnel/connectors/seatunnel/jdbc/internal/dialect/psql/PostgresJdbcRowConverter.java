@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.psql;
 
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 import org.apache.seatunnel.shade.org.apache.commons.lang3.math.NumberUtils;
 
 import org.apache.seatunnel.api.table.catalog.Column;
@@ -376,13 +377,6 @@ public class PostgresJdbcRowConverter extends AbstractJdbcRowConverter {
         return parseTimestampFromObjectString(obj);
     }
 
-    private OffsetDateTime parseTimestampIfPresent(String str) throws SQLException {
-        if (str == null) {
-            return null;
-        }
-        return parsePostgresTimestampTz(str);
-    }
-
     private OffsetDateTime parsePostgresTimestampTz(String str) throws SQLException {
         String normalized = normalizeIsoTimestamp(str);
         if (normalized == null) {
@@ -421,19 +415,16 @@ public class PostgresJdbcRowConverter extends AbstractJdbcRowConverter {
                     e);
             return null;
         }
-        return parseTimestampIfPresent(str);
+        return parsePostgresTimestampTz(str);
     }
 
     private String normalizeIsoTimestamp(String value) {
-        if (value == null) {
-            return null;
-        }
         // PostgreSQL timestamptz format examples:
         // "2023-12-25 10:30:45.123456+08:00"
         // "2023-12-25 10:30:45+08"
         // "2023-12-25 10:30:45.123456 UTC"
-        String normalized = value.trim();
-        if (normalized.isEmpty()) {
+        String normalized = StringUtils.trimToNull(value);
+        if (normalized == null) {
             return null;
         }
         // Handle UTC timezone
