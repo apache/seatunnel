@@ -81,6 +81,7 @@ public class MultipleTableFileSourceSplitEnumerator
             String tableId = filePathEntry.getKey();
             List<String> filePaths = filePathEntry.getValue();
             for (String filePath : filePaths) {
+                // todo 新的split
                 allSplit.add(new FileSourceSplit(tableId, filePath));
             }
         }

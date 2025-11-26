@@ -209,6 +209,7 @@ public class TextReadStrategy extends AbstractReadStrategy {
                         }
                     };
 
+            // todo 如果开启分片，skipHeaderNumber=0
             StreamLineSplitter splitter =
                     new StreamLineSplitter(rowDelimiter, skipHeaderNumber, lineProcessor);
             splitter.processStream(reader);

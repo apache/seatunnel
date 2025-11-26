@@ -119,6 +119,7 @@ public class CsvReadStrategy extends AbstractReadStrategy {
                 reader.reset();
             }
             // skip lines
+            // todo 如果开启分片这段删除
             for (int i = 0; i < skipHeaderNumber; i++) {
                 if (reader.readLine() == null) {
                     throw new IOException(
