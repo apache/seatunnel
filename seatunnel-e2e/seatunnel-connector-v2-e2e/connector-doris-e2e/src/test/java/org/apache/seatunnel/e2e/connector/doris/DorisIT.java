@@ -212,6 +212,32 @@ public class DorisIT extends AbstractDorisIT {
         checkSinkData();
     }
 
+    @TestTemplate
+    public void testJdbcQuerySourceToDoris(TestContainer container)
+            throws IOException, InterruptedException {
+        initializeJdbcTable();
+        batchInsertUniqueTableData();
+
+        Container.ExecResult execResult =
+                container.executeJob("/jdbc_query_source_to_doris_auto_create.conf");
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+
+        // Verify sink table has been auto-created and row count matches source
+        assertHasData(sourceDB, UNIQUE_TABLE);
+        Integer sourceCount = tableCount(sourceDB, UNIQUE_TABLE);
+        Integer sinkCount = tableCount(sinkDB, "doris_e2e_unique_table_query_sink");
+        Assertions.assertEquals(sourceCount, sinkCount);
+
+        // Cleanup sink table for this test
+        try (Statement statement = conn.createStatement()) {
+            statement.execute(
+                    String.format(
+                            "TRUNCATE TABLE %s.%s", sinkDB, "doris_e2e_unique_table_query_sink"));
+        } catch (SQLException e) {
+            throw new RuntimeException("Failed to clear query sink table", e);
+        }
+    }
+
     private void checkAllTypeSinkData() {
         try {
             assertHasData(sourceDB, DUPLICATE_TABLE);
