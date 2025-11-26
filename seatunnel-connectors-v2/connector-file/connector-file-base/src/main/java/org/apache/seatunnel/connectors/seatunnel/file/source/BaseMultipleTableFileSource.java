@@ -29,6 +29,7 @@ import org.apache.seatunnel.connectors.seatunnel.file.config.BaseFileSourceConfi
 import org.apache.seatunnel.connectors.seatunnel.file.config.BaseMultipleTableFileSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.source.reader.MultipleTableFileSourceReader;
 import org.apache.seatunnel.connectors.seatunnel.file.source.split.FileSourceSplit;
+import org.apache.seatunnel.connectors.seatunnel.file.source.split.FileSplitStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.source.split.MultipleTableFileSourceSplitEnumerator;
 import org.apache.seatunnel.connectors.seatunnel.file.source.state.FileSourceState;
 
@@ -41,10 +42,19 @@ public abstract class BaseMultipleTableFileSource
                 SupportColumnProjection {
 
     private final BaseMultipleTableFileSourceConfig baseMultipleTableFileSourceConfig;
+    private final FileSplitStrategy fileSplitStrategy;
 
     public BaseMultipleTableFileSource(
             BaseMultipleTableFileSourceConfig baseMultipleTableFileSourceConfig) {
         this.baseMultipleTableFileSourceConfig = baseMultipleTableFileSourceConfig;
+        this.fileSplitStrategy = new DefaultFileSplitStrategy();
+    }
+
+    public BaseMultipleTableFileSource(
+            BaseMultipleTableFileSourceConfig baseMultipleTableFileSourceConfig,
+            FileSplitStrategy fileSplitStrategy) {
+        this.baseMultipleTableFileSourceConfig = baseMultipleTableFileSourceConfig;
+        this.fileSplitStrategy = fileSplitStrategy;
     }
 
     @Override
@@ -72,7 +82,7 @@ public abstract class BaseMultipleTableFileSource
     public SourceSplitEnumerator<FileSourceSplit, FileSourceState> createEnumerator(
             SourceSplitEnumerator.Context<FileSourceSplit> enumeratorContext) {
         return new MultipleTableFileSourceSplitEnumerator(
-                enumeratorContext, baseMultipleTableFileSourceConfig);
+                enumeratorContext, baseMultipleTableFileSourceConfig, fileSplitStrategy);
     }
 
     @Override

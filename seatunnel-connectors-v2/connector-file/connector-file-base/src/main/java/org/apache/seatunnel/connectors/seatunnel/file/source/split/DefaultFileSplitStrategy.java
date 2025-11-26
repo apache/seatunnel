@@ -16,9 +16,11 @@
  */
 package org.apache.seatunnel.connectors.seatunnel.file.source.split;
 
+import java.util.Collections;
 import java.util.List;
 
-public interface FileSplitStrategy {
-
-    List<FileSourceSplit> split(String tableId, String filePath);
+public class DefaultFileSplitStrategy implements FileSplitStrategy {
+    public List<FileSourceSplit> split(String tableId, String filePath) {
+        return Collections.singletonList(new FileSourceSplit(tableId, filePath));
+    }
 }

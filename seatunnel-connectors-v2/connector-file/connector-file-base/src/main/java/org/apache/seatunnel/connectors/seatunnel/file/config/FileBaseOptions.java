@@ -150,4 +150,13 @@ public class FileBaseOptions extends ConnectorCommonOptions {
                     .enumType(ArchiveCompressFormat.class)
                     .defaultValue(ArchiveCompressFormat.NONE)
                     .withDescription("Archive compression codec");
+
+    public static final Option<Boolean> ENABLE_SPLIT_FILE =
+            Options.key("enable_split_file").booleanType().defaultValue(false).withDescription("");
+
+    public static final Option<Long> SPLIT_SIZE =
+            Options.key("split_size")
+                    .longType()
+                    .defaultValue(128 * 1024 * 1024L)
+                    .withDescription("");
 }

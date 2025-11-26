@@ -14,11 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.seatunnel.connectors.seatunnel.file.source.split;
+package org.apache.seatunnel.connectors.seatunnel.file.local;
 
-import java.util.List;
-
-public interface FileSplitStrategy {
-
-    List<FileSourceSplit> split(String tableId, String filePath);
-}
+public class SplitFileStrategyTest {}

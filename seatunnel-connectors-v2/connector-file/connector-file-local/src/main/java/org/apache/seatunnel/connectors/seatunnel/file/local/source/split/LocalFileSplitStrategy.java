@@ -1,9 +1,25 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package org.apache.seatunnel.connectors.seatunnel.file.local.source.split;
 
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.file.source.split.DefaultFileSplitStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.source.split.FileSourceSplit;
-import org.apache.seatunnel.connectors.seatunnel.file.source.split.FileSplitStrategy;
 
 import java.io.BufferedInputStream;
 import java.io.IOException;
@@ -12,26 +28,42 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
-public class LocalFileSplitStrategy extends FileSplitStrategy {
+public class LocalFileSplitStrategy extends DefaultFileSplitStrategy {
 
     public String rowDelimiter;
-    public int skipHeaderRowNumber;
+    public long skipHeaderRowNumber;
     public Charset encoding;
+    public long splitSize;
 
-    public List<FileSourceSplit> split(String tableId, String filePath, long splitSize) {
+    public LocalFileSplitStrategy(
+            String rowDelimiter, long skipHeaderRowNumber, Charset encoding, long splitSize) {
+        this.rowDelimiter = rowDelimiter;
+        this.skipHeaderRowNumber = skipHeaderRowNumber;
+        this.encoding = encoding;
+        this.splitSize = splitSize;
+    }
+
+    public List<FileSourceSplit> split(String tableId, String filePath) {
         List<FileSourceSplit> splits = new ArrayList<>();
         Path path = Paths.get(filePath);
         long fileSize;
         try {
             fileSize = Files.size(path);
         } catch (IOException e) {
-            throw new RuntimeException("Cannot read file size: " + filePath, e);
+            throw new SeaTunnelRuntimeException(
+                    FileConnectorErrorCode.FILE_READ_FAILED,
+                    "Cannot read file size: " + filePath,
+                    e);
         }
         if (fileSize == 0) {
-            splits.add(new FileSourceSplit(tableId, filePath, 0, 0));
+            splits.add(new FileSourceSplit(tableId, filePath));
             return splits;
+        }
+        if (fileSize < splitSize) {
+            return Collections.singletonList(new FileSourceSplit(tableId, filePath));
         }
         long currentStart = 0;
         long skipBytes = 0;
@@ -59,11 +91,10 @@ public class LocalFileSplitStrategy extends FileSplitStrategy {
                     new FileSourceSplit(tableId, filePath, currentStart, actualEnd - currentStart));
             currentStart = actualEnd;
         }
-
         return splits;
     }
 
-    private long skipHeader(BufferedInputStream bis, String delimiter, int skipLines)
+    private long skipHeader(BufferedInputStream bis, String delimiter, long skipLines)
             throws IOException {
         byte[] delimBytes = delimiter.getBytes(encoding);
         int matched = 0;

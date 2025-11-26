@@ -18,14 +18,27 @@
 package org.apache.seatunnel.connectors.seatunnel.file.local.source;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
 import org.apache.seatunnel.connectors.seatunnel.file.local.source.config.MultipleTableLocalFileSourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.file.local.source.split.LocalFileSplitStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.source.BaseMultipleTableFileSource;
+import org.apache.seatunnel.connectors.seatunnel.file.source.split.DefaultFileSplitStrategy;
+
+import java.nio.charset.Charset;
 
 public class LocalFileSource extends BaseMultipleTableFileSource {
 
     public LocalFileSource(ReadonlyConfig readonlyConfig) {
-        super(new MultipleTableLocalFileSourceConfig(readonlyConfig));
+        super(
+                new MultipleTableLocalFileSourceConfig(readonlyConfig),
+                readonlyConfig.get(FileBaseSourceOptions.ENABLE_SPLIT_FILE)
+                        ? new LocalFileSplitStrategy(
+                                readonlyConfig.get(FileBaseSourceOptions.ROW_DELIMITER),
+                                readonlyConfig.get(FileBaseSourceOptions.SKIP_HEADER_ROW_NUMBER),
+                                Charset.forName(readonlyConfig.get(FileBaseSourceOptions.ENCODING)),
+                                readonlyConfig.get(FileBaseSourceOptions.SPLIT_SIZE))
+                        : new DefaultFileSplitStrategy());
     }
 
     @Override
