@@ -99,10 +99,12 @@ public class ClickhouseCreateTableTest {
                                 .build(),
                         "clickhouse test table",
                         ClickhouseSinkOptions.SAVE_MODE_CREATE_TEMPLATE.key());
+        // Primary key columns (id, age) should NOT be wrapped in Nullable
+        // because ClickHouse does not allow nullable columns in ORDER BY / PRIMARY KEY
         Assertions.assertEquals(
                 createTableSql,
                 "CREATE TABLE IF NOT EXISTS  `test1`.`test2` (\n"
-                        + "    `id` Nullable(Int64) ,`age` Nullable(Int32) COMMENT 'test comment',\n"
+                        + "    `id` Int64 ,`age` Int32 COMMENT 'test comment',\n"
                         + "    `name` Nullable(String) ,\n"
                         + "`score` Nullable(Int32) COMMENT '\''N''-N',\n"
                         + "`gender` Nullable(Int8) ,\n"

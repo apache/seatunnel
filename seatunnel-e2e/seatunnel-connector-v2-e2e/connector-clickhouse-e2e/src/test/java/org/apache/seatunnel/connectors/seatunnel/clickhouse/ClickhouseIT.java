@@ -206,7 +206,7 @@ public class ClickhouseIT extends TestSuiteBase implements TestResource {
         String tableName = "default.sink_table_for_schema";
         Container.ExecResult execResult =
                 container.executeJob("/clickhouse_with_recreate_schema_and_custom.conf");
-        Assertions.assertEquals(0, execResult.getExitCode());
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStdout());
         Assertions.assertEquals(101, countData(tableName));
         dropTable(tableName);
     }
