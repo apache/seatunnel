@@ -308,6 +308,14 @@ public class JdbcMySqlCreateTableIT extends TestSuiteBase implements TestResourc
     @Test
     public void testGetCatalogTablePrimaryKeyFromQuery() throws SQLException {
         try (Connection connection = getJdbcMySqlConnection()) {
+            try (Statement statement = connection.createStatement()) {
+                statement.execute(
+                        "CREATE TABLE IF NOT EXISTS mysql_pk_e2e(\n"
+                                + "id int NOT NULL PRIMARY KEY,\n"
+                                + "name varchar(100) NULL\n"
+                                + ");");
+            }
+
             JdbcDialectTypeMapper typeMapper =
                     new JdbcDialectTypeMapper() {
                         @Override
@@ -327,7 +335,7 @@ public class JdbcMySqlCreateTableIT extends TestSuiteBase implements TestResourc
             CatalogTable catalogTable =
                     CatalogUtils.getCatalogTable(
                             connection,
-                            "select id, f_varchar from mysql_auto_create where id >= 0",
+                            "select id, name from mysql_pk_e2e where id >= 0",
                             typeMapper);
 
             PrimaryKey primaryKey = catalogTable.getTableSchema().getPrimaryKey();
