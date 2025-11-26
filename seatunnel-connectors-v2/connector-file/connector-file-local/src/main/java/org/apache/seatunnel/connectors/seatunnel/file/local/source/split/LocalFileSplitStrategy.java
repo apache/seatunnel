@@ -28,15 +28,14 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 
 public class LocalFileSplitStrategy extends DefaultFileSplitStrategy {
 
-    public String rowDelimiter;
-    public long skipHeaderRowNumber;
-    public Charset encoding;
-    public long splitSize;
+    private final String rowDelimiter;
+    private final long skipHeaderRowNumber;
+    private final Charset encoding;
+    private final long splitSize;
 
     public LocalFileSplitStrategy(
             String rowDelimiter, long skipHeaderRowNumber, Charset encoding, long splitSize) {
@@ -61,9 +60,6 @@ public class LocalFileSplitStrategy extends DefaultFileSplitStrategy {
         if (fileSize == 0) {
             splits.add(new FileSourceSplit(tableId, filePath));
             return splits;
-        }
-        if (fileSize < splitSize) {
-            return Collections.singletonList(new FileSourceSplit(tableId, filePath));
         }
         long currentStart = 0;
         long skipBytes = 0;
