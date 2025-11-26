@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc;
 import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
@@ -27,6 +28,8 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.mysql.MySqlCatalog
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.psql.PostgresCatalog;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.sqlserver.SqlServerCatalog;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.sqlserver.SqlServerURLParser;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.utils.CatalogUtils;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectTypeMapper;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
@@ -300,6 +303,37 @@ public class JdbcMySqlCreateTableIT extends TestSuiteBase implements TestResourc
         mySqlCatalog.close();
         postgresCatalog.close();
         // delete table
+    }
+
+    @Test
+    public void testGetCatalogTablePrimaryKeyFromQuery() throws SQLException {
+        try (Connection connection = getJdbcMySqlConnection()) {
+            JdbcDialectTypeMapper typeMapper =
+                    new JdbcDialectTypeMapper() {
+                        @Override
+                        public org.apache.seatunnel.api.table.catalog.Column mappingColumn(
+                                org.apache.seatunnel.api.table.converter.BasicTypeDefine
+                                        typeDefine) {
+                            return org.apache.seatunnel.api.table.catalog.PhysicalColumn.of(
+                                    typeDefine.getName(),
+                                    org.apache.seatunnel.api.table.type.BasicType.VOID_TYPE,
+                                    typeDefine.getLength(),
+                                    typeDefine.isNullable(),
+                                    typeDefine.getScale(),
+                                    typeDefine.getComment());
+                        }
+                    };
+
+            CatalogTable catalogTable =
+                    CatalogUtils.getCatalogTable(
+                            connection,
+                            "select id, f_varchar from mysql_auto_create where id >= 0",
+                            typeMapper);
+
+            PrimaryKey primaryKey = catalogTable.getTableSchema().getPrimaryKey();
+            Assertions.assertNotNull(primaryKey);
+            Assertions.assertTrue(primaryKey.getColumnNames().contains("id"));
+        }
     }
 
     @Override

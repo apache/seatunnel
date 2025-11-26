@@ -61,7 +61,6 @@ import java.util.stream.Collectors;
 public class DorisIT extends AbstractDorisIT {
     private static final String UNIQUE_TABLE = "doris_e2e_unique_table";
     private static final String DUPLICATE_TABLE = "doris_duplicate_table";
-    private static final String MYSQL_PK_TABLE = "doris_e2e_mysql_pk_table";
     private static final String sourceDB = "e2e_source";
     private static final String sinkDB = "e2e_sink";
     private Connection conn;
@@ -211,32 +210,6 @@ public class DorisIT extends AbstractDorisIT {
         Container.ExecResult execResult1 = container.executeJob("/doris_source_no_schema.conf");
         Assertions.assertEquals(0, execResult1.getExitCode());
         checkSinkData();
-    }
-
-    @TestTemplate
-    public void testJdbcQuerySourceToDoris(TestContainer container)
-            throws IOException, InterruptedException {
-        initializeJdbcTable();
-        insertMysqlPkTableData();
-
-        Container.ExecResult execResult =
-                container.executeJob("/mysql_query_source_to_doris_auto_create.conf");
-        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
-
-        // Verify sink table has been auto-created and row count matches source
-        assertHasData(sourceDB, MYSQL_PK_TABLE);
-        Integer sourceCount = tableCount(sourceDB, MYSQL_PK_TABLE);
-        Integer sinkCount = tableCount(sinkDB, "doris_e2e_mysql_pk_table_query_sink");
-        Assertions.assertEquals(sourceCount, sinkCount);
-
-        // Cleanup sink table for this test
-        try (Statement statement = conn.createStatement()) {
-            statement.execute(
-                    String.format(
-                            "TRUNCATE TABLE %s.%s", sinkDB, "doris_e2e_mysql_pk_table_query_sink"));
-        } catch (SQLException e) {
-            throw new RuntimeException("Failed to clear query sink table", e);
-        }
     }
 
     private void checkAllTypeSinkData() {
@@ -449,7 +422,6 @@ public class DorisIT extends AbstractDorisIT {
                 // create source and sink table
                 statement.execute(createUniqueTableForTest(sourceDB));
                 statement.execute(createDuplicateTableForTest(sourceDB));
-                statement.execute(createMysqlPkTableForTest(sourceDB));
                 log.info("create source and sink table succeed");
             } catch (SQLException e) {
                 throw new RuntimeException("Initializing table failed!", e);
@@ -589,20 +561,6 @@ public class DorisIT extends AbstractDorisIT {
         return String.format(createDuplicateTableSql, db, DUPLICATE_TABLE);
     }
 
-    private String createMysqlPkTableForTest(String db) {
-        String createTableSql =
-                "create table if not exists `%s`.`%s`(\n"
-                        + "id int not null,\n"
-                        + "name varchar(100) null,\n"
-                        + "PRIMARY KEY(`id`)\n"
-                        + ")\n"
-                        + "DISTRIBUTED BY HASH(`id`) BUCKETS 1\n"
-                        + "properties(\n"
-                        + "\"replication_allocation\" = \"tag.location.default: 1\""
-                        + ");";
-        return String.format(createTableSql, db, MYSQL_PK_TABLE);
-    }
-
     protected void batchInsertUniqueTableData() {
         List<SeaTunnelRow> rows = genUniqueTableTestData(100L);
         try {
@@ -631,19 +589,6 @@ public class DorisIT extends AbstractDorisIT {
             throw new RuntimeException("get connection error", exception);
         }
         log.info("insert data succeed");
-    }
-
-    private void insertMysqlPkTableData() {
-        try (Statement statement = conn.createStatement()) {
-            String sql =
-                    String.format(
-                            "INSERT INTO %s.%s (id, name) VALUES (1, 'name_1'), (2, 'name_2')",
-                            sourceDB, MYSQL_PK_TABLE);
-            statement.execute(sql);
-        } catch (SQLException e) {
-            throw new RuntimeException("Failed to initialize mysql pk test table", e);
-        }
-        log.info("insert mysql pk test table data succeed");
     }
 
     private void batchInsertDuplicateTableData() {
