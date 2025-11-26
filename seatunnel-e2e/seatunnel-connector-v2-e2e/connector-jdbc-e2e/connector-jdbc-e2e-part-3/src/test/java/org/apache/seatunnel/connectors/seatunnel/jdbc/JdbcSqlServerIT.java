@@ -66,7 +66,7 @@ public class JdbcSqlServerIT extends AbstractJdbcIT {
     private static final List<String> CONFIG_FILE =
             Lists.newArrayList(
                     "/jdbc_sqlserver_source_to_sink.conf",
-                    "jdbc_sqlserver_source_to_sink_use_copy.conf");
+                    "/jdbc_sqlserver_source_to_sink_use_copy.conf");
     private static final String CREATE_SQL =
             "CREATE TABLE %s (\n"
                     + "\tINT_IDENTITY_TEST int identity,\n"
