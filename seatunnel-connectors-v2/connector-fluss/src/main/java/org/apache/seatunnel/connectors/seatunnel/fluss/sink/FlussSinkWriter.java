@@ -126,9 +126,10 @@ public class FlussSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
                     upsertWriter.upsert(genericRow);
                     break;
                 case DELETE:
-                case UPDATE_BEFORE:
                     upsertWriter.delete(genericRow);
                     break;
+                case UPDATE_BEFORE:
+                    return;
                 default:
                     throw CommonError.unsupportedRowKind(
                             FlussSinkOptions.CONNECTOR_IDENTITY, tableName, rowKind.shortString());
@@ -140,6 +141,9 @@ public class FlussSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
                 case UPDATE_AFTER:
                     appendWriter.append(genericRow);
                     break;
+                case DELETE:
+                case UPDATE_BEFORE:
+                    return;
                 default:
                     throw CommonError.unsupportedRowKind(
                             FlussSinkOptions.CONNECTOR_IDENTITY, tableName, rowKind.shortString());
@@ -158,16 +162,22 @@ public class FlussSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
 
     @Override
     public void close() {
-        log.info("Close FlussSinkWriter.");
+        log.info("Close Fluss table.");
         try {
             if (table != null) {
                 table.close();
             }
+        } catch (Exception e) {
+            throw CommonError.closeFailed("Close Fluss table failed.", e);
+        }
+
+        log.info("Close Fluss connection.");
+        try {
             if (connection != null) {
                 connection.close();
             }
         } catch (Exception e) {
-            throw CommonError.closeFailed("Close FlussSinkWriter failed.", e);
+            throw CommonError.closeFailed("Close Fluss connection failed.", e);
         }
     }
 

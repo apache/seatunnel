@@ -310,10 +310,10 @@ public class FlussSinkIT extends TestSuiteBase implements TestResource {
     public void checkFlussData(String dbName, String tableName) throws IOException {
         // check log data
         List<GenericRow> streamData =
-                getFlussTableStreamData(flussConnection, DB_NAME_2, TABLE_NAME, 10);
+                getFlussTableStreamData(flussConnection, dbName, tableName, 10);
         checkFlussTableStreamData(streamData);
         // check data
-        List<GenericRow> data = getFlussTableData(flussConnection, DB_NAME_2, TABLE_NAME, 10);
+        List<GenericRow> data = getFlussTableData(flussConnection, dbName, tableName, 10);
         checkFlussTableData(data);
     }
 
