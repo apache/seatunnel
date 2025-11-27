@@ -41,7 +41,10 @@ import lombok.extern.slf4j.Slf4j;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -220,11 +223,11 @@ public class PhysicalPlan {
         updateJobState(JobStatus.DOING_SAVEPOINT);
     }
 
-    public void stopJob() {
+    public boolean stopJob() {
         JobStatus jobStatus = getJobStatus();
         if (jobStatus.isEndState()) {
             log.warn("{} is in end state {}, can not be stop", jobFullName, jobStatus);
-            return;
+            return true;
         }
 
         if (jobStatus.ordinal() <= JobStatus.PENDING.ordinal()) {
@@ -232,6 +235,7 @@ public class PhysicalPlan {
             // the 'CANCELLED' state because it has not yet started running
             updateJobState(JobStatus.CANCELED);
         } else if (JobStatus.CANCELING == jobStatus) {
+            log.info("{} is already in CANCELING state.", jobFullName);
             jobMaster.neverNeedRestore();
             List<SubPlan> subPlans = getPipelineList();
             subPlans.forEach(SubPlan::cancelPipeline);
@@ -254,10 +258,45 @@ public class PhysicalPlan {
         } else {
             updateJobState(JobStatus.CANCELING);
         }
+        return waitJobEndFutureCompletion();
+    }
+
+    private boolean waitJobEndFutureCompletion() {
+        if (jobEndFuture != null) {
+            try {
+                JobResult result = jobEndFuture.get(10_000, TimeUnit.MILLISECONDS);
+                return result != null && result.getStatus() == JobStatus.CANCELED;
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return false;
+            } catch (ExecutionException e) {
+                return false;
+            } catch (TimeoutException e) {
+                log.warn("Failed to stop job {} within timeout.", jobFullName);
+                return false;
+            }
+        }
+        return true;
     }
 
     public List<SubPlan> getPipelineList() {
         return pipelineList;
+    }
+
+    private void updateStateInfo(JobStatus current, JobStatus targetState) throws Exception {
+        RetryUtils.retryWithException(
+                () -> {
+                    updateStateTimestamps(targetState);
+                    runningJobStateIMap.set(jobId, targetState);
+                    return null;
+                },
+                new RetryUtils.RetryMaterial(
+                        Constant.OPERATION_RETRY_TIME,
+                        true,
+                        ExceptionUtil::isOperationNeedRetryException,
+                        Constant.OPERATION_RETRY_SLEEP));
+        log.info(
+                String.format("%s turned from state %s to %s.", jobFullName, current, targetState));
     }
 
     private void updateStateTimestamps(@NonNull JobStatus targetState) {
@@ -296,20 +335,7 @@ public class PhysicalPlan {
 
             // Now do the actual state transition, we must update runningJobStateTimestampsIMap
             // first and then can update runningJobStateIMap
-            RetryUtils.retryWithException(
-                    () -> {
-                        updateStateTimestamps(targetState);
-                        runningJobStateIMap.set(jobId, targetState);
-                        return null;
-                    },
-                    new RetryUtils.RetryMaterial(
-                            Constant.OPERATION_RETRY_TIME,
-                            true,
-                            ExceptionUtil::isOperationNeedRetryException,
-                            Constant.OPERATION_RETRY_SLEEP));
-            log.info(
-                    String.format(
-                            "%s turned from state %s to %s.", jobFullName, current, targetState));
+            updateStateInfo(current, targetState);
             stateProcess();
         } catch (Exception e) {
             log.error(ExceptionUtils.getMessage(e));

@@ -780,16 +780,15 @@ public class JobMaster {
     }
 
     public synchronized void stopJob() {
-        physicalPlan.stopJob();
-        interruptRunThread();
-        boolean threadTermination = waitThreadTermination(DEFAULT_STOP_JOB_WAIT_MS);
-        if (!threadTermination) {
-            LOGGER.warning(
-                    "RunThread did not terminate within the timeout period after stopping the job.");
+        boolean stopped = physicalPlan.stopJob();
+        if (!stopped) {
+            LOGGER.warning("Failed to stop the job");
+            return;
         }
+        interruptRunThread();
     }
 
-    private synchronized void interruptRunThread() {
+    private void interruptRunThread() {
         Thread thread = runThread.get();
         if (thread != null) {
             try {
@@ -798,10 +797,14 @@ public class JobMaster {
                 LOGGER.warning("Failed to interrupt", ignore);
             }
         }
+        boolean threadTermination = waitThreadTermination(DEFAULT_STOP_JOB_WAIT_MS, thread);
+        if (!threadTermination) {
+            LOGGER.warning(
+                    "RunThread did not terminate within the timeout period after stopping the job.");
+        }
     }
 
-    private boolean waitThreadTermination(long timeoutMs) {
-        Thread thread = runThread.get();
+    private boolean waitThreadTermination(long timeoutMs, Thread thread) {
         if (thread == null) {
             return true;
         }
