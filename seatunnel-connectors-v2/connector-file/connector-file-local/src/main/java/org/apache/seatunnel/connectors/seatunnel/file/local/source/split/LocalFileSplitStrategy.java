@@ -58,7 +58,6 @@ public class LocalFileSplitStrategy extends DefaultFileSplitStrategy {
                     e);
         }
         if (fileSize == 0) {
-            splits.add(new FileSourceSplit(tableId, filePath));
             return splits;
         }
         long currentStart = 0;

@@ -94,7 +94,7 @@ public class SplitFileStrategyTest {
         String realPath = Paths.get(url.toURI()).toString();
         final List<FileSourceSplit> splits = localFileSplitStrategy.split("test.table", realPath);
         Assertions.assertEquals(8, splits.size());
-        // check split-1
+        // check split
         Assertions.assertEquals(21, splits.get(0).getStart());
         Assertions.assertEquals(42, splits.get(1).getStart());
         Assertions.assertEquals(62, splits.get(2).getStart());
@@ -120,8 +120,19 @@ public class SplitFileStrategyTest {
         // check split-1
         Assertions.assertEquals(23, splits.get(0).getStart());
         Assertions.assertEquals(92, splits.get(0).getLength());
-        // check split-1
+        // check split-2
         Assertions.assertEquals(115, splits.get(1).getStart());
         Assertions.assertEquals(91, splits.get(1).getLength());
+    }
+
+    @SneakyThrows
+    @Test
+    public void testSplitEmpty() {
+        final LocalFileSplitStrategy localFileSplitStrategy =
+                new LocalFileSplitStrategy("\n", 1L, StandardCharsets.UTF_8, 300L);
+        URL url = getClass().getClassLoader().getResource("test_split_empty_data.csv");
+        String realPath = Paths.get(url.toURI()).toString();
+        final List<FileSourceSplit> splits = localFileSplitStrategy.split("test.table", realPath);
+        Assertions.assertEquals(0, splits.size());
     }
 }

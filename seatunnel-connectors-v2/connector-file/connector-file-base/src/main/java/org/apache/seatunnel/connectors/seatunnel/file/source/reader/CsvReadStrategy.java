@@ -27,12 +27,14 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.utils.DateTimeUtils;
 import org.apache.seatunnel.common.utils.DateUtils;
+import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.common.utils.TimeUtils;
 import org.apache.seatunnel.connectors.seatunnel.file.config.CompressFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.file.source.split.FileSourceSplit;
 import org.apache.seatunnel.format.csv.CsvDeserializationSchema;
 import org.apache.seatunnel.format.csv.processor.CsvLineProcessor;
 import org.apache.seatunnel.format.csv.processor.DefaultCsvLineProcessor;
@@ -41,6 +43,7 @@ import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVFormat.Builder;
 import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;
+import org.apache.commons.io.input.BoundedInputStream;
 
 import io.airlift.compress.lzo.LzopCodec;
 import lombok.extern.slf4j.Slf4j;
@@ -75,13 +78,20 @@ public class CsvReadStrategy extends AbstractReadStrategy {
     public void read(String path, String tableId, Collector<SeaTunnelRow> output)
             throws FileConnectorException, IOException {
         Map<String, String> partitionsMap = parsePartitionsByPath(path);
-        resolveArchiveCompressedInputStream(path, tableId, output, partitionsMap, FileFormat.CSV);
+        resolveArchiveCompressedInputStream(
+                new FileSourceSplit(tableId, path), output, partitionsMap, FileFormat.CSV);
+    }
+
+    @Override
+    public void read(FileSourceSplit split, Collector<SeaTunnelRow> output)
+            throws IOException, FileConnectorException {
+        Map<String, String> partitionsMap = parsePartitionsByPath(split.getFilePath());
+        resolveArchiveCompressedInputStream(split, output, partitionsMap, FileFormat.CSV);
     }
 
     @Override
     public void readProcess(
-            String path,
-            String tableId,
+            FileSourceSplit split,
             Collector<SeaTunnelRow> output,
             InputStream inputStream,
             Map<String, String> partitionsMap,
@@ -103,11 +113,18 @@ public class CsvReadStrategy extends AbstractReadStrategy {
                 actualInputStream = inputStream;
                 break;
         }
+        // rebuild inputStream
+        if (enableSplitFile) {
+            actualInputStream = safeSlice(inputStream, split.getStart(), split.getLength());
+        }
         Builder builder =
                 CSVFormat.EXCEL.builder().setIgnoreEmptyLines(true).setDelimiter(getDelimiter());
         CSVFormat csvFormat = builder.build();
-        if (firstLineAsHeader) {
-            csvFormat = csvFormat.withFirstRecordAsHeader();
+        // if enableSplitFile is true,no need to skip
+        if (!enableSplitFile) {
+            if (firstLineAsHeader) {
+                csvFormat = csvFormat.withFirstRecordAsHeader();
+            }
         }
         try (BufferedReader reader =
                         new BufferedReader(new InputStreamReader(actualInputStream, encoding));
@@ -119,13 +136,15 @@ public class CsvReadStrategy extends AbstractReadStrategy {
                 reader.reset();
             }
             // skip lines
-            // todo 如果开启分片这段删除
-            for (int i = 0; i < skipHeaderNumber; i++) {
-                if (reader.readLine() == null) {
-                    throw new IOException(
-                            String.format(
-                                    "File [%s] has fewer lines than expected to skip.",
-                                    currentFileName));
+            // if enableSplitFile is true,no need to skip
+            if (!enableSplitFile) {
+                for (int i = 0; i < skipHeaderNumber; i++) {
+                    if (reader.readLine() == null) {
+                        throw new IOException(
+                                String.format(
+                                        "File [%s] has fewer lines than expected to skip.",
+                                        currentFileName));
+                    }
                 }
             }
             // read lines
@@ -162,7 +181,7 @@ public class CsvReadStrategy extends AbstractReadStrategy {
                         seaTunnelRow.setField(index++, value);
                     }
                 }
-                seaTunnelRow.setTableId(tableId);
+                seaTunnelRow.setTableId(split.getTableId());
                 output.collect(seaTunnelRow);
             }
         } catch (IOException e) {
@@ -297,5 +316,18 @@ public class CsvReadStrategy extends AbstractReadStrategy {
         }
 
         processor = new DefaultCsvLineProcessor();
+    }
+
+    private static InputStream safeSlice(InputStream in, long start, long length)
+            throws IOException {
+        long toSkip = start;
+        while (toSkip > 0) {
+            long skipped = in.skip(toSkip);
+            if (skipped <= 0) {
+                throw new SeaTunnelException("skipped error");
+            }
+            toSkip -= skipped;
+        }
+        return new BoundedInputStream(in, length);
     }
 }
