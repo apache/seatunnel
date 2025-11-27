@@ -28,6 +28,8 @@ import org.apache.seatunnel.connectors.seatunnel.fluss.config.FlussSinkOptions;
 
 import lombok.extern.slf4j.Slf4j;
 
+import java.util.Optional;
+
 @Slf4j
 public class FlussSink extends AbstractSimpleSink<SeaTunnelRow, Void>
         implements SupportMultiTableSink {
@@ -43,6 +45,11 @@ public class FlussSink extends AbstractSimpleSink<SeaTunnelRow, Void>
     @Override
     public AbstractSinkWriter<SeaTunnelRow, Void> createWriter(SinkWriter.Context context) {
         return new FlussSinkWriter(context, catalogTable, pluginConfig);
+    }
+
+    @Override
+    public Optional<CatalogTable> getWriteCatalogTable() {
+        return Optional.of(catalogTable);
     }
 
     @Override
