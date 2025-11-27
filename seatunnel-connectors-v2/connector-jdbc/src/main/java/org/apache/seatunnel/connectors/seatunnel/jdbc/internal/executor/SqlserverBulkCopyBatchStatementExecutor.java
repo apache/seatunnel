@@ -20,6 +20,7 @@ import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 
 import com.microsoft.sqlserver.jdbc.ISQLServerBulkData;
@@ -99,25 +100,34 @@ public class SqlserverBulkCopyBatchStatementExecutor
     }
 
     private void executeBatchInternal() throws SQLException {
-        SQLServerBulkCopy bulkCopy = new SQLServerBulkCopy(connection);
-        bulkCopy.setDestinationTableName(schemaTableName);
-        // BulkCopy config
-        SQLServerBulkCopyOptions options = new SQLServerBulkCopyOptions();
-        options.setTableLock(true);
-        options.setUseInternalTransaction(false);
-        options.setCheckConstraints(false);
-        options.setFireTriggers(false);
-        options.setBatchSize(buffer.size());
-        bulkCopy.setBulkCopyOptions(options);
-        long start = System.currentTimeMillis();
-        bulkCopy.writeToServer(new MemoryBulkData(columns, buffer));
-        connection.commit();
-        log.info(
-                "Bulk copied {} rows to table {}, cost {}s",
-                buffer.size(),
-                schemaTableName,
-                (System.currentTimeMillis() - start) / 1000);
-        buffer.clear();
+        try (SQLServerBulkCopy bulkCopy = new SQLServerBulkCopy(connection)) {
+            bulkCopy.setDestinationTableName(schemaTableName);
+            // BulkCopy config
+            SQLServerBulkCopyOptions options = new SQLServerBulkCopyOptions();
+            options.setTableLock(true);
+            options.setUseInternalTransaction(false);
+            options.setCheckConstraints(false);
+            options.setFireTriggers(false);
+            options.setBatchSize(buffer.size());
+            bulkCopy.setBulkCopyOptions(options);
+            long start = System.currentTimeMillis();
+            bulkCopy.writeToServer(new MemoryBulkData(columns, buffer));
+            connection.commit();
+            log.info(
+                    "Bulk copied {} rows to table {}, cost {}s",
+                    buffer.size(),
+                    schemaTableName,
+                    (System.currentTimeMillis() - start) / 1000);
+            buffer.clear();
+        } catch (SQLException e) {
+            try {
+                connection.rollback();
+            } catch (SQLException rollbackEx) {
+                log.error("Failed to rollback", rollbackEx);
+            }
+            throw new JdbcConnectorException(
+                    JdbcConnectorErrorCode.TRANSACTION_OPERATION_FAILED, e);
+        }
     }
 
     @Override
