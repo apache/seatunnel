@@ -1516,8 +1516,8 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
     @TestTemplate
     public void testKafkaToKafkaExactlyOnceOnBatch(TestContainer container)
             throws InterruptedException, IOException {
-        String producerTopic = "kafka_topic_exactly_once_1";
-        String consumerTopic = "kafka_topic_exactly_once_2";
+        String producerTopic = "kafka_topic_exactly_batch_once_1";
+        String consumerTopic = "kafka_topic_exactly_batch_once_2";
         String sourceData = "Seatunnel Exactly Once Example";
         for (int i = 0; i < 10; i++) {
             ProducerRecord<byte[], byte[]> record =
