@@ -48,7 +48,7 @@ import ChangeLog from '../changelog/connector-file-hadoop.md';
 
 | 名称                               | 类型      | 是否必须 | 默认值                                        | 描述                                                                                                                                                                                                                                                                                               |
 |----------------------------------|---------|------|--------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| fs.defaultFS                     | string  | 是    | -                                          | 以 `hdfs://` 开头的 Hadoop 集群地址，例如：`hdfs://hadoopcluster`                                                                                                                                                                                                                                            |
+| fs.defaultFS                     | string  | 是    | -                                          | Hadoop 集群地址。支持以下格式：<br/>- 标准 HDFS：`hdfs://hadoopcluster` 或 `hdfs://namenode:9000`<br/>- ViewFS（联邦 HDFS）：`viewfs://mycluster`<br/>详见下方 ViewFS 配置示例。                                                                                                                                                      |
 | path                             | string  | 是    | -                                          | 目标目录路径是必需的。                                                                                                                                                                                                                                                                                      |
 | tmp_path                         | string  | 是    | /tmp/seatunnel                             | 结果文件将首先写入临时路径，然后使用 `mv` 命令将临时目录提交到目标目录。需要一个Hdfs路径。                                                                                                                                                                                                                                               |
 | hdfs_site_path                   | string  | 否    | -                                          | `hdfs-site.xml` 的路径，用于加载 namenodes 的 ha 配置。                                                                                                                                                                                                                                                      |
@@ -233,6 +233,41 @@ HdfsFile {
     path = "/tmp/hive/warehouse/test2"
     compress_codec = "lzo"
 }
+```
+
+### ViewFS（联邦 HDFS）配置示例
+
+ViewFS 允许您将多个 HDFS 集群或命名空间统一到一个逻辑命名空间中。这对于 HDFS 联邦（Federation）场景非常有用。
+
+```
+HdfsFile {
+    fs.defaultFS = "viewfs://mycluster"
+    path = "/data/output"
+    file_format_type = "parquet"
+    hdfs_site_path = "/path/to/core-site.xml"
+    data_save_mode = "DROP_DATA"
+}
+```
+
+在 `core-site.xml` 中配置挂载表：
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <!-- ViewFS mount table for mycluster -->
+    <property>
+        <name>fs.viewfs.mounttable.mycluster.link./data</name>
+        <value>hdfs://namenode1:9000/data</value>
+    </property>
+    <property>
+        <name>fs.viewfs.mounttable.mycluster.link./logs</name>
+        <value>hdfs://namenode2:9000/logs</value>
+    </property>
+    <property>
+        <name>fs.viewfs.mounttable.mycluster.link./tmp</name>
+        <value>hdfs://namenode3:9000/tmp</value>
+    </property>
+</configuration>
 ```
 
 ## 变更日志

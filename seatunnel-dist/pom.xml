@@ -646,7 +646,7 @@
 
                 <dependency>
                     <groupId>org.apache.seatunnel</groupId>
-                    <artifactId>connector-fluss</artifactId>
+                    <artifactId>connector-hugegraph</artifactId>
                     <version>${project.version}</version>
                     <scope>provided</scope>
                 </dependency>
