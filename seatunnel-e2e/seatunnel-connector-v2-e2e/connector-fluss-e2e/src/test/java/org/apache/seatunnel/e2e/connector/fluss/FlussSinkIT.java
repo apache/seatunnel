@@ -275,9 +275,6 @@ public class FlussSinkIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
-    @DisabledOnContainer(
-            value = {},
-            type = {EngineType.SPARK, EngineType.FLINK})
     public void testFlussSink(TestContainer container) throws Exception {
         log.info(" create fluss table");
         createDb(flussConnection, DB_NAME);
@@ -288,9 +285,6 @@ public class FlussSinkIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
-    @DisabledOnContainer(
-            value = {},
-            type = {EngineType.SPARK, EngineType.FLINK})
     public void testFlussMultiTableSink(TestContainer container) throws Exception {
         log.info(" create fluss tables");
         createDb(flussConnection, DB_NAME_2);
