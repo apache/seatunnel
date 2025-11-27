@@ -26,6 +26,8 @@ import org.apache.seatunnel.connectors.seatunnel.fluss.config.FlussSinkOptions;
 
 import com.google.auto.service.AutoService;
 
+import static org.apache.seatunnel.api.options.SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA;
+
 @AutoService(Factory.class)
 public class FlussSinkFactory implements TableSinkFactory {
     @Override
@@ -40,6 +42,7 @@ public class FlussSinkFactory implements TableSinkFactory {
                 .optional(FlussSinkOptions.DATABASE)
                 .optional(FlussSinkOptions.TABLE)
                 .optional(FlussSinkOptions.CLIENT_CONFIG)
+                .optional(MULTI_TABLE_SINK_REPLICA)
                 .build();
     }
 
