@@ -24,14 +24,15 @@ Metadata 转换插件用于将数据行中的元数据信息提取并转换为�
 | Database  |  string  |  数据所属的数据库名称  | 所有连接器 |
 |   Table   |  string  |  数据所属的表名称  | 所有连接器 |
 |  RowKind  |  string  |  行的变更类型，值为：+I（插入）、-U（更新前）、+U（更新后）、-D（删除）  | 所有连接器 |
-| EventTime |   long   |  数据变更的事件时间戳（毫秒）  | CDC 连接器 |
+| EventTime | long   | 数据变更的事件时间戳（毫秒） | CDC 连接器；Kafka 源（ConsumerRecord.timestamp） |
 |   Delay   |   long   |  数据采集延迟时间（毫秒），即数据抽取时间与数据库变更时间的差值  | CDC 连接器 |
 | Partition |  string  |  数据所属的分区信息，多个分区字段使用逗号分隔  | 支持分区的连接器 |
 
 ### 重要说明
 
-1. **元数据字段区分大小写**：配置时必须严格按照上表中的 Key 名称（如 `Database`、`Table`、`RowKind` 等）
-2. **CDC 专有字段**：`EventTime` 和 `Delay` 仅在使用 CDC 连接器时有效（TiDB-CDC 除外）
+1. **元数据字段区分大小写**：配置时必须严格按照上表中的 Key 名称（如 `Database`、`Table`、`RowKind` 等）。
+2. **时间相关字段**：`Delay` 仅在 CDC 连接器有效（TiDB-CDC 除外）；`EventTime` 由 CDC 连接器写入，也会在 Kafka 源中使用 `ConsumerRecord.timestamp`（毫秒，非负时）写入。
+3. **Kafka 事件时间**：Kafka 源会在 `ConsumerRecord.timestamp` 非负时写入 `EventTime`，可通过 Metadata 转换将其暴露为普通字段。
 
 ## 配置选项
 
@@ -171,3 +172,71 @@ sink {
   }
 }
 ```
+
+### 示例 3：Kafka 写入时间用于分区
+
+将 Kafka `ConsumerRecord.timestamp`（写入到 `EventTime` 元数据）暴露为普通字段，再生成分区字段并写入 Hive，适合回放或补数场景。
+
+```hocon
+env {
+  execution.parallelism = 4
+  job.mode = "STREAMING"
+  checkpoint.interval = 60000
+}
+
+source {
+  Kafka {
+    plugin_output = "kafka_raw"
+    schema = {
+      fields {
+        id = bigint
+        customer_type = string
+        data = string
+      }
+    }
+    format = text
+    field_delimiter = "|"
+    topic = "push_report_event"
+    bootstrap.servers = "kafka-broker-1:9092,kafka-broker-2:9092"
+    consumer.group = "seatunnel_event_backfill"
+    kafka.config = {
+      max.poll.records = 100
+      auto.offset.reset = "earliest"
+      enable.auto.commit = "false"
+    }
+  }
+}
+
+transform {
+  Metadata {
+    plugin_input = "kafka_raw"
+    plugin_output = "kafka_with_meta"
+    metadata_fields = {
+      EventTime = "kafka_ts"
+    }
+  }
+
+  Sql {
+    plugin_input = "kafka_with_meta"
+    plugin_output = "source_table"
+    query = "select id, customer_type, data, FROM_UNIXTIME(kafka_ts/1000, 'yyyy-MM-dd', 'Asia/Shanghai') as pt from kafka_with_meta where kafka_ts >= 0"
+  }
+}
+
+sink {
+  Hive {
+    table_name = "example_db.ods_sys_event_report"
+    metastore_uri = "thrift://metastore-1:9083,thrift://metastore-2:9083"
+    hdfs_site_path = "/path/to/hdfs-site.xml"
+    hive_site_path = "/path/to/hive-site.xml"
+    krb5_path = "/path/to/krb5.conf"
+    kerberos_principal = "hive/metastore-1@EXAMPLE.COM"
+    kerberos_keytab_path = "/path/to/hive.keytab"
+    overwrite = false
+    source_table_name = "source_table"
+    # compress_codec = "SNAPPY"
+  }
+}
+```
+
+上面的 `pt` 字段由 Kafka 事件时间转换而来，可在 Hive 中作为分区列使用，便于补数和校准分区。
