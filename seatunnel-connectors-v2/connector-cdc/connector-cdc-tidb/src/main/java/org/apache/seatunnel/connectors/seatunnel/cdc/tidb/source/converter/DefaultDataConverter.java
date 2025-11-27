@@ -37,6 +37,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.ZoneId;
 
 @Slf4j
 public class DefaultDataConverter implements DataConverter<Object[]> {
@@ -100,6 +101,9 @@ public class DefaultDataConverter implements DataConverter<Object[]> {
                     break;
                 case TIMESTAMP:
                     fields[fieldIndex] = convertToTimestamp(value, dataType);
+                    break;
+                case TIMESTAMP_TZ:
+                    fields[fieldIndex] = convertToTimestampTz(value, dataType);
                     break;
                 case BYTES:
                     fields[fieldIndex] = convertToBinary(value);
@@ -291,6 +295,15 @@ public class DefaultDataConverter implements DataConverter<Object[]> {
                                 + value.getClass().getName());
         }
         return value;
+    }
+
+    private static Object convertToTimestampTz(
+            Object value, org.tikv.common.types.DataType dataType) {
+        LocalDateTime localDateTime = (LocalDateTime) convertToTimestamp(value, dataType);
+        if (localDateTime == null) {
+            return null;
+        }
+        return localDateTime.atZone(ZoneId.systemDefault()).toOffsetDateTime();
     }
 
     public static LocalDateTime toLocalDateTime(long millisecond, int nanoOfMillisecond) {
