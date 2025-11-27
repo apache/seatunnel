@@ -87,6 +87,8 @@ public class ConnectorMetricsCalcContext {
 
     private final Map<Long, PendingMetrics> pendingMetricsByCheckpoint = new ConcurrentHashMap<>();
 
+    private final Map<String, String> tableNameCache = new ConcurrentHashMap<>();
+
     public ConnectorMetricsCalcContext(
             MetricsContext metricsContext,
             PluginType type,
@@ -298,7 +300,7 @@ public class ConnectorMetricsCalcContext {
     }
 
     private String normalizeTableName(String tableId) {
-        return TablePath.of(tableId).getFullName();
+        return tableNameCache.computeIfAbsent(tableId, id -> TablePath.of(id).getFullName());
     }
 
     private <T> void processMetrics(
