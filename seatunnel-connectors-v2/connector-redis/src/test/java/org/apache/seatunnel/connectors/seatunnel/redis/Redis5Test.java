@@ -18,6 +18,12 @@ package org.apache.seatunnel.connectors.seatunnel.redis;
 
 import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisContainerInfo;
 
+import org.junit.jupiter.api.condition.DisabledOnOs;
+import org.junit.jupiter.api.condition.OS;
+
+@DisabledOnOs(
+        value = OS.WINDOWS,
+        disabledReason = "There is no docker environment on the windows test system")
 public class Redis5Test extends RedisTemplateTest {
 
     @Override
