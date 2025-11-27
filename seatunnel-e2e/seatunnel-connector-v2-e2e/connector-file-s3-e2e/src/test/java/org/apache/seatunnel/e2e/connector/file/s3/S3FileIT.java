@@ -124,31 +124,29 @@ public class S3FileIT extends TestSuiteBase implements TestResource {
             throws IOException, InterruptedException {
 
         // Copy test files to s3
-        S3Utils s3Utils = new S3Utils();
-
         S3Utils.uploadTestFiles(
                 "/json/e2e.json",
-                "test/seatunnel/read/filter/json/name=tyrantlucifer/hobby=codin/e2e.json",
+                "/test/seatunnel/read/filter/json/name=tyrantlucifer/hobby=codin/e2e.json",
                 true);
 
         S3Utils.uploadTestFiles(
                 "/json/e2e.json",
-                "test/seatunnel/read/filter/json2025/name=tyrantlucifer/hobby=codin/e2e.json",
+                "/test/seatunnel/read/filter/json2025/name=tyrantlucifer/hobby=codin/e2e.json",
                 true);
 
         S3Utils.uploadTestFiles(
                 "/text/e2e.txt",
-                "test/seatunnel/read/filter/json2025/name=tyrantlucifer/hobby=codin/e2e_2025.txt",
+                "/test/seatunnel/read/filter/json2025/name=tyrantlucifer/hobby=codin/e2e_2025.txt",
                 true);
 
         S3Utils.uploadTestFiles(
                 "/json/e2e.json",
-                "test/seatunnel/read/filter/json2024/name=tyrantlucifer/hobby=codin/e2e_2024.json",
+                "/test/seatunnel/read/filter/json2024/name=tyrantlucifer/hobby=codin/e2e_2024.json",
                 true);
 
         S3Utils.uploadTestFiles(
                 "/text/e2e.txt",
-                "test/seatunnel/read/filter/text/name=tyrantlucifer/hobby=codin/e2e.txt",
+                "/test/seatunnel/read/filter/text/name=tyrantlucifer/hobby=codin/e2e.txt",
                 true);
         TestHelper helper = new TestHelper(container);
         // -----filter based on the file directory at the same time, the expression needs to start
