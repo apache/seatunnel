@@ -779,13 +779,10 @@ public class JobMaster {
         physicalPlan.cancelJob();
     }
 
-    public synchronized void stopJob() {
+    public synchronized boolean stopJob() {
         boolean stopped = physicalPlan.stopJob();
-        if (!stopped) {
-            LOGGER.warning("Failed to stop the job");
-            return;
-        }
         interruptRunThread();
+        return stopped;
     }
 
     private void interruptRunThread() {

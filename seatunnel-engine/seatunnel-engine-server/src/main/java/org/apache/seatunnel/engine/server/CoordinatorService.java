@@ -784,10 +784,11 @@ public class CoordinatorService {
             return new PassiveCompletableFuture<>(
                     CompletableFuture.supplyAsync(
                             () -> {
-                                Future<?> stopFuture =
+                                Future<Boolean> stopFuture =
                                         executorService.submit(runningJobMaster::stopJob);
+                                boolean stopped;
                                 try {
-                                    stopFuture.get(30_000L, TimeUnit.MILLISECONDS);
+                                    stopped = stopFuture.get(30_000L, TimeUnit.MILLISECONDS);
                                 } catch (TimeoutException te) {
                                     stopFuture.cancel(true);
                                     logger.warning(
@@ -799,6 +800,10 @@ public class CoordinatorService {
                                                     "stopJob failed for job %s: %s",
                                                     jobId, ExceptionUtils.getMessage(e)));
                                     throw new SeaTunnelEngineException("Fail to stop job", e);
+                                }
+                                if (!stopped) {
+                                    throw new SeaTunnelEngineException(
+                                            String.format("Fail to stop job %s", jobId));
                                 }
                                 if (isPendingJob) {
                                     runningJobMaster.storeJobEndState();
