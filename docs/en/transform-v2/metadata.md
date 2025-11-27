@@ -233,7 +233,7 @@ sink {
     kerberos_principal = "hive/metastore-1@EXAMPLE.COM"
     kerberos_keytab_path = "/path/to/hive.keytab"
     overwrite = false
-    source_table_name = "source_table"
+    plugin_input = "source_table"
     # compress_codec = "SNAPPY"
   }
 }
