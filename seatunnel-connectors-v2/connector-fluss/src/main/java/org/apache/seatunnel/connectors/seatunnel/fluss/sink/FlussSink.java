@@ -43,7 +43,7 @@ public class FlussSink extends AbstractSimpleSink<SeaTunnelRow, Void>
     }
 
     @Override
-    public AbstractSinkWriter<SeaTunnelRow, Void> createWriter(SinkWriter.Context context) {
+    public FlussSinkWriter createWriter(SinkWriter.Context context) {
         return new FlussSinkWriter(context, catalogTable, pluginConfig);
     }
 
