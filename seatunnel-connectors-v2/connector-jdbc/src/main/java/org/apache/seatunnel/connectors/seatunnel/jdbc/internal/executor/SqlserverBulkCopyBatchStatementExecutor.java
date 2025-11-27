@@ -240,7 +240,8 @@ public class SqlserverBulkCopyBatchStatementExecutor
         @Override
         public int getScale(int column) {
             final Column columnImpl = columns.get(column - 1);
-            return columnImpl.getScale();
+            final Integer scale = columnImpl.getScale();
+            return scale == null ? 0 : scale;
         }
     }
 }
