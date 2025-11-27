@@ -31,7 +31,6 @@
 
     <properties>
         <jedis.version>4.2.2</jedis.version>
-        <testcontainer.version>1.20.2</testcontainer.version>
     </properties>
 
     <dependencies>
@@ -71,13 +70,6 @@
         <dependency>
             <groupId>org.testcontainers</groupId>
             <artifactId>testcontainers</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>org.testcontainers</groupId>
-            <artifactId>junit-jupiter</artifactId>
-            <version>${testcontainer.version}</version>
             <scope>test</scope>
         </dependency>
 

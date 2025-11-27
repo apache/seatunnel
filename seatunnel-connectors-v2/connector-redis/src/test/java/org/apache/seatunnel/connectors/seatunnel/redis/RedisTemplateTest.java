@@ -37,6 +37,8 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.condition.DisabledOnOs;
+import org.junit.jupiter.api.condition.OS;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.Network;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
@@ -65,6 +67,9 @@ import static org.apache.seatunnel.connectors.seatunnel.redis.config.RedisBaseOp
 
 @Slf4j
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
+@DisabledOnOs(
+        value = OS.WINDOWS,
+        disabledReason = "There is no docker environment on the windows test system")
 public abstract class RedisTemplateTest {
 
     protected String host;
