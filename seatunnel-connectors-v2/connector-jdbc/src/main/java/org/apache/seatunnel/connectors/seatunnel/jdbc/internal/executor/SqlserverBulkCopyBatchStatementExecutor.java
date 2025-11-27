@@ -43,23 +43,19 @@ public class SqlserverBulkCopyBatchStatementExecutor
 
     @NonNull private final String schemaTableName;
     @NonNull private final List<Column> columns;
-    @NonNull private final String driverClassName;
     @NonNull private final List<Object[]> buffer = new ArrayList<>();
 
     private Connection connection;
 
-    public SqlserverBulkCopyBatchStatementExecutor(
-            String schemaTableName, List<Column> columns, String driverClassName) {
+    public SqlserverBulkCopyBatchStatementExecutor(String schemaTableName, List<Column> columns) {
         this.columns = columns;
         this.schemaTableName = schemaTableName;
-        this.driverClassName = driverClassName;
     }
 
     @SneakyThrows
     @Override
     public void prepareStatements(Connection connection) throws SQLException {
-        final Class<?> driverClass = this.getClass().getClassLoader().loadClass(driverClassName);
-        this.connection = (Connection) connection.unwrap(driverClass);
+        this.connection = connection.unwrap(com.microsoft.sqlserver.jdbc.SQLServerConnection.class);
         this.connection.setAutoCommit(false);
     }
 
@@ -209,23 +205,32 @@ public class SqlserverBulkCopyBatchStatementExecutor
         public int getPrecision(int column) {
             final Column columnImpl = columns.get(column - 1);
             final SeaTunnelDataType<?> dataType = columnImpl.getDataType();
+            final Long columnLength = columnImpl.getColumnLength();
             switch (dataType.getSqlType()) {
                 case DECIMAL:
-                    return 38;
+                    if (columnLength == null || columnLength <= 0) {
+                        return 38;
+                    }
+                    return columnLength.intValue();
                 case STRING:
-                    return Math.toIntExact(columnImpl.getColumnLength());
+                    return columnLength.intValue();
                 case TIMESTAMP:
                 case DATE:
                 case TIME:
                     return 23;
                 default:
-                    return 0;
+                    if (columnLength == null || columnLength <= 0) {
+                        return 0;
+                    } else {
+                        return columnLength.intValue();
+                    }
             }
         }
 
         @Override
         public int getScale(int column) {
-            return 8;
+            final Column columnImpl = columns.get(column - 1);
+            return columnImpl.getScale();
         }
     }
 }

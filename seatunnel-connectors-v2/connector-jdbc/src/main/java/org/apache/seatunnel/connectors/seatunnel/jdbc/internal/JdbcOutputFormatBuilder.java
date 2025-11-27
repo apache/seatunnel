@@ -73,9 +73,7 @@ public class JdbcOutputFormatBuilder {
             statementExecutorFactory =
                     () ->
                             createSqlserverBulkCopyInBufferStatementExecutor(
-                                    jdbcSinkConfig.getTable(),
-                                    tableSchema.getColumns(),
-                                    jdbcSinkConfig.getJdbcConnectionConfig().getDriverName());
+                                    jdbcSinkConfig.getTable(), tableSchema.getColumns());
         } else if (StringUtils.isNotBlank(jdbcSinkConfig.getSimpleSql())) {
             statementExecutorFactory =
                     () ->
@@ -232,9 +230,8 @@ public class JdbcOutputFormatBuilder {
 
     private static JdbcBatchStatementExecutor<SeaTunnelRow>
             createSqlserverBulkCopyInBufferStatementExecutor(
-                    String schemaTableName, List<Column> columns, String driverClassName) {
-        return new SqlserverBulkCopyBatchStatementExecutor(
-                schemaTableName, columns, driverClassName);
+                    String schemaTableName, List<Column> columns) {
+        return new SqlserverBulkCopyBatchStatementExecutor(schemaTableName, columns);
     }
 
     private static CopyManagerBatchStatementExecutor createCopyInBatchStatementExecutor(
