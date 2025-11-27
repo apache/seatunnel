@@ -90,6 +90,7 @@
         <module>connector-aerospike-e2e</module>
         <module>connector-sensorsdata-e2e</module>
         <module>connector-hugegraph-e2e</module>
+        <module>connector-fluss-e2e</module>
     </modules>
 
     <dependencies>
