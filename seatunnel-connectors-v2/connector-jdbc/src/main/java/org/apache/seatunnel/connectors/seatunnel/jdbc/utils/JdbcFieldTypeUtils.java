@@ -124,7 +124,7 @@ public final class JdbcFieldTypeUtils {
 
         // Handle java.sql.Timestamp
         if (obj instanceof Timestamp) {
-            return ((Timestamp) obj).toLocalDateTime().atOffset(ZoneOffset.UTC);
+            return ((Timestamp) obj).toInstant().atOffset(ZoneOffset.UTC);
         }
 
         // Handle java.util.Date
