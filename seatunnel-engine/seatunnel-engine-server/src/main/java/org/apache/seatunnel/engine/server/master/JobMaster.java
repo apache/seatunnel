@@ -774,7 +774,7 @@ public class JobMaster {
         physicalPlan.cancelJob();
     }
 
-    public void stopJob() {
+    public synchronized void stopJob() {
         physicalPlan.stopJob();
     }
 
