@@ -136,6 +136,9 @@ public class MySqlTypeUtils {
             default:
                 break;
         }
+        // For CDC, we intentionally use the default MySqlTypeConverter instance which treats
+        // TIMESTAMP as a local "wall clock" timestamp. Timezone-aware semantics are handled by
+        // Debezium itself via its temporal converters and the configured server time zone.
         return MySqlTypeConverter.DEFAULT_INSTANCE.convert(builder.build());
     }
 }

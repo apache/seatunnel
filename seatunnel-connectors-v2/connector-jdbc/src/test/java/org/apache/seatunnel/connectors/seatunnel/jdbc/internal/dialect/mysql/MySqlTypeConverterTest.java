@@ -634,7 +634,8 @@ public class MySqlTypeConverterTest {
                         .build();
         Column column = MySqlTypeConverter.DEFAULT_INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
-        Assertions.assertEquals(LocalTimeType.OFFSET_DATE_TIME_TYPE, column.getDataType());
+        // By default (no explicit server_time_zone) TIMESTAMP is treated as a local timestamp.
+        Assertions.assertEquals(LocalTimeType.LOCAL_DATE_TIME_TYPE, column.getDataType());
         Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
 
         typeDefine =
@@ -646,9 +647,37 @@ public class MySqlTypeConverterTest {
                         .build();
         column = MySqlTypeConverter.DEFAULT_INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
-        Assertions.assertEquals(LocalTimeType.OFFSET_DATE_TIME_TYPE, column.getDataType());
+        Assertions.assertEquals(LocalTimeType.LOCAL_DATE_TIME_TYPE, column.getDataType());
         Assertions.assertEquals(typeDefine.getScale(), column.getScale());
         Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
+    }
+
+    @Test
+    public void testConvertTimestampWithTimeZone() {
+        // When an explicit server_time_zone is configured (e.g. JDBC MySQL source/sink), the
+        // dialect enables TIMESTAMP_TZ semantics via a MySqlTypeConverter instance created with
+        // timestampWithTimeZone = true.
+        MySqlTypeConverter tzConverter = new MySqlTypeConverter(MySqlVersion.V_5_7, true, true);
+
+        BasicTypeDefine<Object> typeDefine =
+                BasicTypeDefine.builder()
+                        .name("test")
+                        .columnType("timestamp")
+                        .dataType("timestamp")
+                        .build();
+        Column column = tzConverter.convert(typeDefine);
+        Assertions.assertEquals(LocalTimeType.OFFSET_DATE_TIME_TYPE, column.getDataType());
+
+        typeDefine =
+                BasicTypeDefine.builder()
+                        .name("test")
+                        .columnType("timestamp(3)")
+                        .dataType("timestamp")
+                        .scale(3)
+                        .build();
+        column = tzConverter.convert(typeDefine);
+        Assertions.assertEquals(LocalTimeType.OFFSET_DATE_TIME_TYPE, column.getDataType());
+        Assertions.assertEquals(typeDefine.getScale(), column.getScale());
     }
 
     @Test

@@ -110,18 +110,25 @@ public class MySqlTypeConverter implements TypeConverter<BasicTypeDefine<MysqlTy
 
     private final MySqlVersion version;
     private final boolean intTypeNarrowing;
+    private final boolean timestampWithTimeZone;
 
     public MySqlTypeConverter() {
-        this(MySqlVersion.V_5_7, JdbcCommonOptions.INT_TYPE_NARROWING.defaultValue());
+        this(MySqlVersion.V_5_7, JdbcCommonOptions.INT_TYPE_NARROWING.defaultValue(), false);
     }
 
     public MySqlTypeConverter(MySqlVersion version) {
-        this(version, JdbcCommonOptions.INT_TYPE_NARROWING.defaultValue());
+        this(version, JdbcCommonOptions.INT_TYPE_NARROWING.defaultValue(), false);
     }
 
     public MySqlTypeConverter(MySqlVersion version, boolean intTypeNarrowing) {
+        this(version, intTypeNarrowing, false);
+    }
+
+    public MySqlTypeConverter(
+            MySqlVersion version, boolean intTypeNarrowing, boolean timestampWithTimeZone) {
         this.version = version;
         this.intTypeNarrowing = intTypeNarrowing;
+        this.timestampWithTimeZone = timestampWithTimeZone;
     }
 
     @Override
@@ -322,8 +329,14 @@ public class MySqlTypeConverter implements TypeConverter<BasicTypeDefine<MysqlTy
                 builder.scale(typeDefine.getScale());
                 break;
             case MYSQL_TIMESTAMP:
-                // MySQL TIMESTAMP stores UTC internally, converts to session timezone on read
-                builder.dataType(LocalTimeType.OFFSET_DATE_TIME_TYPE);
+                // MySQL TIMESTAMP stores UTC internally, converts to session timezone on read.
+                // By default we treat it as a local timestamp. Connectors that configure an
+                // explicit server_time_zone can opt in to TIMESTAMP_TZ.
+                if (timestampWithTimeZone) {
+                    builder.dataType(LocalTimeType.OFFSET_DATE_TIME_TYPE);
+                } else {
+                    builder.dataType(LocalTimeType.LOCAL_DATE_TIME_TYPE);
+                }
                 builder.scale(typeDefine.getScale());
                 break;
             default:

@@ -67,9 +67,11 @@ public class MySqlDialectFactory implements JdbcDialectFactory {
             return new StarRocksDialect(fieldIde);
         }
         ZoneId zoneId = null;
+        boolean timestampWithTimeZone = false;
         if (jdbcConnectionConfig != null
                 && jdbcConnectionConfig.getServerTimeZone() != null
                 && !jdbcConnectionConfig.getServerTimeZone().isEmpty()) {
+            timestampWithTimeZone = true;
             try {
                 zoneId = ZoneId.of(jdbcConnectionConfig.getServerTimeZone());
             } catch (Exception e) {
@@ -79,6 +81,6 @@ public class MySqlDialectFactory implements JdbcDialectFactory {
             }
         }
         String resolvedFieldIde = fieldIde == null ? FieldIdeEnum.ORIGINAL.getValue() : fieldIde;
-        return new MysqlDialect(resolvedFieldIde, zoneId);
+        return new MysqlDialect(resolvedFieldIde, zoneId, timestampWithTimeZone);
     }
 }

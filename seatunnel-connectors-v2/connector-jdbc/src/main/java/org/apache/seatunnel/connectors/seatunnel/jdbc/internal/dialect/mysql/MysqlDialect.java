@@ -22,6 +22,7 @@ import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
 import org.apache.seatunnel.api.table.converter.TypeConverter;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcCommonOptions;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.JdbcRowConverter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
@@ -55,18 +56,27 @@ public class MysqlDialect implements JdbcDialect {
 
     public String fieldIde = FieldIdeEnum.ORIGINAL.getValue();
     private final ZoneId serverTimeZone;
+    /** Whether JDBC layer was configured with an explicit {@code server_time_zone}. */
+    private final boolean timestampWithTimeZone;
+
+    private transient TypeConverter typeConverter;
 
     public MysqlDialect() {
-        this(FieldIdeEnum.ORIGINAL.getValue(), null);
+        this(FieldIdeEnum.ORIGINAL.getValue(), null, false);
     }
 
     public MysqlDialect(String fieldIde) {
-        this(fieldIde, null);
+        this(fieldIde, null, false);
     }
 
     public MysqlDialect(String fieldIde, ZoneId serverTimeZone) {
+        this(fieldIde, serverTimeZone, false);
+    }
+
+    public MysqlDialect(String fieldIde, ZoneId serverTimeZone, boolean timestampWithTimeZone) {
         this.fieldIde = fieldIde == null ? FieldIdeEnum.ORIGINAL.getValue() : fieldIde;
         this.serverTimeZone = serverTimeZone == null ? ZoneId.systemDefault() : serverTimeZone;
+        this.timestampWithTimeZone = timestampWithTimeZone;
     }
 
     @Override
@@ -80,8 +90,15 @@ public class MysqlDialect implements JdbcDialect {
     }
 
     @Override
+    @SuppressWarnings("rawtypes")
     public TypeConverter<BasicTypeDefine> getTypeConverter() {
-        TypeConverter typeConverter = MySqlTypeConverter.DEFAULT_INSTANCE;
+        if (typeConverter == null) {
+            typeConverter =
+                    new MySqlTypeConverter(
+                            MySqlVersion.V_5_7,
+                            JdbcCommonOptions.INT_TYPE_NARROWING.defaultValue(),
+                            timestampWithTimeZone);
+        }
         return typeConverter;
     }
 
