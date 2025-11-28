@@ -19,7 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.executor;
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 
@@ -31,10 +31,11 @@ import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 
 import java.sql.Connection;
+import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -47,17 +48,18 @@ public class SqlserverBulkCopyBatchStatementExecutor
     @NonNull private final List<Object[]> buffer = new ArrayList<>();
 
     private Connection connection;
+    private ResultSetMetaData resultSetMetaData;
 
     public SqlserverBulkCopyBatchStatementExecutor(String schemaTableName, List<Column> columns) {
         this.columns = columns;
         this.schemaTableName = schemaTableName;
     }
 
-    @SneakyThrows
     @Override
     public void prepareStatements(Connection connection) throws SQLException {
         this.connection = connection.unwrap(com.microsoft.sqlserver.jdbc.SQLServerConnection.class);
         this.connection.setAutoCommit(false);
+        this.resultSetMetaData = getResultSetMetaData(this.connection, schemaTableName);
     }
 
     @Override
@@ -99,7 +101,7 @@ public class SqlserverBulkCopyBatchStatementExecutor
         }
     }
 
-    private void executeBatchInternal() throws SQLException {
+    private void executeBatchInternal() {
         try (SQLServerBulkCopy bulkCopy = new SQLServerBulkCopy(connection)) {
             bulkCopy.setDestinationTableName(schemaTableName);
             // BulkCopy config
@@ -111,7 +113,7 @@ public class SqlserverBulkCopyBatchStatementExecutor
             options.setBatchSize(buffer.size());
             bulkCopy.setBulkCopyOptions(options);
             long start = System.currentTimeMillis();
-            bulkCopy.writeToServer(new MemoryBulkData(columns, buffer));
+            bulkCopy.writeToServer(new MemoryBulkData(resultSetMetaData, buffer));
             connection.commit();
             log.info(
                     "Bulk copied {} rows to table {}, cost {}s",
@@ -125,6 +127,7 @@ public class SqlserverBulkCopyBatchStatementExecutor
             } catch (SQLException rollbackEx) {
                 log.error("Failed to rollback", rollbackEx);
             }
+            // todo improve Exception
             throw new JdbcConnectorException(
                     JdbcConnectorErrorCode.TRANSACTION_OPERATION_FAILED, e);
         }
@@ -135,25 +138,52 @@ public class SqlserverBulkCopyBatchStatementExecutor
         executeBatch();
     }
 
+    private ResultSetMetaData getResultSetMetaData(Connection connection, String schemaTableName) {
+        final String[] split = schemaTableName.split("\\.");
+        if (split.length != 2) {
+            throw new SeaTunnelRuntimeException(
+                    JdbcConnectorErrorCode.NO_SUPPORT_OPERATION_FAILED, "");
+        }
+        String queryMeta =
+                String.format("select * from \"%s\".\"%s\" where 1=0", split[0], split[1]);
+        try {
+            return connection.createStatement().executeQuery(queryMeta).getMetaData();
+        } catch (SQLException e) {
+            // todo improve Exception
+            throw new SeaTunnelRuntimeException(
+                    JdbcConnectorErrorCode.NO_SUPPORT_OPERATION_FAILED,
+                    "get meta data fail:" + schemaTableName);
+        }
+    }
+
     static class MemoryBulkData implements ISQLServerBulkData {
-        private final List<Column> columns;
+        private final ResultSetMetaData metaData;
         private final Iterator<Object[]> iterator;
         private Object[] current;
 
-        public MemoryBulkData(List<Column> columns, List<Object[]> rows) {
-            this.columns = columns;
+        public MemoryBulkData(ResultSetMetaData metaData, List<Object[]> rows) {
+            this.metaData = metaData;
             this.iterator = rows.iterator();
         }
 
+        @SneakyThrows
         @Override
         public Set<Integer> getColumnOrdinals() {
-            Set<Integer> ordinals = new HashSet<>();
-            for (int i = 1; i <= columns.size(); i++) ordinals.add(i);
+            int columnCount = metaData.getColumnCount();
+            Set<Integer> ordinals = new LinkedHashSet<>();
+            for (int i = 1; i <= columnCount; i++) {
+                ordinals.add(i);
+            }
             return ordinals;
         }
 
         @Override
         public Object[] getRowData() {
+            if (current == null) {
+                // todo improve Exception
+                throw new IllegalStateException(
+                        "RowData requested but no current row. next() was not called.");
+            }
             return current;
         }
 
@@ -166,82 +196,28 @@ public class SqlserverBulkCopyBatchStatementExecutor
             return false;
         }
 
+        @SneakyThrows
         @Override
         public String getColumnName(int column) {
-            return columns.get(column - 1).getName();
+            return metaData.getColumnName(column);
         }
 
+        @SneakyThrows
         @Override
         public int getColumnType(int column) {
-            SeaTunnelDataType<?> type = columns.get(column - 1).getDataType();
-            String columnName = columns.get(column - 1).getName();
-            switch (type.getSqlType()) {
-                case STRING:
-                    return java.sql.Types.VARCHAR;
-                case BOOLEAN:
-                    return java.sql.Types.BIT;
-                case TINYINT:
-                    return java.sql.Types.TINYINT;
-                case SMALLINT:
-                    return java.sql.Types.SMALLINT;
-                case INT:
-                    return java.sql.Types.INTEGER;
-                case BIGINT:
-                    return java.sql.Types.BIGINT;
-                case FLOAT:
-                    return java.sql.Types.FLOAT;
-                case DOUBLE:
-                    return java.sql.Types.DOUBLE;
-                case DECIMAL:
-                    return java.sql.Types.DECIMAL;
-                case DATE:
-                    return java.sql.Types.DATE;
-                case TIME:
-                    return java.sql.Types.TIME;
-                case TIMESTAMP:
-                    return java.sql.Types.TIMESTAMP;
-                case BYTES:
-                    return java.sql.Types.VARBINARY;
-                case NULL:
-                    return java.sql.Types.NULL;
-                default:
-                    throw new JdbcConnectorException(
-                            CommonErrorCode.UNSUPPORTED_DATA_TYPE,
-                            "Unexpected columnName: " + columnName);
-            }
+            return metaData.getColumnType(column);
         }
 
+        @SneakyThrows
         @Override
         public int getPrecision(int column) {
-            final Column columnImpl = columns.get(column - 1);
-            final SeaTunnelDataType<?> dataType = columnImpl.getDataType();
-            final Long columnLength = columnImpl.getColumnLength();
-            switch (dataType.getSqlType()) {
-                case DECIMAL:
-                    if (columnLength == null || columnLength <= 0) {
-                        return 38;
-                    }
-                    return columnLength.intValue();
-                case STRING:
-                    return columnLength.intValue();
-                case TIMESTAMP:
-                case DATE:
-                case TIME:
-                    return 23;
-                default:
-                    if (columnLength == null || columnLength <= 0) {
-                        return 0;
-                    } else {
-                        return columnLength.intValue();
-                    }
-            }
+            return metaData.getPrecision(column);
         }
 
+        @SneakyThrows
         @Override
         public int getScale(int column) {
-            final Column columnImpl = columns.get(column - 1);
-            final Integer scale = columnImpl.getScale();
-            return scale == null ? 0 : scale;
+            return metaData.getScale(column);
         }
     }
 }

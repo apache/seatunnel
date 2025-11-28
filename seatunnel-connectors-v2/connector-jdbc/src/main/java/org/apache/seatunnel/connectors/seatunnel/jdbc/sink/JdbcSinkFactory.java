@@ -71,7 +71,6 @@ public class JdbcSinkFactory implements TableSinkFactory {
     @Override
     public TableSink createSink(TableSinkFactoryContext context) {
         ReadonlyConfig config = context.getOptions();
-        JdbcSinkConfigChecker.check(config);
         CatalogTable catalogTable = context.getCatalogTable();
         ReadonlyConfig catalogOptions = getCatalogOptions(context);
         Optional<String> optionalTable = config.getOptional(JdbcSinkOptions.TABLE);
@@ -227,6 +226,8 @@ public class JdbcSinkFactory implements TableSinkFactory {
         // get saveMode
         DataSaveMode dataSaveMode = config.get(JdbcSinkOptions.DATA_SAVE_MODE);
         SchemaSaveMode schemaSaveMode = config.get(JdbcSinkOptions.SCHEMA_SAVE_MODE);
+        // check config
+        JdbcSinkConfigChecker.check(options);
         return () ->
                 new JdbcSink(
                         options,

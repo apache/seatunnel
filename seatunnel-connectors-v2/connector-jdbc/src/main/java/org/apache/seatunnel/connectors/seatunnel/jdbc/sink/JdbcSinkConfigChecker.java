@@ -16,6 +16,8 @@
  */
 package org.apache.seatunnel.connectors.seatunnel.jdbc.sink;
 
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
+
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSinkOptions;
 
@@ -37,6 +39,9 @@ public class JdbcSinkConfigChecker {
             if (readonlyConfig.get(JdbcSinkOptions.ENABLE_UPSERT)) {
                 log.warn(
                         "When use_sqlserver_bulk_copy is enabled, enable_upsert is true and does not take effect.");
+            }
+            if (StringUtils.isBlank(readonlyConfig.get(JdbcSinkOptions.TABLE))) {
+                // throw new SeaTunnelRuntimeException();
             }
         }
     }
