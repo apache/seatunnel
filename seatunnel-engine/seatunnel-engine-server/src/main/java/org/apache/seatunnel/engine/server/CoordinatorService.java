@@ -92,12 +92,10 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
@@ -784,27 +782,11 @@ public class CoordinatorService {
             return new PassiveCompletableFuture<>(
                     CompletableFuture.supplyAsync(
                             () -> {
-                                Future<Boolean> stopFuture =
-                                        executorService.submit(runningJobMaster::stopJob);
-                                boolean stopped;
-                                try {
-                                    stopped = stopFuture.get(30_000L, TimeUnit.MILLISECONDS);
-                                } catch (TimeoutException te) {
-                                    stopFuture.cancel(true);
-                                    logger.warning(
-                                            String.format("stopJob timed out for job %s", jobId));
-                                    throw new SeaTunnelEngineException("Fail to stop job", te);
-                                } catch (Exception e) {
-                                    logger.warning(
-                                            String.format(
-                                                    "stopJob failed for job %s: %s",
-                                                    jobId, ExceptionUtils.getMessage(e)));
-                                    throw new SeaTunnelEngineException("Fail to stop job", e);
-                                }
-                                if (!stopped) {
-                                    throw new SeaTunnelEngineException(
-                                            String.format("Fail to stop job %s", jobId));
-                                }
+                                runningJobMaster.stopJob();
+                                // The pending task "JobMaster.init" has not been executed, so the
+                                // job status (JobStatus) will not be stored in the
+                                // jobHistoryService. Here, storeJobEndState is called to store the
+                                // `CANCELED` status in the jobHistoryService.
                                 if (isPendingJob) {
                                     runningJobMaster.storeJobEndState();
                                 }

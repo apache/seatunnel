@@ -41,10 +41,7 @@ import lombok.extern.slf4j.Slf4j;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -223,60 +220,21 @@ public class PhysicalPlan {
         updateJobState(JobStatus.DOING_SAVEPOINT);
     }
 
-    public boolean stopJob() {
+    public void stopJob() {
         JobStatus jobStatus = getJobStatus();
         if (jobStatus.isEndState()) {
             log.warn("{} is in end state {}, can not be stop", jobFullName, jobStatus);
-            return true;
+            return;
         }
 
         if (jobStatus.ordinal() <= JobStatus.PENDING.ordinal()) {
             // Tasks with the status 'INITIALIZING', 'CREATED', 'PENDING' need to be set directly to
             // the 'CANCELLED' state because it has not yet started running
             updateJobState(JobStatus.CANCELED);
-        } else if (JobStatus.CANCELING == jobStatus) {
-            log.info("{} is already in CANCELING state.", jobFullName);
-            jobMaster.neverNeedRestore();
-            List<SubPlan> subPlans = getPipelineList();
-            subPlans.forEach(SubPlan::cancelPipeline);
-            subPlans.forEach(
-                    subPlan -> {
-                        List<PhysicalVertex> coordinatorVertices =
-                                subPlan.getCoordinatorVertexList();
-                        coordinatorVertices.forEach(
-                                task -> {
-                                    task.startPhysicalVertex();
-                                    task.cancel();
-                                });
-                        List<PhysicalVertex> physicalVertices = subPlan.getPhysicalVertexList();
-                        physicalVertices.forEach(
-                                task -> {
-                                    task.startPhysicalVertex();
-                                    task.cancel();
-                                });
-                    });
         } else {
             updateJobState(JobStatus.CANCELING);
+            this.pipelineList.forEach(SubPlan::forceStopPipeline);
         }
-        return waitJobEndFutureCompletion();
-    }
-
-    private boolean waitJobEndFutureCompletion() {
-        if (jobEndFuture != null) {
-            try {
-                JobResult result = jobEndFuture.get(10_000, TimeUnit.MILLISECONDS);
-                return result != null && result.getStatus() == JobStatus.CANCELED;
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                return false;
-            } catch (ExecutionException e) {
-                return false;
-            } catch (TimeoutException e) {
-                log.warn("Failed to stop job {} within timeout.", jobFullName);
-                return false;
-            }
-        }
-        return true;
     }
 
     public List<SubPlan> getPipelineList() {

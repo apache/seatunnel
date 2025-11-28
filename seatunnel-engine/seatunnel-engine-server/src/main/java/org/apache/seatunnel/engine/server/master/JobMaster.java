@@ -105,7 +105,6 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
 import static com.hazelcast.jet.impl.util.ExceptionUtil.withTryCatch;
@@ -115,9 +114,7 @@ import static org.apache.seatunnel.common.constants.JobMode.BATCH;
 public class JobMaster {
     private static final ILogger LOGGER = Logger.getLogger(JobMaster.class);
 
-    public static final long DEFAULT_STOP_JOB_WAIT_MS = 5000L;
-
-    private final AtomicReference<Thread> runThread = new AtomicReference<>();
+    private final Object metricsLock = new Object();
 
     private PhysicalPlan physicalPlan;
 
@@ -543,7 +540,6 @@ public class JobMaster {
 
     public void run() {
         try {
-            runThread.set(Thread.currentThread());
             physicalPlan.startJob();
         } catch (Throwable e) {
             LOGGER.severe(
@@ -553,7 +549,6 @@ public class JobMaster {
                             physicalPlan.getJobImmutableInformation().getJobId(),
                             ExceptionUtils.getMessage(e)));
         } finally {
-            runThread.set(null);
             jobMasterCompleteFuture.join();
             if (engineConfig.getConnectorJarStorageConfig().getEnable()) {
                 List<ConnectorJarIdentifier> pluginJarIdentifiers =
@@ -779,51 +774,8 @@ public class JobMaster {
         physicalPlan.cancelJob();
     }
 
-    public synchronized boolean stopJob() {
-        boolean stopped = physicalPlan.stopJob();
-        interruptRunThread();
-        return stopped;
-    }
-
-    private void interruptRunThread() {
-        Thread thread = runThread.get();
-        if (thread != null) {
-            try {
-                thread.interrupt();
-            } catch (Exception ignore) {
-                LOGGER.warning("Failed to interrupt", ignore);
-            }
-        }
-        boolean threadTermination = waitThreadTermination(DEFAULT_STOP_JOB_WAIT_MS, thread);
-        if (!threadTermination) {
-            LOGGER.warning(
-                    "RunThread did not terminate within the timeout period after stopping the job.");
-        }
-    }
-
-    private boolean waitThreadTermination(long timeoutMs, Thread thread) {
-        if (thread == null) {
-            return true;
-        }
-        try {
-            long start = System.currentTimeMillis();
-            long remaining = timeoutMs;
-            while (remaining > 0) {
-                try {
-                    thread.join(500);
-                    if (!thread.isAlive()) {
-                        return true;
-                    }
-                } catch (InterruptedException ie) {
-                    Thread.currentThread().interrupt();
-                    break;
-                }
-                remaining = timeoutMs - (System.currentTimeMillis() - start);
-            }
-        } catch (Exception e) {
-            LOGGER.warning("Failed to wait state thread termination", e);
-        }
-        return !thread.isAlive();
+    public void stopJob() {
+        physicalPlan.stopJob();
     }
 
     public ResourceManager getResourceManager() {
@@ -936,7 +888,7 @@ public class JobMaster {
                 this.getCurrJobMetrics(Collections.singletonList(pipelineLocation));
         JobMetrics jobMetrics = JobMetricsUtil.toJobMetrics(currJobMetrics);
         long jobId = this.getJobImmutableInformation().getJobId();
-        synchronized (this) {
+        synchronized (metricsLock) {
             jobHistoryService.storeFinishedPipelineMetrics(jobId, jobMetrics);
         }
         // Clean TaskGroupContext for TaskExecutionServer
