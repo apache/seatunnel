@@ -119,6 +119,157 @@ seatunnel:
 
 ------------------------------------------------------------------------------------------
 
+### 查看 Pending 队列详细信息
+
+<details>
+ <summary><code>GET</code> <code><b>/pending-jobs?jobId=123&limit=10</b></code> <code>(用于排查作业长时间处于 PENDING 的原因。)</code></summary>
+
+#### 参数
+
+> | 参数名称 | 是否必传 | 参数类型 | 描述                             |
+> |----------|----------|----------|--------------------------------|
+> | jobId    | 可选     | long     | 只查看指定作业的诊断信息。当同时提供 `jobId` 和 `limit` 时，`jobId` 优先生效，`limit` 将被忽略。 |
+> | limit    | 可选     | integer  | 限制返回的PENDING作业数量。当提供 `jobId` 参数时此参数将被忽略。 |
+> | pretty   | 可选     | boolean  | 传入 `true` 时返回格式化 JSON，并格式化时间戳。   |
+
+#### 响应
+
+```json
+{
+  "queueSummary": {
+    "size": 2,
+    "scheduleStrategy": "WAIT",
+    "oldestEnqueueTimestamp": 1717500000000,
+    "newestEnqueueTimestamp": 1717500005000,
+    "lackingTaskGroups": 6
+  },
+  "clusterSnapshot": {
+    "totalSlots": 8,
+    "freeSlots": 1,
+    "assignedSlots": 7,
+    "workerCount": 2,
+    "workers": [
+      {
+        "address": "10.0.0.8:5801",
+        "tags": {
+          "zone": "az1"
+        },
+        "totalSlots": 4,
+        "freeSlots": 0,
+        "dynamicSlot": false,
+        "cpuUsage": 0.83,
+        "memUsage": 0.64,
+        "runningJobIds": [
+          1001,
+          1002
+        ]
+      }
+    ]
+  },
+  "pendingJobs": [
+    {
+      "jobId": 1003,
+      "jobName": "cdc_mysql_to_es",
+      "pendingSourceState": "SUBMIT",
+      "jobStatus": "PENDING",
+      "enqueueTimestamp": 1717500000000,
+      "checkTime": 1717500005000,
+      "waitDurationMs": 5000,
+      "checkCount": 3,
+      "totalTaskGroups": 16,
+      "allocatedTaskGroups": 10,
+      "lackingTaskGroups": 6,
+      "failureReason": "REQUEST_FAILED",
+      "failureMessage": "NoEnoughResourceException: can't apply resource request",
+      "tagFilter": {},
+      "blockingJobIds": [
+        1001
+      ],
+      "pipelines": [
+        {
+          "pipelineId": 1,
+          "pipelineName": "Job job-name, Pipeline: [(1/2)]",
+          "totalTaskGroups": 8,
+          "allocatedTaskGroups": 5,
+          "lackingTaskGroups": 3,
+          "taskGroupDiagnostics": [
+            {
+              "taskGroupLocation": {
+                "jobId": 1003,
+                "pipelineId": 1,
+                "taskGroupId": 1
+              },
+              "taskFullName": "Source[0]",
+              "allocated": false,
+              "failureReason": "REQUEST_FAILED",
+              "failureMessage": "NoEnoughResourceException: slot not enough"
+            }
+          ]
+        }
+      ],
+      "lackingTaskGroupDiagnostics": [
+        {
+          "taskGroupLocation": {
+            "jobId": 1003,
+            "pipelineId": 1,
+            "taskGroupId": 1
+          },
+          "taskFullName": "Source[0]",
+          "allocated": false,
+          "failureReason": "REQUEST_FAILED",
+          "failureMessage": "NoEnoughResourceException: slot not enough"
+        }
+      ]
+    }
+  ]
+}
+```
+
+当 `pretty=true` 时，接口会返回格式化后的 JSON，并把 `oldestEnqueueTimestamp`、`newestEnqueueTimestamp`、`enqueueTimestamp`、`checkTime` 转为 `yyyy-MM-dd HH:mm:ss` 字符串，方便排查。
+
+响应中包含：
+
+- **queueSummary**：Pending 队列整体信息总结
+  - `size`：当前排队的 Job 数量。
+  - `scheduleStrategy`：调度策略，决定资源不足时的处理方式。
+  - `oldestEnqueueTimestamp` / `newestEnqueueTimestamp`：最久/最新进入 Pending 队列 Job 的时间戳（毫秒）。
+  - `lackingTaskGroups`：尚未分配 Slot 的 TaskGroup 数量。**注意**：该值仅统计当前响应中返回的作业子集（即受 `limit` 参数限制或 `jobId` 过滤后的作业），而非整个 Pending 队列的完整统计。如需查看所有 Pending 作业的完整统计信息，请不带 `limit` 参数调用此接口。
+- **clusterSnapshot**：当前集群的资源视图。
+  - `totalSlots` / `assignedSlots` / `freeSlots`：Slot 总数、已分配数、剩余数。
+  - `workerCount`：Worker 数量。
+  - `workers[]`：
+    - `address`：Worker 地址（host:port）。
+    - `tags`：Worker 自带的标签。
+    - `totalSlots` / `freeSlots`：Worker 的 Slot 总数与剩余数。
+    - `dynamicSlot`：是否启用动态 Slot。
+    - `cpuUsage` / `memUsage`：系统负载采样（只有当 `slot-allocate-strategy: SYSTEM_LOAD` 才会有该值）
+    - `runningJobIds[]`：当前占用 Worker Slot 的 JobId 列表。
+- **pendingJobs[]**：队列中的每个 Job 的诊断信息。
+  - `jobId` / `jobName`：作业标识。
+  - `pendingSourceState`：取值：`SUBMIT`,`RESTORE`。
+  - `jobStatus`：物理计划记录的状态（固定为 `PENDING`）。
+  - `enqueueTimestamp`：进入 Pending 队列的时间。
+  - `checkTime`：最近一次Pending检查时间。
+  - `waitDurationMs`：等待时长（`checkTime - enqueueTimestamp`）。
+  - `checkCount`：已被调度线程检查的次数。
+  - `totalTaskGroups` / `allocatedTaskGroups` / `lackingTaskGroups`：Job 全部 TaskGroup 数量、已分配 Slot 的数量、缺少 Slot 的数量。
+  - `failureReason` / `failureMessage`：导致本次资源申请失败的归类及具体信息（如 `RESOURCE_NOT_ENOUGH`、`REQUEST_FAILED` 等）。
+  - `tagFilter`：Job 要求的 Worker 标签（若配置）。
+  - `blockingJobIds[]`：当前占用 Slot 的其他 JobId，用来分析资源竞争。
+  - `pipelines[]`：按 Pipeline 细分：
+    - `pipelineId` / `pipelineName`：
+    - `totalTaskGroups` / `allocatedTaskGroups` / `lackingTaskGroups`：Pipeline 里 TaskGroup 的总数、已分配 Slot 数量、缺少 Slot 的数量。
+    - `taskGroupDiagnostics[]`：每个 TaskGroup 的 Slot 请求状态：
+      - `taskGroupLocation`（`jobId`, `pipelineId`, `taskGroupId`）。
+      - `taskFullName`：方便直接定位 source/sink。
+      - `allocated`：是否已经成功申请 Slot。
+      - `failureReason` / `failureMessage`：TaskGroup 层面的失败原因。
+  - `lackingTaskGroupDiagnostics[]`：聚合所有 `allocated=false` 的 TaskGroup，方便快速查看缺 Slot 的具体任务。
+
+</details>
+
+------------------------------------------------------------------------------------------
+
 ### 返回作业的详细信息
 
 <details>
