@@ -83,7 +83,6 @@ import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.utils.Mongod
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.utils.MongodbRecordUtils.createWatermarkPartitionMap;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.utils.MongodbRecordUtils.currentBsonTimestamp;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.utils.MongodbRecordUtils.getResumeToken;
-import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.utils.MongodbUtils.createMongoClient;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.utils.MongodbUtils.getChangeStreamIterable;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.utils.MongodbUtils.getCurrentClusterTime;
 
@@ -94,6 +93,7 @@ public class MongodbStreamFetchTask implements FetchTask<SourceSplitBase> {
     private volatile boolean taskRunning = false;
 
     private MongodbSourceConfig sourceConfig;
+    private MongoClient mongoClient;
     private final Time time = new SystemTime();
     private boolean supportsStartAtOperationTime = true;
     private boolean supportsStartAfter = true;
@@ -110,7 +110,7 @@ public class MongodbStreamFetchTask implements FetchTask<SourceSplitBase> {
         ChangeStreamDescriptor descriptor = taskContext.getChangeStreamDescriptor();
         ChangeEventQueue<DataChangeEvent> queue = taskContext.getQueue();
 
-        MongoClient mongoClient = createMongoClient(sourceConfig);
+        this.mongoClient = taskContext.getMongoClient();
         MongoChangeStreamCursor<BsonDocument> changeStreamCursor =
                 openChangeStreamCursor(descriptor);
         HeartbeatManager heartbeatManager = openHeartbeatManagerIfNeeded(changeStreamCursor);
@@ -260,7 +260,11 @@ public class MongodbStreamFetchTask implements FetchTask<SourceSplitBase> {
                 new ChangeStreamOffset(streamSplit.getStartupOffset().getOffset());
 
         ChangeStreamIterable<Document> changeStreamIterable =
-                getChangeStreamIterable(sourceConfig, changeStreamDescriptor);
+                getChangeStreamIterable(
+                        mongoClient,
+                        changeStreamDescriptor,
+                        sourceConfig.getBatchSize(),
+                        sourceConfig.isUpdateLookup());
 
         BsonDocument resumeToken = offset.getResumeToken();
         BsonTimestamp timestamp = offset.getTimestamp();
