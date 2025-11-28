@@ -517,6 +517,17 @@ public class PhysicalVertex {
         updateTaskState(taskExecutionState.getExecutionState());
     }
 
+    public void forceStop(TaskExecutionState taskExecutionState) {
+        if (getExecutionState().isEndState()) {
+            return;
+        }
+        noticeTaskExecutionServiceCancel();
+        if (!taskFuture.isDone()) {
+            errorByPhysicalVertex.compareAndSet(null, taskExecutionState.getThrowableMsg());
+            updateTaskState(taskExecutionState.getExecutionState());
+        }
+    }
+
     public Address getCurrentExecutionAddress() {
         SlotProfile ownedSlotProfiles = jobMaster.getOwnedSlotProfiles(taskGroupLocation);
         if (ownedSlotProfiles == null) {

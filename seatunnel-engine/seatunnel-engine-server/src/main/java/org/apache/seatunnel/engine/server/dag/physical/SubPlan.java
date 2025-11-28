@@ -397,7 +397,16 @@ public class SubPlan {
     }
 
     public void forceStopPipeline() {
-        forcePipelineStatus(ExecutionState.CANCELED);
+        ExecutionState targetState = ExecutionState.CANCELED;
+        coordinatorVertexList.forEach(
+                coordinator ->
+                        coordinator.forceStop(
+                                new TaskExecutionState(
+                                        coordinator.getTaskGroupLocation(), targetState)));
+        physicalVertexList.forEach(
+                task ->
+                        task.forceStop(
+                                new TaskExecutionState(task.getTaskGroupLocation(), targetState)));
     }
 
     private void cancelCheckpointCoordinator() {
@@ -509,19 +518,17 @@ public class SubPlan {
 
     /** If the job state in CheckpointManager is complete, we need force this pipeline finish */
     private void forcePipelineFinish() {
-        forcePipelineStatus(ExecutionState.FINISHED);
-    }
-
-    private void forcePipelineStatus(ExecutionState finished) {
         coordinatorVertexList.forEach(
                 coordinator ->
                         coordinator.updateStateByExecutionService(
                                 new TaskExecutionState(
-                                        coordinator.getTaskGroupLocation(), finished)));
+                                        coordinator.getTaskGroupLocation(),
+                                        ExecutionState.FINISHED)));
         physicalVertexList.forEach(
                 task ->
                         task.updateStateByExecutionService(
-                                new TaskExecutionState(task.getTaskGroupLocation(), finished)));
+                                new TaskExecutionState(
+                                        task.getTaskGroupLocation(), ExecutionState.FINISHED)));
     }
 
     /** restore the pipeline state after new Master Node active */
