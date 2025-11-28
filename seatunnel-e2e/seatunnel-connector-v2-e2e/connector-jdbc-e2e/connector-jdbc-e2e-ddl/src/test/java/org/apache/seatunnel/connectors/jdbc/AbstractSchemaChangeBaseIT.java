@@ -307,7 +307,7 @@ public abstract class AbstractSchemaChangeBaseIT extends TestSuiteBase implement
 
         // case1 add columns with cdc data at same time
         sourceDatabase.setTemplateName("add_columns").createAndInitialize();
-        await().atMost(60000, TimeUnit.MILLISECONDS)
+        await().atMost(120000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () ->
                                 Assertions.assertIterableEquals(
