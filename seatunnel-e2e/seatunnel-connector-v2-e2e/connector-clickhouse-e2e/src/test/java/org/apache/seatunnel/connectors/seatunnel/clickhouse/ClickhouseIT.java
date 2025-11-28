@@ -132,6 +132,46 @@ public class ClickhouseIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
+    public void testClickhouseAutoCreateTableWithSpecialCharactersInComments(
+            TestContainer testContainer) throws Exception {
+        String testTableName = "test_special_chars_comments_table";
+
+        String createSourceTableSql =
+                String.format(
+                        "CREATE TABLE IF NOT EXISTS %s.%s ("
+                                + "id UInt64, "
+                                + "col_with_dollar_comment String COMMENT 'Comment with $1 and $2 special chars', "
+                                + "col_with_backslash_comment String COMMENT 'Comment with \\\\ backslash', "
+                                + "col_with_mixed_chars String COMMENT '~`!@#$%%^&*()_+-*/-=[]{}', "
+                                + "col_with_chinese_chars String COMMENT '这是特殊符号测试英文键盘：~`!@#$%%^&*()_+-*/-=[]{}'"
+                                + ") ENGINE = MergeTree() ORDER BY id",
+                        DATABASE, testTableName);
+
+        String sinkTableName = testTableName + "_sink";
+
+        try (Statement statement = connection.createStatement()) {
+            statement.execute(createSourceTableSql);
+
+            String insertSql =
+                    String.format(
+                            "INSERT INTO %s.%s VALUES "
+                                    + "(1, 'value1', 'value2', 'value3', 'value4')",
+                            DATABASE, testTableName);
+            statement.execute(insertSql);
+        }
+
+        Container.ExecResult execResult =
+                testContainer.executeJob("/clickhouse_auto_create_with_special_comments.conf");
+
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+
+        Assertions.assertEquals(1, countData(sinkTableName));
+
+        dropTable(DATABASE + "." + testTableName);
+        dropTable(DATABASE + "." + sinkTableName);
+    }
+
+    @TestTemplate
     public void clickhouseWithCreateSchemaWhenNotExist(TestContainer container) throws Exception {
         String tableName = "default.sink_table_for_schema";
         Container.ExecResult execResult =

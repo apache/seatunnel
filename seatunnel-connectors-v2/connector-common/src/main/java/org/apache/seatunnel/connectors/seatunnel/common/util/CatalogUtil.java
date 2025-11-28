@@ -32,6 +32,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.function.Function;
+import java.util.regex.Matcher;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -70,7 +71,7 @@ public abstract class CatalogUtil {
         template =
                 template.replaceAll(
                         SaveModePlaceHolder.ROWTYPE_PRIMARY_KEY.getReplacePlaceHolder(),
-                        primaryKey);
+                        Matcher.quoteReplacement(primaryKey));
         SqlTemplate.canHandledByTemplateWithPlaceholder(
                 template,
                 SaveModePlaceHolder.ROWTYPE_UNIQUE_KEY.getPlaceHolder(),
@@ -80,7 +81,8 @@ public abstract class CatalogUtil {
 
         template =
                 template.replaceAll(
-                        SaveModePlaceHolder.ROWTYPE_UNIQUE_KEY.getReplacePlaceHolder(), uniqueKey);
+                        SaveModePlaceHolder.ROWTYPE_UNIQUE_KEY.getReplacePlaceHolder(),
+                        Matcher.quoteReplacement(uniqueKey));
         Map<String, CreateTableParser.ColumnInfo> columnInTemplate =
                 CreateTableParser.getColumnList(template);
         template = mergeColumnInTemplate(columnInTemplate, tableSchema, template);
@@ -95,20 +97,27 @@ public abstract class CatalogUtil {
             // TODO: Remove this compatibility config
             template =
                     template.replaceAll(
-                            SaveModePlaceHolder.TABLE_NAME.getReplacePlaceHolder(), table);
+                            SaveModePlaceHolder.TABLE_NAME.getReplacePlaceHolder(),
+                            Matcher.quoteReplacement(table));
             log.warn(
                     "The variable placeholder `${table_name}` has been marked as deprecated and will be removed soon, please use `${table}`");
         }
 
-        return template.replaceAll(SaveModePlaceHolder.DATABASE.getReplacePlaceHolder(), database)
-                .replaceAll(SaveModePlaceHolder.TABLE.getReplacePlaceHolder(), table)
+        return template.replaceAll(
+                        SaveModePlaceHolder.DATABASE.getReplacePlaceHolder(),
+                        Matcher.quoteReplacement(database))
                 .replaceAll(
-                        SaveModePlaceHolder.ROWTYPE_FIELDS.getReplacePlaceHolder(), rowTypeFields)
+                        SaveModePlaceHolder.TABLE.getReplacePlaceHolder(),
+                        Matcher.quoteReplacement(table))
+                .replaceAll(
+                        SaveModePlaceHolder.ROWTYPE_FIELDS.getReplacePlaceHolder(),
+                        Matcher.quoteReplacement(rowTypeFields))
                 .replaceAll(
                         SaveModePlaceHolder.COMMENT.getReplacePlaceHolder(),
-                        Objects.isNull(comment)
-                                ? ""
-                                : comment.replace("'", "''").replace("\\", "\\\\"));
+                        Matcher.quoteReplacement(
+                                Objects.isNull(comment)
+                                        ? ""
+                                        : comment.replace("'", "''").replace("\\", "\\\\")));
     }
 
     private String mergeColumnInTemplate(
