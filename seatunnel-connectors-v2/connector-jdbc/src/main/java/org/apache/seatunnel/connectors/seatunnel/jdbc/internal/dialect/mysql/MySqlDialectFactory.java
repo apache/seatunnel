@@ -17,17 +17,23 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.mysql;
 
+import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConnectionConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectFactory;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.dialectenum.FieldIdeEnum;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.starrocks.StarRocksDialect;
 
 import com.google.auto.service.AutoService;
+import lombok.extern.slf4j.Slf4j;
 
 import javax.annotation.Nonnull;
 
+import java.time.ZoneId;
+
 /** Factory for {@link MysqlDialect}. */
 @AutoService(JdbcDialectFactory.class)
+@Slf4j
 public class MySqlDialectFactory implements JdbcDialectFactory {
     @Override
     public String dialectFactoryName() {
@@ -50,5 +56,29 @@ public class MySqlDialectFactory implements JdbcDialectFactory {
             return new StarRocksDialect(fieldIde);
         }
         return new MysqlDialect(fieldIde);
+    }
+
+    @Override
+    public JdbcDialect create(
+            @Nonnull String compatibleMode,
+            String fieldIde,
+            JdbcConnectionConfig jdbcConnectionConfig) {
+        if (DatabaseIdentifier.STARROCKS.equalsIgnoreCase(compatibleMode)) {
+            return new StarRocksDialect(fieldIde);
+        }
+        ZoneId zoneId = null;
+        if (jdbcConnectionConfig != null
+                && jdbcConnectionConfig.getServerTimeZone() != null
+                && !jdbcConnectionConfig.getServerTimeZone().isEmpty()) {
+            try {
+                zoneId = ZoneId.of(jdbcConnectionConfig.getServerTimeZone());
+            } catch (Exception e) {
+                log.warn(
+                        "Invalid server_time_zone '{}', fallback to system default.",
+                        jdbcConnectionConfig.getServerTimeZone());
+            }
+        }
+        String resolvedFieldIde = fieldIde == null ? FieldIdeEnum.ORIGINAL.getValue() : fieldIde;
+        return new MysqlDialect(resolvedFieldIde, zoneId);
     }
 }

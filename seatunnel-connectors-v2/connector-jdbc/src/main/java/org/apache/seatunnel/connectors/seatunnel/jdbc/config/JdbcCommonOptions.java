@@ -144,6 +144,16 @@ public class JdbcCommonOptions {
     public static final Option<String> REGION =
             Options.key("region").stringType().noDefaultValue().withDescription("region");
 
+    public static final Option<String> SERVER_TIME_ZONE =
+            Options.key("server_time_zone")
+                    .stringType()
+                    .noDefaultValue()
+                    .withFallbackKeys("serverTimeZone")
+                    .withDescription(
+                            "The session time zone of the database server, for example: \"Asia/Shanghai\". "
+                                    + "It controls how the TIMESTAMP column is converted to string/temporal types. "
+                                    + "If it is not set, ZoneId.systemDefault() is used.");
+
     public static final OptionRule.Builder BASE_CATALOG_RULE =
             OptionRule.builder()
                     .required(URL)

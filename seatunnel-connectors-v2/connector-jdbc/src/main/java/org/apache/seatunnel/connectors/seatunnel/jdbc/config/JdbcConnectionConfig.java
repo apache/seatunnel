@@ -67,6 +67,7 @@ public class JdbcConnectionConfig implements Serializable {
     private String region;
     private String accessKeyId;
     private String secretAccessKey;
+    private String serverTimeZone;
 
     private boolean handleBlobAsString = JdbcCommonOptions.HANDLE_BLOB_AS_STRING.defaultValue();
 
@@ -104,6 +105,7 @@ public class JdbcConnectionConfig implements Serializable {
         config.getOptional(JdbcCommonOptions.ACCESS_KEY_ID).ifPresent(builder::accessKeyId);
         config.getOptional(JdbcCommonOptions.SECRET_ACCESS_KEY).ifPresent(builder::secretAccessKey);
         config.getOptional(JdbcCommonOptions.REGION).ifPresent(builder::region);
+        config.getOptional(JdbcCommonOptions.SERVER_TIME_ZONE).ifPresent(builder::serverTimeZone);
 
         return builder.build();
     }
@@ -152,6 +154,7 @@ public class JdbcConnectionConfig implements Serializable {
         private String region;
         private String accessKeyId;
         private String secretAccessKey;
+        private String serverTimeZone;
 
         private Builder() {}
 
@@ -280,6 +283,11 @@ public class JdbcConnectionConfig implements Serializable {
             return this;
         }
 
+        public Builder serverTimeZone(String serverTimeZone) {
+            this.serverTimeZone = serverTimeZone;
+            return this;
+        }
+
         public JdbcConnectionConfig build() {
             JdbcConnectionConfig jdbcConnectionConfig = new JdbcConnectionConfig();
             jdbcConnectionConfig.batchSize = this.batchSize;
@@ -308,8 +316,13 @@ public class JdbcConnectionConfig implements Serializable {
             jdbcConnectionConfig.region = this.region;
             jdbcConnectionConfig.accessKeyId = this.accessKeyId;
             jdbcConnectionConfig.secretAccessKey = this.secretAccessKey;
+            jdbcConnectionConfig.serverTimeZone = this.serverTimeZone;
             return jdbcConnectionConfig;
         }
+    }
+
+    public String getServerTimeZone() {
+        return serverTimeZone;
     }
 
     public boolean isHandleBlobAsString() {

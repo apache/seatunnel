@@ -53,6 +53,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | field_ide                                 | String  | 否    | -                            |
 | properties                                | Map     | 否    | -                            |
 | common-options                            |         | 否    | -                            |
+| server_time_zone                          | String  | 否    | -                            |
 | schema_save_mode                          | Enum    | 否    | CREATE_SCHEMA_WHEN_NOT_EXIST |
 | data_save_mode                            | Enum    | 否    | APPEND_DATA                  |
 | custom_sql                                | String  | 否    | -                            |
@@ -89,6 +90,10 @@ JDBC 连接的 URL。参考案例：`jdbc:postgresql://localhost/test`
 例如，使用 OceanBase 数据库时，需要将其设置为 'mysql' 或 'oracle' 。使用StarRocks时，需要将其设置为`starrocks`。
 
 Postgres 9.5及以下版本，请设置为 `postgresLow` 来支持 CDC
+
+### server_time_zone [string]
+
+数据库服务器的会话时区，例如：`"Asia/Shanghai"` 或 `"UTC"`。它控制在使用 JDBC 驱动程序（如 MySQL）时 `TIMESTAMP` 列在数据库和 JVM 之间的转换方式。如果未设置，驱动程序通常会回退到 JVM 默认时区或其自身默认值，当数据库服务器在不同的时区运行时，这可能会导致小时偏差。
 
 ### dialect [string]
 

@@ -55,6 +55,7 @@ support `Xa transactions`. You can set `is_exactly_once=true` to enable it.
 | field_ide                                 | String  | No       | -                            |
 | properties                                | Map     | No       | -                            |
 | common-options                            |         | No       | -                            |
+| server_time_zone                          | String  | No       | -                            |
 | schema_save_mode                          | Enum    | No       | CREATE_SCHEMA_WHEN_NOT_EXIST |
 | data_save_mode                            | Enum    | No       | APPEND_DATA                  |
 | custom_sql                                | String  | No       | -                            |
@@ -92,6 +93,10 @@ The compatible mode of database, required when the database supports multiple co
 For example, when using OceanBase database, you need to set it to 'mysql' or 'oracle'. when using StarRocks, you need set it to `starrocks`.
 
 Postgres 9.5 version or below,please set it to `postgresLow` to support cdc
+
+### server_time_zone [string]
+
+The session time zone of the database server, for example: `"Asia/Shanghai"` or `"UTC"`. It controls how the `TIMESTAMP` column is converted between database and JVM when using JDBC drivers (such as MySQL). If it is not set, the driver usually falls back to the JVM default time zone or its own defaults, which may lead to hour offsets when the database server is running in a different time zone.
 
 ### dialect [string]
 

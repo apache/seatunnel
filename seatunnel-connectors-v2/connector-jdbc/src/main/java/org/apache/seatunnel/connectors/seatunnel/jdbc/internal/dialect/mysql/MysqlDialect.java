@@ -38,6 +38,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -53,11 +54,19 @@ public class MysqlDialect implements JdbcDialect {
             Arrays.asList(MysqlType.BLOB, MysqlType.TEXT, MysqlType.JSON, MysqlType.GEOMETRY);
 
     public String fieldIde = FieldIdeEnum.ORIGINAL.getValue();
+    private final ZoneId serverTimeZone;
 
-    public MysqlDialect() {}
+    public MysqlDialect() {
+        this(FieldIdeEnum.ORIGINAL.getValue(), null);
+    }
 
     public MysqlDialect(String fieldIde) {
-        this.fieldIde = fieldIde;
+        this(fieldIde, null);
+    }
+
+    public MysqlDialect(String fieldIde, ZoneId serverTimeZone) {
+        this.fieldIde = fieldIde == null ? FieldIdeEnum.ORIGINAL.getValue() : fieldIde;
+        this.serverTimeZone = serverTimeZone == null ? ZoneId.systemDefault() : serverTimeZone;
     }
 
     @Override
@@ -67,7 +76,7 @@ public class MysqlDialect implements JdbcDialect {
 
     @Override
     public JdbcRowConverter getRowConverter() {
-        return new MysqlJdbcRowConverter();
+        return new MysqlJdbcRowConverter(serverTimeZone);
     }
 
     @Override
@@ -135,6 +144,11 @@ public class MysqlDialect implements JdbcDialect {
         HashMap<String, String> map = new HashMap<>();
         map.put("rewriteBatchedStatements", "true");
         return map;
+    }
+
+    @Override
+    public String hashModForField(String fieldName, int mod) {
+        return "ABS(CRC32(" + quoteIdentifier(fieldName) + ") % " + mod + ")";
     }
 
     @Override
