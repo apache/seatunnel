@@ -197,8 +197,6 @@ public class CoordinatorServiceTest {
         jobInformation.coordinatorServiceTest.shutdown();
     }
 
-
-
     @Test
     void testCleanupPendingJobMasterMapAfterJobFailed() {
         setConfigFile("seatunnel_fixed_slots.yaml");
