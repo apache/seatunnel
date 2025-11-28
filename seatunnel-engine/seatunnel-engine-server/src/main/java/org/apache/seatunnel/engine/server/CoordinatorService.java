@@ -1116,9 +1116,4 @@ public class CoordinatorService {
     public PeekBlockingQueue<PendingJobInfo> getPendingJobQueue() {
         return pendingJobQueue;
     }
-
-    @VisibleForTesting
-    public IMap<PipelineLocation, Map<TaskGroupLocation, SlotProfile>> getOwnedSlotProfilesIMap() {
-        return ownedSlotProfilesIMap;
-    }
 }
