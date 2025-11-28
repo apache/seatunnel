@@ -397,16 +397,9 @@ public class SubPlan {
     }
 
     public void forceStopPipeline() {
-        ExecutionState targetState = ExecutionState.CANCELED;
         coordinatorVertexList.forEach(
-                coordinator ->
-                        coordinator.forceStop(
-                                new TaskExecutionState(
-                                        coordinator.getTaskGroupLocation(), targetState)));
-        physicalVertexList.forEach(
-                task ->
-                        task.forceStop(
-                                new TaskExecutionState(task.getTaskGroupLocation(), targetState)));
+                coordinator -> coordinator.forceStop(coordinator.getTaskGroupLocation()));
+        physicalVertexList.forEach(task -> task.forceStop(task.getTaskGroupLocation()));
     }
 
     private void cancelCheckpointCoordinator() {

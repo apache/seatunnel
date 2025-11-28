@@ -517,12 +517,14 @@ public class PhysicalVertex {
         updateTaskState(taskExecutionState.getExecutionState());
     }
 
-    public void forceStop(TaskExecutionState taskExecutionState) {
+    public void forceStop(TaskGroupLocation taskGroupLocation) {
         if (getExecutionState().isEndState()) {
             return;
         }
         noticeTaskExecutionServiceCancel();
         if (!taskFuture.isDone()) {
+            TaskExecutionState taskExecutionState =
+                    new TaskExecutionState(taskGroupLocation, ExecutionState.CANCELED);
             errorByPhysicalVertex.compareAndSet(null, taskExecutionState.getThrowableMsg());
             updateTaskState(taskExecutionState.getExecutionState());
         }
