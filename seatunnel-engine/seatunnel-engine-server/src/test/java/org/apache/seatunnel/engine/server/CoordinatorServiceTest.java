@@ -185,7 +185,7 @@ public class CoordinatorServiceTest {
                                             .containsKey(jobInformation.jobId));
                         });
 
-        coordinatorService.cancelJob(jobInformation.jobId).join();
+        coordinatorService.stopJob(jobInformation.jobId).join();
         await().atMost(120000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () -> {
@@ -196,6 +196,8 @@ public class CoordinatorServiceTest {
         jobInformation.coordinatorService.clearCoordinatorService();
         jobInformation.coordinatorServiceTest.shutdown();
     }
+
+
 
     @Test
     void testCleanupPendingJobMasterMapAfterJobFailed() {
