@@ -1068,8 +1068,4 @@ public class JobMaster {
     public IMap<Object, Object> getRunningJobStateIMap() {
         return runningJobStateIMap;
     }
-
-    public IMap<PipelineLocation, Map<TaskGroupLocation, SlotProfile>> getOwnedSlotProfilesIMap() {
-        return ownedSlotProfilesIMap;
-    }
 }
