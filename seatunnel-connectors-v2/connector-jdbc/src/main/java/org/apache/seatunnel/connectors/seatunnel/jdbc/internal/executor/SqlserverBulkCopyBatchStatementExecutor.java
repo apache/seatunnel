@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.executor;
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
@@ -34,9 +35,11 @@ import java.sql.Connection;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 @Slf4j
@@ -127,7 +130,6 @@ public class SqlserverBulkCopyBatchStatementExecutor
             } catch (SQLException rollbackEx) {
                 log.error("Failed to rollback", rollbackEx);
             }
-            // todo improve Exception
             throw new JdbcConnectorException(
                     JdbcConnectorErrorCode.TRANSACTION_OPERATION_FAILED, e);
         }
@@ -141,15 +143,15 @@ public class SqlserverBulkCopyBatchStatementExecutor
     private ResultSetMetaData getResultSetMetaData(Connection connection, String schemaTableName) {
         final String[] split = schemaTableName.split("\\.");
         if (split.length != 2) {
-            throw new SeaTunnelRuntimeException(
-                    JdbcConnectorErrorCode.NO_SUPPORT_OPERATION_FAILED, "");
+            Map<String, String> params = new HashMap<>();
+            params.put("value", schemaTableName);
+            throw new SeaTunnelRuntimeException(CommonErrorCode.SEATUNNEL_CONFIG_ERROR, params);
         }
         String queryMeta =
                 String.format("select * from \"%s\".\"%s\" where 1=0", split[0], split[1]);
         try {
             return connection.createStatement().executeQuery(queryMeta).getMetaData();
         } catch (SQLException e) {
-            // todo improve Exception
             throw new SeaTunnelRuntimeException(
                     JdbcConnectorErrorCode.NO_SUPPORT_OPERATION_FAILED,
                     "get meta data fail:" + schemaTableName);
@@ -179,11 +181,6 @@ public class SqlserverBulkCopyBatchStatementExecutor
 
         @Override
         public Object[] getRowData() {
-            if (current == null) {
-                // todo improve Exception
-                throw new IllegalStateException(
-                        "RowData requested but no current row. next() was not called.");
-            }
             return current;
         }
 

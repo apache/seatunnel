@@ -58,9 +58,10 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | custom_sql                                | String  | 否    | -                            |
 | enable_upsert                             | Boolean | 否    | true                         |
 | use_copy_statement                        | Boolean | 否    | false                        |
-| access_key_id                             | String  | 否       |                              |
-| secret_access_key                         | String  | 否       |                              |
-| region                                    | String  | 否       |                              |
+| access_key_id                             | String  | 否    |                              |
+| secret_access_key                         | String  | 否    |                              |
+| region                                    | String  | 否    |                              |
+| use_sqlserver_bulk_copy                   | Boolean | 否    | false                        |
 
 ### driver [string]
 
@@ -233,6 +234,10 @@ AWS IAM 认证中所需要的secret_access_key。 该参考仅适用于 dialect=
 
 ### region [String]
 Amazon Aurora DSQL 所在的区域。 该参考仅适用于 dialect="dsql"
+
+### use_sqlserver_bulk_copy [boolean]
+当你使用sqlserver作为目标端的时候，为了提高插入效率，可以开启`use_sqlserver_bulk_copy=true`，这会使用sqlserver的bulk copy方式写入数据，但仅限于插入。
+另外，使用该参数会使参数`auto_commit`、`is_exactly_once`以及`enable_upsert`都不会生效。使用该方式插入数据不支持的字段类型：`smalldatetime`、`sql_variant`。
 
 ## tips
 

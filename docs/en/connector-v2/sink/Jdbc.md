@@ -35,7 +35,7 @@ support `Xa transactions`. You can set `is_exactly_once=true` to enable it.
 |-------------------------------------------|---------|----------|------------------------------|
 | url                                       | String  | Yes      | -                            |
 | driver                                    | String  | Yes      | -                            |
-| username                                      | String  | No       | -                            |
+| username                                    | String  | No       | -                            |
 | password                                  | String  | No       | -                            |
 | query                                     | String  | No       | -                            |
 | compatible_mode                           | String  | No       | -                            |
@@ -64,6 +64,7 @@ support `Xa transactions`. You can set `is_exactly_once=true` to enable it.
 | access_key_id                             | String  | No       |                              |
 | secret_access_key                         | String  | No       |                              |
 | region                                    | String  | No       |                              |
+| use_sqlserver_bulk_copy                   | Boolean | No       | false                        |
 
 ### driver [string]
 
@@ -244,6 +245,10 @@ The secret_access_key in AWS authentication. Only valid for dialect="dsql"
 
 ### region [String]
 The area where Amazon Aurora DSQL is located. Only valid for dialect="dsql"
+
+### use_sqlserver_bulk_copy [boolean]
+When you use sqlserver as the target end, in order to improve the insertion efficiency, you can turn on `use_sqlserver_bulk_copy=true`, which will use the bulk copy method of sqlserver to write data, but only for insertion. 
+In addition, using this parameter will make the parameters `auto_commit`, `is_exactly_once` and `enable_upsert` not effective. Field types that are not supported when inserting data using this method: `smalldatetime`, `sql_variant`.
 
 
 ## tips

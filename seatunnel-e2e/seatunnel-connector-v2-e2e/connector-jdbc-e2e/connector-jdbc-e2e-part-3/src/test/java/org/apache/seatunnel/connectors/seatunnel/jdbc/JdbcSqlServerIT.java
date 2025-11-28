@@ -200,6 +200,10 @@ public class JdbcSqlServerIT extends AbstractJdbcIT {
         }
     }
 
+    /**
+     * After testing, it was found that using the bulk copy method of sqlserver to write data does
+     * not support the types sql_variant and smalldatetime, so a new table needs to be created.
+     */
     private void createBulkCopySinkTable(Connection connection) throws SQLException {
         String createSql =
                 "CREATE TABLE \"dbo\".\"test_copy_sink\" (\n"
