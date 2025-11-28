@@ -607,7 +607,7 @@ public class MySqlTypeConverterTest {
                         .build();
         Column column = MySqlTypeConverter.DEFAULT_INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
-        Assertions.assertEquals(LocalTimeType.OFFSET_DATE_TIME_TYPE, column.getDataType());
+        Assertions.assertEquals(LocalTimeType.LOCAL_DATE_TIME_TYPE, column.getDataType());
         Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
 
         typeDefine =
@@ -619,7 +619,7 @@ public class MySqlTypeConverterTest {
                         .build();
         column = MySqlTypeConverter.DEFAULT_INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
-        Assertions.assertEquals(LocalTimeType.OFFSET_DATE_TIME_TYPE, column.getDataType());
+        Assertions.assertEquals(LocalTimeType.LOCAL_DATE_TIME_TYPE, column.getDataType());
         Assertions.assertEquals(typeDefine.getScale(), column.getScale());
         Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
     }
@@ -634,7 +634,7 @@ public class MySqlTypeConverterTest {
                         .build();
         Column column = MySqlTypeConverter.DEFAULT_INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
-        Assertions.assertEquals(LocalTimeType.LOCAL_DATE_TIME_TYPE, column.getDataType());
+        Assertions.assertEquals(LocalTimeType.OFFSET_DATE_TIME_TYPE, column.getDataType());
         Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
 
         typeDefine =
@@ -646,7 +646,7 @@ public class MySqlTypeConverterTest {
                         .build();
         column = MySqlTypeConverter.DEFAULT_INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
-        Assertions.assertEquals(LocalTimeType.LOCAL_DATE_TIME_TYPE, column.getDataType());
+        Assertions.assertEquals(LocalTimeType.OFFSET_DATE_TIME_TYPE, column.getDataType());
         Assertions.assertEquals(typeDefine.getScale(), column.getScale());
         Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
     }
@@ -1115,9 +1115,9 @@ public class MySqlTypeConverterTest {
         BasicTypeDefine<MysqlType> typeDefine =
                 MySqlTypeConverter.DEFAULT_INSTANCE.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
-        Assertions.assertEquals(MysqlType.DATETIME, typeDefine.getNativeType());
-        Assertions.assertEquals(MySqlTypeConverter.MYSQL_DATETIME, typeDefine.getColumnType());
-        Assertions.assertEquals(MySqlTypeConverter.MYSQL_DATETIME, typeDefine.getDataType());
+        Assertions.assertEquals(MysqlType.TIMESTAMP, typeDefine.getNativeType());
+        Assertions.assertEquals(MySqlTypeConverter.MYSQL_TIMESTAMP, typeDefine.getColumnType());
+        Assertions.assertEquals(MySqlTypeConverter.MYSQL_TIMESTAMP, typeDefine.getDataType());
     }
 
     @Test
@@ -1132,13 +1132,13 @@ public class MySqlTypeConverterTest {
         BasicTypeDefine<MysqlType> typeDefine =
                 MySqlTypeConverter.DEFAULT_INSTANCE.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
-        Assertions.assertEquals(MysqlType.DATETIME, typeDefine.getNativeType());
+        Assertions.assertEquals(MysqlType.TIMESTAMP, typeDefine.getNativeType());
         Assertions.assertEquals(
                 String.format(
                         "%s(%s)",
-                        MySqlTypeConverter.MYSQL_DATETIME, MySqlTypeConverter.MAX_TIMESTAMP_SCALE),
+                        MySqlTypeConverter.MYSQL_TIMESTAMP, MySqlTypeConverter.MAX_TIMESTAMP_SCALE),
                 typeDefine.getColumnType());
-        Assertions.assertEquals(MySqlTypeConverter.MYSQL_DATETIME, typeDefine.getDataType());
+        Assertions.assertEquals(MySqlTypeConverter.MYSQL_TIMESTAMP, typeDefine.getDataType());
         Assertions.assertEquals(MySqlTypeConverter.MAX_TIMESTAMP_SCALE, typeDefine.getScale());
     }
 }
