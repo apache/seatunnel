@@ -37,6 +37,8 @@ import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.DockerLoggerFactory;
 
 import java.math.BigDecimal;
+import java.sql.Connection;
+import java.sql.SQLException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -100,7 +102,7 @@ public class JdbcSqlServerIT extends AbstractJdbcIT {
                     + "\tVARBINARY_TEST varbinary(255) NULL,\n"
                     + "\tVARBINARY_MAX_TEST varbinary(MAX) NULL,\n"
                     + "\tVARCHAR_TEST varchar(16) COLLATE Chinese_PRC_CS_AS NULL,\n"
-                    + "\tVARCHAR_MAX_TEST varchar(MAX) COLLATE Chinese_PRC_CS_AS DEFAULT NULL NULL,\n"
+                    + "\tVARCHAR_MAX_TEST varchar(MAX) COLLATE Chinese_PRC_CS_AS DEFAULT NULL,\n"
                     + "\tXML_TEST xml NULL,\n"
                     + "\tUDT_TEST UDTDECIMAL NULL,\n"
                     + "\tCONSTRAINT PK_TEST_INDEX PRIMARY KEY (INT_IDENTITY_TEST)\n"
@@ -139,7 +141,7 @@ public class JdbcSqlServerIT extends AbstractJdbcIT {
                     + "\tVARBINARY_TEST varbinary(255) NULL,\n"
                     + "\tVARBINARY_MAX_TEST varbinary(MAX) NULL,\n"
                     + "\tVARCHAR_TEST varchar(16) COLLATE Chinese_PRC_CS_AS NULL,\n"
-                    + "\tVARCHAR_MAX_TEST varchar(MAX) COLLATE Chinese_PRC_CS_AS DEFAULT NULL NULL,\n"
+                    + "\tVARCHAR_MAX_TEST varchar(MAX) COLLATE Chinese_PRC_CS_AS DEFAULT NULL,\n"
                     + "\tXML_TEST xml NULL,\n"
                     + "\tUDT_TEST UDTDECIMAL NULL\n"
                     + ");";
@@ -191,10 +193,51 @@ public class JdbcSqlServerIT extends AbstractJdbcIT {
         String sql = "CREATE TYPE UDTDECIMAL FROM decimal(12, 2);";
         try {
             connection.prepareStatement(sql).executeUpdate();
+            createBulkCopySinkTable(connection);
         } catch (Exception e) {
             throw new SeaTunnelRuntimeException(
                     JdbcITErrorCode.CREATE_TABLE_FAILED, "Fail to execute sql " + sql, e);
         }
+    }
+
+    private void createBulkCopySinkTable(Connection connection) throws SQLException {
+        String createSql =
+                "CREATE TABLE \"dbo\".\"test_copy_sink\" (\n"
+                        + "    INT_IDENTITY_TEST int IDENTITY(1,1) NOT NULL,\n"
+                        + "    BIGINT_TEST bigint NOT NULL,\n"
+                        + "    BINARY_TEST binary(255) NULL,\n"
+                        + "    BIT_TEST bit NULL,\n"
+                        + "    CHAR_TEST char(255) COLLATE Chinese_PRC_CS_AS NULL,\n"
+                        + "    DATE_TEST date NULL,\n"
+                        + "    DATETIME_TEST datetime NULL,\n"
+                        + "    DATETIME2_TEST datetime2 NULL,\n"
+                        + "    DECIMAL_TEST decimal(18,2) NULL,\n"
+                        + "    FLOAT_TEST float NULL,\n"
+                        + "    INT_TEST int NULL,\n"
+                        + "    MONEY_TEST money NULL,\n"
+                        + "    NCHAR_TEST nchar(1) COLLATE Chinese_PRC_CS_AS NULL,\n"
+                        + "    NUMERIC_TEST numeric(18,2) NULL,\n"
+                        + "    NVARCHAR_TEST nvarchar(16) COLLATE Chinese_PRC_CS_AS NULL,\n"
+                        + "    REAL_TEST real NULL,\n"
+                        + "    SMALLINT_TEST smallint NULL,\n"
+                        + "    SMALLMONEY_TEST smallmoney NULL,\n"
+                        + "    TIME_TEST time NULL,\n"
+                        + "    TINYINT_TEST tinyint NULL,\n"
+                        + "    VARBINARY_TEST varbinary(255) NULL,\n"
+                        + "    VARCHAR_TEST varchar(16) COLLATE Chinese_PRC_CS_AS NULL,\n"
+                        + "    DATETIMEOFFSET_TEST datetimeoffset NULL,\n"
+                        + "    IMAGE_TEST image NULL,\n"
+                        + "    NTEXT_TEST ntext COLLATE Chinese_PRC_CS_AS NULL,\n"
+                        + "    NVARCHAR_MAX_TEST nvarchar(MAX) COLLATE Chinese_PRC_CS_AS NULL,\n"
+                        + "    TEXT_TEST text COLLATE Chinese_PRC_CS_AS NULL,\n"
+                        + "    UNIQUEIDENTIFIER_TEST uniqueidentifier NULL,\n"
+                        + "    VARBINARY_MAX_TEST varbinary(MAX) NULL,\n"
+                        + "    VARCHAR_MAX_TEST varchar(MAX) COLLATE Chinese_PRC_CS_AS NULL,\n"
+                        + "    XML_TEST xml NULL,\n"
+                        + "    UDT_TEST UDTDECIMAL NULL\n"
+                        + "    CONSTRAINT PK_TEST_INDEX2 PRIMARY KEY (INT_IDENTITY_TEST)\n"
+                        + ");";
+        connection.createStatement().execute(createSql);
     }
 
     @Override
