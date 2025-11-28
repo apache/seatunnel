@@ -131,7 +131,7 @@ public class PaimonParallelismInferenceTest {
         PaimonSource source = createPaimonSourceWithMultipleTables(table1, table2, table3);
         int parallelism = source.inferParallelism();
 
-        // Expected: 2 (table1) + 3 (table2) + 1 (table3) = 7
+        // Expected: 2 (table1) + 3 (table2) + 1 (table3) = 6
         Assertions.assertEquals(6, parallelism);
     }
 

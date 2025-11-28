@@ -26,7 +26,7 @@ import java.io.Serializable;
 public class ParallelismInferenceConfig implements Serializable {
     private static final long serialVersionUID = 1L;
     private boolean enabled = false;
-    private int maxParallelism = 128;
+    private int maxParallelism = 64;
 
     public void validate() {
         if (maxParallelism <= 0) {
