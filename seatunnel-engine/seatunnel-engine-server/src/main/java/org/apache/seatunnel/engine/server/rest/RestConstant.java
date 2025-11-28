@@ -48,6 +48,7 @@ public class RestConstant {
     public static final String ERROR_MSG = "errorMsg";
 
     public static final String METRICS = "metrics";
+    public static final String LIMIT = "limit";
 
     public static final String TABLE_SOURCE_RECEIVED_COUNT = "TableSourceReceivedCount";
     public static final String TABLE_SINK_WRITE_COUNT = "TableSinkWriteCount";
@@ -61,6 +62,8 @@ public class RestConstant {
 
     public static final String CONTEXT_PATH = "/hazelcast/rest/maps";
     public static final String INSTANCE_CONTEXT_PATH = "/hazelcast/rest/instance";
+
+    public static final String PRETTY = "pretty";
 
     // api path start
     public static final String REST_URL_OVERVIEW = "/overview";
@@ -82,6 +85,7 @@ public class RestConstant {
     public static final String REST_URL_STOP_JOB = "/stop-job";
     public static final String REST_URL_STOP_JOBS = "/stop-jobs";
     public static final String REST_URL_UPDATE_TAGS = "/update-tags";
+    public static final String REST_URL_PENDING_JOBS = "/pending-jobs";
     // Get All Nodes Log
     public static final String REST_URL_LOGS = "/logs";
     // Get Current Node Log

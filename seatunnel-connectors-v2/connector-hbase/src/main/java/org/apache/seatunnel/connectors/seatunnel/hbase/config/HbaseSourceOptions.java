@@ -34,6 +34,20 @@ public class HbaseSourceOptions extends HbaseBaseOptions {
                     .noDefaultValue()
                     .withDescription("Hbase scan end rowkey");
 
+    public static final Option<Boolean> START_ROW_INCLUSIVE =
+            Options.key("start_row_inclusive")
+                    .booleanType()
+                    .defaultValue(true)
+                    .withDescription(
+                            "Whether to include the start row in the scan. Default is true (inclusive).");
+
+    public static final Option<Boolean> END_ROW_INCLUSIVE =
+            Options.key("end_row_inclusive")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription(
+                            "Whether to include the end row in the scan. Default is false (exclusive), following the left-closed-right-open convention.");
+
     public static final Option<Boolean> IS_BINARY_ROW_KEY =
             Options.key("is_binary_rowkey")
                     .booleanType()
