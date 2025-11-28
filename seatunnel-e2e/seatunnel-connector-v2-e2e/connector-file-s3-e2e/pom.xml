@@ -42,10 +42,9 @@
             <scope>test</scope>
         </dependency>
         <dependency>
-            <groupId>org.apache.hadoop</groupId>
-            <artifactId>hadoop-aws</artifactId>
-            <version>${hadoop-aws.version}</version>
-            <scope>test</scope>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>seatunnel-hadoop-aws</artifactId>
+            <version>${project.version}</version>
         </dependency>
         <dependency>
             <groupId>com.amazonaws</groupId>
