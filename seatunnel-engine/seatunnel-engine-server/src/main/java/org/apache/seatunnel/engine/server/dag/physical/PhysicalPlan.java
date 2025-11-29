@@ -231,6 +231,8 @@ public class PhysicalPlan {
             // Tasks with the status 'INITIALIZING', 'CREATED', 'PENDING' need to be set directly to
             // the 'CANCELLED' state because it has not yet started running
             updateJobState(JobStatus.CANCELED);
+        } else if (jobStatus == JobStatus.DOING_SAVEPOINT) {
+            this.pipelineList.forEach(SubPlan::finishPipelineIfCheckpointCompleted);
         } else {
             updateJobState(JobStatus.CANCELING);
             this.pipelineList.forEach(SubPlan::forceStopPipeline);

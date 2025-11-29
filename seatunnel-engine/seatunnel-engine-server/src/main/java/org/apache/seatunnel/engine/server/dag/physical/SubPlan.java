@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.options.EnvCommonOptions;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.common.utils.RetryUtils;
 import org.apache.seatunnel.engine.common.Constant;
+import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 import org.apache.seatunnel.engine.common.utils.ExceptionUtil;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
@@ -397,9 +398,8 @@ public class SubPlan {
     }
 
     public void forceStopPipeline() {
-        coordinatorVertexList.forEach(
-                coordinator -> coordinator.forceStop(coordinator.getTaskGroupLocation()));
-        physicalVertexList.forEach(task -> task.forceStop(task.getTaskGroupLocation()));
+        coordinatorVertexList.forEach(PhysicalVertex::forceStop);
+        physicalVertexList.forEach(PhysicalVertex::forceStop);
     }
 
     private void cancelCheckpointCoordinator() {
@@ -506,6 +506,17 @@ public class SubPlan {
                     e);
             makePipelineFailing(e);
             startSubPlanStateProcess();
+        }
+    }
+
+    public void finishPipelineIfCheckpointCompleted() {
+        if (jobMaster.getCheckpointManager().isCompletedPipeline(pipelineId)) {
+            forcePipelineFinish();
+        } else {
+            throw new SeaTunnelEngineException(
+                    "Cannot finish pipeline "
+                            + pipelineFullName
+                            + " because the checkpoint is not complete.");
         }
     }
 
