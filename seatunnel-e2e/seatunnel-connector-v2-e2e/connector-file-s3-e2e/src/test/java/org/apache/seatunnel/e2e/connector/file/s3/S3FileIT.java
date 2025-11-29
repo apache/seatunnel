@@ -109,14 +109,14 @@ public class S3FileIT extends TestSuiteBase implements TestResource {
                                 "mkdir -p /tmp/seatunnel/plugins/s3/lib && cd /tmp/seatunnel/plugins/s3/lib && curl -O "
                                         + S3_SDK_DOWNLOAD);
                 Assertions.assertEquals(0, extraCommands.getExitCode());
-                //
-                //                extraCommands =
-                //                        container.execInContainer(
-                //                                "bash",
-                //                                "-c",
-                //                                "cd /tmp/seatunnel/plugins/s3/lib && curl -O "
-                //                                        + HADOOP_S3_DOWNLOAD);
-                //                Assertions.assertEquals(0, extraCommands.getExitCode());
+
+                extraCommands =
+                        container.execInContainer(
+                                "bash",
+                                "-c",
+                                "cd /tmp/seatunnel/plugins/s3/lib && curl -O "
+                                        + HADOOP_S3_DOWNLOAD);
+                Assertions.assertEquals(0, extraCommands.getExitCode());
             };
 
     @TestTemplate
