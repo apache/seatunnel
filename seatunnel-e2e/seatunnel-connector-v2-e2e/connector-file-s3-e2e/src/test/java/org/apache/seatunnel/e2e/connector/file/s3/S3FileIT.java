@@ -66,7 +66,7 @@ public class S3FileIT extends TestSuiteBase implements TestResource {
     private static final String S3_CONTAINER_HOST = "s3";
 
     public static final String S3_SDK_DOWNLOAD =
-            "https://repo1.maven.org/maven2/com/amazonaws/aws-java-sdk-bundle/1.11.271/aws-java-sdk-bundle-1.11.271.jar";
+            "https://repo1.maven.org/maven2/com/amazonaws/aws-java-sdk-bundle/1.12.692/aws-java-sdk-bundle-1.12.692.jar";
     public static final String HADOOP_S3_DOWNLOAD =
             "https://repo1.maven.org/maven2/org/apache/seatunnel/seatunnel-hadoop-aws/2.3.12/seatunnel-hadoop-aws-2.3.12-optional.jar";
 
@@ -109,14 +109,14 @@ public class S3FileIT extends TestSuiteBase implements TestResource {
                                 "mkdir -p /tmp/seatunnel/plugins/s3/lib && cd /tmp/seatunnel/plugins/s3/lib && curl -O "
                                         + S3_SDK_DOWNLOAD);
                 Assertions.assertEquals(0, extraCommands.getExitCode());
-
-                extraCommands =
-                        container.execInContainer(
-                                "bash",
-                                "-c",
-                                "cd /tmp/seatunnel/plugins/s3/lib && curl -O "
-                                        + HADOOP_S3_DOWNLOAD);
-                Assertions.assertEquals(0, extraCommands.getExitCode());
+                //
+                //                extraCommands =
+                //                        container.execInContainer(
+                //                                "bash",
+                //                                "-c",
+                //                                "cd /tmp/seatunnel/plugins/s3/lib && curl -O "
+                //                                        + HADOOP_S3_DOWNLOAD);
+                //                Assertions.assertEquals(0, extraCommands.getExitCode());
             };
 
     @TestTemplate
