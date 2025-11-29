@@ -377,7 +377,7 @@ public class MongodbUtils {
     }
 
     public static MongoClient createMongoClient(MongodbSourceConfig sourceConfig) {
-        return MongodbClientProvider.INSTANCE.getOrCreateMongoClient(sourceConfig);
+        return MongodbClientProvider.INSTANCE.createMongoClient(sourceConfig);
     }
 
     public static @Nonnull ConnectionString buildConnectionString(
