@@ -57,26 +57,43 @@ public class EmailSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
     private final SeaTunnelRowType seaTunnelRowType;
     private final EmailSinkConfig config;
     private StringBuffer stringBuffer;
+    private boolean hasData;
 
     public EmailSinkWriter(SeaTunnelRowType seaTunnelRowType, EmailSinkConfig pluginConfig) {
         this.seaTunnelRowType = seaTunnelRowType;
         this.config = pluginConfig;
         this.stringBuffer = new StringBuffer();
+        this.hasData = false;
     }
 
     @Override
     public void write(SeaTunnelRow element) {
         Object[] fields = element.getFields();
 
-        for (Object field : fields) {
-            stringBuffer.append(field.toString() + ",");
+        for (int i = 0; i < fields.length; i++) {
+            Object field = fields[i];
+            // Handle null field values to avoid NPE
+            if (field == null) {
+                stringBuffer.append("");
+            } else {
+                stringBuffer.append(field.toString());
+            }
+            if (i < fields.length - 1) {
+                stringBuffer.append(config.getEmailFieldDelimiter());
+            }
         }
-        stringBuffer.deleteCharAt(fields.length - 1);
         stringBuffer.append("\n");
+        hasData = true;
     }
 
     @Override
     public void close() {
+        // Only send email if there was data written successfully
+        if (!hasData) {
+            log.info("No data to send, skipping email");
+            return;
+        }
+
         createFile();
         Properties properties = new Properties();
         properties.setProperty("mail.host", config.getEmailHost());
@@ -136,7 +153,7 @@ public class EmailSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
             multipart.addBodyPart(messageBodyPart);
             // accessory
             messageBodyPart = new MimeBodyPart();
-            String filename = "emailsink.csv";
+            String filename = config.getEmailAttachmentName();
             DataSource source = new FileDataSource(filename);
             messageBodyPart.setDataHandler(new DataHandler(source));
             messageBodyPart.setFileName(filename);
@@ -153,7 +170,7 @@ public class EmailSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
     }
 
     public void createFile() {
-        String fileName = "emailsink.csv";
+        String fileName = config.getEmailAttachmentName();
         try {
             String data = stringBuffer.toString();
             File file = new File(fileName);

@@ -18,15 +18,24 @@
 
 package org.apache.seatunnel.engine.server.execution;
 
+import org.apache.seatunnel.engine.server.diagnostic.PendingJobDiagnostic;
 import org.apache.seatunnel.engine.server.master.JobMaster;
+
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class PendingJobInfo {
     private final PendingSourceState pendingSourceState;
     private final JobMaster jobMaster;
+    private final long enqueueTimestamp;
+    private final AtomicInteger checkTimes = new AtomicInteger();
+    private volatile long lastCheckTime;
+    private volatile PendingJobDiagnostic lastSnapshot;
 
     public PendingJobInfo(PendingSourceState pendingSourceState, JobMaster jobMaster) {
         this.pendingSourceState = pendingSourceState;
         this.jobMaster = jobMaster;
+        this.enqueueTimestamp = System.currentTimeMillis();
+        this.lastCheckTime = enqueueTimestamp;
     }
 
     public PendingSourceState getPendingSourceState() {
@@ -39,5 +48,31 @@ public class PendingJobInfo {
 
     public Long getJobId() {
         return jobMaster.getJobId();
+    }
+
+    public long getEnqueueTimestamp() {
+        return enqueueTimestamp;
+    }
+
+    public long getLastCheckTime() {
+        return lastCheckTime;
+    }
+
+    public int getCheckTimes() {
+        return checkTimes.get();
+    }
+
+    public PendingJobDiagnostic getLastSnapshot() {
+        return lastSnapshot;
+    }
+
+    public void recordSnapshot(PendingJobDiagnostic snapshot) {
+        if (snapshot == null) {
+            return;
+        }
+        this.lastSnapshot = snapshot;
+        this.lastCheckTime = snapshot.getCheckTime();
+        int current = this.checkTimes.incrementAndGet();
+        snapshot.setCheckCount(current);
     }
 }

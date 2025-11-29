@@ -37,6 +37,7 @@ import org.apache.seatunnel.engine.server.rest.servlet.FinishedJobsServlet;
 import org.apache.seatunnel.engine.server.rest.servlet.JobInfoServlet;
 import org.apache.seatunnel.engine.server.rest.servlet.MetricsServlet;
 import org.apache.seatunnel.engine.server.rest.servlet.OverviewServlet;
+import org.apache.seatunnel.engine.server.rest.servlet.PendingJobsServlet;
 import org.apache.seatunnel.engine.server.rest.servlet.RunningJobsServlet;
 import org.apache.seatunnel.engine.server.rest.servlet.RunningThreadsServlet;
 import org.apache.seatunnel.engine.server.rest.servlet.StopJobServlet;
@@ -70,6 +71,7 @@ import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_LOGS
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_METRICS;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_OPEN_METRICS;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_OVERVIEW;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_PENDING_JOBS;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_RUNNING_JOB;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_RUNNING_JOBS;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_RUNNING_THREADS;
@@ -174,6 +176,7 @@ public class JettyService {
 
         ServletHolder overviewHolder = new ServletHolder(new OverviewServlet(nodeEngine));
         ServletHolder runningJobsHolder = new ServletHolder(new RunningJobsServlet(nodeEngine));
+        ServletHolder pendingJobsHolder = new ServletHolder(new PendingJobsServlet(nodeEngine));
         ServletHolder finishedJobsHolder = new ServletHolder(new FinishedJobsServlet(nodeEngine));
         ServletHolder systemMonitoringHolder =
                 new ServletHolder(new SystemMonitoringServlet(nodeEngine));
@@ -203,6 +206,7 @@ public class JettyService {
 
         context.addServlet(overviewHolder, convertUrlToPath(REST_URL_OVERVIEW));
         context.addServlet(runningJobsHolder, convertUrlToPath(REST_URL_RUNNING_JOBS));
+        context.addServlet(pendingJobsHolder, convertUrlToPath(REST_URL_PENDING_JOBS));
         context.addServlet(finishedJobsHolder, convertUrlToPath(REST_URL_FINISHED_JOBS));
         context.addServlet(
                 systemMonitoringHolder, convertUrlToPath(REST_URL_SYSTEM_MONITORING_INFORMATION));
