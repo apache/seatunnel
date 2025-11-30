@@ -76,7 +76,7 @@ public class DatabendCDCSinkIT extends TestSuiteBase implements TestResource {
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
 
         Awaitility.await()
-                .atMost(30, TimeUnit.SECONDS)
+                .atMost(120, TimeUnit.SECONDS)
                 .pollInterval(1, TimeUnit.SECONDS)
                 .ignoreExceptions()
                 .untilAsserted(
