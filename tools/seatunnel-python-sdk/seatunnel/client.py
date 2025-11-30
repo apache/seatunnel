@@ -1,4 +1,5 @@
 import httpx
+from .helpers.httpMethod import HttpMethod
 
 class Client:
     def __init__(self, base_url: str, token: str | None = None, timeout: float = 10):
@@ -13,9 +14,9 @@ class Client:
             h["Authorization"] = f"Bearer {self.token}"
         return h
 
-    def request(self, method: str, path: str, **kwargs):
+    def request(self, method: HttpMethod, path: str, **kwargs):
         resp = self.session.request(
-            method,
+            method.value,
             f"{self.base_url}{path}",
             headers=self._headers(),
             **kwargs

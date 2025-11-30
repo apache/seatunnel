@@ -1,3 +1,5 @@
+from ..helpers.httpMethod import HttpMethod
+
 class ClusterApi:
     def __init__(self, client):
         self.client = client
@@ -6,4 +8,4 @@ class ClusterApi:
         """
         Returns an overview over the Zeta engine cluster.
         """
-        return self.client.request("GET", f"/overview")
+        return self.client.request(HttpMethod.GET, f"/overview")
