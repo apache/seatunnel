@@ -303,7 +303,6 @@ public class PhysicalPlan {
     public void startJob() {
         isRunning = true;
         log.info("{} state process is start", getJobFullName());
-        updateJobState(JobStatus.SCHEDULED);
         stateProcess();
     }
 
