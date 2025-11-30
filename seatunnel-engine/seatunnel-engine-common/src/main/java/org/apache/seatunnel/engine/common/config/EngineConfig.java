@@ -59,6 +59,10 @@ public class EngineConfig {
             ServerConfigOptions.MasterServerConfigOptions.JOB_METRICS_PARTITION_COUNT
                     .defaultValue();
 
+    private boolean reportNotEndJobState =
+            ServerConfigOptions.MasterServerConfigOptions.REPORT_NON_TERMINAL_JOB_STATE
+                    .defaultValue();
+
     private ThreadShareMode taskExecutionThreadShareMode =
             ServerConfigOptions.WorkerServerConfigOptions.TASK_EXECUTION_THREAD_SHARE_MODE
                     .defaultValue();
@@ -138,6 +142,10 @@ public class EngineConfig {
                 ServerConfigOptions.MasterServerConfigOptions.JOB_METRICS_PARTITION_COUNT
                         + " must be > 0");
         this.jobMetricsPartitionCount = jobMetricsPartitionCount;
+    }
+
+    public void setReportNotEndJobState(boolean reportNotEndJobState) {
+        this.reportNotEndJobState = reportNotEndJobState;
     }
 
     public void setTaskExecutionThreadShareMode(ThreadShareMode taskExecutionThreadShareMode) {

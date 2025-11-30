@@ -80,6 +80,8 @@ public class PhysicalPlan {
 
     private JobMaster jobMaster;
 
+    private boolean reportNotEndJobState = false;
+
     private Map<TaskGroupLocation, CompletableFuture<SlotProfile>> preApplyResourceFutures =
             new HashMap<>();
 
@@ -133,6 +135,7 @@ public class PhysicalPlan {
     public void setJobMaster(JobMaster jobMaster) {
         this.jobMaster = jobMaster;
         pipelineList.forEach(pipeline -> pipeline.setJobMaster(jobMaster));
+        this.reportNotEndJobState = jobMaster.getEngineConfig().isReportNotEndJobState();
     }
 
     public PassiveCompletableFuture<JobResult> initStateFuture() {
@@ -274,6 +277,16 @@ public class PhysicalPlan {
             log.info(
                     String.format(
                             "%s turned from state %s to %s.", jobFullName, current, targetState));
+            if (!targetState.isEndState() && reportNotEndJobState) {
+                jobMaster
+                        .getCoordinatorService()
+                        .getEventProcessor()
+                        .process(
+                                new JobStateEvent(
+                                        jobImmutableInformation.getJobId(),
+                                        jobImmutableInformation.getJobConfig().getName(),
+                                        targetState));
+            }
             stateProcess();
         } catch (Exception e) {
             log.error(ExceptionUtils.getMessage(e));
@@ -303,7 +316,6 @@ public class PhysicalPlan {
     public void startJob() {
         isRunning = true;
         log.info("{} state process is start", getJobFullName());
-        updateJobState(JobStatus.SCHEDULED);
         stateProcess();
     }
 

@@ -96,6 +96,12 @@ public class ServerConfigOptions {
                         .intType()
                         .defaultValue(1)
                         .withDescription("Number of partitions for storing job metrics in IMap.");
+
+        public static final Option<Boolean> REPORT_NON_TERMINAL_JOB_STATE =
+                Options.key("report-non-terminal-job-state")
+                        .booleanType()
+                        .defaultValue(false)
+                        .withDescription("Whether to report non-terminal job states.");
         /////////////////////////////////////////////////
         // The options about Hazelcast IMAP store start
         public static final Option<Integer> BACKUP_COUNT =
