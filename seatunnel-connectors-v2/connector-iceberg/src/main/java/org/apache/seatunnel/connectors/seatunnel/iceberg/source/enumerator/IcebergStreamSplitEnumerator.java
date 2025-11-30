@@ -79,9 +79,9 @@ public class IcebergStreamSplitEnumerator extends AbstractSplitEnumerator {
         Set<Integer> readers = context.registeredReaders();
         while (true) {
             for (TablePath tablePath : pendingTables) {
-                checkThrowInterruptedException();
-
                 synchronized (stateLock) {
+                    checkThrowInterruptedException();
+
                     log.info("Scan table {}.", tablePath);
 
                     Collection<IcebergFileScanTaskSplit> splits = loadSplits(tablePath);
@@ -95,7 +95,9 @@ public class IcebergStreamSplitEnumerator extends AbstractSplitEnumerator {
                 initialized = true;
             }
 
-            stateLock.wait(sourceConfig.getIncrementScanInterval());
+            synchronized (stateLock) {
+                stateLock.wait(sourceConfig.getIncrementScanInterval());
+            }
         }
     }
 
@@ -111,8 +113,10 @@ public class IcebergStreamSplitEnumerator extends AbstractSplitEnumerator {
 
     @Override
     public void handleSplitRequest(int subtaskId) {
-        if (initialized) {
-            stateLock.notifyAll();
+        synchronized (stateLock) {
+            if (initialized) {
+                stateLock.notifyAll();
+            }
         }
     }
 
