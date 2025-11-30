@@ -67,7 +67,7 @@ public class JdbcSinkOptions extends JdbcCommonOptions {
                     .withDescription("auto commit");
 
     public static final Option<Integer> MAX_RETRIES =
-            Options.key("max_retries").intType().defaultValue(0).withDescription("max_retired");
+            Options.key("max_retries").intType().defaultValue(0).withDescription("max_retries");
 
     public static final Option<String> XA_DATA_SOURCE_CLASS_NAME =
             Options.key("xa_data_source_class_name")
