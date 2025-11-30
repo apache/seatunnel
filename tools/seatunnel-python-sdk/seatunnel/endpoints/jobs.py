@@ -1,4 +1,5 @@
 from ..helpers.httpMethod import HttpMethod
+from ..helpers.jobStatus import JobStatus
 from ..helpers.submitJobQueryParams import SubmitJobQueryParams
 
 class JobsApi:
@@ -22,3 +23,10 @@ class JobsApi:
         Return Details Of A Job
         """
         return self.client.request(HttpMethod.GET, f"/job-info/{jobId}")
+    
+    def getFinishedJobsInfo(self, state: JobStatus | None = None):
+        """
+        Return Details Of A Job
+        """
+        jobStatus = "" if state is None else state.value
+        return self.client.request(HttpMethod.GET, f"/finished-jobs/{jobStatus}")

@@ -1,0 +1,8 @@
+from enum import Enum
+
+class JobStatus(Enum):
+    FINISHED = "FINISHED"
+    CANCELED = "CANCELED"
+    FAILED = "FAILED"
+    SAVEPOINT_DONE = "SAVEPOINT_DONE"
+    UNKNOWABLE = "UNKNOWABLE"
