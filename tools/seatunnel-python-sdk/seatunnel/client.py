@@ -8,17 +8,10 @@ class Client:
         self.timeout = timeout
         self.session = httpx.Client(timeout=timeout)
 
-    def _headers(self):
-        h = {"Content-Type": "application/json"}
-        if self.token:
-            h["Authorization"] = f"Bearer {self.token}"
-        return h
-
     def request(self, method: HttpMethod, path: str, **kwargs):
         resp = self.session.request(
             method.value,
             f"{self.base_url}{path}",
-            headers=self._headers(),
             **kwargs
         )
         

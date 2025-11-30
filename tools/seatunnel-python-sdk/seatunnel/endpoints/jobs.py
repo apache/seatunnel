@@ -1,6 +1,6 @@
 from ..helpers.httpMethod import HttpMethod
 from ..helpers.jobStatus import JobStatus
-from ..helpers.submitJobQueryParams import SubmitJobQueryParams
+from ..helpers.submitJobQueryParams import SubmitJobQueryParams, SubmitJobFileQueryParams
 
 class JobsApi:
     def __init__(self, client):
@@ -10,7 +10,25 @@ class JobsApi:
         """
         Submit A Job
         """
-        return self.client.request(HttpMethod.POST, "/submit-job", content=conf, params=params.__dict__)
+        return self.client.request(
+            HttpMethod.POST, 
+            "/submit-job", 
+            content=conf, 
+            params=params.__dict__
+        )
+    
+    def submitJobFromFile(self, filePath: str, params: SubmitJobFileQueryParams):
+        """
+        Submit A Job By Upload Config File
+        """
+        with open(filePath, "rb") as file:
+            files = {"config_file": file}
+            return self.client.request(
+                HttpMethod.POST,
+                "/submit-job/upload",
+                files=files,
+                params=params.__dict__
+            )
 
     def getRunningJobs(self):
         """
