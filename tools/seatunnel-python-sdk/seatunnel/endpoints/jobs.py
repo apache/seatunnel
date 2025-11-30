@@ -16,3 +16,9 @@ class JobsApi:
         Returns An Overview And State Of All Jobs
         """
         return self.client.request(HttpMethod.GET, "/running-jobs")
+    
+    def getJobDetails(self, jobId: int):
+        """
+        Return Details Of A Job
+        """
+        return self.client.request(HttpMethod.GET, f"/job-info/{jobId}")
