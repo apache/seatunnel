@@ -36,6 +36,8 @@ import org.apache.seatunnel.connectors.seatunnel.elasticsearch.serialize.type.In
 import lombok.NonNull;
 
 import java.nio.ByteBuffer;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.time.temporal.Temporal;
 import java.util.Collections;
 import java.util.HashMap;
@@ -45,6 +47,9 @@ import java.util.function.Function;
 
 /** use in elasticsearch version >= 2.x and <= 8.x */
 public class ElasticsearchRowSerializer implements SeaTunnelRowSerializer {
+    private static final DateTimeFormatter LOCAL_DATE_TIME_FORMATTER =
+            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+
     private final SeaTunnelRowType seaTunnelRowType;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -203,6 +208,9 @@ public class ElasticsearchRowSerializer implements SeaTunnelRowSerializer {
     private Object convertValue(String fieldName, Object value) {
         if (value instanceof Temporal) {
             // jackson not support jdk8 new time api
+            if (value instanceof LocalDateTime) {
+                return ((LocalDateTime) value).format(LOCAL_DATE_TIME_FORMATTER);
+            }
             return value.toString();
         } else if (value instanceof Map) {
             for (Map.Entry<?, ?> entry : ((Map<?, ?>) value).entrySet()) {
