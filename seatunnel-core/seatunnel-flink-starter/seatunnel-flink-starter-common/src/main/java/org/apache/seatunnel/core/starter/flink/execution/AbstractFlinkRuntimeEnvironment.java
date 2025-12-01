@@ -89,13 +89,13 @@ public abstract class AbstractFlinkRuntimeEnvironment implements RuntimeEnvironm
         long interval = intervalOpt.orElse(DEFAULT_CHECKPOINT_INTERVAL_MS);
 
         if (jobMode == JobMode.BATCH && !positiveInterval) {
-            log.info(
+            LOGGER.info(
                     "Checkpoint is disabled for batch job because 'checkpoint.interval' is not set or <= 0.");
             return;
         }
 
         if (hasExplicitInterval && !positiveInterval) {
-            log.warn(
+            LOGGER.warn(
                     "checkpoint.interval is set to {} which is not positive, fallback to default {} ms for streaming job.",
                     interval,
                     DEFAULT_CHECKPOINT_INTERVAL_MS);
@@ -207,7 +207,7 @@ public abstract class AbstractFlinkRuntimeEnvironment implements RuntimeEnvironm
         if (this.jobMode.equals(JobMode.BATCH)) {
             OptionalLong intervalOpt = resolveCheckpointInterval(false);
             if (intervalOpt.isPresent() && intervalOpt.getAsLong() > 0) {
-                log.info(
+                LOGGER.info(
                         "Flink batch runtime does not support checkpoint-based restore; 'checkpoint.interval' > 0 will make this batch job run in streaming runtime.");
             } else {
                 environment.setRuntimeMode(RuntimeExecutionMode.BATCH);
@@ -221,7 +221,7 @@ public abstract class AbstractFlinkRuntimeEnvironment implements RuntimeEnvironm
         }
         if (config.hasPath(ConfigKeyName.CHECKPOINT_INTERVAL)) {
             if (warnLegacy) {
-                log.warn(
+                LOGGER.warn(
                         "the parameter 'execution.checkpoint.interval' will be deprecated, please use common parameter 'checkpoint.interval' to set it");
             }
             return OptionalLong.of(config.getLong(ConfigKeyName.CHECKPOINT_INTERVAL));
