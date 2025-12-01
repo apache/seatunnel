@@ -278,7 +278,9 @@ public class PhysicalPlan {
             log.info(
                     String.format(
                             "%s turned from state %s to %s.", jobFullName, current, targetState));
-            if (!targetState.isEndState() && this.engineConfig.isReportNonTerminalJobState()) {
+            if (!targetState.isEndState()
+                    && this.engineConfig != null
+                    && this.engineConfig.isReportNonTerminalJobState()) {
                 jobMaster
                         .getCoordinatorService()
                         .getEventProcessor()
