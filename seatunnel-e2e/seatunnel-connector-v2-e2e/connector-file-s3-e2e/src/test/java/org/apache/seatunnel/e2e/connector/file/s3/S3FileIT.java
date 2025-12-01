@@ -20,10 +20,8 @@ package org.apache.seatunnel.e2e.connector.file.s3;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
-import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.container.TestHelper;
-import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 import org.apache.seatunnel.e2e.common.util.ContainerUtil;
 
@@ -50,12 +48,14 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
-@DisabledOnContainer(
-        value = {},
-        type = {EngineType.SPARK},
-        disabledReason =
-                "1.The apache-compress version is not compatible with apache-poi. 2.Spark Engine is not compatible with commons-net")
+// @DisabledOnContainer(
+//        value = {},
+//        type = {EngineType.SPARK},
+//        disabledReason =
+//                "1.The apache-compress version is not compatible with apache-poi. 2.Spark Engine
+// is not compatible with commons-net")
 @Slf4j
+@Disabled("have no s3 environment to run this test")
 public class S3FileIT extends TestSuiteBase implements TestResource {
     private GenericContainer<?> s3Container;
 
