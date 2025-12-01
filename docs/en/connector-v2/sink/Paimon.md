@@ -50,6 +50,14 @@ Sink connector for Apache Paimon. It can support cdc mode 、auto create table.
 hive-exec-xxx.jar
 libfb303-xxx.jar
 ```
+> If you use the oss filesystem. You need to provide the oss related [jindo sdk](https://aliyun.github.io/alibabacloud-jindodata/jindosdk/jindosdk_download/) dependencies, place them in the <SEATUNNEL_HOME>/lib directory.
+> You also need to add the paimon-flink-1.18-1.1.1.jar and paimon-oss-1.1.1.jar to the <SEATUNNEL_HOME>/lib directory.
+~~~
+jindo-core-6.2.0.jar
+jindo-flink-6.2.0-full.jar
+jindo-sdk-6.2.0.jar
+~~~
+
 
 > Some versions of the hive-exec package do not have libfb303-xxx.jar, so you also need to manually import the Jar package.
 
@@ -100,9 +108,11 @@ All `changelog-producer` modes are currently supported. The default is `none`.
 > When you use a streaming mode to read paimon table，different mode will produce [different results](https://github.com/apache/seatunnel/blob/dev/docs/en/connector-v2/source/Paimon.md#changelog)。
 
 ## Filesystems
-The Paimon connector supports writing data to multiple file systems. Currently, the supported file systems are hdfs and s3.
-If you use the s3 filesystem. You can configure the `fs.s3a.access-key`、`fs.s3a.secret-key`、`fs.s3a.endpoint`、`fs.s3a.path.style.access`、`fs.s3a.aws.credentials.provider` properties in the `paimon.hadoop.conf` option.
-Besides, the warehouse should start with `s3a://`.
+The Paimon connector supports writing data to multiple file systems. Currently, the supported file systems are hdfs, s3 and oss.
+- If you use the s3 filesystem. You can configure the `fs.s3a.access-key`、`fs.s3a.secret-key`、`fs.s3a.endpoint`、`fs.s3a.path.style.access`、`fs.s3a.aws.credentials.provider` properties in the `paimon.hadoop.conf` option.
+- If you use the oss filesystem. You can configure the `fs.oss.accessKeyId`、`fs.oss.accessKeySecret`、`fs.oss.endpoint`、`fs.oss.impl`、`fs.oss.path.style.access`、`fs.AbstractFileSystem.oss.impl` properties in the `paimon.hadoop.conf` option.
+
+Besides, the warehouse should start with `s3a://` or `oss://`.
 
 ## Schema Evolution
 Cdc Ingestion supports a limited number of schema changes. Currently supported schema changes includes:
@@ -237,6 +247,52 @@ sink {
   }
 }
 ```
+
+### Single table with oss filesystem
+
+~~~hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+sink {
+  Paimon {
+    warehouse="oss://<your-bucket-name>/paimon/"
+    database="your_database_name"
+    table="your_table_name"
+    paimon.hadoop.conf = {
+        fs.oss.accessKeyId=your_access_key_id
+        fs.oss.accessKeySecret=your_access_key_secret
+        fs.oss.endpoint="your_endpoint_address"
+        fs.oss.impl="com.aliyun.jindodata.oss.JindoOssFileSystem"
+        fs.allowed-fallback-filesystems=oss
+        fs.AbstractFileSystem.oss.impl="com.aliyun.jindodata.oss.OSS"
+        fs.oss.connection.secure.enabled="true"
+    }
+  }
+}
+
+transform {
+  Sql {
+    query = "select a,b,c,d,e,f,g,h,i,j,k,l,m,n from your_source_hive_table_name where n = 'ABC' "
+  }
+}
+
+source {
+  Hive {
+    table_name = "your_source_hive_table_name"
+    hive.hadoop.conf-path = "/etc/hive/conf"
+    metastore_uri = "thrift://example.com:9083"
+    hive_site_path = "/etc/hive/conf/hive-site.xml"
+    kerberos_principal = "your-kerberos-principal"
+    kerberos_keytab_path = "your-kerberos-keytab-path"
+    krb5_path = "/etc/krb5.conf"
+    read_partitions = ["dt=2025-11-30"]
+    read_columns = [a,b,c,d,e,f,g,h,i,j,k,l,m,n]
+  }
+}
+~~~
 
 ### Single table(Specify hadoop HA config and kerberos config)
 

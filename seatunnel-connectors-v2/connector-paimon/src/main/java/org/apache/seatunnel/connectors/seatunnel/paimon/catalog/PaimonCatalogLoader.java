@@ -49,6 +49,8 @@ public class PaimonCatalogLoader implements Serializable {
 
     private static final String HDFS_PREFIX = "hdfs://";
     private static final String S3A_PREFIX = "s3a://";
+    private static final String OSS_PREFIX = "oss://";
+
     /** ******* Hdfs constants ************* */
     private static final String HDFS_IMPL = "org.apache.hadoop.hdfs.DistributedFileSystem";
 
@@ -90,7 +92,7 @@ public class PaimonCatalogLoader implements Serializable {
             if (StringUtils.isNotBlank(username)) {
                 UserGroupInformation.setLoginUser(UserGroupInformation.createRemoteUser(username));
             }
-        } else if (warehouse.startsWith(S3A_PREFIX)) {
+        } else if (warehouse.startsWith(S3A_PREFIX) || warehouse.startsWith(OSS_PREFIX)) {
             optionsMap.putAll(paimonHadoopConfiguration.getPropsWithPrefix(StringUtils.EMPTY));
         }
         if (PaimonCatalogEnum.HIVE.getType().equals(catalogType.getType())) {
