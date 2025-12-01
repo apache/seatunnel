@@ -58,6 +58,7 @@ import io.milvus.grpc.FieldSchema;
 import io.milvus.grpc.IndexDescription;
 import io.milvus.grpc.KeyValuePair;
 import io.milvus.grpc.MutationResult;
+import io.milvus.grpc.QueryResults;
 import io.milvus.param.ConnectParam;
 import io.milvus.param.IndexType;
 import io.milvus.param.MetricType;
@@ -69,6 +70,7 @@ import io.milvus.param.collection.FieldType;
 import io.milvus.param.collection.HasCollectionParam;
 import io.milvus.param.collection.LoadCollectionParam;
 import io.milvus.param.dml.InsertParam;
+import io.milvus.param.dml.QueryParam;
 import io.milvus.param.index.CreateIndexParam;
 import io.milvus.param.index.DescribeIndexParam;
 import lombok.extern.slf4j.Slf4j;
@@ -82,6 +84,8 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -714,5 +718,115 @@ public class MilvusIT extends TestSuiteBase implements TestResource {
         }
 
         log.info("Index verification passed for collection: {}.{}", database, collection);
+    }
+
+    @TestTemplate
+    public void testStreamingFakeToMilvus(TestContainer container)
+            throws IOException, InterruptedException {
+        // flush by checkpoint interval
+        String jobId = "1";
+        String database = "streaming_test";
+        String collection = "streaming_simple_example";
+        String vectorField = "book_intro";
+        int checkpointInterval = 30000;
+        CompletableFuture.runAsync(
+                () -> {
+                    try {
+                        container.executeJob(
+                                "/streaming-fake-to-milvus.conf",
+                                jobId,
+                                "database=" + database,
+                                "collection=" + collection,
+                                "batch_size=3");
+                    } catch (IOException | InterruptedException e) {
+                        throw new RuntimeException(e);
+                    }
+                });
+
+        // count write records
+        waitCollectionReady(database, collection, vectorField);
+        Awaitility.await()
+                .atMost(60, TimeUnit.SECONDS)
+                .pollInterval(2, TimeUnit.SECONDS)
+                .until(() -> countCollectionEntities(database, collection) >= 9);
+        Assertions.assertEquals(9, countCollectionEntities(database, collection));
+        TimeUnit.MILLISECONDS.sleep(checkpointInterval);
+        Assertions.assertEquals(10, countCollectionEntities(database, collection));
+
+        // cancel jobs
+        container.cancelJob(jobId);
+    }
+
+    private void waitCollectionReady(
+            String databaseName, String collectionName, String vectorFieldName) {
+        // assert table exist
+        Awaitility.await()
+                .atMost(60, TimeUnit.SECONDS)
+                .pollInterval(2, TimeUnit.SECONDS)
+                .until(
+                        () -> {
+                            R<Boolean> hasCollectionResponse =
+                                    this.milvusClient.hasCollection(
+                                            HasCollectionParam.newBuilder()
+                                                    .withDatabaseName(databaseName)
+                                                    .withCollectionName(collectionName)
+                                                    .build());
+                            Assertions.assertEquals(
+                                    R.Status.Success.getCode(),
+                                    hasCollectionResponse.getStatus(),
+                                    Optional.ofNullable(hasCollectionResponse.getException())
+                                            .map(Exception::getMessage)
+                                            .orElse(""));
+                            return hasCollectionResponse.getData();
+                        });
+
+        // create index
+        R<RpcStatus> createIndexResponse =
+                milvusClient.createIndex(
+                        CreateIndexParam.newBuilder()
+                                .withDatabaseName(databaseName)
+                                .withCollectionName(collectionName)
+                                .withFieldName(vectorFieldName)
+                                .withIndexType(IndexType.FLAT)
+                                .withMetricType(MetricType.L2)
+                                .build());
+        Assertions.assertEquals(
+                R.Status.Success.getCode(),
+                createIndexResponse.getStatus(),
+                Optional.ofNullable(createIndexResponse.getException())
+                        .map(Exception::getMessage)
+                        .orElse(""));
+
+        // load collection
+        R<RpcStatus> loadCollectionResponse =
+                milvusClient.loadCollection(
+                        LoadCollectionParam.newBuilder()
+                                .withDatabaseName(databaseName)
+                                .withCollectionName(collectionName)
+                                .build());
+        Assertions.assertEquals(
+                R.Status.Success.getCode(),
+                loadCollectionResponse.getStatus(),
+                Optional.ofNullable(loadCollectionResponse.getException())
+                        .map(Exception::getMessage)
+                        .orElse(""));
+    }
+
+    private long countCollectionEntities(String databaseName, String collectionName) {
+        R<QueryResults> queryResults =
+                milvusClient.query(
+                        QueryParam.newBuilder()
+                                .withDatabaseName(databaseName)
+                                .withCollectionName(collectionName)
+                                .withOutFields(Collections.singletonList("count(*)"))
+                                .build());
+        Assertions.assertEquals(R.Status.Success.getCode(), queryResults.getStatus());
+        return queryResults
+                .getData()
+                .getFieldsData(0)
+                .getScalars()
+                .getLongData()
+                .getDataList()
+                .get(0);
     }
 }

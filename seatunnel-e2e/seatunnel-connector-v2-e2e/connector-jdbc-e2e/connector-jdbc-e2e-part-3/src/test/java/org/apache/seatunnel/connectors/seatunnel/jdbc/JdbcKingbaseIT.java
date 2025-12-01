@@ -49,7 +49,7 @@ import java.util.stream.Collectors;
  */
 @Disabled("Due to copyright reasons, you need to download the trial version km license yourself")
 public class JdbcKingbaseIT extends AbstractJdbcIT {
-    private static final String KINGBASE_IMAGE = "huzhihui/kingbase:v8r6";
+    private static final String KINGBASE_IMAGE = "seatunnelhub/kingbase:v8r6";
     private static final String KINGBASE_CONTAINER_HOST = "e2e_KINGBASEDb";
     private static final String KINGBASE_DATABASE = "test";
     private static final String KINGBASE_SCHEMA = "public";

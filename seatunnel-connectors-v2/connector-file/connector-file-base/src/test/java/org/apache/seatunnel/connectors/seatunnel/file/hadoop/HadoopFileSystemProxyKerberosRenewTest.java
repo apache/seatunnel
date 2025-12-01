@@ -37,15 +37,40 @@ import static org.mockito.Mockito.when;
 class HadoopFileSystemProxyKerberosRenewTest {
 
     private static void set(Object target, String field, Object value) throws Exception {
-        Field f = target.getClass().getDeclaredField(field);
+        Field f = null;
+        Class<?> cls = target.getClass();
+        while (cls != null) {
+            try {
+                f = cls.getDeclaredField(field);
+                break;
+            } catch (NoSuchFieldException ignore) {
+                cls = cls.getSuperclass();
+            }
+        }
+        if (f == null) {
+            throw new NoSuchFieldException(field);
+        }
         f.setAccessible(true);
         f.set(target, value);
     }
 
     private static Object invoke(Object target, String method) throws Exception {
-        Method m = target.getClass().getDeclaredMethod(method);
+        Method m = null;
+        Class<?> cls = target.getClass();
+        while (cls != null) {
+            try {
+                m = cls.getDeclaredMethod(method, java.security.PrivilegedExceptionAction.class);
+                break;
+            } catch (NoSuchMethodException ignore) {
+                cls = cls.getSuperclass();
+            }
+        }
+        if (m == null) {
+            throw new NoSuchMethodException(method);
+        }
         m.setAccessible(true);
-        return m.invoke(target);
+        // call doAsPrivileged with a no-op action returning null
+        return m.invoke(target, (java.security.PrivilegedExceptionAction<Object>) () -> null);
     }
 
     @Test
@@ -59,8 +84,8 @@ class HadoopFileSystemProxyKerberosRenewTest {
         set(proxy, "isAuthTypeKerberos", true);
         set(proxy, "userGroupInformation", ugi);
 
-        // invoke private maybeRelogin()
-        invoke(proxy, "maybeRelogin");
+        // invoke private doAsPrivileged -> which should call maybeRelogin internally
+        invoke(proxy, "doAsPrivileged");
 
         verify(ugi, times(1)).checkTGTAndReloginFromKeytab();
     }
@@ -76,7 +101,7 @@ class HadoopFileSystemProxyKerberosRenewTest {
         set(proxy, "isAuthTypeKerberos", true);
         set(proxy, "userGroupInformation", ugi);
 
-        invoke(proxy, "maybeRelogin");
+        invoke(proxy, "doAsPrivileged");
 
         verify(ugi, never()).checkTGTAndReloginFromKeytab();
     }
@@ -97,7 +122,7 @@ class HadoopFileSystemProxyKerberosRenewTest {
         Assertions.assertDoesNotThrow(
                 () -> {
                     try {
-                        invoke(proxy, "maybeRelogin");
+                        invoke(proxy, "doAsPrivileged");
                     } catch (Exception e) {
                         // unwrap reflection InvocationTargetException if any
                         throw new RuntimeException(e);

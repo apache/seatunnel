@@ -36,6 +36,9 @@ import java.util.function.IntFunction;
 public class JdbcBatchStatementExecutorBuilder {
     private static final String MERGE_TREE_ENGINE_SUFFIX = "MergeTree";
     private static final String REPLACING_MERGE_TREE_ENGINE_SUFFIX = "ReplacingMergeTree";
+    private static final String LOG_ENGINE = "Log";
+    private static final String TINY_LOG_ENGINE = "TinyLog";
+    private static final String STRIPE_LOG_ENGINE = "StripeLog";
     private String table;
     private String tableEngine;
     private SeaTunnelRowType rowType;
@@ -48,6 +51,16 @@ public class JdbcBatchStatementExecutorBuilder {
 
     private boolean supportMergeTreeEngineExperimentalLightweightDelete() {
         return tableEngine.endsWith(MERGE_TREE_ENGINE_SUFFIX) && allowExperimentalLightweightDelete;
+    }
+
+    private boolean isLogFamilyEngine() {
+        if (tableEngine == null) {
+            return false;
+        }
+        String engine = tableEngine.trim();
+        return engine.equals(LOG_ENGINE)
+                || engine.equals(TINY_LOG_ENGINE)
+                || engine.equals(STRIPE_LOG_ENGINE);
     }
 
     private boolean supportReplacingMergeTreeTableUpsert() {
@@ -70,6 +83,11 @@ public class JdbcBatchStatementExecutorBuilder {
 
         JdbcRowConverter valueRowConverter =
                 new JdbcRowConverter(rowType, clickhouseTableSchema, getDefaultProjectionFields());
+
+        if (isLogFamilyEngine()) {
+            return createInsertBufferedExecutor(table, rowType, valueRowConverter);
+        }
+
         if (primaryKeys == null || primaryKeys.length == 0) {
             // INSERT: writer all events when primary-keys is empty
             return createInsertBufferedExecutor(table, rowType, valueRowConverter);

@@ -21,10 +21,12 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeFormatterBuilder;
 import java.time.format.SignStyle;
+import java.time.temporal.Temporal;
 import java.time.temporal.TemporalAccessor;
 import java.time.temporal.TemporalQueries;
 import java.util.HashMap;
@@ -312,6 +314,20 @@ public class DateTimeUtils {
 
     public static String toString(LocalDateTime dateTime, Formatter formatter) {
         return dateTime.format(FORMATTER_MAP.get(formatter));
+    }
+
+    public static String toString(OffsetDateTime offsetDateTime, Formatter formatter) {
+        return toString(offsetDateTime.toLocalDateTime(), formatter);
+    }
+
+    public static String toString(Temporal temporal, Formatter formatter) {
+        if (temporal instanceof OffsetDateTime) {
+            return toString(((OffsetDateTime) temporal).toLocalDateTime(), formatter);
+        } else if (temporal instanceof java.time.ZonedDateTime) {
+            return toString(((java.time.ZonedDateTime) temporal).toLocalDateTime(), formatter);
+        } else {
+            return FORMATTER_MAP.get(formatter).format(temporal);
+        }
     }
 
     public static String toString(long timestamp, Formatter formatter) {
