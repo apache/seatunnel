@@ -20,6 +20,7 @@ package org.apache.seatunnel.engine.server.dag.physical;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.common.utils.RetryUtils;
 import org.apache.seatunnel.engine.common.Constant;
+import org.apache.seatunnel.engine.common.config.EngineConfig;
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 import org.apache.seatunnel.engine.common.job.JobResult;
 import org.apache.seatunnel.engine.common.job.JobStateEvent;
@@ -80,7 +81,7 @@ public class PhysicalPlan {
 
     private JobMaster jobMaster;
 
-    private boolean reportNonTerminalJobState = false;
+    private EngineConfig engineConfig;
 
     private Map<TaskGroupLocation, CompletableFuture<SlotProfile>> preApplyResourceFutures =
             new HashMap<>();
@@ -135,7 +136,7 @@ public class PhysicalPlan {
     public void setJobMaster(JobMaster jobMaster) {
         this.jobMaster = jobMaster;
         pipelineList.forEach(pipeline -> pipeline.setJobMaster(jobMaster));
-        this.reportNonTerminalJobState = jobMaster.getEngineConfig().isReportNonTerminalJobState();
+        this.engineConfig = jobMaster.getEngineConfig();
     }
 
     public PassiveCompletableFuture<JobResult> initStateFuture() {
@@ -277,7 +278,7 @@ public class PhysicalPlan {
             log.info(
                     String.format(
                             "%s turned from state %s to %s.", jobFullName, current, targetState));
-            if (!targetState.isEndState() && reportNonTerminalJobState) {
+            if (!targetState.isEndState() && this.engineConfig.isReportNonTerminalJobState()) {
                 jobMaster
                         .getCoordinatorService()
                         .getEventProcessor()
