@@ -99,6 +99,7 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
                     + "  bigserial_col BIGSERIAL,\n"
                     + "  date_col DATE,\n"
                     + "  timestamp_col TIMESTAMP,\n"
+                    + "  timestamp_tz_col TIMESTAMP WITH TIME ZONE,\n"
                     + "  bpchar_col BPCHAR(10),\n"
                     + "  age INT NOT null,\n"
                     + "  name VARCHAR(255) NOT null,\n"
@@ -135,6 +136,7 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
                     + "    bigserial_col BIGSERIAL,\n"
                     + "    date_col DATE,\n"
                     + "    timestamp_col TIMESTAMP,\n"
+                    + "    timestamp_tz_col TIMESTAMP WITH TIME ZONE,\n"
                     + "    bpchar_col BPCHAR(10),\n"
                     + "    age int4 NOT NULL,\n"
                     + "    name varchar(255) NOT NULL,\n"
@@ -146,7 +148,7 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
                     + "    multipolygon varchar(2000) NULL,\n"
                     + "    geometrycollection varchar(2000) NULL,\n"
                     + "    geog varchar(2000) NULL,\n"
-                    + "    json_col json NOT NULL \n,"
+                    + "    json_col json NOT NULL,\n"
                     + "    jsonb_col jsonb NOT NULL,\n"
                     + "    xml_col xml NOT NULL\n"
                     + "  )";
@@ -171,6 +173,7 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
                     + "bigserial_col,\n"
                     + "date_col,\n"
                     + "timestamp_col,\n"
+                    + "timestamp_tz_col,\n"
                     + "bpchar_col,\n"
                     + "age,\n"
                     + "name,\n"
@@ -207,7 +210,8 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
                     + "   bigserial_col,\n"
                     + "   date_col,\n"
                     + "   timestamp_col,\n"
-                    + "   bpchar_col,"
+                    + "   timestamp_tz_col,\n"
+                    + "   bpchar_col,\n"
                     + "  age,\n"
                     + "  name,\n"
                     + "  cast(point as geometry) as point,\n"
@@ -215,7 +219,7 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
                     + "  cast(polygon_colums as geometry) as polygon_colums,\n"
                     + "  cast(multipoint as geometry) as multipoint,\n"
                     + "  cast(multilinestring as geometry) as multilinestring,\n"
-                    + "  cast(multipolygon as geometry) as multilinestring,\n"
+                    + "  cast(multipolygon as geometry) as multipolygon,\n"
                     + "  cast(geometrycollection as geometry) as geometrycollection,\n"
                     + "  cast(geog as geography) as geog,\n"
                     + "   json_col,\n"
@@ -338,7 +342,14 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
                                 + " job run failed in "
                                 + container.getClass().getSimpleName()
                                 + ".");
-                Assertions.assertIterableEquals(querySql(SOURCE_SQL), querySql(SINK_SQL));
+                java.util.List<java.util.List<Object>> src = querySql(SOURCE_SQL);
+                java.util.List<java.util.List<Object>> dst = querySql(SINK_SQL);
+                if (!src.isEmpty() && !dst.isEmpty()) {
+                    Object srcTz = src.get(0).size() > 19 ? src.get(0).get(19) : null;
+                    Object dstTz = dst.get(0).size() > 19 ? dst.get(0).get(19) : null;
+                    log.info("First row tz src={}, dst={}", srcTz, dstTz);
+                }
+                Assertions.assertIterableEquals(src, dst);
             } finally {
                 executeSQL("truncate table pg_e2e_sink_table");
             }
@@ -411,6 +422,7 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
                                 + "    bigserial_col,\n"
                                 + "    date_col,\n"
                                 + "    timestamp_col,\n"
+                                + "    timestamp_tz_col,\n"
                                 + "    bpchar_col,\n"
                                 + "    age,\n"
                                 + "    name,\n"
@@ -449,6 +461,7 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
                                 + "    10000,\n"
                                 + "    '2023-05-07',\n"
                                 + "    '2023-05-07 14:30:00',\n"
+                                + "    '2023-05-07 14:30:00+08:00',\n"
                                 + "    'Testing',\n"
                                 + "    21,\n"
                                 + "    'Leblanc',\n"

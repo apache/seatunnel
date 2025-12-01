@@ -123,6 +123,159 @@ Please refer [security](security.md)
 
 ------------------------------------------------------------------------------------------
 
+### Returns Diagnostic Information For Pending Jobs
+
+<details>
+ <summary><code>GET</code> <code><b>/pending-jobs?jobId=123&limit=10</b></code> <code>(Inspect the pending queue, slot usage and blocking reasons.)</code></summary>
+
+#### Parameters
+
+> |   name   |   type   | data type | description                                                                 |
+> |----------|----------|-----------|-----------------------------------------------------------------------------|
+> | jobId    | optional | long      | If set, only returns the diagnostics for the specified job. When both `jobId` and `limit` are provided, `jobId` takes precedence and `limit` is ignored. |
+> | limit    | optional | integer   | Limits the number of jobs returned. This parameter is ignored when `jobId` is provided. |
+> | pretty   | optional | boolean   | When `true`, pretty-print JSON and format timestamp fields.                 |
+
+#### Responses
+
+```json
+{
+  "queueSummary": {
+    "size": 2,
+    "scheduleStrategy": "WAIT",
+    "oldestEnqueueTimestamp": 1717500000000,
+    "newestEnqueueTimestamp": 1717500005000,
+    "lackingTaskGroups": 6
+  },
+  "clusterSnapshot": {
+    "totalSlots": 8,
+    "freeSlots": 1,
+    "assignedSlots": 7,
+    "workerCount": 2,
+    "workers": [
+      {
+        "address": "10.0.0.8:5801",
+        "tags": {
+          "zone": "az1"
+        },
+        "totalSlots": 4,
+        "freeSlots": 0,
+        "dynamicSlot": false,
+        "cpuUsage": 0.83,
+        "memUsage": 0.64,
+        "runningJobIds": [
+          1001,
+          1002
+        ]
+      }
+    ]
+  },
+  "pendingJobs": [
+    {
+      "jobId": 1003,
+      "jobName": "cdc_mysql_to_es",
+      "pendingSourceState": "SUBMIT",
+      "jobStatus": "PENDING",
+      "enqueueTimestamp": 1717500000000,
+      "checkTime": 1717500005000,
+      "waitDurationMs": 5000,
+      "checkCount": 3,
+      "totalTaskGroups": 16,
+      "allocatedTaskGroups": 10,
+      "lackingTaskGroups": 6,
+      "failureReason": "REQUEST_FAILED",
+      "failureMessage": "NoEnoughResourceException: can't apply resource request",
+      "tagFilter": {},
+      "blockingJobIds": [
+        1001
+      ],
+      "pipelines": [
+        {
+          "pipelineId": 1,
+          "pipelineName": "Job job-name, Pipeline: [(1/2)]",
+          "totalTaskGroups": 8,
+          "allocatedTaskGroups": 5,
+          "lackingTaskGroups": 3,
+          "taskGroupDiagnostics": [
+            {
+              "taskGroupLocation": {
+                "jobId": 1003,
+                "pipelineId": 1,
+                "taskGroupId": 1
+              },
+              "taskFullName": "Source[0]",
+              "allocated": false,
+              "failureReason": "REQUEST_FAILED",
+              "failureMessage": "NoEnoughResourceException: slot not enough"
+            }
+          ]
+        }
+      ],
+      "lackingTaskGroupDiagnostics": [
+        {
+          "taskGroupLocation": {
+            "jobId": 1003,
+            "pipelineId": 1,
+            "taskGroupId": 1
+          },
+          "taskFullName": "Source[0]",
+          "allocated": false,
+          "failureReason": "REQUEST_FAILED",
+          "failureMessage": "NoEnoughResourceException: slot not enough"
+        }
+      ]
+    }
+  ]
+}
+```
+
+When `pretty=true`, the endpoint returns a pretty-printed JSON response and formats `oldestEnqueueTimestamp`, `newestEnqueueTimestamp`, `enqueueTimestamp`, and `checkTime` as `yyyy-MM-dd HH:mm:ss`.
+
+This endpoint helps troubleshoot why jobs stay in `PENDING` by showing the pending queue order, aggregated resource view, and per task-group slot request failures (tag mismatch, worker busy, resource exhausted, etc.).
+
+**Pending Jobs Response Fields**
+
+- **queueSummary** – overview of the entire pending queue.
+  - `size`: number of jobs currently pending.
+  - `scheduleStrategy`: strategy in use (e.g. `WAIT`, `FAIL_FAST`) that dictates what happens when resources are insufficient.
+  - `oldestEnqueueTimestamp` / `newestEnqueueTimestamp`: timestamps (ms) of the oldest/latest job in the queue.
+  - `lackingTaskGroups`: total TaskGroup count still waiting for slots. **Note**: This value reflects only the jobs included in the current response (i.e., the subset limited by the `limit` parameter or filtered by `jobId`), not the entire pending queue. To view the complete statistics for all pending jobs, call this API without the `limit` parameter.
+- **clusterSnapshot** – cluster resource snapshot (can be filtered by tags).
+  - `totalSlots` / `assignedSlots` / `freeSlots`: total, allocated and remaining slots in the filtered view.
+  - `workerCount`: number of workers that match the tag filters.
+  - `workers[]`: per-worker details:
+    - `address`: host:port of the worker.
+    - `tags`: worker-level tags.
+    - `totalSlots` / `freeSlots`: slot capacity and available slot count on that worker.
+    - `dynamicSlot`: whether the worker uses dynamic slot allocation.
+    - `cpuUsage` / `memUsage`: sampled system load (only present when `slot-allocate-strategy` is `SYSTEM_LOAD`).
+    - `runningJobIds[]`: jobs currently occupying slots on that worker (helps identify blockers).
+- **pendingJobs[]** – diagnostics for each pending job.
+  - `jobId` / `jobName`: identifiers.
+  - `pendingSourceState`: whether the job comes from a new submission (`SUBMIT`) or master switch restore (`RESTORE`).
+  - `jobStatus`: status recorded in the physical plan (typically `PENDING`).
+  - `enqueueTimestamp`: when the job entered the pending queue.
+  - `checkTime`: timestamp of the latest diagnostic snapshot.
+  - `waitDurationMs`: `checkTime - enqueueTimestamp`.
+  - `checkCount`: how many times the scheduler has checked this job.
+  - `totalTaskGroups` / `allocatedTaskGroups` / `lackingTaskGroups`: TaskGroup totals vs. assigned vs. lacking.
+  - `failureReason` / `failureMessage`: classified cause (e.g. `RESOURCE_NOT_ENOUGH`, `REQUEST_FAILED`) plus raw message.
+  - `tagFilter`: worker tag requirements declared by the job (if any).
+  - `blockingJobIds[]`: other jobs that currently occupy the required slots.
+  - `pipelines[]`: per-pipeline breakdown.
+    - `pipelineId` / `pipelineName`.
+    - `totalTaskGroups` / `allocatedTaskGroups` / `lackingTaskGroups`.
+    - `taskGroupDiagnostics[]` (per TaskGroup slot request state):
+      - `taskGroupLocation` (`jobId`, `pipelineId`, `taskGroupId`).
+      - `taskFullName`: human-readable name (source/sink, etc.).
+      - `allocated`: whether the slot request succeeded.
+      - `failureReason` / `failureMessage`: task-level cause when allocation failed.
+  - `lackingTaskGroupDiagnostics[]`: flattened list of `allocated=false` TaskGroups for quick review.
+
+</details>
+
+------------------------------------------------------------------------------------------
+
 ### Return Details Of A Job
 
 <details>
