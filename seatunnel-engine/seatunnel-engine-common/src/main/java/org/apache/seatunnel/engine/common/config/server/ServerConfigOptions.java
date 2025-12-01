@@ -96,12 +96,6 @@ public class ServerConfigOptions {
                         .intType()
                         .defaultValue(1)
                         .withDescription("Number of partitions for storing job metrics in IMap.");
-
-        public static final Option<Boolean> REPORT_NON_TERMINAL_JOB_STATE =
-                Options.key("report-non-terminal-job-state")
-                        .booleanType()
-                        .defaultValue(false)
-                        .withDescription("Whether to report non-terminal job states.");
         /////////////////////////////////////////////////
         // The options about Hazelcast IMAP store start
         public static final Option<Integer> BACKUP_COUNT =
@@ -301,6 +295,7 @@ public class ServerConfigOptions {
         public static final String EVENT_REPORT_HTTP = "event-report-http";
         public static final String EVENT_REPORT_HTTP_URL = "url";
         public static final String EVENT_REPORT_HTTP_HEADERS = "headers";
+        public static final String REPORT_NON_TERMINAL_JOB_STATE = "report-non-terminal-job-state";
 
         // The options for http server end
         /////////////////////////////////////////////////////

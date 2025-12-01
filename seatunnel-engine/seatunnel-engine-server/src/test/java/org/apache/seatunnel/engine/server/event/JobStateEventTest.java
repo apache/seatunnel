@@ -107,7 +107,7 @@ class JobStateEventTest extends AbstractSeaTunnelServerTest {
 
     @Test
     void testNotEndJobStateEvent() {
-        server.getCoordinatorService().getEngineConfig().setReportNotEndJobState(true);
+        server.getCoordinatorService().getEngineConfig().setReportNonTerminalJobState(true);
 
         JobEventProcessor eventProcessor =
                 (JobEventProcessor) server.getCoordinatorService().getEventProcessor();

@@ -188,10 +188,6 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
                                         .JOB_METRICS_PARTITION_COUNT
                                         .key(),
                                 getTextContent(node)));
-            } else if (ServerConfigOptions.MasterServerConfigOptions.REPORT_NON_TERMINAL_JOB_STATE
-                    .key()
-                    .equals(name)) {
-                engineConfig.setReportNotEndJobState(getBooleanValue(getTextContent(node)));
             } else if (ServerConfigOptions.WorkerServerConfigOptions
                     .TASK_EXECUTION_THREAD_SHARE_MODE
                     .key()
@@ -248,6 +244,15 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
                             headers.put(cleanNodeName(item), getTextContent(item));
                         }
                         engineConfig.setEventReportHttpHeaders(headers);
+                    }
+
+                    Node reportNonTerminalJobStateNode =
+                            attributes.getNamedItem(
+                                    ServerConfigOptions.MasterServerConfigOptions
+                                            .REPORT_NON_TERMINAL_JOB_STATE);
+                    if (reportNonTerminalJobStateNode != null) {
+                        engineConfig.setReportNonTerminalJobState(
+                                getBooleanValue(getTextContent(reportNonTerminalJobStateNode)));
                     }
                 }
             } else if (ServerConfigOptions.TELEMETRY.key().equals(name)) {

@@ -59,10 +59,6 @@ public class EngineConfig {
             ServerConfigOptions.MasterServerConfigOptions.JOB_METRICS_PARTITION_COUNT
                     .defaultValue();
 
-    private boolean reportNotEndJobState =
-            ServerConfigOptions.MasterServerConfigOptions.REPORT_NON_TERMINAL_JOB_STATE
-                    .defaultValue();
-
     private ThreadShareMode taskExecutionThreadShareMode =
             ServerConfigOptions.WorkerServerConfigOptions.TASK_EXECUTION_THREAD_SHARE_MODE
                     .defaultValue();
@@ -92,6 +88,7 @@ public class EngineConfig {
 
     private String eventReportHttpApi;
     private Map<String, String> eventReportHttpHeaders = Collections.emptyMap();
+    private boolean reportNonTerminalJobState = false;
 
     private ExecutionMode mode = ExecutionMode.CLUSTER;
 
@@ -144,8 +141,8 @@ public class EngineConfig {
         this.jobMetricsPartitionCount = jobMetricsPartitionCount;
     }
 
-    public void setReportNotEndJobState(boolean reportNotEndJobState) {
-        this.reportNotEndJobState = reportNotEndJobState;
+    public void setReportNonTerminalJobState(boolean reportNonTerminalJobState) {
+        this.reportNonTerminalJobState = reportNonTerminalJobState;
     }
 
     public void setTaskExecutionThreadShareMode(ThreadShareMode taskExecutionThreadShareMode) {

@@ -118,6 +118,7 @@ seatunnel:
       url: "http://example.com:1024/event/report"
       headers:
         Content-Type: application/json
+      report-non-terminal-job-state: false
 ```
 
 ### Flink Engine
