@@ -174,6 +174,13 @@ public class TextReadStrategy extends AbstractReadStrategy {
     }
 
     @Override
+    public void read(FileSourceSplit split, Collector<SeaTunnelRow> output)
+            throws IOException, FileConnectorException {
+        Map<String, String> partitionsMap = parsePartitionsByPath(split.getFilePath());
+        resolveArchiveCompressedInputStream(split, output, partitionsMap, FileFormat.CSV);
+    }
+
+    @Override
     public void readProcess(
             FileSourceSplit split,
             Collector<SeaTunnelRow> output,
@@ -213,7 +220,7 @@ public class TextReadStrategy extends AbstractReadStrategy {
                         }
                     };
             StreamLineSplitter splitter;
-            if (!enableSplitFile) {
+            if (enableSplitFile) {
                 splitter = new StreamLineSplitter(rowDelimiter, 0, lineProcessor);
             } else {
                 splitter = new StreamLineSplitter(rowDelimiter, skipHeaderNumber, lineProcessor);
