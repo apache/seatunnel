@@ -27,7 +27,6 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.utils.DateTimeUtils;
 import org.apache.seatunnel.common.utils.DateUtils;
-import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.common.utils.TimeUtils;
 import org.apache.seatunnel.connectors.seatunnel.file.config.CompressFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
@@ -43,7 +42,6 @@ import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVFormat.Builder;
 import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;
-import org.apache.commons.io.input.BoundedInputStream;
 
 import io.airlift.compress.lzo.LzopCodec;
 import lombok.extern.slf4j.Slf4j;
@@ -316,18 +314,5 @@ public class CsvReadStrategy extends AbstractReadStrategy {
         }
 
         processor = new DefaultCsvLineProcessor();
-    }
-
-    private static InputStream safeSlice(InputStream in, long start, long length)
-            throws IOException {
-        long toSkip = start;
-        while (toSkip > 0) {
-            long skipped = in.skip(toSkip);
-            if (skipped <= 0) {
-                throw new SeaTunnelException("skipped error");
-            }
-            toSkip -= skipped;
-        }
-        return new BoundedInputStream(in, length);
     }
 }

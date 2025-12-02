@@ -107,6 +107,10 @@ public class JsonReadStrategy extends AbstractReadStrategy {
                 actualInputStream = inputStream;
                 break;
         }
+        // rebuild inputStream
+        if (enableSplitFile && split.getLength() > -1) {
+            actualInputStream = safeSlice(inputStream, split.getStart(), split.getLength());
+        }
         try (BufferedReader reader =
                 new BufferedReader(new InputStreamReader(actualInputStream, encoding))) {
             reader.lines()

@@ -351,6 +351,7 @@ public class LocalFileIT extends TestSuiteBase {
         helper.execute("/json/fake_to_local_file_json.conf");
         // test read local json file
         helper.execute("/json/local_file_json_to_assert.conf");
+        helper.execute("/json/local_file_json_enable_split_to_assert.conf");
         helper.execute("/json/local_file_json_lzo_to_console.conf");
         // test read local json file with assigning encoding
         helper.execute("/json/fake_to_local_file_json_with_encoding.conf");
@@ -397,6 +398,7 @@ public class LocalFileIT extends TestSuiteBase {
         helper.execute("/text/local_file_multi_zip_text_to_assert.conf");
         // test read single local text file with tar compression
         helper.execute("/text/local_file_tar_text_to_assert.conf");
+        helper.execute("/text/local_file_text_enable_split_to_assert.conf");
         // test read multi local text file with tar compression
         helper.execute("/text/local_file_multi_tar_text_to_assert.conf");
         // test read single local text file with tar.gz compression

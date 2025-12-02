@@ -26,6 +26,7 @@ import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.seatunnel.file.config.ArchiveCompressFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
@@ -37,6 +38,7 @@ import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
 import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
 import org.apache.commons.compress.compressors.gzip.GzipCompressorInputStream;
 import org.apache.commons.compress.compressors.gzip.GzipParameters;
+import org.apache.commons.io.input.BoundedInputStream;
 import org.apache.hadoop.fs.FileStatus;
 
 import lombok.extern.slf4j.Slf4j;
@@ -436,6 +438,19 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
                 "The {} file format is incorrect. Please check the format in the compressed file.",
                 fileName);
         return false;
+    }
+
+    protected static InputStream safeSlice(InputStream in, long start, long length)
+            throws IOException {
+        long toSkip = start;
+        while (toSkip > 0) {
+            long skipped = in.skip(toSkip);
+            if (skipped <= 0) {
+                throw new SeaTunnelException("skipped error");
+            }
+            toSkip -= skipped;
+        }
+        return new BoundedInputStream(in, length);
     }
 
     @Override
