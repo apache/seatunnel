@@ -50,7 +50,7 @@ public class StringFunction {
 
     public static Integer ascii(List<Object> args) {
         String arg = (String) args.get(0);
-        if (arg == null) {
+        if (arg == null || arg.isEmpty()) {
             return null;
         } else {
             return (int) arg.charAt(0);
@@ -231,6 +231,9 @@ public class StringFunction {
             return null;
         }
         int count = ((Number) args.get(1)).intValue();
+        if (count < 0) {
+            return "";
+        }
         if (count > arg.length()) {
             count = arg.length();
         }
@@ -243,6 +246,9 @@ public class StringFunction {
             return null;
         }
         int count = ((Number) args.get(1)).intValue();
+        if (count < 0) {
+            return "";
+        }
         int length = arg.length();
         if (count > length) {
             count = length;
@@ -412,7 +418,7 @@ public class StringFunction {
             int position,
             int occurrence,
             String regexpMode) {
-        int flags = makeRegexpFlags(regexpMode, false);
+        int flags = makeRegexpFlags(regexpMode, false, ZetaSQLFunction.REGEXP_REPLACE);
         Matcher matcher =
                 Pattern.compile(regexp, flags).matcher(input).region(position - 1, input.length());
         if (occurrence == 0) {
@@ -442,11 +448,12 @@ public class StringFunction {
         if (args.size() >= 3) {
             regexpMode = (String) args.get(2);
         }
-        int flags = makeRegexpFlags(regexpMode, false);
+        int flags = makeRegexpFlags(regexpMode, false, ZetaSQLFunction.REGEXP_LIKE);
         return Pattern.compile(regexp, flags).matcher(input).find();
     }
 
-    private static int makeRegexpFlags(String stringFlags, boolean ignoreGlobalFlag) {
+    private static int makeRegexpFlags(
+            String stringFlags, boolean ignoreGlobalFlag, String functionName) {
         int flags = Pattern.UNICODE_CASE;
         if (stringFlags != null) {
             for (int i = 0; i < stringFlags.length(); ++i) {
@@ -473,7 +480,7 @@ public class StringFunction {
                                 CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
                                 String.format(
                                         "Unsupported regexpMode arg: %s for function: %s",
-                                        flags, ZetaSQLFunction.HEXTORAW));
+                                        stringFlags, functionName));
                 }
             }
         }
@@ -520,7 +527,7 @@ public class StringFunction {
         int position = positionArg != null ? positionArg - 1 : 0;
         int requestedOccurrence = occurrenceArg != null ? occurrenceArg : 1;
         int subexpression = subexpressionArg != null ? subexpressionArg : 0;
-        int flags = makeRegexpFlags(regexpMode, false);
+        int flags = makeRegexpFlags(regexpMode, false, ZetaSQLFunction.REGEXP_SUBSTR);
         Matcher m = Pattern.compile(regexp, flags).matcher(input);
 
         boolean found = m.find(position);
