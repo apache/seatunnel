@@ -48,6 +48,14 @@ public class JdbcSourceSplitEnumerator
     private final Context<JdbcSourceSplit> context;
     private final Object stateLock = new Object();
 
+    /**
+     * Indicates whether the enumerator has already notified all registered readers that there will
+     * be no more splits. This is used to avoid missing {@code NoMoreSplitsEvent} in failover
+     * scenarios where splits are added back via {@link #addSplitsBack(List, int)} instead of being
+     * produced via {@link #run()} again.
+     */
+    private boolean noMoreSplitsSignalSent;
+
     public JdbcSourceSplitEnumerator(
             Context<JdbcSourceSplit> context,
             JdbcSourceConfig jdbcSourceConfig,
@@ -56,6 +64,7 @@ public class JdbcSourceSplitEnumerator
         this.context = context;
         this.tables = tables;
         this.splitter = ChunkSplitter.create(jdbcSourceConfig);
+        this.noMoreSplitsSignalSent = false;
         if (sourceState == null) {
             this.pendingTables = new ConcurrentLinkedQueue<>(tables.keySet());
             this.pendingSplits = new HashMap<>();
@@ -90,9 +99,7 @@ public class JdbcSourceSplitEnumerator
         }
 
         splitter.close();
-
-        LOG.info("No more splits to assign." + " Sending NoMoreSplitsEvent to reader {}.", readers);
-        readers.forEach(context::signalNoMoreSplits);
+        maybeSignalNoMoreSplits();
     }
 
     @Override
@@ -113,6 +120,7 @@ public class JdbcSourceSplitEnumerator
                         splits);
             }
         }
+        maybeSignalNoMoreSplits();
         LOG.info("Add back splits {} to JdbcSourceSplitEnumerator.", splits.size());
     }
 
@@ -134,6 +142,7 @@ public class JdbcSourceSplitEnumerator
         if (!pendingSplits.isEmpty()) {
             assignSplit(Collections.singletonList(subtaskId));
         }
+        maybeSignalNoMoreSplits();
     }
 
     @Override
@@ -174,5 +183,45 @@ public class JdbcSourceSplitEnumerator
 
     private static int getSplitOwner(String tp, int numReaders) {
         return (tp.hashCode() & Integer.MAX_VALUE) % numReaders;
+    }
+
+    /**
+     * Signal {@code NoMoreSplitsEvent} to all currently registered readers if the enumerator has
+     * finished enumerating all tables and there are no more pending splits to assign.
+     *
+     * <p>This method is intentionally invoked from multiple code paths:
+     *
+     * <ul>
+     *   <li>At the end of {@link #run()} for the initial enumeration.
+     *   <li>After {@link #addSplitsBack(List, int)} and {@link #registerReader(int)} in failover
+     *       scenarios, where splits are recovered from task state instead of being re-enumerated.
+     * </ul>
+     *
+     * <p>In the latter case, we must still notify the new readers that there will be no more
+     * splits, otherwise a bounded source may never finish after a failover and the job would stay
+     * RUNNING indefinitely.
+     */
+    private void maybeSignalNoMoreSplits() {
+        synchronized (stateLock) {
+            if (noMoreSplitsSignalSent) {
+                return;
+            }
+
+            if (pendingTables.isEmpty() && pendingSplits.isEmpty()) {
+                Set<Integer> readers = context.registeredReaders();
+                if (readers.isEmpty()) {
+                    LOG.info(
+                            "No more splits to assign, but no readers are currently registered. "
+                                    + "Will signal NoMoreSplitsEvent when readers register.");
+                    return;
+                }
+
+                LOG.info(
+                        "No more splits to assign. Sending NoMoreSplitsEvent to reader {}.",
+                        readers);
+                readers.forEach(context::signalNoMoreSplits);
+                noMoreSplitsSignalSent = true;
+            }
+        }
     }
 }
