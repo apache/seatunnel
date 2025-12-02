@@ -470,6 +470,36 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK},
+            disabledReason =
+                    "The implementation of the Spark engine does not currently support metadata.")
+    public void testSourceKafkaTextEventTimeToAssert(TestContainer container)
+            throws IOException, InterruptedException {
+        long fixedTimestamp = 1738395840000L;
+        TextSerializationSchema serializer =
+                TextSerializationSchema.builder()
+                        .seaTunnelRowType(SEATUNNEL_ROW_TYPE)
+                        .delimiter(",")
+                        .build();
+        generateTestData(
+                row ->
+                        new ProducerRecord<>(
+                                "test_topic_text_eventtime",
+                                null,
+                                fixedTimestamp,
+                                null,
+                                serializer.serialize(row)),
+                0,
+                10);
+        Container.ExecResult execResult =
+                container.executeJob(
+                        "/textFormatIT/kafka_source_text_with_event_time_to_assert.conf");
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+    }
+
+    @TestTemplate
     public void testSourceKafka(TestContainer container) throws IOException, InterruptedException {
         testKafkaLatestToConsole(container);
         testKafkaEarliestToConsole(container);

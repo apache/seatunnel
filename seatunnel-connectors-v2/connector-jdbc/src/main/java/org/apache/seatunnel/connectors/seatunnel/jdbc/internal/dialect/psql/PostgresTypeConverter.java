@@ -262,7 +262,6 @@ public class PostgresTypeConverter implements TypeConverter<BasicTypeDefine> {
                 }
                 break;
             case PG_TIMESTAMP:
-            case PG_TIMESTAMP_TZ:
                 builder.dataType(LocalTimeType.LOCAL_DATE_TIME_TYPE);
                 if (typeDefine.getScale() != null && typeDefine.getScale() > MAX_TIMESTAMP_SCALE) {
                     builder.scale(MAX_TIMESTAMP_SCALE);
@@ -270,6 +269,15 @@ public class PostgresTypeConverter implements TypeConverter<BasicTypeDefine> {
                             "The scale of timestamp type is larger than {}, it will be truncated to {}",
                             MAX_TIMESTAMP_SCALE,
                             MAX_TIMESTAMP_SCALE);
+                } else {
+                    builder.scale(typeDefine.getScale());
+                }
+                break;
+            case PG_TIMESTAMP_TZ:
+                // timestamptz -> TIMESTAMP_TZ
+                builder.dataType(LocalTimeType.OFFSET_DATE_TIME_TYPE);
+                if (typeDefine.getScale() != null && typeDefine.getScale() > MAX_TIMESTAMP_SCALE) {
+                    builder.scale(MAX_TIMESTAMP_SCALE);
                 } else {
                     builder.scale(typeDefine.getScale());
                 }

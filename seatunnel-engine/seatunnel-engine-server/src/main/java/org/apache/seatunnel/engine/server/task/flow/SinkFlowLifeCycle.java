@@ -194,6 +194,7 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
                 long startTime = System.currentTimeMillis();
 
                 Barrier barrier = (Barrier) record.getData();
+                connectorMetricsCalcContext.sealCheckpointMetrics(barrier.getId());
                 if (barrier.prepareClose(this.taskLocation)) {
                     prepareClose = true;
                 }
@@ -309,6 +310,7 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
         if (committer.isPresent() && lastCommitInfo.isPresent()) {
             committer.get().commit(Collections.singletonList(lastCommitInfo.get()));
         }
+        connectorMetricsCalcContext.commitPendingMetrics(checkpointId);
     }
 
     @Override
@@ -316,6 +318,7 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
         if (committer.isPresent() && lastCommitInfo.isPresent()) {
             committer.get().abort(Collections.singletonList(lastCommitInfo.get()));
         }
+        connectorMetricsCalcContext.abortPendingMetrics(checkpointId);
     }
 
     @Override

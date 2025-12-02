@@ -802,6 +802,77 @@ public class ClickhouseIT extends TestSuiteBase implements TestResource {
         }
     }
 
+    @TestTemplate
+    public void testClickhouseSourceFactoryWithPrimaryKey(TestContainer testContainer)
+            throws Exception {
+        String testTableName = "test_primary_key_table";
+        String createTableSql =
+                String.format(
+                        "CREATE TABLE IF NOT EXISTS %s.%s ("
+                                + "id UInt64, "
+                                + "name String, "
+                                + "age UInt32"
+                                + ") ENGINE = MergeTree() "
+                                + "PRIMARY KEY (id) "
+                                + "ORDER BY id",
+                        DATABASE, testTableName);
+
+        try (Statement statement = connection.createStatement()) {
+            statement.execute(createTableSql);
+
+            String insertSql =
+                    String.format(
+                            "INSERT INTO %s.%s VALUES (1, 'Alice', 25), (2, 'Bob', 30)",
+                            DATABASE, testTableName);
+            statement.execute(insertSql);
+        }
+
+        Map<String, Object> sourceConfig = new HashMap<>();
+        sourceConfig.put("host", container.getHost() + ":" + container.getMappedPort(8123));
+        sourceConfig.put("table_path", DATABASE + "." + testTableName);
+        sourceConfig.put("username", container.getUsername());
+        sourceConfig.put("password", container.getPassword());
+
+        ReadonlyConfig config = ReadonlyConfig.fromMap(sourceConfig);
+
+        org.apache.seatunnel.connectors.seatunnel.clickhouse.source.ClickhouseSourceFactory
+                factory =
+                        new org.apache.seatunnel.connectors.seatunnel.clickhouse.source
+                                .ClickhouseSourceFactory();
+        org.apache.seatunnel.api.table.factory.TableSourceFactoryContext context =
+                new org.apache.seatunnel.api.table.factory.TableSourceFactoryContext(
+                        config, Thread.currentThread().getContextClassLoader());
+
+        try {
+            org.apache.seatunnel.api.table.connector.TableSource<?, ?, ?> tableSource =
+                    factory.createSource(context);
+            Assertions.assertNotNull(tableSource, "TableSource should not be null");
+
+            org.apache.seatunnel.connectors.seatunnel.clickhouse.source.ClickhouseSource source =
+                    (org.apache.seatunnel.connectors.seatunnel.clickhouse.source.ClickhouseSource)
+                            tableSource.createSource();
+            List<CatalogTable> catalogTables = source.getProducedCatalogTables();
+
+            Assertions.assertNotNull(catalogTables, "Catalog tables should not be null");
+            Assertions.assertFalse(
+                    catalogTables.isEmpty(), "Should have at least one catalog table");
+
+            CatalogTable catalogTable = catalogTables.get(0);
+
+            Assertions.assertNotNull(
+                    catalogTable.getTableSchema().getPrimaryKey(),
+                    "Primary key should not be null for table with PRIMARY KEY");
+
+            List<String> pkColumns = catalogTable.getTableSchema().getPrimaryKey().getColumnNames();
+            Assertions.assertNotNull(pkColumns, "Primary key columns should not be null");
+            Assertions.assertEquals(1, pkColumns.size(), "Should have 1 primary key column");
+            Assertions.assertEquals("id", pkColumns.get(0), "Primary key column should be 'id'");
+
+        } finally {
+            dropTable(DATABASE + "." + testTableName);
+        }
+    }
+
     @AfterAll
     @Override
     public void tearDown() throws Exception {

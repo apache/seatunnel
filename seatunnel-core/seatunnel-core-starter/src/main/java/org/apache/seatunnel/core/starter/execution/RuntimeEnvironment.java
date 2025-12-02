@@ -61,13 +61,13 @@ public interface RuntimeEnvironment {
     }
 
     static boolean getEnableCheckpoint(Config config) {
-        boolean enableCheckpoint;
         Config envConfig = config.getConfig("env");
+        long checkpointInterval = -1;
         if (envConfig.hasPath(EnvCommonOptions.CHECKPOINT_INTERVAL.key())) {
-            enableCheckpoint = envConfig.getInt(EnvCommonOptions.CHECKPOINT_INTERVAL.key()) > 0;
-        } else {
-            enableCheckpoint = false;
+            checkpointInterval = envConfig.getLong(EnvCommonOptions.CHECKPOINT_INTERVAL.key());
+        } else if (envConfig.hasPath("execution.checkpoint.interval")) {
+            checkpointInterval = envConfig.getLong("execution.checkpoint.interval");
         }
-        return enableCheckpoint || getJobMode(config) == JobMode.STREAMING;
+        return checkpointInterval > 0 || getJobMode(config) == JobMode.STREAMING;
     }
 }

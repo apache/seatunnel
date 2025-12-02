@@ -46,18 +46,22 @@ public class WeChatBotMessageSerializationSchema implements SerializationSchema 
     @SneakyThrows
     @Override
     public byte[] serialize(SeaTunnelRow row) {
-        StringBuffer stringBuffer = new StringBuffer();
+        StringBuilder stringBuilder = new StringBuilder();
         int totalFields = rowType.getTotalFields();
         for (int i = 0; i < totalFields; i++) {
-            stringBuffer.append(rowType.getFieldName(i) + ": " + row.getField(i) + "\\n");
+            stringBuilder
+                    .append(rowType.getFieldName(i))
+                    .append(": ")
+                    .append(row.getField(i))
+                    .append("\\n");
         }
         if (totalFields > 0) {
             // remove last empty line
-            stringBuffer.delete(stringBuffer.length() - 2, stringBuffer.length());
+            stringBuilder.delete(stringBuilder.length() - 2, stringBuilder.length());
         }
 
         HashMap<Object, Object> content = new HashMap<>();
-        content.put(WeChatSinkConfig.WECHAT_SEND_MSG_CONTENT_KEY, stringBuffer.toString());
+        content.put(WeChatSinkConfig.WECHAT_SEND_MSG_CONTENT_KEY, stringBuilder.toString());
         if (!CollectionUtils.isEmpty(weChatSinkConfig.getMentionedList())) {
             content.put(
                     WeChatSinkOptions.MENTIONED_LIST.key(), weChatSinkConfig.getMentionedList());

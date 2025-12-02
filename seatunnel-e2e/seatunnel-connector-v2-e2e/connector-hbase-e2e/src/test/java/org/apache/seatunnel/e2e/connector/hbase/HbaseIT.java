@@ -322,6 +322,24 @@ public class HbaseIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
+    public void testHbaseSourceWithStartEndInclusive(TestContainer container)
+            throws IOException, InterruptedException {
+        fakeToHbaseArray(container);
+        Container.ExecResult sourceExecResult =
+                container.executeJob("/hbase-source-with-start-end-inclusive.conf");
+        Assertions.assertEquals(0, sourceExecResult.getExitCode());
+    }
+
+    @TestTemplate
+    public void testHbaseSourceWithDefaultInclusive(TestContainer container)
+            throws IOException, InterruptedException {
+        fakeToHbaseArray(container);
+        Container.ExecResult sourceExecResult =
+                container.executeJob("/hbase-source-with-default-inclusive.conf");
+        Assertions.assertEquals(0, sourceExecResult.getExitCode());
+    }
+
+    @TestTemplate
     public void testCatalog(TestContainer container) {
         // create exiting table
         Assertions.assertThrows(
