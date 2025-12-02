@@ -16,9 +16,10 @@
  */
 package org.apache.seatunnel.connectors.seatunnel.file.source.split;
 
+import java.io.Serializable;
 import java.util.List;
 
-public interface FileSplitStrategy {
+public interface FileSplitStrategy extends Serializable {
 
     List<FileSourceSplit> split(String tableId, String filePath);
 }

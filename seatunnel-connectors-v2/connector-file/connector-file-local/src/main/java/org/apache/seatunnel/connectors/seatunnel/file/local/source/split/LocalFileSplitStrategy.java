@@ -23,6 +23,7 @@ import org.apache.seatunnel.connectors.seatunnel.file.source.split.FileSourceSpl
 
 import java.io.BufferedInputStream;
 import java.io.IOException;
+import java.net.URI;
 import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -34,20 +35,20 @@ public class LocalFileSplitStrategy extends DefaultFileSplitStrategy {
 
     private final String rowDelimiter;
     private final long skipHeaderRowNumber;
-    private final Charset encoding;
+    private final String encodingName;
     private final long splitSize;
 
     public LocalFileSplitStrategy(
-            String rowDelimiter, long skipHeaderRowNumber, Charset encoding, long splitSize) {
+            String rowDelimiter, long skipHeaderRowNumber, String encodingName, long splitSize) {
         this.rowDelimiter = rowDelimiter;
         this.skipHeaderRowNumber = skipHeaderRowNumber;
-        this.encoding = encoding;
+        this.encodingName = encodingName;
         this.splitSize = splitSize;
     }
 
     public List<FileSourceSplit> split(String tableId, String filePath) {
         List<FileSourceSplit> splits = new ArrayList<>();
-        Path path = Paths.get(filePath);
+        Path path = toLocalNioPath(filePath);
         long fileSize;
         try {
             fileSize = Files.size(path);
@@ -91,7 +92,7 @@ public class LocalFileSplitStrategy extends DefaultFileSplitStrategy {
 
     private long skipHeader(BufferedInputStream bis, String delimiter, long skipLines)
             throws IOException {
-        byte[] delimBytes = delimiter.getBytes(encoding);
+        byte[] delimBytes = delimiter.getBytes(Charset.forName(encodingName));
         int matched = 0;
         long pos = 0;
         int ch;
@@ -113,7 +114,7 @@ public class LocalFileSplitStrategy extends DefaultFileSplitStrategy {
     }
 
     private long adjustToLineEnd(Path path, long pos, String delimiter) {
-        byte[] delimBytes = delimiter.getBytes(encoding);
+        byte[] delimBytes = delimiter.getBytes(Charset.forName(encodingName));
         try (BufferedInputStream bis = new BufferedInputStream(Files.newInputStream(path))) {
             bis.skip(pos);
             int matched = 0;
@@ -134,5 +135,17 @@ public class LocalFileSplitStrategy extends DefaultFileSplitStrategy {
         } catch (Exception e) {
             throw new SeaTunnelRuntimeException(FileConnectorErrorCode.FILE_READ_FAILED, e);
         }
+    }
+
+    public static Path toLocalNioPath(String filePath) {
+        try {
+            URI uri = URI.create(filePath);
+            if (uri.getScheme() != null && uri.getScheme().equalsIgnoreCase("file")) {
+                return Paths.get(uri);
+            }
+        } catch (Exception ignored) {
+            // nothing
+        }
+        return Paths.get(filePath);
     }
 }

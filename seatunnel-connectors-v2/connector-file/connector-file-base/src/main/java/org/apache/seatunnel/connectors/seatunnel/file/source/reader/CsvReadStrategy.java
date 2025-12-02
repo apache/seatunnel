@@ -114,7 +114,7 @@ public class CsvReadStrategy extends AbstractReadStrategy {
                 break;
         }
         // rebuild inputStream
-        if (enableSplitFile) {
+        if (enableSplitFile && split.getLength() > -1) {
             actualInputStream = safeSlice(inputStream, split.getStart(), split.getLength());
         }
         Builder builder =

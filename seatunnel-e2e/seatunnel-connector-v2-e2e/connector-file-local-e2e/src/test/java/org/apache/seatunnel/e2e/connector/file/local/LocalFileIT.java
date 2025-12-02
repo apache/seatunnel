@@ -323,6 +323,7 @@ public class LocalFileIT extends TestSuiteBase {
         TestHelper helper = new TestHelper(container);
         helper.execute("/csv/fake_to_local_csv.conf");
         helper.execute("/csv/local_csv_to_assert.conf");
+        helper.execute("/csv/local_csv_enable_split_to_assert.conf");
         helper.execute("/csv/csv_with_header_to_assert.conf");
         helper.execute("/csv/breakline_csv_to_assert.conf");
         helper.execute("/excel/fake_to_local_excel.conf");

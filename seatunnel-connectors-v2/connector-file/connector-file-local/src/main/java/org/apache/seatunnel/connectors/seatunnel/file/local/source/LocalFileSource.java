@@ -25,8 +25,6 @@ import org.apache.seatunnel.connectors.seatunnel.file.local.source.split.LocalFi
 import org.apache.seatunnel.connectors.seatunnel.file.source.BaseMultipleTableFileSource;
 import org.apache.seatunnel.connectors.seatunnel.file.source.split.DefaultFileSplitStrategy;
 
-import java.nio.charset.Charset;
-
 public class LocalFileSource extends BaseMultipleTableFileSource {
 
     public LocalFileSource(ReadonlyConfig readonlyConfig) {
@@ -35,8 +33,11 @@ public class LocalFileSource extends BaseMultipleTableFileSource {
                 readonlyConfig.get(FileBaseSourceOptions.ENABLE_SPLIT_FILE)
                         ? new LocalFileSplitStrategy(
                                 readonlyConfig.get(FileBaseSourceOptions.ROW_DELIMITER),
-                                readonlyConfig.get(FileBaseSourceOptions.SKIP_HEADER_ROW_NUMBER),
-                                Charset.forName(readonlyConfig.get(FileBaseSourceOptions.ENCODING)),
+                                readonlyConfig.get(FileBaseSourceOptions.CSV_USE_HEADER_LINE)
+                                        ? 1L
+                                        : readonlyConfig.get(
+                                                FileBaseSourceOptions.SKIP_HEADER_ROW_NUMBER),
+                                readonlyConfig.get(FileBaseSourceOptions.ENCODING),
                                 readonlyConfig.get(FileBaseSourceOptions.SPLIT_SIZE))
                         : new DefaultFileSplitStrategy());
     }
