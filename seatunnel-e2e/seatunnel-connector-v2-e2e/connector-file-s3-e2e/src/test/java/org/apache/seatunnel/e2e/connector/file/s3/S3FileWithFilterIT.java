@@ -40,7 +40,7 @@ import java.nio.file.Paths;
 
 @Slf4j
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
-public class S3FileIT2 extends SeaTunnelContainer {
+public class S3FileWithFilterIT extends SeaTunnelContainer {
     private GenericContainer<?> s3Container;
 
     private static final String MINIO_IMAGE = "minio/minio:RELEASE.2024-06-13T22-53-53Z";
