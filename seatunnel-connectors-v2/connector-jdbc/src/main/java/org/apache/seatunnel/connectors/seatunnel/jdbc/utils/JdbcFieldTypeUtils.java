@@ -182,7 +182,7 @@ public final class JdbcFieldTypeUtils {
 
     public static OffsetDateTime parseOffsetDateTimeFromString(String str)
             throws DateTimeParseException {
-        if (str == null || str.trim().isEmpty()) {
+        if (str.trim().isEmpty()) {
             return null;
         }
 
@@ -293,7 +293,8 @@ public final class JdbcFieldTypeUtils {
             int columnIndex,
             ThrowingFunction<ResultSet, T, SQLException> getter)
             throws SQLException {
-        if (resultSet.getObject(columnIndex) == null) {
+        final Object obj = resultSet.getObject(columnIndex);
+        if (obj == null) {
             return null;
         }
         return getter.apply(resultSet, columnIndex);

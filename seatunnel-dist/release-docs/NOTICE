@@ -823,6 +823,20 @@ Ocelli project by Netflix Inc. (https://github.com/Netflix/ocelli/).
 
 =========================================================================
 
+Apache HugeGraph NOTICE
+
+=========================================================================
+
+Apache HugeGraph(incubating)
+Copyright 2022-2024 The Apache Software Foundation
+
+This product includes software developed at
+The Apache Software Foundation (http://www.apache.org/).
+
+The initial codebase was donated to the ASF by HugeGraph Authors, copyright 2017-2021.
+
+=========================================================================
+
  +===============================================================================
  + Third-party dependencies for Aerospike connector:
  +===============================================================================
