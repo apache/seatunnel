@@ -288,9 +288,8 @@ public abstract class AbstractJdbcRowConverter implements JdbcRowConverter {
                     statement.setObject(statementIndex, offsetDateTime);
                 } catch (SQLException e) {
                     // Fallback to setTimestamp if setObject is not supported
-                    Timestamp ts = Timestamp.from(offsetDateTime.toInstant());
-                    ts.setNanos(offsetDateTime.getNano());
-                    statement.setTimestamp(statementIndex, ts);
+                    statement.setTimestamp(
+                            statementIndex, Timestamp.from(offsetDateTime.toInstant()));
                 }
                 break;
             case BYTES:

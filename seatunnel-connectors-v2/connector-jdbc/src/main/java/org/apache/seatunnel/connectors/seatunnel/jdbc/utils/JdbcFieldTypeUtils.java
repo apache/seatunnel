@@ -182,34 +182,29 @@ public final class JdbcFieldTypeUtils {
 
     public static OffsetDateTime parseOffsetDateTimeFromString(String str)
             throws DateTimeParseException {
-        if (str.trim().isEmpty()) {
+        String trimmed = str.trim();
+        // Treat empty string as "no value"
+        if (trimmed.isEmpty()) {
             return null;
         }
-
-        String trimmed = str.trim();
-
-        // Try standard ISO-8601 format first
-        try {
-            return OffsetDateTime.parse(trimmed);
-        } catch (DateTimeParseException ignore) {
-            // fall through
+        // Try parsing as standard ISO-8601 OffsetDateTime
+        OffsetDateTime directParsed = tryParseOffsetDateTime(trimmed);
+        if (directParsed != null) {
+            return directParsed;
+        }
+        // Normalize common relaxed forms and try again
+        String normalized = normalizeOffsetDateTimeString(trimmed);
+        OffsetDateTime normalizedParsed = tryParseOffsetDateTime(normalized);
+        if (normalizedParsed != null) {
+            return normalizedParsed;
+        }
+        // Finally, try parsing as ZonedDateTime and convert to OffsetDateTime
+        OffsetDateTime zonedParsed = tryParseZonedDateTime(trimmed);
+        if (zonedParsed != null) {
+            return zonedParsed;
         }
 
-        // Try with space separator instead of 'T'
-        try {
-            String normalized = trimmed.replace('T', ' ');
-            return OffsetDateTime.parse(normalized, DateTimeFormatter.ISO_OFFSET_DATE_TIME);
-        } catch (DateTimeParseException ignore) {
-            // fall through
-        }
-
-        // Try ZonedDateTime parsing
-        try {
-            return ZonedDateTime.parse(trimmed).toOffsetDateTime();
-        } catch (DateTimeParseException ignore) {
-            // fall through
-        }
-
+        // Try Oracle-style TIMESTAMP WITH TIME ZONE string with 9-digit fractional seconds
         try {
             DateTimeFormatter oracleFormatter =
                     DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSSSSSSSSxxx");
@@ -268,13 +263,46 @@ public final class JdbcFieldTypeUtils {
                     return OffsetDateTime.of(ldt, zoneOffset);
                 }
             } catch (Exception ignore) {
-                // fall through to final error
+                // fall through
             }
         }
 
         // If all parsing attempts fail, throw exception
         throw new DateTimeParseException(
                 "Unable to parse OffsetDateTime from string: " + str, trimmed, 0);
+    }
+
+    private static OffsetDateTime tryParseOffsetDateTime(String value) {
+        try {
+            return OffsetDateTime.parse(value);
+        } catch (DateTimeParseException ignore) {
+            return null;
+        }
+    }
+
+    private static OffsetDateTime tryParseZonedDateTime(String value) {
+        try {
+            return ZonedDateTime.parse(value).toOffsetDateTime();
+        } catch (DateTimeParseException ignore) {
+            return null;
+        }
+    }
+
+    private static String normalizeOffsetDateTimeString(String value) {
+        String normalized = value;
+        if (normalized.endsWith(" UTC")) {
+            normalized = normalized.substring(0, normalized.length() - 4) + "Z";
+        }
+        normalized = normalized.replace(' ', 'T');
+        if (normalized.matches(".*[+-]\\d{2}$")) {
+            normalized = normalized + ":00";
+        } else if (normalized.matches(".*[+-]\\d{4}$")) {
+            normalized =
+                    normalized.substring(0, normalized.length() - 2)
+                            + ":"
+                            + normalized.substring(normalized.length() - 2);
+        }
+        return normalized;
     }
 
     private static OracleOffsetDateTimeAccessor resolveOracleOffsetDateTimeAccessor(Class<?> clazz)
