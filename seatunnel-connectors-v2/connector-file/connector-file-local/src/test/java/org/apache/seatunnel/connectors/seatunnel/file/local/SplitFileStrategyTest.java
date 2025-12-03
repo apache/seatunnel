@@ -112,7 +112,7 @@ public class SplitFileStrategyTest {
         URL url =
                 getClass()
                         .getClassLoader()
-                        .getResource("test_split_special_row_delimiter_data.text");
+                        .getResource("test_split_special_row_delimiter_data.txt");
         String realPath = Paths.get(url.toURI()).toString();
         final List<FileSourceSplit> splits = localFileSplitStrategy.split("test.table", realPath);
         Assertions.assertEquals(2, splits.size());
