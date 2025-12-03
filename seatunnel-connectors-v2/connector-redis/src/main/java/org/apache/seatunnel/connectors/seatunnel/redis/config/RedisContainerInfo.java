@@ -14,14 +14,37 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.seatunnel.e2e.connector.redis;
+package org.apache.seatunnel.connectors.seatunnel.redis.config;
 
-import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisContainerInfo;
+import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
 
-public class Redis5IT extends RedisTestCaseTemplateIT {
+@VisibleForTesting
+public class RedisContainerInfo {
+    private final String host;
+    private final int port;
+    private final String password;
+    private final String imageName;
 
-    @Override
-    public RedisContainerInfo getRedisContainerInfo() {
-        return new RedisContainerInfo("redis-e2e", 6379, "SeaTunnel", "redis:5");
+    public RedisContainerInfo(String host, int port, String password, String imageName) {
+        this.host = host;
+        this.port = port;
+        this.password = password;
+        this.imageName = imageName;
+    }
+
+    public String getHost() {
+        return host;
+    }
+
+    public int getPort() {
+        return port;
+    }
+
+    public String getPassword() {
+        return password;
+    }
+
+    public String getImageName() {
+        return imageName;
     }
 }

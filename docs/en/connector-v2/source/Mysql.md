@@ -176,6 +176,8 @@ How many splits do we need to split into, only support positive integer. default
 > If the table can not be split(for example, table have no Primary Key or Unique Index, and `partition_column` is not set), it will run in single concurrency.
 >
 > Use `table_path` to replace `query` for single table reading. If you need to read multiple tables, use `table_list`.
+>
+> When inferring a primary key based on a `query`, the key is inherited from the underlying table where the first column in the result set is located, and its strictness for the overall join result set is not guaranteed (for example, when the query contains joins or reads from multiple tables).
 
 ## Task Example
 
