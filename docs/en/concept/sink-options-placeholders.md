@@ -108,5 +108,5 @@ sink {
 We will complete the placeholder replacement before the connector is started, ensuring that the sink options is ready before use.
 If the variable is not replaced, it may be that the upstream table metadata is missing this option, for example:
 - `mysql` source not contain `${schema_name}`
-- `oracle` source not contain `${databse_name}`
+- `oracle` source not contain `${database_name}`
 - ...

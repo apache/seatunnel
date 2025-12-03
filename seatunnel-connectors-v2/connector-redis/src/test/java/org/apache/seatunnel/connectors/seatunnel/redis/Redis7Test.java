@@ -14,14 +14,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.seatunnel.e2e.connector.redis;
+package org.apache.seatunnel.connectors.seatunnel.redis;
 
 import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisContainerInfo;
 
-public class Redis5IT extends RedisTestCaseTemplateIT {
+import org.junit.jupiter.api.condition.DisabledOnOs;
+import org.junit.jupiter.api.condition.OS;
+
+@DisabledOnOs(
+        value = OS.WINDOWS,
+        disabledReason = "There is no docker environment on the windows test system")
+public class Redis7Test extends RedisTemplateTest {
 
     @Override
     public RedisContainerInfo getRedisContainerInfo() {
-        return new RedisContainerInfo("redis-e2e", 6379, "SeaTunnel", "redis:5");
+        return new RedisContainerInfo("redis-e2e", 6379, "SeaTunnel", "redis:7");
     }
 }
