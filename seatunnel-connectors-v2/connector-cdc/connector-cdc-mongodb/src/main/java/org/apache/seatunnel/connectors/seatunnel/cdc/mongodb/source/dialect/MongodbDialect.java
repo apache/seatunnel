@@ -39,8 +39,6 @@ import lombok.extern.slf4j.Slf4j;
 import javax.annotation.Nonnull;
 
 import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.DIALECT_NAME;
@@ -56,9 +54,6 @@ import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.utils.Mongod
 @Slf4j
 public class MongodbDialect implements DataSourceDialect<MongodbSourceConfig> {
 
-    private final Map<MongodbSourceConfig, CollectionDiscoveryUtils.CollectionDiscoveryInfo> cache =
-            new ConcurrentHashMap<>();
-
     @Override
     public String getName() {
         return DIALECT_NAME;
@@ -67,7 +62,7 @@ public class MongodbDialect implements DataSourceDialect<MongodbSourceConfig> {
     @Override
     public List<TableId> discoverDataCollections(MongodbSourceConfig sourceConfig) {
         CollectionDiscoveryUtils.CollectionDiscoveryInfo discoveryInfo =
-                discoverAndCacheDataCollections(sourceConfig);
+                discoverDataCollectionsInfo(sourceConfig);
         return discoveryInfo.getDiscoveredCollections().stream()
                 .map(TableId::parse)
                 .collect(Collectors.toList());
@@ -97,7 +92,7 @@ public class MongodbDialect implements DataSourceDialect<MongodbSourceConfig> {
     public FetchTask.Context createFetchTaskContext(
             SourceSplitBase sourceSplitBase, MongodbSourceConfig sourceConfig) {
         CollectionDiscoveryUtils.CollectionDiscoveryInfo discoveryInfo =
-                discoverAndCacheDataCollections(sourceConfig);
+                discoverDataCollectionsInfo(sourceConfig);
         ChangeStreamDescriptor changeStreamDescriptor =
                 getChangeStreamDescriptor(
                         sourceConfig,
@@ -106,48 +101,48 @@ public class MongodbDialect implements DataSourceDialect<MongodbSourceConfig> {
         return new MongodbFetchTaskContext(this, sourceConfig, changeStreamDescriptor);
     }
 
-    private CollectionDiscoveryUtils.CollectionDiscoveryInfo discoverAndCacheDataCollections(
+    private CollectionDiscoveryUtils.CollectionDiscoveryInfo discoverDataCollectionsInfo(
             MongodbSourceConfig sourceConfig) {
-        return cache.computeIfAbsent(
-                sourceConfig,
-                config -> {
-                    MongoClient mongoClient = createMongoClient(sourceConfig);
-                    List<String> discoveredDatabases =
-                            databaseNames(
-                                    mongoClient, databaseFilter(sourceConfig.getDatabaseList()));
-                    List<String> discoveredCollections =
-                            collectionNames(
-                                    mongoClient,
-                                    discoveredDatabases,
-                                    collectionsFilter(sourceConfig.getCollectionList()));
-                    return new CollectionDiscoveryUtils.CollectionDiscoveryInfo(
-                            discoveredDatabases, discoveredCollections);
-                });
+        try (MongoClient mongoClient = createMongoClient(sourceConfig)) {
+            List<String> discoveredDatabases =
+                    databaseNames(mongoClient, databaseFilter(sourceConfig.getDatabaseList()));
+            List<String> discoveredCollections =
+                    collectionNames(
+                            mongoClient,
+                            discoveredDatabases,
+                            collectionsFilter(sourceConfig.getCollectionList()));
+            log.debug("Closed temporary MongoClient used for collection discovery");
+            return new CollectionDiscoveryUtils.CollectionDiscoveryInfo(
+                    discoveredDatabases, discoveredCollections);
+        }
     }
 
     public ChangeStreamOffset displayCurrentOffset(MongodbSourceConfig sourceConfig) {
-        MongoClient mongoClient = createMongoClient(sourceConfig);
-        CollectionDiscoveryUtils.CollectionDiscoveryInfo discoveryInfo =
-                discoverAndCacheDataCollections(sourceConfig);
-        ChangeStreamDescriptor changeStreamDescriptor =
-                getChangeStreamDescriptor(
-                        sourceConfig,
-                        discoveryInfo.getDiscoveredDatabases(),
-                        discoveryInfo.getDiscoveredCollections());
-        BsonDocument startupResumeToken = getLatestResumeToken(mongoClient, changeStreamDescriptor);
+        try (MongoClient mongoClient = createMongoClient(sourceConfig)) {
+            CollectionDiscoveryUtils.CollectionDiscoveryInfo discoveryInfo =
+                    discoverDataCollectionsInfo(sourceConfig);
+            ChangeStreamDescriptor changeStreamDescriptor =
+                    getChangeStreamDescriptor(
+                            sourceConfig,
+                            discoveryInfo.getDiscoveredDatabases(),
+                            discoveryInfo.getDiscoveredCollections());
+            BsonDocument startupResumeToken =
+                    getLatestResumeToken(mongoClient, changeStreamDescriptor);
 
-        ChangeStreamOffset changeStreamOffset;
-        if (startupResumeToken != null) {
-            changeStreamOffset = new ChangeStreamOffset(startupResumeToken);
-            log.info(
-                    "startup resume token={},change stream offset={}",
-                    startupResumeToken,
-                    changeStreamOffset);
+            ChangeStreamOffset changeStreamOffset;
+            if (startupResumeToken != null) {
+                changeStreamOffset = new ChangeStreamOffset(startupResumeToken);
+                log.info(
+                        "startup resume token={},change stream offset={}",
+                        startupResumeToken,
+                        changeStreamOffset);
 
-        } else {
-            changeStreamOffset = new ChangeStreamOffset(getCurrentClusterTime(mongoClient));
+            } else {
+                changeStreamOffset = new ChangeStreamOffset(getCurrentClusterTime(mongoClient));
+            }
+
+            log.debug("Closed temporary MongoClient used for displaying current offset");
+            return changeStreamOffset;
         }
-
-        return changeStreamOffset;
     }
 }

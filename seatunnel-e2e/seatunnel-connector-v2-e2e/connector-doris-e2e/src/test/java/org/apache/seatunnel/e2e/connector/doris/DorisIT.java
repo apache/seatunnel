@@ -717,24 +717,24 @@ public class DorisIT extends AbstractDorisIT {
                                 GenerateTestData.genDateString(),
                                 GenerateTestData.genJsonString(),
                                 GenerateTestData.genJsonString(),
-                                (new boolean[] {true, true, false}).toString(),
-                                (new int[] {1, 2, 3}).toString(),
-                                (new int[] {1, 2, 3}).toString(),
-                                (new int[] {1, 2, 3}).toString(),
-                                (new long[] {1L, 2L, 3L}).toString(),
-                                (new float[] {1.0F, 1.0F, 1.0F}).toString(),
-                                (new double[] {1.0, 1.0, 1.0}).toString(),
-                                (new String[] {"1", "1"}).toString(),
-                                (new String[] {"1", "1"}).toString(),
-                                (new String[] {"1", "1"}).toString(),
-                                (new String[] {"1", "1"}).toString(),
-                                (new BigDecimal[] {
+                                Arrays.toString(new boolean[] {true, true, false}),
+                                Arrays.toString(new byte[] {1, 2, 3}),
+                                Arrays.toString(new short[] {1, 2, 3}),
+                                Arrays.toString(new int[] {1, 2, 3}),
+                                Arrays.toString(new long[] {1L, 2L, 3L}),
+                                Arrays.toString(new float[] {1.0F, 1.0F, 1.0F}),
+                                Arrays.toString(new double[] {1.0, 1.0, 1.0}),
+                                Arrays.toString(new String[] {"1", "1"}),
+                                Arrays.toString(new String[] {"1", "1"}),
+                                Arrays.toString(new String[] {"1", "1"}),
+                                Arrays.toString(new String[] {"1", "1"}),
+                                Arrays.toString(
+                                        new BigDecimal[] {
                                             new BigDecimal("10.02"), new BigDecimal("10.03")
-                                        })
-                                        .toString(),
-                                (new String[] {"2020-06-09", "2020-06-10"}).toString(),
-                                (new String[] {"2020-06-09 12:02:02", "2020-06-10 12:02:02"})
-                                        .toString()
+                                        }),
+                                Arrays.toString(new String[] {"2020-06-09", "2020-06-10"}),
+                                Arrays.toString(
+                                        new String[] {"2020-06-09 12:02:02", "2020-06-10 12:02:02"})
                             }));
         }
         log.info("generate test data succeed");

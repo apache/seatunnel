@@ -368,8 +368,8 @@ public class HbaseClient {
             HbaseSourceSplit split, HbaseParameters hbaseParameters, List<String> columnNames)
             throws IOException {
         Scan scan = new Scan();
-        scan.withStartRow(split.getStartRow(), true);
-        scan.withStopRow(split.getEndRow(), true);
+        scan.withStartRow(split.getStartRow(), hbaseParameters.isStartRowInclusive());
+        scan.withStopRow(split.getEndRow(), hbaseParameters.isEndRowInclusive());
         scan.setCacheBlocks(hbaseParameters.isCacheBlocks());
         scan.setCaching(hbaseParameters.getCaching());
         scan.setBatch(hbaseParameters.getBatch());

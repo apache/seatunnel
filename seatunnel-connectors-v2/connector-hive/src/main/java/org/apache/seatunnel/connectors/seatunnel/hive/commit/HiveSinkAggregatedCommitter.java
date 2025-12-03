@@ -22,7 +22,7 @@ import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.commit.FileAggregatedCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.commit.FileSinkAggregatedCommitter;
 import org.apache.seatunnel.connectors.seatunnel.hive.sink.HiveSinkOptions;
-import org.apache.seatunnel.connectors.seatunnel.hive.utils.HiveMetaStoreProxy;
+import org.apache.seatunnel.connectors.seatunnel.hive.utils.HiveMetaStoreCatalog;
 
 import org.apache.thrift.TException;
 
@@ -40,30 +40,36 @@ public class HiveSinkAggregatedCommitter extends FileSinkAggregatedCommitter {
     private final String dbName;
     private final String tableName;
     private final boolean abortDropPartitionMetadata;
-    private final boolean overwrite;
+    private final org.apache.seatunnel.api.sink.DataSaveMode dataSaveMode;
 
     private final ReadonlyConfig readonlyConfig;
-    private final HiveMetaStoreProxy hiveMetaStore;
+    private final HiveMetaStoreCatalog hiveMetaStore;
 
     public HiveSinkAggregatedCommitter(
             ReadonlyConfig readonlyConfig, String dbName, String tableName, HadoopConf hadoopConf) {
         super(hadoopConf);
         this.readonlyConfig = readonlyConfig;
-        this.hiveMetaStore = new HiveMetaStoreProxy(readonlyConfig);
+        this.hiveMetaStore = HiveMetaStoreCatalog.create(readonlyConfig);
         this.dbName = dbName;
         this.tableName = tableName;
         this.abortDropPartitionMetadata =
                 readonlyConfig.get(HiveSinkOptions.ABORT_DROP_PARTITION_METADATA);
-        this.overwrite = readonlyConfig.get(HiveSinkOptions.OVERWRITE);
+        // Normalize overwrite into data_save_mode
+        org.apache.seatunnel.api.sink.DataSaveMode configured =
+                readonlyConfig.get(
+                        org.apache.seatunnel.connectors.seatunnel.hive.sink.HiveSinkOptions
+                                .DATA_SAVE_MODE);
+        boolean overwrite = readonlyConfig.get(HiveSinkOptions.OVERWRITE);
+        this.dataSaveMode =
+                overwrite ? org.apache.seatunnel.api.sink.DataSaveMode.DROP_DATA : configured;
     }
 
     @Override
     public List<FileAggregatedCommitInfo> commit(
             List<FileAggregatedCommitInfo> aggregatedCommitInfos) throws IOException {
         log.info("Aggregated commit infos: {}", aggregatedCommitInfos);
-        if (overwrite) {
-            log.info(
-                    "start delete directories in aggregatedCommitInfos because overwrite is enabled.");
+        if (dataSaveMode == org.apache.seatunnel.api.sink.DataSaveMode.DROP_DATA) {
+            log.info("DataSaveMode=DROP_DATA: delete existing target directories before commit.");
             deleteDirectories(aggregatedCommitInfos);
         }
 

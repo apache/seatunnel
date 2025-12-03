@@ -70,15 +70,25 @@ public class LogService extends BaseLogService {
                 systemMonitoringInformation -> {
                     String host = systemMonitoringInformation.asObject().get("host").asString();
                     String url = "http://" + host + ":" + port + contextPath;
-                    String allName = sendGet(url + REST_URL_GET_ALL_LOG_NAME);
+                    String logUrl = url + REST_URL_GET_ALL_LOG_NAME;
+
+                    String allName =
+                            httpConfig.isEnableBasicAuth()
+                                    ? sendGet(
+                                            logUrl,
+                                            httpConfig.getBasicAuthUsername(),
+                                            httpConfig.getBasicAuthPassword())
+                                    : sendGet(logUrl);
+
                     if (StringUtils.isBlank(allName)) {
                         log.warn(
-                                "Get log file name failed: response logName is blank. url: {}, response: {}",
-                                url + REST_URL_GET_ALL_LOG_NAME,
-                                allName);
+                                "GET {} returned empty body (null/empty). Skip this node.", logUrl);
                         return;
                     }
-                    log.debug("Request: {} , Result: {}", url, allName);
+
+                    if (log.isDebugEnabled()) {
+                        log.debug("Request: {} , Result: {}", url, allName);
+                    }
                     ArrayNode jsonNodes = JsonUtils.parseArray(allName);
 
                     jsonNodes.forEach(

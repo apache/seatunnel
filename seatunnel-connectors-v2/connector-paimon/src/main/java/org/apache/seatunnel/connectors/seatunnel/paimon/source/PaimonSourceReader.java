@@ -30,7 +30,6 @@ import org.apache.paimon.data.InternalRow;
 import org.apache.paimon.reader.RecordReader;
 import org.apache.paimon.reader.RecordReaderIterator;
 import org.apache.paimon.table.FileStoreTable;
-import org.apache.paimon.table.Table;
 import org.apache.paimon.table.source.ReadBuilder;
 import org.apache.paimon.table.source.TableRead;
 
@@ -51,14 +50,14 @@ public class PaimonSourceReader implements SourceReader<SeaTunnelRow, PaimonSour
 
     private final Deque<PaimonSourceSplit> sourceSplits = new ConcurrentLinkedDeque<>();
     private final SourceReader.Context context;
-    private final Map<String, Table> tables;
+    private final Map<String, FileStoreTable> tables;
     private final Map<String, SeaTunnelRowType> seaTunnelRowTypes;
     private final Map<String, TableRead> tableReads;
     private volatile boolean noMoreSplit;
 
     public PaimonSourceReader(
             Context context,
-            Map<String, Table> tables,
+            Map<String, FileStoreTable> tables,
             Map<String, SeaTunnelRowType> seaTunnelRowTypes,
             Map<String, ReadBuilder> readBuilders) {
         this.context = context;
@@ -86,7 +85,7 @@ public class PaimonSourceReader implements SourceReader<SeaTunnelRow, PaimonSour
             final PaimonSourceSplit split = sourceSplits.poll();
             if (Objects.nonNull(split)) {
                 String tableId = split.getTableId();
-                Table table = tables.get(tableId);
+                FileStoreTable table = tables.get(tableId);
                 SeaTunnelRowType seaTunnelRowType = seaTunnelRowTypes.get(tableId);
                 TableRead tableRead = tableReads.get(tableId);
                 try (final RecordReader<InternalRow> reader =
@@ -96,8 +95,7 @@ public class PaimonSourceReader implements SourceReader<SeaTunnelRow, PaimonSour
                     while (rowIterator.hasNext()) {
                         final InternalRow row = rowIterator.next();
                         final SeaTunnelRow seaTunnelRow =
-                                RowConverter.convert(
-                                        row, seaTunnelRowType, ((FileStoreTable) table).schema());
+                                RowConverter.convert(row, seaTunnelRowType, table.schema());
                         if (Boundedness.UNBOUNDED.equals(context.getBoundedness())) {
                             RowKind rowKind =
                                     RowKindConverter.convertPaimonRowKind2SeatunnelRowkind(
