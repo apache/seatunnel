@@ -47,7 +47,7 @@ import org.apache.seatunnel.engine.core.dag.logical.LogicalVertex;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.server.AbstractSeaTunnelServerTest;
 import org.apache.seatunnel.engine.server.dag.physical.PlanUtils;
-import org.apache.seatunnel.engine.server.storage.MapManager;
+import org.apache.seatunnel.engine.server.storage.DistributedMapManager;
 import org.apache.seatunnel.engine.server.storage.MapStorage;
 
 import org.junit.jupiter.api.Assertions;
@@ -80,9 +80,10 @@ class CheckpointPlanTest extends AbstractSeaTunnelServerTest {
                         Collections.emptyList(),
                         Collections.emptyList());
 
-        MapStorage<Object, Object> runningJobState = MapManager.getMap("testRunningJobState");
+        MapStorage<Object, Object> runningJobState =
+                DistributedMapManager.getMap("testRunningJobState");
         MapStorage<Object, Long[]> runningJobStateTimestamp =
-                MapManager.getMap("testRunningJobStateTimestamp");
+                DistributedMapManager.getMap("testRunningJobStateTimestamp");
 
         Map<Integer, CheckpointPlan> checkpointPlans =
                 PlanUtils.fromLogicalDAG(

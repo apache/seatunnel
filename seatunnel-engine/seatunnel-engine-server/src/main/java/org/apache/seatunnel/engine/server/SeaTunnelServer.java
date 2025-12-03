@@ -33,7 +33,7 @@ import org.apache.seatunnel.engine.server.metrics.SeaTunnelMetricsContext;
 import org.apache.seatunnel.engine.server.service.jar.ConnectorPackageService;
 import org.apache.seatunnel.engine.server.service.slot.DefaultSlotService;
 import org.apache.seatunnel.engine.server.service.slot.SlotService;
-import org.apache.seatunnel.engine.server.storage.MapManager;
+import org.apache.seatunnel.engine.server.storage.DistributedMapManager;
 import org.apache.seatunnel.engine.server.storage.MapStorage;
 import org.apache.seatunnel.engine.server.telemetry.log.TaskLogManagerService;
 import org.apache.seatunnel.engine.server.telemetry.metrics.entity.ThreadPoolStatus;
@@ -137,7 +137,7 @@ public class SeaTunnelServer
     @Override
     public void init(NodeEngine engine, Properties hzProperties) {
         this.nodeEngine = (NodeEngineImpl) engine;
-        MapManager.init(nodeEngine.getHazelcastInstance());
+        DistributedMapManager.init(nodeEngine.getHazelcastInstance());
         // TODO Determine whether to execute there method on the master node according to the deploy
         // type
 
@@ -312,7 +312,7 @@ public class SeaTunnelServer
      */
     public boolean taskIsEnded(@NonNull TaskGroupLocation taskGroupLocation) {
         MapStorage<Object, Object> runningJobState =
-                MapManager.getMap(Constant.IMAP_RUNNING_JOB_STATE);
+                DistributedMapManager.getMap(Constant.IMAP_RUNNING_JOB_STATE);
 
         Object taskState = runningJobState.get(taskGroupLocation);
         return taskState != null && ((ExecutionState) taskState).isEndState();
@@ -352,7 +352,7 @@ public class SeaTunnelServer
         int partitionCount = seaTunnelConfig.getEngineConfig().getJobMetricsPartitionCount();
 
         MapStorage<Long, Map<TaskLocation, SeaTunnelMetricsContext>> metricsMapStorage =
-                MapManager.getMap(Constant.IMAP_RUNNING_JOB_METRICS);
+                DistributedMapManager.getMap(Constant.IMAP_RUNNING_JOB_METRICS);
 
         Map<Long, Map<TaskLocation, SeaTunnelMetricsContext>> partitioned = new HashMap<>();
         localMap.forEach(
@@ -378,7 +378,7 @@ public class SeaTunnelServer
 
     public void removeMetrics(PipelineLocation pipelineLocation) {
         MapStorage<Long, Map<TaskLocation, SeaTunnelMetricsContext>> metricsMapStorage =
-                MapManager.getMap(Constant.IMAP_RUNNING_JOB_METRICS);
+                DistributedMapManager.getMap(Constant.IMAP_RUNNING_JOB_METRICS);
 
         Map<Long, List<TaskLocation>> partitionedTasks = new HashMap<>();
         for (Map.Entry<Long, Map<TaskLocation, SeaTunnelMetricsContext>> entry :

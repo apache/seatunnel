@@ -36,7 +36,7 @@ import org.apache.seatunnel.engine.server.dag.physical.UnknownPhysicalPlanExcept
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
 import org.apache.seatunnel.engine.server.service.slot.SlotService;
-import org.apache.seatunnel.engine.server.storage.MapManager;
+import org.apache.seatunnel.engine.server.storage.DistributedMapManager;
 import org.apache.seatunnel.engine.server.storage.MapStorage;
 import org.apache.seatunnel.engine.server.task.CoordinatorTask;
 import org.apache.seatunnel.engine.server.task.SeaTunnelTask;
@@ -149,10 +149,12 @@ class JobMasterTest extends AbstractSeaTunnelServerTest {
     }
 
     private void testMapStorageRemovedAfterJobComplete(long jobId, JobMaster jobMaster) {
-        runningJobInfoMapStorage = MapManager.getMap(Constant.IMAP_RUNNING_JOB_INFO);
-        runningJobStateMapStorage = MapManager.getMap(Constant.IMAP_RUNNING_JOB_STATE);
-        runningJobStateTimestampsMapStorage = MapManager.getMap(Constant.IMAP_STATE_TIMESTAMPS);
-        ownedSlotProfilesMapStorage = MapManager.getMap(Constant.IMAP_OWNED_SLOT_PROFILES);
+        runningJobInfoMapStorage = DistributedMapManager.getMap(Constant.IMAP_RUNNING_JOB_INFO);
+        runningJobStateMapStorage = DistributedMapManager.getMap(Constant.IMAP_RUNNING_JOB_STATE);
+        runningJobStateTimestampsMapStorage =
+                DistributedMapManager.getMap(Constant.IMAP_STATE_TIMESTAMPS);
+        ownedSlotProfilesMapStorage =
+                DistributedMapManager.getMap(Constant.IMAP_OWNED_SLOT_PROFILES);
 
         await().atMost(60000, TimeUnit.MILLISECONDS)
                 .untilAsserted(

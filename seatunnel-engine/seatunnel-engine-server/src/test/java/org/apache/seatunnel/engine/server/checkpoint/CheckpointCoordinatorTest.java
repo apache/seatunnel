@@ -29,8 +29,8 @@ import org.apache.seatunnel.engine.server.checkpoint.operation.TaskAcknowledgeOp
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.master.JobMaster;
+import org.apache.seatunnel.engine.server.storage.DistributedMapManager;
 import org.apache.seatunnel.engine.server.storage.IMapStorage;
-import org.apache.seatunnel.engine.server.storage.MapManager;
 import org.apache.seatunnel.engine.server.storage.MapStorage;
 import org.apache.seatunnel.engine.server.task.operation.TaskOperation;
 import org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState;
@@ -79,7 +79,7 @@ public class CheckpointCoordinatorTest
                         checkpointConfig,
                         server.getCheckpointService().getCheckpointStorage(),
                         instance.getExecutorService("test"),
-                        MapManager.getMap(Constant.IMAP_RUNNING_JOB_STATE));
+                        DistributedMapManager.getMap(Constant.IMAP_RUNNING_JOB_STATE));
         checkpointManager.acknowledgeTask(
                 new TaskAcknowledgeOperation(
                         new TaskLocation(new TaskGroupLocation(1L, 1, 1), 1, 1),
@@ -115,7 +115,7 @@ public class CheckpointCoordinatorTest
                             checkpointConfig,
                             server.getCheckpointService().getCheckpointStorage(),
                             executorService,
-                            MapManager.getMap(Constant.IMAP_RUNNING_JOB_STATE)) {
+                            DistributedMapManager.getMap(Constant.IMAP_RUNNING_JOB_STATE)) {
 
                         @Override
                         protected void handleCheckpointError(int pipelineId, boolean neverRestore) {
@@ -159,7 +159,7 @@ public class CheckpointCoordinatorTest
                             checkpointConfig,
                             server.getCheckpointService().getCheckpointStorage(),
                             executorService,
-                            MapManager.getMap(Constant.IMAP_RUNNING_JOB_STATE)) {
+                            DistributedMapManager.getMap(Constant.IMAP_RUNNING_JOB_STATE)) {
                         @Override
                         protected void handleCheckpointError(int pipelineId, boolean neverRestore) {
                             invokedHandleCheckpointError.complete(true);
@@ -232,7 +232,7 @@ public class CheckpointCoordinatorTest
                             checkpointConfig,
                             server.getCheckpointService().getCheckpointStorage(),
                             executorService,
-                            MapManager.getMap(Constant.IMAP_RUNNING_JOB_STATE)) {
+                            DistributedMapManager.getMap(Constant.IMAP_RUNNING_JOB_STATE)) {
 
                         @Override
                         public void acknowledgeTask(TaskAcknowledgeOperation ackOperation) {
@@ -301,7 +301,7 @@ public class CheckpointCoordinatorTest
                         checkpointConfig,
                         server.getCheckpointService().getCheckpointStorage(),
                         instance.getExecutorService("test"),
-                        MapManager.getMap(Constant.IMAP_RUNNING_JOB_STATE));
+                        DistributedMapManager.getMap(Constant.IMAP_RUNNING_JOB_STATE));
 
         TaskGroupLocation group1 = new TaskGroupLocation(1L, 1, 1);
         TaskLocation task1 = new TaskLocation(group1, 1, 1);

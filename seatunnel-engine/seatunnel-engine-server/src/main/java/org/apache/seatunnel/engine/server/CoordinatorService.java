@@ -68,7 +68,7 @@ import org.apache.seatunnel.engine.server.resourcemanager.ResourceManager;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerFactory;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
 import org.apache.seatunnel.engine.server.service.jar.ConnectorPackageService;
-import org.apache.seatunnel.engine.server.storage.MapManager;
+import org.apache.seatunnel.engine.server.storage.DistributedMapManager;
 import org.apache.seatunnel.engine.server.storage.MapStorage;
 import org.apache.seatunnel.engine.server.task.operation.GetMetricsOperation;
 import org.apache.seatunnel.engine.server.telemetry.metrics.entity.JobCounter;
@@ -402,11 +402,13 @@ public class CoordinatorService {
     }
 
     private void initCoordinatorService() {
-        runningJobInfoMapStorage = MapManager.getMap(Constant.IMAP_RUNNING_JOB_INFO);
-        runningJobStateMapStorage = MapManager.getMap(Constant.IMAP_RUNNING_JOB_STATE);
-        runningJobStateTimestampsMapStorage = MapManager.getMap(Constant.IMAP_STATE_TIMESTAMPS);
-        ownedSlotProfilesMapStorage = MapManager.getMap(Constant.IMAP_OWNED_SLOT_PROFILES);
-        metricsMapStorage = MapManager.getMap(Constant.IMAP_RUNNING_JOB_METRICS);
+        runningJobInfoMapStorage = DistributedMapManager.getMap(Constant.IMAP_RUNNING_JOB_INFO);
+        runningJobStateMapStorage = DistributedMapManager.getMap(Constant.IMAP_RUNNING_JOB_STATE);
+        runningJobStateTimestampsMapStorage =
+                DistributedMapManager.getMap(Constant.IMAP_STATE_TIMESTAMPS);
+        ownedSlotProfilesMapStorage =
+                DistributedMapManager.getMap(Constant.IMAP_OWNED_SLOT_PROFILES);
+        metricsMapStorage = DistributedMapManager.getMap(Constant.IMAP_RUNNING_JOB_METRICS);
 
         jobHistoryService =
                 new JobHistoryService(
@@ -415,9 +417,9 @@ public class CoordinatorService {
                         logger,
                         pendingJobQueue.getJobIdMap(),
                         runningJobMasterMap,
-                        MapManager.getMap(Constant.IMAP_FINISHED_JOB_STATE),
-                        MapManager.getMap(Constant.IMAP_FINISHED_JOB_METRICS),
-                        MapManager.getMap(Constant.IMAP_FINISHED_JOB_VERTEX_INFO),
+                        DistributedMapManager.getMap(Constant.IMAP_FINISHED_JOB_STATE),
+                        DistributedMapManager.getMap(Constant.IMAP_FINISHED_JOB_METRICS),
+                        DistributedMapManager.getMap(Constant.IMAP_FINISHED_JOB_VERTEX_INFO),
                         engineConfig.getHistoryJobExpireMinutes());
         eventProcessor =
                 createJobEventProcessor(

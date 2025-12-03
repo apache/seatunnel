@@ -39,7 +39,7 @@ import org.apache.seatunnel.engine.server.execution.TaskGroupDefaultImpl;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.master.JobMaster;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
-import org.apache.seatunnel.engine.server.storage.MapManager;
+import org.apache.seatunnel.engine.server.storage.DistributedMapManager;
 import org.apache.seatunnel.engine.server.storage.MapStorage;
 import org.apache.seatunnel.engine.server.task.TaskGroupImmutableInformation;
 import org.apache.seatunnel.engine.server.task.operation.CancelTaskOperation;
@@ -213,7 +213,8 @@ public class PhysicalVertex {
 
     private boolean checkTaskGroupIsExecuting(TaskGroupLocation taskGroupLocation) {
         MapStorage<PipelineLocation, Map<TaskGroupLocation, SlotProfile>>
-                ownedSlotProfilesMapStorage = MapManager.getMap(Constant.IMAP_OWNED_SLOT_PROFILES);
+                ownedSlotProfilesMapStorage =
+                        DistributedMapManager.getMap(Constant.IMAP_OWNED_SLOT_PROFILES);
         SlotProfile slotProfile =
                 getOwnedSlotProfilesByTaskGroup(taskGroupLocation, ownedSlotProfilesMapStorage);
         if (null != slotProfile) {

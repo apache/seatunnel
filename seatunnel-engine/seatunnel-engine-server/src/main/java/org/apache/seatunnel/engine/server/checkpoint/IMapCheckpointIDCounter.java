@@ -23,7 +23,7 @@ import org.apache.seatunnel.engine.common.utils.ExceptionUtil;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.core.checkpoint.CheckpointIDCounter;
 import org.apache.seatunnel.engine.core.job.PipelineStatus;
-import org.apache.seatunnel.engine.server.storage.MapManager;
+import org.apache.seatunnel.engine.server.storage.DistributedMapManager;
 import org.apache.seatunnel.engine.server.storage.MapStorage;
 
 import com.hazelcast.spi.impl.NodeEngine;
@@ -45,7 +45,7 @@ public class IMapCheckpointIDCounter implements CheckpointIDCounter {
         this.jobID = jobID;
         this.pipelineId = pipelineId;
         this.key = convertLongIntToBase64(jobID, pipelineId);
-        this.checkpointIdMap = MapManager.getMap(IMAP_CHECKPOINT_ID);
+        this.checkpointIdMap = DistributedMapManager.getMap(IMAP_CHECKPOINT_ID);
     }
 
     @Override

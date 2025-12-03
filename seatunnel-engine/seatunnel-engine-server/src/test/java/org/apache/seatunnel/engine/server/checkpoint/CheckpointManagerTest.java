@@ -29,7 +29,7 @@ import org.apache.seatunnel.engine.core.checkpoint.CheckpointType;
 import org.apache.seatunnel.engine.core.job.PipelineStatus;
 import org.apache.seatunnel.engine.serializer.protobuf.ProtoStuffSerializer;
 import org.apache.seatunnel.engine.server.AbstractSeaTunnelServerTest;
-import org.apache.seatunnel.engine.server.storage.MapManager;
+import org.apache.seatunnel.engine.server.storage.DistributedMapManager;
 import org.apache.seatunnel.engine.server.storage.MapStorage;
 
 import org.junit.jupiter.api.Assertions;
@@ -76,7 +76,7 @@ class CheckpointManagerTest extends AbstractSeaTunnelServerTest {
                         .states(new ProtoStuffSerializer().serialize(completedCheckpoint))
                         .build());
         MapStorage<Integer, Long> checkpointIdMap =
-                MapManager.getMap(String.format(IMAP_CHECKPOINT_ID, jobId));
+                DistributedMapManager.getMap(String.format(IMAP_CHECKPOINT_ID, jobId));
         checkpointIdMap.put(1, 2L);
         Map<Integer, CheckpointPlan> planMap = new HashMap<>();
         planMap.put(1, CheckpointPlan.builder().pipelineId(1).build());
@@ -90,7 +90,7 @@ class CheckpointManagerTest extends AbstractSeaTunnelServerTest {
                         new CheckpointConfig(),
                         server.getCheckpointService().getCheckpointStorage(),
                         instance.getExecutorService("test"),
-                        MapManager.getMap(IMAP_RUNNING_JOB_STATE));
+                        DistributedMapManager.getMap(IMAP_RUNNING_JOB_STATE));
         Assertions.assertTrue(checkpointManager.isCompletedPipeline(1));
         checkpointManager.listenPipeline(1, PipelineStatus.FINISHED);
         Assertions.assertNull(checkpointIdMap.get(1));

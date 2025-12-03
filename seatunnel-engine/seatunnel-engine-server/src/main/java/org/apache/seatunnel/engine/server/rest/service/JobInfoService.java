@@ -31,7 +31,7 @@ import org.apache.seatunnel.engine.server.master.JobHistoryService.JobState;
 import org.apache.seatunnel.engine.server.operation.GetJobMetricsOperation;
 import org.apache.seatunnel.engine.server.rest.ConfigFormat;
 import org.apache.seatunnel.engine.server.rest.RestConstant;
-import org.apache.seatunnel.engine.server.storage.MapManager;
+import org.apache.seatunnel.engine.server.storage.DistributedMapManager;
 import org.apache.seatunnel.engine.server.storage.MapStorage;
 import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
 import org.apache.seatunnel.engine.server.utils.RestUtil;
@@ -59,11 +59,11 @@ public class JobInfoService extends BaseService {
 
     public JsonObject getJobInfoJson(Long jobId) {
         MapStorage<Object, Object> jobInfoMapStorage =
-                MapManager.getMap(Constant.IMAP_RUNNING_JOB_INFO);
+                DistributedMapManager.getMap(Constant.IMAP_RUNNING_JOB_INFO);
         JobInfo jobInfo = (JobInfo) jobInfoMapStorage.get(jobId);
 
         MapStorage<Object, Object> finishedJobStateMapStorage =
-                MapManager.getMap(Constant.IMAP_FINISHED_JOB_STATE);
+                DistributedMapManager.getMap(Constant.IMAP_FINISHED_JOB_STATE);
         JobState finishedJobState = (JobState) finishedJobStateMapStorage.get(jobId);
 
         if (jobInfo != null) {
@@ -90,10 +90,10 @@ public class JobInfoService extends BaseService {
 
     public JsonArray getJobsByStateJson(String state) {
         MapStorage<Long, JobState> finishedJob =
-                MapManager.getMap(Constant.IMAP_FINISHED_JOB_STATE);
+                DistributedMapManager.getMap(Constant.IMAP_FINISHED_JOB_STATE);
 
         MapStorage<Long, JobDAGInfo> finishedJobDAGInfo =
-                MapManager.getMap(Constant.IMAP_FINISHED_JOB_VERTEX_INFO);
+                DistributedMapManager.getMap(Constant.IMAP_FINISHED_JOB_VERTEX_INFO);
 
         SeaTunnelServer seaTunnelServer = getSeaTunnelServer(true);
 
@@ -131,7 +131,8 @@ public class JobInfoService extends BaseService {
     }
 
     public JsonArray getRunningJobsJson() {
-        MapStorage<Long, JobInfo> values = MapManager.getMap(Constant.IMAP_RUNNING_JOB_INFO);
+        MapStorage<Long, JobInfo> values =
+                DistributedMapManager.getMap(Constant.IMAP_RUNNING_JOB_INFO);
         return values.entrySet().stream()
                 .map(jobInfoEntry -> convertToJson(jobInfoEntry.getValue(), jobInfoEntry.getKey()))
                 .collect(JsonArray::new, JsonArray::add, JsonArray::add);

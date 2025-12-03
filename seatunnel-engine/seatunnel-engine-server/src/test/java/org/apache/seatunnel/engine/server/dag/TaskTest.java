@@ -55,7 +55,7 @@ import org.apache.seatunnel.engine.server.dag.physical.PlanUtils;
 import org.apache.seatunnel.engine.server.dag.physical.SubPlan;
 import org.apache.seatunnel.engine.server.execution.Task;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
-import org.apache.seatunnel.engine.server.storage.MapManager;
+import org.apache.seatunnel.engine.server.storage.DistributedMapManager;
 import org.apache.seatunnel.engine.server.storage.MapStorage;
 
 import org.junit.jupiter.api.Assertions;
@@ -175,9 +175,10 @@ public class TaskTest extends AbstractSeaTunnelServerTest {
                 Sets.newHashSet(new URL("file:///console.jar")),
                 jobImmutableInformation.getLogicalVertexJarsList().get(1));
 
-        MapStorage<Object, Object> runningJobState = MapManager.getMap("testRunningJobState");
+        MapStorage<Object, Object> runningJobState =
+                DistributedMapManager.getMap("testRunningJobState");
         MapStorage<Object, Long[]> runningJobStateTimestamp =
-                MapManager.getMap("testRunningJobStateTimestamp");
+                DistributedMapManager.getMap("testRunningJobStateTimestamp");
 
         PhysicalPlan physicalPlan =
                 PlanUtils.fromLogicalDAG(
@@ -245,9 +246,10 @@ public class TaskTest extends AbstractSeaTunnelServerTest {
                         testLogicalDag,
                         Collections.emptyList(),
                         Collections.emptyList());
-        MapStorage<Object, Object> runningJobState = MapManager.getMap("testRunningJobState");
+        MapStorage<Object, Object> runningJobState =
+                DistributedMapManager.getMap("testRunningJobState");
         MapStorage<Object, Long[]> runningJobStateTimestamp =
-                MapManager.getMap("testRunningJobStateTimestamp");
+                DistributedMapManager.getMap("testRunningJobStateTimestamp");
         PhysicalPlan physicalPlan =
                 PlanUtils.fromLogicalDAG(
                                 testLogicalDag,

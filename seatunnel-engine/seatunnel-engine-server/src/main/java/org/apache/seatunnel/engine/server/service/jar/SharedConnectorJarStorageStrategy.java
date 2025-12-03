@@ -25,7 +25,7 @@ import org.apache.seatunnel.engine.core.job.ConnectorJarIdentifier;
 import org.apache.seatunnel.engine.core.job.ConnectorJarType;
 import org.apache.seatunnel.engine.core.job.RefCount;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
-import org.apache.seatunnel.engine.server.storage.MapManager;
+import org.apache.seatunnel.engine.server.storage.DistributedMapManager;
 import org.apache.seatunnel.engine.server.storage.MapStorage;
 
 import java.io.File;
@@ -53,7 +53,8 @@ public class SharedConnectorJarStorageStrategy extends AbstractConnectorJarStora
             ConnectorJarStorageConfig connectorJarStorageConfig, SeaTunnelServer seaTunnelServer) {
         super(connectorJarStorageConfig, seaTunnelServer);
         this.readWriteLock = new ReentrantReadWriteLock();
-        this.connectorJarRefCounters = MapManager.getMap(Constant.IMAP_CONNECTOR_JAR_REF_COUNTERS);
+        this.connectorJarRefCounters =
+                DistributedMapManager.getMap(Constant.IMAP_CONNECTOR_JAR_REF_COUNTERS);
         // Initializing the cleanup task
         this.cleanupTimer = new Timer(true);
         this.cleanupInterval = connectorJarStorageConfig.getCleanupTaskInterval() * 1000;

@@ -50,7 +50,7 @@ import org.apache.seatunnel.engine.server.operation.SavePointJobOperation;
 import org.apache.seatunnel.engine.server.operation.SubmitJobOperation;
 import org.apache.seatunnel.engine.server.rest.RestConstant;
 import org.apache.seatunnel.engine.server.rest.RestJobExecutionEnvironment;
-import org.apache.seatunnel.engine.server.storage.MapManager;
+import org.apache.seatunnel.engine.server.storage.DistributedMapManager;
 import org.apache.seatunnel.engine.server.storage.MapStorage;
 import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
 import org.apache.seatunnel.engine.server.utils.RestUtil;
@@ -205,7 +205,7 @@ public abstract class BaseService {
 
     private String getJobStartTime(long jobId) {
         MapStorage<Object, Long[]> stateTimestamps =
-                MapManager.getMap(Constant.IMAP_STATE_TIMESTAMPS);
+                DistributedMapManager.getMap(Constant.IMAP_STATE_TIMESTAMPS);
         Long[] jobStateTimestamps = stateTimestamps.get(jobId);
         if (jobStateTimestamps != null) {
             Long startTimestamp = jobStateTimestamps[JobStatus.SCHEDULED.ordinal()];
