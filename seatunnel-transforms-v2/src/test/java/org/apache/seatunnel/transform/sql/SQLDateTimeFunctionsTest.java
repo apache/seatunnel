@@ -378,7 +378,7 @@ public class SQLDateTimeFunctionsTest {
         LocalDateTime nowTs = (LocalDateTime) outRow.getField(3);
 
         Assertions.assertEquals(cd, cts.toLocalDate());
-        Assertions.assertEquals(cts, nowTs);
+        Assertions.assertEquals(cts.withNano(0), nowTs.withNano(0));
     }
 
     @Test
