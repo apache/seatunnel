@@ -55,12 +55,12 @@ import org.apache.seatunnel.engine.server.dag.physical.PlanUtils;
 import org.apache.seatunnel.engine.server.dag.physical.SubPlan;
 import org.apache.seatunnel.engine.server.execution.Task;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
+import org.apache.seatunnel.engine.server.storage.MapManager;
+import org.apache.seatunnel.engine.server.storage.MapStorage;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junitpioneer.jupiter.SetEnvironmentVariable;
-
-import com.hazelcast.map.IMap;
 
 import java.net.MalformedURLException;
 import java.net.URL;
@@ -175,10 +175,9 @@ public class TaskTest extends AbstractSeaTunnelServerTest {
                 Sets.newHashSet(new URL("file:///console.jar")),
                 jobImmutableInformation.getLogicalVertexJarsList().get(1));
 
-        IMap<Object, Object> runningJobState =
-                nodeEngine.getHazelcastInstance().getMap("testRunningJobState");
-        IMap<Object, Long[]> runningJobStateTimestamp =
-                nodeEngine.getHazelcastInstance().getMap("testRunningJobStateTimestamp");
+        MapStorage<Object, Object> runningJobState = MapManager.getMap("testRunningJobState");
+        MapStorage<Object, Long[]> runningJobStateTimestamp =
+                MapManager.getMap("testRunningJobStateTimestamp");
 
         PhysicalPlan physicalPlan =
                 PlanUtils.fromLogicalDAG(
@@ -246,10 +245,9 @@ public class TaskTest extends AbstractSeaTunnelServerTest {
                         testLogicalDag,
                         Collections.emptyList(),
                         Collections.emptyList());
-        IMap<Object, Object> runningJobState =
-                nodeEngine.getHazelcastInstance().getMap("testRunningJobState");
-        IMap<Object, Long[]> runningJobStateTimestamp =
-                nodeEngine.getHazelcastInstance().getMap("testRunningJobStateTimestamp");
+        MapStorage<Object, Object> runningJobState = MapManager.getMap("testRunningJobState");
+        MapStorage<Object, Long[]> runningJobStateTimestamp =
+                MapManager.getMap("testRunningJobStateTimestamp");
         PhysicalPlan physicalPlan =
                 PlanUtils.fromLogicalDAG(
                                 testLogicalDag,

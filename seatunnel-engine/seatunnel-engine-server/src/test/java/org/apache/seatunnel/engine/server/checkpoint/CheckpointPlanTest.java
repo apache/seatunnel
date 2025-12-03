@@ -47,11 +47,11 @@ import org.apache.seatunnel.engine.core.dag.logical.LogicalVertex;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.server.AbstractSeaTunnelServerTest;
 import org.apache.seatunnel.engine.server.dag.physical.PlanUtils;
+import org.apache.seatunnel.engine.server.storage.MapManager;
+import org.apache.seatunnel.engine.server.storage.MapStorage;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
-
-import com.hazelcast.map.IMap;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -60,10 +60,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Executors;
 
-public class CheckpointPlanTest extends AbstractSeaTunnelServerTest {
+class CheckpointPlanTest extends AbstractSeaTunnelServerTest {
 
     @Test
-    public void testGenerateCheckpointPlan() {
+    void testGenerateCheckpointPlan() {
         final IdGenerator idGenerator = new IdGenerator();
         JobConfig config = new JobConfig();
         config.setName("test");
@@ -80,10 +80,9 @@ public class CheckpointPlanTest extends AbstractSeaTunnelServerTest {
                         Collections.emptyList(),
                         Collections.emptyList());
 
-        IMap<Object, Object> runningJobState =
-                nodeEngine.getHazelcastInstance().getMap("testRunningJobState");
-        IMap<Object, Long[]> runningJobStateTimestamp =
-                nodeEngine.getHazelcastInstance().getMap("testRunningJobStateTimestamp");
+        MapStorage<Object, Object> runningJobState = MapManager.getMap("testRunningJobState");
+        MapStorage<Object, Long[]> runningJobStateTimestamp =
+                MapManager.getMap("testRunningJobStateTimestamp");
 
         Map<Integer, CheckpointPlan> checkpointPlans =
                 PlanUtils.fromLogicalDAG(

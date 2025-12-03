@@ -25,14 +25,7 @@ import org.apache.seatunnel.engine.common.runtime.ExecutionMode;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
-import org.apache.seatunnel.engine.core.job.JobInfo;
-import org.apache.seatunnel.engine.core.job.PipelineStatus;
-import org.apache.seatunnel.engine.server.dag.physical.PhysicalVertex;
-import org.apache.seatunnel.engine.server.dag.physical.PipelineLocation;
-import org.apache.seatunnel.engine.server.dag.physical.SubPlan;
-import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.master.JobMaster;
-import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
@@ -43,10 +36,8 @@ import org.junit.jupiter.api.condition.OS;
 
 import com.hazelcast.config.Config;
 import com.hazelcast.internal.serialization.Data;
-import com.hazelcast.map.IMap;
 
 import java.util.Collections;
-import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 import static org.awaitility.Awaitility.await;
@@ -54,48 +45,7 @@ import static org.awaitility.Awaitility.await;
 /** JobMaster Tester. */
 @DisabledOnOs(OS.WINDOWS)
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
-public class CoordinatorServiceWithCancelPendingJobTest extends AbstractSeaTunnelServerTest {
-    /**
-     * IMap key is jobId and value is a Tuple2 Tuple2 key is JobMaster init timestamp and value is
-     * the jobImmutableInformation which is sent by client when submit job
-     *
-     * <p>This IMap is used to recovery runningJobInfoIMap in JobMaster when a new master node
-     * active
-     */
-    private IMap<Long, JobInfo> runningJobInfoIMap;
-
-    /**
-     * IMap key is one of jobId {@link PipelineLocation} and {@link TaskGroupLocation}
-     *
-     * <p>The value of IMap is one of {@link JobStatus} {@link PipelineStatus} {@link
-     * org.apache.seatunnel.engine.server.execution.ExecutionState}
-     *
-     * <p>This IMap is used to recovery runningJobStateIMap in JobMaster when a new master node
-     * active
-     */
-    IMap<Object, Object> runningJobStateIMap;
-
-    /**
-     * IMap key is one of jobId {@link PipelineLocation} and {@link TaskGroupLocation}
-     *
-     * <p>The value of IMap is one of {@link
-     * org.apache.seatunnel.engine.server.dag.physical.PhysicalPlan} stateTimestamps {@link SubPlan}
-     * stateTimestamps {@link PhysicalVertex} stateTimestamps
-     *
-     * <p>This IMap is used to recovery runningJobStateTimestampsIMap in JobMaster when a new master
-     * node active
-     */
-    IMap<Object, Long[]> runningJobStateTimestampsIMap;
-
-    /**
-     * IMap key is {@link PipelineLocation}
-     *
-     * <p>The value of IMap is map of {@link TaskGroupLocation} and the {@link SlotProfile} it used.
-     *
-     * <p>This IMap is used to recovery ownedSlotProfilesIMap in JobMaster when a new master node
-     * active
-     */
-    private IMap<PipelineLocation, Map<TaskGroupLocation, SlotProfile>> ownedSlotProfilesIMap;
+class CoordinatorServiceWithCancelPendingJobTest extends AbstractSeaTunnelServerTest {
 
     @BeforeAll
     public void before() {
@@ -117,7 +67,7 @@ public class CoordinatorServiceWithCancelPendingJobTest extends AbstractSeaTunne
     }
 
     @Test
-    public void testCancelPendingJob() throws InterruptedException {
+    void testCancelPendingJob() throws InterruptedException {
 
         long jobId = instance.getFlakeIdGenerator("testCancelPendingJob").newId();
         JobMaster jobMaster = newJobInstanceWithRunningState(jobId);

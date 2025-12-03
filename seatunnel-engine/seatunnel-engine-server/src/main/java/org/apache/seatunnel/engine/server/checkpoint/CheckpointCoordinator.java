@@ -43,6 +43,7 @@ import org.apache.seatunnel.engine.server.checkpoint.operation.NotifyTaskStartOp
 import org.apache.seatunnel.engine.server.checkpoint.operation.TaskAcknowledgeOperation;
 import org.apache.seatunnel.engine.server.checkpoint.operation.TaskReportStatusOperation;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
+import org.apache.seatunnel.engine.server.storage.MapStorage;
 import org.apache.seatunnel.engine.server.task.record.Barrier;
 import org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState;
 
@@ -50,7 +51,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.hazelcast.jet.datamodel.Tuple2;
-import com.hazelcast.map.IMap;
 import com.hazelcast.spi.impl.operationservice.impl.InvocationFuture;
 import lombok.Getter;
 import lombok.NonNull;
@@ -147,13 +147,13 @@ public class CheckpointCoordinator {
 
     private AtomicReference<String> errorByPhysicalVertex = new AtomicReference<>();
 
-    private final IMap<Object, Object> runningJobStateIMap;
+    private final MapStorage<Object, Object> runningJobStateMap;
 
     // save pending checkpoint for savepoint, to make sure the different savepoint request can be
     // processed with one savepoint operation in the same time.
     private PendingCheckpoint savepointPendingCheckpoint;
 
-    private final String checkpointStateImapKey;
+    private final String checkpointStateMapKey;
 
     @SneakyThrows
     public CheckpointCoordinator(
@@ -165,7 +165,7 @@ public class CheckpointCoordinator {
             CheckpointIDCounter checkpointIdCounter,
             PipelineState pipelineState,
             ExecutorService executorService,
-            IMap<Object, Object> runningJobStateIMap,
+            MapStorage<Object, Object> runningJobStateMap,
             boolean isStartWithSavePoint) {
 
         this.executorService = executorService;
@@ -173,8 +173,8 @@ public class CheckpointCoordinator {
         this.checkpointStorage = checkpointStorage;
         this.jobId = jobId;
         this.pipelineId = plan.getPipelineId();
-        this.checkpointStateImapKey = "checkpoint_state_" + jobId + "_" + pipelineId;
-        this.runningJobStateIMap = runningJobStateIMap;
+        this.checkpointStateMapKey = "checkpoint_state_" + jobId + "_" + pipelineId;
+        this.runningJobStateMap = runningJobStateMap;
         this.plan = plan;
         this.coordinatorConfig = checkpointConfig;
         this.pendingCheckpoints = new ConcurrentHashMap<>();
@@ -220,7 +220,7 @@ public class CheckpointCoordinator {
 
         // For job restore from master node active switch
         CheckpointCoordinatorStatus checkpointCoordinatorStatus =
-                (CheckpointCoordinatorStatus) runningJobStateIMap.get(checkpointStateImapKey);
+                (CheckpointCoordinatorStatus) runningJobStateMap.get(checkpointStateMapKey);
 
         // This is not a new job
         if (isStartWithSavePoint) {
@@ -1005,7 +1005,7 @@ public class CheckpointCoordinator {
             return false;
         }
         CheckpointCoordinatorStatus status =
-                (CheckpointCoordinatorStatus) runningJobStateIMap.get(checkpointStateImapKey);
+                (CheckpointCoordinatorStatus) runningJobStateMap.get(checkpointStateMapKey);
         return latestCompletedCheckpoint.getCheckpointType().isFinalCheckpoint()
                 && (status.equals(CheckpointCoordinatorStatus.FINISHED)
                         || status.equals(CheckpointCoordinatorStatus.SUSPEND))
@@ -1044,10 +1044,10 @@ public class CheckpointCoordinator {
                         LOG.info(
                                 String.format(
                                         "Turn %s state from %s to %s",
-                                        checkpointStateImapKey,
-                                        runningJobStateIMap.get(checkpointStateImapKey),
+                                        checkpointStateMapKey,
+                                        runningJobStateMap.get(checkpointStateMapKey),
                                         targetStatus));
-                        runningJobStateIMap.set(checkpointStateImapKey, targetStatus);
+                        runningJobStateMap.set(checkpointStateMapKey, targetStatus);
                         return null;
                     },
                     new RetryUtils.RetryMaterial(
@@ -1059,7 +1059,7 @@ public class CheckpointCoordinator {
             LOG.warn(
                     String.format(
                             "Set %s state %s to IMap failed, skip do it",
-                            checkpointStateImapKey, targetStatus));
+                            checkpointStateMapKey, targetStatus));
         }
     }
 
@@ -1112,8 +1112,8 @@ public class CheckpointCoordinator {
         }
     }
 
-    public String getCheckpointStateImapKey() {
-        return checkpointStateImapKey;
+    public String getCheckpointStateMapKey() {
+        return checkpointStateMapKey;
     }
 
     /** Only for test */

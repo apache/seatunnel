@@ -25,8 +25,9 @@ import org.apache.seatunnel.engine.server.resourcemanager.ResourceManager;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.OverviewInfo;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
 import org.apache.seatunnel.engine.server.serializable.ResourceDataSerializerHook;
+import org.apache.seatunnel.engine.server.storage.MapManager;
+import org.apache.seatunnel.engine.server.storage.MapStorage;
 
-import com.hazelcast.map.IMap;
 import com.hazelcast.nio.ObjectDataInput;
 import com.hazelcast.nio.ObjectDataOutput;
 import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
@@ -84,8 +85,8 @@ public class GetOverviewOperation extends Operation implements IdentifiedDataSer
         List<SlotProfile> assignedSlots = resourceManager.getAssignedSlots(tags);
 
         List<SlotProfile> unassignedSlots = resourceManager.getUnassignedSlots(tags);
-        IMap<Long, JobState> finishedJob =
-                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_FINISHED_JOB_STATE);
+        MapStorage<Long, JobState> finishedJob =
+                MapManager.getMap(Constant.IMAP_FINISHED_JOB_STATE);
         overviewInfo.setTotalSlot(assignedSlots.size() + unassignedSlots.size());
         overviewInfo.setUnassignedSlot(unassignedSlots.size());
         overviewInfo.setWorkers(resourceManager.workerCount(tags));

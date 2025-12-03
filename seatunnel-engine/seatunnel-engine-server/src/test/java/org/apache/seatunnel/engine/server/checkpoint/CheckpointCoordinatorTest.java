@@ -19,6 +19,7 @@ package org.apache.seatunnel.engine.server.checkpoint;
 
 import org.apache.seatunnel.common.utils.ReflectionUtils;
 import org.apache.seatunnel.engine.checkpoint.storage.api.CheckpointStorage;
+import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.server.CheckpointConfig;
 import org.apache.seatunnel.engine.common.config.server.CheckpointStorageConfig;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
@@ -28,6 +29,9 @@ import org.apache.seatunnel.engine.server.checkpoint.operation.TaskAcknowledgeOp
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.master.JobMaster;
+import org.apache.seatunnel.engine.server.storage.IMapStorage;
+import org.apache.seatunnel.engine.server.storage.MapManager;
+import org.apache.seatunnel.engine.server.storage.MapStorage;
 import org.apache.seatunnel.engine.server.task.operation.TaskOperation;
 import org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState;
 
@@ -37,7 +41,6 @@ import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 
 import com.hazelcast.jet.datamodel.Tuple2;
-import com.hazelcast.map.IMap;
 import com.hazelcast.spi.impl.NodeEngine;
 import com.hazelcast.spi.impl.operationservice.impl.InvocationFuture;
 
@@ -56,8 +59,6 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
-
-import static org.apache.seatunnel.engine.common.Constant.IMAP_RUNNING_JOB_STATE;
 
 public class CheckpointCoordinatorTest
         extends AbstractSeaTunnelServerTest<CheckpointCoordinatorTest> {
@@ -78,7 +79,7 @@ public class CheckpointCoordinatorTest
                         checkpointConfig,
                         server.getCheckpointService().getCheckpointStorage(),
                         instance.getExecutorService("test"),
-                        nodeEngine.getHazelcastInstance().getMap(IMAP_RUNNING_JOB_STATE));
+                        MapManager.getMap(Constant.IMAP_RUNNING_JOB_STATE));
         checkpointManager.acknowledgeTask(
                 new TaskAcknowledgeOperation(
                         new TaskLocation(new TaskGroupLocation(1L, 1, 1), 1, 1),
@@ -114,7 +115,7 @@ public class CheckpointCoordinatorTest
                             checkpointConfig,
                             server.getCheckpointService().getCheckpointStorage(),
                             executorService,
-                            nodeEngine.getHazelcastInstance().getMap(IMAP_RUNNING_JOB_STATE)) {
+                            MapManager.getMap(Constant.IMAP_RUNNING_JOB_STATE)) {
 
                         @Override
                         protected void handleCheckpointError(int pipelineId, boolean neverRestore) {
@@ -158,7 +159,7 @@ public class CheckpointCoordinatorTest
                             checkpointConfig,
                             server.getCheckpointService().getCheckpointStorage(),
                             executorService,
-                            nodeEngine.getHazelcastInstance().getMap(IMAP_RUNNING_JOB_STATE)) {
+                            MapManager.getMap(Constant.IMAP_RUNNING_JOB_STATE)) {
                         @Override
                         protected void handleCheckpointError(int pipelineId, boolean neverRestore) {
                             invokedHandleCheckpointError.complete(true);
@@ -231,7 +232,7 @@ public class CheckpointCoordinatorTest
                             checkpointConfig,
                             server.getCheckpointService().getCheckpointStorage(),
                             executorService,
-                            nodeEngine.getHazelcastInstance().getMap(IMAP_RUNNING_JOB_STATE)) {
+                            MapManager.getMap(Constant.IMAP_RUNNING_JOB_STATE)) {
 
                         @Override
                         public void acknowledgeTask(TaskAcknowledgeOperation ackOperation) {
@@ -300,7 +301,7 @@ public class CheckpointCoordinatorTest
                         checkpointConfig,
                         server.getCheckpointService().getCheckpointStorage(),
                         instance.getExecutorService("test"),
-                        nodeEngine.getHazelcastInstance().getMap(IMAP_RUNNING_JOB_STATE));
+                        MapManager.getMap(Constant.IMAP_RUNNING_JOB_STATE));
 
         TaskGroupLocation group1 = new TaskGroupLocation(1L, 1, 1);
         TaskLocation task1 = new TaskLocation(group1, 1, 1);
@@ -337,7 +338,7 @@ public class CheckpointCoordinatorTest
                         null,
                         null,
                         executor,
-                        Mockito.mock(com.hazelcast.map.IMap.class),
+                        Mockito.mock(IMapStorage.class),
                         false);
 
         Map<Long, SeaTunnelTaskState> taskStatus = coordinator.getPipelineTaskStatus();
@@ -376,7 +377,7 @@ class TestCheckpointManager extends CheckpointManager {
             CheckpointConfig checkpointConfig,
             CheckpointStorage checkpointStorage,
             ExecutorService executorService,
-            IMap<Object, Object> runningJobStateIMap) {
+            MapStorage<Object, Object> runningJobStateMapStorage) {
         super(
                 jobId,
                 false,
@@ -386,7 +387,7 @@ class TestCheckpointManager extends CheckpointManager {
                 checkpointConfig,
                 checkpointStorage,
                 executorService,
-                runningJobStateIMap);
+                runningJobStateMapStorage);
     }
 
     @Override

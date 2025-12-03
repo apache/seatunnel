@@ -25,8 +25,8 @@ import org.apache.seatunnel.engine.core.job.ConnectorJarIdentifier;
 import org.apache.seatunnel.engine.core.job.ConnectorJarType;
 import org.apache.seatunnel.engine.core.job.RefCount;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
-
-import com.hazelcast.map.IMap;
+import org.apache.seatunnel.engine.server.storage.MapManager;
+import org.apache.seatunnel.engine.server.storage.MapStorage;
 
 import java.io.File;
 import java.util.List;
@@ -41,7 +41,7 @@ public class SharedConnectorJarStorageStrategy extends AbstractConnectorJarStora
     /** Lock guarding concurrent file accesses. */
     private final ReadWriteLock readWriteLock;
 
-    private final IMap<ConnectorJarIdentifier, RefCount> connectorJarRefCounters;
+    private final MapStorage<ConnectorJarIdentifier, RefCount> connectorJarRefCounters;
 
     /** Time interval (ms) to run the cleanup task; also used as the default TTL. */
     private final long cleanupInterval;
@@ -53,8 +53,7 @@ public class SharedConnectorJarStorageStrategy extends AbstractConnectorJarStora
             ConnectorJarStorageConfig connectorJarStorageConfig, SeaTunnelServer seaTunnelServer) {
         super(connectorJarStorageConfig, seaTunnelServer);
         this.readWriteLock = new ReentrantReadWriteLock();
-        this.connectorJarRefCounters =
-                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_CONNECTOR_JAR_REF_COUNTERS);
+        this.connectorJarRefCounters = MapManager.getMap(Constant.IMAP_CONNECTOR_JAR_REF_COUNTERS);
         // Initializing the cleanup task
         this.cleanupTimer = new Timer(true);
         this.cleanupInterval = connectorJarStorageConfig.getCleanupTaskInterval() * 1000;

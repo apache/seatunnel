@@ -50,6 +50,7 @@ import org.apache.seatunnel.engine.server.execution.Task;
 import org.apache.seatunnel.engine.server.execution.TaskGroupDefaultImpl;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
+import org.apache.seatunnel.engine.server.storage.MapStorage;
 import org.apache.seatunnel.engine.server.task.SeaTunnelTask;
 import org.apache.seatunnel.engine.server.task.SinkAggregatedCommitterTask;
 import org.apache.seatunnel.engine.server.task.SourceSeaTunnelTask;
@@ -60,7 +61,6 @@ import org.apache.seatunnel.engine.server.task.group.TaskGroupWithIntermediateDi
 
 import com.hazelcast.flakeidgen.FlakeIdGenerator;
 import com.hazelcast.jet.datamodel.Tuple2;
-import com.hazelcast.map.IMap;
 import com.hazelcast.spi.impl.NodeEngine;
 import lombok.NonNull;
 
@@ -119,9 +119,9 @@ public class PhysicalPlanGenerator {
      */
     private final Map<TaskLocation, Set<Tuple2<ActionStateKey, Integer>>> subtaskActions;
 
-    private final IMap<Object, Object> runningJobStateIMap;
+    private final MapStorage<Object, Object> runningJobStateMap;
 
-    private final IMap<Object, Object> runningJobStateTimestampsIMap;
+    private final MapStorage<Object, Object> runningJobStateTimestampsMap;
 
     private final QueueType queueType;
 
@@ -133,8 +133,8 @@ public class PhysicalPlanGenerator {
             @NonNull ExecutorService executorService,
             @NonNull ClassLoaderService classLoaderService,
             @NonNull FlakeIdGenerator flakeIdGenerator,
-            @NonNull IMap runningJobStateIMap,
-            @NonNull IMap runningJobStateTimestampsIMap,
+            @NonNull MapStorage runningJobStateMap,
+            @NonNull MapStorage runningJobStateTimestampsMap,
             @NonNull QueueType queueType) {
         this.pipelines = executionPlan.getPipelines();
         this.nodeEngine = nodeEngine;
@@ -147,8 +147,8 @@ public class PhysicalPlanGenerator {
         this.pipelineTasks = new HashSet<>();
         this.startingTasks = new HashSet<>();
         this.subtaskActions = new HashMap<>();
-        this.runningJobStateIMap = runningJobStateIMap;
-        this.runningJobStateTimestampsIMap = runningJobStateTimestampsIMap;
+        this.runningJobStateMap = runningJobStateMap;
+        this.runningJobStateTimestampsMap = runningJobStateTimestampsMap;
         this.queueType = queueType;
     }
 
@@ -167,7 +167,7 @@ public class PhysicalPlanGenerator {
             PipelineLocation pipelineLocation =
                     new PipelineLocation(jobImmutableInformation.getJobId(), pipeline.getId());
             PipelineStatus pipelineStatus =
-                    (PipelineStatus) runningJobStateIMap.get(pipelineLocation);
+                    (PipelineStatus) runningJobStateMap.get(pipelineLocation);
             if (!PipelineStatus.FINISHED.equals(pipelineStatus)) {
                 unclosedPipelines.add(pipeline);
             }
@@ -219,8 +219,8 @@ public class PhysicalPlanGenerator {
                                             coordinatorVertexList,
                                             jobImmutableInformation,
                                             executorService,
-                                            runningJobStateIMap,
-                                            runningJobStateTimestampsIMap,
+                                            runningJobStateMap,
+                                            runningJobStateTimestampsMap,
                                             tagFilter);
                                 });
 
@@ -230,8 +230,8 @@ public class PhysicalPlanGenerator {
                         executorService,
                         jobImmutableInformation,
                         initializationTimestamp,
-                        runningJobStateIMap,
-                        runningJobStateTimestampsIMap);
+                        runningJobStateMap,
+                        runningJobStateTimestampsMap);
         return Tuple2.tuple2(physicalPlan, checkpointPlans);
     }
 
@@ -316,8 +316,8 @@ public class PhysicalPlanGenerator {
                                         jobImmutableInformation,
                                         initializationTimestamp,
                                         nodeEngine,
-                                        runningJobStateIMap,
-                                        runningJobStateTimestampsIMap);
+                                        runningJobStateMap,
+                                        runningJobStateTimestampsMap);
                             } else {
                                 return null;
                             }
@@ -369,8 +369,8 @@ public class PhysicalPlanGenerator {
                                     jobImmutableInformation,
                                     initializationTimestamp,
                                     nodeEngine,
-                                    runningJobStateIMap,
-                                    runningJobStateTimestampsIMap);
+                                    runningJobStateMap,
+                                    runningJobStateTimestampsMap);
                         })
                 .collect(Collectors.toList());
     }
@@ -479,8 +479,8 @@ public class PhysicalPlanGenerator {
                                                     jobImmutableInformation,
                                                     initializationTimestamp,
                                                     nodeEngine,
-                                                    runningJobStateIMap,
-                                                    runningJobStateTimestampsIMap));
+                                                    runningJobStateMap,
+                                                    runningJobStateTimestampsMap));
                                 } else {
                                     t.add(
                                             new PhysicalVertex(
@@ -501,8 +501,8 @@ public class PhysicalPlanGenerator {
                                                     jobImmutableInformation,
                                                     initializationTimestamp,
                                                     nodeEngine,
-                                                    runningJobStateIMap,
-                                                    runningJobStateTimestampsIMap));
+                                                    runningJobStateMap,
+                                                    runningJobStateTimestampsMap));
                                 }
                             }
                             return t.stream();

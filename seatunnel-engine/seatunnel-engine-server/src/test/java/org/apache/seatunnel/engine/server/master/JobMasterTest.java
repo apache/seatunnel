@@ -36,6 +36,8 @@ import org.apache.seatunnel.engine.server.dag.physical.UnknownPhysicalPlanExcept
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
 import org.apache.seatunnel.engine.server.service.slot.SlotService;
+import org.apache.seatunnel.engine.server.storage.MapManager;
+import org.apache.seatunnel.engine.server.storage.MapStorage;
 import org.apache.seatunnel.engine.server.task.CoordinatorTask;
 import org.apache.seatunnel.engine.server.task.SeaTunnelTask;
 
@@ -47,7 +49,6 @@ import org.junit.jupiter.api.condition.DisabledOnOs;
 import org.junit.jupiter.api.condition.OS;
 
 import com.hazelcast.internal.serialization.Data;
-import com.hazelcast.map.IMap;
 
 import java.util.Collections;
 import java.util.Map;
@@ -58,53 +59,55 @@ import static org.awaitility.Awaitility.await;
 /** JobMaster Tester. */
 @DisabledOnOs(OS.WINDOWS)
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
-public class JobMasterTest extends AbstractSeaTunnelServerTest {
+class JobMasterTest extends AbstractSeaTunnelServerTest {
     /**
-     * IMap key is jobId and value is a Tuple2 Tuple2 key is JobMaster init timestamp and value is
-     * the jobImmutableInformation which is sent by client when submit job
+     * MapStorage key is jobId and value is a Tuple2 Tuple2 key is JobMaster init timestamp and
+     * value is the jobImmutableInformation which is sent by client when submit job
      *
-     * <p>This IMap is used to recovery runningJobInfoIMap in JobMaster when a new master node
-     * active
+     * <p>This MapStorage is used to recovery runningJobInfoMapStorage in JobMaster when a new
+     * master node active
      */
-    private IMap<Long, JobInfo> runningJobInfoIMap;
+    private MapStorage<Long, JobInfo> runningJobInfoMapStorage;
 
     /**
-     * IMap key is one of jobId {@link
+     * MapStorage key is one of jobId {@link
      * org.apache.seatunnel.engine.server.dag.physical.PipelineLocation} and {@link
      * org.apache.seatunnel.engine.server.execution.TaskGroupLocation}
      *
-     * <p>The value of IMap is one of {@link JobStatus} {@link PipelineStatus} {@link
+     * <p>The value of MapStorage is one of {@link JobStatus} {@link PipelineStatus} {@link
      * org.apache.seatunnel.engine.server.execution.ExecutionState}
      *
-     * <p>This IMap is used to recovery runningJobStateIMap in JobMaster when a new master node
-     * active
+     * <p>This MapStorage is used to recovery runningJobStateMapStorage in JobMaster when a new
+     * master node active
      */
-    IMap<Object, Object> runningJobStateIMap;
+    MapStorage<Object, Object> runningJobStateMapStorage;
 
     /**
-     * IMap key is one of jobId {@link
+     * MapStorage key is one of jobId {@link
      * org.apache.seatunnel.engine.server.dag.physical.PipelineLocation} and {@link
      * org.apache.seatunnel.engine.server.execution.TaskGroupLocation}
      *
-     * <p>The value of IMap is one of {@link
+     * <p>The value of MapStorage is one of {@link
      * org.apache.seatunnel.engine.server.dag.physical.PhysicalPlan} stateTimestamps {@link
      * org.apache.seatunnel.engine.server.dag.physical.SubPlan} stateTimestamps {@link
      * org.apache.seatunnel.engine.server.dag.physical.PhysicalVertex} stateTimestamps
      *
-     * <p>This IMap is used to recovery runningJobStateTimestampsIMap in JobMaster when a new master
-     * node active
+     * <p>This MapStorage is used to recovery runningJobStateTimestampsMapStorage in JobMaster when
+     * a new master node active
      */
-    IMap<Object, Long[]> runningJobStateTimestampsIMap;
+    MapStorage<Object, Long[]> runningJobStateTimestampsMapStorage;
 
     /**
-     * IMap key is {@link PipelineLocation}
+     * MapStorage key is {@link PipelineLocation}
      *
-     * <p>The value of IMap is map of {@link TaskGroupLocation} and the {@link SlotProfile} it used.
+     * <p>The value of MapStorage is map of {@link TaskGroupLocation} and the {@link SlotProfile} it
+     * used.
      *
-     * <p>This IMap is used to recovery ownedSlotProfilesIMap in JobMaster when a new master node
-     * active
+     * <p>This MapStorage is used to recovery ownedSlotProfilesMapStorage in JobMaster when a new
+     * master node active
      */
-    private IMap<PipelineLocation, Map<TaskGroupLocation, SlotProfile>> ownedSlotProfilesIMap;
+    private MapStorage<PipelineLocation, Map<TaskGroupLocation, SlotProfile>>
+            ownedSlotProfilesMapStorage;
 
     @BeforeAll
     public void before() {
@@ -112,7 +115,7 @@ public class JobMasterTest extends AbstractSeaTunnelServerTest {
     }
 
     @Test
-    public void testHandleCheckpointTimeout() throws Exception {
+    void testHandleCheckpointTimeout() throws Exception {
         long jobId = instance.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME).newId();
         JobMaster jobMaster = newJobInstanceWithRunningState(jobId);
 
@@ -142,22 +145,22 @@ public class JobMasterTest extends AbstractSeaTunnelServerTest {
                                                                         .get()
                                                                         .getStatus()))));
 
-        testIMapRemovedAfterJobComplete(jobId, jobMaster);
+        testMapStorageRemovedAfterJobComplete(jobId, jobMaster);
     }
 
-    private void testIMapRemovedAfterJobComplete(long jobId, JobMaster jobMaster) {
-        runningJobInfoIMap = nodeEngine.getHazelcastInstance().getMap("runningJobInfo");
-        runningJobStateIMap = nodeEngine.getHazelcastInstance().getMap("runningJobState");
-        runningJobStateTimestampsIMap = nodeEngine.getHazelcastInstance().getMap("stateTimestamps");
-        ownedSlotProfilesIMap = nodeEngine.getHazelcastInstance().getMap("ownedSlotProfilesIMap");
+    private void testMapStorageRemovedAfterJobComplete(long jobId, JobMaster jobMaster) {
+        runningJobInfoMapStorage = MapManager.getMap(Constant.IMAP_RUNNING_JOB_INFO);
+        runningJobStateMapStorage = MapManager.getMap(Constant.IMAP_RUNNING_JOB_STATE);
+        runningJobStateTimestampsMapStorage = MapManager.getMap(Constant.IMAP_STATE_TIMESTAMPS);
+        ownedSlotProfilesMapStorage = MapManager.getMap(Constant.IMAP_OWNED_SLOT_PROFILES);
 
         await().atMost(60000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () -> {
-                            Assertions.assertNull(runningJobInfoIMap.get(jobId));
-                            Assertions.assertNull(runningJobStateIMap.get(jobId));
-                            Assertions.assertNull(runningJobStateTimestampsIMap.get(jobId));
-                            Assertions.assertNull(ownedSlotProfilesIMap.get(jobId));
+                            Assertions.assertNull(runningJobInfoMapStorage.get(jobId));
+                            Assertions.assertNull(runningJobStateMapStorage.get(jobId));
+                            Assertions.assertNull(runningJobStateTimestampsMapStorage.get(jobId));
+                            Assertions.assertNull(ownedSlotProfilesMapStorage.get(jobId));
 
                             jobMaster
                                     .getPhysicalPlan()
@@ -165,11 +168,11 @@ public class JobMasterTest extends AbstractSeaTunnelServerTest {
                                     .forEach(
                                             pipeline -> {
                                                 Assertions.assertNull(
-                                                        runningJobStateIMap.get(
+                                                        runningJobStateMapStorage.get(
                                                                 pipeline.getPipelineLocation()));
 
                                                 Assertions.assertNull(
-                                                        runningJobStateTimestampsIMap.get(
+                                                        runningJobStateTimestampsMapStorage.get(
                                                                 pipeline.getPipelineLocation()));
                                             });
                             jobMaster
@@ -181,12 +184,13 @@ public class JobMasterTest extends AbstractSeaTunnelServerTest {
                                                         .forEach(
                                                                 coordinator -> {
                                                                     Assertions.assertNull(
-                                                                            runningJobStateIMap.get(
-                                                                                    coordinator
-                                                                                            .getTaskGroupLocation()));
+                                                                            runningJobStateMapStorage
+                                                                                    .get(
+                                                                                            coordinator
+                                                                                                    .getTaskGroupLocation()));
 
                                                                     Assertions.assertNull(
-                                                                            runningJobStateTimestampsIMap
+                                                                            runningJobStateTimestampsMapStorage
                                                                                     .get(
                                                                                             coordinator
                                                                                                     .getTaskGroupLocation()));
@@ -196,12 +200,13 @@ public class JobMasterTest extends AbstractSeaTunnelServerTest {
                                                         .forEach(
                                                                 task -> {
                                                                     Assertions.assertNull(
-                                                                            runningJobStateIMap.get(
-                                                                                    task
-                                                                                            .getTaskGroupLocation()));
+                                                                            runningJobStateMapStorage
+                                                                                    .get(
+                                                                                            task
+                                                                                                    .getTaskGroupLocation()));
 
                                                                     Assertions.assertNull(
-                                                                            runningJobStateTimestampsIMap
+                                                                            runningJobStateTimestampsMapStorage
                                                                                     .get(
                                                                                             task
                                                                                                     .getTaskGroupLocation()));
@@ -211,7 +216,7 @@ public class JobMasterTest extends AbstractSeaTunnelServerTest {
     }
 
     @Test
-    public void testCommitFailedWillRestore() throws Exception {
+    void testCommitFailedWillRestore() throws Exception {
         long jobId = instance.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME).newId();
         JobMaster jobMaster = newJobInstanceWithRunningState(jobId);
 
@@ -227,7 +232,7 @@ public class JobMasterTest extends AbstractSeaTunnelServerTest {
     }
 
     @Test
-    public void testCloseIdleTask() throws InterruptedException {
+    void testCloseIdleTask() throws InterruptedException {
         long jobId = instance.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME).newId();
         JobMaster jobMaster = newJobInstanceWithRunningState(jobId);
         Assertions.assertEquals(JobStatus.RUNNING, jobMaster.getJobStatus());
@@ -255,7 +260,7 @@ public class JobMasterTest extends AbstractSeaTunnelServerTest {
         JobMaster jobMaster = newJobInstanceWithRunningState(jobId);
 
         jobMaster
-                .getRunningJobStateIMap()
+                .getRunningJobStateMapStorage()
                 .put(new PipelineLocation(jobId, 1), PipelineStatus.FINISHED);
         Assertions.assertThrows(
                 UnknownPhysicalPlanException.class,
