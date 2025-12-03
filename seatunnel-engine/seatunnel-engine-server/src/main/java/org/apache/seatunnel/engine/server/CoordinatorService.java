@@ -117,37 +117,39 @@ public class CoordinatorService {
     private JobHistoryService jobHistoryService;
 
     /**
-     * Map key is jobId and value is {@link JobInfo}. Tuple2 key is JobMaster init timestamp and
-     * value is the jobImmutableInformation which is sent by client when submit job
+     * MapStorage key is jobId and value is {@link JobInfo}. Tuple2 key is JobMaster init timestamp
+     * and value is the jobImmutableInformation which is sent by client when submit job
      *
-     * <p>This Map is used to recovery runningJobInfoMap in JobMaster when a new master node active
+     * <p>This MapStorage is used to recovery runningJobInfoMapStorage in JobMaster when a new
+     * master node active
      */
     private MapStorage<Long, JobInfo> runningJobInfoMapStorage;
 
     /**
-     * Map key is one of jobId {@link
+     * MapStorage key is one of jobId {@link
      * org.apache.seatunnel.engine.server.dag.physical.PipelineLocation} and {@link
      * org.apache.seatunnel.engine.server.execution.TaskGroupLocation}
      *
-     * <p>The value of Map is one of {@link JobStatus} {@link PipelineStatus} {@link
+     * <p>The value of MapStorage is one of {@link JobStatus} {@link PipelineStatus} {@link
      * org.apache.seatunnel.engine.server.execution.ExecutionState}
      *
-     * <p>This Map is used to recovery runningJobStateMap in JobMaster when a new master node active
+     * <p>This MapStorage is used to recovery runningJobStateMapStorage in JobMaster when a new
+     * master node active
      */
     private MapStorage<Object, Object> runningJobStateMapStorage;
 
     /**
-     * Map key is one of jobId {@link
+     * MapStorage key is one of jobId {@link
      * org.apache.seatunnel.engine.server.dag.physical.PipelineLocation} and {@link
      * org.apache.seatunnel.engine.server.execution.TaskGroupLocation}
      *
-     * <p>The value of Map is one of {@link
+     * <p>The value of MapStorage is one of {@link
      * org.apache.seatunnel.engine.server.dag.physical.PhysicalPlan} stateTimestamps {@link
      * org.apache.seatunnel.engine.server.dag.physical.SubPlan} stateTimestamps {@link
      * org.apache.seatunnel.engine.server.dag.physical.PhysicalVertex} stateTimestamps
      *
-     * <p>This Map is used to recovery runningJobStateTimestampsMap in JobMaster when a new master
-     * node active
+     * <p>This MapStorage is used to recovery runningJobStateTimestampsMapStorage in JobMaster when
+     * a new master node active
      */
     private MapStorage<Object, Long[]> runningJobStateTimestampsMapStorage;
 
@@ -161,12 +163,13 @@ public class CoordinatorService {
             new PeekBlockingQueue<>(PendingJobInfo::getJobId);
 
     /**
-     * Map key is {@link PipelineLocation}
+     * MapStorage key is {@link PipelineLocation}
      *
-     * <p>The value of Map is map of {@link TaskGroupLocation} and the {@link SlotProfile} it used.
+     * <p>The value of MapStorage is map of {@link TaskGroupLocation} and the {@link SlotProfile} it
+     * used.
      *
-     * <p>This Map is used to recovery ownedSlotProfilesMap in JobMaster when a new master node
-     * active
+     * <p>This MapStorage is used to recovery ownedSlotProfilesMapStorage in JobMaster when a new
+     * master node active
      */
     private MapStorage<PipelineLocation, Map<TaskGroupLocation, SlotProfile>>
             ownedSlotProfilesMapStorage;
