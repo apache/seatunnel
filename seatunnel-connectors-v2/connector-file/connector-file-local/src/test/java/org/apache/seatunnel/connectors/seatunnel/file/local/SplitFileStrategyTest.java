@@ -16,7 +16,7 @@
  */
 package org.apache.seatunnel.connectors.seatunnel.file.local;
 
-import org.apache.seatunnel.connectors.seatunnel.file.local.source.split.LocalFileSplitStrategy;
+import org.apache.seatunnel.connectors.seatunnel.file.local.source.split.LocalFileAccordingToSplitSizeSplitStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.source.split.FileSourceSplit;
 
 import org.junit.jupiter.api.Assertions;
@@ -33,8 +33,8 @@ public class SplitFileStrategyTest {
     @SneakyThrows
     @Test
     public void testSplitNoSkipHeader() {
-        final LocalFileSplitStrategy localFileSplitStrategy =
-                new LocalFileSplitStrategy("\n", 0L, "utf-8", 100L);
+        final LocalFileAccordingToSplitSizeSplitStrategy localFileSplitStrategy =
+                new LocalFileAccordingToSplitSizeSplitStrategy("\n", 0L, "utf-8", 100L);
         URL url = getClass().getClassLoader().getResource("test_split_csv_data.csv");
         String realPath = Paths.get(url.toURI()).toString();
         final List<FileSourceSplit> splits = localFileSplitStrategy.split("test.table", realPath);
@@ -50,8 +50,8 @@ public class SplitFileStrategyTest {
     @SneakyThrows
     @Test
     public void testSplitSkipHeader() {
-        final LocalFileSplitStrategy localFileSplitStrategy =
-                new LocalFileSplitStrategy("\n", 1L, "utf-8", 30L);
+        final LocalFileAccordingToSplitSizeSplitStrategy localFileSplitStrategy =
+                new LocalFileAccordingToSplitSizeSplitStrategy("\n", 1L, "utf-8", 30L);
         URL url = getClass().getClassLoader().getResource("test_split_csv_data.csv");
         String realPath = Paths.get(url.toURI()).toString();
         final List<FileSourceSplit> splits = localFileSplitStrategy.split("test.table", realPath);
@@ -73,8 +73,8 @@ public class SplitFileStrategyTest {
     @SneakyThrows
     @Test
     public void testSplitSkipHeaderLargeSize() {
-        final LocalFileSplitStrategy localFileSplitStrategy =
-                new LocalFileSplitStrategy("\n", 1L, "utf-8", 300L);
+        final LocalFileAccordingToSplitSizeSplitStrategy localFileSplitStrategy =
+                new LocalFileAccordingToSplitSizeSplitStrategy("\n", 1L, "utf-8", 300L);
         URL url = getClass().getClassLoader().getResource("test_split_csv_data.csv");
         String realPath = Paths.get(url.toURI()).toString();
         final List<FileSourceSplit> splits = localFileSplitStrategy.split("test.table", realPath);
@@ -87,8 +87,8 @@ public class SplitFileStrategyTest {
     @SneakyThrows
     @Test
     public void testSplitSkipHeaderSmallSize() {
-        final LocalFileSplitStrategy localFileSplitStrategy =
-                new LocalFileSplitStrategy("\n", 1L, "utf-8", 3L);
+        final LocalFileAccordingToSplitSizeSplitStrategy localFileSplitStrategy =
+                new LocalFileAccordingToSplitSizeSplitStrategy("\n", 1L, "utf-8", 3L);
         URL url = getClass().getClassLoader().getResource("test_split_csv_data.csv");
         String realPath = Paths.get(url.toURI()).toString();
         final List<FileSourceSplit> splits = localFileSplitStrategy.split("test.table", realPath);
@@ -107,8 +107,8 @@ public class SplitFileStrategyTest {
     @SneakyThrows
     @Test
     public void testSplitSkipHeaderSpecialRowDelimiter() {
-        final LocalFileSplitStrategy localFileSplitStrategy =
-                new LocalFileSplitStrategy("|^|", 1L, "utf-8", 80L);
+        final LocalFileAccordingToSplitSizeSplitStrategy localFileSplitStrategy =
+                new LocalFileAccordingToSplitSizeSplitStrategy("|^|", 1L, "utf-8", 80L);
         URL url =
                 getClass()
                         .getClassLoader()
@@ -127,8 +127,8 @@ public class SplitFileStrategyTest {
     @SneakyThrows
     @Test
     public void testSplitEmpty() {
-        final LocalFileSplitStrategy localFileSplitStrategy =
-                new LocalFileSplitStrategy("\n", 1L, "utf-8", 300L);
+        final LocalFileAccordingToSplitSizeSplitStrategy localFileSplitStrategy =
+                new LocalFileAccordingToSplitSizeSplitStrategy("\n", 1L, "utf-8", 300L);
         URL url = getClass().getClassLoader().getResource("test_split_empty_data.csv");
         String realPath = Paths.get(url.toURI()).toString();
         final List<FileSourceSplit> splits = localFileSplitStrategy.split("test.table", realPath);

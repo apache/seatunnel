@@ -21,7 +21,7 @@ import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
 import org.apache.seatunnel.connectors.seatunnel.file.local.source.config.MultipleTableLocalFileSourceConfig;
-import org.apache.seatunnel.connectors.seatunnel.file.local.source.split.LocalFileSplitStrategy;
+import org.apache.seatunnel.connectors.seatunnel.file.local.source.split.LocalFileAccordingToSplitSizeSplitStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.source.BaseMultipleTableFileSource;
 import org.apache.seatunnel.connectors.seatunnel.file.source.split.DefaultFileSplitStrategy;
 
@@ -31,7 +31,7 @@ public class LocalFileSource extends BaseMultipleTableFileSource {
         super(
                 new MultipleTableLocalFileSourceConfig(readonlyConfig),
                 readonlyConfig.get(FileBaseSourceOptions.ENABLE_SPLIT_FILE)
-                        ? new LocalFileSplitStrategy(
+                        ? new LocalFileAccordingToSplitSizeSplitStrategy(
                                 readonlyConfig.get(FileBaseSourceOptions.ROW_DELIMITER),
                                 readonlyConfig.get(FileBaseSourceOptions.CSV_USE_HEADER_LINE)
                                         ? 1L
