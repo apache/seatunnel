@@ -56,6 +56,7 @@ If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you
 | file_format_type           | string  | yes      | -                                    |
 | read_columns               | list    | no       | -                                    |
 | delimiter/field_delimiter  | string  | no       | \001 for text and , for csv          |
+| row_delimiter              | string  | no       | \n                                   |
 | parse_partition_from_path  | boolean | no       | true                                 |
 | date_format                | string  | no       | yyyy-MM-dd                           |
 | datetime_format            | string  | no       | yyyy-MM-dd HH:mm:ss                  |
@@ -204,6 +205,14 @@ Only need to be configured when file_format is text.
 Field delimiter, used to tell connector how to slice and dice fields.
 
 default `\001`, the same as hive's default delimiter
+
+### row_delimiter [string]
+
+Only need to be configured when file_format is text
+
+Row delimiter, used to tell connector how to slice and dice rows
+
+default `\n`
 
 ### parse_partition_from_path [boolean]
 
