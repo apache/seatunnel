@@ -118,7 +118,7 @@ Filter pattern, which used for filtering files.  If you only want to filter base
 The pattern follows standard regular expressions. For details, please refer to https://en.wikipedia.org/wiki/Regular_expression.
 There are some examples.
 
-If the `path` is `/data/setunnel`, and the file structure example is:
+If the `path` is `/data/seatunnel`, and the file structure example is:
 ```
 /data/seatunnel/20241001/report.txt
 /data/seatunnel/20241007/abch202410.csv
