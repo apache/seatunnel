@@ -147,13 +147,13 @@ public class CheckpointCoordinator {
 
     private AtomicReference<String> errorByPhysicalVertex = new AtomicReference<>();
 
-    private final MapStorage<Object, Object> runningJobStateMap;
+    private final MapStorage<Object, Object> runningJobStateMapStorage;
 
     // save pending checkpoint for savepoint, to make sure the different savepoint request can be
     // processed with one savepoint operation in the same time.
     private PendingCheckpoint savepointPendingCheckpoint;
 
-    private final String checkpointStateMapKey;
+    private final String checkpointStateMapStorageKey;
 
     @SneakyThrows
     public CheckpointCoordinator(
@@ -165,7 +165,7 @@ public class CheckpointCoordinator {
             CheckpointIDCounter checkpointIdCounter,
             PipelineState pipelineState,
             ExecutorService executorService,
-            MapStorage<Object, Object> runningJobStateMap,
+            MapStorage<Object, Object> runningJobStateMapStorage,
             boolean isStartWithSavePoint) {
 
         this.executorService = executorService;
@@ -173,8 +173,8 @@ public class CheckpointCoordinator {
         this.checkpointStorage = checkpointStorage;
         this.jobId = jobId;
         this.pipelineId = plan.getPipelineId();
-        this.checkpointStateMapKey = "checkpoint_state_" + jobId + "_" + pipelineId;
-        this.runningJobStateMap = runningJobStateMap;
+        this.checkpointStateMapStorageKey = "checkpoint_state_" + jobId + "_" + pipelineId;
+        this.runningJobStateMapStorage = runningJobStateMapStorage;
         this.plan = plan;
         this.coordinatorConfig = checkpointConfig;
         this.pendingCheckpoints = new ConcurrentHashMap<>();
@@ -220,7 +220,8 @@ public class CheckpointCoordinator {
 
         // For job restore from master node active switch
         CheckpointCoordinatorStatus checkpointCoordinatorStatus =
-                (CheckpointCoordinatorStatus) runningJobStateMap.get(checkpointStateMapKey);
+                (CheckpointCoordinatorStatus)
+                        runningJobStateMapStorage.get(checkpointStateMapStorageKey);
 
         // This is not a new job
         if (isStartWithSavePoint) {
@@ -1005,7 +1006,8 @@ public class CheckpointCoordinator {
             return false;
         }
         CheckpointCoordinatorStatus status =
-                (CheckpointCoordinatorStatus) runningJobStateMap.get(checkpointStateMapKey);
+                (CheckpointCoordinatorStatus)
+                        runningJobStateMapStorage.get(checkpointStateMapStorageKey);
         return latestCompletedCheckpoint.getCheckpointType().isFinalCheckpoint()
                 && (status.equals(CheckpointCoordinatorStatus.FINISHED)
                         || status.equals(CheckpointCoordinatorStatus.SUSPEND))
@@ -1044,10 +1046,10 @@ public class CheckpointCoordinator {
                         LOG.info(
                                 String.format(
                                         "Turn %s state from %s to %s",
-                                        checkpointStateMapKey,
-                                        runningJobStateMap.get(checkpointStateMapKey),
+                                        checkpointStateMapStorageKey,
+                                        runningJobStateMapStorage.get(checkpointStateMapStorageKey),
                                         targetStatus));
-                        runningJobStateMap.set(checkpointStateMapKey, targetStatus);
+                        runningJobStateMapStorage.set(checkpointStateMapStorageKey, targetStatus);
                         return null;
                     },
                     new RetryUtils.RetryMaterial(
@@ -1058,8 +1060,8 @@ public class CheckpointCoordinator {
         } catch (Exception e) {
             LOG.warn(
                     String.format(
-                            "Set %s state %s to IMap failed, skip do it",
-                            checkpointStateMapKey, targetStatus));
+                            "Set %s state %s to MapStorage failed, skip do it",
+                            checkpointStateMapStorageKey, targetStatus));
         }
     }
 
@@ -1112,8 +1114,8 @@ public class CheckpointCoordinator {
         }
     }
 
-    public String getCheckpointStateMapKey() {
-        return checkpointStateMapKey;
+    public String getCheckpointStateMapStorageKey() {
+        return checkpointStateMapStorageKey;
     }
 
     /** Only for test */

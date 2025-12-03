@@ -119,9 +119,9 @@ public class PhysicalPlanGenerator {
      */
     private final Map<TaskLocation, Set<Tuple2<ActionStateKey, Integer>>> subtaskActions;
 
-    private final MapStorage<Object, Object> runningJobStateMap;
+    private final MapStorage<Object, Object> runningJobStateMapStorage;
 
-    private final MapStorage<Object, Object> runningJobStateTimestampsMap;
+    private final MapStorage<Object, Object> runningJobStateTimestampsMapStorage;
 
     private final QueueType queueType;
 
@@ -133,8 +133,8 @@ public class PhysicalPlanGenerator {
             @NonNull ExecutorService executorService,
             @NonNull ClassLoaderService classLoaderService,
             @NonNull FlakeIdGenerator flakeIdGenerator,
-            @NonNull MapStorage runningJobStateMap,
-            @NonNull MapStorage runningJobStateTimestampsMap,
+            @NonNull MapStorage runningJobStateMapStorage,
+            @NonNull MapStorage runningJobStateTimestampsMapStorage,
             @NonNull QueueType queueType) {
         this.pipelines = executionPlan.getPipelines();
         this.nodeEngine = nodeEngine;
@@ -147,8 +147,8 @@ public class PhysicalPlanGenerator {
         this.pipelineTasks = new HashSet<>();
         this.startingTasks = new HashSet<>();
         this.subtaskActions = new HashMap<>();
-        this.runningJobStateMap = runningJobStateMap;
-        this.runningJobStateTimestampsMap = runningJobStateTimestampsMap;
+        this.runningJobStateMapStorage = runningJobStateMapStorage;
+        this.runningJobStateTimestampsMapStorage = runningJobStateTimestampsMapStorage;
         this.queueType = queueType;
     }
 
@@ -167,7 +167,7 @@ public class PhysicalPlanGenerator {
             PipelineLocation pipelineLocation =
                     new PipelineLocation(jobImmutableInformation.getJobId(), pipeline.getId());
             PipelineStatus pipelineStatus =
-                    (PipelineStatus) runningJobStateMap.get(pipelineLocation);
+                    (PipelineStatus) runningJobStateMapStorage.get(pipelineLocation);
             if (!PipelineStatus.FINISHED.equals(pipelineStatus)) {
                 unclosedPipelines.add(pipeline);
             }
@@ -219,8 +219,8 @@ public class PhysicalPlanGenerator {
                                             coordinatorVertexList,
                                             jobImmutableInformation,
                                             executorService,
-                                            runningJobStateMap,
-                                            runningJobStateTimestampsMap,
+                                            runningJobStateMapStorage,
+                                            runningJobStateTimestampsMapStorage,
                                             tagFilter);
                                 });
 
@@ -230,8 +230,8 @@ public class PhysicalPlanGenerator {
                         executorService,
                         jobImmutableInformation,
                         initializationTimestamp,
-                        runningJobStateMap,
-                        runningJobStateTimestampsMap);
+                        runningJobStateMapStorage,
+                        runningJobStateTimestampsMapStorage);
         return Tuple2.tuple2(physicalPlan, checkpointPlans);
     }
 
@@ -316,8 +316,8 @@ public class PhysicalPlanGenerator {
                                         jobImmutableInformation,
                                         initializationTimestamp,
                                         nodeEngine,
-                                        runningJobStateMap,
-                                        runningJobStateTimestampsMap);
+                                        runningJobStateMapStorage,
+                                        runningJobStateTimestampsMapStorage);
                             } else {
                                 return null;
                             }
@@ -369,8 +369,8 @@ public class PhysicalPlanGenerator {
                                     jobImmutableInformation,
                                     initializationTimestamp,
                                     nodeEngine,
-                                    runningJobStateMap,
-                                    runningJobStateTimestampsMap);
+                                    runningJobStateMapStorage,
+                                    runningJobStateTimestampsMapStorage);
                         })
                 .collect(Collectors.toList());
     }
@@ -479,8 +479,8 @@ public class PhysicalPlanGenerator {
                                                     jobImmutableInformation,
                                                     initializationTimestamp,
                                                     nodeEngine,
-                                                    runningJobStateMap,
-                                                    runningJobStateTimestampsMap));
+                                                    runningJobStateMapStorage,
+                                                    runningJobStateTimestampsMapStorage));
                                 } else {
                                     t.add(
                                             new PhysicalVertex(
@@ -501,8 +501,8 @@ public class PhysicalPlanGenerator {
                                                     jobImmutableInformation,
                                                     initializationTimestamp,
                                                     nodeEngine,
-                                                    runningJobStateMap,
-                                                    runningJobStateTimestampsMap));
+                                                    runningJobStateMapStorage,
+                                                    runningJobStateTimestampsMapStorage));
                                 }
                             }
                             return t.stream();

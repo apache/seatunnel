@@ -630,7 +630,7 @@ public class JobMaster {
                             String checkpointStateMapStorageKey =
                                     checkpointManager
                                             .getCheckpointCoordinator(pipeline.getPipelineId())
-                                            .getCheckpointStateMapKey();
+                                            .getCheckpointStateMapStorageKey();
                             runningJobStateMapStorage.remove(checkpointStateMapStorageKey);
                         });
         runningJobStateMapStorage.remove(jobId);

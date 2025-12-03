@@ -89,7 +89,7 @@ public class CheckpointManager {
             CheckpointConfig checkpointConfig,
             CheckpointStorage checkpointStorage,
             ExecutorService executorService,
-            MapStorage<Object, Object> runningJobStateMap) {
+            MapStorage<Object, Object> runningJobStateMapStorage) {
         this.jobId = jobId;
         this.nodeEngine = nodeEngine;
         this.jobMaster = jobMaster;
@@ -132,7 +132,7 @@ public class CheckpointManager {
                                                 idCounter,
                                                 pipelineState,
                                                 executorService,
-                                                runningJobStateMap,
+                                                runningJobStateMapStorage,
                                                 isStartWithSavePoint);
                                     } catch (Exception e) {
                                         ExceptionUtil.sneakyThrow(e);

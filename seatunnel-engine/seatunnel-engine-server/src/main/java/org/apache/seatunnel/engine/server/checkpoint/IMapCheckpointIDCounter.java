@@ -39,20 +39,20 @@ public class IMapCheckpointIDCounter implements CheckpointIDCounter {
     private final Long jobID;
     private final Integer pipelineId;
     private final String key;
-    private final MapStorage<String, Long> checkpointIdMap;
+    private final MapStorage<String, Long> checkpointIdMapStorage;
 
     public IMapCheckpointIDCounter(Long jobID, Integer pipelineId, NodeEngine nodeEngine) {
         this.jobID = jobID;
         this.pipelineId = pipelineId;
         this.key = convertLongIntToBase64(jobID, pipelineId);
-        this.checkpointIdMap = DistributedMapManager.getMap(IMAP_CHECKPOINT_ID);
+        this.checkpointIdMapStorage = DistributedMapManager.getMap(IMAP_CHECKPOINT_ID);
     }
 
     @Override
     public void start() throws Exception {
         RetryUtils.retryWithException(
                 () -> {
-                    return checkpointIdMap.putIfAbsent(key, INITIAL_CHECKPOINT_ID);
+                    return checkpointIdMapStorage.putIfAbsent(key, INITIAL_CHECKPOINT_ID);
                 },
                 new RetryUtils.RetryMaterial(
                         Constant.OPERATION_RETRY_TIME,
@@ -64,26 +64,26 @@ public class IMapCheckpointIDCounter implements CheckpointIDCounter {
     @Override
     public CompletableFuture<Void> shutdown(PipelineStatus pipelineStatus) {
         if (pipelineStatus.isEndState()) {
-            checkpointIdMap.remove(key);
+            checkpointIdMapStorage.remove(key);
         }
         return CompletableFuture.completedFuture(null);
     }
 
     @Override
     public long getAndIncrement() throws Exception {
-        Long nextId = checkpointIdMap.compute(key, (k, v) -> v == null ? null : v + 1);
+        Long nextId = checkpointIdMapStorage.compute(key, (k, v) -> v == null ? null : v + 1);
         checkNotNull(nextId);
         return nextId - 1;
     }
 
     @Override
     public long get() {
-        return checkpointIdMap.get(key);
+        return checkpointIdMapStorage.get(key);
     }
 
     @Override
     public void setCount(long newId) throws Exception {
-        checkpointIdMap.put(key, newId);
+        checkpointIdMapStorage.put(key, newId);
     }
 
     public static String convertLongIntToBase64(long longValue, int intValue) {

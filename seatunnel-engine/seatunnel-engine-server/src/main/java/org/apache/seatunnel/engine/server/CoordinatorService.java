@@ -793,7 +793,7 @@ public class CoordinatorService {
         }
         JobStatus jobStatus = runningJobMaster.getJobStatus();
         if (jobStatus == null) {
-            return jobHistoryService.getFinishedJobStateMap().get(jobId).getJobStatus();
+            return jobHistoryService.getFinishedJobStateMapStorage().get(jobId).getJobStatus();
         }
         return jobStatus;
     }
