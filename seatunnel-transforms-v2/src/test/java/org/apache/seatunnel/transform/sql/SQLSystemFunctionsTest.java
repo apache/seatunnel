@@ -188,7 +188,7 @@ public class SQLSystemFunctionsTest {
                         new String[] {"name", "default_name"},
                         new SeaTunnelDataType[] {BasicType.STRING_TYPE, BasicType.STRING_TYPE});
 
-        // name 非 null，TRIM(COALESCE(name, default_name))
+        // when name is not null, TRIM(COALESCE(name, default_name))
         SeaTunnelRow row1 =
                 runSql(
                         "select TRIM(COALESCE(name, default_name)) as res from dual",
@@ -197,7 +197,7 @@ public class SQLSystemFunctionsTest {
                         "Default");
         Assertions.assertEquals("John", row1.getField(0));
 
-        // name 为 null，走 default_name，并由 TRIM 去空格
+        // when name is null, use default_name and TRIM to remove spaces
         SeaTunnelRow row2 =
                 runSql(
                         "select TRIM(COALESCE(name, default_name)) as res from dual",

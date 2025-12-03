@@ -469,7 +469,7 @@ public class SQLStringFunctionsTest {
                         new String[] {"name", "backup"},
                         new SeaTunnelDataType[] {BasicType.STRING_TYPE, BasicType.STRING_TYPE});
 
-        // name 非 null，走 UPPER -> TRIM 逻辑
+        // when name is not null, go through UPPER then TRIM
         SeaTunnelRow row1 =
                 runSql(
                         "select TRIM(COALESCE(UPPER(name), backup)) as res from dual",
@@ -478,7 +478,7 @@ public class SQLStringFunctionsTest {
                         "fallback");
         Assertions.assertEquals("JOHN", row1.getField(0));
 
-        // name 为 null，走 backup 分支，再 TRIM
+        // when name is null, use backup value then TRIM
         SeaTunnelRow row2 =
                 runSql(
                         "select TRIM(COALESCE(UPPER(name), backup)) as res from dual",
