@@ -29,7 +29,7 @@ public abstract class AccordingToSplitSizeSplitStrategy implements FileSplitStra
 
     private final long skipHeaderRowNumber;
     private final long splitSize;
-    private final transient byte[] delimiterBytes;
+    private final byte[] delimiterBytes;
     private static final int BUFFER_SIZE = 64 * 1024;
 
     public AccordingToSplitSizeSplitStrategy(
