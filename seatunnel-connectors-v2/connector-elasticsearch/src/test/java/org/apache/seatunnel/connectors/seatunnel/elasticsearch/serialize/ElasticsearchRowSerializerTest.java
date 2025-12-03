@@ -211,7 +211,7 @@ public class ElasticsearchRowSerializerTest {
 
         String result = serializer.serializeRow(row);
         Assertions.assertTrue(
-                result.contains("\"ts\":\"2023-01-02 03:04:05\""),
-                "LocalDateTime field should be formatted with space separator");
+                result.contains("\"ts\":\"2023-01-02T03:04:05\""),
+                "LocalDateTime field should be formatted with ISO-8601 'T' separator");
     }
 }
