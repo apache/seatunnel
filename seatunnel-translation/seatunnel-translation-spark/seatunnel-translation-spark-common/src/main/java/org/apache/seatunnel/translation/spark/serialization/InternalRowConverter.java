@@ -114,22 +114,17 @@ public final class InternalRowConverter extends RowConverter<InternalRow> {
             case DECIMAL:
                 return Decimal.apply((BigDecimal) field);
             case ARRAY:
-                Class<?> elementTypeClass =
-                        ((ArrayType<?, ?>) dataType).getElementType().getTypeClass();
-
-                if (((ArrayType<?, ?>) dataType).getElementType() instanceof MapType) {
+                SeaTunnelDataType<?> elementType = ((ArrayType<?, ?>) dataType).getElementType();
+                if (elementType instanceof MapType) {
                     Object arrayMap =
                             Array.newInstance(ArrayBasedMapData.class, ((Map[]) field).length);
                     for (int i = 0; i < ((Map[]) field).length; i++) {
                         Map<?, ?> value = (Map<?, ?>) ((Map[]) field)[i];
-                        MapType<?, ?> type =
-                                (MapType<?, ?>) ((ArrayType<?, ?>) dataType).getElementType();
-                        Array.set(arrayMap, i, convertMap(value, type));
+                        Array.set(arrayMap, i, convertMap(value, (MapType<?, ?>) elementType));
                     }
                     return ArrayData.toArrayData(arrayMap);
                 }
-                // if string array, we need to covert every item in array from String to UTF8String
-                if (((ArrayType<?, ?>) dataType).getElementType().equals(BasicType.STRING_TYPE)) {
+                if (elementType.equals(BasicType.STRING_TYPE)) {
                     Object[] fields = (Object[]) field;
                     UTF8String[] objects =
                             Arrays.stream(fields)
@@ -137,13 +132,13 @@ public final class InternalRowConverter extends RowConverter<InternalRow> {
                                     .toArray(UTF8String[]::new);
                     return ArrayData.toArrayData(objects);
                 }
-                // except string, now only support convert boolean int tinyint smallint bigint float
-                // double, because SeaTunnel Array only support these types
-                Object array = Array.newInstance(elementTypeClass, ((Object[]) field).length);
-                for (int i = 0; i < ((Object[]) field).length; i++) {
-                    Array.set(array, i, ((Object[]) field)[i]);
+
+                Object[] arrayData = (Object[]) field;
+                Object[] convertedArray = new Object[arrayData.length];
+                for (int i = 0; i < arrayData.length; i++) {
+                    convertedArray[i] = convert(arrayData[i], elementType);
                 }
-                return ArrayData.toArrayData(field);
+                return ArrayData.toArrayData(convertedArray);
             default:
                 if (field instanceof Some) {
                     return ((Some<?>) field).get();

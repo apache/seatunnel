@@ -50,6 +50,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 
@@ -333,7 +334,36 @@ public class CatalogUtils {
             Connection connection, String sqlQuery, JdbcDialectTypeMapper typeMapper)
             throws SQLException {
         try (PreparedStatement ps = connection.prepareStatement(sqlQuery)) {
-            return getCatalogTable(ps.getMetaData(), typeMapper, sqlQuery);
+            ResultSetMetaData resultSetMetaData = ps.getMetaData();
+            CatalogTable catalogTable = getCatalogTable(resultSetMetaData, typeMapper, sqlQuery);
+
+            PrimaryKey primaryKey = extractPrimaryKey(connection, resultSetMetaData, sqlQuery);
+            if (primaryKey == null) {
+                return catalogTable;
+            }
+
+            Set<String> queryColumns =
+                    catalogTable.getTableSchema().getColumns().stream()
+                            .map(Column::getName)
+                            .collect(Collectors.toSet());
+            if (!queryColumns.containsAll(primaryKey.getColumnNames())) {
+                return catalogTable;
+            }
+
+            TableSchema newSchema =
+                    TableSchema.builder()
+                            .columns(catalogTable.getTableSchema().getColumns())
+                            .primaryKey(primaryKey)
+                            .constraintKey(catalogTable.getTableSchema().getConstraintKeys())
+                            .build();
+
+            return CatalogTable.of(
+                    catalogTable.getTableId(),
+                    newSchema,
+                    catalogTable.getOptions(),
+                    catalogTable.getPartitionKeys(),
+                    catalogTable.getComment(),
+                    catalogTable.getCatalogName());
         }
     }
 
@@ -351,6 +381,34 @@ public class CatalogUtils {
         try (PreparedStatement ps = connection.prepareStatement(sqlQuery)) {
             resultSetMetaData = ps.getMetaData();
             return getCatalogTable(resultSetMetaData, sqlQuery);
+        }
+    }
+
+    private static PrimaryKey extractPrimaryKey(
+            Connection connection, ResultSetMetaData resultSetMetaData, String sqlQuery) {
+        try {
+            String tableName = resultSetMetaData.getTableName(1);
+            if (StringUtils.isBlank(tableName)) {
+                return null;
+            }
+
+            String databaseName = resultSetMetaData.getCatalogName(1);
+            String schemaName = resultSetMetaData.getSchemaName(1);
+            DatabaseMetaData dbMetaData = connection.getMetaData();
+
+            TablePath tablePath =
+                    TablePath.of(
+                            StringUtils.isBlank(databaseName) ? null : databaseName,
+                            StringUtils.isBlank(schemaName) ? null : schemaName,
+                            tableName);
+
+            return getPrimaryKey(dbMetaData, tablePath).orElse(null);
+        } catch (SQLException e) {
+            log.debug(
+                    "Failed to extract primary key from database metadata for sql: {}",
+                    sqlQuery,
+                    e);
+            return null;
         }
     }
 }

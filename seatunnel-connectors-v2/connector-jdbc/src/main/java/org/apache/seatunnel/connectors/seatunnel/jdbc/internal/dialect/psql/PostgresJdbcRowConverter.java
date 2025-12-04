@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.psql;
 
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 import org.apache.seatunnel.shade.org.apache.commons.lang3.math.NumberUtils;
 
 import org.apache.seatunnel.api.table.catalog.Column;
@@ -35,6 +36,8 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.utils.JdbcFieldTypeUtils;
 
 import org.postgresql.util.PGobject;
 
+import lombok.extern.slf4j.Slf4j;
+
 import javax.annotation.Nullable;
 
 import java.math.BigDecimal;
@@ -50,6 +53,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.Locale;
 import java.util.Optional;
 
@@ -59,6 +63,7 @@ import static org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.ps
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.psql.PostgresTypeConverter.PG_MAC_ADDR;
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.psql.PostgresTypeConverter.PG_MAC_ADDR8;
 
+@Slf4j
 public class PostgresJdbcRowConverter extends AbstractJdbcRowConverter {
 
     private static final String PG_GEOMETRY = "GEOMETRY";
@@ -67,6 +72,29 @@ public class PostgresJdbcRowConverter extends AbstractJdbcRowConverter {
     @Override
     public String converterName() {
         return DatabaseIdentifier.POSTGRESQL;
+    }
+
+    @Override
+    protected void setValueToStatementByDataType(
+            Object value,
+            PreparedStatement statement,
+            SeaTunnelDataType<?> seaTunnelDataType,
+            int statementIndex,
+            @Nullable String sourceType)
+            throws SQLException {
+        if (seaTunnelDataType.getSqlType().equals(SqlType.TIMESTAMP_TZ)) {
+            if (value == null) {
+                statement.setNull(statementIndex, java.sql.Types.TIMESTAMP_WITH_TIMEZONE);
+            } else {
+                PGobject timestampTzObject = new PGobject();
+                timestampTzObject.setType("timestamptz");
+                timestampTzObject.setValue(((OffsetDateTime) value).toString());
+                statement.setObject(statementIndex, timestampTzObject);
+            }
+            return;
+        }
+        super.setValueToStatementByDataType(
+                value, statement, seaTunnelDataType, statementIndex, sourceType);
     }
 
     @Override
@@ -82,10 +110,8 @@ public class PostgresJdbcRowConverter extends AbstractJdbcRowConverter {
                 case STRING:
                     if (metaDataColumnType.equals(PG_GEOMETRY)
                             || metaDataColumnType.equals(PG_GEOGRAPHY)) {
-                        fields[fieldIndex] =
-                                rs.getObject(resultSetIndex) == null
-                                        ? null
-                                        : rs.getObject(resultSetIndex).toString();
+                        Object geoObj = rs.getObject(resultSetIndex);
+                        fields[fieldIndex] = geoObj == null ? null : geoObj.toString();
                     } else {
                         fields[fieldIndex] = JdbcFieldTypeUtils.getString(rs, resultSetIndex);
                     }
@@ -130,6 +156,10 @@ public class PostgresJdbcRowConverter extends AbstractJdbcRowConverter {
                             Optional.ofNullable(sqlTimestamp)
                                     .map(e -> e.toLocalDateTime())
                                     .orElse(null);
+                    break;
+                case TIMESTAMP_TZ:
+                    // Enhanced PostgreSQL TIMESTAMP_TZ handling
+                    fields[fieldIndex] = getPostgresOffsetDateTime(rs, resultSetIndex);
                     break;
                 case BYTES:
                     fields[fieldIndex] = JdbcFieldTypeUtils.getBytes(rs, resultSetIndex);
@@ -255,9 +285,12 @@ public class PostgresJdbcRowConverter extends AbstractJdbcRowConverter {
                                 statementIndex, java.sql.Timestamp.valueOf(localDateTime));
                         break;
                     case TIMESTAMP_TZ:
-                        OffsetDateTime offsetDateTime = (OffsetDateTime) row.getField(fieldIndex);
-                        statement.setTimestamp(
-                                statementIndex, Timestamp.from(offsetDateTime.toInstant()));
+                        setValueToStatementByDataType(
+                                row.getField(fieldIndex),
+                                statement,
+                                seaTunnelDataType,
+                                statementIndex,
+                                sourceTypes[fieldIndex]);
                         break;
                     case BYTES:
                         statement.setBytes(statementIndex, (byte[]) row.getField(fieldIndex));
@@ -315,5 +348,109 @@ public class PostgresJdbcRowConverter extends AbstractJdbcRowConverter {
         if (minutes > 0) sb.append(minutes).append(" minutes ");
         if (seconds > 0) sb.append(seconds).append(" seconds");
         return sb.toString().trim();
+    }
+
+    private OffsetDateTime getPostgresOffsetDateTime(ResultSet rs, int columnIndex)
+            throws SQLException {
+        // Read the value once to avoid drivers returning null on subsequent reads
+        final Object obj = rs.getObject(columnIndex);
+
+        if (obj == null) {
+            return null;
+        }
+
+        // Direct types
+        if (obj instanceof OffsetDateTime) {
+            return (OffsetDateTime) obj;
+        }
+        if (obj instanceof Timestamp) {
+            return ((Timestamp) obj).toInstant().atOffset(ZoneOffset.UTC);
+        }
+        if (obj instanceof java.time.ZonedDateTime) {
+            return ((java.time.ZonedDateTime) obj).toOffsetDateTime();
+        }
+        if (obj instanceof java.util.Date) {
+            return ((java.util.Date) obj).toInstant().atOffset(ZoneOffset.UTC);
+        }
+
+        // Remaining PostgreSQL-specific or driver types: fall back to string representation
+        return parseTimestampFromObjectString(obj);
+    }
+
+    private OffsetDateTime parsePostgresTimestampTz(String str) throws SQLException {
+        String normalized = normalizeIsoTimestamp(str);
+        if (normalized == null) {
+            return null;
+        }
+
+        try {
+            return OffsetDateTime.parse(normalized);
+        } catch (Exception primary) {
+            log.debug("Failed to parse PostgreSQL timestamptz as ISO-8601: {}", str, primary);
+            try {
+                String withoutOffset =
+                        normalized.replaceFirst("([+-]\\d{2}:?\\d{2}|\\s+UTC|[zZ])$", "");
+                String fallback = withoutOffset.replace('T', ' ').trim();
+                Timestamp ts = Timestamp.valueOf(fallback);
+                return ts.toInstant().atOffset(ZoneOffset.UTC);
+            } catch (Exception secondary) {
+                log.debug(
+                        "Failed to parse PostgreSQL timestamptz as UTC timestamp: {}",
+                        str,
+                        secondary);
+                throw new SQLException(
+                        "Failed to parse PostgreSQL timestamptz string: " + str, secondary);
+            }
+        }
+    }
+
+    @Nullable private OffsetDateTime parseTimestampFromObjectString(Object obj) throws SQLException {
+        final String str;
+        try {
+            str = String.valueOf(obj);
+        } catch (Throwable e) {
+            log.debug(
+                    "Failed to get PostgreSQL timestamp object string representation from class: {}",
+                    obj.getClass().getName(),
+                    e);
+            return null;
+        }
+        return parsePostgresTimestampTz(str);
+    }
+
+    private String normalizeIsoTimestamp(String value) {
+        // PostgreSQL timestamptz format examples:
+        // "2023-12-25 10:30:45.123456+08:00"
+        // "2023-12-25 10:30:45+08"
+        // "2023-12-25 10:30:45.123456 UTC"
+        String normalized = StringUtils.trimToNull(value);
+        if (normalized == null) {
+            return null;
+        }
+        // Handle UTC timezone
+        if (normalized.endsWith(" UTC")) {
+            normalized = normalized.substring(0, normalized.length() - 4) + "Z";
+        }
+        // Normalize to ISO-8601 format examples:
+        // "2024-01-01T10:15:30+08:00"
+        // "2024-01-01T10:15:30Z"
+        normalized = normalized.replace(' ', 'T');
+        if (!normalized.isEmpty()) {
+            char lastChar = normalized.charAt(normalized.length() - 1);
+            if (lastChar == 'z' || lastChar == 'Z') {
+                normalized = normalized.substring(0, normalized.length() - 1) + "Z";
+            }
+        }
+        // Add colon to offsets like +HH -> +HH:00
+        if (normalized.matches(".*[+-]\\d{2}$")) {
+            return normalized + ":00";
+        }
+        if (normalized.matches(".*[+-]\\d{4}$")) {
+            // Add colon to offsets like +HHMM -> +HH:MM
+            return normalized.substring(0, normalized.length() - 2)
+                    + ":"
+                    + normalized.substring(normalized.length() - 2);
+        }
+        return normalized;
     }
 }
