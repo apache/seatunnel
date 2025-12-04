@@ -50,5 +50,10 @@
             <artifactId>postgresql</artifactId>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>com.shentongdata</groupId>
+            <artifactId>oscarJDBC8</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 </project>
