@@ -108,5 +108,5 @@ sink {
 占位符的替换将在连接器启动之前完成，确保 Sink 参数在使用前已准备就绪。
 若该占位符变量没有被替换，则可能是上游表元数据缺少该选项，例如：
 - `mysql` source 连接器不包含 `${schema_name}` 元数据
-- `oracle` source 连接器不包含 `${databse_name}` 元数据
+- `oracle` source 连接器不包含 `${database_name}` 元数据
 - ...
