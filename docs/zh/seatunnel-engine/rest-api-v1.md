@@ -569,13 +569,22 @@ network:
 <details>
 <summary><code>POST</code> <code><b>/hazelcast/rest/maps/stop-job</b></code> <code>(如果作业成功停止，返回jobId。)</code></summary>
 
+#### 参数
+
+| 参数名称                | 是否必传 | 参数类型 | 参数描述 |
+|------------------------|----------|----------|----------|
+| jobId                  | yes      | long     | 作业 ID |
+| isStopWithSavePoint    | no       | boolean  | 是否通过 savepoint 方式停止作业 |
+| force                  | no       | boolean  | 是否强制停止作业（忽略 isStopWithSavePoint 参数） |
+
+
 #### 请求体
 
 ```json
 {
-    "jobId": 733584788375666689,
-    "isStopWithSavePoint": false # If the job is stopped with a savepoint.
-    "force": false # If true, the job is force-stopped (ignores isStopWithSavePoint).
+  "jobId": 733584788375666689,
+  "isStopWithSavePoint": false,
+  "force": false
 }
 ```
 

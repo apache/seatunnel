@@ -671,13 +671,22 @@ curl --location 'http://127.0.0.1:8080/submit-job/upload' --form 'config_file=@"
 <details>
 <summary><code>POST</code> <code><b>/stop-job</b></code> <code>(Returns jobId if job stoped successfully.)</code></summary>
 
+#### Parameters
+
+> | name                | required | data type | description                                                      |
+> |---------------------|----------|-----------|------------------------------------------------------------------|
+> | jobId               | yes      | long      | job id                                                           |
+> | isStopWithSavePoint | no       | boolean   | If the job is stopped with a savepoint.                          |
+> | force               | no       | boolean   | If true, the job is force-stopped (ignores isStopWithSavePoint). |
+
+
 #### Body
 
 ```json
 {
-    "jobId": 733584788375666689,
-    "isStopWithSavePoint": false # If the job is stopped with a savepoint.
-    "force": false # If true, the job is force-stopped (ignores isStopWithSavePoint).
+  "jobId": 733584788375666689,
+  "isStopWithSavePoint": false,
+  "force": false
 }
 ```
 
