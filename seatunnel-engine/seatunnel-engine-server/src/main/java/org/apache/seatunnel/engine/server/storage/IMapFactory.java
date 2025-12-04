@@ -17,19 +17,19 @@
 
 package org.apache.seatunnel.engine.server.storage;
 
-import com.hazelcast.core.HazelcastInstance;
 import com.hazelcast.map.IMap;
+import com.hazelcast.spi.impl.NodeEngineImpl;
 
 public class IMapFactory implements MapFactory {
-    private final HazelcastInstance hazelcastInstance;
+    private final NodeEngineImpl nodeEngine;
 
-    public IMapFactory(HazelcastInstance hazelcastInstance) {
-        this.hazelcastInstance = hazelcastInstance;
+    public IMapFactory(NodeEngineImpl nodeEngine) {
+        this.nodeEngine = nodeEngine;
     }
 
     @Override
     public <K, V> MapStorage<K, V> getMap(String mapName) {
-        IMap<K, V> iMap = hazelcastInstance.getMap(mapName);
+        IMap<K, V> iMap = nodeEngine.getHazelcastInstance().getMap(mapName);
         return new IMapStorage<>(iMap);
     }
 }

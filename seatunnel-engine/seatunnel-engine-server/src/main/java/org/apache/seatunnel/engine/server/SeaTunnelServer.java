@@ -137,7 +137,7 @@ public class SeaTunnelServer
     @Override
     public void init(NodeEngine engine, Properties hzProperties) {
         this.nodeEngine = (NodeEngineImpl) engine;
-        DistributedMapManager.init(nodeEngine.getHazelcastInstance());
+        DistributedMapManager.init(nodeEngine);
         // TODO Determine whether to execute there method on the master node according to the deploy
         // type
 

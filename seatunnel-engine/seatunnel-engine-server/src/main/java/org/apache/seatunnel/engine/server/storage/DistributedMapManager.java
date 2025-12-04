@@ -17,18 +17,15 @@
 
 package org.apache.seatunnel.engine.server.storage;
 
-import com.hazelcast.core.HazelcastInstance;
-
-import java.util.Objects;
+import com.hazelcast.spi.impl.NodeEngineImpl;
 
 public class DistributedMapManager {
+    private DistributedMapManager() {}
+
     private static MapFactory mapFactory;
 
-    public static void init(HazelcastInstance hazelcastInstance) {
-        Objects.requireNonNull(hazelcastInstance, "hazelcastInstance");
-        if (mapFactory == null) {
-            mapFactory = new IMapFactory(hazelcastInstance);
-        }
+    public static void init(NodeEngineImpl nodeEngine) {
+        mapFactory = new IMapFactory(nodeEngine);
     }
 
     public static <K, V> MapStorage<K, V> getMap(String mapName) {
