@@ -21,6 +21,8 @@ import org.apache.seatunnel.connectors.seatunnel.file.source.split.FileSourceSpl
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.DisabledOnOs;
+import org.junit.jupiter.api.condition.OS;
 
 import lombok.SneakyThrows;
 
@@ -30,6 +32,10 @@ import java.util.List;
 
 public class SplitFileStrategyTest {
 
+    @DisabledOnOs(
+            value = OS.WINDOWS,
+            disabledReason =
+                    "In the Windows environment, the newline character of the text file is '\\r\\n', and the byte length and newline character are inconsistent, which will cause the test case to fail.")
     @SneakyThrows
     @Test
     public void testSplitNoSkipHeader() {
@@ -47,6 +53,10 @@ public class SplitFileStrategyTest {
         Assertions.assertEquals(85, splits.get(1).getLength());
     }
 
+    @DisabledOnOs(
+            value = OS.WINDOWS,
+            disabledReason =
+                    "In the Windows environment, the newline character of the text file is '\\r\\n', and the byte length and newline character are inconsistent, which will cause the test case to fail.")
     @SneakyThrows
     @Test
     public void testSplitSkipHeader() {
@@ -70,6 +80,10 @@ public class SplitFileStrategyTest {
         Assertions.assertEquals(42, splits.get(3).getLength());
     }
 
+    @DisabledOnOs(
+            value = OS.WINDOWS,
+            disabledReason =
+                    "In the Windows environment, the newline character of the text file is '\\r\\n', and the byte length and newline character are inconsistent, which will cause the test case to fail.")
     @SneakyThrows
     @Test
     public void testSplitSkipHeaderLargeSize() {
@@ -84,6 +98,10 @@ public class SplitFileStrategyTest {
         Assertions.assertEquals(169, splits.get(0).getLength());
     }
 
+    @DisabledOnOs(
+            value = OS.WINDOWS,
+            disabledReason =
+                    "In the Windows environment, the newline character of the text file is '\\r\\n', and the byte length and newline character are inconsistent, which will cause the test case to fail.")
     @SneakyThrows
     @Test
     public void testSplitSkipHeaderSmallSize() {

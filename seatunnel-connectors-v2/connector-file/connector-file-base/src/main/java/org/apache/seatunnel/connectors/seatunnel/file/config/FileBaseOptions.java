@@ -152,11 +152,15 @@ public class FileBaseOptions extends ConnectorCommonOptions {
                     .withDescription("Archive compression codec");
 
     public static final Option<Boolean> ENABLE_SPLIT_FILE =
-            Options.key("enable_split_file").booleanType().defaultValue(false).withDescription("");
+            Options.key("enable_split_file")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription("Turn on the file splitting function, the default is false");
 
     public static final Option<Long> SPLIT_SIZE =
             Options.key("split_size")
                     .longType()
                     .defaultValue(128 * 1024 * 1024L)
-                    .withDescription("");
+                    .withDescription(
+                            "File split size, which can be filled in when the enable_split_file parameter is true. The unit is the number of bytes. The default value is the number of bytes of 128MB, which is 128*1024*1024.");
 }
