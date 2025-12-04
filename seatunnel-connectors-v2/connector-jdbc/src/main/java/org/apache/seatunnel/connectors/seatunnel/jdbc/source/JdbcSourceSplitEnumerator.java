@@ -207,21 +207,34 @@ public class JdbcSourceSplitEnumerator
                 return;
             }
 
-            if (pendingTables.isEmpty() && pendingSplits.isEmpty()) {
-                Set<Integer> readers = context.registeredReaders();
-                if (readers.isEmpty()) {
-                    LOG.info(
-                            "No more splits to assign, but no readers are currently registered. "
-                                    + "Will signal NoMoreSplitsEvent when readers register.");
-                    return;
-                }
-
-                LOG.info(
-                        "No more splits to assign. Sending NoMoreSplitsEvent to reader {}.",
-                        readers);
-                readers.forEach(context::signalNoMoreSplits);
-                noMoreSplitsSignalSent = true;
+            if (!pendingTables.isEmpty()) {
+                return;
             }
+
+            Set<Integer> readers = context.registeredReaders();
+            if (readers.isEmpty()) {
+                LOG.info(
+                        "No more splits to assign, but no readers are currently registered. "
+                                + "Will signal NoMoreSplitsEvent when readers register.");
+                return;
+            }
+
+            boolean hasPendingSplitsForRegisteredReaders =
+                    readers.stream()
+                            .anyMatch(
+                                    readerId -> {
+                                        List<JdbcSourceSplit> splitsForReader =
+                                                pendingSplits.get(readerId);
+                                        return splitsForReader != null
+                                                && !splitsForReader.isEmpty();
+                                    });
+            if (hasPendingSplitsForRegisteredReaders) {
+                return;
+            }
+
+            LOG.info("No more splits to assign. Sending NoMoreSplitsEvent to reader {}.", readers);
+            readers.forEach(context::signalNoMoreSplits);
+            noMoreSplitsSignalSent = true;
         }
     }
 }

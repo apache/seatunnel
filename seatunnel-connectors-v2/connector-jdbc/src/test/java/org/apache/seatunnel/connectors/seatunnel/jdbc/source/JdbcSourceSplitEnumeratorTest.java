@@ -202,6 +202,86 @@ class JdbcSourceSplitEnumeratorTest {
     }
 
     @Test
+    void testNoMoreSplitsWhenOnlyUnregisteredReadersHavePendingSplits() throws Exception {
+        int parallelism = 3;
+        TablePath tablePath = TablePath.of("db", "schema", "table");
+
+        Map<TablePath, JdbcSourceTable> tables = new HashMap<>();
+        tables.put(tablePath, createJdbcSourceTable(tablePath));
+
+        // Only subtask 0 is considered registered from the enumerator's perspective.
+        Set<Integer> registeredReaders = new HashSet<>(Collections.singleton(0));
+        Set<Integer> noMoreSplitsReaders = new HashSet<>();
+
+        SourceSplitEnumerator.Context<JdbcSourceSplit> context =
+                new SourceSplitEnumerator.Context<JdbcSourceSplit>() {
+                    @Override
+                    public int currentParallelism() {
+                        return parallelism;
+                    }
+
+                    @Override
+                    public Set<Integer> registeredReaders() {
+                        return new HashSet<>(registeredReaders);
+                    }
+
+                    @Override
+                    public void assignSplit(int subtaskId, List<JdbcSourceSplit> splits) {}
+
+                    @Override
+                    public void signalNoMoreSplits(int subtask) {
+                        noMoreSplitsReaders.add(subtask);
+                    }
+
+                    @Override
+                    public void sendEventToSourceReader(int subtaskId, SourceEvent event) {}
+
+                    @Override
+                    public MetricsContext getMetricsContext() {
+                        return null;
+                    }
+
+                    @Override
+                    public EventListener getEventListener() {
+                        return null;
+                    }
+                };
+
+        JdbcSourceConfig sourceConfig =
+                JdbcSourceConfig.builder()
+                        .jdbcConnectionConfig(
+                                JdbcConnectionConfig.builder()
+                                        .url("jdbc:mysql://localhost:3306/test")
+                                        .driverName("com.mysql.cj.jdbc.Driver")
+                                        .build())
+                        .build();
+
+        // Simulate a failover-recovery-like state where there are no pending tables
+        // and a split needs to be re-added for an unregistered reader (subtask 1).
+        JdbcSourceState state =
+                new JdbcSourceState(
+                        new ArrayList<>(), new HashMap<Integer, List<JdbcSourceSplit>>());
+
+        JdbcSourceSplitEnumerator enumerator =
+                new JdbcSourceSplitEnumerator(context, sourceConfig, tables, state);
+
+        enumerator.open();
+
+        JdbcSourceSplit split =
+                new JdbcSourceSplit(tablePath, "split-1", null, null, null, null, null);
+
+        // Add a split back for subtask 1, which is not in registeredReaders.
+        enumerator.addSplitsBack(Collections.singletonList(split), 1);
+
+        // Since there are no pending splits for the only registered reader (0),
+        // the enumerator should still signal NoMoreSplitsEvent to reader 0.
+        Assertions.assertEquals(Collections.singleton(0), noMoreSplitsReaders);
+        // currentUnassignedSplitSize still reflects that there are unassigned splits
+        // in the enumerator (for unregistered readers), so it is expected to be 1.
+        Assertions.assertEquals(1, enumerator.currentUnassignedSplitSize());
+    }
+
+    @Test
     void testNoMoreSplitsSignalIsSentAtMostOnce() throws Exception {
         int parallelism = 1;
         TablePath tablePath = TablePath.of("db", "schema", "table");
