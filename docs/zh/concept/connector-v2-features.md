@@ -74,7 +74,7 @@ Sink connector有一些公共的核心特性，每个sink connector在不同程�
 
 如果sink connector支持基于主键写入行类型（INSERT/UPDATE_BEFORE/UPDATE_AFTER/DELETE），我们认为它支持cdc（更改数据捕获，change data capture）。
 
-### 支持多表读取
+### 支持多表写入
 
 支持在一个 SeaTunnel 作业中写入多个表，用户可以通过[配置占位符](./sink-options-placeholders.md)动态指定表的标识符。
 

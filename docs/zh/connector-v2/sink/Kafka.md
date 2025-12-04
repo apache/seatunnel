@@ -13,6 +13,7 @@ import ChangeLog from '../changelog/connector-kafka.md';
 ## 主要特性
 
 - [x] [精确一次](../../concept/connector-v2-features.md)
+- [x] [支持多表写入](../../concept/connector-v2-features.md)
 - [ ] [cdc](../../concept/connector-v2-features.md)
 
 > 默认情况下，我们将使用 2pc 来保证消息只发送一次到kafka
@@ -305,6 +306,75 @@ sink {
 }
 ```
 Note：key/value 需要 byte[]类型.
+
+### 多表写入
+
+Kafka Sink 支持将多个表的数据写入到不同的 Kafka topic。当上游数据源产生多个表的数据时，可以在 `topic` 配置中使用 `${table_name}` 占位符，根据表名动态路由数据到对应的 topic。
+
+#### 配置示例
+
+```hocon
+env {
+  parallelism = 2
+  job.mode = "BATCH"
+}
+
+source {
+  FakeSource {
+    tables_configs = [
+      {
+        row.num = 100
+        schema = {
+          table = "test_topic_1"
+          fields {
+            c_string = string
+            c_int = int
+            c_bigint = bigint
+          }
+        }
+      },
+      {
+        row.num = 200
+        schema = {
+          table = "test_topic_2"
+          fields {
+            c_string = string
+            c_double = double
+            c_timestamp = timestamp
+          }
+        }
+      }
+    ]
+  }
+}
+
+sink {
+  Kafka {
+    bootstrap.servers = "localhost:9092"
+    topic = "${table_name}"
+    format = json
+  }
+}
+```
+
+在此示例中：
+- FakeSource 为两个表生成数据：`test_topic_1`（100行）和 `test_topic_2`（200行）
+- `topic = "${table_name}"` 配置根据源表名动态路由数据到 Kafka topic
+- 来自 `test_topic_1` 表的数据将写入 `test_topic_1` Kafka topic
+- 来自 `test_topic_2` 表的数据将写入 `test_topic_2` Kafka topic
+
+你也可以在多表写入时使用 `partition_key_fields`：
+
+```hocon
+sink {
+  Kafka {
+    bootstrap.servers = "localhost:9092"
+    topic = "${table_name}"
+    format = json
+    partition_key_fields = ["c_string"]
+  }
+}
+```
 
 ## 变更日志
 

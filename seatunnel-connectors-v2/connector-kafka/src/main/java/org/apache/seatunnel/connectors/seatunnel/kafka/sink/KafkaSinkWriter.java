@@ -18,7 +18,9 @@
 package org.apache.seatunnel.connectors.seatunnel.kafka.sink;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.sink.MultiTableResourceManager;
 import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.BasicType;
@@ -44,6 +46,9 @@ import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.serialization.ByteArraySerializer;
 
+import lombok.extern.slf4j.Slf4j;
+
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -68,25 +73,36 @@ import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaSinkOp
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaSinkOptions.TRANSACTION_PREFIX;
 
 /** KafkaSinkWriter is a sink writer that will write {@link SeaTunnelRow} to Kafka. */
-public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo, KafkaSinkState> {
+@Slf4j
+public class KafkaSinkWriter
+        implements SinkWriter<SeaTunnelRow, KafkaCommitInfo, KafkaSinkState>,
+                SupportMultiTableSinkWriter<KafkaProducerManager> {
 
-    private final SinkWriter.Context context;
+    private final Context context;
+    private final ReadonlyConfig pluginConfig;
 
     private String transactionPrefix;
     private long lastCheckpointId = 0;
     private SeaTunnelRowType seaTunnelRowType;
 
-    private final KafkaProduceSender<byte[], byte[]> kafkaProducerSender;
+    private KafkaProduceSender<byte[], byte[]> kafkaProducerSender;
     private final SeaTunnelRowSerializer<byte[], byte[]> seaTunnelRowSerializer;
 
     private static final int PREFIX_RANGE = 10000;
 
+    /** Partition key field indices for data routing in multi-table mode */
+    private final List<Integer> partitionKeyIndices;
+
+    /** Flag indicating whether using shared resource from multi-table resource manager */
+    private boolean useSharedResource = false;
+
     public KafkaSinkWriter(
-            SinkWriter.Context context,
+            Context context,
             SeaTunnelRowType seaTunnelRowType,
             ReadonlyConfig pluginConfig,
             List<KafkaSinkState> kafkaStates) {
         this.context = context;
+        this.pluginConfig = pluginConfig;
         this.seaTunnelRowType = seaTunnelRowType;
         if (pluginConfig.get(ASSIGN_PARTITIONS) != null
                 && !CollectionUtils.isEmpty(pluginConfig.get(ASSIGN_PARTITIONS))) {
@@ -102,6 +118,8 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
 
         restoreState(kafkaStates);
         this.seaTunnelRowSerializer = getSerializer(pluginConfig, seaTunnelRowType);
+        this.partitionKeyIndices = calculatePartitionKeyIndices(pluginConfig, seaTunnelRowType);
+
         if (KafkaSemantics.EXACTLY_ONCE.equals(getKafkaSemantics(pluginConfig))) {
             this.kafkaProducerSender =
                     new KafkaTransactionSender<>(
@@ -308,5 +326,103 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
                         PhysicalColumn.of(
                                 VALUE, PrimitiveByteArrayType.INSTANCE, 0, false, null, null))
                 .build();
+    }
+
+    @Override
+    public MultiTableResourceManager<KafkaProducerManager> initMultiTableResourceManager(
+            int tableSize, int queueSize) {
+        Properties kafkaProperties = getKafkaProperties(pluginConfig);
+        boolean isExactlyOnce = KafkaSemantics.EXACTLY_ONCE.equals(getKafkaSemantics(pluginConfig));
+
+        log.info(
+                "Initializing Kafka multi-table resource manager with tableSize={}, queueSize={}, exactlyOnce={}",
+                tableSize,
+                queueSize,
+                isExactlyOnce);
+
+        KafkaProducerManager producerManager =
+                new KafkaProducerManager(kafkaProperties, isExactlyOnce);
+        return new KafkaMultiTableResourceManager(producerManager);
+    }
+
+    @Override
+    public void setMultiTableResourceManager(
+            MultiTableResourceManager<KafkaProducerManager> multiTableResourceManager,
+            int queueIndex) {
+
+        KafkaProducerManager producerManager =
+                multiTableResourceManager.getSharedResource().orElse(null);
+        if (producerManager == null) {
+            log.warn("Shared KafkaProducerManager is null, skip setting multi-table resource");
+            return;
+        }
+
+        this.useSharedResource = true;
+
+        // Close the original producer sender
+        if (this.kafkaProducerSender != null) {
+            try {
+                this.kafkaProducerSender.close();
+            } catch (Exception e) {
+                log.warn("Failed to close original kafka producer sender", e);
+            }
+        }
+
+        // Create new sender using shared producer
+        boolean isExactlyOnce = KafkaSemantics.EXACTLY_ONCE.equals(getKafkaSemantics(pluginConfig));
+
+        if (isExactlyOnce) {
+            // For exactly-once mode, we still need separate transaction handling
+            // Each queue index will have its own transactional producer
+            log.info(
+                    "Setting up transactional producer for queue index {} with transaction prefix {}",
+                    queueIndex,
+                    transactionPrefix);
+            this.kafkaProducerSender =
+                    new KafkaTransactionSender<>(
+                            this.transactionPrefix, getKafkaProperties(pluginConfig));
+            this.kafkaProducerSender.beginTransaction(
+                    generateTransactionId(this.transactionPrefix, this.lastCheckpointId + 1));
+        } else {
+            // For non-transaction mode, use shared producer
+            log.info("Setting up shared non-transactional producer for queue index {}", queueIndex);
+            this.kafkaProducerSender =
+                    new KafkaSharedNoTransactionSender<>(
+                            producerManager.getProducer(queueIndex, transactionPrefix));
+        }
+    }
+
+    @Override
+    public Optional<Integer> primaryKey() {
+        // Return the first partition key field index for data routing
+        // This ensures records with the same partition key are routed to the same queue
+        if (partitionKeyIndices != null && !partitionKeyIndices.isEmpty()) {
+            return Optional.of(partitionKeyIndices.get(0));
+        }
+        return Optional.empty();
+    }
+
+    /**
+     * Calculate partition key field indices from configuration.
+     *
+     * @param pluginConfig the plugin configuration
+     * @param seaTunnelRowType the row type
+     * @return list of field indices for partition keys
+     */
+    private List<Integer> calculatePartitionKeyIndices(
+            ReadonlyConfig pluginConfig, SeaTunnelRowType seaTunnelRowType) {
+        List<String> partitionKeyFields = pluginConfig.get(PARTITION_KEY_FIELDS);
+        if (partitionKeyFields == null || partitionKeyFields.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        List<Integer> indices = new ArrayList<>();
+        for (String field : partitionKeyFields) {
+            int index = seaTunnelRowType.indexOf(field);
+            if (index >= 0) {
+                indices.add(index);
+            }
+        }
+        return indices;
     }
 }

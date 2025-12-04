@@ -13,6 +13,7 @@ import ChangeLog from '../changelog/connector-kafka.md';
 ## Key Features
 
 - [x] [exactly-once](../../concept/connector-v2-features.md)
+- [x] [support multiple table write](../../concept/connector-v2-features.md)
 - [ ] [cdc](../../concept/connector-v2-features.md)
 
 > By default, we will use 2pc to guarantee the message is sent to kafka exactly once.
@@ -303,6 +304,75 @@ The input parameter requirements are as follows:
 }
 ```
 Note：key/value is of type byte[].
+
+### Multiple Table Write
+
+Kafka Sink supports writing data from multiple tables to different Kafka topics. When the upstream source generates data from multiple tables, you can use the `${table_name}` placeholder in the `topic` configuration to dynamically route data to the corresponding topic based on the table name.
+
+#### Configuration Example
+
+```hocon
+env {
+  parallelism = 2
+  job.mode = "BATCH"
+}
+
+source {
+  FakeSource {
+    tables_configs = [
+      {
+        row.num = 100
+        schema = {
+          table = "test_topic_1"
+          fields {
+            c_string = string
+            c_int = int
+            c_bigint = bigint
+          }
+        }
+      },
+      {
+        row.num = 200
+        schema = {
+          table = "test_topic_2"
+          fields {
+            c_string = string
+            c_double = double
+            c_timestamp = timestamp
+          }
+        }
+      }
+    ]
+  }
+}
+
+sink {
+  Kafka {
+    bootstrap.servers = "localhost:9092"
+    topic = "${table_name}"
+    format = json
+  }
+}
+```
+
+In this example:
+- FakeSource generates data for two tables: `test_topic_1` (100 rows) and `test_topic_2` (200 rows)
+- The `topic = "${table_name}"` configuration dynamically routes data to Kafka topics based on the source table name
+- Data from `test_topic_1` table will be written to `test_topic_1` Kafka topic
+- Data from `test_topic_2` table will be written to `test_topic_2` Kafka topic
+
+You can also use `partition_key_fields` with multiple table write:
+
+```hocon
+sink {
+  Kafka {
+    bootstrap.servers = "localhost:9092"
+    topic = "${table_name}"
+    format = json
+    partition_key_fields = ["c_string"]
+  }
+}
+```
 
 ## Changelog
 
