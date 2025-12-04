@@ -45,5 +45,23 @@ public class RuntimeEnvironmentTest {
                                 + "  checkpoint.interval = 10\n"
                                 + "}");
         Assertions.assertTrue(RuntimeEnvironment.getEnableCheckpoint(config));
+
+        config =
+                ConfigFactory.parseString(
+                        "env {\n"
+                                + "  parallelism = 1\n"
+                                + "  job.mode = \"BATCH\"\n"
+                                + "  execution.checkpoint.interval = 10\n"
+                                + "}");
+        Assertions.assertTrue(RuntimeEnvironment.getEnableCheckpoint(config));
+
+        config =
+                ConfigFactory.parseString(
+                        "env {\n"
+                                + "  parallelism = 1\n"
+                                + "  job.mode = \"BATCH\"\n"
+                                + "  checkpoint.interval = 0\n"
+                                + "}");
+        Assertions.assertFalse(RuntimeEnvironment.getEnableCheckpoint(config));
     }
 }

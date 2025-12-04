@@ -33,6 +33,10 @@ public final class MetricNames {
     public static final String SINK_WRITE_BYTES = "SinkWriteBytes";
     public static final String SINK_WRITE_QPS = "SinkWriteQPS";
     public static final String SINK_WRITE_BYTES_PER_SECONDS = "SinkWriteBytesPerSeconds";
+    public static final String SINK_COMMITTED_COUNT = "SinkCommittedCount";
+    public static final String SINK_COMMITTED_BYTES = "SinkCommittedBytes";
+    public static final String SINK_COMMITTED_QPS = "SinkCommittedQPS";
+    public static final String SINK_COMMITTED_BYTES_PER_SECONDS = "SinkCommittedBytesPerSeconds";
 
     public static final String INTERMEDIATE_QUEUE_SIZE = "IntermediateQueueSize";
 }
