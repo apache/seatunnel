@@ -271,7 +271,15 @@ public class SeaTunnelFTPFileSystem extends FileSystem {
      */
     private Path makeAbsolute(Path workDir, Path path) {
         if (path.isAbsolute()) {
-            return path;
+            String filePath = path.toUri().getPath();
+            if (filePath.equals("/")) {
+                return workDir;
+            }
+            if (filePath.startsWith(workDir.toUri().getPath())) {
+                return path;
+            }
+            // delete '/'
+            return new Path(workDir, filePath.substring(1));
         }
         return new Path(workDir, path);
     }
