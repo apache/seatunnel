@@ -28,7 +28,7 @@ public class LanceCommonOptions {
     public static final Option<String> KEY_DATASET_PATH =
             Options.key("dataset_path")
                     .stringType()
-                    .defaultValue("/tmp/test.lance")
+                    .defaultValue("/test.lance")
                     .withDescription(" the lance dataset path");
 
     public static final Option<String> KEY_NAMESPACE_TYPE =
@@ -54,4 +54,10 @@ public class LanceCommonOptions {
                     .stringType()
                     .defaultValue("test")
                     .withDescription(" the lance table");
+
+    public static final Option<String> KEY_ROOT_NAMESPACE_PATH =
+            Options.key("root_namespace_path")
+                    .stringType()
+                    .defaultValue("/tmp")
+                    .withDescription(" the lance root namespace path");
 }

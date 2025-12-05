@@ -54,7 +54,7 @@ public class LanceCatalogTest {
 
     private static final String CATALOG_NAME = "lance";
 
-    private static final String CATALOG_DIR = "/tmp/seatunnel/lance/namespace-test/";
+    private static final String CATALOG_DIR = "/seatunnel/lance/namespace-test/";
 
     private static final String WAREHOUSE = "file://" + CATALOG_DIR;
 
@@ -75,6 +75,7 @@ public class LanceCatalogTest {
         // build catalog configs
         configs.put(LanceCommonOptions.KEY_DATASET_PATH.key(), CATALOG_DIR);
         configs.put(LanceCommonOptions.KEY_NAMESPACE_TYPE.key(), "dir");
+        configs.put(LanceCommonOptions.KEY_ROOT_NAMESPACE_PATH.key(), "/tmp");
 
         lanceCatalog = new LanceCatalog(CATALOG_NAME, ReadonlyConfig.fromMap(configs));
         lanceCatalog.open();

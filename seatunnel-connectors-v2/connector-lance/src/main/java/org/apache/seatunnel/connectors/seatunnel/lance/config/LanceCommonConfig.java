@@ -38,6 +38,8 @@ public class LanceCommonConfig implements Serializable {
 
     private List<String> namespaceIds;
 
+    private String rootNamespacePath;
+
     public LanceCommonConfig(LanceNamespaceType namespaceType, Map<String, String> namespaceProps) {
         this.namespaceType = namespaceType;
         this.namespaceProps = namespaceProps;
@@ -56,8 +58,9 @@ public class LanceCommonConfig implements Serializable {
         this.namespaceIds = pluginConfig.get(LanceCommonOptions.KEY_NAMESPACE_IDS);
         this.table = pluginConfig.get(LanceCommonOptions.KEY_TABLE);
         this.datasetPath = pluginConfig.get(LanceCommonOptions.KEY_DATASET_PATH);
+        this.rootNamespacePath = pluginConfig.get(LanceCommonOptions.KEY_ROOT_NAMESPACE_PATH);
         this.namespaceType =
-                LanceNamespaceType.valueOf(pluginConfig.get(LanceCommonOptions.KEY_NAMESPACE_TYPE));
+                LanceNamespaceType.typeOf(pluginConfig.get(LanceCommonOptions.KEY_NAMESPACE_TYPE));
     }
 
     public LanceNamespaceType getNamespaceType() {
@@ -90,5 +93,21 @@ public class LanceCommonConfig implements Serializable {
 
     public List<String> getNamespaceIds() {
         return namespaceIds;
+    }
+
+    public void setTable(String table) {
+        this.table = table;
+    }
+
+    public void setNamespaceIds(List<String> namespaceIds) {
+        this.namespaceIds = namespaceIds;
+    }
+
+    public String getRootNamespacePath() {
+        return rootNamespacePath;
+    }
+
+    public void setRootNamespacePath(String rootNamespacePath) {
+        this.rootNamespacePath = rootNamespacePath;
     }
 }

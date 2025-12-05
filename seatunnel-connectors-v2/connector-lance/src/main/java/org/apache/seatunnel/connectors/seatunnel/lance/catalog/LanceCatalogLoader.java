@@ -27,6 +27,8 @@ import com.lancedb.lance.namespace.LanceNamespaces;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.Serializable;
+import java.util.HashMap;
+import java.util.Map;
 
 @Slf4j
 public class LanceCatalogLoader implements Serializable {
@@ -45,10 +47,13 @@ public class LanceCatalogLoader implements Serializable {
 
     public LanceNamespace loadNamespace() {
         Thread.currentThread().setContextClassLoader(LanceCatalogLoader.class.getClassLoader());
+        Map<String, String> properties = new HashMap<>();
+        properties.put("root", config.getRootNamespacePath());
+
         return LanceNamespaces.connect(
                 LanceNamespaceType.ofImplByType(namespaceType.getType()),
                 config.getNamespaceProps(),
-                null,
+                properties,
                 bufferAllocator);
     }
 }

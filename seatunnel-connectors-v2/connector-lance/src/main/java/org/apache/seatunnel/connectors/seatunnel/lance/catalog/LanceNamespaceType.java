@@ -51,4 +51,11 @@ public enum LanceNamespaceType {
                 .map(LanceNamespaceType::getImpl)
                 .orElse(null);
     }
+
+    public static LanceNamespaceType typeOf(String type) {
+        return Arrays.stream(LanceNamespaceType.values())
+                .filter(vo -> vo.getType().equals(type))
+                .findFirst()
+                .orElse(null);
+    }
 }
