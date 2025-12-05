@@ -26,6 +26,7 @@ import org.apache.seatunnel.e2e.common.container.TestContainer;
 
 import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.admin.AdminClientConfig;
+import org.apache.kafka.clients.admin.DeleteTopicsResult;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
@@ -48,8 +49,10 @@ import lombok.extern.slf4j.Slf4j;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Properties;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
@@ -96,6 +99,29 @@ public class KafkaMultiTableSinkIT extends TestSuiteBase implements TestResource
         }
     }
 
+    private void deleteTopics(String... topicNames) {
+        Properties adminProps = new Properties();
+        adminProps.put(
+                AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, kafkaContainer.getBootstrapServers());
+        try (AdminClient adminClient = AdminClient.create(adminProps)) {
+            Set<String> existingTopics = adminClient.listTopics().names().get();
+            java.util.List<String> topicsToDelete = new ArrayList<>();
+            for (String topicName : topicNames) {
+                if (existingTopics.contains(topicName)) {
+                    topicsToDelete.add(topicName);
+                }
+            }
+            if (!topicsToDelete.isEmpty()) {
+                DeleteTopicsResult deleteResult = adminClient.deleteTopics(topicsToDelete);
+                deleteResult.all().get(30, SECONDS);
+                log.info("Deleted topics: {}", topicsToDelete);
+                Thread.sleep(2000);
+            }
+        } catch (Exception e) {
+            log.warn("Failed to delete topics: {}", Arrays.toString(topicNames), e);
+        }
+    }
+
     @AfterAll
     @Override
     public void tearDown() throws Exception {
@@ -107,6 +133,7 @@ public class KafkaMultiTableSinkIT extends TestSuiteBase implements TestResource
     @TestTemplate
     public void testMultiTableSinkKafka(TestContainer container)
             throws IOException, InterruptedException {
+        deleteTopics("test_multi_table_topic_1", "test_multi_table_topic_2");
         Container.ExecResult execResult =
                 container.executeJob("/kafka/fake_to_kafka_multi_table_sink.conf");
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
@@ -140,6 +167,7 @@ public class KafkaMultiTableSinkIT extends TestSuiteBase implements TestResource
     @TestTemplate
     public void testMultiTableSinkKafkaWithPartitionKey(TestContainer container)
             throws IOException, InterruptedException {
+        deleteTopics("test_multi_table_partition_topic_1", "test_multi_table_partition_topic_2");
         Container.ExecResult execResult =
                 container.executeJob(
                         "/kafka/fake_to_kafka_multi_table_sink_with_partition_key.conf");
@@ -166,6 +194,7 @@ public class KafkaMultiTableSinkIT extends TestSuiteBase implements TestResource
         java.util.List<String> data = new ArrayList<>();
         try (KafkaConsumer<String, String> consumer = new KafkaConsumer<>(kafkaConsumerConfig())) {
             consumer.subscribe(Collections.singletonList(topicName));
+            // Wait until we receive at least one record
             given().atMost(60, SECONDS)
                     .pollInterval(Duration.ofSeconds(1))
                     .untilAsserted(
@@ -179,6 +208,21 @@ public class KafkaMultiTableSinkIT extends TestSuiteBase implements TestResource
                                 }
                                 Assertions.assertFalse(data.isEmpty());
                             });
+            // Continue polling until no more records
+            long emptyPollCount = 0;
+            while (emptyPollCount < 3) {
+                ConsumerRecords<String, String> records = consumer.poll(Duration.ofMillis(1000));
+                if (records.isEmpty()) {
+                    emptyPollCount++;
+                } else {
+                    emptyPollCount = 0;
+                    for (ConsumerRecord<String, String> record : records) {
+                        if (record.value() != null) {
+                            data.add(record.value());
+                        }
+                    }
+                }
+            }
         }
         return data;
     }
