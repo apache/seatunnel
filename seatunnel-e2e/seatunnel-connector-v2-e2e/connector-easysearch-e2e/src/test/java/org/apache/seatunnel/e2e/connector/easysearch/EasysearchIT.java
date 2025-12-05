@@ -35,9 +35,7 @@ import org.apache.seatunnel.connectors.seatunnel.easysearch.dto.source.IndexDocs
 import org.apache.seatunnel.connectors.seatunnel.easysearch.dto.source.ScrollResult;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
-import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
-import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterEach;
@@ -71,10 +69,6 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 @Slf4j
-@DisabledOnContainer(
-        value = {},
-        type = {EngineType.SPARK, EngineType.FLINK},
-        disabledReason = "Spark engine will lose the row kind of record")
 public class EasysearchIT extends TestSuiteBase implements TestResource {
 
     private static final String EZS_DOCKER_IMAGE = "infinilabs/easysearch-amd64:seatunnel";
