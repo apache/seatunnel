@@ -99,7 +99,9 @@ public class OscarTypeConverterTest {
     @Test
     public void testConvertFloat() {
         testConvertType("test", "real", "real", BasicType.FLOAT_TYPE);
+        testConvertType("test", "float4", "float4", BasicType.FLOAT_TYPE);
         testConvertType("test", "float", "float", BasicType.DOUBLE_TYPE);
+        testConvertType("test", "float8", "float8", BasicType.DOUBLE_TYPE);
         testConvertType("test", "double", "double", BasicType.DOUBLE_TYPE);
         testConvertType("test", "double precision", "double precision", BasicType.DOUBLE_TYPE);
     }

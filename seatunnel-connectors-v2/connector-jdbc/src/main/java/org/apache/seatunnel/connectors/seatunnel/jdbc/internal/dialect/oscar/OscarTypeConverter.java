@@ -54,6 +54,8 @@ public class OscarTypeConverter implements TypeConverter<BasicTypeDefine> {
     public static final String OSCAR_BIGINT = "BIGINT";
 
     // oscar float is double for Cpp.
+    public static final String OSCAR_FLOAT4 = "FLOAT4";
+    public static final String OSCAR_FLOAT8 = "FLOAT8";
     public static final String OSCAR_FLOAT = "FLOAT";
     public static final String OSCAR_DOUBLE = "DOUBLE";
     public static final String OSCAR_DOUBLE_PRECISION = "DOUBLE PRECISION";
@@ -164,12 +166,20 @@ public class OscarTypeConverter implements TypeConverter<BasicTypeDefine> {
                 builder.sourceType(OSCAR_REAL);
                 builder.dataType(BasicType.FLOAT_TYPE);
                 break;
+            case OSCAR_FLOAT4:
+                builder.sourceType(OSCAR_FLOAT4);
+                builder.dataType(BasicType.FLOAT_TYPE);
+                break;
             case OSCAR_FLOAT:
                 builder.sourceType(OSCAR_FLOAT);
                 builder.dataType(BasicType.DOUBLE_TYPE);
                 break;
             case OSCAR_DOUBLE:
                 builder.sourceType(OSCAR_DOUBLE);
+                builder.dataType(BasicType.DOUBLE_TYPE);
+                break;
+            case OSCAR_FLOAT8:
+                builder.sourceType(OSCAR_FLOAT8);
                 builder.dataType(BasicType.DOUBLE_TYPE);
                 break;
             case OSCAR_DOUBLE_PRECISION:
