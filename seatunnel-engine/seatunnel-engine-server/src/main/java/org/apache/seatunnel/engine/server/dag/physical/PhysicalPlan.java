@@ -232,7 +232,7 @@ public class PhysicalPlan {
             // the 'CANCELLED' state because it has not yet started running
             updateJobState(JobStatus.CANCELED);
         } else if (jobStatus == JobStatus.DOING_SAVEPOINT) {
-            this.pipelineList.forEach(SubPlan::finishPipelineIfCheckpointCompleted);
+            this.pipelineList.forEach(SubPlan::finishPipelineWithCheckpointFallback);
         } else {
             updateJobState(JobStatus.CANCELING);
             this.pipelineList.forEach(SubPlan::forceStopPipeline);
