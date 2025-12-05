@@ -67,7 +67,6 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
-import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -90,12 +89,6 @@ import java.util.stream.Stream;
 public class ElasticsearchIT extends TestSuiteBase implements TestResource {
 
     private static final long INDEX_REFRESH_MILL_DELAY = 5000L;
-
-    private static final DateTimeFormatter DATE_TIME_MINUTE_FORMATTER =
-            DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm");
-
-    private static final DateTimeFormatter DATE_TIME_SECOND_FORMATTER =
-            DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss");
 
     private List<String> testDataset1;
 
@@ -864,7 +857,11 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
                             }
                             x.replace(
                                     "c_date",
-                                    parseToLocalDate(x.get("c_date").toString()).toString());
+                                    LocalDate.parse(
+                                                    x.get("c_date").toString(),
+                                                    DateTimeFormatter.ofPattern(
+                                                            "yyyy-MM-dd'T'HH:mm"))
+                                            .toString());
                         });
         List<String> docs =
                 scrollResult.getDocs().stream()
@@ -911,7 +908,10 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
                                 if (x.containsKey(dateField)) {
                                     x.replace(
                                             dateField,
-                                            parseToLocalDate(x.get(dateField).toString())
+                                            LocalDate.parse(
+                                                            x.get(dateField).toString(),
+                                                            DateTimeFormatter.ofPattern(
+                                                                    "yyyy-MM-dd'T'HH:mm"))
                                                     .toString());
                                 }
                             }
@@ -980,14 +980,6 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
                 .filter(predicate)
                 .map(mapStrFunc)
                 .collect(Collectors.toList());
-    }
-
-    private LocalDate parseToLocalDate(String value) {
-        try {
-            return LocalDateTime.parse(value, DATE_TIME_SECOND_FORMATTER).toLocalDate();
-        } catch (DateTimeParseException e) {
-            return LocalDateTime.parse(value, DATE_TIME_MINUTE_FORMATTER).toLocalDate();
-        }
     }
 
     @AfterEach
