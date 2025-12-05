@@ -512,13 +512,15 @@ public class SubPlan {
         if (jobMaster.getCheckpointManager() == null) {
             return;
         }
-        if (!jobMaster.getCheckpointManager().isCompletedPipeline(pipelineId)) {
+        if (jobMaster.getCheckpointManager().isCompletedPipeline(pipelineId)) {
+            forcePipelineFinish();
+        } else {
             log.warn(
                     "Failed to stop the pipeline gracefully. Falling back to forced stop: {}",
                     pipelineFullName);
+            forceStopPipeline();
             cancelCheckpointCoordinator();
         }
-        forcePipelineFinish();
     }
 
     /** If the job state in CheckpointManager is complete, we need force this pipeline finish */
