@@ -1168,13 +1168,7 @@ public class ClusterSeaTunnelEngineContainer extends SeaTunnelEngineContainer {
     public void testForceStopJob() {
         Tuple3<Integer, String, Long> task = tasks.get(0);
         String jobId =
-                submitJob(
-                        server,
-                        task._1(),
-                        task._2(),
-                        "STREAMING",
-                        jobName,
-                        paramJobName)
+                submitJob(server, task._1(), task._2(), "STREAMING", jobName, paramJobName)
                         .getBody()
                         .jsonPath()
                         .getString("jobId");
@@ -1189,16 +1183,14 @@ public class ClusterSeaTunnelEngineContainer extends SeaTunnelEngineContainer {
                                                         + colon
                                                         + task._1()
                                                         + task._2()
-                                                        + RestConstant
-                                                        .REST_URL_RUNNING_JOB
+                                                        + RestConstant.REST_URL_RUNNING_JOB
                                                         + "/"
                                                         + jobId)
                                         .then()
                                         .statusCode(200)
                                         .body("jobStatus", equalTo("RUNNING")));
 
-        String parameters =
-                "{" + "\"jobId\":" + jobId + "," + "\"force\":true}";
+        String parameters = "{" + "\"jobId\":" + jobId + "," + "\"force\":true}";
 
         given().body(parameters)
                 .post(
@@ -1222,8 +1214,7 @@ public class ClusterSeaTunnelEngineContainer extends SeaTunnelEngineContainer {
                                                         + colon
                                                         + task._1()
                                                         + task._2()
-                                                        + RestConstant
-                                                        .REST_URL_FINISHED_JOBS
+                                                        + RestConstant.REST_URL_FINISHED_JOBS
                                                         + "/CANCELED")
                                         .then()
                                         .statusCode(200)
@@ -1234,13 +1225,7 @@ public class ClusterSeaTunnelEngineContainer extends SeaTunnelEngineContainer {
     public void testForceStopJobV2() {
         Tuple3<Integer, String, Long> task = tasks.get(1);
         String jobId =
-                submitJob(
-                        server,
-                        task._1(),
-                        task._2(),
-                        "STREAMING",
-                        jobName,
-                        paramJobName)
+                submitJob(server, task._1(), task._2(), "STREAMING", jobName, paramJobName)
                         .getBody()
                         .jsonPath()
                         .getString("jobId");
@@ -1255,16 +1240,14 @@ public class ClusterSeaTunnelEngineContainer extends SeaTunnelEngineContainer {
                                                         + colon
                                                         + task._1()
                                                         + task._2()
-                                                        + RestConstant
-                                                        .REST_URL_RUNNING_JOB
+                                                        + RestConstant.REST_URL_RUNNING_JOB
                                                         + "/"
                                                         + jobId)
                                         .then()
                                         .statusCode(200)
                                         .body("jobStatus", equalTo("RUNNING")));
 
-        String parameters =
-                "{" + "\"jobId\":" + jobId + "," + "\"force\":true}";
+        String parameters = "{" + "\"jobId\":" + jobId + "," + "\"force\":true}";
 
         given().body(parameters)
                 .post(
@@ -1288,8 +1271,7 @@ public class ClusterSeaTunnelEngineContainer extends SeaTunnelEngineContainer {
                                                         + colon
                                                         + task._1()
                                                         + task._2()
-                                                        + RestConstant
-                                                        .REST_URL_FINISHED_JOBS
+                                                        + RestConstant.REST_URL_FINISHED_JOBS
                                                         + "/CANCELED")
                                         .then()
                                         .statusCode(200)
