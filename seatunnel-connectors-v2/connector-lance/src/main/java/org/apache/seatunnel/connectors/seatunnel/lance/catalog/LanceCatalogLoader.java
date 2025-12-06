@@ -49,11 +49,12 @@ public class LanceCatalogLoader implements Serializable {
         Thread.currentThread().setContextClassLoader(LanceCatalogLoader.class.getClassLoader());
         Map<String, String> properties = new HashMap<>();
         properties.put("root", config.getRootNamespacePath());
+        config.setNamespaceProps(properties);
 
         return LanceNamespaces.connect(
                 LanceNamespaceType.ofImplByType(namespaceType.getType()),
                 config.getNamespaceProps(),
-                properties,
+                null,
                 bufferAllocator);
     }
 }
