@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.transform.sql.zeta;
+package org.apache.seatunnel.transform.sql.zeta.functions;
 
 import org.apache.seatunnel.shade.com.google.common.collect.Maps;
 
@@ -30,6 +30,7 @@ import org.apache.seatunnel.transform.sql.SQLEngineFactory;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.nio.ByteBuffer;
 import java.util.HashMap;
 
 public class VectorFunctionTest {
@@ -191,5 +192,68 @@ public class VectorFunctionTest {
         SeaTunnelRow outRow = sqlEngine.transformBySQL(inputRow, rowType).get(0);
         Object f1Object = outRow.getField(0);
         Assertions.assertEquals(50.0, f1Object);
+    }
+
+    @Test
+    public void testVectorReduceTruncateRandomAndSparseProjection() {
+        Float[] source = new Float[] {1.0f, 2.0f, 3.0f, 4.0f};
+        ByteBuffer buffer = VectorUtils.toByteBuffer(source);
+
+        Object truncated = VectorFunction.vectorTruncate(buffer, 2);
+        Float[] truncatedArray = VectorUtils.toFloatArray((ByteBuffer) truncated);
+        Assertions.assertArrayEquals(new Float[] {1.0f, 2.0f}, truncatedArray);
+
+        Object noTruncate = VectorFunction.vectorTruncate(buffer, 10);
+        Assertions.assertSame(buffer, noTruncate);
+
+        Object randomProj = VectorFunction.vectorRandomProjection(buffer, 2);
+        Float[] rpArray = VectorUtils.toFloatArray((ByteBuffer) randomProj);
+        Assertions.assertEquals(2, rpArray.length);
+
+        Object sparseProj = VectorFunction.vectorSparseProjection(buffer, 2);
+        Float[] spArray = VectorUtils.toFloatArray((ByteBuffer) sparseProj);
+        Assertions.assertEquals(2, spArray.length);
+
+        Assertions.assertNull(VectorFunction.vectorTruncate(null, 2));
+        Assertions.assertNull(VectorFunction.vectorRandomProjection(buffer, null));
+        Assertions.assertNull(VectorFunction.vectorSparseProjection(null, null));
+
+        Object reducedTruncate = VectorFunction.vectorReduce(buffer, 2, "TRUNCATE");
+        Float[] rtArray = VectorUtils.toFloatArray((ByteBuffer) reducedTruncate);
+        Assertions.assertArrayEquals(new Float[] {1.0f, 2.0f}, rtArray);
+
+        Object reducedRandom = VectorFunction.vectorReduce(buffer, 2, "RANDOM_PROJECTION");
+        Assertions.assertEquals(2, VectorUtils.toFloatArray((ByteBuffer) reducedRandom).length);
+
+        Object reducedSparse = VectorFunction.vectorReduce(buffer, 2, "SPARSE_RANDOM_PROJECTION");
+        Assertions.assertEquals(2, VectorUtils.toFloatArray((ByteBuffer) reducedSparse).length);
+
+        Assertions.assertNull(VectorFunction.vectorReduce(null, 2, "TRUNCATE"));
+        Assertions.assertNull(VectorFunction.vectorReduce(buffer, null, "TRUNCATE"));
+        Assertions.assertNull(VectorFunction.vectorReduce(buffer, 2, null));
+
+        Assertions.assertThrows(
+                IllegalArgumentException.class,
+                () -> VectorFunction.vectorReduce(buffer, 2, "UNKNOWN"));
+    }
+
+    @Test
+    public void testVectorNormalize() {
+        Float[] source = new Float[] {3.0f, 4.0f};
+        ByteBuffer buffer = VectorUtils.toByteBuffer(source);
+
+        Object normalizedObj = VectorFunction.vectorNormalize(buffer);
+        Float[] normalized = VectorUtils.toFloatArray((ByteBuffer) normalizedObj);
+        Assertions.assertEquals(2, normalized.length);
+
+        double norm = Math.sqrt(normalized[0] * normalized[0] + normalized[1] * normalized[1]);
+        Assertions.assertEquals(1.0, norm, 1e-6);
+
+        Float[] zeroVector = new Float[] {0.0f, 0.0f};
+        ByteBuffer zeroBuffer = VectorUtils.toByteBuffer(zeroVector);
+        Object zeroResult = VectorFunction.vectorNormalize(zeroBuffer);
+        Assertions.assertSame(zeroBuffer, zeroResult);
+
+        Assertions.assertNull(VectorFunction.vectorNormalize(null));
     }
 }

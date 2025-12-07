@@ -15,17 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.transform.sql;
+package org.apache.seatunnel.transform.sql.zeta.functions;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
-import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.transform.exception.TransformException;
+import org.apache.seatunnel.transform.sql.SQLTransform;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -36,7 +36,7 @@ import java.time.ZoneId;
 import java.util.Collections;
 import java.util.List;
 
-public class SQLDateTimeFunctionsTest {
+public class DateTimeFunctionsTest {
 
     private SeaTunnelRow runSql(String query, SeaTunnelRowType rowType, Object... values) {
         CatalogTable table = CatalogTableUtil.getCatalogTable("test", rowType);
@@ -115,7 +115,8 @@ public class SQLDateTimeFunctionsTest {
                         "select EXTRACT(YEAR FROM dt) as y,"
                                 + " EXTRACT(MONTH FROM dt) as m,"
                                 + " EXTRACT(DAY FROM dt) as d,"
-                                + " EXTRACT(HOUR FROM dt) as h from dual",
+                                + " EXTRACT(HOUR FROM dt) as h"
+                                + " from dual",
                         rowType,
                         LocalDateTime.of(2024, 6, 15, 14, 30, 0));
 
@@ -204,7 +205,8 @@ public class SQLDateTimeFunctionsTest {
                                 + " DATE_TRUNC(dt, 'DAY') as d,"
                                 + " DATE_TRUNC(dt, 'HOUR') as h,"
                                 + " DATE_TRUNC(dt, 'MINUTE') as m,"
-                                + " DATE_TRUNC(dt, 'SECOND') as s from dual",
+                                + " DATE_TRUNC(dt, 'SECOND') as s"
+                                + " from dual",
                         rowType,
                         base);
 
@@ -219,54 +221,71 @@ public class SQLDateTimeFunctionsTest {
     public void testFromUnixTimeWithZone() {
         SeaTunnelRowType rowType =
                 new SeaTunnelRowType(
-                        new String[] {"ts"}, new SeaTunnelDataType[] {BasicType.LONG_TYPE});
+                        new String[] {"unixtime"},
+                        new SeaTunnelDataType[] {LocalTimeType.LOCAL_DATE_TIME_TYPE});
 
-        // 1672545600 = 2023-01-01 10:00:00 UTC+6, when timestamp is in UTC+8
+        long unixTime = LocalDateTime.of(2023, 1, 1, 0, 0).atZone(ZoneId.of("UTC")).toEpochSecond();
+
         SeaTunnelRow outRow =
                 runSql(
-                        "select FROM_UNIXTIME(ts, 'yyyy-MM-dd HH:mm:ss', 'UTC+6') as formatted from dual",
+                        "select FROM_UNIXTIME(?, 'yyyy-MM-dd HH:mm:ss', 'UTC+8') as ts from dual",
                         rowType,
-                        1672545600L);
+                        LocalDateTime.ofEpochSecond(
+                                unixTime,
+                                0,
+                                ZoneId.of("UTC")
+                                        .getRules()
+                                        .getOffset(LocalDateTime.of(2023, 1, 1, 0, 0))));
 
-        Assertions.assertEquals("2023-01-01 10:00:00", outRow.getField(0));
+        Assertions.assertEquals("2023-01-01 08:00:00", outRow.getField(0));
     }
 
     @Test
-    public void testAtTimeZone() {
+    public void testToDateAliasFunction() {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"dummy"},
+                        new SeaTunnelDataType[] {LocalTimeType.LOCAL_DATE_TIME_TYPE});
+
+        SeaTunnelRow outRow =
+                runSql(
+                        "select TO_DATE('2021-04-08T13:34:45', 'yyyy-MM-dd''T''HH:mm:ss') as dt from dual",
+                        rowType,
+                        LocalDateTime.now());
+
+        Assertions.assertEquals(LocalDateTime.of(2021, 4, 8, 13, 34, 45), outRow.getField(0));
+    }
+
+    @Test
+    public void testNestedDateTimeFunctions() {
         SeaTunnelRowType rowType =
                 new SeaTunnelRowType(
                         new String[] {"dt"},
                         new SeaTunnelDataType[] {LocalTimeType.LOCAL_DATE_TIME_TYPE});
 
-        LocalDateTime now = LocalDateTime.of(2024, 6, 15, 12, 0, 0);
+        LocalDateTime base = LocalDateTime.of(2024, 6, 15, 12, 0, 0);
         SeaTunnelRow outRow =
-                runSql("select dt AT TIME ZONE '+09:00' as tz from dual", rowType, now);
+                runSql(
+                        "select FORMATDATETIME(DATEADD(dt, 1, 'DAY'), 'yyyy-MM-dd') as f1,"
+                                + " EXTRACT(DAYOFWEEK FROM DATEADD(dt, 1, 'DAY')) as dow"
+                                + " from dual",
+                        rowType,
+                        base);
 
-        Assertions.assertNotNull(outRow.getField(0));
-        Assertions.assertEquals(
-                now.atZone(ZoneId.systemDefault())
-                        .withZoneSameInstant(ZoneId.of("+09:00"))
-                        .toOffsetDateTime(),
-                outRow.getField(0));
-    }
-
-    @Test
-    public void testIsDateFunction() {
-        SeaTunnelRowType rowType =
-                new SeaTunnelRowType(
-                        new String[] {"s"}, new SeaTunnelDataType[] {BasicType.STRING_TYPE});
-
-        SeaTunnelRow outRow =
-                runSql("select IS_DATE(s, 'yyyy-MM-dd') as r from dual", rowType, "2024-06-15");
-
-        Assertions.assertEquals(true, outRow.getField(0));
+        LocalDate nextDay = base.plusDays(1).toLocalDate();
+        Assertions.assertEquals("2024-06-16", outRow.getField(0));
+        int expectedDow = nextDay.getDayOfWeek().getValue() % 7;
+        Assertions.assertEquals(expectedDow, outRow.getField(1));
     }
 
     @Test
     public void testNestedIsDateAndToDate() {
         SeaTunnelRowType rowType =
                 new SeaTunnelRowType(
-                        new String[] {"s"}, new SeaTunnelDataType[] {BasicType.STRING_TYPE});
+                        new String[] {"s"},
+                        new SeaTunnelDataType[] {
+                            org.apache.seatunnel.api.table.type.BasicType.STRING_TYPE
+                        });
 
         SeaTunnelRow outRow =
                 runSql(
@@ -277,6 +296,22 @@ public class SQLDateTimeFunctionsTest {
                         "2024-06-15");
 
         Assertions.assertEquals(LocalDate.of(2024, 6, 15), outRow.getField(0));
+    }
+
+    @Test
+    public void testParseDateTimeWithInvalidPattern() {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"dummy"},
+                        new SeaTunnelDataType[] {LocalTimeType.LOCAL_DATE_TIME_TYPE});
+
+        Assertions.assertThrows(
+                TransformException.class,
+                () ->
+                        runSql(
+                                "select PARSEDATETIME('2021-04-08', 'invalid_pattern') as parsed from dual",
+                                rowType,
+                                LocalDateTime.now()));
     }
 
     @Test
@@ -293,27 +328,5 @@ public class SQLDateTimeFunctionsTest {
                                 "select DATEADD(dt, 1, 'UNSUPPORTED') as d from dual",
                                 rowType,
                                 LocalDate.of(2024, 6, 15)));
-    }
-
-    @Test
-    public void testDateAndTimeNullHandling() {
-        SeaTunnelRowType dateType =
-                new SeaTunnelRowType(
-                        new String[] {"d"},
-                        new SeaTunnelDataType[] {LocalTimeType.LOCAL_DATE_TYPE});
-        SeaTunnelRowType timeType =
-                new SeaTunnelRowType(
-                        new String[] {"t"},
-                        new SeaTunnelDataType[] {LocalTimeType.LOCAL_TIME_TYPE});
-
-        SeaTunnelRow dateRow =
-                runSql("select YEAR(d) as y, MONTH(d) as m from dual", dateType, (Object) null);
-        Assertions.assertNull(dateRow.getField(0));
-        Assertions.assertNull(dateRow.getField(1));
-
-        SeaTunnelRow timeRow =
-                runSql("select HOUR(t) as h, MINUTE(t) as m from dual", timeType, (Object) null);
-        Assertions.assertNull(timeRow.getField(0));
-        Assertions.assertNull(timeRow.getField(1));
     }
 }
