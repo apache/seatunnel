@@ -222,20 +222,17 @@ public class DateTimeFunctionsTest {
         SeaTunnelRowType rowType =
                 new SeaTunnelRowType(
                         new String[] {"unixtime"},
-                        new SeaTunnelDataType[] {LocalTimeType.LOCAL_DATE_TIME_TYPE});
+                        new SeaTunnelDataType[] {
+                            org.apache.seatunnel.api.table.type.BasicType.LONG_TYPE
+                        });
 
         long unixTime = LocalDateTime.of(2023, 1, 1, 0, 0).atZone(ZoneId.of("UTC")).toEpochSecond();
 
         SeaTunnelRow outRow =
                 runSql(
-                        "select FROM_UNIXTIME(?, 'yyyy-MM-dd HH:mm:ss', 'UTC+8') as ts from dual",
+                        "select FROM_UNIXTIME(unixtime, 'yyyy-MM-dd HH:mm:ss', 'UTC+8') as ts from dual",
                         rowType,
-                        LocalDateTime.ofEpochSecond(
-                                unixTime,
-                                0,
-                                ZoneId.of("UTC")
-                                        .getRules()
-                                        .getOffset(LocalDateTime.of(2023, 1, 1, 0, 0))));
+                        unixTime);
 
         Assertions.assertEquals("2023-01-01 08:00:00", outRow.getField(0));
     }

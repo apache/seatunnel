@@ -20,7 +20,7 @@ import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.transform.exception.TransformException;
 
@@ -53,8 +53,8 @@ public class ArrayFunction {
                     .orElse(null);
         }
         throw new TransformException(
-                CommonErrorCode.UNSUPPORTED_DATA_TYPE,
-                String.format("Unsupported function max() arguments: %s", args));
+                CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
+                String.format("Unsupported ARRAY_MAX element type: %s", dataList[0].getClass()));
     }
 
     public static Object arrayMin(List<Object> args) {
@@ -77,8 +77,8 @@ public class ArrayFunction {
                     .orElse(null);
         }
         throw new TransformException(
-                CommonErrorCode.UNSUPPORTED_DATA_TYPE,
-                String.format("Unsupported function max() arguments: %s", args));
+                CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
+                String.format("Unsupported ARRAY_MIN element type: %s", dataList[0].getClass()));
     }
 
     public static Object[] array(List<Object> args) {

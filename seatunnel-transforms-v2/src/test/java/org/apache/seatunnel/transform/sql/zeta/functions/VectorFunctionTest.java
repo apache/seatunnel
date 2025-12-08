@@ -197,44 +197,55 @@ public class VectorFunctionTest {
     @Test
     public void testVectorReduceTruncateRandomAndSparseProjection() {
         Float[] source = new Float[] {1.0f, 2.0f, 3.0f, 4.0f};
-        ByteBuffer buffer = VectorUtils.toByteBuffer(source);
 
-        Object truncated = VectorFunction.vectorTruncate(buffer, 2);
+        ByteBuffer bufferForTruncate = VectorUtils.toByteBuffer(source);
+        Object truncated = VectorFunction.vectorTruncate(bufferForTruncate, 2);
         Float[] truncatedArray = VectorUtils.toFloatArray((ByteBuffer) truncated);
         Assertions.assertArrayEquals(new Float[] {1.0f, 2.0f}, truncatedArray);
 
-        Object noTruncate = VectorFunction.vectorTruncate(buffer, 10);
-        Assertions.assertSame(buffer, noTruncate);
+        ByteBuffer bufferForNoTruncate = VectorUtils.toByteBuffer(source);
+        Object noTruncate = VectorFunction.vectorTruncate(bufferForNoTruncate, 10);
+        Assertions.assertSame(bufferForNoTruncate, noTruncate);
 
-        Object randomProj = VectorFunction.vectorRandomProjection(buffer, 2);
+        ByteBuffer bufferForRandom = VectorUtils.toByteBuffer(source);
+        Object randomProj = VectorFunction.vectorRandomProjection(bufferForRandom, 2);
         Float[] rpArray = VectorUtils.toFloatArray((ByteBuffer) randomProj);
         Assertions.assertEquals(2, rpArray.length);
 
-        Object sparseProj = VectorFunction.vectorSparseProjection(buffer, 2);
+        ByteBuffer bufferForSparse = VectorUtils.toByteBuffer(source);
+        Object sparseProj = VectorFunction.vectorSparseProjection(bufferForSparse, 2);
         Float[] spArray = VectorUtils.toFloatArray((ByteBuffer) sparseProj);
         Assertions.assertEquals(2, spArray.length);
 
         Assertions.assertNull(VectorFunction.vectorTruncate(null, 2));
-        Assertions.assertNull(VectorFunction.vectorRandomProjection(buffer, null));
+        Assertions.assertNull(
+                VectorFunction.vectorRandomProjection(VectorUtils.toByteBuffer(source), null));
         Assertions.assertNull(VectorFunction.vectorSparseProjection(null, null));
 
-        Object reducedTruncate = VectorFunction.vectorReduce(buffer, 2, "TRUNCATE");
+        ByteBuffer bufferForReduce = VectorUtils.toByteBuffer(source);
+        Object reducedTruncate = VectorFunction.vectorReduce(bufferForReduce, 2, "TRUNCATE");
         Float[] rtArray = VectorUtils.toFloatArray((ByteBuffer) reducedTruncate);
         Assertions.assertArrayEquals(new Float[] {1.0f, 2.0f}, rtArray);
 
-        Object reducedRandom = VectorFunction.vectorReduce(buffer, 2, "RANDOM_PROJECTION");
+        ByteBuffer bufferForReduceRandom = VectorUtils.toByteBuffer(source);
+        Object reducedRandom =
+                VectorFunction.vectorReduce(bufferForReduceRandom, 2, "RANDOM_PROJECTION");
         Assertions.assertEquals(2, VectorUtils.toFloatArray((ByteBuffer) reducedRandom).length);
 
-        Object reducedSparse = VectorFunction.vectorReduce(buffer, 2, "SPARSE_RANDOM_PROJECTION");
+        ByteBuffer bufferForReduceSparse = VectorUtils.toByteBuffer(source);
+        Object reducedSparse =
+                VectorFunction.vectorReduce(bufferForReduceSparse, 2, "SPARSE_RANDOM_PROJECTION");
         Assertions.assertEquals(2, VectorUtils.toFloatArray((ByteBuffer) reducedSparse).length);
 
         Assertions.assertNull(VectorFunction.vectorReduce(null, 2, "TRUNCATE"));
-        Assertions.assertNull(VectorFunction.vectorReduce(buffer, null, "TRUNCATE"));
-        Assertions.assertNull(VectorFunction.vectorReduce(buffer, 2, null));
+        Assertions.assertNull(
+                VectorFunction.vectorReduce(VectorUtils.toByteBuffer(source), null, "TRUNCATE"));
+        Assertions.assertNull(
+                VectorFunction.vectorReduce(VectorUtils.toByteBuffer(source), 2, null));
 
         Assertions.assertThrows(
                 IllegalArgumentException.class,
-                () -> VectorFunction.vectorReduce(buffer, 2, "UNKNOWN"));
+                () -> VectorFunction.vectorReduce(VectorUtils.toByteBuffer(source), 2, "UNKNOWN"));
     }
 
     @Test

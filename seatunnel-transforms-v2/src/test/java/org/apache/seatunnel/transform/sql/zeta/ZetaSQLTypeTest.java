@@ -71,12 +71,12 @@ public class ZetaSQLTypeTest {
         Assertions.assertEquals(BasicType.VOID_TYPE, type.getExpressionType(new NullValue()));
 
         SignedExpression signed = new SignedExpression();
-        signed.setExpression(new DoubleValue(1.5));
+        signed.setExpression(new DoubleValue("1.5"));
         signed.setSign('-');
         Assertions.assertEquals(BasicType.DOUBLE_TYPE, type.getExpressionType(signed));
 
         Assertions.assertEquals(
-                BasicType.DOUBLE_TYPE, type.getExpressionType(new DoubleValue(1.0)));
+                BasicType.DOUBLE_TYPE, type.getExpressionType(new DoubleValue("1.0")));
 
         Assertions.assertEquals(BasicType.INT_TYPE, type.getExpressionType(new LongValue(100)));
 
@@ -193,7 +193,7 @@ public class ZetaSQLTypeTest {
         Function cosFunc = new Function();
         cosFunc.setName(ZetaSQLFunction.COS);
         cosFunc.setParameters(
-                new ExpressionList<>(Collections.singletonList(new DoubleValue(0.0))));
+                new ExpressionList<>(Collections.singletonList(new DoubleValue("0.0"))));
         Assertions.assertEquals(BasicType.DOUBLE_TYPE, type.getExpressionType(cosFunc));
 
         Function arrayFunc = new Function();
@@ -337,7 +337,6 @@ public class ZetaSQLTypeTest {
 
         Function badCoalesce = new Function();
         badCoalesce.setName(ZetaSQLFunction.COALESCE);
-        badCoalesce.setParameters(null);
         Assertions.assertThrows(
                 TransformException.class, () -> type.getExpressionType(badCoalesce));
 
@@ -355,7 +354,6 @@ public class ZetaSQLTypeTest {
 
         Function multiIfNoParams = new Function();
         multiIfNoParams.setName(ZetaSQLFunction.MULTI_IF);
-        multiIfNoParams.setParameters(null);
         Assertions.assertThrows(
                 TransformException.class, () -> type.getExpressionType(multiIfNoParams));
 

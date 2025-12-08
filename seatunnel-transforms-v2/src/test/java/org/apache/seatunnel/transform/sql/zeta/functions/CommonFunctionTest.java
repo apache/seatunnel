@@ -27,7 +27,6 @@ import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-import net.sf.jsqlparser.expression.DateValue;
 import net.sf.jsqlparser.expression.DoubleValue;
 import net.sf.jsqlparser.expression.Expression;
 import net.sf.jsqlparser.expression.Function;
@@ -53,7 +52,7 @@ public class CommonFunctionTest {
         Assertions.assertNull(CommonFunction.resolveExpressionType(new NullValue(), rowType));
 
         SeaTunnelDataType<?> doubleType =
-                CommonFunction.resolveExpressionType(new DoubleValue(1.23), rowType);
+                CommonFunction.resolveExpressionType(new DoubleValue("1.23"), rowType);
         Assertions.assertEquals(BasicType.DOUBLE_TYPE, doubleType);
 
         SeaTunnelDataType<?> smallLongType =
@@ -103,7 +102,8 @@ public class CommonFunctionTest {
         Assertions.assertEquals(BasicType.STRING_TYPE, mt.getKeyType());
         Assertions.assertEquals(BasicType.INT_TYPE, mt.getValueType());
 
-        DateValue unsupportedExpression = new DateValue("2020-01-01");
+        Function unsupportedExpression = new Function();
+        unsupportedExpression.setName("UNSUPPORTED_FUNC");
         Assertions.assertThrows(
                 SeaTunnelRuntimeException.class,
                 () -> CommonFunction.resolveExpressionType(unsupportedExpression, rowType));
@@ -185,7 +185,6 @@ public class CommonFunctionTest {
 
         Function noParamsFunc = new Function();
         noParamsFunc.setName("TEST_EMPTY");
-        noParamsFunc.setParameters(null);
         Assertions.assertEquals(
                 Collections.emptyList(), CommonFunction.getExpressions(noParamsFunc));
     }

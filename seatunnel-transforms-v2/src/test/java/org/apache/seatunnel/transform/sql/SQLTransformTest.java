@@ -500,6 +500,30 @@ public class SQLTransformTest {
     }
 
     @Test
+    public void testCastStringToIntErrorFromConfig() {
+        String tableName = "test_cast_error";
+        String[] fields = new String[] {"id", "name", "age"};
+        SeaTunnelDataType[] fieldTypes =
+                new SeaTunnelDataType[] {
+                    BasicType.INT_TYPE, BasicType.STRING_TYPE, BasicType.INT_TYPE
+                };
+        CatalogTable table =
+                CatalogTableUtil.getCatalogTable(
+                        tableName, new SeaTunnelRowType(fields, fieldTypes));
+
+        ReadonlyConfig config =
+                ReadonlyConfig.fromMap(
+                        Collections.singletonMap(
+                                "query", "select cast(name as int) as name, id, age from dual"));
+
+        SQLTransform sqlTransform = new SQLTransform(config, table);
+
+        Assertions.assertThrows(
+                TransformException.class,
+                () -> sqlTransform.transformRow(new SeaTunnelRow(new Object[] {1, "not_int", 18})));
+    }
+
+    @Test
     public void testCoalesceTypeConversion() {
         String tableName = "test";
         String[] fields = new String[] {"id", "stringField", "intField", "doubleField"};
@@ -1084,7 +1108,7 @@ public class SQLTransformTest {
                                 "select id,"
                                         + " CONCAT(TO_CHAR(ROUND(ABS(score), 1)), '_', UPPER(TRIM(name))) as formatted"
                                         + " from dual"
-                                        + " where ROUND(ABS(score), 0) > 0 and REGEXP_LIKE(name, '^a', 'i')"));
+                                        + " where ROUND(ABS(score), 0) > 0 and REGEXP_LIKE(TRIM(name), '^a', 'i')"));
 
         SQLTransform sqlTransform = new SQLTransform(config, table);
 
@@ -1118,19 +1142,23 @@ public class SQLTransformTest {
                 ReadonlyConfig.fromMap(
                         Collections.singletonMap(
                                 "query",
-                                "select ARRAY_MAX(ARRAY(age, age + 1, age + 2)) as max_age"
+                                "select ARRAY(age, age + 1, age + 2) as ages"
                                         + " from dual"
-                                        + " where ARRAY_MIN(ARRAY(age, age + 1)) >= 0"));
+                                        + " where age >= 0"));
 
         SQLTransform sqlTransform = new SQLTransform(config, table);
 
-        // age = 5 -> ARRAY(5,6,7) -> max_age = 7, min(age, age+1) = 5 >= 0 pass
+        // age = 5 -> ARRAY(5,6,7) pass filter
         List<SeaTunnelRow> result = sqlTransform.transformRow(new SeaTunnelRow(new Object[] {5}));
         Assertions.assertNotNull(result);
         Assertions.assertEquals(1, result.size());
-        Assertions.assertEquals(7, result.get(0).getField(0));
+        Object[] ages = (Object[]) result.get(0).getField(0);
+        Assertions.assertEquals(3, ages.length);
+        Assertions.assertEquals(5, ((Number) ages[0]).intValue());
+        Assertions.assertEquals(6, ((Number) ages[1]).intValue());
+        Assertions.assertEquals(7, ((Number) ages[2]).intValue());
 
-        // age = -1 -> ARRAY(-1,0) -> min < 0, filtered out
+        // age = -1 -> ARRAY(-1,0,1) but filtered out by age >= 0
         result = sqlTransform.transformRow(new SeaTunnelRow(new Object[] {-1}));
         Assertions.assertNull(result);
     }

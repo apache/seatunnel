@@ -26,6 +26,7 @@ import org.apache.seatunnel.api.table.factory.TableTransformFactoryContext;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.api.transform.SeaTunnelTransform;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -62,19 +63,14 @@ public class SQLTransformFactoryTest {
                                 SQLTransform.KEY_QUERY.key(), "select * from dual"));
 
         TableTransformFactoryContext context =
-                new TableTransformFactoryContext() {
-                    @Override
-                    public List<CatalogTable> getCatalogTables() {
-                        return tables;
-                    }
+                new TableTransformFactoryContext(
+                        tables, config, Thread.currentThread().getContextClassLoader());
 
-                    @Override
-                    public ReadonlyConfig getOptions() {
-                        return config;
-                    }
-                };
-        TableTransform transform = factory.createTransform(context);
-        Assertions.assertNotNull(transform);
-        Assertions.assertTrue(transform.getTransform() instanceof SQLMultiCatalogFlatMapTransform);
+        TableTransform<?> tableTransform = factory.createTransform(context);
+        Assertions.assertNotNull(tableTransform);
+
+        SeaTunnelTransform<?> inner = tableTransform.createTransform();
+        Assertions.assertNotNull(inner);
+        Assertions.assertTrue(inner instanceof SQLMultiCatalogFlatMapTransform);
     }
 }

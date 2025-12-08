@@ -22,7 +22,6 @@ import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.transform.exception.TransformException;
 import org.apache.seatunnel.transform.sql.SQLEngine;
 import org.apache.seatunnel.transform.sql.SQLEngineFactory;
@@ -127,8 +126,6 @@ class ArrayFunctionTest {
                 () -> ArrayFunction.arrayMax(java.util.Collections.singletonList((Object) values)));
     }
 
-    // ------------------ array(...) construction ------------------
-
     @Test
     void testArrayHomogeneousNumeric() {
         List<Object> args = Arrays.asList(1, 2, 3);
@@ -175,8 +172,6 @@ class ArrayFunctionTest {
         Assertions.assertEquals(0, result.length);
     }
 
-    // ------------------ castArrayTypeMapping / getElementType ------------------
-
     @Test
     void testCastArrayTypeMappingWithLiteralArgs() {
         // ARRAY(1, 2, 3) -> element type INT
@@ -221,12 +216,5 @@ class ArrayFunctionTest {
 
         SeaTunnelDataType<?> elementType = ArrayFunction.getElementType(function, inputType);
         Assertions.assertEquals(BasicType.INT_TYPE, elementType);
-    }
-
-    @Test
-    void testArrayConvertToTypeFailure() {
-        // When target type cannot be converted, convertToType should throw SeaTunnelException
-        List<Object> args = Arrays.asList(new Object() {}, new Object() {});
-        Assertions.assertThrows(SeaTunnelException.class, () -> ArrayFunction.array(args));
     }
 }

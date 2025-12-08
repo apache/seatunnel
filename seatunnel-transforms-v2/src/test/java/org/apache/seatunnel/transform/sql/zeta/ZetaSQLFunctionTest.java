@@ -27,12 +27,13 @@ import org.junit.jupiter.api.Test;
 
 import net.sf.jsqlparser.expression.CaseExpression;
 import net.sf.jsqlparser.expression.CastExpression;
-import net.sf.jsqlparser.expression.DateTimeLiteralExpression;
 import net.sf.jsqlparser.expression.Expression;
 import net.sf.jsqlparser.expression.NullValue;
 import net.sf.jsqlparser.expression.StringValue;
 import net.sf.jsqlparser.expression.WhenClause;
 import net.sf.jsqlparser.expression.operators.relational.ExpressionList;
+import net.sf.jsqlparser.expression.operators.relational.GreaterThan;
+import net.sf.jsqlparser.parser.CCJSqlParserUtil;
 import net.sf.jsqlparser.schema.Column;
 
 import java.time.LocalDate;
@@ -59,16 +60,15 @@ public class ZetaSQLFunctionTest {
     }
 
     @Test
-    public void testComputeForValueLiteralsAndColumns() {
+    public void testComputeForValueLiteralsAndColumns() throws Exception {
         ZetaSQLFunction function = createFunction();
         Object[] input = new Object[] {1, "Alice", 20};
 
         Assertions.assertNull(function.computeForValue(new NullValue(), input));
 
-        DateTimeLiteralExpression tsLiteral =
-                new DateTimeLiteralExpression(
-                        DateTimeLiteralExpression.DateTime.TYPE_TIMESTAMP, "2024-06-15T12:00:00");
-        Object ts = function.computeForValue(tsLiteral, input);
+        // Use parser to build a TIMESTAMP literal which becomes DateTimeLiteralExpression
+        Expression tsExpr = CCJSqlParserUtil.parseExpression("TIMESTAMP '2024-06-15T12:00:00'");
+        Object ts = function.computeForValue(tsExpr, input);
         Assertions.assertTrue(ts instanceof LocalDateTime);
 
         Expression colExpr = new Column("name");
@@ -132,25 +132,27 @@ public class ZetaSQLFunctionTest {
         caseExpression.setElseExpression(new StringValue("other"));
 
         Object result = function.executeCaseExpr(caseExpression, input);
-        Assertions.assertEquals("adult", ((StringValue) result).getValue());
+        Assertions.assertEquals("adult", result);
     }
 
     @Test
-    public void testExecuteCaseExprWithoutSwitchValue() {
+    public void testExecuteCaseExprWithoutSwitchValue() throws Exception {
         ZetaSQLFunction function = createFunction();
         Object[] input = new Object[] {1, "Alice", 20};
 
         CaseExpression caseExpression = new CaseExpression();
 
         WhenClause whenClause = new WhenClause();
-        whenClause.setWhenExpression(new net.sf.jsqlparser.expression.LongValue(1));
+        // CASE WHEN 1 = 1 THEN 'match' ELSE 'other' END
+        Expression condition = CCJSqlParserUtil.parseExpression("1 = 1");
+        whenClause.setWhenExpression(condition);
         whenClause.setThenExpression(new StringValue("match"));
 
         caseExpression.setWhenClauses(Collections.singletonList(whenClause));
         caseExpression.setElseExpression(new StringValue("other"));
 
         Object result = function.executeCaseExpr(caseExpression, input);
-        Assertions.assertEquals("match", ((StringValue) result).getValue());
+        Assertions.assertEquals("match", result);
     }
 
     @Test
@@ -164,13 +166,14 @@ public class ZetaSQLFunctionTest {
 
         net.sf.jsqlparser.expression.Function multiIf = new net.sf.jsqlparser.expression.Function();
         multiIf.setName(ZetaSQLFunction.MULTI_IF);
+
+        // condition: age > 18 -> "adult", otherwise "other"
+        GreaterThan greaterThan = new GreaterThan();
+        greaterThan.setLeftExpression(new Column("age"));
+        greaterThan.setRightExpression(new net.sf.jsqlparser.expression.LongValue(18));
+
         List<Expression> args =
-                Arrays.asList(
-                        new Column("age"),
-                        new net.sf.jsqlparser.expression.LongValue(18),
-                        new StringValue("adult"),
-                        new net.sf.jsqlparser.expression.LongValue(0),
-                        new StringValue("other"));
+                Arrays.asList(greaterThan, new StringValue("adult"), new StringValue("other"));
         multiIf.setParameters(new ExpressionList<>(args));
 
         Object result = function.computeForValue(multiIf, input);
@@ -178,18 +181,56 @@ public class ZetaSQLFunctionTest {
     }
 
     @Test
-    public void testTimezoneExpression() {
+    public void testCustomUdfEvaluation() {
+        SeaTunnelRowType rt =
+                new SeaTunnelRowType(
+                        new String[] {"id", "name"},
+                        new SeaTunnelDataType[] {BasicType.INT_TYPE, BasicType.STRING_TYPE});
+        ZetaUDF exampleUdf =
+                new ZetaUDF() {
+                    @Override
+                    public String functionName() {
+                        return "EXAMPLE";
+                    }
+
+                    @Override
+                    public SeaTunnelDataType<?> resultType(List<SeaTunnelDataType<?>> argsType) {
+                        return BasicType.STRING_TYPE;
+                    }
+
+                    @Override
+                    public Object evaluate(List<Object> args) {
+                        Object v = args.get(0);
+                        if (v == null) {
+                            return null;
+                        }
+                        return "UDF: " + v;
+                    }
+                };
+        List<ZetaUDF> udfList = Collections.singletonList(exampleUdf);
+        ZetaSQLType type = new ZetaSQLType(rt, udfList);
+        ZetaSQLFunction function = new ZetaSQLFunction(rt, type, udfList);
+
+        Object[] input = new Object[] {1, "Hello World"};
+
+        net.sf.jsqlparser.expression.Function udfExpr = new net.sf.jsqlparser.expression.Function();
+        udfExpr.setName("EXAMPLE");
+        udfExpr.setParameters(new ExpressionList<>(Collections.singletonList(new Column("name"))));
+
+        Object result = function.computeForValue(udfExpr, input);
+        Assertions.assertEquals("UDF: Hello World", result);
+    }
+
+    @Test
+    public void testTimezoneExpression() throws Exception {
         ZetaSQLFunction function = createFunction();
         Object[] input = new Object[] {1, "foo", 20};
 
-        net.sf.jsqlparser.expression.TimezoneExpression tzExpr =
-                new net.sf.jsqlparser.expression.TimezoneExpression();
-        tzExpr.setLeftExpression(
-                new net.sf.jsqlparser.expression.TimestampValue("2024-01-01 00:00:00"));
-
-        ExpressionList<Expression> tzArgs =
-                new ExpressionList<>(Collections.singletonList(new StringValue("+08:00")));
-        tzExpr.setTimezoneExpressions(tzArgs.getExpressions());
+        // Build a TimezoneExpression via SQL parsing:
+        // TIMESTAMP '2024-01-01T00:00:00' AT TIME ZONE '+08:00'
+        Expression tzExpr =
+                CCJSqlParserUtil.parseExpression(
+                        "TIMESTAMP '2024-01-01T00:00:00' AT TIME ZONE '+08:00'");
 
         Object result = function.computeForValue(tzExpr, input);
         Assertions.assertNotNull(result);
