@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.transform.sql;
 
-import org.apache.seatunnel.transform.exception.TransformException;
 import org.apache.seatunnel.transform.sql.zeta.ZetaSQLEngine;
 
 import org.junit.jupiter.api.Assertions;
@@ -38,7 +37,7 @@ public class SQLEngineFactoryTest {
     @Test
     public void testUnsupportedEngineTypeThrows() {
         Assertions.assertThrows(
-                TransformException.class,
+                IllegalArgumentException.class,
                 () ->
                         SQLEngineFactory.getSQLEngine(
                                 SQLEngineFactory.EngineType.valueOf("UNSUPPORTED")));
