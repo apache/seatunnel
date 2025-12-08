@@ -254,6 +254,51 @@ public class DorisCatalogIT extends AbstractDorisIT {
                 BasicType.DOUBLE_TYPE, newTable.getTableSchema().getColumns().get(4).getDataType());
     }
 
+    @Test
+    void testCreateTableWithUnboundedStringColumn() {
+        TableSchema.Builder builder = TableSchema.builder();
+        builder.column(PhysicalColumn.of("k1", BasicType.INT_TYPE, 10L, false, 0, "k1"));
+        // Simulate upstream catalog (such as KuduCatalog) where string column has no logical
+        // length, so Doris should create it as STRING instead of CHAR(16).
+        builder.column(
+                PhysicalColumn.of(
+                        "k2",
+                        BasicType.STRING_TYPE,
+                        (Long) null,
+                        false,
+                        null,
+                        "k2 without length"));
+        builder.primaryKey(PrimaryKey.of("pk_k1", Collections.singletonList("k1")));
+
+        CatalogTable upstreamTable =
+                CatalogTable.of(
+                        TableIdentifier.of("doris", TablePath.of("test.unbounded_string")),
+                        builder.build(),
+                        Collections.emptyMap(),
+                        Collections.emptyList(),
+                        null);
+
+        ReadonlyConfig config =
+                ReadonlyConfig.fromMap(
+                        new HashMap<String, Object>() {
+                            {
+                                put(
+                                        DorisBaseOptions.FENODES.key(),
+                                        container.getHost() + ":" + HTTP_PORT);
+                                put(DorisBaseOptions.DATABASE.key(), "test");
+                                put(DorisBaseOptions.TABLE.key(), "unbounded_string");
+                                put(DorisBaseOptions.USERNAME.key(), USERNAME);
+                                put(DorisBaseOptions.PASSWORD.key(), PASSWORD);
+                            }
+                        });
+
+        CatalogTable createdTable =
+                assertCreateTable(upstreamTable, config, "test.unbounded_string");
+        Column createdStringColumn = createdTable.getTableSchema().getColumns().get(1);
+        Assertions.assertEquals("k2", createdStringColumn.getName());
+        Assertions.assertNull(createdStringColumn.getColumnLength());
+    }
+
     private CatalogTable assertCreateTable(
             CatalogTable upstreamTable, ReadonlyConfig config, String fullName) {
         DorisSinkFactory dorisSinkFactory = new DorisSinkFactory();
