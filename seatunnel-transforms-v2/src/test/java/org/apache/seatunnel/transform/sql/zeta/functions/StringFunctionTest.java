@@ -184,12 +184,12 @@ public class StringFunctionTest {
 
         // Multi-byte characters: length by chars vs bytes
         args.clear();
-        args.add("你A");
+        args.add("€A");
         Assertions.assertEquals(2L, StringFunction.charLength(args));
 
         args.clear();
-        args.add("你A");
-        // '你' is 3 bytes and 'A' is 1 byte in UTF-8
+        args.add("€A");
+        // '€' is 3 bytes and 'A' is 1 byte in UTF-8
         Assertions.assertEquals(4L, StringFunction.octetLength(args));
     }
 
