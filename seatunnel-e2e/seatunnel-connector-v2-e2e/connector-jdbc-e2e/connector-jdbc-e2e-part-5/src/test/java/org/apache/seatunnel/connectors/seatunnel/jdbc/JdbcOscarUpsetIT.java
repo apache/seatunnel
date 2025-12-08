@@ -18,18 +18,15 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc;
 
+import lombok.extern.slf4j.Slf4j;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 import org.apache.seatunnel.shade.org.apache.commons.lang3.tuple.Pair;
-
-import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
-
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.utility.DockerLoggerFactory;
-
-import lombok.extern.slf4j.Slf4j;
 
 import java.math.BigDecimal;
 import java.net.URL;
@@ -48,10 +45,10 @@ import java.util.Map;
 import java.util.Properties;
 
 @Slf4j
-public class JdbcDmUpsetIT extends AbstractJdbcIT {
+public class JdbcOscarUpsetIT extends AbstractJdbcIT {
 
-    private static final String DM_IMAGE = "laglangyue/" +
-            "dmdb8";
+    private static final String DM_IMAGE = "shentongdata/" +
+            "oscar";
     private static final String DM_CONTAINER_HOST = "e2e_dmdb_upset";
 
     private static final String DM_DATABASE = "SYSDBA2";
@@ -182,7 +179,7 @@ public class JdbcDmUpsetIT extends AbstractJdbcIT {
 
     @Override
     String driverUrl() {
-        return "https://repo1.maven.org/maven2/com/dameng/DmJdbcDriver18/8.1.1.193/DmJdbcDriver18-8.1.1.193.jar";
+        return "https://repo1.maven.org/maven2/com/shentongdata/oscarJDBC8/4.1.152/oscarJDBC8-4.1.152.jar";
     }
 
     @Override
