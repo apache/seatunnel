@@ -51,6 +51,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -296,7 +297,14 @@ public class DorisCatalogIT extends AbstractDorisIT {
                 assertCreateTable(upstreamTable, config, "test.unbounded_string");
         Column createdStringColumn = createdTable.getTableSchema().getColumns().get(1);
         Assertions.assertEquals("k2", createdStringColumn.getName());
-        Assertions.assertNull(createdStringColumn.getColumnLength());
+        // Ensure that the target column is mapped to Doris STRING type, not CHAR(16) / VARCHAR(16)
+        // inferred from a fake length.
+        Assertions.assertEquals(BasicType.STRING_TYPE, createdStringColumn.getDataType());
+        Assertions.assertEquals(
+                "string", createdStringColumn.getSourceType().toLowerCase(Locale.ROOT));
+        if (createdStringColumn.getColumnLength() != null) {
+            Assertions.assertTrue(createdStringColumn.getColumnLength() > 16L);
+        }
     }
 
     private CatalogTable assertCreateTable(
