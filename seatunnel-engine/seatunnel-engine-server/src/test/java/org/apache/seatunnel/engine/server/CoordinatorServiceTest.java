@@ -165,9 +165,9 @@ public class CoordinatorServiceTest {
     void testForceStopRunningJob() {
         JobInformation jobInformation =
                 submitJob(
-                        "CoordinatorServiceTest_testStopRunningJob",
+                        "CoordinatorServiceTest_testForceStopRunningJob",
                         "stream_fake_to_console.conf",
-                        "test_stop_running_job");
+                        "test_force_stop_running_job");
         CoordinatorService coordinatorService = jobInformation.coordinatorService;
 
         await().atMost(10000, TimeUnit.MILLISECONDS)
@@ -201,9 +201,9 @@ public class CoordinatorServiceTest {
     void testForceStopAbnormalSavepointJob() {
         JobInformation jobInformation =
                 submitJob(
-                        "CoordinatorServiceTest_testStopRunningJob",
+                        "CoordinatorServiceTest_testForceStopAbnormalSavepointJob",
                         "stream_fake_to_console.conf",
-                        "test_stop_running_job");
+                        "test_force_stop_abnormal_savepoint_job");
         CoordinatorService coordinatorService = jobInformation.coordinatorService;
 
         await().atMost(10000, TimeUnit.MILLISECONDS)

@@ -594,7 +594,7 @@ When we can't get the job info, the response will be:
 ### Stop A Job
 
 <details>
-<summary><code>POST</code> <code><b>/hazelcast/rest/maps/stop-job</b></code> <code>(Returns jobId if job stoped successfully.)</code></summary>
+<summary><code>POST</code> <code><b>/hazelcast/rest/maps/stop-job</b></code> <code>(Returns jobId if job stopped successfully.)</code></summary>
 
 #### Parameters
 

@@ -509,8 +509,9 @@ public class SubPlan {
         }
     }
 
-    public void finishPipelineWithCheckpointFallback() {
+    public void stopPipelineWithCheckpointFallback() {
         if (jobMaster.getCheckpointManager() == null) {
+            forceStopPipeline();
             return;
         }
         if (jobMaster.getCheckpointManager().isCompletedPipeline(pipelineId)) {
