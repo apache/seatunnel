@@ -162,7 +162,7 @@ public class CoordinatorServiceTest {
     }
 
     @Test
-    void testStopRunningJob() {
+    void testForceStopRunningJob() {
         JobInformation jobInformation =
                 submitJob(
                         "CoordinatorServiceTest_testStopRunningJob",
@@ -185,6 +185,46 @@ public class CoordinatorServiceTest {
                                             .containsKey(jobInformation.jobId));
                         });
 
+        coordinatorService.stopJob(jobInformation.jobId).join();
+        await().atMost(120000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> {
+                            Assertions.assertEquals(
+                                    JobStatus.CANCELED,
+                                    coordinatorService.getJobStatus(jobInformation.jobId));
+                        });
+        jobInformation.coordinatorService.clearCoordinatorService();
+        jobInformation.coordinatorServiceTest.shutdown();
+    }
+
+    @Test
+    void testForceStopAbnormalSavepointJob() {
+        JobInformation jobInformation =
+                submitJob(
+                        "CoordinatorServiceTest_testStopRunningJob",
+                        "stream_fake_to_console.conf",
+                        "test_stop_running_job");
+        CoordinatorService coordinatorService = jobInformation.coordinatorService;
+
+        await().atMost(10000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> {
+                            Assertions.assertEquals(
+                                    JobStatus.RUNNING,
+                                    coordinatorService.getJobStatus(jobInformation.jobId));
+                            JobMaster jobMaster =
+                                    coordinatorService.getJobMaster(jobInformation.jobId);
+                            Assertions.assertNotNull(jobMaster);
+                            Assertions.assertTrue(
+                                    jobMaster
+                                            .getRunningJobStateIMap()
+                                            .containsKey(jobInformation.jobId));
+                        });
+
+        coordinatorService
+                .getJobMaster(jobInformation.jobId)
+                .getPhysicalPlan()
+                .updateJobState(JobStatus.DOING_SAVEPOINT);
         coordinatorService.stopJob(jobInformation.jobId).join();
         await().atMost(120000, TimeUnit.MILLISECONDS)
                 .untilAsserted(

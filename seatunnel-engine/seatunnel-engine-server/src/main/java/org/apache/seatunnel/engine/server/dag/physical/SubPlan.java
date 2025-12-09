@@ -397,6 +397,7 @@ public class SubPlan {
     }
 
     public void forceStopPipeline() {
+        jobMaster.neverNeedRestore();
         coordinatorVertexList.forEach(PhysicalVertex::forceStop);
         physicalVertexList.forEach(PhysicalVertex::forceStop);
     }
@@ -518,8 +519,8 @@ public class SubPlan {
             log.warn(
                     "Failed to stop the pipeline gracefully. Falling back to forced stop: {}",
                     pipelineFullName);
-            forceStopPipeline();
             cancelCheckpointCoordinator();
+            forceStopPipeline();
         }
     }
 

@@ -862,6 +862,10 @@ curl --location 'http://127.0.0.1:8080/submit-job/upload' --form 'config_file=@"
 }
 ```
 
+**Notes（注意事项）：**
+- 如果作业状态为 DOING_SAVEPOINT 且保存点未成功完成，在启用 force 选项时执行的强制停止操作会将作业状态设置为 CANCELED。
+- 强制停止可能导致检查点数据不完整或处于不一致状态，仅应在异常或非正常情况下使用。
+
 </details>
 
 
