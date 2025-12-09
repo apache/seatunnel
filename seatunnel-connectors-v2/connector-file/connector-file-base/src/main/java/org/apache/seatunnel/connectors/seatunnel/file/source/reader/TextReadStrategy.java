@@ -177,7 +177,7 @@ public class TextReadStrategy extends AbstractReadStrategy {
     public void read(FileSourceSplit split, Collector<SeaTunnelRow> output)
             throws IOException, FileConnectorException {
         Map<String, String> partitionsMap = parsePartitionsByPath(split.getFilePath());
-        resolveArchiveCompressedInputStream(split, output, partitionsMap, FileFormat.CSV);
+        resolveArchiveCompressedInputStream(split, output, partitionsMap, FileFormat.TEXT);
     }
 
     @Override
