@@ -78,6 +78,10 @@ import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
 import static org.apache.seatunnel.api.common.metrics.MetricNames.INTERMEDIATE_QUEUE_SIZE;
+import static org.apache.seatunnel.api.common.metrics.MetricNames.SINK_COMMITTED_BYTES;
+import static org.apache.seatunnel.api.common.metrics.MetricNames.SINK_COMMITTED_BYTES_PER_SECONDS;
+import static org.apache.seatunnel.api.common.metrics.MetricNames.SINK_COMMITTED_COUNT;
+import static org.apache.seatunnel.api.common.metrics.MetricNames.SINK_COMMITTED_QPS;
 import static org.apache.seatunnel.api.common.metrics.MetricNames.SINK_WRITE_BYTES;
 import static org.apache.seatunnel.api.common.metrics.MetricNames.SINK_WRITE_BYTES_PER_SECONDS;
 import static org.apache.seatunnel.api.common.metrics.MetricNames.SINK_WRITE_COUNT;
@@ -86,6 +90,10 @@ import static org.apache.seatunnel.api.common.metrics.MetricNames.SOURCE_RECEIVE
 import static org.apache.seatunnel.api.common.metrics.MetricNames.SOURCE_RECEIVED_BYTES_PER_SECONDS;
 import static org.apache.seatunnel.api.common.metrics.MetricNames.SOURCE_RECEIVED_COUNT;
 import static org.apache.seatunnel.api.common.metrics.MetricNames.SOURCE_RECEIVED_QPS;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.TABLE_SINK_COMMITTED_BYTES;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.TABLE_SINK_COMMITTED_BYTES_PER_SECONDS;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.TABLE_SINK_COMMITTED_COUNT;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.TABLE_SINK_COMMITTED_QPS;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.TABLE_SINK_WRITE_BYTES;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.TABLE_SINK_WRITE_BYTES_PER_SECONDS;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.TABLE_SINK_WRITE_COUNT;
@@ -249,27 +257,35 @@ public abstract class BaseService {
         String[] countMetricsNames = {
             SOURCE_RECEIVED_COUNT,
             SINK_WRITE_COUNT,
+            SINK_COMMITTED_COUNT,
             SOURCE_RECEIVED_BYTES,
             SINK_WRITE_BYTES,
+            SINK_COMMITTED_BYTES,
             INTERMEDIATE_QUEUE_SIZE
         };
         String[] rateMetricsNames = {
             SOURCE_RECEIVED_QPS,
             SINK_WRITE_QPS,
+            SINK_COMMITTED_QPS,
             SOURCE_RECEIVED_BYTES_PER_SECONDS,
-            SINK_WRITE_BYTES_PER_SECONDS
+            SINK_WRITE_BYTES_PER_SECONDS,
+            SINK_COMMITTED_BYTES_PER_SECONDS
         };
         String[] tableCountMetricsNames = {
             TABLE_SOURCE_RECEIVED_COUNT,
             TABLE_SINK_WRITE_COUNT,
+            TABLE_SINK_COMMITTED_COUNT,
             TABLE_SOURCE_RECEIVED_BYTES,
-            TABLE_SINK_WRITE_BYTES
+            TABLE_SINK_WRITE_BYTES,
+            TABLE_SINK_COMMITTED_BYTES
         };
         String[] tableRateMetricsNames = {
             TABLE_SOURCE_RECEIVED_QPS,
             TABLE_SINK_WRITE_QPS,
+            TABLE_SINK_COMMITTED_QPS,
             TABLE_SOURCE_RECEIVED_BYTES_PER_SECONDS,
-            TABLE_SINK_WRITE_BYTES_PER_SECONDS
+            TABLE_SINK_WRITE_BYTES_PER_SECONDS,
+            TABLE_SINK_COMMITTED_BYTES_PER_SECONDS
         };
         Long[] metricsSums =
                 Stream.generate(() -> 0L).limit(countMetricsNames.length).toArray(Long[]::new);
@@ -281,12 +297,16 @@ public abstract class BaseService {
                 new Map[] {
                     new HashMap<>(), // Source Received Count
                     new HashMap<>(), // Sink Write Count
+                    new HashMap<>(), // Sink Committed Count
                     new HashMap<>(), // Source Received Bytes
                     new HashMap<>(), // Sink Write Bytes
+                    new HashMap<>(), // Sink Committed Bytes
                     new HashMap<>(), // Source Received QPS
                     new HashMap<>(), // Sink Write QPS
+                    new HashMap<>(), // Sink Committed QPS
                     new HashMap<>(), // Source Received Bytes Per Second
-                    new HashMap<>() // Sink Write Bytes Per Second
+                    new HashMap<>(), // Sink Write Bytes Per Second
+                    new HashMap<>() // Sink Committed Bytes Per Second
                 };
 
         try {
@@ -320,7 +340,7 @@ public abstract class BaseService {
                 metricsMap,
                 tableMetricsMaps,
                 ArrayUtils.addAll(tableCountMetricsNames, tableRateMetricsNames),
-                countMetricsNames.length);
+                tableCountMetricsNames.length);
         populateMetricsMap(
                 metricsMap,
                 Stream.concat(Arrays.stream(metricsSums), Arrays.stream(metricsRates))
@@ -343,28 +363,40 @@ public abstract class BaseService {
         // Define index constant
         final int SOURCE_COUNT_IDX = 0,
                 SINK_COUNT_IDX = 1,
-                SOURCE_BYTES_IDX = 2,
-                SINK_BYTES_IDX = 3,
-                SOURCE_QPS_IDX = 4,
-                SINK_QPS_IDX = 5,
-                SOURCE_BYTES_SEC_IDX = 6,
-                SINK_BYTES_SEC_IDX = 7;
+                SINK_COMMITTED_COUNT_IDX = 2,
+                SOURCE_BYTES_IDX = 3,
+                SINK_BYTES_IDX = 4,
+                SINK_COMMITTED_BYTES_IDX = 5,
+                SOURCE_QPS_IDX = 6,
+                SINK_QPS_IDX = 7,
+                SINK_COMMITTED_QPS_IDX = 8,
+                SOURCE_BYTES_SEC_IDX = 9,
+                SINK_BYTES_SEC_IDX = 10,
+                SINK_COMMITTED_BYTES_SEC_IDX = 11;
         if (metricName.startsWith(SOURCE_RECEIVED_COUNT + "#")) {
             tableMetricsMaps[SOURCE_COUNT_IDX].put(tableName, metricNode);
         } else if (metricName.startsWith(SINK_WRITE_COUNT + "#")) {
             tableMetricsMaps[SINK_COUNT_IDX].put(tableName, metricNode);
+        } else if (metricName.startsWith(SINK_COMMITTED_COUNT + "#")) {
+            tableMetricsMaps[SINK_COMMITTED_COUNT_IDX].put(tableName, metricNode);
         } else if (metricName.startsWith(SOURCE_RECEIVED_BYTES + "#")) {
             tableMetricsMaps[SOURCE_BYTES_IDX].put(tableName, metricNode);
         } else if (metricName.startsWith(SINK_WRITE_BYTES + "#")) {
             tableMetricsMaps[SINK_BYTES_IDX].put(tableName, metricNode);
+        } else if (metricName.startsWith(SINK_COMMITTED_BYTES + "#")) {
+            tableMetricsMaps[SINK_COMMITTED_BYTES_IDX].put(tableName, metricNode);
         } else if (metricName.startsWith(SOURCE_RECEIVED_QPS + "#")) {
             tableMetricsMaps[SOURCE_QPS_IDX].put(tableName, metricNode);
         } else if (metricName.startsWith(SINK_WRITE_QPS + "#")) {
             tableMetricsMaps[SINK_QPS_IDX].put(tableName, metricNode);
+        } else if (metricName.startsWith(SINK_COMMITTED_QPS + "#")) {
+            tableMetricsMaps[SINK_COMMITTED_QPS_IDX].put(tableName, metricNode);
         } else if (metricName.startsWith(SOURCE_RECEIVED_BYTES_PER_SECONDS + "#")) {
             tableMetricsMaps[SOURCE_BYTES_SEC_IDX].put(tableName, metricNode);
         } else if (metricName.startsWith(SINK_WRITE_BYTES_PER_SECONDS + "#")) {
             tableMetricsMaps[SINK_BYTES_SEC_IDX].put(tableName, metricNode);
+        } else if (metricName.startsWith(SINK_COMMITTED_BYTES_PER_SECONDS + "#")) {
+            tableMetricsMaps[SINK_COMMITTED_BYTES_SEC_IDX].put(tableName, metricNode);
         }
     }
 

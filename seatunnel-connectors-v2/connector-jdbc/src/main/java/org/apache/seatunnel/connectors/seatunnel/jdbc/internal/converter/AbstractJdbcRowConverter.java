@@ -120,6 +120,11 @@ public abstract class AbstractJdbcRowConverter implements JdbcRowConverter {
                                     .map(e -> e.toLocalDateTime())
                                     .orElse(null);
                     break;
+                case TIMESTAMP_TZ:
+                    OffsetDateTime offsetDateTime =
+                            JdbcFieldTypeUtils.getOffsetDateTime(rs, resultSetIndex);
+                    fields[fieldIndex] = offsetDateTime;
+                    break;
                 case BYTES:
                     fields[fieldIndex] = JdbcFieldTypeUtils.getBytes(rs, resultSetIndex);
                     break;
@@ -278,7 +283,14 @@ public abstract class AbstractJdbcRowConverter implements JdbcRowConverter {
                 break;
             case TIMESTAMP_TZ:
                 OffsetDateTime offsetDateTime = (OffsetDateTime) value;
-                statement.setTimestamp(statementIndex, Timestamp.from(offsetDateTime.toInstant()));
+                try {
+                    // Try to use setObject first for better timezone support
+                    statement.setObject(statementIndex, offsetDateTime);
+                } catch (SQLException e) {
+                    // Fallback to setTimestamp if setObject is not supported
+                    statement.setTimestamp(
+                            statementIndex, Timestamp.from(offsetDateTime.toInstant()));
+                }
                 break;
             case BYTES:
                 statement.setBytes(statementIndex, (byte[]) value);

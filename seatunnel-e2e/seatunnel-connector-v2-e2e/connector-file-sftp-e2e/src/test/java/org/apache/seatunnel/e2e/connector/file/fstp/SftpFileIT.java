@@ -128,6 +128,46 @@ public class SftpFileIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
+    public void testFtpToAssertJsonFilter(TestContainer container)
+            throws IOException, InterruptedException {
+
+        ContainerUtil.copyFileIntoContainers(
+                "/json/e2e.json",
+                "/home/seatunnel/tmp/seatunnel/read/filter/json/name=tyrantlucifer/hobby=codin/e2e.json",
+                sftpContainer);
+        ContainerUtil.copyFileIntoContainers(
+                "/json/e2e.json",
+                "/home/seatunnel/tmp/seatunnel/read/filter/json2025/name=tyrantlucifer/hobby=coding/e2e_2025.json",
+                sftpContainer);
+        ContainerUtil.copyFileIntoContainers(
+                "/text/e2e.txt",
+                "/home/seatunnel/tmp/seatunnel/read/filter/json2025/name=tyrantlucifer/hobby=coding/e2e_2025.txt",
+                sftpContainer);
+        ContainerUtil.copyFileIntoContainers(
+                "/json/e2e.json",
+                "/home/seatunnel/tmp/seatunnel/read/filter/json2024/name=tyrantlucifer/hobby=coding/e2e_2024.json",
+                sftpContainer);
+
+        ContainerUtil.copyFileIntoContainers(
+                "/text/e2e.txt",
+                "/home/seatunnel/tmp/seatunnel/read/filter/text/name=tyrantlucifer/hobby=coding/e2e.txt",
+                sftpContainer);
+        sftpContainer.execInContainer("sh", "-c", "chown -R seatunnel /home/seatunnel/tmp/");
+
+        TestHelper helper = new TestHelper(container);
+        // -----filter based on the file directory at the same time, the expression needs to start
+        // with `path`--------
+        helper.execute("/json/sftp_to_access_for_json_path_filter.conf");
+
+        // -------filter based on file names, just simply write the regular file names--------
+        helper.execute("/json/sftp_to_access_for_json_name_filter.conf");
+
+        // delete path
+        String filterPath = "/home/seatunnel/tmp/seatunnel/read/filter";
+        deleteFileFromContainer(filterPath);
+    }
+
+    @TestTemplate
     public void testSftpFileReadAndWrite(TestContainer container)
             throws IOException, InterruptedException {
         TestHelper helper = new TestHelper(container);
