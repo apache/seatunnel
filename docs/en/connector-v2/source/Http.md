@@ -59,7 +59,7 @@ They can be downloaded via install-plugin.sh or from the Maven central repositor
 | pageing.page_type             | String  | No       | PageNumber  | this parameter is used to specify the page type ,or PageNumber if not set, only support `PageNumber` and `Cursor`.                                  |
 | pageing.cursor_field          | String  | No       | -           | this parameter is used to specify the Cursor field name in the request parameter.                                                                                       |
 | pageing.cursor_response_field | String  | No       | -           | This parameter specifies the field in the response from which the cursor is retrieved.                                                                                        |
-| content_json                  | String  | No       | -           | This parameter can get some json data.If you only need the data in the 'book' section, configure `content_field = "$.store.book.*"`.                                          |
+| content_field                  | String  | No       | -           | This parameter can get some json data.If you only need the data in the 'book' section, configure `content_field = "$.store.book.*"`.                                          |
 | format                        | String  | No       | text        | The format of upstream data, now only support `json` `text`, default `text`.                                                                                                  |
 | method                        | String  | No       | get         | Http request method, only supports GET, POST method.                                                                                                                          |
 | headers                       | Map     | No       | -           | Http headers.                                                                                                                                                                 |
@@ -221,7 +221,7 @@ The HTTP body is used to carry the actual data in requests or responses, includi
 
 The reference format is as follows：
 ```hocon
-body="{"id":1,"name":"setunnel"}"
+body="{"id":1,"name":"seatunnel"}"
 ```
 
 For form submissions,please set the content-type as follows.
@@ -231,7 +231,7 @@ headers {
 }
 ```
 
-### content_json
+### content_field
 
 This parameter can get some json data.If you only need the data in the 'book' section, configure `content_field = "$.store.book.*"`.
 
