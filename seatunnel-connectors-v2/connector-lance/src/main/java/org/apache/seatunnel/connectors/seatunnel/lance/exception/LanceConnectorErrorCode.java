@@ -20,7 +20,9 @@ import org.apache.seatunnel.common.exception.SeaTunnelErrorCode;
 
 public enum LanceConnectorErrorCode implements SeaTunnelErrorCode {
     TABLE_EXISTS_EXCEPTION("LANCE-01", "Table Exists response exception"),
-    ;
+
+    TABLE_JSON_ARROW_SCHEMA_CONVERT_EXCEPTION(
+            "LANCE-02", "Table JsonArrowSchema convert exception");
 
     private final String code;
     private final String description;

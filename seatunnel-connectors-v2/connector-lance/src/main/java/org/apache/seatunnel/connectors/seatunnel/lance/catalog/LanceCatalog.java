@@ -160,7 +160,15 @@ public class LanceCatalog implements Catalog {
         CreateTableRequest request = new CreateTableRequest();
         List<String> ids = Lists.newArrayList(tablePath.getTableName());
         request.setId(ids);
-        namespace.createTable(request, null);
+        byte[] requestData = new byte[0];
+        try {
+            requestData = SchemaUtils.convertJsonArrowSchemaToBytes(table.getTableSchema());
+        } catch (IOException e) {
+            throw new LanceConnectorException(
+                    LanceConnectorErrorCode.TABLE_JSON_ARROW_SCHEMA_CONVERT_EXCEPTION,
+                    e.getMessage());
+        }
+        namespace.createTable(request, requestData);
     }
 
     @Override

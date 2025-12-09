@@ -19,6 +19,8 @@ package org.apache.seatunnel.connectors.seatunnel.lance.utils;
 
 import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 
+import org.apache.seatunnel.api.table.catalog.Column;
+import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -34,7 +36,12 @@ import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
 
 import com.lancedb.lance.namespace.model.JsonArrowDataType;
+import com.lancedb.lance.namespace.model.JsonArrowField;
+import com.lancedb.lance.namespace.model.JsonArrowSchema;
+import com.lancedb.lance.namespace.util.ArrowIpcUtil;
 
+import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
@@ -125,5 +132,28 @@ public class SchemaUtils {
         }
 
         return new Schema(fieldList);
+    }
+
+    public static JsonArrowSchema convertJsonArrowSchema(TableSchema schema) {
+        List<JsonArrowField> fields = new ArrayList<>();
+        for (Column column : schema.getColumns()) {
+            JsonArrowDataType dataType =
+                    LanceTypeMapper.INSTANCE.convertJsonArrowType(
+                            column.getName(), column.getDataType());
+            JsonArrowField field = new JsonArrowField();
+            field.setName(column.getName());
+            field.setType(dataType);
+            field.setNullable(column.isNullable());
+            fields.add(field);
+        }
+
+        JsonArrowSchema arrowSchema = new JsonArrowSchema();
+        arrowSchema.setFields(fields);
+        return arrowSchema;
+    }
+
+    public static byte[] convertJsonArrowSchemaToBytes(TableSchema schema) throws IOException {
+        JsonArrowSchema jsonArrowSchema = convertJsonArrowSchema(schema);
+        return ArrowIpcUtil.createEmptyArrowIpcStream(jsonArrowSchema);
     }
 }

@@ -60,4 +60,68 @@ public class LanceTypeMapper {
                 throw CommonError.convertToSeaTunnelTypeError("Lance", type.getType(), field);
         }
     }
+
+    public JsonArrowDataType convertJsonArrowType(
+            String field, @NonNull SeaTunnelDataType<?> type) {
+        switch (type.getSqlType()) {
+            case TINYINT:
+            case SMALLINT:
+            case BIGINT:
+            case INT:
+                JsonArrowDataType intType = new JsonArrowDataType();
+                intType.setType("int32");
+                return intType;
+            case STRING:
+                JsonArrowDataType stringType = new JsonArrowDataType();
+                stringType.setType("utf8");
+                return stringType;
+            case MAP:
+                JsonArrowDataType mapType = new JsonArrowDataType();
+                mapType.setType("map");
+                return mapType;
+            case ARRAY:
+                JsonArrowDataType listType = new JsonArrowDataType();
+                listType.setType("list");
+                return listType;
+            case BOOLEAN:
+                JsonArrowDataType booleanType = new JsonArrowDataType();
+                booleanType.setType("bool");
+                return booleanType;
+            case FLOAT:
+                JsonArrowDataType floatType = new JsonArrowDataType();
+                floatType.setType("float32");
+                return floatType;
+            case DOUBLE:
+                JsonArrowDataType doubleType = new JsonArrowDataType();
+                doubleType.setType("float64");
+                return doubleType;
+            case DECIMAL:
+                JsonArrowDataType decType = new JsonArrowDataType();
+                decType.setType("decimal");
+                return decType;
+            case NULL:
+                JsonArrowDataType nullType = new JsonArrowDataType();
+                nullType.setType("null");
+                return nullType;
+            case BYTES:
+                JsonArrowDataType bytesType = new JsonArrowDataType();
+                bytesType.setType("binary");
+                return bytesType;
+            case DATE:
+                JsonArrowDataType dateType = new JsonArrowDataType();
+                dateType.setType("date");
+                return dateType;
+            case TIME:
+                JsonArrowDataType timeType = new JsonArrowDataType();
+                timeType.setType("time");
+                return timeType;
+            case TIMESTAMP:
+                JsonArrowDataType timestampType = new JsonArrowDataType();
+                timestampType.setType("timestamp");
+                return timestampType;
+            default:
+                throw CommonError.convertToSeaTunnelTypeError(
+                        "Lance", type.getSqlType().name(), field);
+        }
+    }
 }

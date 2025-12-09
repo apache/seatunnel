@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.lance.namespace;
 
+import org.apache.seatunnel.shade.com.google.common.collect.Lists;
+
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
@@ -42,6 +44,7 @@ import org.junit.jupiter.api.condition.OS;
 
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import static org.apache.seatunnel.api.table.type.BasicType.STRING_TYPE;
@@ -74,7 +77,7 @@ public class LanceCatalogTest {
         Map<String, Object> configs = new HashMap<>();
         // build catalog configs
         configs.put(LanceCommonOptions.KEY_DATASET_PATH.key(), CATALOG_DIR);
-        configs.put(LanceCommonOptions.KEY_NAMESPACE_TYPE.key(), "dir");
+        configs.put(LanceCommonOptions.KEY_NAMESPACE_TYPE.key(), "rest");
         configs.put(LanceCommonOptions.KEY_ROOT_NAMESPACE_PATH.key(), "/tmp");
 
         lanceCatalog = new LanceCatalog(CATALOG_NAME, ReadonlyConfig.fromMap(configs));
@@ -166,6 +169,7 @@ public class LanceCatalogTest {
         TableSchema schema = builder.build();
         HashMap<String, String> options = new HashMap<>();
         options.put("comment", "test");
-        return CatalogTable.of(tableIdentifier, schema, options, null, "test");
+        List<String> partitionsKeys = Lists.newArrayList();
+        return CatalogTable.of(tableIdentifier, schema, options, partitionsKeys, "test");
     }
 }
