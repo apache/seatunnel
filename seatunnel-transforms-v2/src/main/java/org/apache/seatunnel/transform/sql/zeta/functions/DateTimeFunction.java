@@ -186,7 +186,7 @@ public class DateTimeFunction {
                 break;
             case "MONTH":
                 if (date1 != null && date2 != null) {
-                    return (long) Period.between(date1, date2).getMonths();
+                    return Period.between(date1, date2).toTotalMonths();
                 }
                 break;
             case "WEEK":
@@ -500,6 +500,7 @@ public class DateTimeFunction {
                 }
                 break;
             case "DOW":
+            case "DAYOFWEEK":
                 if (datetime instanceof LocalDate) {
                     return ((LocalDate) datetime).getDayOfWeek().getValue() % 7;
                 }
@@ -550,8 +551,6 @@ public class DateTimeFunction {
                     return (year > 0) ? (year - 1) / 1000 + 1 : year / 1000;
                 }
                 break;
-            case "DAYOFWEEK":
-                return dayOfWeek(args);
             default:
                 throw new TransformException(
                         CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
@@ -688,7 +687,7 @@ public class DateTimeFunction {
         }
         LocalDate localDate = convertToLocalDate(datetime);
         WeekFields weekFields = WeekFields.ISO;
-        return localDate.get(weekFields.weekOfYear()) + 1;
+        return localDate.get(weekFields.weekOfYear());
     }
 
     public static Integer year(List<Object> args) {

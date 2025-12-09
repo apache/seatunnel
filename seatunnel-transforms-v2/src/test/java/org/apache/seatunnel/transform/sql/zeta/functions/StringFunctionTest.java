@@ -121,4 +121,28 @@ public class StringFunctionTest {
         // Should extract time part from formatted string "15:30:45"
         Assertions.assertEquals("15:30", StringFunction.substring(args));
     }
+
+    @Test
+    public void testAsciiNullAndEmptyReturnNull() {
+        List<Object> args = new ArrayList<>();
+        args.add(null);
+        Assertions.assertNull(StringFunction.ascii(args));
+
+        args.clear();
+        args.add("");
+        Assertions.assertNull(StringFunction.ascii(args));
+    }
+
+    @Test
+    public void testLeftAndRightNegativeCountReturnEmpty() {
+        List<Object> args = new ArrayList<>();
+        args.add("abc");
+        args.add(-1);
+        Assertions.assertEquals("", StringFunction.left(args));
+
+        args.clear();
+        args.add("abc");
+        args.add(-2);
+        Assertions.assertEquals("", StringFunction.right(args));
+    }
 }
