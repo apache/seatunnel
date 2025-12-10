@@ -12,3 +12,8 @@ class SubmitJobFileQueryParams:
         self.jobId = jobId
         self.jobName = jobName
         self.isStartWithSavePoint = isStartWithSavePoint
+
+class StopJobQueryParams:
+    def __init__(self, jobId: str, isStartWithSavePoint: bool):
+        self.jobId = jobId
+        self.isStartWithSavePoint = isStartWithSavePoint

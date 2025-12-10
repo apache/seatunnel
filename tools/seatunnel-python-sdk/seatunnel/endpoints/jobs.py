@@ -1,6 +1,7 @@
 from ..helpers.httpMethod import HttpMethod
 from ..helpers.jobStatus import JobStatus
-from ..helpers.submitJobQueryParams import SubmitJobQueryParams, SubmitJobFileQueryParams
+from ..helpers.queryParams import *
+import json
 
 class JobsApi:
     def __init__(self, client):
@@ -38,6 +39,28 @@ class JobsApi:
             HttpMethod.POST,
             "/submit-jobs",
             content=confs
+        )
+    
+    def stopJob(self, params: StopJobQueryParams):
+        """
+        Stop A Job
+        """
+        jsonBody = json.dumps(params.__dict__)
+        return self.client.request(
+            HttpMethod.POST,
+            "/stop-job",
+            content=jsonBody
+        )
+
+    def stopJobs(self, params: list[StopJobQueryParams]):
+        """
+        Batch Stop Jobs
+        """
+        jsonBody = json.dumps([obj.__dict__ for obj in params])
+        return self.client.request(
+            HttpMethod.POST,
+            "/stop-jobs",
+            content=jsonBody
         )
 
     def getRunningJobs(self):
