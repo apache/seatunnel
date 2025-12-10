@@ -1,24 +1,22 @@
 from dataclasses import dataclass
 
+@dataclass
 class SubmitJobQueryParams:
-    def __init__(self, jobId: str | None = None, jobName: str | None = None,
-                isStartWithSavePoint: str | None = None, format: str | None = "hocon"):
-        self.jobId = jobId
-        self.jobName = jobName
-        self.isStartWithSavePoint = isStartWithSavePoint
-        self.format = format
+    jobId: int | None = None
+    jobName: str | None = None
+    isStartWithSavePoint: bool | None = None
+    format: str = "hocon"
 
+@dataclass
 class SubmitJobFileQueryParams:
-    def __init__(self, jobId: int | None = None, jobName: str | None = None,
-                isStartWithSavePoint: str | None = None):
-        self.jobId = jobId
-        self.jobName = jobName
-        self.isStartWithSavePoint = isStartWithSavePoint
+    jobId: int | None = None
+    jobName: str | None = None
+    isStartWithSavePoint: bool | None = None
 
+@dataclass
 class StopJobQueryParams:
-    def __init__(self, jobId: int, isStartWithSavePoint: bool):
-        self.jobId = jobId
-        self.isStartWithSavePoint = isStartWithSavePoint
+    jobId: int
+    isStartWithSavePoint: bool
 
 @dataclass
 class OverviewQueryParams:
