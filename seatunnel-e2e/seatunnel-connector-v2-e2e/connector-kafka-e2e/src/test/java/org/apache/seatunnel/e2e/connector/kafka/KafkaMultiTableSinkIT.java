@@ -51,6 +51,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.List;
 import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
@@ -105,7 +106,7 @@ public class KafkaMultiTableSinkIT extends TestSuiteBase implements TestResource
                 AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, kafkaContainer.getBootstrapServers());
         try (AdminClient adminClient = AdminClient.create(adminProps)) {
             Set<String> existingTopics = adminClient.listTopics().names().get();
-            java.util.List<String> topicsToDelete = new ArrayList<>();
+            List<String> topicsToDelete = new ArrayList<>();
             for (String topicName : topicNames) {
                 if (existingTopics.contains(topicName)) {
                     topicsToDelete.add(topicName);
@@ -139,7 +140,7 @@ public class KafkaMultiTableSinkIT extends TestSuiteBase implements TestResource
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
 
         // Verify data in topic_1
-        java.util.List<String> topic1Data = getKafkaConsumerListData("test_multi_table_topic_1");
+        List<String> topic1Data = getKafkaConsumerListData("test_multi_table_topic_1");
         Assertions.assertEquals(100, topic1Data.size(), "Topic 1 should have 100 records");
         for (String data : topic1Data) {
             JsonNode jsonNode = OBJECT_MAPPER.readTree(data);
@@ -149,7 +150,7 @@ public class KafkaMultiTableSinkIT extends TestSuiteBase implements TestResource
         }
 
         // Verify data in topic_2
-        java.util.List<String> topic2Data = getKafkaConsumerListData("test_multi_table_topic_2");
+        List<String> topic2Data = getKafkaConsumerListData("test_multi_table_topic_2");
         Assertions.assertEquals(200, topic2Data.size(), "Topic 2 should have 200 records");
         for (String data : topic2Data) {
             JsonNode jsonNode = OBJECT_MAPPER.readTree(data);
@@ -174,13 +175,11 @@ public class KafkaMultiTableSinkIT extends TestSuiteBase implements TestResource
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
 
         // Verify data in topic with partition key
-        java.util.List<String> topic1Data =
-                getKafkaConsumerListData("test_multi_table_partition_topic_1");
+        List<String> topic1Data = getKafkaConsumerListData("test_multi_table_partition_topic_1");
         Assertions.assertEquals(
                 100, topic1Data.size(), "Partition topic 1 should have 100 records");
 
-        java.util.List<String> topic2Data =
-                getKafkaConsumerListData("test_multi_table_partition_topic_2");
+        List<String> topic2Data = getKafkaConsumerListData("test_multi_table_partition_topic_2");
         Assertions.assertEquals(
                 150, topic2Data.size(), "Partition topic 2 should have 150 records");
 
@@ -190,32 +189,35 @@ public class KafkaMultiTableSinkIT extends TestSuiteBase implements TestResource
                 topic2Data.size());
     }
 
-    private java.util.List<String> getKafkaConsumerListData(String topicName) {
-        java.util.List<String> data = new ArrayList<>();
-        try (KafkaConsumer<String, String> consumer = new KafkaConsumer<>(kafkaConsumerConfig())) {
+    private List<String> getKafkaConsumerListData(String topicName) {
+        List<String> data = new ArrayList<>();
+        Properties props = kafkaConsumerConfig();
+        // Make sure we start from earliest to capture all records
+        props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
+        try (KafkaConsumer<String, String> consumer = new KafkaConsumer<>(props)) {
             consumer.subscribe(Collections.singletonList(topicName));
-            // Wait until we receive at least one record
-            given().atMost(60, SECONDS)
-                    .pollInterval(Duration.ofSeconds(1))
-                    .untilAsserted(
-                            () -> {
-                                ConsumerRecords<String, String> records =
-                                        consumer.poll(Duration.ofMillis(1000));
-                                for (ConsumerRecord<String, String> record : records) {
-                                    if (record.value() != null) {
-                                        data.add(record.value());
-                                    }
-                                }
-                                Assertions.assertFalse(data.isEmpty());
-                            });
-            // Continue polling until no more records
+
+            // Poll for initial records
+            ConsumerRecords<String, String> initialRecords =
+                    consumer.poll(Duration.ofMillis(5000)); // Wait 5 seconds initially
+            for (ConsumerRecord<String, String> record : initialRecords) {
+                if (record.value() != null) {
+                    data.add(record.value());
+                }
+            }
+
+            // Continue polling for up to 30 seconds or until no new records for 3 consecutive polls
+            long startTime = System.currentTimeMillis();
             long emptyPollCount = 0;
-            while (emptyPollCount < 3) {
-                ConsumerRecords<String, String> records = consumer.poll(Duration.ofMillis(1000));
+            long maxTime = 30000; // 30 seconds max
+
+            while ((System.currentTimeMillis() - startTime) < maxTime && emptyPollCount < 3) {
+                ConsumerRecords<String, String> records = consumer.poll(Duration.ofMillis(2000));
+
                 if (records.isEmpty()) {
                     emptyPollCount++;
                 } else {
-                    emptyPollCount = 0;
+                    emptyPollCount = 0; // Reset counter when we get data
                     for (ConsumerRecord<String, String> record : records) {
                         if (record.value() != null) {
                             data.add(record.value());
