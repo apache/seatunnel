@@ -125,7 +125,7 @@ public class SparkDataWriter<CommitInfoT, StateT> implements DataWriter<Internal
             }
             cleanCommitInfo();
         } catch (Throwable e) {
-            log.error("---> Abort spark writer throw error", e);
+            log.error("Abort spark writer throw error", e);
             throw e;
         } finally {
             sinkWriter.close();

@@ -512,7 +512,8 @@ public class DorisIT extends AbstractDorisIT {
     }
 
     private String createTypeCastErrorSinkTableForTest(String db) {
-        // The type of column MAP_VARCHAR_STRING in sink table bitmap, source table is varchar type.
+        // The type of column MAP_VARCHAR_STRING in sink table bitmap, source table has
+        // MAP<VARCHAR(255), STRING> type.
         // In this case, doris will report an error. After seatunnel receives the error msg from
         // doris,
         // it should stop the task normally instead of being blocked and unable to terminate.

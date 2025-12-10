@@ -295,7 +295,7 @@ public class DorisSinkWriter
                 flush();
             }
         } catch (Exception e) {
-            log.error("Flush data failed when close doris writer.", e);
+            log.error("Flush data failed when closing doris writer.", e);
             throw e;
         } finally {
             if (scheduledExecutorService != null) {
