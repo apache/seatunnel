@@ -8,4 +8,4 @@ class ClusterApi:
         """
         Returns an overview over the Zeta engine cluster.
         """
-        return self.client.request(HttpMethod.GET, f"/overview")
+        return self.client.request(HttpMethod.GET, "/overview")
