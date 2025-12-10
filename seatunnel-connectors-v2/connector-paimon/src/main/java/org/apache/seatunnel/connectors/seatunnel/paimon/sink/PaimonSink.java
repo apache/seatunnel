@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.paimon.sink;
 
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
+
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.serialization.DefaultSerializer;
@@ -35,6 +37,8 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.paimon.catalog.PaimonCatalog;
 import org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonHadoopConfiguration;
 import org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonSinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.paimon.exception.PaimonConnectorErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.paimon.exception.PaimonConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.paimon.handler.PaimonSaveModeHandler;
 import org.apache.seatunnel.connectors.seatunnel.paimon.security.PaimonSecurityContext;
 import org.apache.seatunnel.connectors.seatunnel.paimon.sink.bucket.PaimonBucketAssignerFactory;
@@ -43,7 +47,11 @@ import org.apache.seatunnel.connectors.seatunnel.paimon.sink.commit.PaimonAggreg
 import org.apache.seatunnel.connectors.seatunnel.paimon.sink.commit.PaimonCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.paimon.sink.state.PaimonSinkState;
 
+import org.apache.paimon.table.FileStoreTable;
 import org.apache.paimon.table.Table;
+import org.apache.paimon.utils.BranchManager;
+
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -51,6 +59,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+@Slf4j
 public class PaimonSink
         implements SeaTunnelSink<
                         SeaTunnelRow,
@@ -66,7 +75,7 @@ public class PaimonSink
 
     public static final String PLUGIN_NAME = "Paimon";
 
-    private Table paimonTable;
+    private FileStoreTable paimonTable;
 
     private JobContext jobContext;
 
@@ -92,11 +101,25 @@ public class PaimonSink
             paimonCatalog.open();
             boolean databaseExists =
                     paimonCatalog.databaseExists(this.paimonSinkConfig.getNamespace());
-            if (databaseExists) {
-                TablePath tablePath = catalogTable.getTablePath();
-                boolean tableExists = paimonCatalog.tableExists(tablePath);
-                if (tableExists) {
-                    this.paimonTable = paimonCatalog.getPaimonTable(tablePath);
+            if (!databaseExists) {
+                return;
+            }
+            TablePath tablePath = catalogTable.getTablePath();
+            boolean tableExists = paimonCatalog.tableExists(tablePath);
+            if (!tableExists) {
+                return;
+            }
+            this.paimonTable = (FileStoreTable) paimonCatalog.getPaimonTable(tablePath);
+            String branchName = paimonSinkConfig.getBranch();
+            if (StringUtils.isNotEmpty(branchName)) {
+                BranchManager branchManager = paimonTable.branchManager();
+                if (!branchManager.branchExists(branchName)) {
+                    throw new PaimonConnectorException(
+                            PaimonConnectorErrorCode.BRANCH_NOT_EXISTS, branchName);
+                }
+                if (!branchManager.DEFAULT_MAIN_BRANCH.equalsIgnoreCase(branchName)) {
+                    this.paimonTable = paimonTable.switchToBranch(branchName);
+                    log.info("Switch to branch {}", branchName);
                 }
             }
         }
@@ -168,12 +191,13 @@ public class PaimonSink
                         paimonSinkConfig.getDataSaveMode(),
                         paimonCatalog,
                         catalogTable,
-                        null));
+                        null,
+                        paimonSinkConfig.getBranch()));
     }
 
     @Override
     public void setLoadTable(Table table) {
-        this.paimonTable = table;
+        this.paimonTable = (FileStoreTable) table;
     }
 
     @Override
