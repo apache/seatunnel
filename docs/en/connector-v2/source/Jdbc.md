@@ -76,6 +76,30 @@ supports query SQL and can achieve projection effect.
 | split.string_split_mode_collate            | String  | No       | -               | Specifies the collation to use when string_split_mode is set to `charset_based` and the table has a special collation. If not specified, the database's default collation will be used.                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | server_time_zone                           | String  | No       | -               | The session time zone of the database server, for example: `"Asia/Shanghai"` or `"UTC"`. It controls how the `TIMESTAMP` column is converted between database and JVM when using JDBC drivers (such as MySQL). If it is not set, the driver usually falls back to the JVM default time zone or its own defaults, which may lead to hour offsets when the database server is running in a different time zone.                                                                                                                                                                                                                                     |
 
+### Time zone configuration (MySQL)
+
+Use `server_time_zone` together with the JDBC URL when your MySQL pipeline must honor the server session time zone. The following summarizes the precedence:
+
+1. When only the JDBC URL provides `serverTimezone` (for example `jdbc:mysql://.../db?serverTimezone=UTC`), SeaTunnel leaves TIMESTAMP columns as local timestamps so existing jobs stay backward compatible. The driver still uses the URL value for the session.
+2. When `server_time_zone` is set but the URL does not add a `serverTimezone`, SeaTunnel enables `TIMESTAMP_TZ` semantics and the JDBC layer forwards the same value as `properties.serverTimezone` unless the user overrides it.
+3. When both `serverTimezone` (in the URL or in `properties`) and `server_time_zone` are configured with different values, SeaTunnel treats `server_time_zone` as the authoritative value for dialect behavior, but the JDBC driver ultimately honors the higher-priority property (`properties.serverTimezone` > URL parameter). Explicit entries in `properties` always win over SeaTunnel defaults.
+
+```hocon
+source {
+  Jdbc {
+    url = "jdbc:mysql://localhost/test"
+    driver = "com.mysql.cj.jdbc.Driver"
+    server_time_zone = "Asia/Shanghai"
+    properties {
+      useSSL = false
+      serverTimezone = "UTC" # this overrides server_time_zone for the driver
+    }
+  }
+}
+```
+
+SeaTunnel continues to respect the JDBC driver’s own precedence rules when the same option appears in multiple places. Configuring `server_time_zone` gives you deterministic `TIMESTAMP` semantics unless a higher-priority property is intentionally set inside `properties`.
+
 ### Table Matching
 
 The JDBC Source connector supports two ways to specify tables:

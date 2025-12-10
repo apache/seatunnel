@@ -69,6 +69,23 @@ class SimpleJdbcConnectionProviderTest {
         Assertions.assertEquals("Asia/Shanghai", info.getProperty("serverTimezone"));
     }
 
+    @Test
+    void testServerTimeZonePropertyNotAppliedForNonMySql() throws Exception {
+        JdbcConnectionConfig config =
+                JdbcConnectionConfig.builder()
+                        .url("jdbc:postgresql://localhost:5432/test")
+                        .driverName("org.postgresql.Driver")
+                        .serverTimeZone("UTC")
+                        .build();
+
+        TestProvider provider = new TestProvider(config);
+        provider.getOrEstablishConnection();
+
+        Properties info = provider.getLastInfo();
+        Assertions.assertNotNull(info, "Driver should have been called with properties");
+        Assertions.assertNull(info.getProperty("serverTimezone"));
+    }
+
     /** Simple provider that injects a test driver recording the used properties. */
     private static class TestProvider extends SimpleJdbcConnectionProvider {
         private Properties lastInfo;

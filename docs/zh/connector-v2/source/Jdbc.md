@@ -76,6 +76,30 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | server_time_zone                           | String  | 否   | -       | 数据库服务器的会话时区，例如：`"Asia/Shanghai"` 或 `"UTC"`。它控制在使用 JDBC 驱动程序（如 MySQL）时 `TIMESTAMP` 列如何在数据库和 JVM 之间转换。如果未设置，驱动程序通常会回退到 JVM 默认时区或其自身默认值，当数据库服务器在不同时区运行时，这可能导致小时偏差。 |
 | common-options                             |         | 否   | -       | 源插件通用参数，请参考 [源通用选项](../source-common-options.md) 详见。                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 
+
+### 时区配置（MySQL）
+
+在 MySQL 场景下，server_time_zone 与 JDBC URL 中的 serverTimezone 配合使用时，请按以下顺序理解优先级：
+
+1. **仅在 JDBC URL 里设置 serverTimezone**（例如 jdbc:mysql://.../db?serverTimezone=UTC）：SeaTunnel 继续把 TIMESTAMP 当作本地时间处理以保持兼容，MySQL 驱动则使用 URL 中的值作为会话时区。
+2. **只设置 server_time_zone，URL 中未含 serverTimezone**：SeaTunnel 会启用 TIMESTAMP_TZ 语义，并把该值当作 JDBC 属性 serverTimezone 传给驱动，除非用户在 properties 里显式覆盖。
+3. **同时在 URL/properties 和 server_time_zone 中设置 serverTimezone，且值不一致**：SeaTunnel 以 server_time_zone 决定方言层面的行为（类型转换、TIMESTAMP 语义），但 JDBC 驱动仍旧遵循 properties.serverTimezone > URL 参数 的优先级顺序；properties 中的显式配置始终优先。
+
+`hocon
+source {
+  Jdbc {
+    url = "jdbc:mysql://localhost/test"
+    driver = "com.mysql.cj.jdbc.Driver"
+    server_time_zone = "Asia/Shanghai"
+    properties {
+      useSSL = false
+      serverTimezone = "UTC" # properties 中的配置会覆盖 server_time_zone
+    }
+  }
+}
+`
+
+当相同选项在多个地方配置时，SeaTunnel 仍然尊重 JDBC 驱动的优先级规则。除非在 properties 中显式设置，否则 server_time_zone 会保证 TIMESTAMP 的语义可预期。
 ### 表匹配
 
 JDBC 源连接器支持两种方式指定表：
