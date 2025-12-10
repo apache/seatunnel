@@ -15,3 +15,18 @@ class ClusterApi:
         Get Node Metrics
         """
         return self.client.request(HttpMethod.GET, "/openmetrics")
+    
+    def getLog(self):
+        """
+        Get Log Content from a Single Node
+        """
+        return self.client.request(HttpMethod.GET, "/log")
+    
+    def getLogs(self, jobId: int | None = None):
+        """
+        Get Logs from All Nodes
+        """
+        return self.client.request(
+            HttpMethod.GET, 
+            "/logs", 
+            params={"jobId": jobId, "format": "json"})
