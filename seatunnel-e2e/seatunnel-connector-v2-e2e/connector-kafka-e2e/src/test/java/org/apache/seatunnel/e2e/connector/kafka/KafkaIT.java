@@ -1455,10 +1455,8 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
 
     @TestTemplate
     @DisabledOnContainer(
-            value = {},
-            type = {EngineType.SPARK, EngineType.FLINK},
-            disabledReason =
-                    "Flink streaming exactly-once requires checkpoint completion before data is visible in sink topic, which causes timeout in this test")
+            type = EngineType.SPARK,
+            value = {})
     public void testKafkaToKafkaExactlyOnceOnStreaming(TestContainer container)
             throws InterruptedException {
         String producerTopic = "kafka_topic_exactly_once_1";
