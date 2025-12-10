@@ -1,10 +1,11 @@
 from ..helpers.httpMethod import HttpMethod
+from ..helpers.queryParams import OverviewQueryParams
 
 class ClusterApi:
     def __init__(self, client):
         self.client = client
 
-    def getOverview(self):
+    def getOverview(self, params: list[OverviewQueryParams] = []):
         """
         Returns an overview over the Zeta engine cluster.
         """

@@ -1,3 +1,5 @@
+from dataclasses import dataclass
+
 class SubmitJobQueryParams:
     def __init__(self, jobId: str | None = None, jobName: str | None = None,
                 isStartWithSavePoint: str | None = None, format: str | None = "hocon"):
@@ -17,3 +19,8 @@ class StopJobQueryParams:
     def __init__(self, jobId: int, isStartWithSavePoint: bool):
         self.jobId = jobId
         self.isStartWithSavePoint = isStartWithSavePoint
+
+@dataclass
+class OverviewQueryParams:
+    tagName: str
+    tagValue: str
