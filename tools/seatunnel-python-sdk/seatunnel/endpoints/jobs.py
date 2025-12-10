@@ -30,6 +30,16 @@ class JobsApi:
                 params=params.__dict__
             )
 
+    def submitJobs(self, confs: str):
+        """
+        Batch Submit Jobs
+        """
+        return self.client.request(
+            HttpMethod.POST,
+            "/submit-jobs",
+            content=confs
+        )
+
     def getRunningJobs(self):
         """
         Returns An Overview And State Of All Jobs
