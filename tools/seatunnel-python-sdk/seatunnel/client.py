@@ -15,5 +15,8 @@ class Client:
             **kwargs
         )
         
-        resp.raise_for_status()
-        return resp.json()
+        content_type = resp.headers.get("Content-Type", "")
+        if "application/json" in content_type:
+            return resp.json()
+        else:
+            return resp.text

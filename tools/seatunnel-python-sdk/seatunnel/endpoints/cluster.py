@@ -9,3 +9,9 @@ class ClusterApi:
         Returns an overview over the Zeta engine cluster.
         """
         return self.client.request(HttpMethod.GET, "/overview")
+    
+    def getMetrics(self):
+        """
+        Get Node Metrics
+        """
+        return self.client.request(HttpMethod.GET, "/openmetrics")
