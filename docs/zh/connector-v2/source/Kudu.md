@@ -193,9 +193,23 @@ source {
         # 使用正则匹配，以 prefix_ 开头、以数字结尾的所有表
         table_name = "prefix_\\d+"
         use_regex = true
-        filter = "id > 100"
       }
     ]
+  }
+}
+```
+
+#### 整库匹配
+
+如果当前 Kudu 实例中只有业务表，或者你希望“一次性同步所有表”，可以使用一个全匹配的正则：
+
+```hocon
+source {
+  kudu {
+    kudu_masters = "kudu-master:7051"
+    # 匹配当前 Kudu 实例中的所有表
+    table_name = ".*"
+    use_regex = true
   }
 }
 ```

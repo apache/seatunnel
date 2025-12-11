@@ -193,9 +193,23 @@ source {
         # Regex matching - any table whose name starts with prefix_ and ends with digits
         table_name = "prefix_\\d+"
         use_regex = true
-        filter = "id > 100"
       }
     ]
+  }
+}
+```
+
+#### Whole-Database Matching
+
+You can also synchronize all tables in the current Kudu cluster (or all business tables in the current instance, if there are no system tables) by using a catch-all regex:
+
+```hocon
+source {
+  kudu {
+    kudu_masters = "kudu-master:7051"
+    # Match all tables in the current Kudu cluster
+    table_name = ".*"
+    use_regex = true
   }
 }
 ```
