@@ -222,7 +222,15 @@ public class PostgresJdbcRowConverter extends AbstractJdbcRowConverter {
                 switch (seaTunnelDataType.getSqlType()) {
                     case STRING:
                         String sourceType = sourceTypes[fieldIndex];
-                        if (PG_INET.equalsIgnoreCase(sourceType)
+                        if (sourceType != null
+                                && (PG_GEOMETRY.equalsIgnoreCase(sourceType)
+                                        || PG_GEOGRAPHY.equalsIgnoreCase(sourceType))) {
+                            // handle PostGIS geometry/geography when represented as string
+                            PGobject geometryObject = new PGobject();
+                            geometryObject.setType(sourceType.toLowerCase(Locale.ROOT));
+                            geometryObject.setValue((String) row.getField(fieldIndex));
+                            statement.setObject(statementIndex, geometryObject);
+                        } else if (PG_INET.equalsIgnoreCase(sourceType)
                                 || PG_CIDR.equalsIgnoreCase(sourceType)
                                 || PG_MAC_ADDR.equalsIgnoreCase(sourceType)
                                 || PG_MAC_ADDR8.equalsIgnoreCase(sourceType)) {

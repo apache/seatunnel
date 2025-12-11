@@ -28,8 +28,10 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.postgresql.util.PGobject;
 
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
@@ -38,7 +40,9 @@ import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 
+import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 public class PostgresJdbcRowConverterTest {
@@ -184,5 +188,25 @@ public class PostgresJdbcRowConverterTest {
         Assertions.assertNotNull(row);
         Assertions.assertEquals(1, row.getField(0));
         Assertions.assertNull(row.getField(1), "geometry_col should be null");
+    }
+
+    @Test
+    public void testToExternalWithGeometryType() throws SQLException {
+        TableSchema tableSchema =
+                createTableSchema("geometry_col", BasicType.STRING_TYPE, "geometry");
+
+        SeaTunnelRow row = new SeaTunnelRow(new Object[] {1, "\\x0102FF"});
+        PreparedStatement statement = mock(PreparedStatement.class);
+
+        converter.toExternal(tableSchema, null, row, statement);
+
+        ArgumentCaptor<Object> captor = ArgumentCaptor.forClass(Object.class);
+        verify(statement).setObject(eq(2), captor.capture());
+
+        Object arg = captor.getValue();
+        Assertions.assertTrue(arg instanceof PGobject);
+        PGobject pg = (PGobject) arg;
+        Assertions.assertEquals("geometry", pg.getType());
+        Assertions.assertEquals("\\x0102FF", pg.getValue());
     }
 }

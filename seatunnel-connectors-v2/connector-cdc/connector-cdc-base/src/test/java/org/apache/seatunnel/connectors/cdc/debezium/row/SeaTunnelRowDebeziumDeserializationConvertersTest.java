@@ -31,6 +31,8 @@ import org.apache.kafka.connect.data.SchemaBuilder;
 import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.source.SourceRecord;
 
+import io.debezium.data.geometry.Geometry;
+
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -126,5 +128,44 @@ public class SeaTunnelRowDebeziumDeserializationConvertersTest {
         Assertions.assertTrue(
                 Arrays.equals(
                         doubles, (Double[]) (converter.convert(Arrays.asList(doubles), null))));
+    }
+
+    @Test
+    void testGeometryStringConversion() throws Exception {
+        SeaTunnelRowDebeziumDeserializationConverters converters =
+                new SeaTunnelRowDebeziumDeserializationConverters(
+                        new SeaTunnelRowType(
+                                new String[] {"geo"},
+                                new SeaTunnelDataType[] {BasicType.STRING_TYPE}),
+                        new MetadataConverter[] {},
+                        ZoneId.systemDefault(),
+                        DebeziumDeserializationConverterFactory.DEFAULT);
+
+        byte[] wkb = new byte[] {0x01, 0x02, (byte) 0xFF};
+        Schema geometrySchema = Geometry.builder().optional().build();
+        Schema recordSchema =
+                SchemaBuilder.struct().field("geo", geometrySchema).build();
+
+        Struct geometryValue = Geometry.createValue(geometrySchema, wkb, 4549);
+        Struct recordValue = new Struct(recordSchema);
+        recordValue.put("geo", geometryValue);
+
+        SourceRecord record =
+                new SourceRecord(
+                        new HashMap<>(),
+                        new HashMap<>(),
+                        "topicName",
+                        null,
+                        SchemaBuilder.int32().build(),
+                        1,
+                        recordSchema,
+                        recordValue,
+                        null,
+                        new ArrayList<>());
+
+        SeaTunnelRow row = converters.convert(record, recordValue, recordSchema);
+        Object fieldValue = row.getField(0);
+        Assertions.assertTrue(fieldValue instanceof String);
+        Assertions.assertEquals("\\x0102FF", fieldValue);
     }
 }
