@@ -7,7 +7,7 @@ class JobsApi:
     def __init__(self, client):
         self.client = client
 
-    def submitJob(self, conf: str, params: SubmitJobQueryParams):
+    def submit_job(self, conf: str, params: SubmitJobQueryParams):
         """
         Submit A Job
         """
@@ -18,7 +18,7 @@ class JobsApi:
             params=params.__dict__
         )
     
-    def submitJobFromFile(self, filePath: str, params: SubmitJobFileQueryParams):
+    def submit_job_from_file(self, filePath: str, params: SubmitJobFileQueryParams):
         """
         Submit A Job By Upload Config File
         """
@@ -31,7 +31,7 @@ class JobsApi:
                 params=params.__dict__
             )
 
-    def submitJobs(self, confs: str):
+    def submit_jobs(self, confs: str):
         """
         Batch Submit Jobs
         """
@@ -41,7 +41,7 @@ class JobsApi:
             content=confs
         )
     
-    def stopJob(self, params: StopJobQueryParams):
+    def stop_job(self, params: StopJobQueryParams):
         """
         Stop A Job
         """
@@ -52,7 +52,7 @@ class JobsApi:
             content=jsonBody
         )
 
-    def stopJobs(self, params: list[StopJobQueryParams]):
+    def stop_jobs(self, params: list[StopJobQueryParams]):
         """
         Batch Stop Jobs
         """
@@ -63,19 +63,19 @@ class JobsApi:
             content=jsonBody
         )
 
-    def getRunningJobs(self):
+    def get_running_jobs(self):
         """
         Returns An Overview And State Of All Jobs
         """
         return self.client.request(HttpMethod.GET, "/running-jobs")
     
-    def getJobDetails(self, jobId: int):
+    def get_job_details(self, jobId: int):
         """
         Return Details Of A Job
         """
         return self.client.request(HttpMethod.GET, f"/job-info/{jobId}")
     
-    def getFinishedJobsInfo(self, state: JobStatus | None = None):
+    def get_finished_jobs_info(self, state: JobStatus | None = None):
         """
         Return Details Of A Job
         """

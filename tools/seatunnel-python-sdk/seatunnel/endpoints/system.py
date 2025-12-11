@@ -4,7 +4,7 @@ class SystemApi:
     def __init__(self, client):
         self.client = client
 
-    def getSystemInfo(self):
+    def get_system_info(self):
         """
         Returns System Monitoring Information
         """

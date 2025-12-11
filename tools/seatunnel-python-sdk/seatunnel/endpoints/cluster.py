@@ -5,25 +5,25 @@ class ClusterApi:
     def __init__(self, client):
         self.client = client
 
-    def getOverview(self, params: list[OverviewQueryParams] = []):
+    def get_overview(self, params: list[OverviewQueryParams] = []):
         """
         Returns an overview over the Zeta engine cluster.
         """
         return self.client.request(HttpMethod.GET, "/overview")
     
-    def getMetrics(self):
+    def get_metrics(self):
         """
         Get Node Metrics
         """
         return self.client.request(HttpMethod.GET, "/openmetrics")
     
-    def getLog(self):
+    def get_log(self):
         """
         Get Log Content from a Single Node
         """
         return self.client.request(HttpMethod.GET, "/log")
     
-    def getLogs(self, jobId: int | None = None):
+    def get_logs(self, jobId: int | None = None):
         """
         Get Logs from All Nodes
         """
