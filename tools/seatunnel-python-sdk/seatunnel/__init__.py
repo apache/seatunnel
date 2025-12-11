@@ -1,14 +1,15 @@
-from .client import Client
-from .endpoints.cluster import ClusterApi
-from .endpoints.jobs import JobsApi
-from .endpoints.config import ConfigApi
-from .endpoints.system import SystemApi
+from .client import SeaTunnelClient
+from .helpers.jobStatus import JobStatus
+from .helpers.queryParams import (
+    SubmitJobQueryParams,
+    SubmitJobFileQueryParams,
+    StopJobQueryParams
+)
 
-class SeaTunnelClient:
-    def __init__(self, base_url, token=None):
-        self.client = Client(base_url, token)
-
-        self.cluster = ClusterApi(self.client)
-        self.jobs = JobsApi(self.client)
-        self.config = ConfigApi(self.client)
-        self.system = SystemApi(self.client)
+__all__ = [
+    "SeaTunnelClient",
+    "JobStatus",
+    "SubmitJobQueryParams",
+    "SubmitJobFileQueryParams",
+    "StopJobQueryParams",
+]
