@@ -1,7 +1,8 @@
 from ..helpers.httpMethod import HttpMethod
+from ..client import Client
 
 class SystemApi:
-    def __init__(self, client):
+    def __init__(self, client: Client):
         self.client = client
 
     def get_system_info(self):

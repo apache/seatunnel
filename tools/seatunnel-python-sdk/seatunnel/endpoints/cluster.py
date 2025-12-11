@@ -1,8 +1,9 @@
 from ..helpers.httpMethod import HttpMethod
 from ..helpers.queryParams import OverviewQueryParams
+from ..client import Client
 
 class ClusterApi:
-    def __init__(self, client):
+    def __init__(self, client: Client):
         self.client = client
 
     def get_overview(self, params: list[OverviewQueryParams] = []):

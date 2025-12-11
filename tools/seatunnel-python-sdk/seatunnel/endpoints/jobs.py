@@ -1,10 +1,11 @@
 from ..helpers.httpMethod import HttpMethod
 from ..helpers.jobStatus import JobStatus
 from ..helpers.queryParams import *
+from ..client import Client
 import json
 
 class JobsApi:
-    def __init__(self, client):
+    def __init__(self, client: Client):
         self.client = client
 
     def submit_job(self, conf: str, params: SubmitJobQueryParams):
