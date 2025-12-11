@@ -31,10 +31,10 @@ import org.apache.kafka.connect.data.SchemaBuilder;
 import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.source.SourceRecord;
 
-import io.debezium.data.geometry.Geometry;
-
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+
+import io.debezium.data.geometry.Geometry;
 
 import java.time.ZoneId;
 import java.util.ArrayList;
@@ -143,8 +143,7 @@ public class SeaTunnelRowDebeziumDeserializationConvertersTest {
 
         byte[] wkb = new byte[] {0x01, 0x02, (byte) 0xFF};
         Schema geometrySchema = Geometry.builder().optional().build();
-        Schema recordSchema =
-                SchemaBuilder.struct().field("geo", geometrySchema).build();
+        Schema recordSchema = SchemaBuilder.struct().field("geo", geometrySchema).build();
 
         Struct geometryValue = Geometry.createValue(geometrySchema, wkb, 4549);
         Struct recordValue = new Struct(recordSchema);
