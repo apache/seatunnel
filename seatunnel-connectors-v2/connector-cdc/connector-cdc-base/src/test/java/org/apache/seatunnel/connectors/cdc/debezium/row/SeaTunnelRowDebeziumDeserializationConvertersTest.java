@@ -165,6 +165,6 @@ public class SeaTunnelRowDebeziumDeserializationConvertersTest {
         SeaTunnelRow row = converters.convert(record, recordValue, recordSchema);
         Object fieldValue = row.getField(0);
         Assertions.assertTrue(fieldValue instanceof String);
-        Assertions.assertEquals("\\x0102FF", fieldValue);
+        Assertions.assertEquals("0102FF", fieldValue);
     }
 }

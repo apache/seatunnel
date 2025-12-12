@@ -485,8 +485,7 @@ public class SeaTunnelRowDebeziumDeserializationConverters implements Serializab
         }
 
         byte[] wkb = (byte[]) wkbField;
-        StringBuilder sb = new StringBuilder(2 + wkb.length * 2);
-        sb.append("\\x");
+        StringBuilder sb = new StringBuilder(wkb.length * 2);
         for (byte b : wkb) {
             sb.append(String.format("%02X", b));
         }
