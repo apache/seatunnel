@@ -127,10 +127,22 @@ public class CsvReadStrategyTest {
         csvReadStrategy.read(path, "", testCollector);
         final List<SeaTunnelRow> rows = testCollector.getRows();
         Assertions.assertEquals(4, rows.size());
-        Assertions.assertEquals("harry\n potter", rows.get(0).getField(1));
+        if (isWindows()) {
+            Assertions.assertEquals("harry\r\n potter", rows.get(0).getField(1));
+        } else {
+            Assertions.assertEquals("harry\n potter", rows.get(0).getField(1));
+        }
         Assertions.assertEquals("tom", rows.get(1).getField(1));
         Assertions.assertEquals("Rose`Wang", rows.get(2).getField(1));
-        Assertions.assertEquals("Jock\nLi`Li", rows.get(3).getField(1));
+        if (isWindows()) {
+            Assertions.assertEquals("Jock\r\nLi`Li", rows.get(3).getField(1));
+        } else {
+            Assertions.assertEquals("Jock\nLi`Li", rows.get(3).getField(1));
+        }
+    }
+
+    private boolean isWindows() {
+        return System.getProperty("os.name").toLowerCase().contains("win");
     }
 
     private Map<String, Object> getOptionsForSpecialQuoteChar() {
