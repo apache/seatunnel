@@ -156,9 +156,9 @@ public class KuduCatalog implements Catalog {
                                 && PrimaryKey.isPrimaryKeyField(
                                         primaryKeyRef, columnSchema.getName())) {
                             // Doris does not allow STRING as key column type. For primary key
-                            // string columns we provide a reasonable logical length so that
-                            // downstream sinks (e.g. Doris) can map them to a supported CHAR /
-                            // VARCHAR type instead of the invalid STRING type.
+                            // string columns we provide a reasonable logical length
+                            // so that downstream sinks (e.g. Doris) can map them to a supported
+                            // CHAR / VARCHAR type instead of the invalid STRING type.
                             columnLength = 256L;
                         } else if (!Type.STRING.equals(columnSchema.getType())) {
                             columnLength = (long) columnSchema.getTypeSize();
