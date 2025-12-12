@@ -54,6 +54,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 import static org.awaitility.Awaitility.await;
+import static org.junit.Assert.assertEquals;
 
 /** Test for Rest API with HTTPS. */
 @DisabledOnOs(OS.WINDOWS)
@@ -152,15 +153,13 @@ public class RestApiHttpsTest extends AbstractSeaTunnelServerTest {
                 .atMost(30, TimeUnit.SECONDS)
                 .pollInterval(100, TimeUnit.MILLISECONDS)
                 .untilAsserted(
-                        () -> {
-                            while (jobInformation
-                                            .coordinatorService
-                                            .getJobCountMetrics()
-                                            .getFinishedJobCount()
-                                    != jobNum) {
-                                Thread.sleep(1000);
-                            }
-                        });
+                        () ->
+                                assertEquals(
+                                        jobNum,
+                                        jobInformation
+                                                .coordinatorService
+                                                .getJobCountMetrics()
+                                                .getFinishedJobCount()));
 
         // pagination test
         // page 1
@@ -206,19 +205,20 @@ public class RestApiHttpsTest extends AbstractSeaTunnelServerTest {
         int pageSize = 5;
         long jobId = 2000L;
         for (int i = 0; i < jobNum; i++) {
-            startJob(i + jobId, "fake_to_console.conf", jobInformation);
+            startJob(i + jobId, "stream_fake_to_console.conf", jobInformation);
         }
 
         // wait until all jobs are running
         await().atMost(60, TimeUnit.SECONDS)
                 .pollInterval(100, TimeUnit.MILLISECONDS)
                 .untilAsserted(
-                        () -> {
-                            while (jobInformation.coordinatorService.getRunningJobMetrics().size()
-                                    != jobNum) {
-                                Thread.sleep(100);
-                            }
-                        });
+                        () ->
+                                assertEquals(
+                                        jobNum,
+                                        jobInformation
+                                                .coordinatorService
+                                                .getRunningJobMetrics()
+                                                .size()));
 
         // pagination test
         restApiRequestHttp(
@@ -259,15 +259,13 @@ public class RestApiHttpsTest extends AbstractSeaTunnelServerTest {
                 .atMost(30, TimeUnit.SECONDS)
                 .pollInterval(100, TimeUnit.MILLISECONDS)
                 .untilAsserted(
-                        () -> {
-                            while (jobInformation
-                                            .coordinatorService
-                                            .getJobCountMetrics()
-                                            .getFinishedJobCount()
-                                    != jobNum) {
-                                Thread.sleep(1000);
-                            }
-                        });
+                        () ->
+                                assertEquals(
+                                        jobNum,
+                                        jobInformation
+                                                .coordinatorService
+                                                .getJobCountMetrics()
+                                                .getFinishedJobCount()));
 
         restApiRequestHttp(
                 "http://localhost:" + HTTP_PORT2 + "/finished-jobs?page=10&rows=" + pageSize,
