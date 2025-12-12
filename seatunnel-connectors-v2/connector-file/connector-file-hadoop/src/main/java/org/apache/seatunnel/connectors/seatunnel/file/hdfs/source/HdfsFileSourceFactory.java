@@ -34,6 +34,7 @@ import com.google.auto.service.AutoService;
 
 import java.io.Serializable;
 import java.util.Arrays;
+import java.util.Collections;
 
 @AutoService(Factory.class)
 public class HdfsFileSourceFactory implements TableSourceFactory {
@@ -84,6 +85,14 @@ public class HdfsFileSourceFactory implements TableSourceFactory {
                         Arrays.asList(
                                 FileFormat.TEXT, FileFormat.JSON, FileFormat.CSV, FileFormat.XML),
                         FileBaseSourceOptions.ENCODING)
+                .conditional(
+                        FileBaseSourceOptions.FILE_FORMAT_TYPE,
+                        Collections.singletonList(FileFormat.CSV),
+                        FileBaseSourceOptions.QUOTE_CHAR)
+                .conditional(
+                        FileBaseSourceOptions.FILE_FORMAT_TYPE,
+                        Collections.singletonList(FileFormat.CSV),
+                        FileBaseSourceOptions.ESCAPE_CHAR)
                 .optional(FileBaseSourceOptions.PARSE_PARTITION_FROM_PATH)
                 .optional(FileBaseSourceOptions.DATE_FORMAT_LEGACY)
                 .optional(FileBaseSourceOptions.DATETIME_FORMAT_LEGACY)
@@ -99,8 +108,6 @@ public class HdfsFileSourceFactory implements TableSourceFactory {
                 .optional(FileBaseSourceOptions.KERBEROS_KEYTAB_PATH)
                 .optional(FileBaseSourceOptions.KRB5_PATH)
                 .optional(FileBaseSourceOptions.REMOTE_USER)
-                .optional(FileBaseSourceOptions.QUOTE_CHAR)
-                .optional(FileBaseSourceOptions.ESCAPE_CHAR)
                 .build();
     }
 

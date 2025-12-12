@@ -35,6 +35,7 @@ import com.google.auto.service.AutoService;
 
 import java.io.Serializable;
 import java.util.Arrays;
+import java.util.Collections;
 
 @AutoService(Factory.class)
 public class OssFileSourceFactory implements TableSourceFactory {
@@ -87,6 +88,14 @@ public class OssFileSourceFactory implements TableSourceFactory {
                         Arrays.asList(
                                 FileFormat.TEXT, FileFormat.JSON, FileFormat.CSV, FileFormat.XML),
                         FileBaseSourceOptions.ENCODING)
+                .conditional(
+                        FileBaseSourceOptions.FILE_FORMAT_TYPE,
+                        Collections.singletonList(FileFormat.CSV),
+                        FileBaseSourceOptions.QUOTE_CHAR)
+                .conditional(
+                        FileBaseSourceOptions.FILE_FORMAT_TYPE,
+                        Collections.singletonList(FileFormat.CSV),
+                        FileBaseSourceOptions.ESCAPE_CHAR)
                 .optional(FileBaseSourceOptions.PARSE_PARTITION_FROM_PATH)
                 .optional(FileBaseSourceOptions.DATE_FORMAT_LEGACY)
                 .optional(FileBaseSourceOptions.DATETIME_FORMAT_LEGACY)
@@ -97,8 +106,6 @@ public class OssFileSourceFactory implements TableSourceFactory {
                 .optional(FileBaseSourceOptions.NULL_FORMAT)
                 .optional(FileBaseSourceOptions.FILENAME_EXTENSION)
                 .optional(FileBaseSourceOptions.READ_COLUMNS)
-                .optional(FileBaseSourceOptions.QUOTE_CHAR)
-                .optional(FileBaseSourceOptions.ESCAPE_CHAR)
                 .build();
     }
 

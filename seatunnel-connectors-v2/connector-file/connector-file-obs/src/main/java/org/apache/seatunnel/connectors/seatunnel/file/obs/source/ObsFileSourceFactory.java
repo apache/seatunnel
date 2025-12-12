@@ -31,6 +31,7 @@ import org.apache.seatunnel.connectors.seatunnel.file.obs.config.ObsFileSourceOp
 import com.google.auto.service.AutoService;
 
 import java.util.Arrays;
+import java.util.Collections;
 
 @AutoService(Factory.class)
 public class ObsFileSourceFactory implements TableSourceFactory {
@@ -68,6 +69,14 @@ public class ObsFileSourceFactory implements TableSourceFactory {
                         Arrays.asList(
                                 FileFormat.TEXT, FileFormat.JSON, FileFormat.CSV, FileFormat.XML),
                         FileBaseSourceOptions.ENCODING)
+                .conditional(
+                        FileBaseSourceOptions.FILE_FORMAT_TYPE,
+                        Collections.singletonList(FileFormat.CSV),
+                        FileBaseSourceOptions.QUOTE_CHAR)
+                .conditional(
+                        FileBaseSourceOptions.FILE_FORMAT_TYPE,
+                        Collections.singletonList(FileFormat.CSV),
+                        FileBaseSourceOptions.ESCAPE_CHAR)
                 .optional(FileBaseSourceOptions.PARSE_PARTITION_FROM_PATH)
                 .optional(FileBaseSourceOptions.DATE_FORMAT_LEGACY)
                 .optional(FileBaseSourceOptions.DATETIME_FORMAT_LEGACY)

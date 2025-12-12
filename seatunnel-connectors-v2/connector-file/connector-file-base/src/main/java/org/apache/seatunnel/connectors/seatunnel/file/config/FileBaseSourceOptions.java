@@ -133,20 +133,12 @@ public class FileBaseSourceOptions extends FileBaseOptions {
                     .stringType()
                     .noDefaultValue()
                     .withDescription(
-                            "Specifies the character used to enclose CSV fields. "
-                                    + "Fields containing delimiters, line breaks, or the quote character itself "
-                                    + "must be enclosed in this character. "
-                                    + "Only a single character is allowed, e.g., '\"' or '''. "
-                                    + "If not set, the parser uses the default CSV quote behavior.");
+                            "A single character that encloses CSV fields, allowing fields with commas, line breaks, or quotes to be read correctly.");
 
     public static final Option<String> ESCAPE_CHAR =
             Options.key("escape_char")
                     .stringType()
                     .noDefaultValue()
                     .withDescription(
-                            "Specifies the character used to escape the quote character or other special characters "
-                                    + "within a CSV field. "
-                                    + "This allows the quote character itself to appear inside a field without ending it. "
-                                    + "Only a single character is allowed. "
-                                    + "If not set, the parser uses default escaping rules, which often double the quote character.");
+                            "A single character that allows the quote or other special characters to appear inside a CSV field without ending the field.");
 }
