@@ -24,6 +24,7 @@ import org.apache.seatunnel.connectors.seatunnel.file.local.source.config.Multip
 import org.apache.seatunnel.connectors.seatunnel.file.local.source.split.LocalFileAccordingToSplitSizeSplitStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.source.BaseMultipleTableFileSource;
 import org.apache.seatunnel.connectors.seatunnel.file.source.split.DefaultFileSplitStrategy;
+import org.apache.seatunnel.connectors.seatunnel.file.source.split.FileSplitStrategy;
 
 import static org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions.DEFAULT_ROW_DELIMITER;
 
@@ -32,22 +33,29 @@ public class LocalFileSource extends BaseMultipleTableFileSource {
     public LocalFileSource(ReadonlyConfig readonlyConfig) {
         super(
                 new MultipleTableLocalFileSourceConfig(readonlyConfig),
-                readonlyConfig.get(FileBaseSourceOptions.ENABLE_SPLIT_FILE)
-                        ? new LocalFileAccordingToSplitSizeSplitStrategy(
-                                readonlyConfig.get(FileBaseSourceOptions.ROW_DELIMITER) == null
-                                        ? DEFAULT_ROW_DELIMITER
-                                        : readonlyConfig.get(FileBaseSourceOptions.ROW_DELIMITER),
-                                readonlyConfig.get(FileBaseSourceOptions.CSV_USE_HEADER_LINE)
-                                        ? 1L
-                                        : readonlyConfig.get(
-                                                FileBaseSourceOptions.SKIP_HEADER_ROW_NUMBER),
-                                readonlyConfig.get(FileBaseSourceOptions.ENCODING),
-                                readonlyConfig.get(FileBaseSourceOptions.SPLIT_SIZE))
-                        : new DefaultFileSplitStrategy());
+                initFileSplitStrategy(readonlyConfig));
     }
 
     @Override
     public String getPluginName() {
         return FileSystemType.LOCAL.getFileSystemPluginName();
+    }
+
+    private static FileSplitStrategy initFileSplitStrategy(ReadonlyConfig readonlyConfig) {
+        if (readonlyConfig.get(FileBaseSourceOptions.ENABLE_FILE_SPLIT)) {
+            return new DefaultFileSplitStrategy();
+        }
+        String rowDelimiter =
+                !readonlyConfig.getOptional(FileBaseSourceOptions.ROW_DELIMITER).isPresent()
+                        ? DEFAULT_ROW_DELIMITER
+                        : readonlyConfig.get(FileBaseSourceOptions.ROW_DELIMITER);
+        long skipHeaderRowNumber =
+                readonlyConfig.get(FileBaseSourceOptions.CSV_USE_HEADER_LINE)
+                        ? 1L
+                        : readonlyConfig.get(FileBaseSourceOptions.SKIP_HEADER_ROW_NUMBER);
+        String encodingName = readonlyConfig.get(FileBaseSourceOptions.ENCODING);
+        long splitSize = readonlyConfig.get(FileBaseSourceOptions.FILE_SPLIT_SIZE);
+        return new LocalFileAccordingToSplitSizeSplitStrategy(
+                rowDelimiter, skipHeaderRowNumber, encodingName, splitSize);
     }
 }

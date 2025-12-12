@@ -80,8 +80,8 @@ If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you
 | tables_configs             | list    | no       | used to define a multiple table task |
 | file_filter_modified_start | string  | no       | -                                    |
 | file_filter_modified_end   | string  | no       | -                                    | 
-| enable_split_file          | boolean | no       | false                                | 
-| split_size                 | long    | no       | 134217728                            | 
+| enable_file_split          | boolean | no       | false                                | 
+| file_split_size            | long    | no       | 134217728                            | 
 
 ### path [string]
 
@@ -417,13 +417,13 @@ File modification time filter. The connector will filter some files base on the 
 
 File modification time filter. The connector will filter some files base on the last modification end time (not include end time). The default data format is `yyyy-MM-dd HH:mm:ss`.
 
-### enable_split_file [string]
+### enable_file_split [string]
 
 Turn on the file splitting function, the default is false。It can be selected when the file type is csv, text, json and non-compressed format.
 
-### split_size
+### file_split_size [long]
 
-File split size, which can be filled in when the enable_split_file parameter is true. The unit is the number of bytes. The default value is the number of bytes of 128MB, which is 134217728.
+File split size, which can be filled in when the enable_file_split parameter is true. The unit is the number of bytes. The default value is the number of bytes of 128MB, which is 134217728.
 
 ### common options
 

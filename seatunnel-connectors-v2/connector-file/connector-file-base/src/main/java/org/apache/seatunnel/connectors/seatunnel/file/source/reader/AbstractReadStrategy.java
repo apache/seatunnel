@@ -247,9 +247,9 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
                             pluginConfig.getString(
                                     FileBaseSourceOptions.FILE_FILTER_MODIFIED_END.key()));
         }
-        if (pluginConfig.hasPath(FileBaseSourceOptions.ENABLE_SPLIT_FILE.key())) {
+        if (pluginConfig.hasPath(FileBaseSourceOptions.ENABLE_FILE_SPLIT.key())) {
             enableSplitFile =
-                    pluginConfig.getBoolean(FileBaseSourceOptions.ENABLE_SPLIT_FILE.key());
+                    pluginConfig.getBoolean(FileBaseSourceOptions.ENABLE_FILE_SPLIT.key());
         }
     }
 

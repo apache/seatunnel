@@ -87,11 +87,11 @@ public class LocalFileSourceFactory implements TableSourceFactory {
                 .conditional(
                         FileBaseSourceOptions.FILE_FORMAT_TYPE,
                         Arrays.asList(FileFormat.TEXT, FileFormat.JSON, FileFormat.CSV),
-                        FileBaseSourceOptions.ENABLE_SPLIT_FILE)
+                        FileBaseSourceOptions.ENABLE_FILE_SPLIT)
                 .conditional(
-                        FileBaseSourceOptions.ENABLE_SPLIT_FILE,
+                        FileBaseSourceOptions.ENABLE_FILE_SPLIT,
                         Boolean.TRUE,
-                        FileBaseSourceOptions.SPLIT_SIZE)
+                        FileBaseSourceOptions.FILE_SPLIT_SIZE)
                 .optional(FileBaseSourceOptions.PARSE_PARTITION_FROM_PATH)
                 .optional(FileBaseSourceOptions.DATE_FORMAT_LEGACY)
                 .optional(FileBaseSourceOptions.DATETIME_FORMAT_LEGACY)
