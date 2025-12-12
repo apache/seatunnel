@@ -214,6 +214,8 @@ schema {
 | common-options             | config  | 否    | -                   | 数据源插件通用参数，请参考[数据源通用选项](../source-common-options.md)了解详情。                                                                                             |
 | file_filter_modified_start | string  | 否    | -                   | 按照最后修改时间过滤文件。 要过滤的开始时间(包括改时间),时间格式是：`yyyy-MM-dd HH:mm:ss`                                                                                            |
 | file_filter_modified_end   | string  | 否    | -                   | 按照最后修改时间过滤文件。 要过滤的结束时间(不包括改时间),时间格式是：`yyyy-MM-dd HH:mm:ss`                                                                                           |
+| quote_char                 | string  | 否    | -                   | 用于包裹 CSV 字段的单字符，可保证包含逗号、换行符或引号的字段被正确解析。                                                                                                              |
+| escape_char                | string  | 否    | -                   | 用于在 CSV 字段内转义引号或其他特殊字符，使其不会结束字段。                                                                                                                     |
 
 ### compress_codec [string]
 
@@ -261,6 +263,14 @@ markdown 解析器提取各种元素，包括标题、段落、列表、代码�
 - `child_ids`：子元素 ID 的逗号分隔列表
 
 注意：Markdown 格式仅支持读取，不支持写入。
+
+### quote_char [string]
+
+用于包裹 CSV 字段的单字符，可保证包含逗号、换行符或引号的字段被正确解析。
+
+### escape_char [string]
+
+用于在 CSV 字段内转义引号或其他特殊字符，使其不会结束字段。
 
 ### file_filter_pattern [string]
 
