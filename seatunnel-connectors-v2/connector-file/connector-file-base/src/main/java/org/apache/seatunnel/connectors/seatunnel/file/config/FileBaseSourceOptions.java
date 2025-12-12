@@ -127,4 +127,26 @@ public class FileBaseSourceOptions extends FileBaseOptions {
                     .withDescription(
                             "Whether to read the complete file as a single chunk instead of splitting into chunks. "
                                     + "When enabled, the entire file content will be read into memory at once.Only valid when file_format_type is binary.");
+
+    public static final Option<String> QUOTE_CHAR =
+            Options.key("quote_char")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "Specifies the character used to enclose CSV fields. "
+                                    + "Fields containing delimiters, line breaks, or the quote character itself "
+                                    + "must be enclosed in this character. "
+                                    + "Only a single character is allowed, e.g., '\"' or '''. "
+                                    + "If not set, the parser uses the default CSV quote behavior.");
+
+    public static final Option<String> ESCAPE_CHAR =
+            Options.key("escape_char")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "Specifies the character used to escape the quote character or other special characters "
+                                    + "within a CSV field. "
+                                    + "This allows the quote character itself to appear inside a field without ending it. "
+                                    + "Only a single character is allowed. "
+                                    + "If not set, the parser uses default escaping rules, which often double the quote character.");
 }

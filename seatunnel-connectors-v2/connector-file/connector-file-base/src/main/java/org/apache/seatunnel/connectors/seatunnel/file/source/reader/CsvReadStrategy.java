@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.source.reader;
 
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
+
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.source.Collector;
@@ -103,9 +105,7 @@ public class CsvReadStrategy extends AbstractReadStrategy {
                 actualInputStream = inputStream;
                 break;
         }
-        Builder builder =
-                CSVFormat.EXCEL.builder().setIgnoreEmptyLines(true).setDelimiter(getDelimiter());
-        CSVFormat csvFormat = builder.build();
+        CSVFormat csvFormat = getCSVFormat();
         if (firstLineAsHeader) {
             csvFormat = csvFormat.withFirstRecordAsHeader();
         }
@@ -174,6 +174,22 @@ public class CsvReadStrategy extends AbstractReadStrategy {
         }
     }
 
+    private CSVFormat getCSVFormat() {
+        String quoteChar = readonlyConfig.get(FileBaseSourceOptions.QUOTE_CHAR);
+        String escapeChar = readonlyConfig.get(FileBaseSourceOptions.ESCAPE_CHAR);
+        Builder builder =
+                CSVFormat.EXCEL.builder().setIgnoreEmptyLines(true).setDelimiter(getDelimiter());
+        if (StringUtils.isNotEmpty(quoteChar)) {
+            builder.setQuote(quoteChar.charAt(0));
+            if (StringUtils.isNotEmpty(escapeChar)) {
+                builder.setEscape(escapeChar.charAt(0));
+            } else {
+                builder.setEscape(quoteChar.charAt(0));
+            }
+        }
+        return builder.build();
+    }
+
     private List<String> getHeaders(CSVParser csvParser) {
         List<String> headers;
         if (firstLineAsHeader) {
@@ -218,7 +234,6 @@ public class CsvReadStrategy extends AbstractReadStrategy {
     }
 
     private String getDelimiter() {
-        ReadonlyConfig readonlyConfig = ReadonlyConfig.fromConfig(pluginConfig);
         return readonlyConfig.getOptional(FileBaseSourceOptions.FIELD_DELIMITER).orElse(",");
     }
 
