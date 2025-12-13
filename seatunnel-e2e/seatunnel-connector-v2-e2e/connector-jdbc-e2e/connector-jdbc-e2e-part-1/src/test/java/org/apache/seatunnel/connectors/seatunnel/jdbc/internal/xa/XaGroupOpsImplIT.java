@@ -51,7 +51,7 @@ import static javax.transaction.xa.XAResource.TMSTARTRSCAN;
         "Temporary fast fix, reason: JdbcDatabaseContainer: ClassNotFoundException: com.mysql.jdbc.Driver")
 class XaGroupOpsImplIT {
 
-    private static final String MYSQL_DOCKER_IMAGE = "mysql:8.0.29";
+    private static final String MYSQL_DOCKER_IMAGE = "mysql:8.0.43";
 
     private MySQLContainer<?> mc;
     private XaGroupOps xaGroupOps;

@@ -32,7 +32,7 @@
     <properties>
         <orc.version>1.5.6</orc.version>
         <commons.collecton4.version>4.4</commons.collecton4.version>
-        <commons.lang3.version>3.4</commons.lang3.version>
+        <commons.lang3.version>3.18.0</commons.lang3.version>
         <parquet-avro.version>1.12.3</parquet-avro.version>
         <poi.version>4.1.2</poi.version>
         <poi-ooxml.version>4.1.2</poi-ooxml.version>
@@ -41,6 +41,7 @@
         <jaxen.version>2.0.0</jaxen.version>
         <easyexcel.version>4.0.3</easyexcel.version>
         <fastexcel-reader.version>0.18.4</fastexcel-reader.version>
+        <flexmark-all.version>0.62.2</flexmark-all.version>
     </properties>
 
     <dependencyManagement>
@@ -179,6 +180,11 @@
             <version>${easyexcel.version}</version>
         </dependency>
 
+        <dependency>
+            <groupId>com.vladsch.flexmark</groupId>
+            <artifactId>flexmark-all</artifactId>
+            <version>${flexmark-all.version}</version>
+        </dependency>
     </dependencies>
 
     <build>

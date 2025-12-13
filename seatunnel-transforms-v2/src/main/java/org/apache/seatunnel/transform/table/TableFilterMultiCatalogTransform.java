@@ -56,7 +56,7 @@ public class TableFilterMultiCatalogTransform extends AbstractMultiCatalogMapTra
                     TableFilterConfig.PatternMode.INCLUDE.equals(
                             tableFilterConfig.getPatternMode());
         } else {
-            include = tableFilterConfig.isMatch(table.getTablePath());
+            include = tableFilterConfig.isIncluded(table.getTablePath());
         }
         return new TableFilterTransform(include, table);
     }

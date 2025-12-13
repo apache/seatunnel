@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.clickhouse.catalog;
 
 import org.apache.seatunnel.shade.com.google.common.base.Preconditions;
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.Catalog;
@@ -39,8 +40,6 @@ import org.apache.seatunnel.connectors.seatunnel.clickhouse.util.ClickhouseCatal
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.util.ClickhouseProxy;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.util.ClickhouseUtil;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.util.TypeConvertUtil;
-
-import org.apache.commons.lang3.StringUtils;
 
 import com.clickhouse.client.ClickHouseColumn;
 import com.clickhouse.client.ClickHouseNode;
@@ -101,6 +100,9 @@ public class ClickhouseCatalog implements Catalog {
         List<ClickHouseColumn> clickHouseColumns =
                 proxy.getClickHouseColumns(tablePath.getFullNameWithQuoted());
 
+        // Get source type mapping from DESC query
+        Map<String, String> sourceTypeMap =
+                proxy.getClickhouseTableSchema(tablePath.getFullNameWithQuoted());
         try {
             Optional<PrimaryKey> primaryKey =
                     proxy.getPrimaryKey(tablePath.getDatabaseName(), tablePath.getTableName());
@@ -119,7 +121,9 @@ public class ClickhouseCatalog implements Catalog {
                                     column.getScale(),
                                     column.isNullable(),
                                     null,
-                                    null));
+                                    null,
+                                    null,
+                                    sourceTypeMap.get(column.getColumnName())));
 
             TableIdentifier tableIdentifier =
                     TableIdentifier.of(

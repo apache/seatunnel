@@ -2,6 +2,8 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
+|[Fix][Core]fix kotlin jar conflict (#9683)|https://github.com/apache/seatunnel/commit/c4ec5c0be5|2.3.12|
+|[Improve][Connector-Hudi] Add pre-combine field option for hudi sink (#9496)|https://github.com/apache/seatunnel/commit/f134d7e129|2.3.12|
 |[Feature][Checkpoint] Add check script for source/sink state class serialVersionUID missing (#9118)|https://github.com/apache/seatunnel/commit/4f5adeb1c7|2.3.11|
 |[improve] hudi options (#8952)|https://github.com/apache/seatunnel/commit/b24d0e7f86|2.3.10|
 |[Improve] restruct connector common options (#8634)|https://github.com/apache/seatunnel/commit/f3499a6eeb|2.3.10|

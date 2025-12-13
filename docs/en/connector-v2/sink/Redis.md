@@ -32,6 +32,7 @@ Used to write data to Redis.
 | value_field        | string  | no                    | -             |
 | hash_key_field     | string  | no                    | -             |
 | hash_value_field   | string  | no                    | -             |
+| field_delimiter    | string  | no                    | ','           |
 | common-options     |         | no                    | -             |
 
 ### host [string]
@@ -119,7 +120,7 @@ redis nodes information, used in cluster mode, must like as the following format
 
 ### format [string]
 
-The format of upstream data, now only support `json`, `text` will be supported later, default `json`.
+The format of upstream data, currently support `json`, `text` format, default `json`.
 
 When you assign format is `json`, for example:
 
@@ -134,8 +135,17 @@ Connector will generate data as the following and write it to redis:
 ```json
 
 {"code":  200, "data":  "get success", "success":  "true"}
-
 ```
+
+when you assign format is `text`, and set field_delimiter to `#`, connector will generate data as the following and write it to redis:
+```text
+200#get success#true
+```
+
+### field_delimiter [string]
+Field delimiter, used to tell connector how to slice and dice fields.
+
+Currently, only need to be configured when format is `text`. default is ",".
 
 ### expire [long]
 
@@ -219,7 +229,7 @@ custom key:
 Redis {
   host = localhost
   port = 6379
-  key = "name:{name}"
+  key = "name:${name}"
   support_custom_key = true
   data_type = key
 }

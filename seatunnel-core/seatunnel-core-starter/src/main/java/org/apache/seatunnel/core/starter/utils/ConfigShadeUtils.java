@@ -177,6 +177,9 @@ public final class ConfigShadeUtils {
                 (ArrayList<Map<String, Object>>) configMap.get(Constants.SOURCE);
         List<Map<String, Object>> sinks =
                 (ArrayList<Map<String, Object>>) configMap.get(Constants.SINK);
+        List<Map<String, Object>> transforms =
+                (ArrayList<Map<String, Object>>)
+                        configMap.getOrDefault(Constants.TRANSFORM, new ArrayList<>());
         Preconditions.checkArgument(
                 !sources.isEmpty(), "Miss <Source> config! Please check the config file.");
         Preconditions.checkArgument(
@@ -193,8 +196,15 @@ public final class ConfigShadeUtils {
                         sink.computeIfPresent(sensitiveOption, processFunction);
                     }
                 });
+        transforms.forEach(
+                transform -> {
+                    for (String sensitiveOption : sensitiveOptions) {
+                        transform.computeIfPresent(sensitiveOption, processFunction);
+                    }
+                });
         configMap.put(Constants.SOURCE, sources);
         configMap.put(Constants.SINK, sinks);
+        configMap.put(Constants.TRANSFORM, transforms);
         return ConfigFactory.parseMap(configMap);
     }
 

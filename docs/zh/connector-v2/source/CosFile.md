@@ -34,6 +34,7 @@ import ChangeLog from '../changelog/connector-file-cos.md';
   - [x] excel
   - [x] xml
   - [x] binary
+  - [x] markdown
 
 ## 描述
 
@@ -51,36 +52,36 @@ import ChangeLog from '../changelog/connector-file-cos.md';
 
 ## 选项
 
-| 名称                        | 类型      | 必需 | 默认值                 |
-|---------------------------|---------|----|---------------------|
-| path                      | string  | 是  | -                   |
-| file_format_type          | string  | 是  | -                   |
-| bucket                    | string  | 是  | -                   |
-| secret_id                 | string  | 是  | -                   |
-| secret_key                | string  | 是  | -                   |
-| region                    | string  | 是  | -                   |
-| read_columns              | list    | 是  | -                   |
-| delimiter/field_delimiter | string  | 否  | \001                |
-| row_delimiter             | string  | 否  | \n                  |
-| parse_partition_from_path | boolean | 否  | true                |
-| skip_header_row_number    | long    | 否  | 0                   |
-| date_format               | string  | 否  | yyyy-MM-dd          |
-| datetime_format           | string  | 否  | yyyy-MM-dd HH:mm:ss |
-| time_format               | string  | 否  | HH:mm:ss            |
-| schema                    | config  | 否  | -                   |
-| sheet_name                | string  | 否  | -                   |
-| xml_row_tag               | string  | 否  | -                   |
-| xml_use_attr_format       | boolean | 否  | -                   |
-| csv_use_header_line       | boolean | 否  | false               |
-| file_filter_pattern       | string  | 否  |                     |
-| compress_codec            | string  | 否  | none                |
-| archive_compress_codec    | string  | 否  | none                |
-| encoding                  | string  | 否  | UTF-8               |
-| binary_chunk_size         | int     | 否  | 1024                |
-| binary_complete_file_mode | boolean | 否  | false               |
-| common-options            |         | 否  | -                   |
-| file_filter_modified_start  | string  | 否    | -                   | 按照最后修改时间过滤文件。 要过滤的开始时间(包括改时间),时间格式是：`yyyy-MM-dd HH:mm:ss`                                                                               |
-| file_filter_modified_end    | string  | 否    | -                   | 按照最后修改时间过滤文件。 要过滤的结束时间(不包括改时间),时间格式是：`yyyy-MM-dd HH:mm:ss`                                                                                                                  |
+| 名称                         | 类型      | 必需 | 默认值                 |
+|----------------------------|---------|----|---------------------|
+| path                       | string  | 是  | -                   |
+| file_format_type           | string  | 是  | -                   |
+| bucket                     | string  | 是  | -                   |
+| secret_id                  | string  | 是  | -                   |
+| secret_key                 | string  | 是  | -                   |
+| region                     | string  | 是  | -                   |
+| read_columns               | list    | 是  | -                   |
+| delimiter/field_delimiter  | string  | 否  | \001                |
+| row_delimiter              | string  | 否  | \n                  |
+| parse_partition_from_path  | boolean | 否  | true                |
+| skip_header_row_number     | long    | 否  | 0                   |
+| date_format                | string  | 否  | yyyy-MM-dd          |
+| datetime_format            | string  | 否  | yyyy-MM-dd HH:mm:ss |
+| time_format                | string  | 否  | HH:mm:ss            |
+| schema                     | config  | 否  | -                   |
+| sheet_name                 | string  | 否  | -                   |
+| xml_row_tag                | string  | 否  | -                   |
+| xml_use_attr_format        | boolean | 否  | -                   |
+| csv_use_header_line        | boolean | 否  | false               |
+| file_filter_pattern        | string  | 否  |                     |
+| compress_codec             | string  | 否  | none                |
+| archive_compress_codec     | string  | 否  | none                |
+| encoding                   | string  | 否  | UTF-8               |
+| binary_chunk_size          | int     | 否  | 1024                |
+| binary_complete_file_mode  | boolean | 否  | false               |
+| common-options             |         | 否  | -                   |
+| file_filter_modified_start | string  | 否  | -                   |
+| file_filter_modified_end   | string  | 否  | -                   |
 
 ### path [string]
 
@@ -90,7 +91,7 @@ import ChangeLog from '../changelog/connector-file-cos.md';
 
 文件类型，支持以下文件类型：
 
-`text` `csv` `parquet` `orc` `json` `excel` `xml` `binary`
+`text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `markdown`
 
 如果您将文件类型设置为“json”，您还应该分配模式选项，告诉连接器如何将数据解析到所需的行。
 
@@ -176,6 +177,20 @@ schema {
 
 如果将文件类型指定为“二进制”，SeaTunnel可以同步任何格式的文件，
 例如压缩包、图片等。简而言之，任何文件都可以同步到目标位置。
+
+如果您将文件类型指定为 `markdown`，SeaTunnel 可以解析 markdown 文件并提取结构化数据。
+markdown 解析器提取各种元素，包括标题、段落、列表、代码块、表格等。
+每个元素都转换为具有以下架构的行：
+- `element_id`：元素的唯一标识符
+- `element_type`：元素类型（Heading、Paragraph、ListItem 等）
+- `heading_level`：标题级别（1-6，非标题元素为 null）
+- `text`：元素的文本内容
+- `page_number`：页码（默认：1）
+- `position_index`：文档中的位置索引
+- `parent_id`：父元素的 ID
+- `child_ids`：子元素 ID 的逗号分隔列表
+
+注意：Markdown 格式仅支持读取，不支持写入。
 根据此要求，您需要确保源端和目标端使用“二进制”格式进行文件同步同时。您可以在下面的示例中找到具体用法。
 
 ### bucket [string]
@@ -296,12 +311,12 @@ default `HH:mm:ss`
 
 ### file_filter_pattern [string]
 
-过滤模式，用于过滤文件。
+文件过滤模式，用于过滤文件。若只想根据文件名称筛选，则直接写文件名称的正则；若同时想根据文件目录进行过滤，则表达式以`path`起始。
 
 该模式遵循标准正则表达式。详情请参阅https://en.wikipedia.org/wiki/Regular_expression.
 有一些例子。
 
-文件结构示例:
+若`path`为`/data/seatunnel`,且文件结构示例：
 ```
 /data/seatunnel/20241001/report.txt
 /data/seatunnel/20241007/abch202410.csv
@@ -313,7 +328,7 @@ default `HH:mm:ss`
 
 **示例1**：*匹配所有.txt文件*，正则表达式：
 ```
-/data/seatunnel/20241001/.*\.txt
+.*.txt
 ```
 此示例匹配的结果为：
 ```
@@ -321,14 +336,14 @@ default `HH:mm:ss`
 ```
 **示例2**:*匹配所有以abc*开头的文件，正则表达式：
 ```
-/data/seatunnel/20241002/abc.*
+abc.*
 ```
 此示例匹配的结果为：
 ```
 /data/seatunnel/20241007/abch202410.csv
 /data/seatunnel/20241002/abcg202410.csv
 ```
-**示例3**：*匹配所有以abc开头的文件，第四个字符是h或g*，正则表达式：
+**示例3**：*匹配20241007文件夹下所有以 abc 开头的文件，且第四个字符为 h 或 g*，正则表达式：
 ```
 /data/seatunnel/20241007/abc[h,g].*
 ```
@@ -338,7 +353,7 @@ default `HH:mm:ss`
 ```
 **示例4**:*匹配以202410开头的三级文件夹和以.csv*结尾的文件，正则表达式：
 ```
-/data/seatunnel/202410\d*/.*\.csv
+/data/seatunnel/202410\d*/.*.csv
 ```
 此示例匹配的结果为：
 ```
@@ -387,6 +402,14 @@ default `HH:mm:ss`
 仅在 file_format_type 为 binary 时使用。
 
 是否将完整文件作为单个块读取，而不是分割成块。启用时，整个文件内容将一次性读入内存。默认为 false。
+
+### file_filter_modified_start
+
+按照最后修改时间过滤文件。 要过滤的开始时间(包括改时间),时间格式是：`yyyy-MM-dd HH:mm:ss`。
+
+### file_filter_modified_end
+
+按照最后修改时间过滤文件。 要过滤的结束时间(不包括改时间),时间格式是：`yyyy-MM-dd HH:mm:ss`。
 
 ### common options
 

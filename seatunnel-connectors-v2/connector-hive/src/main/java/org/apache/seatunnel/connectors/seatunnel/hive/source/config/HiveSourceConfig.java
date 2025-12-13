@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.hive.source.config;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigValueFactory;
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
@@ -46,7 +47,6 @@ import org.apache.seatunnel.connectors.seatunnel.hive.utils.HiveTableUtils;
 import org.apache.seatunnel.connectors.seatunnel.hive.utils.HiveTypeConvertor;
 
 import org.apache.commons.collections4.CollectionUtils;
-import org.apache.commons.lang3.StringUtils;
 import org.apache.hadoop.hive.metastore.api.FieldSchema;
 import org.apache.hadoop.hive.metastore.api.Table;
 
@@ -82,7 +82,15 @@ public class HiveSourceConfig implements Serializable {
         readonlyConfig
                 .getOptional(HdfsSourceConfigOptions.READ_PARTITIONS)
                 .ifPresent(this::validatePartitions);
-        Table table = HiveTableUtils.getTableInfo(readonlyConfig);
+        Table table;
+        try {
+            table = HiveTableUtils.getTableInfo(readonlyConfig);
+        } catch (Exception e) {
+            throw new HiveConnectorException(
+                    HiveConnectorErrorCode.GET_HIVE_TABLE_INFORMATION_FAILED,
+                    "Hive metastore not reachable while initializing HiveSource. Please ensure metastore is available or provide explicit file path-based config.",
+                    e);
+        }
         this.hadoopConf = parseHiveHadoopConfig(readonlyConfig, table);
         this.fileFormat = HiveTableUtils.parseFileFormat(table);
         this.readStrategy = parseReadStrategy(table, readonlyConfig, fileFormat, hadoopConf);

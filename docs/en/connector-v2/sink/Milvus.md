@@ -39,20 +39,20 @@ This Milvus sink connector write data to Milvus or Zilliz Cloud, it has the foll
 
 ## Sink Options
 
-|         Name         | Type    | Required |           Default            | Description                                                                        |
-|----------------------|---------|----------|------------------------------|------------------------------------------------------------------------------------|
-| url                  | String  | Yes      | -                            | The URL to connect to Milvus or Zilliz Cloud.                                      |
-| token                | String  | Yes      | -                            | User:password                                                                      |
-| database             | String  | No       | -                            | Write data to which database, default is source database.                          |
-| schema_save_mode     | enum    | No       | CREATE_SCHEMA_WHEN_NOT_EXIST | Auto create table when table not exist.                                            |
-| enable_auto_id       | boolean | No       | false                        | Primary key column enable autoId.                                                  |
-| enable_upsert        | boolean | No       | false                        | Upsert data not insert.                                                            |
-| enable_dynamic_field | boolean | No       | true                         | Enable create table with dynamic field.                                            |
-| batch_size           | int     | No       | 1000                         | Write batch size.                                                                  |
-| partition_key        | String  | No       |                              | Milvus partition key field                                                         |
-| create_index         | boolean | No       | false                        | Automatically create vector indexes for collection to improve query performance.   |
-| load_collection      | boolean | No       | false                        | Load collection into Milvus memory for immediate query availability.               |
-| collection_description | Map<String, String> | No | {}                   | Collection descriptions map where key is collection name and value is description. |                                         
+| Name                   | Type                | Required | Default                      | Description                                                                                                                                         |
+|------------------------|---------------------|----------|------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------|
+| url                    | String              | Yes      | -                            | The URL to connect to Milvus or Zilliz Cloud.                                                                                                       |
+| token                  | String              | Yes      | -                            | User:password                                                                                                                                       |
+| database               | String              | No       | -                            | Write data to which database, default is source database.                                                                                           |
+| schema_save_mode       | enum                | No       | CREATE_SCHEMA_WHEN_NOT_EXIST | Auto create table when table not exist.                                                                                                             |
+| enable_auto_id         | boolean             | No       | false                        | Primary key column enable autoId.                                                                                                                   |
+| enable_upsert          | boolean             | No       | false                        | Upsert data not insert.                                                                                                                             |
+| enable_dynamic_field   | boolean             | No       | true                         | Enable create table with dynamic field.                                                                                                             |
+| batch_size             | int                 | No       | 1000                         | Write batch size. When the number of buffered records reaches `batch_size` or the time reaches `checkpoint.interval`, it will trigger a write flush |
+| partition_key          | String              | No       |                              | Milvus partition key field                                                                                                                          |
+| create_index           | boolean             | No       | false                        | Automatically create vector indexes for collection to improve query performance.                                                                    |
+| load_collection        | boolean             | No       | false                        | Load collection into Milvus memory for immediate query availability.                                                                                |
+| collection_description | Map<String, String> | No       | {}                           | Collection descriptions map where key is collection name and value is description.                                                                  |                                         
 
 ## Task Example
 

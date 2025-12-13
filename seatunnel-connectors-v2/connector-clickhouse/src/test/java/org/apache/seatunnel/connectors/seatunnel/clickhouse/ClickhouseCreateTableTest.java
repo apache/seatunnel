@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.clickhouse;
 
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
+
 import org.apache.seatunnel.api.sink.SaveModePlaceHolder;
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.ConstraintKey;
@@ -31,8 +33,6 @@ import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.util.ClickhouseCatalogUtil;
-
-import org.apache.commons.lang3.StringUtils;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -99,14 +99,16 @@ public class ClickhouseCreateTableTest {
                                 .build(),
                         "clickhouse test table",
                         ClickhouseSinkOptions.SAVE_MODE_CREATE_TEMPLATE.key());
+        // Primary key columns (id, age) should NOT be wrapped in Nullable
+        // because ClickHouse does not allow nullable columns in ORDER BY / PRIMARY KEY
         Assertions.assertEquals(
                 createTableSql,
                 "CREATE TABLE IF NOT EXISTS  `test1`.`test2` (\n"
                         + "    `id` Int64 ,`age` Int32 COMMENT 'test comment',\n"
-                        + "    `name` String ,\n"
-                        + "`score` Int32 COMMENT '''N''-N',\n"
-                        + "`gender` Int8 ,\n"
-                        + "`create_time` Int64 \n"
+                        + "    `name` Nullable(String) ,\n"
+                        + "`score` Nullable(Int32) COMMENT '\''N''-N',\n"
+                        + "`gender` Nullable(Int8) ,\n"
+                        + "`create_time` Nullable(Int64) \n"
                         + ") ENGINE = MergeTree()\n"
                         + "ORDER BY (`id`,`age`)\n"
                         + "PRIMARY KEY (`id`,`age`)\n"

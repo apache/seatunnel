@@ -85,7 +85,7 @@ public class ImportClassCheckTest {
 
     @Test
     public void commonLang2Check() {
-        // both common-lang and comon-lang3 share the same prefix org.apache.commons.lang
+        // both common-lang and common-lang3 share the same prefix org.apache.commons.lang
         Map<String, List<String>> commonLangMap =
                 checkImportClassPrefix(
                         Arrays.asList("org.apache.commons.lang"),
@@ -154,6 +154,15 @@ public class ImportClassCheckTest {
                         Arrays.asList("org.codehaus.janino", "org.codehaus.commons"));
         Assertions.assertEquals(0, errorMap.size(), shadeErrorMsg("janino", errorMap));
         log.info("check janino shade successfully");
+    }
+
+    @Test
+    public void commonLang3Check() {
+        Map<String, List<String>> errorMap =
+                checkImportClassPrefixWithAll(
+                        Collections.singletonList("org.apache.commons.lang3"));
+        Assertions.assertEquals(0, errorMap.size(), shadeErrorMsg("commons.lang3", errorMap));
+        log.info("check common lang3 shade successfully");
     }
 
     @Test

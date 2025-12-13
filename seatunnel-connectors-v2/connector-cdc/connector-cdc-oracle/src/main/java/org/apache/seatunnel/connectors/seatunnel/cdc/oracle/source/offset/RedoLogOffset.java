@@ -17,9 +17,9 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cdc.oracle.source.offset;
 
-import org.apache.seatunnel.connectors.cdc.base.source.offset.Offset;
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
-import org.apache.commons.lang3.StringUtils;
+import org.apache.seatunnel.connectors.cdc.base.source.offset.Offset;
 
 import io.debezium.connector.oracle.Scn;
 

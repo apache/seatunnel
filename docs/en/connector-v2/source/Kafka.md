@@ -75,6 +75,36 @@ debezium_record_table_filter {
 
 Only the data of the `test.public.products` table will be consumed.
 
+## Metadata Support
+
+The Kafka source automatically injects `ConsumerRecord.timestamp` into the SeaTunnel `EventTime` metadata when the value is non-negative. You can expose it as a normal field through the [Metadata transform](../../transform-v2/metadata.md) for downstream SQL or partitioning.
+
+```hocon
+source {
+  Kafka {
+    plugin_output = "kafka_raw"
+    topic = "seatunnel_topic"
+    bootstrap.servers = "localhost:9092"
+    format = json
+  }
+}
+
+transform {
+  Metadata {
+    plugin_input = "kafka_raw"
+    plugin_output = "kafka_with_meta"
+    metadata_fields {
+      EventTime = kafka_ts # kafka_ts will contain ConsumerRecord.timestamp (ms)
+    }
+  }
+  Sql {
+    plugin_input = "kafka_with_meta"
+    plugin_output = "kafka_enriched"
+    query = "select *, FROM_UNIXTIME(kafka_ts/1000, 'yyyy-MM-dd', 'Asia/Shanghai') as pt from kafka_with_meta where kafka_ts >= 0"
+  }
+}
+```
+
 ## Task Example
 
 ### Simple

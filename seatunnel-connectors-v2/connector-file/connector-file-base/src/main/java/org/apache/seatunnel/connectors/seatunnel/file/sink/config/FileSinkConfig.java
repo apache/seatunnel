@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.file.sink.config;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
@@ -29,7 +30,6 @@ import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorExc
 import org.apache.seatunnel.format.csv.constant.CsvStringQuoteMode;
 
 import org.apache.commons.collections4.CollectionUtils;
-import org.apache.commons.lang3.StringUtils;
 
 import lombok.Data;
 import lombok.NonNull;
@@ -89,6 +89,8 @@ public class FileSinkConfig extends BaseFileSinkConfig implements PartitionConfi
 
     private CsvStringQuoteMode csvStringQuoteMode =
             FileBaseSinkOptions.CSV_STRING_QUOTE_MODE.defaultValue();
+
+    private Boolean mergeUpdateEvent = FileBaseSinkOptions.MERGE_UPDATE_EVENT.defaultValue();
 
     public FileSinkConfig(@NonNull Config config, @NonNull SeaTunnelRowType seaTunnelRowTypeInfo) {
         super(config);
@@ -247,6 +249,14 @@ public class FileSinkConfig extends BaseFileSinkConfig implements PartitionConfi
                 this.csvStringQuoteMode =
                         CsvStringQuoteMode.valueOf(
                                 config.getString(FileBaseSinkOptions.CSV_STRING_QUOTE_MODE.key()));
+            }
+        }
+        if (FileFormat.DEBEZIUM_JSON.equals(this.fileFormat)
+                || FileFormat.CANAL_JSON.equals(this.fileFormat)
+                || FileFormat.MAXWELL_JSON.equals(this.fileFormat)) {
+            if (config.hasPath(FileBaseSinkOptions.MERGE_UPDATE_EVENT.key())) {
+                this.mergeUpdateEvent =
+                        config.getBoolean(FileBaseSinkOptions.MERGE_UPDATE_EVENT.key());
             }
         }
     }

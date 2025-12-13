@@ -8,14 +8,14 @@ import ChangeLog from '../changelog/connector-paimon.md';
 
 用于从 `Apache Paimon` 读取数据
 
-### Seatunnmel与Paimon版本对照
+### SeaTunnel与Paimon版本对照
 
 | Seatunnel Version | Paimon Version   |
 |-------------------|------------------|
 | 2.3.2  -  2.3.3   | 0.4-SNAPSHOT     |
 | 2.3.4             | 0.6-SNAPSHOT     |
 | 2.3.5  -  2.3.11  | 0.7.0-incubating |
-| 2.3.12            | 1.1.1            |
+| 2.3.12  - 2.3.13  | 1.1.1            |
 
 ### 从 0.7 版本升级到 1.1.1 版本的注意事项
 
@@ -97,7 +97,13 @@ Paimon 的 catalog uri，仅当 catalog_type 为 hive 时需要
 
 Projection 已支持,你可以选择特定的列，例如：select id, name from st_test where id > 100。
 
-由于 Paimon 限制，目前不支持 `Having`, `Group By` 和 `Order By`，未来版本将会支持  `limit`。
+由于 Paimon 限制，目前不支持 `Having`, `Group By` 和 `Order By`。
+
+query 参数支持动态参数设置:
+```sql
+SELECT * FROM table /*+ OPTIONS('incremental-between' = 'test-tag1,test-tag2') */;
+```
+
 
 注意：当 `where` 后的字段为字符串或布尔值时，其值必须使用单引号，否则将会报错。例如 `name='abc'` 或 `tag='true'`。
 

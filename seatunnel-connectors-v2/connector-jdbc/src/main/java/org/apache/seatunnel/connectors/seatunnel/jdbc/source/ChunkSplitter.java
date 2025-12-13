@@ -17,6 +17,9 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.source;
 
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
+import org.apache.seatunnel.shade.org.apache.commons.lang3.tuple.Pair;
+
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.ConstraintKey;
 import org.apache.seatunnel.api.table.catalog.PrimaryKey;
@@ -30,9 +33,6 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorExc
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.JdbcConnectionProvider;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectLoader;
-
-import org.apache.commons.lang3.StringUtils;
-import org.apache.commons.lang3.tuple.Pair;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -194,11 +194,12 @@ public abstract class ChunkSplitter implements AutoCloseable, Serializable {
 
         columnName = jdbcDialect.quoteIdentifier(columnName);
         columnName = jdbcDialect.convertType(columnName, column.getSourceType());
-        if (StringUtils.isNotBlank(table.getQuery())) {
+        String query = normalizeQuery(table.getQuery());
+        if (StringUtils.isNotBlank(query)) {
             minQuery =
                     String.format(
                             "SELECT MIN(%s) FROM (%s) tmp WHERE %s > ?",
-                            columnName, table.getQuery(), columnName);
+                            columnName, query, columnName);
         } else {
             minQuery =
                     String.format(
@@ -232,11 +233,11 @@ public abstract class ChunkSplitter implements AutoCloseable, Serializable {
 
         columnName = jdbcDialect.quoteIdentifier(columnName);
         columnName = jdbcDialect.convertType(columnName, column.getSourceType());
-        if (StringUtils.isNotBlank(table.getQuery())) {
+        String query = normalizeQuery(table.getQuery());
+        if (StringUtils.isNotBlank(query)) {
             sqlQuery =
                     String.format(
-                            "SELECT MIN(%s), MAX(%s) FROM (%s) tmp",
-                            columnName, columnName, table.getQuery());
+                            "SELECT MIN(%s), MAX(%s) FROM (%s) tmp", columnName, columnName, query);
         } else {
             sqlQuery =
                     String.format(
@@ -260,6 +261,11 @@ public abstract class ChunkSplitter implements AutoCloseable, Serializable {
     }
 
     protected Optional<SeaTunnelRowType> findSplitKey(JdbcSourceTable table) {
+        if (StringUtils.isNotBlank(table.getQuery()) && table.getPartitionColumn() == null) {
+            // Keep query-based tables on single split unless user explicitly sets partition column
+            return Optional.empty();
+        }
+
         TableSchema schema = table.getCatalogTable().getTableSchema();
         List<Column> columns = schema.getColumns();
         Map<String, Column> columnMap =
@@ -348,6 +354,14 @@ public abstract class ChunkSplitter implements AutoCloseable, Serializable {
             default:
                 return false;
         }
+    }
+
+    private String normalizeQuery(String query) {
+        if (StringUtils.isEmpty(query)) {
+            return query;
+        }
+        // Avoid trailing semicolons/whitespace breaking wrapped subqueries
+        return StringUtils.stripEnd(query, " \t\r\n;");
     }
 
     protected String createSplitId(TablePath tablePath, int index) {

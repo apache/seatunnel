@@ -19,10 +19,12 @@ package org.apache.seatunnel.connectors.seatunnel.hbase.config;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
+import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 
 import java.util.List;
+import java.util.Map;
 
-public class HbaseBaseOptions {
+public class HbaseBaseOptions extends ConnectorCommonOptions {
 
     public static final Option<String> ZOOKEEPER_QUORUM =
             Options.key("zookeeper_quorum")
@@ -38,4 +40,10 @@ public class HbaseBaseOptions {
                     .listType()
                     .noDefaultValue()
                     .withDescription("Hbase rowkey column");
+
+    public static final Option<Map<String, String>> HBASE_EXTRA_CONFIG =
+            Options.key("hbase_extra_config")
+                    .mapType()
+                    .noDefaultValue()
+                    .withDescription("Hbase extra config");
 }

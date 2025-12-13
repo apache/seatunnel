@@ -2,9 +2,28 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
-|[Feature][Connector-V2] Jdbc mysql support read tinyint(1) to byte(tinyint) (#9373)|https://github.com/apache/seatunnel/commit/7b87aa6f12| dev |
-|[Improve] JdbcInputFormat nextRecord Exception throw TableId (#9374)|https://github.com/apache/seatunnel/commit/484aef593d| dev |
-|[Feature][Connector-V2][JDBC] Add presto/trino dialect  (#9388)|https://github.com/apache/seatunnel/commit/3cac2bd126| dev |
+|[Fix][Connector-xugu] Fix several bugs in the xugu connector (#9820)|https://github.com/apache/seatunnel/commit/75c9adb280| dev |
+|[Feature][Transform-V2] Support `AT TIME ZONE` statement for sql transform (#9784)|https://github.com/apache/seatunnel/commit/ad5278c5bb| dev |
+|[Feature][Transform-V2] Support vector series sql function (#9765)|https://github.com/apache/seatunnel/commit/a40114cf7a|2.3.12|
+|[Chore] fix typos filed -&gt; field (#9757)|https://github.com/apache/seatunnel/commit/e3e1c67d29|2.3.12|
+|[Feature][Core] Add plugin directory support for each connector (#9650)|https://github.com/apache/seatunnel/commit/4beb2b9336|2.3.12|
+|[Improve][Core] Update apache common to apache common lang3 (#9694)|https://github.com/apache/seatunnel/commit/6e5737c1ec|2.3.12|
+|[Improve][API] Optimize the enumerator API semantics and reduce lock calls at the connector level (#9671)|https://github.com/apache/seatunnel/commit/9212a77140|2.3.12|
+|[Fix] [connector-jdbc] prevent precision loss in Float to BigDecimal conversion (#9670)|https://github.com/apache/seatunnel/commit/6e11285bf6|2.3.12|
+|[Fix][Connector-Jdbc] Supports reading and writing Postgres network dress types (#9618)|https://github.com/apache/seatunnel/commit/3dc79c1ddf|2.3.12|
+|[improve] jdbc options (#9541)|https://github.com/apache/seatunnel/commit/d041e5fb32|2.3.12|
+|[Fix][Connector-Jdbc]Fixed Vertica data source cannot upsert data. (#9607)|https://github.com/apache/seatunnel/commit/7b4d05171b|2.3.12|
+|[Fix][Connectors-Jdbc] Postgres supports streaming and batch reading and writing of the `interval` data type (#9590)|https://github.com/apache/seatunnel/commit/58ab917024|2.3.12|
+|[Feature][Connectors-v2] Optimize the size of CDC JAR Files (#9546)|https://github.com/apache/seatunnel/commit/1dd19c6823|2.3.12|
+|[improve][Connector-jdbc] add comments when schema not include all columns (#9559)|https://github.com/apache/seatunnel/commit/02d2b69d85|2.3.12|
+|[Hotfix][Connector-Jdbc] Write MySQL to support set collection data type (#9553)|https://github.com/apache/seatunnel/commit/3836c97a62|2.3.12|
+|[Feature][Jdbc] Support read multiple tables by regular expressions (#9380)|https://github.com/apache/seatunnel/commit/670a52a918|2.3.12|
+|[bugfix][Connector-V2]  Fixed the load driver inaccurate situation (#9468)|https://github.com/apache/seatunnel/commit/c6639e81fe|2.3.12|
+|[Fix][Connector-V2] Fix OceanBase Oracle create unsupported data type (#9383)|https://github.com/apache/seatunnel/commit/f4178c72f1|2.3.12|
+|[improve][Connector-V2] delete jdbc param support_upsert_by_query_primary_key_exist (#9408)|https://github.com/apache/seatunnel/commit/d247fe1d8d|2.3.12|
+|[Feature][Connector-V2] Jdbc mysql support read tinyint(1) to byte(tinyint) (#9373)|https://github.com/apache/seatunnel/commit/7b87aa6f12|2.3.12|
+|[Improve] JdbcInputFormat nextRecord Exception throw TableId (#9374)|https://github.com/apache/seatunnel/commit/484aef593d|2.3.12|
+|[Feature][Connector-V2][JDBC] Add presto/trino dialect  (#9388)|https://github.com/apache/seatunnel/commit/3cac2bd126|2.3.12|
 |[Feature][Connector-JDBC] Supprot read Oracle BLOB data as string instead of bytes (#9305)|https://github.com/apache/seatunnel/commit/454a88f81a|2.3.11|
 |[Fix][Connector-jdbc] Fix postgresql sink trying to update unique key (#9293) (#9298)|https://github.com/apache/seatunnel/commit/d0c1de8357|2.3.11|
 |[Fix][Connector-V2] Fix oceanbase mysql jdbc sink create statement error (#9267)|https://github.com/apache/seatunnel/commit/79f8125ea6|2.3.11|

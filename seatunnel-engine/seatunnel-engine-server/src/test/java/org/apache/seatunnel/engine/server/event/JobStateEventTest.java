@@ -38,7 +38,7 @@ import static org.awaitility.Awaitility.await;
 public class JobStateEventTest extends AbstractSeaTunnelServerTest {
 
     @Test
-    public void testJobStateEvent() {
+    public void testJobStateEvent() throws InterruptedException {
 
         JobEventProcessor eventProcessor =
                 (JobEventProcessor) server.getCoordinatorService().getEventProcessor();

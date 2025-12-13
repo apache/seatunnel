@@ -322,6 +322,24 @@ public class HbaseIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
+    public void testHbaseSourceWithStartEndInclusive(TestContainer container)
+            throws IOException, InterruptedException {
+        fakeToHbaseArray(container);
+        Container.ExecResult sourceExecResult =
+                container.executeJob("/hbase-source-with-start-end-inclusive.conf");
+        Assertions.assertEquals(0, sourceExecResult.getExitCode());
+    }
+
+    @TestTemplate
+    public void testHbaseSourceWithDefaultInclusive(TestContainer container)
+            throws IOException, InterruptedException {
+        fakeToHbaseArray(container);
+        Container.ExecResult sourceExecResult =
+                container.executeJob("/hbase-source-with-default-inclusive.conf");
+        Assertions.assertEquals(0, sourceExecResult.getExitCode());
+    }
+
+    @TestTemplate
     public void testCatalog(TestContainer container) {
         // create exiting table
         Assertions.assertThrows(
@@ -336,6 +354,33 @@ public class HbaseIT extends TestSuiteBase implements TestResource {
         Assertions.assertThrows(
                 TableNotExistException.class,
                 () -> catalog.dropTable(TablePath.of("", "", "tmp"), false));
+    }
+
+    @TestTemplate
+    public void testHbaseSourceWithStartRowKey(TestContainer container)
+            throws IOException, InterruptedException {
+        fakeToHbaseArray(container);
+        Container.ExecResult sourceExecResult =
+                container.executeJob("/hbase-source-with-start-rowkey.conf");
+        Assertions.assertEquals(0, sourceExecResult.getExitCode());
+    }
+
+    @TestTemplate
+    public void testHbaseSourceWithEndRowKey(TestContainer container)
+            throws IOException, InterruptedException {
+        fakeToHbaseArray(container);
+        Container.ExecResult sourceExecResult =
+                container.executeJob("/hbase-source-with-end-rowkey.conf");
+        Assertions.assertEquals(0, sourceExecResult.getExitCode());
+    }
+
+    @TestTemplate
+    public void testHbaseSourceWithRowKeyRange(TestContainer container)
+            throws IOException, InterruptedException {
+        fakeToHbaseArray(container);
+        Container.ExecResult sourceExecResult =
+                container.executeJob("/hbase-source-with-rowkey-range.conf");
+        Assertions.assertEquals(0, sourceExecResult.getExitCode());
     }
 
     private void fakeToHbase(TestContainer container) throws IOException, InterruptedException {
@@ -383,6 +428,22 @@ public class HbaseIT extends TestSuiteBase implements TestResource {
                                     Bytes.toBytes("name"),
                                     Bytes.toBytes(value)));
         }
+    }
+
+    private void fakeToHbaseArray(TestContainer container)
+            throws IOException, InterruptedException {
+        deleteData(table);
+        Container.ExecResult sinkExecResult = container.executeJob("/fake-to-hbase-array.conf");
+        Assertions.assertEquals(0, sinkExecResult.getExitCode());
+        Table hbaseTable = hbaseConnection.getTable(table);
+        Scan scan = new Scan();
+        ResultScanner scanner = hbaseTable.getScanner(scan);
+        ArrayList<Result> results = new ArrayList<>();
+        for (Result result : scanner) {
+            results.add(result);
+        }
+        Assertions.assertEquals(results.size(), 3);
+        scanner.close();
     }
 
     private int countData(TableName table) throws IOException {

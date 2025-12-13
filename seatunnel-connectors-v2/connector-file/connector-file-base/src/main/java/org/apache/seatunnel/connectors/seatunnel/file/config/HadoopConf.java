@@ -17,7 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.config;
 
-import org.apache.commons.lang3.StringUtils;
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
+
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.CommonConfigurationKeys;
 import org.apache.hadoop.fs.Path;
@@ -35,7 +36,9 @@ import static org.apache.parquet.avro.AvroWriteSupport.WRITE_OLD_LIST_STRUCTURE;
 @Data
 public class HadoopConf implements Serializable {
     private static final String HDFS_IMPL = "org.apache.hadoop.hdfs.DistributedFileSystem";
+    private static final String VIEWFS_IMPL = "org.apache.hadoop.fs.viewfs.ViewFileSystem";
     private static final String SCHEMA = "hdfs";
+    private static final String VIEWFS_SCHEMA = "viewfs";
     protected Map<String, String> extraOptions = new HashMap<>();
     protected String hdfsNameKey;
     protected String hdfsSitePath;
@@ -51,11 +54,15 @@ public class HadoopConf implements Serializable {
     }
 
     public String getFsHdfsImpl() {
-        return HDFS_IMPL;
+        return isViewFs() ? VIEWFS_IMPL : HDFS_IMPL;
     }
 
     public String getSchema() {
-        return SCHEMA;
+        return isViewFs() ? VIEWFS_SCHEMA : SCHEMA;
+    }
+
+    protected boolean isViewFs() {
+        return hdfsNameKey != null && hdfsNameKey.startsWith("viewfs://");
     }
 
     public void setExtraOptionsForConfiguration(Configuration configuration) {

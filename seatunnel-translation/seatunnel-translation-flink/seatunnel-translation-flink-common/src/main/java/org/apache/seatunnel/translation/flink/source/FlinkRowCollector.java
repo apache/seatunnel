@@ -24,6 +24,7 @@ import org.apache.seatunnel.api.common.metrics.Meter;
 import org.apache.seatunnel.api.common.metrics.MetricNames;
 import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.source.Collector;
+import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.core.starter.flowcontrol.FlowControlGate;
 import org.apache.seatunnel.core.starter.flowcontrol.FlowControlStrategy;
@@ -31,6 +32,8 @@ import org.apache.seatunnel.core.starter.flowcontrol.FlowControlStrategy;
 import org.apache.flink.api.connector.source.ReaderOutput;
 
 import lombok.extern.slf4j.Slf4j;
+
+import java.util.HashMap;
 
 /** The implementation of {@link Collector} for flink engine. */
 @Slf4j
@@ -67,6 +70,16 @@ public class FlinkRowCollector implements Collector<SeaTunnelRow> {
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
+    }
+
+    @Override
+    public void collect(SchemaChangeEvent event) {
+        SeaTunnelRow eventRow = new SeaTunnelRow(0);
+        eventRow.setTableId("__SCHEMA_CHANGE_EVENT__");
+        HashMap<String, Object> options = new HashMap<>();
+        options.put("schema_change_event", event);
+        eventRow.setOptions(options);
+        readerOutput.collect(eventRow);
     }
 
     @Override
