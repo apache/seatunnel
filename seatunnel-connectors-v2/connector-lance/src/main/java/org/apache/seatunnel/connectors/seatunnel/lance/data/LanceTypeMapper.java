@@ -97,7 +97,7 @@ public class LanceTypeMapper {
                 return doubleType;
             case DECIMAL:
                 JsonArrowDataType decType = new JsonArrowDataType();
-                decType.setType("decimal");
+                decType.setType("decimal128");
                 return decType;
             case NULL:
                 JsonArrowDataType nullType = new JsonArrowDataType();
@@ -109,11 +109,11 @@ public class LanceTypeMapper {
                 return bytesType;
             case DATE:
                 JsonArrowDataType dateType = new JsonArrowDataType();
-                dateType.setType("date");
+                dateType.setType("date32");
                 return dateType;
             case TIME:
                 JsonArrowDataType timeType = new JsonArrowDataType();
-                timeType.setType("time");
+                timeType.setType("time32");
                 return timeType;
             case TIMESTAMP:
                 JsonArrowDataType timestampType = new JsonArrowDataType();
