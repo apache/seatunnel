@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.iceberg.source.enumerator;
 
+import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
 import org.apache.seatunnel.shade.org.apache.commons.lang3.tuple.Pair;
 
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
@@ -46,7 +47,8 @@ import java.util.concurrent.ConcurrentMap;
 public class IcebergStreamSplitEnumerator extends AbstractSplitEnumerator {
 
     private final ConcurrentMap<TablePath, IcebergEnumeratorPosition> tableOffsets;
-    private volatile boolean initialized = false;
+
+    @VisibleForTesting volatile boolean initialized = false;
 
     public IcebergStreamSplitEnumerator(
             Context<IcebergFileScanTaskSplit> context,
