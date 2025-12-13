@@ -26,6 +26,7 @@ import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -543,5 +544,47 @@ public class JsonPathTransformTest {
         Assertions.assertEquals(
                 "2023-10-30T12:00:00Z",
                 outputRow.getField(outputTable.getSeaTunnelRowType().indexOf("created_at")));
+    }
+
+    @Test
+    public void testDestTypeVarbinary() {
+        Map<String, Object> configMap = new HashMap<>();
+        configMap.put(
+                JsonPathTransformConfig.COLUMNS.key(),
+                Arrays.asList(
+                        ImmutableMap.of(
+                                JsonPathTransformConfig.SRC_FIELD.key(), "data",
+                                JsonPathTransformConfig.PATH.key(), "$.binary_field",
+                                JsonPathTransformConfig.DEST_FIELD.key(), "extracted_binary",
+                                JsonPathTransformConfig.DEST_TYPE.key(), "varbinary")));
+        ReadonlyConfig config = ReadonlyConfig.fromMap(configMap);
+
+        CatalogTable table =
+                CatalogTableUtil.getCatalogTable(
+                        "test",
+                        new SeaTunnelRowType(
+                                new String[] {"data"},
+                                new SeaTunnelDataType[] {BasicType.STRING_TYPE}));
+
+        JsonPathTransform transform =
+                new JsonPathTransform(JsonPathTransformConfig.of(config, table), table);
+
+        CatalogTable outputTable = transform.getProducedCatalogTable();
+
+        SeaTunnelDataType<?> extractedBinaryType =
+                outputTable
+                        .getSeaTunnelRowType()
+                        .getFieldType(
+                                outputTable.getSeaTunnelRowType().indexOf("extracted_binary"));
+        Assertions.assertEquals(PrimitiveByteArrayType.INSTANCE, extractedBinaryType);
+
+        String jsonData = "{\"binary_field\": \"dGVzdCBkYXRh\"}";
+        SeaTunnelRow outputRow = transform.map(new SeaTunnelRow(new Object[] {jsonData}));
+
+        Assertions.assertNotNull(outputRow);
+        Object binaryValue =
+                outputRow.getField(outputTable.getSeaTunnelRowType().indexOf("extracted_binary"));
+        Assertions.assertNotNull(binaryValue);
+        Assertions.assertInstanceOf(byte[].class, binaryValue);
     }
 }
