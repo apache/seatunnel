@@ -131,7 +131,7 @@ public class FileBaseSourceOptions extends FileBaseOptions {
     public static final Option<String> QUOTE_CHAR =
             Options.key("quote_char")
                     .stringType()
-                    .noDefaultValue()
+                    .defaultValue("\"")
                     .withDescription(
                             "A single character that encloses CSV fields, allowing fields with commas, line breaks, or quotes to be read correctly.");
 

@@ -85,7 +85,7 @@ It only supports hadoop version **2.9.X+**.
 | common-options             |         | no       | -                           |
 | file_filter_modified_start | string  | no       | -                           | 
 | file_filter_modified_end   | string  | no       | -                           | 
-| quote_char                 | string  | no       | -                           | 
+| quote_char                 | string  | no       | "                           | 
 | escape_char                | string  | no       | -                           |
 
 ### path [string]

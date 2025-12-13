@@ -79,7 +79,7 @@ If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you
 | common-options              |         | no       | -                           |
 | file_filter_modified_start  | string  | no       | -                           | 
 | file_filter_modified_end    | string  | no       | -                           | 
-| quote_char                  | string  | no       | -                           |
+| quote_char                  | string  | no       | "                           |
 | escape_char                 | string  | no       | -                           |
 
 ### host [string]

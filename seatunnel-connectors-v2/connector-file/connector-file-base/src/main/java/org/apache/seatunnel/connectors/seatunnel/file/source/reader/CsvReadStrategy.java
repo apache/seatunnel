@@ -181,11 +181,9 @@ public class CsvReadStrategy extends AbstractReadStrategy {
                 CSVFormat.EXCEL.builder().setIgnoreEmptyLines(true).setDelimiter(getDelimiter());
         if (StringUtils.isNotEmpty(quoteChar)) {
             builder.setQuote(quoteChar.charAt(0));
-            if (StringUtils.isNotEmpty(escapeChar)) {
-                builder.setEscape(escapeChar.charAt(0));
-            } else {
-                builder.setEscape(quoteChar.charAt(0));
-            }
+        }
+        if (StringUtils.isNotEmpty(escapeChar)) {
+            builder.setEscape(escapeChar.charAt(0));
         }
         return builder.build();
     }

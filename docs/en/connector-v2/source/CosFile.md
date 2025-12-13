@@ -83,7 +83,7 @@ To use this connector you need put hadoop-cos-{hadoop.version}-{version}.jar and
 | common-options             |         | no       | -                           |
 | file_filter_modified_start | string  | no       | -                           | 
 | file_filter_modified_end   | string  | no       | -                           | 
-| quote_char                 | string  | no       | -                           |
+| quote_char                 | string  | no       | "                           |
 | escape_char                | string  | no       | -                           |
 
 ### path [string]

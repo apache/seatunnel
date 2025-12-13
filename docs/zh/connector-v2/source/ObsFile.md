@@ -78,7 +78,7 @@ import ChangeLog from '../changelog/connector-file-obs.md';
 | date_format               | string  | 否  | yyyy-MM-dd          | 日期类型格式                                  |
 | datetime_format           | string  | 否  | yyyy-MM-dd HH:mm:ss | 日期时间类型格式                                |
 | time_format               | string  | 否  | HH:mm:ss            | 时间类型格式                                  |
-| quote_char                | string  | 否  | -                   | 用于包裹 CSV 字段的单字符，可保证包含逗号、换行符或引号的字段被正确解析。 |
+| quote_char                | string  | 否  | "                   | 用于包裹 CSV 字段的单字符，可保证包含逗号、换行符或引号的字段被正确解析。 |
 | escape_char               | string  | 否  | -                   | 用于在 CSV 字段内转义引号或其他特殊字符，使其不会结束字段。        |
 
 

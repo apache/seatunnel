@@ -80,7 +80,7 @@ If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you
 | tables_configs             | list    | no       | used to define a multiple table task |
 | file_filter_modified_start | string  | no       | -                                    |
 | file_filter_modified_end   | string  | no       | -                                    | 
-| quote_char                 | string  | no       | -                                    |
+| quote_char                 | string  | no       | "                                    |
 | escape_char                | string  | no       | -                                    |
 ### path [string]
 
