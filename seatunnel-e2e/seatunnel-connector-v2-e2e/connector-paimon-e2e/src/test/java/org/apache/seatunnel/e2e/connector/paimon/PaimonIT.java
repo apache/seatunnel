@@ -22,6 +22,7 @@ import org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonBaseOptions
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
+import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.container.TestContainerId;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
@@ -29,14 +30,24 @@ import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 import org.apache.seatunnel.e2e.common.util.ContainerUtil;
 
 import org.apache.commons.collections.CollectionUtils;
+import org.apache.paimon.catalog.Catalog;
 import org.apache.paimon.catalog.CatalogContext;
 import org.apache.paimon.catalog.CatalogFactory;
 import org.apache.paimon.catalog.Identifier;
+import org.apache.paimon.data.InternalRow;
 import org.apache.paimon.fs.FileIO;
 import org.apache.paimon.fs.ResolvingFileIO;
+import org.apache.paimon.options.Options;
 import org.apache.paimon.privilege.FileBasedPrivilegeManagerLoader;
 import org.apache.paimon.privilege.PrivilegeType;
 import org.apache.paimon.privilege.PrivilegedCatalog;
+import org.apache.paimon.reader.RecordReader;
+import org.apache.paimon.reader.RecordReaderIterator;
+import org.apache.paimon.table.FileStoreTable;
+import org.apache.paimon.table.Table;
+import org.apache.paimon.table.source.ReadBuilder;
+import org.apache.paimon.table.source.TableRead;
+import org.apache.paimon.table.source.TableScan;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
@@ -63,6 +74,17 @@ public class PaimonIT extends TestSuiteBase implements TestResource {
     private PrivilegedCatalog privilegedCatalog;
     private final String DATABASE_NAME = "default";
     private final String TABLE_NAME = "st_test_p";
+
+    private static final String NAMESPACE = "paimon";
+    protected static String hostName = System.getProperty("user.name");
+    protected static final String CONTAINER_VOLUME_MOUNT_PATH = "/tmp/seatunnel_mnt";
+
+    protected static final boolean isWindows =
+            System.getProperties().getProperty("os.name").toUpperCase().contains("WINDOWS");
+    public static final String HOST_VOLUME_MOUNT_PATH =
+            isWindows
+                    ? String.format("C:/Users/%s/tmp/seatunnel_mnt", hostName)
+                    : CONTAINER_VOLUME_MOUNT_PATH;
 
     @TestContainerExtension
     private final ContainerExtendedFactory extendedFactory =
@@ -203,5 +225,64 @@ public class PaimonIT extends TestSuiteBase implements TestResource {
                         : "/tmp/seatunnel_mnt/paimon_tmp";
         List<File> files = FileUtils.listFile(tmpDir);
         Assertions.assertTrue(CollectionUtils.isEmpty(files));
+    }
+
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK, EngineType.FLINK},
+            disabledReason =
+                    "Spark and Flink engine can not auto create paimon table on worker node in local file(e.g flink tm) by savemode feature which can lead error")
+    @TestTemplate
+    public void testSinkBranch(TestContainer container) throws Exception {
+
+        String testBranchName = "test_branch";
+        FileStoreTable table = (FileStoreTable) getTable(DATABASE_NAME, TABLE_NAME);
+        List<String> branches = table.branchManager().branches();
+        if (!branches.contains(testBranchName)) {
+            table.createBranch(testBranchName);
+        }
+        Container.ExecResult textWriteResult = container.executeJob("/fake_to_paimon_branch.conf");
+        Assertions.assertEquals(0, textWriteResult.getExitCode());
+        long rowCount = getTableRowCount(table);
+        Assertions.assertEquals(0, rowCount);
+
+        FileStoreTable fileStoreTableWithBranch = table.switchToBranch(testBranchName);
+        rowCount = getTableRowCount(fileStoreTableWithBranch);
+        Assertions.assertEquals(10001, rowCount);
+    }
+
+    private Table getTable(String dbName, String tbName) {
+        Options options = new Options();
+        String warehouse =
+                String.format(
+                        "%s%s/%s", isWindows ? "" : "file://", HOST_VOLUME_MOUNT_PATH, NAMESPACE);
+        options.set("warehouse", warehouse);
+        try {
+            Catalog catalog = CatalogFactory.createCatalog(CatalogContext.create(options));
+            return catalog.getTable(Identifier.create(dbName, tbName));
+        } catch (Catalog.TableNotExistException e) {
+            throw new RuntimeException("table not exist");
+        }
+    }
+
+    private long getTableRowCount(FileStoreTable table) {
+        try {
+            ReadBuilder readBuilder = table.newReadBuilder();
+            TableScan.Plan plan = readBuilder.newScan().plan();
+            TableRead tableRead = readBuilder.newRead();
+
+            long count = 0;
+            try (RecordReader<InternalRow> reader = tableRead.createReader(plan);
+                    RecordReaderIterator<InternalRow> iterator =
+                            new RecordReaderIterator<>(reader)) {
+                while (iterator.hasNext()) {
+                    iterator.next();
+                    count++;
+                }
+            }
+            return count;
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to read data count from table", e);
+        }
     }
 }

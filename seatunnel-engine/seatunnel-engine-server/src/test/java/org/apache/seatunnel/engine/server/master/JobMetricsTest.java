@@ -148,7 +148,7 @@ class JobMetricsTest extends AbstractSeaTunnelServerTest {
                                         server.getCoordinatorService().getJobStatus(jobId3)));
 
         // check metrics
-        await().atMost(600000, TimeUnit.MILLISECONDS)
+        await().atMost(300000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () -> {
                             JobMetrics jobMetrics = coordinatorService.getJobMetrics(jobId3);

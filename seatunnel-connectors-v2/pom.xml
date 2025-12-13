@@ -44,12 +44,14 @@
         <module>connector-hive</module>
         <module>connector-file</module>
         <module>connector-hudi</module>
+        <module>connector-hugegraph</module>
         <module>connector-assert</module>
         <module>connector-kudu</module>
         <module>connector-email</module>
         <module>connector-dingtalk</module>
         <module>connector-elasticsearch</module>
         <module>connector-iotdb</module>
+        <module>connector-iotdb-v2</module>
         <module>connector-neo4j</module>
         <module>connector-redis</module>
         <module>connector-datahub</module>

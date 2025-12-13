@@ -29,6 +29,7 @@ import ChangeLog from '../changelog/connector-file-ftp.md';
   - [x] excel
   - [x] xml
   - [x] binary
+  - [x] markdown
 
 ## Description
 
@@ -76,8 +77,8 @@ If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you
 | binary_chunk_size           | int     | no       | 1024                        |
 | binary_complete_file_mode   | boolean | no       | false                       |
 | common-options              |         | no       | -                           |
-| file_filter_modified_start  | string  | no       | -                   | File modification time filter. The connector will filter some files base on the last modification start time (include start time). The default data format is `yyyy-MM-dd HH:mm:ss`.                                                                                                                                                       |
-| file_filter_modified_end    | string  | no       | -                   | File modification time filter. The connector will filter some files base on the last modification end time (not include end time). The default data format is `yyyy-MM-dd HH:mm:ss`.                                                                                                                                                |
+| file_filter_modified_start  | string  | no       | -                           | 
+| file_filter_modified_end    | string  | no       | -                           | 
 
 ### host [string]
 
@@ -105,12 +106,12 @@ Whether to enable remote host verification for FTP data channels, default is `tr
 
 ### file_filter_pattern [string]
 
-Filter pattern, which used for filtering files.
+Filter pattern, which used for filtering files.  If you only want to filter based on file names, simply write the regular file names; If you want to filter based on the file directory at the same time, the expression needs to start with `path`.
 
 The pattern follows standard regular expressions. For details, please refer to https://en.wikipedia.org/wiki/Regular_expression.
 There are some examples.
 
-File Structure Example:
+If the `path` is `/data/seatunnel`, and the file structure example is:
 
 ```
 /data/seatunnel/20241001/report.txt
@@ -125,7 +126,7 @@ Matching Rules Example:
 **Example 1**: *Match all .txt files*，Regular Expression:
 
 ```
-/data/seatunnel/20241001/.*\.txt
+.*.txt
 ```
 
 The result of this example matching is:
@@ -137,7 +138,7 @@ The result of this example matching is:
 **Example 2**: *Match all file starting with abc*，Regular Expression:
 
 ```
-/data/seatunnel/20241002/abc.*
+abc.*
 ```
 
 The result of this example matching is:
@@ -146,8 +147,7 @@ The result of this example matching is:
 /data/seatunnel/20241007/abch202410.csv
 /data/seatunnel/20241002/abcg202410.csv
 ```
-
-**Example 3**: *Match all file starting with abc，And the fourth character is either h or g*, the Regular Expression:
+**Example 3**: *Match all files starting with abc in folder 20241007，And the fourth character is either h or g*, the Regular Expression:
 
 ```
 /data/seatunnel/20241007/abc[h,g].*
@@ -162,7 +162,7 @@ The result of this example matching is:
 **Example 4**: *Match third level folders starting with 202410 and files ending with .csv*, the Regular Expression:
 
 ```
-/data/seatunnel/202410\d*/.*\.csv
+/data/seatunnel/202410\d*/.*.csv
 ```
 
 The result of this example matching is:
@@ -259,11 +259,34 @@ such as compressed packages, pictures, etc. In short, any files can be synchroni
 Under this requirement, you need to ensure that the source and sink use `binary` format for file synchronization
 at the same time. You can find the specific usage in the example below.
 
+If you assign file type to `markdown`, SeaTunnel can parse markdown files and extract structured data.
+The markdown parser extracts various elements including headings, paragraphs, lists, code blocks, tables, and more.
+Each element is converted to a row with the following schema:
+- `element_id`: Unique identifier for the element
+- `element_type`: Type of the element (Heading, Paragraph, ListItem, etc.)
+- `heading_level`: Level of heading (1-6, null for non-heading elements)
+- `text`: Text content of the element
+- `page_number`: Page number (default: 1)
+- `position_index`: Position index within the document
+- `parent_id`: ID of the parent element
+- `child_ids`: Comma-separated list of child element IDs
+
+Note: Markdown format only supports reading, not writing.
+
 ### connection_mode [string]
 
 The target ftp connection mode , default is active mode, supported as the following modes:
 
 `active_local` `passive_local`
+
+### control_encoding [string]
+
+Character encoding for FTP control connection. Default is `UTF-8`.
+
+When file paths contain special characters (such as `$`, spaces, Chinese characters, etc.),
+this should be set to `UTF-8` to ensure paths can be parsed correctly.
+
+For example: `/data/whale_ops/share/$Fund-Product/DA - SANY （三一）/Daily/2025.08.18/file.xlsx`
 
 ### delimiter/field_delimiter [string]
 
@@ -408,6 +431,14 @@ The chunk size (in bytes) for reading binary files. Default is 1024 bytes. Large
 Only used when file_format_type is binary.
 
 Whether to read the complete file as a single chunk instead of splitting into chunks. When enabled, the entire file content will be read into memory at once. Default is false.
+
+### file_filter_modified_start [string]
+
+File modification time filter. The connector will filter some files base on the last modification start time (include start time). The default data format is `yyyy-MM-dd HH:mm:ss`.
+
+### file_filter_modified_end [string]
+
+File modification time filter. The connector will filter some files base on the last modification end time (not include end time). The default data format is `yyyy-MM-dd HH:mm:ss`.
 
 ### common options
 

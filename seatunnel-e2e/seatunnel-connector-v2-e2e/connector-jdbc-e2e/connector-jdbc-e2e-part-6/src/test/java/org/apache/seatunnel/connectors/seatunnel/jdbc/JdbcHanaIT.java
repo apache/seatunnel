@@ -19,6 +19,7 @@
 package org.apache.seatunnel.connectors.seatunnel.jdbc;
 
 import org.apache.seatunnel.shade.com.google.common.collect.Lists;
+import org.apache.seatunnel.shade.org.apache.commons.lang3.tuple.Pair;
 
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
@@ -27,8 +28,6 @@ import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.utils.CatalogUtils;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.saphana.SapHanaTypeMapper;
-
-import org.apache.commons.lang3.tuple.Pair;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -283,6 +282,21 @@ public class JdbcHanaIT extends AbstractJdbcIT {
                         connection, TablePath.of(SOURCE_TABLE), new SapHanaTypeMapper());
         List<String> columnNames = catalogTable.getTableSchema().getPrimaryKey().getColumnNames();
         Assertions.assertEquals(1, columnNames.size());
+        Assertions.assertEquals(25, catalogTable.getTableSchema().getColumns().size());
+    }
+
+    @SneakyThrows
+    @Test
+    public void testCatalogWithQuery() {
+        String query =
+                String.format("SELECT * FROM %s", buildTableInfoWithSchema(DATABASE, SOURCE_TABLE));
+
+        CatalogTable catalogTable =
+                CatalogUtils.getCatalogTable(connection, query, new SapHanaTypeMapper());
+
+        Assertions.assertNotNull(catalogTable.getTableSchema().getPrimaryKey());
+        Assertions.assertEquals(
+                1, catalogTable.getTableSchema().getPrimaryKey().getColumnNames().size());
         Assertions.assertEquals(25, catalogTable.getTableSchema().getColumns().size());
     }
 }

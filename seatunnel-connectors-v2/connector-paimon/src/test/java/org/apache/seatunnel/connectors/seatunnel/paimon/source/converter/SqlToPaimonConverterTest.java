@@ -49,12 +49,14 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.Arrays;
+import java.util.Map;
 
 import static org.apache.seatunnel.connectors.seatunnel.paimon.source.converter.SqlToPaimonPredicateConverter.convertToPlainSelect;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class SqlToPaimonConverterTest {
 
@@ -291,5 +293,29 @@ public class SqlToPaimonConverterTest {
         expectedPredicate = PredicateBuilder.or(builder.contains(1, "es"));
 
         assertEquals(expectedPredicate.toString(), predicate.toString());
+    }
+
+    @Test
+    public void testParseDynamicOptions() {
+        String query =
+                "SELECT * FROM table /*+ OPTIONS('incremental-between-timestamp' = '2025-03-12 00:00:00,2025-03-12 00:08:00') */ WHERE int_col > 3 OR double_col < 6.6 ";
+        Map<String, String> dynamicOptions =
+                SqlToPaimonPredicateConverter.parseDynamicOptions(query);
+        assertEquals(1, dynamicOptions.size());
+        assertTrue(dynamicOptions.containsKey("incremental-between-timestamp"));
+        assertEquals(
+                "2025-03-12 00:00:00,2025-03-12 00:08:00",
+                dynamicOptions.get("incremental-between-timestamp"));
+
+        query =
+                "SELECT * FROM table /*+ OPTIONS('incremental-between-timestamp' = '2025-03-12 00:00:00,2025-03-12 00:08:00', 'scan.tag-name' = 'my-tag') */ WHERE int_col > 3 OR double_col < 6.6 ";
+        dynamicOptions = SqlToPaimonPredicateConverter.parseDynamicOptions(query);
+        assertEquals(2, dynamicOptions.size());
+        assertTrue(dynamicOptions.containsKey("incremental-between-timestamp"));
+        assertTrue(dynamicOptions.containsKey("scan.tag-name"));
+        assertEquals(
+                "2025-03-12 00:00:00,2025-03-12 00:08:00",
+                dynamicOptions.get("incremental-between-timestamp"));
+        assertEquals("my-tag", dynamicOptions.get("scan.tag-name"));
     }
 }

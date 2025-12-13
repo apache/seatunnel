@@ -40,7 +40,7 @@ docker run --rm -it -v /tmp/job/:/config apache/seatunnel:<version_tag> ./bin/se
 ```shell
 cd seatunnel
 # Use already sett maven profile
-mvn -B clean install -Dmaven.test.skip=true -Dmaven.javadoc.skip=true -Dlicense.skipAddThirdParty=true -D"docker.build.skip"=false -D"docker.verify.skip"=false -D"docker.push.skip"=true -D"docker.tag"=2.3.12 -Dmaven.deploy.skip -D"skip.spotless"=true --no-snapshot-updates -Pdocker,seatunnel
+mvn -B clean install -Dmaven.test.skip=true -Dmaven.javadoc.skip=true -Dlicense.skipAddThirdParty=true -D"docker.build.skip"=false -D"docker.verify.skip"=false -D"docker.push.skip"=true -D"docker.tag"=2.3.13 -Dmaven.deploy.skip -D"skip.spotless"=true --no-snapshot-updates -Pdocker,seatunnel
 
 # Check the docker image
 docker images | grep apache/seatunnel
@@ -53,10 +53,10 @@ mvn clean package -DskipTests -Dskip.spotless=true
 
 # Build docker image
 cd seatunnel-dist
-docker build -f src/main/docker/Dockerfile --build-arg VERSION=2.3.12 -t apache/seatunnel:2.3.12 .
+docker build -f src/main/docker/Dockerfile --build-arg VERSION=2.3.13 -t apache/seatunnel:2.3.13 .
 
 # If you build from dev branch, you should add SNAPSHOT suffix to the version
-docker build -f src/main/docker/Dockerfile --build-arg VERSION=2.3.12-SNAPSHOT -t apache/seatunnel:2.3.12-SNAPSHOT .
+docker build -f src/main/docker/Dockerfile --build-arg VERSION=2.3.13-SNAPSHOT -t apache/seatunnel:2.3.13-SNAPSHOT .
 
 # Check the docker image
 docker images | grep apache/seatunnel
@@ -282,7 +282,7 @@ networks:
 运行 `docker-compose up`命令来启动集群，该配置会启动一个master节点，2个worker节点
 
 
-启动完成后，可以运行`docker logs -f seatunne_master`, `docker logs -f seatunnel_worker_1`来查看节点的日志  
+启动完成后，可以运行`docker logs -f seatunnel_master`, `docker logs -f seatunnel_worker_1`来查看节点的日志  
 当你访问`http://localhost:5801/hazelcast/rest/maps/system-monitoring-information` 时，可以看到集群的状态为1个master节点，2个worker节点.
 
 #### 集群扩容

@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.common.utils;
 
-import org.apache.commons.lang3.StringUtils;
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
 import lombok.Data;
 

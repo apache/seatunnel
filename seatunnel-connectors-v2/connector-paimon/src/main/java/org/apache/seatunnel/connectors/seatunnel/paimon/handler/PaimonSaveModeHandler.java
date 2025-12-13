@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.paimon.handler;
 
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
+
 import org.apache.seatunnel.api.sink.DataSaveMode;
 import org.apache.seatunnel.api.sink.DefaultSaveModeHandler;
 import org.apache.seatunnel.api.sink.SchemaSaveMode;
@@ -26,6 +28,7 @@ import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.connectors.seatunnel.paimon.catalog.PaimonCatalog;
 import org.apache.seatunnel.connectors.seatunnel.paimon.sink.SupportLoadTable;
 
+import org.apache.paimon.table.FileStoreTable;
 import org.apache.paimon.table.Table;
 
 public class PaimonSaveModeHandler extends DefaultSaveModeHandler {
@@ -33,6 +36,7 @@ public class PaimonSaveModeHandler extends DefaultSaveModeHandler {
     private SupportLoadTable<Table> supportLoadTable;
     private Catalog catalog;
     private CatalogTable catalogTable;
+    private String branch;
 
     public PaimonSaveModeHandler(
             SupportLoadTable supportLoadTable,
@@ -40,11 +44,13 @@ public class PaimonSaveModeHandler extends DefaultSaveModeHandler {
             DataSaveMode dataSaveMode,
             Catalog catalog,
             CatalogTable catalogTable,
-            String customSql) {
+            String customSql,
+            String branch) {
         super(schemaSaveMode, dataSaveMode, catalog, catalogTable, customSql);
         this.supportLoadTable = supportLoadTable;
         this.catalog = catalog;
         this.catalogTable = catalogTable;
+        this.branch = branch;
     }
 
     @Override
@@ -52,9 +58,11 @@ public class PaimonSaveModeHandler extends DefaultSaveModeHandler {
         super.handleSchemaSaveMode();
         TablePath tablePath = catalogTable.getTablePath();
         Table paimonTable = ((PaimonCatalog) catalog).getPaimonTable(tablePath);
-        // load paimon table and set it into paimon sink
         Table loadTable = this.supportLoadTable.getLoadTable();
         if (loadTable == null || this.schemaSaveMode == SchemaSaveMode.RECREATE_SCHEMA) {
+            if (StringUtils.isNotEmpty(branch)) {
+                paimonTable = ((FileStoreTable) paimonTable).switchToBranch(branch);
+            }
             this.supportLoadTable.setLoadTable(paimonTable);
         }
     }

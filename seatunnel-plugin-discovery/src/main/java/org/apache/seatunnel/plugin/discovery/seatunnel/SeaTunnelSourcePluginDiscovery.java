@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.plugin.discovery.seatunnel;
 
+import org.apache.seatunnel.shade.org.apache.commons.lang3.tuple.ImmutableTriple;
+
 import org.apache.seatunnel.api.common.PluginIdentifier;
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
@@ -25,8 +27,6 @@ import org.apache.seatunnel.api.table.factory.FactoryUtil;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.plugin.discovery.AbstractPluginDiscovery;
-
-import org.apache.commons.lang3.tuple.ImmutableTriple;
 
 import java.net.URL;
 import java.util.LinkedHashMap;

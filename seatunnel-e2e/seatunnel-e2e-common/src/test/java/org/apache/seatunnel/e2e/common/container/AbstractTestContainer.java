@@ -17,9 +17,9 @@
 
 package org.apache.seatunnel.e2e.common.container;
 
-import org.apache.seatunnel.e2e.common.util.ContainerUtil;
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
-import org.apache.commons.lang3.StringUtils;
+import org.apache.seatunnel.e2e.common.util.ContainerUtil;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

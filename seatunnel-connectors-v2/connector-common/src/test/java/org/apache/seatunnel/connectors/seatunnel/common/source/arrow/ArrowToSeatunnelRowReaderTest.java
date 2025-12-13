@@ -393,11 +393,15 @@ public class ArrowToSeatunnelRowReaderTest {
                     Collections.singletonList(localDateTime.toLocalDate()), actualDate2Data);
             // check array int
             List<Object> actualArrayIntData =
-                    rows.stream().map(s -> s.getField(16)).collect(Collectors.toList());
+                    rows.stream()
+                            .map(s -> Arrays.asList((Integer[]) s.getField(16)))
+                            .collect(Collectors.toList());
             Assertions.assertIterableEquals(arrayData1, actualArrayIntData);
             // check array timestamp
             List<Object> actualArrayTimestampData =
-                    rows.stream().map(s -> s.getField(17)).collect(Collectors.toList());
+                    rows.stream()
+                            .map(s -> Arrays.asList((LocalDateTime[]) s.getField(17)))
+                            .collect(Collectors.toList());
             Assertions.assertIterableEquals(arrayData2, actualArrayTimestampData);
             // check SECOND timestamp without timezone
             List<Object> actualTimestampSecData =

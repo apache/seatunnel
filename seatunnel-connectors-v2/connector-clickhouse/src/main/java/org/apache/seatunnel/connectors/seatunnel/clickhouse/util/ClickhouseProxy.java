@@ -178,7 +178,7 @@ public class ClickhouseProxy implements AutoCloseable {
     }
 
     public List<ClickHouseColumn> getClickHouseColumns(String table) {
-        String sql = "desc " + table;
+        String sql = "SELECT * FROM " + table + " WHERE 1 = 0";
         try (ClickHouseResponse response = this.clickhouseRequest.query(sql).executeAndWait()) {
             return response.getColumns();
 

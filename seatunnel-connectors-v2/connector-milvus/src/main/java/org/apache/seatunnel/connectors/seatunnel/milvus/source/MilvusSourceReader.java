@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.milvus.source;
 
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
+
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.Collector;
@@ -30,8 +32,6 @@ import org.apache.seatunnel.connectors.seatunnel.milvus.config.MilvusSourceOptio
 import org.apache.seatunnel.connectors.seatunnel.milvus.exception.MilvusConnectionErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.milvus.exception.MilvusConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.milvus.utils.source.MilvusSourceConverter;
-
-import org.apache.commons.lang3.StringUtils;
 
 import io.milvus.client.MilvusServiceClient;
 import io.milvus.grpc.GetLoadStateResponse;

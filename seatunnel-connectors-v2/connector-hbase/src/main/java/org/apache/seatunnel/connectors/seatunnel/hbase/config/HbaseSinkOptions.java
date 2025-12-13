@@ -23,7 +23,6 @@ import org.apache.seatunnel.api.sink.DataSaveMode;
 import org.apache.seatunnel.api.sink.SchemaSaveMode;
 
 import java.util.Arrays;
-import java.util.List;
 import java.util.Map;
 
 import static org.apache.seatunnel.api.sink.DataSaveMode.APPEND_DATA;
@@ -32,13 +31,13 @@ import static org.apache.seatunnel.api.sink.DataSaveMode.ERROR_WHEN_DATA_EXISTS;
 
 public class HbaseSinkOptions extends HbaseBaseOptions {
 
-    public static final Option<List<String>> ROWKEY_COLUMNS =
-            Options.key("rowkey_column")
-                    .listType()
-                    .noDefaultValue()
-                    .withDescription("Hbase rowkey column");
-
     private static final Integer DEFAULT_BUFFER_SIZE = 8 * 1024 * 1024;
+
+    public static final Option<Map<String, String>> FAMILY_NAME =
+            Options.key("family_name")
+                    .mapType()
+                    .noDefaultValue()
+                    .withDescription("Hbase column family name");
 
     public static final Option<String> ROWKEY_DELIMITER =
             Options.key("rowkey_delimiter")
@@ -77,45 +76,12 @@ public class HbaseSinkOptions extends HbaseBaseOptions {
                     .defaultValue(EnCoding.UTF8)
                     .withDescription("Hbase record encoding");
 
-    public static final Option<Map<String, String>> FAMILY_NAME =
-            Options.key("family_name")
-                    .mapType()
-                    .noDefaultValue()
-                    .withDescription("Hbase column family name");
-
-    public static final Option<Map<String, String>> HBASE_EXTRA_CONFIG =
-            Options.key("hbase_extra_config")
-                    .mapType()
-                    .noDefaultValue()
-                    .withDescription("Hbase extra config");
-
     public static final Option<Long> HBASE_TTL_CONFIG =
             Options.key("ttl")
                     .longType()
                     .defaultValue(-1L)
                     .withDescription(
                             "The expiration time configuration for writing hbase data. The default value is -1, indicating no expiration time.");
-
-    public static final Option<Boolean> HBASE_CACHE_BLOCKS_CONFIG =
-            Options.key("cache_blocks")
-                    .booleanType()
-                    .defaultValue(false)
-                    .withDescription(
-                            "When it is false, data blocks are not cached. When it is true, data blocks are cached. This value should be set to false when scanning a large amount of data to reduce memory consumption. The default value is false");
-
-    public static final Option<Integer> HBASE_CACHING_CONFIG =
-            Options.key("caching")
-                    .intType()
-                    .defaultValue(-1)
-                    .withDescription(
-                            "Set the number of rows read from the server each time can reduce the number of round trips between the client and the server, thereby improving performance. The default value is -1.");
-
-    public static final Option<Integer> HBASE_BATCH_CONFIG =
-            Options.key("batch")
-                    .intType()
-                    .defaultValue(-1)
-                    .withDescription(
-                            "Set the batch size to control the maximum number of cells returned each time, thereby controlling the amount of data returned by a single RPC call. The default value is -1.");
 
     public static final Option<SchemaSaveMode> SCHEMA_SAVE_MODE =
             Options.key("schema_save_mode")

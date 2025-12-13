@@ -57,8 +57,6 @@
                             <commandlineArgs>${args.rm.clean} ${dist.dir} ${nodemodules.dir} ${deployed.dir}</commandlineArgs>
                             <successCodes>
                                 <successCode>0</successCode>
-                                <successCode>1</successCode>
-                                <successCode>2</successCode>
                             </successCodes>
                         </configuration>
                     </execution>
@@ -126,7 +124,9 @@
                 <executable.npm>cmd</executable.npm>
                 <args.npm>/C npm</args.npm>
                 <executable.rmdir>cmd</executable.rmdir>
-                <args.rm.clean>/C rmdir /S /Q</args.rm.clean>
+                <args.rm.clean>/C if exist "${dist.dir}" rmdir /S /Q "${dist.dir}" &amp;
+                    if exist "${nodemodules.dir}" rmdir /S /Q "${nodemodules.dir}" &amp;
+                    if exist "${deployed.dir}" rmdir /S /Q "${deployed.dir}"</args.rm.clean>
                 <executable.shell>cmd</executable.shell>
                 <fileextension.shell>cmd</fileextension.shell>
                 <args.shell>/C</args.shell>
@@ -151,7 +151,7 @@
                 <executable.npm>npm</executable.npm>
                 <args.npm />
                 <executable.rmdir>rm</executable.rmdir>
-                <args.rm.clean>-rf</args.rm.clean>
+                <args.rm.clean>-rf ${dist.dir} ${nodemodules.dir} ${deployed.dir}</args.rm.clean>
                 <executable.shell>sh</executable.shell>
                 <fileextension.shell>sh</fileextension.shell>
                 <args.shell />

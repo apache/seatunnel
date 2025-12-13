@@ -34,6 +34,7 @@ import ChangeLog from '../changelog/connector-file-s3.md';
     - [x] excel
     - [x] xml
     - [x] binary
+    - [x] markdown
 
 ## 描述
 
@@ -191,13 +192,13 @@ schema {
 | 名称                              | 类型      | 是否必需 | 默认值                                                   | 描述                                                                                                                                                                                                                                                                                                                    |
 |---------------------------------|---------|------|-------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | path                            | string  | 是    | -                                                     | 需要读取的s3路径，可以有子路径，但子路径需要满足一定的格式要求。具体要求可以参考"parse_partition_from_path"选项                                                                                                                                                                                                                                                |
-| file_format_type                | string  | 是    | -                                                     | 文件类型，支持以下文件类型：`text` `csv` `parquet` `orc` `json` `excel` `xml` `binary`                                                                                                                                                                                                                                              |
+| file_format_type                | string  | 是    | -                                                     | 文件类型，支持以下文件类型：`text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `markdown`                                                                                                                                                                                                                                   |
 | bucket                          | string  | 是    | -                                                     | s3文件系统的bucket地址，例如：`s3n://seatunnel-test`，如果您使用`s3a`协议，此参数应为`s3a://seatunnel-test`。                                                                                                                                                                                                                                   |
 | fs.s3a.endpoint                 | string  | 是    | -                                                     | fs s3a端点                                                                                                                                                                                                                                                                                                              |
 | fs.s3a.aws.credentials.provider | string  | 是    | com.amazonaws.auth.InstanceProfileCredentialsProvider | s3a的认证方式。我们目前只支持`org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider`和`com.amazonaws.auth.InstanceProfileCredentialsProvider`。有关凭据提供程序的更多信息，您可以查看[Hadoop AWS文档](https://hadoop.apache.org/docs/stable/hadoop-aws/tools/hadoop-aws/index.html#Simple_name.2Fsecret_credentials_with_SimpleAWSCredentialsProvider.2A) |
 | read_columns                    | list    | 否    | -                                                     | 数据源的读取列列表，用户可以使用它来实现字段投影。支持列投影的文件类型如下所示：`text` `csv` `parquet` `orc` `json` `excel` `xml`。如果用户想在读取`text` `json` `csv`文件时使用此功能，必须配置"schema"选项。                                                                                                                                                                         |
 | access_key                      | string  | 否    | -                                                     | 仅在`fs.s3a.aws.credentials.provider = org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider`时使用                                                                                                                                                                                                                        |
-| access_secret                   | string  | 否    | -                                                     | 仅在`fs.s3a.aws.credentials.provider = org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider`时使用                                                                                                                                                                                                                        |
+| secret_key                      | string  | 否    | -                                                     | 仅在`fs.s3a.aws.credentials.provider = org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider`时使用                                                                                                                                                                                                                        |
 | hadoop_s3_properties            | map     | 否    | -                                                     | 如果您需要添加其他选项，可以在此处添加并参考此[链接](https://hadoop.apache.org/docs/stable/hadoop-aws/tools/hadoop-aws/index.html)                                                                                                                                                                                                             |
 | delimiter/field_delimiter       | string  | 否    | \001                                                  | 字段分隔符，用于告诉连接器在读取文本文件时如何切分字段。默认`\001`，与hive的默认分隔符相同。                                                                                                                                                                                                                                                                   |
 | row_delimiter                   | string  | 否    | \n                                                    | 行分隔符，用于告诉连接器在读取文本文件时如何切分行。默认`\n`。                                                                                                                                                                                                                                                                                     |                                                                                                                                                                                                                                                                               |
@@ -235,12 +236,12 @@ schema {
 
 ### file_filter_pattern [string]
 
-过滤模式，用于过滤文件。
+文件过滤模式，用于过滤文件。若只想根据文件名称筛选，则直接写文件名称的正则；若同时想根据文件目录进行过滤，则表达式以`path`起始。
 
 该模式遵循标准正则表达式。详情请参考 https://en.wikipedia.org/wiki/Regular_expression。
 以下是一些示例。
 
-文件结构示例：
+若`path`为`/data/seatunnel`,且文件结构示例：
 ```
 /data/seatunnel/20241001/report.txt
 /data/seatunnel/20241007/abch202410.csv
@@ -252,7 +253,7 @@ schema {
 
 **示例1**：*匹配所有.txt文件*，正则表达式：
 ```
-/data/seatunnel/20241001/.*\.txt
+.*.txt
 ```
 此示例匹配的结果是：
 ```
@@ -260,14 +261,14 @@ schema {
 ```
 **示例2**：*匹配所有以abc开头的文件*，正则表达式：
 ```
-/data/seatunnel/20241002/abc.*
+abc.*
 ```
 此示例匹配的结果是：
 ```
 /data/seatunnel/20241007/abch202410.csv
 /data/seatunnel/20241002/abcg202410.csv
 ```
-**示例3**：*匹配所有以abc开头，且第四个字符是h或g的文件*，正则表达式：
+**示例3**：*匹配20241007文件夹下所有以 abc 开头的文件，且第四个字符为 h 或 g*，正则表达式：
 ```
 /data/seatunnel/20241007/abc[h,g].*
 ```
@@ -277,7 +278,7 @@ schema {
 ```
 **示例4**：*匹配以202410开头的第三级文件夹和以.csv结尾的文件*，正则表达式：
 ```
-/data/seatunnel/202410\d*/.*\.csv
+/data/seatunnel/202410\d*/.*.csv
 ```
 此示例匹配的结果是：
 ```
@@ -326,6 +327,26 @@ schema {
 仅在file_format_type为binary时使用。
 
 是否将完整文件作为单个块读取，而不是分割成块。启用时，整个文件内容将一次性读入内存。默认为false。
+
+### file_format_type [string]
+
+文件类型，支持以下文件类型：
+
+`text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `markdown`
+
+如果您将文件类型指定为 `markdown`，SeaTunnel 可以解析 markdown 文件并提取结构化数据。
+markdown 解析器提取各种元素，包括标题、段落、列表、代码块、表格等。
+每个元素都转换为具有以下架构的行：
+- `element_id`：元素的唯一标识符
+- `element_type`：元素类型（Heading、Paragraph、ListItem 等）
+- `heading_level`：标题级别（1-6，非标题元素为 null）
+- `text`：元素的文本内容
+- `page_number`：页码（默认：1）
+- `position_index`：文档中的位置索引
+- `parent_id`：父元素的 ID
+- `child_ids`：子元素 ID 的逗号分隔列表
+
+注意：Markdown 格式仅支持读取，不支持写入。
 
 ## 示例
 

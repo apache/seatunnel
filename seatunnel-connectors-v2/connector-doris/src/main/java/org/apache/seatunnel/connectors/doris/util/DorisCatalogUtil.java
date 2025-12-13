@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.doris.util;
 
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
+
 import org.apache.seatunnel.api.sink.SaveModePlaceHolder;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
@@ -27,8 +29,6 @@ import org.apache.seatunnel.api.table.converter.TypeConverter;
 import org.apache.seatunnel.connectors.doris.config.DorisSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.common.sql.template.SqlTemplate;
 import org.apache.seatunnel.connectors.seatunnel.common.util.CreateTableParser;
-
-import org.apache.commons.lang3.StringUtils;
 
 import lombok.extern.slf4j.Slf4j;
 

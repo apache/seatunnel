@@ -34,6 +34,7 @@ import ChangeLog from '../changelog/connector-file-cos.md';
   - [x] excel
   - [x] xml
   - [x] binary
+  - [x] markdown
 
 ## Description
 
@@ -51,37 +52,37 @@ To use this connector you need put hadoop-cos-{hadoop.version}-{version}.jar and
 
 ## Options
 
-| name                      | type    | required | default value               |
-|---------------------------|---------|----------|-----------------------------|
-| path                      | string  | yes      | -                           |
-| file_format_type          | string  | yes      | -                           |
-| bucket                    | string  | yes      | -                           |
-| secret_id                 | string  | yes      | -                           |
-| secret_key                | string  | yes      | -                           |
-| region                    | string  | yes      | -                           |
-| read_columns              | list    | yes      | -                           |
-| delimiter/field_delimiter | string  | no       | \001 for text and , for csv |
-| row_delimiter             | string  | no       | \n                          |
-| parse_partition_from_path | boolean | no       | true                        |
-| skip_header_row_number    | long    | no       | 0                           |
-| date_format               | string  | no       | yyyy-MM-dd                  |
-| datetime_format           | string  | no       | yyyy-MM-dd HH:mm:ss         |
-| time_format               | string  | no       | HH:mm:ss                    |
-| schema                    | config  | no       | -                           |
-| sheet_name                | string  | no       | -                           |
-| xml_row_tag               | string  | no       | -                           |
-| xml_use_attr_format       | boolean | no       | -                           |
-| csv_use_header_line       | boolean | no       | false                       |
-| file_filter_pattern       | string  | no       | -                           |
-| filename_extension        | string  | no       | -                           |
-| compress_codec            | string  | no       | none                        |
-| archive_compress_codec    | string  | no       | none                        |
-| encoding                  | string  | no       | UTF-8                       |
-| binary_chunk_size         | int     | no       | 1024                        |
-| binary_complete_file_mode | boolean | no       | false                       |
-| common-options            |         | no       | -                           |
-| file_filter_modified_start | string  | no       | -                   | File modification time filter. The connector will filter some files base on the last modification start time (include start time). The default data format is `yyyy-MM-dd HH:mm:ss`.                                                                                                                                                       |
-| file_filter_modified_end   | string  | no       | -                   | File modification time filter. The connector will filter some files base on the last modification end time (not include end time). The default data format is `yyyy-MM-dd HH:mm:ss`.                                                                                                                                                |
+| name                       | type    | required | default value               |
+|----------------------------|---------|----------|-----------------------------|
+| path                       | string  | yes      | -                           |
+| file_format_type           | string  | yes      | -                           |
+| bucket                     | string  | yes      | -                           |
+| secret_id                  | string  | yes      | -                           |
+| secret_key                 | string  | yes      | -                           |
+| region                     | string  | yes      | -                           |
+| read_columns               | list    | yes      | -                           |
+| delimiter/field_delimiter  | string  | no       | \001 for text and , for csv |
+| row_delimiter              | string  | no       | \n                          |
+| parse_partition_from_path  | boolean | no       | true                        |
+| skip_header_row_number     | long    | no       | 0                           |
+| date_format                | string  | no       | yyyy-MM-dd                  |
+| datetime_format            | string  | no       | yyyy-MM-dd HH:mm:ss         |
+| time_format                | string  | no       | HH:mm:ss                    |
+| schema                     | config  | no       | -                           |
+| sheet_name                 | string  | no       | -                           |
+| xml_row_tag                | string  | no       | -                           |
+| xml_use_attr_format        | boolean | no       | -                           |
+| csv_use_header_line        | boolean | no       | false                       |
+| file_filter_pattern        | string  | no       | -                           |
+| filename_extension         | string  | no       | -                           |
+| compress_codec             | string  | no       | none                        |
+| archive_compress_codec     | string  | no       | none                        |
+| encoding                   | string  | no       | UTF-8                       |
+| binary_chunk_size          | int     | no       | 1024                        |
+| binary_complete_file_mode  | boolean | no       | false                       |
+| common-options             |         | no       | -                           |
+| file_filter_modified_start | string  | no       | -                           | 
+| file_filter_modified_end   | string  | no       | -                           | 
 
 ### path [string]
 
@@ -91,7 +92,7 @@ The source file path.
 
 File type, supported as the following file types:
 
-`text` `csv` `parquet` `orc` `json` `excel` `xml` `binary`
+`text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `markdown`
 
 If you assign file type to `json`, you should also assign schema option to tell connector how to parse data to the row you want.
 
@@ -179,6 +180,20 @@ If you assign file type to `binary`, SeaTunnel can synchronize files in any form
 such as compressed packages, pictures, etc. In short, any files can be synchronized to the target place.
 Under this requirement, you need to ensure that the source and sink use `binary` format for file synchronization
 at the same time. You can find the specific usage in the example below.
+
+If you assign file type to `markdown`, SeaTunnel can parse markdown files and extract structured data.
+The markdown parser extracts various elements including headings, paragraphs, lists, code blocks, tables, and more.
+Each element is converted to a row with the following schema:
+- `element_id`: Unique identifier for the element
+- `element_type`: Type of the element (Heading, Paragraph, ListItem, etc.)
+- `heading_level`: Level of heading (1-6, null for non-heading elements)
+- `text`: Text content of the element
+- `page_number`: Page number (default: 1)
+- `position_index`: Position index within the document
+- `parent_id`: ID of the parent element
+- `child_ids`: Comma-separated list of child element IDs
+
+Note: Markdown format only supports reading, not writing.
 
 ### bucket [string]
 
@@ -298,12 +313,12 @@ Whether to use the header line to parse the file, only used when the file_format
 
 ### file_filter_pattern [string]
 
-Filter pattern, which used for filtering files.
+Filter pattern, which used for filtering files.  If you only want to filter based on file names, simply write the regular file names; If you want to filter based on the file directory at the same time, the expression needs to start with `path`.
 
 The pattern follows standard regular expressions. For details, please refer to https://en.wikipedia.org/wiki/Regular_expression.
 There are some examples.
 
-File Structure Example:
+If the `path` is `/data/seatunnel`, and the file structure example is:
 ```
 /data/seatunnel/20241001/report.txt
 /data/seatunnel/20241007/abch202410.csv
@@ -315,7 +330,7 @@ Matching Rules Example:
 
 **Example 1**: *Match all .txt files*，Regular Expression:
 ```
-/data/seatunnel/20241001/.*\.txt
+.*.txt
 ```
 The result of this example matching is:
 ```
@@ -323,14 +338,14 @@ The result of this example matching is:
 ```
 **Example 2**: *Match all file starting with abc*，Regular Expression:
 ```
-/data/seatunnel/20241002/abc.*
+abc.*
 ```
 The result of this example matching is:
 ```
 /data/seatunnel/20241007/abch202410.csv
 /data/seatunnel/20241002/abcg202410.csv
 ```
-**Example 3**: *Match all file starting with abc，And the fourth character is either h or g*, the Regular Expression:
+**Example 3**: *Match all files starting with abc in folder 20241007，And the fourth character is either h or g*, the Regular Expression:
 ```
 /data/seatunnel/20241007/abc[h,g].*
 ```
@@ -340,7 +355,7 @@ The result of this example matching is:
 ```
 **Example 4**: *Match third level folders starting with 202410 and files ending with .csv*, the Regular Expression:
 ```
-/data/seatunnel/202410\d*/.*\.csv
+/data/seatunnel/202410\d*/.*.csv
 ```
 The result of this example matching is:
 ```
@@ -393,6 +408,14 @@ The chunk size (in bytes) for reading binary files. Default is 1024 bytes. Large
 Only used when file_format_type is binary.
 
 Whether to read the complete file as a single chunk instead of splitting into chunks. When enabled, the entire file content will be read into memory at once. Default is false.
+
+### file_filter_modified_start [string]
+
+File modification time filter. The connector will filter some files base on the last modification start time (include start time). The default data format is `yyyy-MM-dd HH:mm:ss`.
+
+### file_filter_modified_end [string]
+
+File modification time filter. The connector will filter some files base on the last modification end time (not include end time). The default data format is `yyyy-MM-dd HH:mm:ss`.
 
 ### common options
 

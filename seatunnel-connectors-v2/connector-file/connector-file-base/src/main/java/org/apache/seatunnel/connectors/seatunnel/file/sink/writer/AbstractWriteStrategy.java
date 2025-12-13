@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.file.sink.writer;
 
 import org.apache.seatunnel.shade.com.google.common.collect.Lists;
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
@@ -37,7 +38,6 @@ import org.apache.seatunnel.connectors.seatunnel.file.sink.config.FileSinkConfig
 import org.apache.seatunnel.connectors.seatunnel.file.sink.state.FileSinkState;
 
 import org.apache.commons.collections4.CollectionUtils;
-import org.apache.commons.lang3.StringUtils;
 import org.apache.hadoop.conf.Configuration;
 
 import org.slf4j.Logger;

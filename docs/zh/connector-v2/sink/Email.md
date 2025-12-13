@@ -25,11 +25,13 @@ import ChangeLog from '../changelog/connector-email.md';
 | email_host               | string  | 是    | -   |
 | email_transport_protocol | string  | 是    | -   |
 | email_smtp_auth          | boolean | 是    | -   |
-| email_smtp_port          | int     | 否    | 465 |
-| email_authorization_code | string  | 否    | -   |
-| email_message_headline   | string  | 是    | -   |
-| email_message_content    | string  | 是    | -   |
-| common-options           |         | 否    | -   |
+| email_smtp_port          | int     | 否    | 465           |
+| email_authorization_code | string  | 否    | -             |
+| email_message_headline   | string  | 是    | -             |
+| email_message_content    | string  | 是    | -             |
+| email_attachment_name    | string  | 否    | emailsink.csv |
+| email_field_delimiter    | string  | 否    | ,             |
+| common-options           |         | 否    | -             |
 
 ### email_from_address [string]
 
@@ -67,6 +69,14 @@ import ChangeLog from '../changelog/connector-email.md';
 
 邮件消息的正文
 
+### email_attachment_name [string]
+
+邮件附件的文件名。默认为 `emailsink.csv`。
+
+### email_field_delimiter [string]
+
+附件文件中用于分隔字段的分隔符。默认为逗号 `,`。
+
 ### common options
 
 Sink插件常用参数，请参考 [Sink常用选项](../sink-common-options.md) 了解详情.
@@ -84,6 +94,8 @@ Sink插件常用参数，请参考 [Sink常用选项](../sink-common-options.md)
       email_authorization_code=""
       email_message_headline=""
       email_message_content=""
+      email_attachment_name="report.csv"  # 可选，默认为 emailsink.csv
+      email_field_delimiter="|"           # 可选，默认为 ,
    }
 
 ```

@@ -73,8 +73,8 @@ import ChangeLog from '../changelog/connector-file-ftp.md';
 | binary_chunk_size           | int     | 否    | 1024                |
 | binary_complete_file_mode   | boolean | 否    | false               |
 | common-options              |         | 否    | -                   |
-| file_filter_modified_start  | string  | 否    | -                   | 按照最后修改时间过滤文件。 要过滤的开始时间(包括改时间),时间格式是：`yyyy-MM-dd HH:mm:ss`                                                                                  |
-| file_filter_modified_end    | string  | 否    | -                   | 按照最后修改时间过滤文件。 要过滤的结束时间(不包括改时间),时间格式是：`yyyy-MM-dd HH:mm:ss`                                                                                                                |
+| file_filter_modified_start  | string  | 否    | -                   | 
+| file_filter_modified_end    | string  | 否    | -                   | 
 
 ### host [string]
 
@@ -102,12 +102,12 @@ import ChangeLog from '../changelog/connector-file-ftp.md';
 
 ### file_filter_pattern [string]
 
-文件过滤模式，用于过滤文件。
+文件过滤模式，用于过滤文件。若只想根据文件名称筛选，则直接写文件名称的正则；若同时想根据文件目录进行过滤，则表达式以`path`起始。
 
 该模式遵循标准正则表达式。详情请参考：https://en.wikipedia.org/wiki/Regular_expression.
 以下是一些示例。
 
-文件结构示例：
+若`path`为`/data/seatunnel`,且文件结构示例：
 
 ```
 /data/seatunnel/20241001/report.txt
@@ -121,7 +121,7 @@ import ChangeLog from '../changelog/connector-file-ftp.md';
 
 **示例 1**：*匹配所有 .txt 文件*，正则表达式：
 ```
-/data/seatunnel/20241001/.*\.txt
+.*.txt
 ```
 该示例匹配结果为：
 ```
@@ -129,14 +129,14 @@ import ChangeLog from '../changelog/connector-file-ftp.md';
 ```
 **示例 2**：*匹配所有以 abc 开头的文件*，正则表达式：
 ```
-/data/seatunnel/20241002/abc.*
+abc.*
 ```
 该示例匹配结果为：
 ```
 /data/seatunnel/20241007/abch202410.csv
 /data/seatunnel/20241002/abcg202410.csv
 ```
-**示例 3**：*匹配所有以 abc 开头的文件，且第四个字符为 h 或 g*，正则表达式：
+**示例 3**：*匹配20241007文件夹下所有以 abc 开头的文件，且第四个字符为 h 或 g*，正则表达式：
 ```
 /data/seatunnel/20241007/abc[h,g].*
 ```
@@ -146,7 +146,7 @@ import ChangeLog from '../changelog/connector-file-ftp.md';
 ```
 **示例 4**：*匹配第三级文件夹以 202410 开头且文件以 .csv 结尾的文件*，正则表达式：
 ```
-/data/seatunnel/202410\d*/.*\.csv
+/data/seatunnel/202410\d*/.*.csv
 ```
 该示例匹配结果为：
 ```
@@ -159,7 +159,7 @@ import ChangeLog from '../changelog/connector-file-ftp.md';
 
 文件类型，支持以下文件类型：
 
-`text` `csv` `parquet` `orc` `json` `excel` `xml` `binary`
+`text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `markdown`
 
 如果您将文件类型指定为 `json`，您还需要指定 schema 选项以告诉连接器如何将数据解析为您所需的行。
 
@@ -237,11 +237,33 @@ schema {
 在这种情况下，您需要确保源和接收端同时使用 `binary` 格式进行文件同步。
 您可以在下面的示例中找到具体用法。
 
+如果您将文件类型指定为 `markdown`，SeaTunnel 可以解析 markdown 文件并提取结构化数据。
+markdown 解析器提取各种元素，包括标题、段落、列表、代码块、表格等。
+每个元素都转换为具有以下架构的行：
+- `element_id`：元素的唯一标识符
+- `element_type`：元素类型（Heading、Paragraph、ListItem 等）
+- `heading_level`：标题级别（1-6，非标题元素为 null）
+- `text`：元素的文本内容
+- `page_number`：页码（默认：1）
+- `position_index`：文档中的位置索引
+- `parent_id`：父元素的 ID
+- `child_ids`：子元素 ID 的逗号分隔列表
+
+注意：Markdown 格式仅支持读取，不支持写入。
+
 ### connection_mode [string]
 
 目标 FTP 连接模式，默认为主动模式，支持以下模式：
 
 `active_local` `passive_local`
+
+### control_encoding [string]
+
+FTP 控制连接的字符编码。默认为 `UTF-8`。
+
+当文件路径包含特殊字符（如 `$`、空格、中文字符等）时，需要设置为 `UTF-8` 以确保路径能够正确解析。
+
+例如：`/data/whale_ops/share/$Fund-Product/DA - SANY （三一）/Daily/2025.08.18/file.xlsx`
 
 ### delimiter/field_delimiter [string]
 
@@ -330,7 +352,7 @@ SeaTunnel 将从源文件中跳过前 2 行。
 ### csv_use_header_line [boolean]
 
 仅在文件格式为 csv 时可以选择配置。
-是否使用标题行来解析文件, 标题行 与 RFC 4180 匹配        
+是否使用标题行来解析文件, 标题行 与 RFC 4180 匹配
 
 ### compress_codec [string]
 
@@ -379,6 +401,14 @@ SeaTunnel 将从源文件中跳过前 2 行。
 仅在 file_format_type 为 binary 时使用。
 
 是否将完整文件作为单个块读取，而不是分割成块。启用时，整个文件内容将一次性读入内存。默认为 false。
+
+### file_filter_modified_start
+
+按照最后修改时间过滤文件。 要过滤的开始时间(包括改时间),时间格式是：`yyyy-MM-dd HH:mm:ss`。
+
+### file_filter_modified_end
+
+按照最后修改时间过滤文件。 要过滤的结束时间(不包括改时间),时间格式是：`yyyy-MM-dd HH:mm:ss`。
 
 ### 通用选项
 

@@ -32,6 +32,9 @@ By default, we use 2PC commit to ensure `exactly-once`
   - [x] binary
 - [x] compress codec
   - [x] lzo
+  - [x] canal_json
+  - [x] debezium_json
+  - [x] maxwell_json
 
 ## Description
 
@@ -47,7 +50,7 @@ Output data to hdfs file
 
 | Name                                  | Type    | Required | Default                                    | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 |---------------------------------------|---------|----------|--------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| fs.defaultFS                          | string  | yes      | -                                          | The hadoop cluster address that start with `hdfs://`, for example: `hdfs://hadoopcluster`                                                                                                                                                                                                                                                                                                                                                                                                |
+| fs.defaultFS                          | string  | yes      | -                                          | Hadoop cluster address. Supports the following formats:<br/>- Standard HDFS: `hdfs://hadoopcluster` or `hdfs://namenode:9000`<br/>- ViewFS (Federated HDFS): `viewfs://mycluster`<br/>See ViewFS configuration example below.                                                                                                                                                                                                                                                            |
 | path                                  | string  | yes      | -                                          | The target dir path is required.                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | tmp_path                              | string  | yes      | /tmp/seatunnel                             | The result file will write to a tmp path first and then use `mv` to submit tmp dir to target dir. Need a hdfs path.                                                                                                                                                                                                                                                                                                                                                                      |
 | hdfs_site_path                        | string  | no       | -                                          | The path of `hdfs-site.xml`, used to load ha configuration of namenodes                                                                                                                                                                                                                                                                                                                                                                                                                  |
@@ -85,10 +88,16 @@ Output data to hdfs file
 | enable_header_write                   | boolean | no       | false                                      | Only used when file_format_type is text,csv.<br/> false:don't write header,true:write header.                                                                                                                                                                                                                                                                                                                                                                                            |
 | encoding                              | string  | no       | "UTF-8"                                    | Only used when file_format_type is json,text,csv,xml.                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | remote_user                           | string  | no       | -                                          | The remote user name of hdfs.                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| merge_update_event                    | boolean | no       | false                                      | Only used when file_format_type is canal_json,debezium_json or maxwell_json. When value is true, the UPDATE_AFTER and UPDATE_BEFORE event will be merged into UPDATE event data                                                                                                                                                                                                                                                                                                          |
 
 ### Tips
 
 > If you use spark/flink, In order to use this connector, You must ensure your spark/flink cluster already integrated hadoop. The tested hadoop version is 2.x. If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you download and install SeaTunnel Engine. You can check the jar package under ${SEATUNNEL_HOME}/lib to confirm this.
+
+### merge_update_event [boolean]
+
+Only used when file_format_type is canal_json,debezium_json or maxwell_json. 
+When value is true, the UPDATE_AFTER and UPDATE_BEFORE event will be merged into UPDATE event data
 
 ## Task Example
 
@@ -229,6 +238,40 @@ HdfsFile {
     path = "/tmp/hive/warehouse/test2"
     compress_codec = "lzo"
 }
+```
+
+### ViewFS (Federated HDFS) Configuration Example
+
+ViewFS allows you to unify multiple HDFS clusters or namespaces into a single logical namespace. This is very useful for HDFS Federation scenarios.
+
+```hocon
+HdfsFile {
+    fs.defaultFS = "viewfs://mycluster"
+    path = "/data/output"
+    file_format_type = "parquet"
+    hdfs_site_path = "/path/to/core-site.xml"
+    data_save_mode = "DROP_DATA"
+}
+```
+
+Configure mount table in `core-site.xml`:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <property>
+        <name>fs.viewfs.mounttable.mycluster.link./data</name>
+        <value>hdfs://namenode1:9000/data</value>
+    </property>
+    <property>
+        <name>fs.viewfs.mounttable.mycluster.link./logs</name>
+        <value>hdfs://namenode2:9000/logs</value>
+    </property>
+    <property>
+        <name>fs.viewfs.mounttable.mycluster.link./tmp</name>
+        <value>hdfs://namenode3:9000/tmp</value>
+    </property>
+</configuration>
 ```
 
 ## Changelog

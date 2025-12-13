@@ -17,10 +17,10 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cassandra.client;
 
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
+
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.cassandra.exception.CassandraConnectorException;
-
-import org.apache.commons.lang3.StringUtils;
 
 import com.datastax.oss.driver.api.core.ConsistencyLevel;
 import com.datastax.oss.driver.api.core.CqlSession;

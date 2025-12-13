@@ -94,7 +94,8 @@ const sidebars = {
                 'concept/sql-config',
                 'concept/speed-limit',
                 'concept/event-listener',
-                'concept/schema-evolution'
+                'concept/schema-evolution',
+                'concept/metalake'
             ]
         },
         {
@@ -232,6 +233,14 @@ const sidebars = {
             "items": [
                 "other-engine/flink",
                 "other-engine/spark"
+            ]
+        },
+        {
+            "type": "category",
+            "label": "Ecosystem Projects",
+            "items": [
+                "ecosystem/x2seatunnel",
+                "ecosystem/seatunnel-mcp"
             ]
         },
         {

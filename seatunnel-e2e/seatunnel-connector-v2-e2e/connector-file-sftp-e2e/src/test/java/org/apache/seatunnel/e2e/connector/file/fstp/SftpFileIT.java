@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.e2e.connector.file.fstp;
 
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
+
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
@@ -24,8 +26,6 @@ import org.apache.seatunnel.e2e.common.container.TestContainerId;
 import org.apache.seatunnel.e2e.common.container.TestHelper;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.util.ContainerUtil;
-
-import org.apache.commons.lang3.StringUtils;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
@@ -125,6 +125,46 @@ public class SftpFileIT extends TestSuiteBase implements TestResource {
                 "/home/seatunnel/tmp/seatunnel/read/wildcard/e2e.txt",
                 sftpContainer);
         sftpContainer.execInContainer("sh", "-c", "chown -R seatunnel /home/seatunnel/tmp/");
+    }
+
+    @TestTemplate
+    public void testFtpToAssertJsonFilter(TestContainer container)
+            throws IOException, InterruptedException {
+
+        ContainerUtil.copyFileIntoContainers(
+                "/json/e2e.json",
+                "/home/seatunnel/tmp/seatunnel/read/filter/json/name=tyrantlucifer/hobby=codin/e2e.json",
+                sftpContainer);
+        ContainerUtil.copyFileIntoContainers(
+                "/json/e2e.json",
+                "/home/seatunnel/tmp/seatunnel/read/filter/json2025/name=tyrantlucifer/hobby=coding/e2e_2025.json",
+                sftpContainer);
+        ContainerUtil.copyFileIntoContainers(
+                "/text/e2e.txt",
+                "/home/seatunnel/tmp/seatunnel/read/filter/json2025/name=tyrantlucifer/hobby=coding/e2e_2025.txt",
+                sftpContainer);
+        ContainerUtil.copyFileIntoContainers(
+                "/json/e2e.json",
+                "/home/seatunnel/tmp/seatunnel/read/filter/json2024/name=tyrantlucifer/hobby=coding/e2e_2024.json",
+                sftpContainer);
+
+        ContainerUtil.copyFileIntoContainers(
+                "/text/e2e.txt",
+                "/home/seatunnel/tmp/seatunnel/read/filter/text/name=tyrantlucifer/hobby=coding/e2e.txt",
+                sftpContainer);
+        sftpContainer.execInContainer("sh", "-c", "chown -R seatunnel /home/seatunnel/tmp/");
+
+        TestHelper helper = new TestHelper(container);
+        // -----filter based on the file directory at the same time, the expression needs to start
+        // with `path`--------
+        helper.execute("/json/sftp_to_access_for_json_path_filter.conf");
+
+        // -------filter based on file names, just simply write the regular file names--------
+        helper.execute("/json/sftp_to_access_for_json_name_filter.conf");
+
+        // delete path
+        String filterPath = "/home/seatunnel/tmp/seatunnel/read/filter";
+        deleteFileFromContainer(filterPath);
     }
 
     @TestTemplate

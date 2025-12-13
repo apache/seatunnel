@@ -56,7 +56,8 @@ public class JdbcDb2UpsertIT extends JdbcDb2IT {
                     + "    C_BINARY           BINARY(1),\n"
                     + "    C_VARBINARY        VARBINARY(2048),\n"
                     + "    C_DATE             DATE,\n"
-                    + "    C_UPDATED_AT       TIMESTAMP DEFAULT CURRENT_TIMESTAMP\n"
+                    + "    C_UPDATED_AT       TIMESTAMP DEFAULT CURRENT_TIMESTAMP,\n"
+                    + "    \"c_int_2\"             INTEGER\n"
                     + ");\n";
 
     // create a trigger to update the timestamp when the row is updated.

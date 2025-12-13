@@ -17,7 +17,7 @@
 
 package mongodb;
 
-import org.apache.commons.lang3.StringUtils;
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.Network;
