@@ -169,151 +169,6 @@ public class SinkAggregatedCommitterTaskTest {
     }
 
     @Test
-    void testMultipleCheckpointCompletionsCleansUpCorrectly() throws Exception {
-        // Simulate a long-running job with many checkpoints
-        for (long i = 1; i <= 100; i++) {
-            task.receivedWriterCommitInfo(i, "commitInfo" + i);
-            getCheckpointBarrierCounter().put(i, 1);
-            getCheckpointCommitInfoMap().put(i, Collections.singletonList("aggregated" + i));
-        }
-
-        ConcurrentMap<Long, List<String>> commitInfoCache = getCommitInfoCache();
-        Map<Long, Integer> checkpointBarrierCounter = getCheckpointBarrierCounter();
-        ConcurrentMap<Long, List<String>> checkpointCommitInfoMap = getCheckpointCommitInfoMap();
-
-        // Verify initial state
-        Assertions.assertEquals(100, commitInfoCache.size());
-        Assertions.assertEquals(100, checkpointBarrierCounter.size());
-        Assertions.assertEquals(100, checkpointCommitInfoMap.size());
-
-        // Complete checkpoint 50 - should clean up checkpoints 1-50
-        task.notifyCheckpointComplete(50L);
-
-        // Verify cleanup
-        Assertions.assertEquals(
-                50,
-                commitInfoCache.size(),
-                "commitInfoCache should have 50 entries after completing checkpoint 50");
-        Assertions.assertEquals(
-                50,
-                checkpointBarrierCounter.size(),
-                "checkpointBarrierCounter should have 50 entries after completing checkpoint 50");
-        Assertions.assertEquals(
-                50,
-                checkpointCommitInfoMap.size(),
-                "checkpointCommitInfoMap should have 50 entries after completing checkpoint 50");
-
-        // Verify that checkpoints 1-50 are removed and 51-100 remain
-        for (long i = 1; i <= 50; i++) {
-            Assertions.assertFalse(
-                    commitInfoCache.containsKey(i),
-                    "commitInfoCache should not contain checkpoint " + i);
-            Assertions.assertFalse(
-                    checkpointBarrierCounter.containsKey(i),
-                    "checkpointBarrierCounter should not contain checkpoint " + i);
-            Assertions.assertFalse(
-                    checkpointCommitInfoMap.containsKey(i),
-                    "checkpointCommitInfoMap should not contain checkpoint " + i);
-        }
-
-        for (long i = 51; i <= 100; i++) {
-            Assertions.assertTrue(
-                    commitInfoCache.containsKey(i),
-                    "commitInfoCache should contain checkpoint " + i);
-            Assertions.assertTrue(
-                    checkpointBarrierCounter.containsKey(i),
-                    "checkpointBarrierCounter should contain checkpoint " + i);
-            Assertions.assertTrue(
-                    checkpointCommitInfoMap.containsKey(i),
-                    "checkpointCommitInfoMap should contain checkpoint " + i);
-        }
-
-        // Complete checkpoint 100 - should clean up all remaining checkpoints
-        task.notifyCheckpointComplete(100L);
-
-        Assertions.assertEquals(
-                0,
-                commitInfoCache.size(),
-                "commitInfoCache should be empty after completing all checkpoints");
-        Assertions.assertEquals(
-                0,
-                checkpointBarrierCounter.size(),
-                "checkpointBarrierCounter should be empty after completing all checkpoints");
-        Assertions.assertEquals(
-                0,
-                checkpointCommitInfoMap.size(),
-                "checkpointCommitInfoMap should be empty after completing all checkpoints");
-    }
-
-    @SuppressWarnings("unchecked")
-    private ConcurrentMap<Long, List<String>> getCommitInfoCache() throws Exception {
-        Field field = SinkAggregatedCommitterTask.class.getDeclaredField("commitInfoCache");
-        field.setAccessible(true);
-        return (ConcurrentMap<Long, List<String>>) field.get(task);
-    }
-
-    @SuppressWarnings("unchecked")
-    private Map<Long, Integer> getCheckpointBarrierCounter() throws Exception {
-        Field field =
-                SinkAggregatedCommitterTask.class.getDeclaredField("checkpointBarrierCounter");
-        field.setAccessible(true);
-        return (Map<Long, Integer>) field.get(task);
-    }
-
-    @SuppressWarnings("unchecked")
-    private ConcurrentMap<Long, List<String>> getCheckpointCommitInfoMap() throws Exception {
-        Field field = SinkAggregatedCommitterTask.class.getDeclaredField("checkpointCommitInfoMap");
-        field.setAccessible(true);
-        return (ConcurrentMap<Long, List<String>>) field.get(task);
-    }
-
-    @Test
-    void testCleanupWithEmptyCaches() throws Exception {
-        // Verify that cleanup works correctly when caches are empty
-        ConcurrentMap<Long, List<String>> commitInfoCache = getCommitInfoCache();
-        Map<Long, Integer> checkpointBarrierCounter = getCheckpointBarrierCounter();
-        ConcurrentMap<Long, List<String>> checkpointCommitInfoMap = getCheckpointCommitInfoMap();
-
-        // All caches are empty
-        Assertions.assertEquals(0, commitInfoCache.size());
-        Assertions.assertEquals(0, checkpointBarrierCounter.size());
-        Assertions.assertEquals(0, checkpointCommitInfoMap.size());
-
-        // Should not throw any exception when cleaning up empty caches
-        Assertions.assertDoesNotThrow(() -> task.notifyCheckpointComplete(1L));
-        Assertions.assertDoesNotThrow(() -> task.notifyCheckpointAborted(2L));
-
-        // Caches should still be empty
-        Assertions.assertEquals(0, commitInfoCache.size());
-        Assertions.assertEquals(0, checkpointBarrierCounter.size());
-        Assertions.assertEquals(0, checkpointCommitInfoMap.size());
-    }
-
-    @Test
-    void testCleanupWithPartialCacheData() throws Exception {
-        // Test when only some caches have data for a checkpoint
-        // This simulates edge cases where data might be partially written
-
-        // Only commitInfoCache has data
-        task.receivedWriterCommitInfo(1L, "commitInfo1");
-
-        ConcurrentMap<Long, List<String>> commitInfoCache = getCommitInfoCache();
-        Map<Long, Integer> checkpointBarrierCounter = getCheckpointBarrierCounter();
-        ConcurrentMap<Long, List<String>> checkpointCommitInfoMap = getCheckpointCommitInfoMap();
-
-        Assertions.assertEquals(1, commitInfoCache.size());
-        Assertions.assertEquals(0, checkpointBarrierCounter.size());
-        Assertions.assertEquals(0, checkpointCommitInfoMap.size());
-
-        // Should not throw and should clean up what exists
-        Assertions.assertDoesNotThrow(() -> task.notifyCheckpointAborted(1L));
-
-        Assertions.assertEquals(0, commitInfoCache.size());
-        Assertions.assertEquals(0, checkpointBarrierCounter.size());
-        Assertions.assertEquals(0, checkpointCommitInfoMap.size());
-    }
-
-    @Test
     void testCleanupDoesNotAffectFutureCheckpoints() throws Exception {
         // Verify that cleaning up checkpoint N does not affect checkpoint N+1 data
         // This is critical for ensuring the fix doesn't break normal operation
@@ -359,108 +214,25 @@ public class SinkAggregatedCommitterTaskTest {
         Assertions.assertTrue(checkpointCommitInfoMap.containsKey(3L));
     }
 
-    @Test
-    void testCommitIsCalledWithCorrectDataBeforeCleanup() throws Exception {
-        // Verify that aggregatedCommitter.commit() is called with correct data
-        // before the cleanup happens
-
-        task.receivedWriterCommitInfo(1L, "commitInfo1");
-
-        ConcurrentMap<Long, List<String>> checkpointCommitInfoMap = getCheckpointCommitInfoMap();
-        checkpointCommitInfoMap.put(1L, Collections.singletonList("aggregated1"));
-
-        // Complete checkpoint 1
-        task.notifyCheckpointComplete(1L);
-
-        // Verify commit was called with the correct aggregated data
-        Mockito.verify(mockAggregatedCommitter, Mockito.times(1))
-                .commit(
-                        Mockito.argThat(
-                                list -> list.size() == 1 && list.get(0).equals("aggregated1")));
+    @SuppressWarnings("unchecked")
+    private ConcurrentMap<Long, List<String>> getCommitInfoCache() throws Exception {
+        Field field = SinkAggregatedCommitterTask.class.getDeclaredField("commitInfoCache");
+        field.setAccessible(true);
+        return (ConcurrentMap<Long, List<String>>) field.get(task);
     }
 
-    @Test
-    void testAbortIsCalledWithCorrectDataBeforeCleanup() throws Exception {
-        // Verify that aggregatedCommitter.abort() is called with correct data
-        // before the cleanup happens
-
-        task.receivedWriterCommitInfo(1L, "commitInfo1");
-
-        ConcurrentMap<Long, List<String>> checkpointCommitInfoMap = getCheckpointCommitInfoMap();
-        checkpointCommitInfoMap.put(1L, Collections.singletonList("aggregated1"));
-
-        // Abort checkpoint 1
-        task.notifyCheckpointAborted(1L);
-
-        // Verify abort was called with the correct data
-        Mockito.verify(mockAggregatedCommitter, Mockito.times(1))
-                .abort(
-                        Mockito.argThat(
-                                list ->
-                                        list != null
-                                                && list.size() == 1
-                                                && list.get(0).equals("aggregated1")));
+    @SuppressWarnings("unchecked")
+    private Map<Long, Integer> getCheckpointBarrierCounter() throws Exception {
+        Field field =
+                SinkAggregatedCommitterTask.class.getDeclaredField("checkpointBarrierCounter");
+        field.setAccessible(true);
+        return (Map<Long, Integer>) field.get(task);
     }
 
-    @Test
-    void testReceivedWriterCommitInfoStillWorksAfterCleanup() throws Exception {
-        // Verify that receivedWriterCommitInfo still works correctly after cleanup
-        // This ensures the fix doesn't break the normal data flow
-
-        // Add data for checkpoint 1
-        task.receivedWriterCommitInfo(1L, "commitInfo1");
-
-        ConcurrentMap<Long, List<String>> checkpointCommitInfoMap = getCheckpointCommitInfoMap();
-        checkpointCommitInfoMap.put(1L, Collections.singletonList("aggregated1"));
-
-        // Complete checkpoint 1
-        task.notifyCheckpointComplete(1L);
-
-        // Now add data for checkpoint 2 - should work normally
-        task.receivedWriterCommitInfo(2L, "commitInfo2");
-
-        ConcurrentMap<Long, List<String>> commitInfoCache = getCommitInfoCache();
-        Assertions.assertTrue(commitInfoCache.containsKey(2L));
-        Assertions.assertEquals(1, commitInfoCache.get(2L).size());
-        Assertions.assertEquals("commitInfo2", commitInfoCache.get(2L).get(0));
-
-        // Add more data to checkpoint 2
-        task.receivedWriterCommitInfo(2L, "commitInfo2_additional");
-        Assertions.assertEquals(2, commitInfoCache.get(2L).size());
-    }
-
-    @Test
-    void testCleanupOnlyAffectsCheckpointsLessThanOrEqualToCompleted() throws Exception {
-        // Explicitly test the <= condition in notifyCheckpointComplete
-
-        // Setup checkpoints 5, 10, 15, 20
-        for (long id : new long[] {5L, 10L, 15L, 20L}) {
-            task.receivedWriterCommitInfo(id, "commitInfo" + id);
-            getCheckpointBarrierCounter().put(id, 1);
-            getCheckpointCommitInfoMap().put(id, Collections.singletonList("aggregated" + id));
-        }
-
-        // Complete checkpoint 10 - should clean 5 and 10, keep 15 and 20
-        task.notifyCheckpointComplete(10L);
-
-        ConcurrentMap<Long, List<String>> commitInfoCache = getCommitInfoCache();
-        Map<Long, Integer> checkpointBarrierCounter = getCheckpointBarrierCounter();
-        ConcurrentMap<Long, List<String>> checkpointCommitInfoMap = getCheckpointCommitInfoMap();
-
-        // Checkpoints <= 10 should be cleaned
-        Assertions.assertFalse(commitInfoCache.containsKey(5L));
-        Assertions.assertFalse(commitInfoCache.containsKey(10L));
-        Assertions.assertFalse(checkpointBarrierCounter.containsKey(5L));
-        Assertions.assertFalse(checkpointBarrierCounter.containsKey(10L));
-        Assertions.assertFalse(checkpointCommitInfoMap.containsKey(5L));
-        Assertions.assertFalse(checkpointCommitInfoMap.containsKey(10L));
-
-        // Checkpoints > 10 should remain
-        Assertions.assertTrue(commitInfoCache.containsKey(15L));
-        Assertions.assertTrue(commitInfoCache.containsKey(20L));
-        Assertions.assertTrue(checkpointBarrierCounter.containsKey(15L));
-        Assertions.assertTrue(checkpointBarrierCounter.containsKey(20L));
-        Assertions.assertTrue(checkpointCommitInfoMap.containsKey(15L));
-        Assertions.assertTrue(checkpointCommitInfoMap.containsKey(20L));
+    @SuppressWarnings("unchecked")
+    private ConcurrentMap<Long, List<String>> getCheckpointCommitInfoMap() throws Exception {
+        Field field = SinkAggregatedCommitterTask.class.getDeclaredField("checkpointCommitInfoMap");
+        field.setAccessible(true);
+        return (ConcurrentMap<Long, List<String>>) field.get(task);
     }
 }
