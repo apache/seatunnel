@@ -6,9 +6,9 @@ title: SeaTunnel MCP
 
 A Model Context Protocol (MCP) server for interacting with SeaTunnel through LLM interfaces like Claude.
 
-![SeaTunnel MCP Logo](../images/seatunnel-mcp-logo.png)
+![SeaTunnel MCP Logo](../../images/seatunnel-mcp-logo.png)
 
-![SeaTunnel MCP Server](../images/seatunnel-mcp-server.png)
+![SeaTunnel MCP Server](../../images/seatunnel-mcp-server.png)
 
 ## Related Links
 

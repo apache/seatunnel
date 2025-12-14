@@ -314,6 +314,10 @@ seatunnel:
     "SinkWriteQPS": "",
     "SinkWriteBytes": "",
     "SinkWriteBytesPerSeconds": "",
+    "SinkCommittedCount": "",
+    "SinkCommittedQPS": "",
+    "SinkCommittedBytes": "",
+    "SinkCommittedBytesPerSeconds": "",
     "TableSourceReceivedCount": {},
     "TableSourceReceivedBytes": {},
     "TableSourceReceivedBytesPerSeconds": {},
@@ -321,7 +325,11 @@ seatunnel:
     "TableSinkWriteCount": {},
     "TableSinkWriteQPS": {},
     "TableSinkWriteBytes": {},
-    "TableSinkWriteBytesPerSeconds": {}
+    "TableSinkWriteBytesPerSeconds": {},
+    "TableSinkCommittedCount": {},
+    "TableSinkCommittedQPS": {},
+    "TableSinkCommittedBytes": {},
+    "TableSinkCommittedBytesPerSeconds": {}
   },
   "finishedTime": "",
   "errorMsg": null,
@@ -336,6 +344,27 @@ seatunnel:
 `jobId`, `jobName`, `jobStatus`, `createTime`, `jobDag`, `metrics` 字段总会返回.
 `envOptions`, `pluginJarsUrls`, `isStartWithSavePoint` 字段在Job在RUNNING状态时会返回
 `finishedTime`, `errorMsg` 字段在Job结束时会返回，结束状态为不为RUNNING，可能为FINISHED，可能为CANCEL
+
+#### 指标字段说明
+
+| 字段 | 说明 |
+| --- | --- |
+| IntermediateQueueSize | 中间队列的大小 |
+| SourceReceivedCount | 源端接收的行数 |
+| SourceReceivedQPS | 源端接收速率（行/秒） |
+| SourceReceivedBytes | 源端接收的字节数 |
+| SourceReceivedBytesPerSeconds | 源端接收速率（字节/秒） |
+| SinkWriteCount | Sink 写入尝试行数 |
+| SinkWriteQPS | Sink 写入尝试速率（行/秒） |
+| SinkWriteBytes | Sink 写入尝试字节数 |
+| SinkWriteBytesPerSeconds | Sink 写入尝试速率（字节/秒） |
+| SinkCommittedCount | checkpoint 成功后的 Sink 已提交行数 |
+| SinkCommittedQPS | Sink 已提交速率（行/秒） |
+| SinkCommittedBytes | checkpoint 成功后的 Sink 已提交字节数 |
+| SinkCommittedBytesPerSeconds | Sink 已提交速率（字节/秒） |
+| TableSourceReceived* | 按表汇总的源指标，键格式 `TableSourceReceivedXXX#<表>` |
+| TableSinkWrite* | 按表汇总的 Sink 写入尝试，键格式 `TableSinkWriteXXX#<表>` |
+| TableSinkCommitted* | 按表汇总的 Sink 已提交指标，键格式 `TableSinkCommittedXXX#<表>` |
 
 当我们查询不到这个Job时，返回结果为：
 

@@ -31,6 +31,6 @@ public class ResponseUtil {
                             + "is already \\b(COMMITTED|committed|VISIBLE|visible)\\b, not pre-committed.");
 
     public static boolean isCommitted(String msg) {
-        return COMMITTED_PATTERN.matcher(msg).matches();
+        return COMMITTED_PATTERN.matcher(msg).find();
     }
 }

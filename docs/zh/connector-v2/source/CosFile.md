@@ -311,12 +311,12 @@ default `HH:mm:ss`
 
 ### file_filter_pattern [string]
 
-过滤模式，用于过滤文件。
+文件过滤模式，用于过滤文件。若只想根据文件名称筛选，则直接写文件名称的正则；若同时想根据文件目录进行过滤，则表达式以`path`起始。
 
 该模式遵循标准正则表达式。详情请参阅https://en.wikipedia.org/wiki/Regular_expression.
 有一些例子。
 
-文件结构示例:
+若`path`为`/data/seatunnel`,且文件结构示例：
 ```
 /data/seatunnel/20241001/report.txt
 /data/seatunnel/20241007/abch202410.csv
@@ -328,7 +328,7 @@ default `HH:mm:ss`
 
 **示例1**：*匹配所有.txt文件*，正则表达式：
 ```
-/data/seatunnel/20241001/.*\.txt
+.*.txt
 ```
 此示例匹配的结果为：
 ```
@@ -336,14 +336,14 @@ default `HH:mm:ss`
 ```
 **示例2**:*匹配所有以abc*开头的文件，正则表达式：
 ```
-/data/seatunnel/20241002/abc.*
+abc.*
 ```
 此示例匹配的结果为：
 ```
 /data/seatunnel/20241007/abch202410.csv
 /data/seatunnel/20241002/abcg202410.csv
 ```
-**示例3**：*匹配所有以abc开头的文件，第四个字符是h或g*，正则表达式：
+**示例3**：*匹配20241007文件夹下所有以 abc 开头的文件，且第四个字符为 h 或 g*，正则表达式：
 ```
 /data/seatunnel/20241007/abc[h,g].*
 ```
@@ -353,7 +353,7 @@ default `HH:mm:ss`
 ```
 **示例4**:*匹配以202410开头的三级文件夹和以.csv*结尾的文件，正则表达式：
 ```
-/data/seatunnel/202410\d*/.*\.csv
+/data/seatunnel/202410\d*/.*.csv
 ```
 此示例匹配的结果为：
 ```

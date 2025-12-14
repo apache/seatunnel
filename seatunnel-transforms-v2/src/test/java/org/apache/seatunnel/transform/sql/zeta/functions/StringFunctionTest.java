@@ -125,6 +125,30 @@ public class StringFunctionTest {
     }
 
     @Test
+    public void testAsciiNullAndEmptyReturnNull() {
+        List<Object> args = new ArrayList<>();
+        args.add(null);
+        Assertions.assertNull(StringFunction.ascii(args));
+
+        args.clear();
+        args.add("");
+        Assertions.assertNull(StringFunction.ascii(args));
+    }
+
+    @Test
+    public void testLeftAndRightNegativeCountReturnEmpty() {
+        List<Object> args = new ArrayList<>();
+        args.add("abc");
+        args.add(-1);
+        Assertions.assertEquals("", StringFunction.left(args));
+
+        args.clear();
+        args.add("abc");
+        args.add(-2);
+        Assertions.assertEquals("", StringFunction.right(args));
+    }
+
+    @Test
     public void testAsciiWithEmptyAndNull() {
         List<Object> args = new ArrayList<>();
         args.add("");
