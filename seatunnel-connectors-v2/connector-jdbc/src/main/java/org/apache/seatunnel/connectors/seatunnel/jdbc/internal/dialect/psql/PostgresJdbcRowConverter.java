@@ -58,6 +58,8 @@ import java.util.Locale;
 import java.util.Optional;
 
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.psql.PostgresTypeConverter.PG_CIDR;
+import static org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.psql.PostgresTypeConverter.PG_GEOGRAPHY;
+import static org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.psql.PostgresTypeConverter.PG_GEOMETRY;
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.psql.PostgresTypeConverter.PG_INET;
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.psql.PostgresTypeConverter.PG_INTERVAL;
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.psql.PostgresTypeConverter.PG_MAC_ADDR;
@@ -65,9 +67,6 @@ import static org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.ps
 
 @Slf4j
 public class PostgresJdbcRowConverter extends AbstractJdbcRowConverter {
-
-    private static final String PG_GEOMETRY = "GEOMETRY";
-    private static final String PG_GEOGRAPHY = "GEOGRAPHY";
 
     @Override
     public String converterName() {
@@ -108,8 +107,8 @@ public class PostgresJdbcRowConverter extends AbstractJdbcRowConverter {
                     rs.getMetaData().getColumnTypeName(resultSetIndex).toUpperCase(Locale.ROOT);
             switch (seaTunnelDataType.getSqlType()) {
                 case STRING:
-                    if (metaDataColumnType.equals(PG_GEOMETRY)
-                            || metaDataColumnType.equals(PG_GEOGRAPHY)) {
+                    if (PG_GEOMETRY.equalsIgnoreCase(metaDataColumnType)
+                            || PG_GEOGRAPHY.equalsIgnoreCase(metaDataColumnType)) {
                         Object geoObj = rs.getObject(resultSetIndex);
                         fields[fieldIndex] = geoObj == null ? null : geoObj.toString();
                     } else {

@@ -195,7 +195,7 @@ public class PostgresJdbcRowConverterTest {
         TableSchema tableSchema =
                 createTableSchema("geometry_col", BasicType.STRING_TYPE, "geometry");
 
-        SeaTunnelRow row = new SeaTunnelRow(new Object[] {1, "\\x0102FF"});
+        SeaTunnelRow row = new SeaTunnelRow(new Object[] {1, "0102FF"});
         PreparedStatement statement = mock(PreparedStatement.class);
 
         converter.toExternal(tableSchema, null, row, statement);
@@ -207,6 +207,56 @@ public class PostgresJdbcRowConverterTest {
         Assertions.assertTrue(arg instanceof PGobject);
         PGobject pg = (PGobject) arg;
         Assertions.assertEquals("geometry", pg.getType());
-        Assertions.assertEquals("\\x0102FF", pg.getValue());
+        Assertions.assertEquals("0102FF", pg.getValue());
+    }
+
+    @Test
+    public void testToInternalWithGeographyType() throws SQLException {
+        ResultSet rs = mock(ResultSet.class);
+        TableSchema tableSchema =
+                createTableSchema("geography_col", BasicType.STRING_TYPE, "GEOGRAPHY");
+
+        setupMockResultSet(rs, "INT4", "GEOGRAPHY", 1, "POINT(1 2)");
+
+        SeaTunnelRow row = converter.toInternal(rs, tableSchema);
+
+        Assertions.assertNotNull(row);
+        Assertions.assertEquals(1, row.getField(0));
+        Assertions.assertEquals("POINT(1 2)", row.getField(1));
+    }
+
+    @Test
+    public void testToInternalWithNullGeographyType() throws SQLException {
+        ResultSet rs = mock(ResultSet.class);
+        TableSchema tableSchema =
+                createTableSchema("geography_col", BasicType.STRING_TYPE, "GEOGRAPHY");
+
+        setupMockResultSet(rs, "INT4", "GEOGRAPHY", 1, null);
+
+        SeaTunnelRow row = converter.toInternal(rs, tableSchema);
+
+        Assertions.assertNotNull(row);
+        Assertions.assertEquals(1, row.getField(0));
+        Assertions.assertNull(row.getField(1), "geography_col should be null");
+    }
+
+    @Test
+    public void testToExternalWithGeographyType() throws SQLException {
+        TableSchema tableSchema =
+                createTableSchema("geography_col", BasicType.STRING_TYPE, "geography");
+
+        SeaTunnelRow row = new SeaTunnelRow(new Object[] {1, "0102FF"});
+        PreparedStatement statement = mock(PreparedStatement.class);
+
+        converter.toExternal(tableSchema, null, row, statement);
+
+        ArgumentCaptor<Object> captor = ArgumentCaptor.forClass(Object.class);
+        verify(statement).setObject(eq(2), captor.capture());
+
+        Object arg = captor.getValue();
+        Assertions.assertTrue(arg instanceof PGobject);
+        PGobject pg = (PGobject) arg;
+        Assertions.assertEquals("geography", pg.getType());
+        Assertions.assertEquals("0102FF", pg.getValue());
     }
 }
