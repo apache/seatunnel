@@ -76,8 +76,7 @@ public class LanceCatalogTest {
         // build catalog configs
         configs.put(LanceCommonOptions.KEY_DATASET_PATH.key(), CATALOG_DIR);
         configs.put(LanceCommonOptions.KEY_NAMESPACE_TYPE.key(), "dir");
-        configs.put(
-                LanceCommonOptions.KEY_ROOT_NAMESPACE_PATH.key(), "/tmp");
+        configs.put(LanceCommonOptions.KEY_ROOT_NAMESPACE_PATH.key(), "/tmp");
 
         lanceCatalog = new LanceCatalog(CATALOG_NAME, ReadonlyConfig.fromMap(configs));
         lanceCatalog.open();
