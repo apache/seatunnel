@@ -337,6 +337,8 @@ The text of each license is the standard Apache 2.0 license.
      (The Apache Software License, Version 2.0) Prometheus Java Span Context Supplier - Common (io.prometheus:simpleclient_tracer_common:0.16.0 - https://mvnrepository.com/artifact/io.prometheus/simpleclient_tracer_common/0.16.0)
      (The Apache Software License, Version 2.0) Prometheus Java Span Context Supplier - OpenTelemetry (io.prometheus:simpleclient_tracer_otel:0.16.0 - https://mvnrepository.com/artifact/io.prometheus/simpleclient_tracer_otel/0.16.0)
      (The Apache Software License, Version 2.0) Prometheus Java Span Context Supplier - OpenTelemetry Agent (io.prometheus:simpleclient_tracer_otel_agent:0.16.0 - https://mvnrepository.com/artifact/io.prometheus/simpleclient_tracer_otel_agent/0.16.0)
+     (Apache-2.0) hugegraph-client (org.apache.hugegraph:hugegraph-client:1.5.0 - https://github.com/apache/incubator-hugegraph-toolchain/tree/master/hugegraph-client)
+     (Apache-2.0) hugegraph-common (org.apache.hugegraph:hugegraph-common:1.5.0 - https://github.com/apache/incubator-hugegraph-commons/tree/master/hugegraph-common)
 
 ========================================================================
 MOZILLA PUBLIC LICENSE License

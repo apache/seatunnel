@@ -40,6 +40,7 @@ public class PaimonSinkConfig extends PaimonConfig {
     private final DataSaveMode dataSaveMode;
     private final CoreOptions.ChangelogProducer changelogProducer;
     private final String changelogTmpPath;
+    private final String branch;
     private final Boolean nonPrimaryKey;
     private final List<String> primaryKeys;
     private final List<String> partitionKeys;
@@ -79,5 +80,6 @@ public class PaimonSinkConfig extends PaimonConfig {
         this.changelogTmpPath =
                 writeProps.getOrDefault(
                         PaimonSinkOptions.CHANGELOG_TMP_PATH, System.getProperty("java.io.tmpdir"));
+        this.branch = readonlyConfig.get(PaimonSinkOptions.BRANCH);
     }
 }
