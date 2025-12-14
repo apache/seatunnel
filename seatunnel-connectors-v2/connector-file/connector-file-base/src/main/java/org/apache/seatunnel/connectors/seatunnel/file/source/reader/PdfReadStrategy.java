@@ -26,12 +26,11 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.file.config.DocumentElement;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 
+import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.contentstream.PDFStreamEngine;
 import org.apache.pdfbox.contentstream.operator.Operator;
 import org.apache.pdfbox.cos.COSBase;
 import org.apache.pdfbox.cos.COSName;
-import org.apache.pdfbox.io.RandomAccessReadBuffer;
-import org.apache.pdfbox.pdfparser.PDFParser;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDDocumentCatalog;
 import org.apache.pdfbox.pdmodel.PDPage;
@@ -59,11 +58,8 @@ import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
 import java.awt.geom.Rectangle2D;
-import java.io.ByteArrayInputStream;
+import java.io.File;
 import java.io.IOException;
-import java.io.InputStream;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -86,14 +82,10 @@ public class PdfReadStrategy extends AbstractReadStrategy {
     public void read(String path, String tableId, Collector<SeaTunnelRow> output)
             throws IOException, FileConnectorException {
 
-        byte[] documentData = Files.readAllBytes(Paths.get(path));
         PDDocument document = null;
 
-        try (InputStream is = new ByteArrayInputStream(documentData);
-                RandomAccessReadBuffer buffer = new RandomAccessReadBuffer(is)) {
-
-            PDFParser pdfParser = new PDFParser(buffer);
-            document = pdfParser.parse();
+        try {
+            document = Loader.loadPDF(new File(path));
 
             List<DocumentElement> elements = extractPdfDocumentElements(document);
 
