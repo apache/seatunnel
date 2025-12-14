@@ -36,6 +36,8 @@
         <lance.core.version>0.33.0</lance.core.version>
         <lance.namespace.version>0.0.14</lance.namespace.version>
         <opendal.version>0.48.0</opendal.version>
+        <!-- Only add add-opens for Java 9+, default for Java 8 -->
+        <surefire.jvm.args>-Dfile.encoding=UTF-8</surefire.jvm.args>
     </properties>
 
     <dependencyManagement>
@@ -115,7 +117,7 @@
                 <artifactId>maven-surefire-plugin</artifactId>
                 <version>${maven-surefire-plugin.version}</version>
                 <configuration>
-                    <argLine>-Dfile.encoding=UTF-8 --add-opens=java.base/java.nio=ALL-UNNAMED</argLine>
+                    <argLine>${surefire.jvm.args}</argLine>
                 </configuration>
             </plugin>
         </plugins>
@@ -127,5 +129,17 @@
             </extension>
         </extensions>
     </build>
+
+    <profiles>
+        <profile>
+            <id>java9+</id>
+            <activation>
+                <jdk>[9,)</jdk>
+            </activation>
+            <properties>
+                <surefire.jvm.args>-Dfile.encoding=UTF-8 --add-opens=java.base/java.nio=ALL-UNNAMED</surefire.jvm.args>
+            </properties>
+        </profile>
+    </profiles>
 
 </project>
