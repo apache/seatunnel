@@ -33,8 +33,9 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <maven.compiler.source>${java.version}</maven.compiler.source>
         <maven.compiler.target>${java.version}</maven.compiler.target>
-        <lance.core.version>0.26.1</lance.core.version>
+        <lance.core.version>0.33.0</lance.core.version>
         <lance.namespace.version>0.0.14</lance.namespace.version>
+        <opendal.version>0.48.0</opendal.version>
     </properties>
 
     <dependencyManagement>
@@ -79,6 +80,52 @@
             <artifactId>lance-namespace-apache-client</artifactId>
             <version>${lance.namespace.version}</version>
         </dependency>
+
+        <dependency>
+            <groupId>org.apache.opendal</groupId>
+            <artifactId>opendal</artifactId>
+            <version>${opendal.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.opendal</groupId>
+            <artifactId>opendal</artifactId>
+            <version>${opendal.version}</version>
+            <classifier>${os.detected.classifier}</classifier>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>seatunnel-guava</artifactId>
+            <version>${project.version}</version>
+            <classifier>optional</classifier>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>seatunnel-commons-lang3</artifactId>
+            <version>${project.version}</version>
+            <classifier>optional</classifier>
+        </dependency>
     </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>${maven-surefire-plugin.version}</version>
+                <configuration>
+                    <argLine>-Dfile.encoding=UTF-8 --add-opens=java.base/java.nio=ALL-UNNAMED</argLine>
+                </configuration>
+            </plugin>
+        </plugins>
+        <extensions>
+            <extension>
+                <groupId>kr.motd.maven</groupId>
+                <artifactId>os-maven-plugin</artifactId>
+                <version>1.7.0</version>
+            </extension>
+        </extensions>
+    </build>
 
 </project>

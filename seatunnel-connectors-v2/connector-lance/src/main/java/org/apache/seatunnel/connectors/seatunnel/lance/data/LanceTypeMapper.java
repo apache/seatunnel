@@ -41,20 +41,40 @@ public class LanceTypeMapper {
             case "bool":
                 return BasicType.BOOLEAN_TYPE;
             case "int":
+            case "int8":
+            case "int16":
+            case "int32":
+            case "int64":
+            case "uint8":
+            case "uint16":
+            case "uint32":
+            case "uint64":
                 return BasicType.INT_TYPE;
             case "utf8":
             case "largeutf8":
+            case "string":
                 return BasicType.STRING_TYPE;
             case "decimal":
                 return new DecimalType(8, 4);
             case "floatingpoint":
+            case "float32":
                 return BasicType.FLOAT_TYPE;
+            case "float64":
+                return BasicType.DOUBLE_TYPE;
             case "date":
+            case "date32":
+            case "date64":
                 return LocalTimeType.LOCAL_DATE_TYPE;
             case "time":
+            case "time32":
+            case "time64":
                 return LocalTimeType.LOCAL_TIME_TYPE;
             case "timestamp":
                 return LocalTimeType.LOCAL_DATE_TIME_TYPE;
+            case "binary":
+                return BasicType.BYTE_TYPE;
+            case "decimal128":
+                return new DecimalType(38, 10);
                 // TODO: struct|list|map
             default:
                 throw CommonError.convertToSeaTunnelTypeError("Lance", type.getType(), field);
