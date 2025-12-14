@@ -25,7 +25,6 @@ import org.apache.seatunnel.translation.flink.metric.FlinkMetricContext;
 
 import org.apache.flink.api.common.functions.RuntimeContext;
 import org.apache.flink.api.connector.sink2.WriterInitContext;
-import org.apache.flink.metrics.MetricGroup;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -56,18 +55,7 @@ public class FlinkSinkWriterContext implements SinkWriter.Context {
 
     @Override
     public MetricsContext getMetricsContext() {
-        try {
-            RuntimeContext runtimeContext = getRuntimeContext();
-            MetricGroup metricGroup = initContext.metricGroup();
-
-            if (runtimeContext != null && metricGroup != null) {
-                return new FlinkMetricContext(runtimeContext, metricGroup);
-            } else {
-                return new FlinkMetricContext(metricGroup);
-            }
-        } catch (Exception e) {
-            return new FlinkMetricContext((MetricGroup) null);
-        }
+        return new FlinkMetricContext(getRuntimeContext());
     }
 
     @Override

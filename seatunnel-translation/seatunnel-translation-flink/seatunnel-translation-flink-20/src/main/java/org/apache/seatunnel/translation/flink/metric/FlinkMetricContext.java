@@ -19,12 +19,15 @@ package org.apache.seatunnel.translation.flink.metric;
 
 import org.apache.seatunnel.api.common.metrics.Counter;
 import org.apache.seatunnel.api.common.metrics.Meter;
-import org.apache.seatunnel.api.common.metrics.MetricNames;
+import org.apache.seatunnel.api.common.metrics.Metric;
 import org.apache.seatunnel.api.common.metrics.MetricsContext;
 
 import org.apache.flink.api.common.functions.RuntimeContext;
-import org.apache.flink.metrics.MetricGroup;
+import org.apache.flink.metrics.MeterView;
 import org.apache.flink.streaming.api.operators.StreamingRuntimeContext;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -34,94 +37,64 @@ import java.util.concurrent.ConcurrentHashMap;
 @Slf4j
 public class FlinkMetricContext implements MetricsContext {
 
-    private final MetricGroup metricGroup;
-    private final StreamingRuntimeContext runtimeContext;
-    private final RuntimeContext generalRuntimeContext;
-    private final Map<String, Counter> counters = new ConcurrentHashMap<>();
-    private final Map<String, Meter> meters = new ConcurrentHashMap<>();
+    private static final Logger LOGGER = LoggerFactory.getLogger(FlinkMetricContext.class);
+
+    private final Map<String, Metric> metrics = new ConcurrentHashMap<>();
+    private final RuntimeContext runtimeContext;
 
     public FlinkMetricContext(StreamingRuntimeContext runtimeContext) {
         this.runtimeContext = runtimeContext;
-        this.generalRuntimeContext = runtimeContext;
-        this.metricGroup = runtimeContext != null ? runtimeContext.getMetricGroup() : null;
     }
 
-    public FlinkMetricContext(RuntimeContext runtimeContext, MetricGroup metricGroup) {
-        this.runtimeContext =
-                runtimeContext instanceof StreamingRuntimeContext
-                        ? (StreamingRuntimeContext) runtimeContext
-                        : null;
-        this.generalRuntimeContext = runtimeContext;
-        this.metricGroup = metricGroup;
-    }
-
-    public FlinkMetricContext(MetricGroup metricGroup) {
-        this.metricGroup = metricGroup;
-        this.generalRuntimeContext = null;
-        this.runtimeContext = null;
+    public FlinkMetricContext(RuntimeContext runtimeContext) {
+        this.runtimeContext = runtimeContext;
     }
 
     @Override
     public Counter counter(String name) {
-        Counter existingCounter = counters.get(name);
-        if (existingCounter != null) {
-            return existingCounter;
+        if (metrics.containsKey(name)) {
+            return (Counter) metrics.get(name);
         }
-
-        org.apache.flink.metrics.Counter flinkCounter =
-                metricGroup != null ? metricGroup.counter(name) : null;
-
-        if (isKeyMetric(name) && generalRuntimeContext != null) {
-            try {
-                Counter counter =
-                        new FlinkAccumulatorCounter(name, flinkCounter, generalRuntimeContext);
-                counters.put(name, counter);
-                return counter;
-            } catch (Exception e) {
-                log.warn(
-                        "Failed to create accumulator for: {}, falling back to simple counter",
-                        name);
-            }
-        }
-
-        Counter counter = new FlinkCounter(name, flinkCounter);
-        counters.put(name, counter);
-        return counter;
+        return this.counter(name, new FlinkCounter(name, runtimeContext.getLongCounter(name)));
     }
 
     @Override
     public <C extends Counter> C counter(String name, C counter) {
-        counters.put(name, counter);
+        this.addMetric(name, counter);
         return counter;
     }
 
     @Override
     public Meter meter(String name) {
-        Meter existingMeter = meters.get(name);
-        if (existingMeter != null) {
-            return existingMeter;
+        if (metrics.containsKey(name)) {
+            return (Meter) metrics.get(name);
         }
-
-        org.apache.flink.metrics.Meter flinkMeter =
-                metricGroup != null
-                        ? metricGroup.meter(name, new org.apache.flink.metrics.MeterView(60))
-                        : null;
-        Meter meter =
-                new org.apache.seatunnel.translation.flink.metric.FlinkMeter(name, flinkMeter);
-        meters.put(name, meter);
-        return meter;
+        return this.meter(
+                name,
+                new FlinkMeter(
+                        name, runtimeContext.getMetricGroup().meter(name, new MeterView(5))));
     }
 
     @Override
     public <M extends Meter> M meter(String name, M meter) {
-        meters.put(name, meter);
+        this.addMetric(name, meter);
         return meter;
     }
 
-    private boolean isKeyMetric(String name) {
-        return name.equals(MetricNames.SOURCE_RECEIVED_COUNT)
-                || name.equals(MetricNames.SOURCE_RECEIVED_BYTES)
-                || name.equals(MetricNames.SINK_WRITE_COUNT)
-                || name.equals(MetricNames.SINK_WRITE_BYTES);
+    protected void addMetric(String name, Metric metric) {
+        if (metric == null) {
+            LOGGER.warn("Ignoring attempted add of a metric due to being null for name {}.", name);
+        } else {
+            synchronized (this) {
+                Metric prior = this.metrics.put(name, metric);
+                if (prior != null) {
+                    this.metrics.put(name, prior);
+                    LOGGER.warn(
+                            "Name collision: MetricsContext already contains a Metric with the name '"
+                                    + name
+                                    + "'. Metric will not be reported.");
+                }
+            }
+        }
     }
 }
