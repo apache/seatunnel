@@ -30,12 +30,12 @@ import org.apache.seatunnel.transform.sql.SQLTransform;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-import java.util.Arrays;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
@@ -195,6 +195,9 @@ public class SystemFunctionTest {
     public void testCastAsDoesNotReturnNullWhenValueEqualsTypeName() {
         Object result = SystemFunction.castAs(Arrays.asList("VARCHAR", "VARCHAR"));
         Assertions.assertEquals("VARCHAR", result);
+    }
+
+    @Test
     public void testCastAsDecimalRounding() {
         List<Object> args = new ArrayList<>();
         args.add("1.234");
@@ -211,6 +214,11 @@ public class SystemFunctionTest {
     public void testCoalesceRespectsTargetType() {
         SeaTunnelDataType<?> targetType = BasicType.INT_TYPE;
         Object result = SystemFunction.coalesce(Arrays.asList(null, "123"), targetType);
+
+        Assertions.assertEquals(123, result);
+    }
+
+    @Test
     public void testCoalesceIfNullAndArrayHelpers() {
         List<Object> values = new ArrayList<>();
         values.add(null);
@@ -347,7 +355,6 @@ public class SystemFunctionTest {
         args.add("BOOLEAN");
         Assertions.assertEquals(false, SystemFunction.castAs(args));
 
-        Assertions.assertEquals(123, result);
         args.clear();
         args.add("true");
         args.add("BOOLEAN");
