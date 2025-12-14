@@ -61,13 +61,7 @@ public class MilvusSinkWriter
     public void write(SeaTunnelRow element) {
         batchWriter.addToBatch(element);
         if (batchWriter.needFlush()) {
-            try {
-                // Flush the batch writer
-                batchWriter.flush();
-            } catch (Exception e) {
-                log.error("flush Milvus sink writer failed", e);
-                throw new MilvusConnectorException(MilvusConnectionErrorCode.WRITE_DATA_FAIL, e);
-            }
+            flush();
         }
     }
 
@@ -81,6 +75,7 @@ public class MilvusSinkWriter
      */
     @Override
     public Optional<MilvusCommitInfo> prepareCommit() throws IOException {
+        flush();
         return Optional.empty();
     }
 
@@ -108,6 +103,16 @@ public class MilvusSinkWriter
         } catch (Exception e) {
             log.error("Stop Milvus Client failed", e);
             throw new MilvusConnectorException(MilvusConnectionErrorCode.CLOSE_CLIENT_ERROR, e);
+        }
+    }
+
+    private void flush() {
+        try {
+            // Flush the batch writer
+            batchWriter.flush();
+        } catch (Exception e) {
+            log.error("flush Milvus sink writer failed", e);
+            throw new MilvusConnectorException(MilvusConnectionErrorCode.WRITE_DATA_FAIL, e);
         }
     }
 }

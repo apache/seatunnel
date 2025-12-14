@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.paimon.sink;
 
 import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
@@ -58,6 +59,7 @@ import org.apache.paimon.table.sink.CommitMessage;
 import org.apache.paimon.table.sink.StreamTableWrite;
 import org.apache.paimon.table.sink.TableCommitImpl;
 import org.apache.paimon.table.sink.TableWrite;
+import org.apache.paimon.utils.BranchManager;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -274,6 +276,18 @@ public class PaimonSinkWriter
     private void reOpenTableWrite() {
         this.seaTunnelRowType = this.sourceTableSchema.toPhysicalRowDataType();
         this.paimonTable = (FileStoreTable) paimonCatalog.getPaimonTable(paimonTablePath);
+        String branchName = paimonSinkConfig.getBranch();
+        if (StringUtils.isNotEmpty(branchName)) {
+            BranchManager branchManager = paimonTable.branchManager();
+            if (!branchManager.branchExists(branchName)) {
+                throw new PaimonConnectorException(
+                        PaimonConnectorErrorCode.BRANCH_NOT_EXISTS, branchName);
+            }
+            if (!branchManager.DEFAULT_MAIN_BRANCH.equalsIgnoreCase(branchName)) {
+                this.paimonTable = this.paimonTable.switchToBranch(branchName);
+                log.info("Re-switched to branch {} after reopening table", branchName);
+            }
+        }
         this.sinkPaimonTableSchema = this.paimonTable.schema();
         this.newTableWrite();
     }

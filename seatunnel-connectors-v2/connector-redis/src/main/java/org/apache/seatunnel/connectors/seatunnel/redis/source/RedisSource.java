@@ -21,7 +21,7 @@ import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
-import org.apache.seatunnel.api.options.SinkConnectorCommonOptions;
+import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
@@ -36,6 +36,7 @@ import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisBaseOptions;
 import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisParameters;
 import org.apache.seatunnel.connectors.seatunnel.redis.exception.RedisConnectorException;
 import org.apache.seatunnel.format.json.JsonDeserializationSchema;
+import org.apache.seatunnel.format.text.TextDeserializationSchema;
 
 import java.util.List;
 
@@ -54,25 +55,42 @@ public class RedisSource extends AbstractSingleSplitSource<SeaTunnelRow> {
     public RedisSource(ReadonlyConfig readonlyConfig) {
 
         this.redisParameters.buildWithConfig(readonlyConfig);
+
+        createCatalogTableAndDeserializationSchema(readonlyConfig);
+    }
+
+    private void createCatalogTableAndDeserializationSchema(ReadonlyConfig readonlyConfig) {
         // TODO: use format SPI
         // default use json format
-        if (readonlyConfig.getOptional(RedisBaseOptions.FORMAT).isPresent()) {
-            if (!readonlyConfig.getOptional(SinkConnectorCommonOptions.SCHEMA).isPresent()) {
-                throw new RedisConnectorException(
-                        SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                        String.format(
-                                "PluginName: %s, PluginType: %s, Message: %s",
-                                getPluginName(),
-                                PluginType.SOURCE,
-                                "Must config schema when format parameter been config"));
-            }
+        RedisBaseOptions.Format format = readonlyConfig.get(RedisBaseOptions.FORMAT);
 
-            RedisBaseOptions.Format format = readonlyConfig.get(RedisBaseOptions.FORMAT);
-            if (RedisBaseOptions.Format.JSON.equals(format)) {
-                this.catalogTable = CatalogTableUtil.buildWithConfig(readonlyConfig);
-                this.seaTunnelRowType = catalogTable.getSeaTunnelRowType();
-                this.deserializationSchema =
-                        new JsonDeserializationSchema(catalogTable, false, false);
+        // if config schema, create deserialization schema and catalog table by config
+        // else create catalog with simple text
+        if (readonlyConfig.getOptional(ConnectorCommonOptions.SCHEMA).isPresent()) {
+            this.catalogTable = CatalogTableUtil.buildWithConfig(readonlyConfig);
+            this.seaTunnelRowType = catalogTable.getSeaTunnelRowType();
+
+            switch (format) {
+                case JSON:
+                    this.deserializationSchema =
+                            new JsonDeserializationSchema(catalogTable, false, false);
+                    break;
+                case TEXT:
+                    String fieldDelimiter = readonlyConfig.get(RedisBaseOptions.FIELD_DELIMITER);
+                    this.deserializationSchema =
+                            TextDeserializationSchema.builder()
+                                    .seaTunnelRowType(seaTunnelRowType)
+                                    .delimiter(fieldDelimiter)
+                                    .build();
+                    break;
+                default:
+                    throw new RedisConnectorException(
+                            SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                            String.format(
+                                    "PluginName: %s, PluginType: %s, Message: %s",
+                                    getPluginName(),
+                                    PluginType.SOURCE,
+                                    "Unsupported format: " + format));
             }
         } else {
             this.catalogTable = CatalogTableUtil.buildSimpleTextTable();

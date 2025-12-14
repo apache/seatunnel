@@ -102,12 +102,12 @@ import ChangeLog from '../changelog/connector-file-ftp.md';
 
 ### file_filter_pattern [string]
 
-文件过滤模式，用于过滤文件。
+文件过滤模式，用于过滤文件。若只想根据文件名称筛选，则直接写文件名称的正则；若同时想根据文件目录进行过滤，则表达式以`path`起始。
 
 该模式遵循标准正则表达式。详情请参考：https://en.wikipedia.org/wiki/Regular_expression.
 以下是一些示例。
 
-文件结构示例：
+若`path`为`/data/seatunnel`,且文件结构示例：
 
 ```
 /data/seatunnel/20241001/report.txt
@@ -121,7 +121,7 @@ import ChangeLog from '../changelog/connector-file-ftp.md';
 
 **示例 1**：*匹配所有 .txt 文件*，正则表达式：
 ```
-/data/seatunnel/20241001/.*\.txt
+.*.txt
 ```
 该示例匹配结果为：
 ```
@@ -129,14 +129,14 @@ import ChangeLog from '../changelog/connector-file-ftp.md';
 ```
 **示例 2**：*匹配所有以 abc 开头的文件*，正则表达式：
 ```
-/data/seatunnel/20241002/abc.*
+abc.*
 ```
 该示例匹配结果为：
 ```
 /data/seatunnel/20241007/abch202410.csv
 /data/seatunnel/20241002/abcg202410.csv
 ```
-**示例 3**：*匹配所有以 abc 开头的文件，且第四个字符为 h 或 g*，正则表达式：
+**示例 3**：*匹配20241007文件夹下所有以 abc 开头的文件，且第四个字符为 h 或 g*，正则表达式：
 ```
 /data/seatunnel/20241007/abc[h,g].*
 ```
@@ -146,7 +146,7 @@ import ChangeLog from '../changelog/connector-file-ftp.md';
 ```
 **示例 4**：*匹配第三级文件夹以 202410 开头且文件以 .csv 结尾的文件*，正则表达式：
 ```
-/data/seatunnel/202410\d*/.*\.csv
+/data/seatunnel/202410\d*/.*.csv
 ```
 该示例匹配结果为：
 ```
@@ -257,6 +257,14 @@ markdown 解析器提取各种元素，包括标题、段落、列表、代码�
 
 `active_local` `passive_local`
 
+### control_encoding [string]
+
+FTP 控制连接的字符编码。默认为 `UTF-8`。
+
+当文件路径包含特殊字符（如 `$`、空格、中文字符等）时，需要设置为 `UTF-8` 以确保路径能够正确解析。
+
+例如：`/data/whale_ops/share/$Fund-Product/DA - SANY （三一）/Daily/2025.08.18/file.xlsx`
+
 ### delimiter/field_delimiter [string]
 
 **delimiter** 参数将在 2.3.5 版本后弃用，请使用 **field_delimiter** 代替。
@@ -344,7 +352,7 @@ SeaTunnel 将从源文件中跳过前 2 行。
 ### csv_use_header_line [boolean]
 
 仅在文件格式为 csv 时可以选择配置。
-是否使用标题行来解析文件, 标题行 与 RFC 4180 匹配        
+是否使用标题行来解析文件, 标题行 与 RFC 4180 匹配
 
 ### compress_codec [string]
 

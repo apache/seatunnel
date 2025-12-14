@@ -34,29 +34,32 @@ import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.InputStream;
 
-public class S3Utils {
+public class S3Utils implements AutoCloseable {
     private static Logger logger = LoggerFactory.getLogger(S3Utils.class);
-    private static final String ACCESS_KEY = "XXXXXX";
-    private static final String SECRET_KEY = "AWS_XXXX";
+    private static final String ACCESS_KEY = "minioadmin";
+    private static final String SECRET_KEY = "minioadmin";
     private static final String REGION = "cn-north-1";
-    private static final String ENDPOINT =
-            "s3.cn-north-1.amazonaws.com.cn"; // For example, "https://s3.amazonaws.com"
-    private String bucket = "ws-package";
+    private static final String ENDPOINT = "http://localhost:9000";
+    private static final String BUCKET = "ws-package";
 
-    private final AmazonS3 s3Client;
+    private static final AmazonS3 S3_CLIENT;
 
-    public S3Utils() {
+    static {
         BasicAWSCredentials credentials = new BasicAWSCredentials(ACCESS_KEY, SECRET_KEY);
-
-        this.s3Client =
+        S3_CLIENT =
                 AmazonS3ClientBuilder.standard()
                         .withCredentials(new AWSStaticCredentialsProvider(credentials))
+                        .enablePathStyleAccess()
                         .withEndpointConfiguration(
                                 new AwsClientBuilder.EndpointConfiguration(ENDPOINT, REGION))
                         .build();
+
+        if (!S3_CLIENT.doesBucketExistV2(BUCKET)) {
+            S3_CLIENT.createBucket(BUCKET);
+        }
     }
 
-    public void uploadTestFiles(
+    public static void uploadTestFiles(
             String filePath, String targetFilePath, boolean isFindFromResource) {
         File resourcesFile = null;
         if (isFindFromResource) {
@@ -64,21 +67,22 @@ public class S3Utils {
         } else {
             resourcesFile = new File(filePath);
         }
-        s3Client.putObject(bucket, targetFilePath, resourcesFile);
+        S3_CLIENT.putObject(BUCKET, targetFilePath, resourcesFile);
     }
 
-    public void createDir(String dir) {
+    public static void createDir(String dir) {
         ObjectMetadata metadata = new ObjectMetadata();
         metadata.setContentLength(0);
         InputStream emptyContent = new ByteArrayInputStream(new byte[0]);
         PutObjectRequest putObjectRequest =
-                new PutObjectRequest(bucket, dir, emptyContent, metadata);
-        s3Client.putObject(putObjectRequest);
+                new PutObjectRequest(BUCKET, dir, emptyContent, metadata);
+        S3_CLIENT.putObject(putObjectRequest);
     }
 
-    public void close() {
-        if (s3Client != null) {
-            s3Client.shutdown();
+    @Override
+    public void close() throws Exception {
+        if (S3_CLIENT != null) {
+            S3_CLIENT.shutdown();
         }
     }
 }

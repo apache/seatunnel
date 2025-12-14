@@ -153,9 +153,10 @@ public class MySqlTypeConverter implements TypeConverter<BasicTypeDefine<MysqlTy
                 break;
             case MYSQL_BIT:
             case MYSQL_BIT_UNSIGNED:
-                if (typeDefine.getLength() == null || typeDefine.getLength() <= 0) {
+                if ((typeDefine.getLength() == null || typeDefine.getLength() <= 0)
+                        && intTypeNarrowing) {
                     builder.dataType(BasicType.BOOLEAN_TYPE);
-                } else if (typeDefine.getLength() == 1) {
+                } else if ((typeDefine.getLength() == 1) && intTypeNarrowing) {
                     builder.dataType(BasicType.BOOLEAN_TYPE);
                 } else {
                     builder.dataType(PrimitiveByteArrayType.INSTANCE);

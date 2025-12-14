@@ -58,6 +58,9 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | custom_sql                                | String  | 否    | -                            |
 | enable_upsert                             | Boolean | 否    | true                         |
 | use_copy_statement                        | Boolean | 否    | false                        |
+| access_key_id                             | String  | 否       |                              |
+| secret_access_key                         | String  | 否       |                              |
+| region                                    | String  | 否       |                              |
 
 ### driver [string]
 
@@ -105,7 +108,7 @@ Postgres 9.5及以下版本，请设置为 `postgresLow` 来支持 CDC
 | SqlServer | Tablestore | Teradata |
 | Vertica   | OceanBase  | XUGU     |
 | IRIS      | Inceptor   | Highgo   |
-
+| DSQL      |            |          |
 
 ### database [string]
 
@@ -222,6 +225,15 @@ Sink插件常用参数，请参考 [Sink常用选项](../sink-common-options.md)
 
 注意：不支持 `MAP`、`ARRAY`、`ROW`类型
 
+### access_key_id [String]
+AWS IAM 认证中所需要的access_key_id 。 该参考仅适用于 dialect="dsql"
+
+### secret_access_key [String]
+AWS IAM 认证中所需要的secret_access_key。 该参考仅适用于 dialect="dsql"
+
+### region [String]
+Amazon Aurora DSQL 所在的区域。 该参考仅适用于 dialect="dsql"
+
 ## tips
 
 在 is_exactly_once = "true" 的情况下，使用 XA 事务。这需要数据库支持，有些数据库需要一些设置：<br/>
@@ -256,6 +268,7 @@ Sink插件常用参数，请参考 [Sink常用选项](../sink-common-options.md)
 | OceanBase  | com.oceanbase.jdbc.Driver                    | jdbc:oceanbase://localhost:2881                                    | /                                                  | https://repo1.maven.org/maven2/com/oceanbase/oceanbase-client/2.4.12/oceanbase-client-2.4.12.jar   |
 | opengauss  | org.opengauss.Driver                         | jdbc:opengauss://localhost:5432/postgres                           | /                                                  | https://repo1.maven.org/maven2/org/opengauss/opengauss-jdbc/5.1.0-og/opengauss-jdbc-5.1.0-og.jar   |
 | Highgo     | com.highgo.jdbc.Driver                       | jdbc:highgo://localhost:5866/highgo                                | /                                                  | https://repo1.maven.org/maven2/com/highgo/HgdbJdbc/6.2.3/HgdbJdbc-6.2.3.jar                        |
+| Dsql       | org.postgresql.Driver                        | jdbc:postgresql://Amazon Aurora DSQL Cluster Endpoint:5432/postgres | org.postgresql.xa.PGXADataSource                   | https://mvnrepository.com/artifact/org.postgresql/postgresql                                                                  |
 
 ## 示例
 
@@ -352,6 +365,55 @@ sink {
     }
 }
 
+```
+
+
+#### Dsql 示例
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  Jdbc {
+    driver = oracle.jdbc.driver.OracleDriver
+    url = "jdbc:oracle:thin:@localhost:1521/XE"
+    user = testUser
+    password = testPassword
+
+    table_list = [
+      {
+        table_path = "TESTSCHEMA.TABLE_1"
+      },
+      {
+        table_path = "TESTSCHEMA.TABLE_2"
+      }
+    ]
+  }
+}
+
+transform {
+}
+
+sink {
+    Jdbc {
+        dialect="Dsql"
+        driver = "org.postgresql.Driver"
+        url="jdbc:postgresql://ixxxxxxxxxxxxx.dsql.us-east-1.on.aws:5432/postgres"
+        username = "admin"
+        access_key_id = "ACCESSKEYIDEXAMPLE"
+        secret_access_key = "SECRETACCESSKEYEXAMPLE"
+        region = "us-east-1"
+        database = "postgres"
+        generate_sink_sql = true
+        primary_keys = ["id"]
+        max_retries = 3
+        batch_size = 1000
+
+    }
+}
 ```
 
 ## 变更日志

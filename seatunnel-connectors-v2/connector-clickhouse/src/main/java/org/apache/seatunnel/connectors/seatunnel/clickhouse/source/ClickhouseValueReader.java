@@ -306,6 +306,15 @@ public class ClickhouseValueReader implements Serializable {
             }
         }
 
+        // Add filter_query support for SQL batch strategy
+        if (StringUtils.isNotEmpty(clickhouseSourceTable.getFilterQuery())) {
+            if (whereClause.isEmpty()) {
+                whereClause = " WHERE (" + clickhouseSourceTable.getFilterQuery() + ")";
+            } else {
+                whereClause += " AND (" + clickhouseSourceTable.getFilterQuery() + ")";
+            }
+        }
+
         String orderByClause = " ORDER BY " + sortingKey;
 
         String sql;

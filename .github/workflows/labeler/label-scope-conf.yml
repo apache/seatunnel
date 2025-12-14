@@ -328,3 +328,8 @@ sensorsdata:
           - any-glob-to-any-file: seatunnel-connectors-v2/connector-sensorsdata/**
           - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(sensorsdata)/**'
 
+hugegraph:
+  - all:
+      - changed-files:
+          - any-glob-to-any-file: seatunnel-connectors-v2/connector-hugegraph/**
+          - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(hugegraph)/**'

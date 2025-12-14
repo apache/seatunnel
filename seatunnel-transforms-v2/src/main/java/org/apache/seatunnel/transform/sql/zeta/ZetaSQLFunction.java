@@ -33,6 +33,7 @@ import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.transform.exception.TransformException;
 import org.apache.seatunnel.transform.sql.zeta.functions.ArrayFunction;
 import org.apache.seatunnel.transform.sql.zeta.functions.DateTimeFunction;
+import org.apache.seatunnel.transform.sql.zeta.functions.MapFunction;
 import org.apache.seatunnel.transform.sql.zeta.functions.NumericFunction;
 import org.apache.seatunnel.transform.sql.zeta.functions.StringFunction;
 import org.apache.seatunnel.transform.sql.zeta.functions.SystemFunction;
@@ -195,6 +196,7 @@ public class ZetaSQLFunction {
     // -------------------------lateralView functions----------------------------
     public static final String EXPLODE = "EXPLODE";
     public static final String ARRAY = "ARRAY";
+    public static final String MAP = "MAP";
 
     // -------------------------system functions----------------------------
     public static final String COALESCE = "COALESCE";
@@ -242,10 +244,10 @@ public class ZetaSQLFunction {
 
         if (expression instanceof TrimFunction) {
             TrimFunction function = (TrimFunction) expression;
-            Column column = (Column) function.getExpression();
+            Expression innerExpression = function.getExpression();
             List<Object> functionArgs = new ArrayList<>();
-            if (column != null) {
-                functionArgs.add(computeForValue(column, inputFields));
+            if (innerExpression != null) {
+                functionArgs.add(computeForValue(innerExpression, inputFields));
                 if (function.getFromExpression() != null) {
                     functionArgs.add(((StringValue) function.getFromExpression()).getValue());
                 }
@@ -338,6 +340,9 @@ public class ZetaSQLFunction {
                     }
                     parDataType = ((SeaTunnelRowType) parDataType).getFieldType(idx);
                     res = parRowValues.getFields()[idx];
+                    if (res == null) {
+                        return null;
+                    }
                 }
                 return res;
             }
@@ -619,6 +624,8 @@ public class ZetaSQLFunction {
                 return ArrayFunction.arrayMax(args);
             case ARRAY_MIN:
                 return ArrayFunction.arrayMin(args);
+            case MAP:
+                return MapFunction.map(args);
             case UUID:
                 return randomUUID().toString();
             case COSINE_DISTANCE:

@@ -206,6 +206,48 @@ public class FtpFileIT extends TestSuiteBase implements TestResource {
         deleteFileFromContainer(homePath);
     }
 
+    @TestTemplate
+    public void testFtpToAssertForJsonFilter(TestContainer container)
+            throws IOException, InterruptedException {
+
+        ContainerUtil.copyFileIntoContainers(
+                "/json/e2e.json",
+                "/home/vsftpd/seatunnel/tmp/seatunnel/read/filter/json/name=tyrantlucifer/hobby=coding/e2e.json",
+                ftpContainer);
+        ContainerUtil.copyFileIntoContainers(
+                "/json/e2e.json",
+                "/home/vsftpd/seatunnel/tmp/seatunnel/read/filter/json2025/name=tyrantlucifer/hobby=coding/e2e_2025.json",
+                ftpContainer);
+        ContainerUtil.copyFileIntoContainers(
+                "/text/e2e.txt",
+                "/home/vsftpd/seatunnel/tmp/seatunnel/read/filter/json2025/name=tyrantlucifer/hobby=coding/e2e_2025.txt",
+                ftpContainer);
+        ContainerUtil.copyFileIntoContainers(
+                "/json/e2e.json",
+                "/home/vsftpd/seatunnel/tmp/seatunnel/read/filter/json2024/name=tyrantlucifer/hobby=coding/e2e_2024.json",
+                ftpContainer);
+
+        ContainerUtil.copyFileIntoContainers(
+                "/text/e2e.txt",
+                "/home/vsftpd/seatunnel/tmp/seatunnel/read/filter/text/name=tyrantlucifer/hobby=coding/e2e.txt",
+                ftpContainer);
+
+        ftpContainer.execInContainer("sh", "-c", "chmod -R 777 /home/vsftpd/seatunnel/");
+        ftpContainer.execInContainer("sh", "-c", "chown -R ftp:ftp /home/vsftpd/seatunnel/");
+
+        TestHelper helper = new TestHelper(container);
+        // -----filter based on the file directory at the same time, the expression needs to start
+        // with `path`--------
+        helper.execute("/json/ftp_to_access_for_json_path_filter.conf");
+
+        // -------filter based on file names, just simply write the regular file names--------
+        helper.execute("/json/ftp_to_access_for_json_name_filter.conf");
+
+        // delete path
+        String filterPath = "/home/vsftpd/seatunnel/tmp/seatunnel/read/filter";
+        deleteFileFromContainer(filterPath);
+    }
+
     private void assertJobExecution(TestContainer container, String configPath, List<String> params)
             throws IOException, InterruptedException {
         Container.ExecResult execResult = container.executeJob(configPath, params);
@@ -255,6 +297,57 @@ public class FtpFileIT extends TestSuiteBase implements TestResource {
         helper.execute("/json/ftp_file_json_to_assert_with_multipletable.conf");
         Assertions.assertEquals(getFileListFromContainer(homePath + sink01).size(), 1);
         Assertions.assertEquals(getFileListFromContainer(homePath + sink02).size(), 1);
+    }
+
+    @TestTemplate
+    public void testFtpFileWithSpecialCharactersPath(TestContainer container)
+            throws IOException, InterruptedException {
+        TestHelper helper = new TestHelper(container);
+
+        // Create test file with spaces in path - simpler test to avoid Docker memory issues
+        String specialPath = "/tmp/seatunnel/test spaces";
+        String fileName = "file with spaces.txt";
+        String fullPath = specialPath + "/" + fileName;
+        String homePath = "/home/vsftpd/seatunnel";
+        String containerPath = homePath + fullPath;
+
+        try {
+            // Create directory structure with special characters
+            Container.ExecResult mkdirResult =
+                    ftpContainer.execInContainer("mkdir", "-p", homePath + specialPath);
+            log.info(
+                    "mkdir result: exit code {}, stdout: {}, stderr: {}",
+                    mkdirResult.getExitCode(),
+                    mkdirResult.getStdout(),
+                    mkdirResult.getStderr());
+
+            // Create test file with content
+            String testContent = "name,age,city\nJohn,30,NYC\nJane,25,LA\n";
+            Container.ExecResult createResult =
+                    ftpContainer.execInContainer(
+                            "sh", "-c", "echo '" + testContent + "' > '" + containerPath + "'");
+            log.info(
+                    "create file result: exit code {}, stdout: {}, stderr: {}",
+                    createResult.getExitCode(),
+                    createResult.getStdout(),
+                    createResult.getStderr());
+
+            // Verify file was created
+            Container.ExecResult lsResult =
+                    ftpContainer.execInContainer("ls", "-la", containerPath);
+            Assertions.assertEquals(
+                    0,
+                    lsResult.getExitCode(),
+                    "Failed to create test file with special characters: " + lsResult.getStderr());
+            log.info("File created successfully: {}", lsResult.getStdout());
+
+            // Test reading file with special characters in path using UTF-8 control encoding
+            helper.execute("/text/ftp_special_characters_path_to_assert.conf");
+
+        } finally {
+            // Clean up
+            deleteFileFromContainer(homePath + "/tmp/seatunnel/test\\ spaces");
+        }
     }
 
     @TestTemplate
