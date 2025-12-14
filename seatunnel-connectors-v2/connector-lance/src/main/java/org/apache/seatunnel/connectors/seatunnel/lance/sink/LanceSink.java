@@ -69,6 +69,11 @@ public class LanceSink
     }
 
     @Override
+    public Optional<CatalogTable> getWriteCatalogTable() {
+        return Optional.ofNullable(catalogTable);
+    }
+
+    @Override
     public Optional<SaveModeHandler> getSaveModeHandler() {
         return Optional.empty();
     }
