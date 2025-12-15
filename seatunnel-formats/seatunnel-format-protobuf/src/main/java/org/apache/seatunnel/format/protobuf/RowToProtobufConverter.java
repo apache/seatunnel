@@ -56,8 +56,7 @@ public class RowToProtobufConverter implements Serializable {
                 if (resolvedValue instanceof byte[]) {
                     resolvedValue = ByteString.copyFrom((byte[]) resolvedValue);
                 }
-                builder.setField(
-                        descriptor.findFieldByName(fieldName.toLowerCase()), resolvedValue);
+                builder.setField(descriptor.findFieldByName(fieldName), resolvedValue);
             }
         }
 
