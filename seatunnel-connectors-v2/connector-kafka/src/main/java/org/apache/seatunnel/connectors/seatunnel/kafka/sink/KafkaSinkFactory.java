@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.kafka.sink;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.options.SinkConnectorCommonOptions;
 import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
@@ -44,7 +45,8 @@ public class KafkaSinkFactory implements TableSinkFactory {
                         KafkaSinkOptions.TRANSACTION_PREFIX,
                         KafkaSinkOptions.SEMANTICS,
                         KafkaSinkOptions.PARTITION,
-                        KafkaSinkOptions.PARTITION_KEY_FIELDS)
+                        KafkaSinkOptions.PARTITION_KEY_FIELDS,
+                        SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA)
                 .build();
     }
 
