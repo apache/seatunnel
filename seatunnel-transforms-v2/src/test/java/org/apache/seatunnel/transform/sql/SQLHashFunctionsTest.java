@@ -63,6 +63,7 @@ public class SQLHashFunctionsTest {
         SeaTunnelRow outRow =
                 runSql("select MURMUR64(text) as hash from dual", rowType, "hello world");
 
+        Assertions.assertInstanceOf(Long.class, outRow.getField(0));
         Assertions.assertEquals(murmur64Direct("hello world"), outRow.getField(0));
     }
 
@@ -74,6 +75,7 @@ public class SQLHashFunctionsTest {
 
         SeaTunnelRow outRow = runSql("select MURMUR64(text) as hash from dual", rowType, "");
 
+        Assertions.assertInstanceOf(Long.class, outRow.getField(0));
         Assertions.assertEquals(murmur64Direct(""), outRow.getField(0));
     }
 
@@ -101,6 +103,7 @@ public class SQLHashFunctionsTest {
         SeaTunnelRow outRow2 =
                 runSql("select MURMUR64(text) as hash from dual", rowType, "test123");
 
+        Assertions.assertInstanceOf(Long.class, outRow1.getField(0));
         Assertions.assertEquals(outRow1.getField(0), outRow2.getField(0));
         Assertions.assertEquals(murmur64Direct("test123"), outRow1.getField(0));
     }

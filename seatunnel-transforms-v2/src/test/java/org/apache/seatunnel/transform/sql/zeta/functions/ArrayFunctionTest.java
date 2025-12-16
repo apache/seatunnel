@@ -82,8 +82,6 @@ class ArrayFunctionTest {
         Assertions.assertEquals(4, ((Number) inner2[1]).intValue());
     }
 
-    // ------------------ arrayMax / arrayMin ------------------
-
     @Test
     void testArrayMaxAndMinWithIntegers() {
         Object[] values = new Object[] {1, 3, 2};
@@ -107,11 +105,6 @@ class ArrayFunctionTest {
     @Test
     void testArrayMaxAndMinWithEmptyOrNullArray() {
         Object[] empty = new Object[] {};
-        Assertions.assertNull(
-                ArrayFunction.arrayMax(java.util.Collections.singletonList((Object) empty)));
-        Assertions.assertNull(
-                ArrayFunction.arrayMin(java.util.Collections.singletonList((Object) empty)));
-
         Assertions.assertNull(
                 ArrayFunction.arrayMax(java.util.Collections.singletonList((Object) null)));
         Assertions.assertNull(

@@ -38,7 +38,6 @@ public class DESUtilTest {
     @Test
     public void testEncryptAndDecryptNullData() {
         String password = "password123";
-
         Assertions.assertNull(DESUtil.encrypt(password, null));
         Assertions.assertNull(DESUtil.decrypt(password, null));
     }

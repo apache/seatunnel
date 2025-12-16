@@ -55,7 +55,6 @@ public class DesEncryptTest {
     @Test
     public void testEvaluateReturnsNullWhenPasswordOrDataIsNull() {
         DesEncrypt udf = new DesEncrypt();
-
         Assertions.assertNull(udf.evaluate(Arrays.asList(null, "data")));
         Assertions.assertNull(udf.evaluate(Arrays.asList("password123", null)));
     }

@@ -20,7 +20,7 @@ import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.transform.exception.TransformException;
 
@@ -29,7 +29,9 @@ import net.sf.jsqlparser.expression.Function;
 
 import java.util.Arrays;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class ArrayFunction {
 
@@ -52,9 +54,11 @@ public class ArrayFunction {
                     .max(Comparator.comparingDouble(Number::doubleValue))
                     .orElse(null);
         }
-        throw new TransformException(
-                CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
-                String.format("Unsupported ARRAY_MAX element type: %s", dataList[0].getClass()));
+        Map<String, String> params = new HashMap<>();
+        params.put("identifier", "ArrayFunction");
+        params.put("dataType", dataList[0].getClass().getName());
+        params.put("field", "ARRAY_MAX");
+        throw new TransformException(CommonErrorCode.UNSUPPORTED_DATA_TYPE, params);
     }
 
     public static Object arrayMin(List<Object> args) {
@@ -76,9 +80,11 @@ public class ArrayFunction {
                     .min(Comparator.comparingDouble(Number::doubleValue))
                     .orElse(null);
         }
-        throw new TransformException(
-                CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
-                String.format("Unsupported ARRAY_MIN element type: %s", dataList[0].getClass()));
+        Map<String, String> params = new HashMap<>();
+        params.put("identifier", "ArrayFunction");
+        params.put("dataType", dataList[0].getClass().getName());
+        params.put("field", "ARRAY_MIN");
+        throw new TransformException(CommonErrorCode.UNSUPPORTED_DATA_TYPE, params);
     }
 
     public static Object[] array(List<Object> args) {
