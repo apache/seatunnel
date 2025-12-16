@@ -39,8 +39,13 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaBaseConstants;
+import org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaBaseOptions;
 import org.apache.seatunnel.connectors.seatunnel.kafka.config.MessageFormat;
 import org.apache.seatunnel.connectors.seatunnel.kafka.serialize.DefaultSeaTunnelRowSerializer;
+import org.apache.seatunnel.connectors.seatunnel.kafka.sink.KafkaSinkFactory;
+import org.apache.seatunnel.connectors.seatunnel.kafka.source.KafkaSourceFactory;
+import org.apache.seatunnel.connectors.seatunnel.sink.SinkFlowTestUtils;
+import org.apache.seatunnel.connectors.seatunnel.source.SourceFlowTestUtils;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.EngineType;
@@ -1623,177 +1628,6 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         }
     }
 
-    @TestTemplate
-    public void testProtobufCaseSensitiveFieldNames(TestContainer container)
-            throws IOException, InterruptedException, URISyntaxException {
-        Container.ExecResult execResult =
-                container.executeJob("/protobuf/fake_to_kafka_protobuf_case_sensitive.conf");
-        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
-
-        String path = getTestConfigFile("/protobuf/fake_to_kafka_protobuf_case_sensitive.conf");
-        Config config = ConfigFactory.parseFile(new File(path));
-        Config sinkConfig = config.getConfigList("sink").get(0);
-
-        Map<String, String> schemaProperties = new HashMap<>();
-        schemaProperties.put(
-                "protobuf_message_name", sinkConfig.getString("protobuf_message_name"));
-        schemaProperties.put("protobuf_schema", sinkConfig.getString("protobuf_schema"));
-
-        SeaTunnelRowType nestedType =
-                new SeaTunnelRowType(
-                        new String[] {"NestedField", "AnotherField"},
-                        new SeaTunnelDataType<?>[] {BasicType.STRING_TYPE, BasicType.INT_TYPE});
-
-        SeaTunnelRowType seaTunnelRowType =
-                new SeaTunnelRowType(
-                        new String[] {
-                            "MyIntField",
-                            "CamelCaseString",
-                            "snake_case_field",
-                            "NestedObject",
-                            "MyMapField"
-                        },
-                        new SeaTunnelDataType<?>[] {
-                            BasicType.INT_TYPE,
-                            BasicType.STRING_TYPE,
-                            BasicType.STRING_TYPE,
-                            nestedType,
-                            new MapType<>(BasicType.STRING_TYPE, BasicType.INT_TYPE)
-                        });
-
-        TableSchema schema =
-                TableSchema.builder()
-                        .columns(
-                                Arrays.asList(
-                                        IntStream.range(0, seaTunnelRowType.getTotalFields())
-                                                .mapToObj(
-                                                        i ->
-                                                                PhysicalColumn.of(
-                                                                        seaTunnelRowType
-                                                                                .getFieldName(i),
-                                                                        seaTunnelRowType
-                                                                                .getFieldType(i),
-                                                                        0,
-                                                                        true,
-                                                                        null,
-                                                                        null))
-                                                .toArray(PhysicalColumn[]::new)))
-                        .build();
-
-        CatalogTable catalogTable =
-                CatalogTable.of(
-                        TableIdentifier.of("", "", "", "test"),
-                        schema,
-                        schemaProperties,
-                        Collections.emptyList(),
-                        "It is converted from RowType and only has column information.");
-
-        ProtobufDeserializationSchema deserializationSchema =
-                new ProtobufDeserializationSchema(catalogTable);
-
-        List<SeaTunnelRow> kafkaSTRow =
-                getKafkaSTRow(
-                        "test_protobuf_case_sensitive_topic",
-                        value -> {
-                            try {
-                                return deserializationSchema.deserialize(value);
-                            } catch (IOException e) {
-                                throw new RuntimeException("Error deserializing Kafka message", e);
-                            }
-                        });
-
-        Assertions.assertEquals(16, kafkaSTRow.size());
-
-        kafkaSTRow.forEach(
-                row -> {
-                    Assertions.assertAll(
-                            "Verify case-sensitive field values",
-                            () -> Assertions.assertNotNull(row.getField(0)), // MyIntField
-                            () -> Assertions.assertNotNull(row.getField(1)), // CamelCaseString
-                            () -> Assertions.assertNotNull(row.getField(2)), // snake_case_field
-                            () -> {
-                                SeaTunnelRow nestedRow = (SeaTunnelRow) row.getField(3);
-                                if (nestedRow != null) {
-                                    Assertions.assertNotNull(nestedRow.getField(0)); // NestedField
-                                    Assertions.assertNotNull(nestedRow.getField(1)); // AnotherField
-                                }
-                            },
-                            () -> {
-                                @SuppressWarnings("unchecked")
-                                Map<String, Integer> mapField =
-                                        (Map<String, Integer>) row.getField(4);
-                                if (mapField != null) {
-                                    Assertions.assertNotNull(mapField);
-                                }
-                            });
-                });
-    }
-
-    @TestTemplate
-    public void testProtobufCaseSensitiveToAssert(TestContainer container)
-            throws IOException, InterruptedException, URISyntaxException {
-
-        String confFile = "/protobuf/kafka_protobuf_case_sensitive_to_assert.conf";
-        String path = getTestConfigFile(confFile);
-        Config config = ConfigFactory.parseFile(new File(path));
-        Config sourceConfig = config.getConfigList("source").get(0);
-        ReadonlyConfig readonlyConfig = ReadonlyConfig.fromConfig(sourceConfig);
-
-        SeaTunnelRowType nestedType =
-                new SeaTunnelRowType(
-                        new String[] {"NestedField", "AnotherField"},
-                        new SeaTunnelDataType<?>[] {BasicType.STRING_TYPE, BasicType.INT_TYPE});
-
-        SeaTunnelRowType seaTunnelRowType =
-                new SeaTunnelRowType(
-                        new String[] {
-                            "MyIntField",
-                            "CamelCaseString",
-                            "snake_case_field",
-                            "NestedObject",
-                            "MyMapField"
-                        },
-                        new SeaTunnelDataType<?>[] {
-                            BasicType.INT_TYPE,
-                            BasicType.STRING_TYPE,
-                            BasicType.STRING_TYPE,
-                            nestedType,
-                            new MapType<>(BasicType.STRING_TYPE, BasicType.INT_TYPE)
-                        });
-
-        DefaultSeaTunnelRowSerializer serializer =
-                getDefaultSeaTunnelRowSerializer(
-                        "test_protobuf_case_sensitive_topic", seaTunnelRowType, readonlyConfig);
-
-        SeaTunnelRow nestedRow = new SeaTunnelRow(2);
-        nestedRow.setField(0, "nested_value");
-        nestedRow.setField(1, 999);
-
-        Map<String, Integer> mapData = new HashMap<>();
-        mapData.put("key1", 100);
-        mapData.put("key2", 200);
-
-        for (int i = 0; i < 16; i++) {
-            SeaTunnelRow row = new SeaTunnelRow(5);
-            row.setField(0, i);
-            row.setField(1, "test_string_" + i);
-            row.setField(2, "snake_value_" + i);
-            row.setField(3, nestedRow);
-            row.setField(4, mapData);
-
-            ProducerRecord<byte[], byte[]> producerRecord = serializer.serializeRow(row);
-            try {
-                producer.send(producerRecord).get();
-            } catch (InterruptedException | ExecutionException e) {
-                throw new RuntimeException("Error sending Kafka message", e);
-            }
-        }
-        producer.flush();
-
-        Container.ExecResult execResult = container.executeJob(confFile);
-        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
-    }
-
     public static String getTestConfigFile(String configFile)
             throws FileNotFoundException, URISyntaxException {
         URL resource = KafkaIT.class.getResource(configFile);
@@ -2182,6 +2016,227 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         seaTunnelRow.setField(9, phoneNumbers);
 
         return seaTunnelRow;
+    }
+
+    @TestTemplate
+    public void testProtobufCaseSensitiveFieldNames(TestContainer container) throws Exception {
+        SeaTunnelRowType seaTunnelRowType = buildCaseSensitiveSeaTunnelRowType();
+
+        Map<String, String> schemaProperties = new HashMap<>();
+        schemaProperties.put("protobuf_message_name", "TestMessage");
+        schemaProperties.put(
+                "protobuf_schema",
+                "syntax = \"proto3\";\n"
+                        + "package org.apache.seatunnel.format.protobuf;\n"
+                        + "message TestMessage {\n"
+                        + "  int32 MyIntField = 1;\n"
+                        + "  string CamelCaseString = 2;\n"
+                        + "  string snake_case_field = 3;\n"
+                        + "  message NestedObject {\n"
+                        + "    string NestedField = 1;\n"
+                        + "    int32 AnotherField = 2;\n"
+                        + "  }\n"
+                        + "  NestedObject nestedObject = 4;\n"
+                        + "  map<string, int32> MyMapField = 5;\n"
+                        + "}");
+
+        TableSchema schema =
+                TableSchema.builder()
+                        .columns(
+                                Arrays.asList(
+                                        IntStream.range(0, seaTunnelRowType.getTotalFields())
+                                                .mapToObj(
+                                                        i ->
+                                                                PhysicalColumn.of(
+                                                                        seaTunnelRowType
+                                                                                .getFieldName(i),
+                                                                        seaTunnelRowType
+                                                                                .getFieldType(i),
+                                                                        0,
+                                                                        true,
+                                                                        null,
+                                                                        null))
+                                                .toArray(PhysicalColumn[]::new)))
+                        .build();
+
+        CatalogTable catalogTable =
+                CatalogTable.of(
+                        TableIdentifier.of("", "", "", "test"),
+                        schema,
+                        schemaProperties,
+                        Collections.emptyList(),
+                        "Protobuf case-sensitive test");
+
+        Map<String, Object> config = new HashMap<>();
+        config.put(KafkaBaseOptions.TOPIC.key(), "test_protobuf_case_sensitive_topic");
+        config.put(KafkaBaseOptions.BOOTSTRAP_SERVERS.key(), kafkaContainer.getBootstrapServers());
+        config.put(KafkaBaseOptions.FORMAT.key(), MessageFormat.PROTOBUF);
+        config.put("protobuf_message_name", "TestMessage");
+        config.put(
+                "protobuf_schema",
+                "syntax = \"proto3\";\n"
+                        + "package org.apache.seatunnel.format.protobuf;\n"
+                        + "message TestMessage {\n"
+                        + "  int32 MyIntField = 1;\n"
+                        + "  string CamelCaseString = 2;\n"
+                        + "  string snake_case_field = 3;\n"
+                        + "  message NestedObject {\n"
+                        + "    string NestedField = 1;\n"
+                        + "    int32 AnotherField = 2;\n"
+                        + "  }\n"
+                        + "  NestedObject nestedObject = 4;\n"
+                        + "  map<string, int32> MyMapField = 5;\n"
+                        + "}");
+
+        List<SeaTunnelRow> rows = createCaseSensitiveTestRows();
+
+        // Use SinkFlowTestUtils to write data to Kafka
+        SinkFlowTestUtils.runBatchWithCheckpointDisabled(
+                catalogTable, ReadonlyConfig.fromMap(config), new KafkaSinkFactory(), rows);
+
+        // Verify data from Kafka
+        ProtobufDeserializationSchema deserializationSchema =
+                new ProtobufDeserializationSchema(catalogTable);
+
+        List<SeaTunnelRow> kafkaSTRow =
+                getKafkaSTRow(
+                        "test_protobuf_case_sensitive_topic",
+                        value -> {
+                            try {
+                                return deserializationSchema.deserialize(value);
+                            } catch (IOException e) {
+                                throw new RuntimeException("Error deserializing Kafka message", e);
+                            }
+                        });
+
+        Assertions.assertEquals(2, kafkaSTRow.size());
+
+        kafkaSTRow.forEach(
+                row -> {
+                    Assertions.assertAll(
+                            "Verify case-sensitive field values",
+                            () -> Assertions.assertNotNull(row.getField(0)), // MyIntField
+                            () -> Assertions.assertNotNull(row.getField(1)), // CamelCaseString
+                            () -> Assertions.assertNotNull(row.getField(2)), // snake_case_field
+                            () -> {
+                                SeaTunnelRow nestedRow = (SeaTunnelRow) row.getField(3);
+                                if (nestedRow != null) {
+                                    Assertions.assertNotNull(nestedRow.getField(0)); // NestedField
+                                    Assertions.assertNotNull(nestedRow.getField(1)); // AnotherField
+                                }
+                            },
+                            () -> {
+                                @SuppressWarnings("unchecked")
+                                Map<String, Integer> mapField =
+                                        (Map<String, Integer>) row.getField(4);
+                                if (mapField != null) {
+                                    Assertions.assertNotNull(mapField);
+                                }
+                            });
+                });
+    }
+
+    @TestTemplate
+    public void testProtobufCaseSensitiveToAssert(TestContainer container) throws Exception {
+        SeaTunnelRowType seaTunnelRowType = buildCaseSensitiveSeaTunnelRowType();
+
+        // Write test data to Kafka first
+        String confFile = "/protobuf/kafka_protobuf_case_sensitive_to_assert.conf";
+        String path = getTestConfigFile(confFile);
+        Config config = ConfigFactory.parseFile(new File(path));
+        Config sourceConfig = config.getConfigList("source").get(0);
+        ReadonlyConfig readonlyConfig = ReadonlyConfig.fromConfig(sourceConfig);
+
+        DefaultSeaTunnelRowSerializer serializer =
+                getDefaultSeaTunnelRowSerializer(
+                        "test_protobuf_case_sensitive_topic", seaTunnelRowType, readonlyConfig);
+
+        List<SeaTunnelRow> testRows = createCaseSensitiveTestRows();
+
+        for (SeaTunnelRow row : testRows) {
+            ProducerRecord<byte[], byte[]> producerRecord = serializer.serializeRow(row);
+            try {
+                producer.send(producerRecord).get();
+            } catch (InterruptedException | ExecutionException e) {
+                throw new RuntimeException("Error sending Kafka message", e);
+            }
+        }
+        producer.flush();
+
+        // Use SourceFlowTestUtils to read data from Kafka
+        Map<String, Object> sourceOptions = new HashMap<>();
+        sourceOptions.put(KafkaBaseOptions.TOPIC.key(), "test_protobuf_case_sensitive_topic");
+        sourceOptions.put(
+                KafkaBaseOptions.BOOTSTRAP_SERVERS.key(), kafkaContainer.getBootstrapServers());
+        sourceOptions.put(KafkaBaseOptions.FORMAT.key(), MessageFormat.PROTOBUF);
+        sourceOptions.put(
+                "protobuf_message_name",
+                readonlyConfig.get(KafkaBaseOptions.PROTOBUF_MESSAGE_NAME));
+        sourceOptions.put("protobuf_schema", readonlyConfig.get(KafkaBaseOptions.PROTOBUF_SCHEMA));
+
+        List<SeaTunnelRow> readRows =
+                SourceFlowTestUtils.runBatchWithCheckpointDisabled(
+                        ReadonlyConfig.fromMap(sourceOptions), new KafkaSourceFactory());
+
+        Assertions.assertEquals(2, readRows.size());
+
+        readRows.forEach(
+                row -> {
+                    Assertions.assertAll(
+                            "Verify case-sensitive field values from source",
+                            () -> Assertions.assertNotNull(row.getField(0)), // MyIntField
+                            () -> Assertions.assertNotNull(row.getField(1)), // CamelCaseString
+                            () -> Assertions.assertNotNull(row.getField(2))); // snake_case_field
+                });
+    }
+
+    private SeaTunnelRowType buildCaseSensitiveSeaTunnelRowType() {
+        SeaTunnelRowType nestedType =
+                new SeaTunnelRowType(
+                        new String[] {"NestedField", "AnotherField"},
+                        new SeaTunnelDataType<?>[] {BasicType.STRING_TYPE, BasicType.INT_TYPE});
+
+        return new SeaTunnelRowType(
+                new String[] {
+                    "MyIntField",
+                    "CamelCaseString",
+                    "snake_case_field",
+                    "NestedObject",
+                    "MyMapField"
+                },
+                new SeaTunnelDataType<?>[] {
+                    BasicType.INT_TYPE,
+                    BasicType.STRING_TYPE,
+                    BasicType.STRING_TYPE,
+                    nestedType,
+                    new MapType<>(BasicType.STRING_TYPE, BasicType.INT_TYPE)
+                });
+    }
+
+    private List<SeaTunnelRow> createCaseSensitiveTestRows() {
+        SeaTunnelRow nestedRow = new SeaTunnelRow(2);
+        nestedRow.setField(0, "nested_value");
+        nestedRow.setField(1, 999);
+
+        Map<String, Integer> mapData = new HashMap<>();
+        mapData.put("key1", 100);
+        mapData.put("key2", 200);
+
+        SeaTunnelRow row1 = new SeaTunnelRow(5);
+        row1.setField(0, 1);
+        row1.setField(1, "test_string_1");
+        row1.setField(2, "snake_value_1");
+        row1.setField(3, nestedRow);
+        row1.setField(4, mapData);
+
+        SeaTunnelRow row2 = new SeaTunnelRow(5);
+        row2.setField(0, 2);
+        row2.setField(1, "test_string_2");
+        row2.setField(2, "snake_value_2");
+        row2.setField(3, nestedRow);
+        row2.setField(4, mapData);
+
+        return Arrays.asList(row1, row2);
     }
 
     private SeaTunnelRowType buildSeaTunnelRowType() {
