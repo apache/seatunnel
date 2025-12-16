@@ -46,10 +46,11 @@ class ProtobufConverterTest {
         String[] phoneNumbers = {"1", "2"};
         byte[] byteVal = {1, 2, 3};
 
-        SeaTunnelRow address = new SeaTunnelRow(3);
-        address.setField(0, "city_value");
-        address.setField(1, "state_value");
-        address.setField(2, "street_value");
+        SeaTunnelRow address = new SeaTunnelRow(4);
+        address.setField(0, "street_value");
+        address.setField(1, "city_value");
+        address.setField(2, "state_value");
+        address.setField(3, "zip_value");
 
         seaTunnelRow.setField(0, 123);
         seaTunnelRow.setField(1, 123123123123L);
@@ -68,9 +69,12 @@ class ProtobufConverterTest {
     private SeaTunnelRowType buildSeaTunnelRowType() {
         SeaTunnelRowType addressType =
                 new SeaTunnelRowType(
-                        new String[] {"city", "state", "street"},
+                        new String[] {"street", "city", "state", "zip"},
                         new SeaTunnelDataType<?>[] {
-                            BasicType.STRING_TYPE, BasicType.STRING_TYPE, BasicType.STRING_TYPE
+                            BasicType.STRING_TYPE,
+                            BasicType.STRING_TYPE,
+                            BasicType.STRING_TYPE,
+                            BasicType.STRING_TYPE
                         });
 
         return new SeaTunnelRowType(
@@ -245,7 +249,7 @@ class ProtobufConverterTest {
 
         SeaTunnelRowType rowType =
                 new SeaTunnelRowType(
-                        new String[] {"TopLevelField", "MyNestedObject"},
+                        new String[] {"TopLevelField", "myNestedObject"},
                         new SeaTunnelDataType<?>[] {BasicType.STRING_TYPE, nestedType});
 
         SeaTunnelRow nestedRow = new SeaTunnelRow(2);
