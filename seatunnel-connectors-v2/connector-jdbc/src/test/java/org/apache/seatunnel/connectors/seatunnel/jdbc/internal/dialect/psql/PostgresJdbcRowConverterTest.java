@@ -211,6 +211,27 @@ public class PostgresJdbcRowConverterTest {
     }
 
     @Test
+    public void testToExternalWithGeometryTypeFromDatabaseSchema() throws SQLException {
+        TableSchema writeSchema = createTableSchema("geometry_col", BasicType.STRING_TYPE, null);
+        TableSchema databaseSchema =
+                createTableSchema("geometry_col", BasicType.STRING_TYPE, "geometry");
+
+        SeaTunnelRow row = new SeaTunnelRow(new Object[] {1, "0102FF"});
+        PreparedStatement statement = mock(PreparedStatement.class);
+
+        converter.toExternal(writeSchema, databaseSchema, row, statement);
+
+        ArgumentCaptor<Object> captor = ArgumentCaptor.forClass(Object.class);
+        verify(statement).setObject(eq(2), captor.capture());
+
+        Object arg = captor.getValue();
+        Assertions.assertTrue(arg instanceof PGobject);
+        PGobject pg = (PGobject) arg;
+        Assertions.assertEquals("geometry", pg.getType());
+        Assertions.assertEquals("0102FF", pg.getValue());
+    }
+
+    @Test
     public void testToInternalWithGeographyType() throws SQLException {
         ResultSet rs = mock(ResultSet.class);
         TableSchema tableSchema =

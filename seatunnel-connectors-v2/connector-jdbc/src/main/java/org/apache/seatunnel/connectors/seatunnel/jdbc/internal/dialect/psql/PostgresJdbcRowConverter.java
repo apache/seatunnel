@@ -220,7 +220,9 @@ public class PostgresJdbcRowConverter extends AbstractJdbcRowConverter {
 
                 switch (seaTunnelDataType.getSqlType()) {
                     case STRING:
-                        String sourceType = sourceTypes[fieldIndex];
+                        String sourceType =
+                                resolveSourceType(
+                                        rowType, fieldIndex, databaseTableSchema, sourceTypes);
                         if (sourceType != null
                                 && (PG_GEOMETRY.equalsIgnoreCase(sourceType)
                                         || PG_GEOGRAPHY.equalsIgnoreCase(sourceType))) {
@@ -297,7 +299,8 @@ public class PostgresJdbcRowConverter extends AbstractJdbcRowConverter {
                                 statement,
                                 seaTunnelDataType,
                                 statementIndex,
-                                sourceTypes[fieldIndex]);
+                                resolveSourceType(
+                                        rowType, fieldIndex, databaseTableSchema, sourceTypes));
                         break;
                     case BYTES:
                         statement.setBytes(statementIndex, (byte[]) row.getField(fieldIndex));
@@ -338,6 +341,23 @@ public class PostgresJdbcRowConverter extends AbstractJdbcRowConverter {
             }
         }
         return statement;
+    }
+
+    @Nullable private String resolveSourceType(
+            SeaTunnelRowType rowType,
+            int fieldIndex,
+            @Nullable TableSchema databaseTableSchema,
+            String[] sourceTypes) {
+        if (databaseTableSchema != null) {
+            String fieldName = rowType.getFieldName(fieldIndex);
+            if (databaseTableSchema.contains(fieldName)) {
+                return databaseTableSchema.getColumn(fieldName).getSourceType();
+            }
+        }
+        if (fieldIndex < sourceTypes.length) {
+            return sourceTypes[fieldIndex];
+        }
+        return null;
     }
 
     public String microsecondsToIntervalFormatVal(String intervalVal) {
