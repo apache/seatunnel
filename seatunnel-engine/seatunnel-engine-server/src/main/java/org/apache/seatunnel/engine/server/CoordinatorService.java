@@ -47,6 +47,10 @@ import org.apache.seatunnel.engine.core.job.PipelineStatus;
 import org.apache.seatunnel.engine.server.dag.physical.PhysicalVertex;
 import org.apache.seatunnel.engine.server.dag.physical.PipelineLocation;
 import org.apache.seatunnel.engine.server.dag.physical.SubPlan;
+import org.apache.seatunnel.engine.server.diagnostic.PendingDiagnosticsCollector;
+import org.apache.seatunnel.engine.server.diagnostic.PendingJobDiagnostic;
+import org.apache.seatunnel.engine.server.diagnostic.PendingJobsResponse;
+import org.apache.seatunnel.engine.server.diagnostic.PendingQueueSummary;
 import org.apache.seatunnel.engine.server.event.JobEventHttpReportHandler;
 import org.apache.seatunnel.engine.server.event.JobEventProcessor;
 import org.apache.seatunnel.engine.server.execution.ExecutionState;
@@ -82,7 +86,9 @@ import com.hazelcast.spi.impl.NodeEngineImpl;
 import lombok.NonNull;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -261,6 +267,17 @@ public class CoordinatorService {
 
         boolean preApplyResources = jobMaster.preApplyResources();
         if (!preApplyResources) {
+            try {
+                PendingJobDiagnostic diagnostic =
+                        PendingDiagnosticsCollector.collectJobDiagnostic(
+                                pendingJobInfo, Collections.emptyMap(), getResourceManager());
+                pendingJobInfo.recordSnapshot(diagnostic);
+            } catch (Exception e) {
+                logger.warning(
+                        String.format(
+                                "Collect pending diagnostic for job %s failed: %s",
+                                jobId, ExceptionUtils.getMessage(e)));
+            }
             logger.info(
                     String.format(
                             "Current strategy is %s, and resources is not enough, skipping this schedule, JobID: %s",
@@ -1072,6 +1089,72 @@ public class CoordinatorService {
                     "The user is not configured to enable connector package service, can not get connector package service service from master node.");
         }
         return connectorPackageService;
+    }
+
+    public PendingJobsResponse getPendingJobs(Map<String, String> tags, Long jobId, int limit) {
+        Collection<PendingJobInfo> allPendingJobs =
+                new ArrayList<>(pendingJobQueue.getJobIdMap().values());
+
+        List<PendingJobInfo> selectedJobs = new ArrayList<>();
+        if (jobId != null) {
+            PendingJobInfo pendingJobInfo = pendingJobQueue.getById(jobId);
+            if (pendingJobInfo != null) {
+                selectedJobs.add(pendingJobInfo);
+            }
+        } else {
+            selectedJobs.addAll(allPendingJobs);
+            selectedJobs.sort(Comparator.comparingLong(PendingJobInfo::getEnqueueTimestamp));
+            if (limit > 0 && selectedJobs.size() > limit) {
+                selectedJobs = new ArrayList<>(selectedJobs.subList(0, limit));
+            }
+        }
+
+        ResourceManager resourceManager = getResourceManager();
+        List<PendingJobDiagnostic> diagnostics = new ArrayList<>();
+        for (PendingJobInfo jobInfo : selectedJobs) {
+            PendingJobDiagnostic diagnostic = jobInfo.getLastSnapshot();
+            if (diagnostic == null) {
+                diagnostic =
+                        PendingDiagnosticsCollector.collectJobDiagnostic(
+                                jobInfo, tags, resourceManager);
+                if (diagnostic != null) {
+                    diagnostic.setCheckCount(jobInfo.getCheckTimes());
+                }
+            }
+            if (diagnostic != null) {
+                diagnostics.add(diagnostic);
+            }
+        }
+
+        PendingJobsResponse response = new PendingJobsResponse();
+        response.setPendingJobs(diagnostics);
+        response.setClusterSnapshot(
+                PendingDiagnosticsCollector.collectClusterSnapshot(resourceManager, tags));
+        response.setQueueSummary(buildQueueSummary(allPendingJobs, diagnostics));
+        return response;
+    }
+
+    private PendingQueueSummary buildQueueSummary(
+            Collection<PendingJobInfo> pendingJobs, List<PendingJobDiagnostic> diagnostics) {
+        PendingQueueSummary summary = new PendingQueueSummary();
+        summary.setSize(pendingJobQueue.size());
+        summary.setScheduleStrategy(scheduleStrategy.name());
+        summary.setLackingTaskGroups(
+                diagnostics.stream().mapToInt(PendingJobDiagnostic::getLackingTaskGroups).sum());
+
+        if (!pendingJobs.isEmpty()) {
+            summary.setOldestEnqueueTimestamp(
+                    pendingJobs.stream()
+                            .mapToLong(PendingJobInfo::getEnqueueTimestamp)
+                            .min()
+                            .orElse(0L));
+            summary.setNewestEnqueueTimestamp(
+                    pendingJobs.stream()
+                            .mapToLong(PendingJobInfo::getEnqueueTimestamp)
+                            .max()
+                            .orElse(0L));
+        }
+        return summary;
     }
 
     public int getPendingJobCount() {

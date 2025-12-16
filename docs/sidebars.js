@@ -236,6 +236,14 @@ const sidebars = {
             ]
         },
         {
+            "type": "category",
+            "label": "Ecosystem Projects",
+            "items": [
+                "ecosystem/x2seatunnel",
+                "ecosystem/seatunnel-mcp"
+            ]
+        },
+        {
             type: 'category',
             label: 'Contribution',
             items: [

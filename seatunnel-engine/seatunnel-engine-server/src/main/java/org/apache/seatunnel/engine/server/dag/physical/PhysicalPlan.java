@@ -300,7 +300,7 @@ public class PhysicalPlan {
         updateJobState(JobStatus.FAILING);
     }
 
-    public void startJob() {
+    public synchronized void startJob() {
         isRunning = true;
         log.info("{} state process is start", getJobFullName());
         updateJobState(JobStatus.SCHEDULED);

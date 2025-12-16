@@ -206,6 +206,48 @@ public class FtpFileIT extends TestSuiteBase implements TestResource {
         deleteFileFromContainer(homePath);
     }
 
+    @TestTemplate
+    public void testFtpToAssertForJsonFilter(TestContainer container)
+            throws IOException, InterruptedException {
+
+        ContainerUtil.copyFileIntoContainers(
+                "/json/e2e.json",
+                "/home/vsftpd/seatunnel/tmp/seatunnel/read/filter/json/name=tyrantlucifer/hobby=coding/e2e.json",
+                ftpContainer);
+        ContainerUtil.copyFileIntoContainers(
+                "/json/e2e.json",
+                "/home/vsftpd/seatunnel/tmp/seatunnel/read/filter/json2025/name=tyrantlucifer/hobby=coding/e2e_2025.json",
+                ftpContainer);
+        ContainerUtil.copyFileIntoContainers(
+                "/text/e2e.txt",
+                "/home/vsftpd/seatunnel/tmp/seatunnel/read/filter/json2025/name=tyrantlucifer/hobby=coding/e2e_2025.txt",
+                ftpContainer);
+        ContainerUtil.copyFileIntoContainers(
+                "/json/e2e.json",
+                "/home/vsftpd/seatunnel/tmp/seatunnel/read/filter/json2024/name=tyrantlucifer/hobby=coding/e2e_2024.json",
+                ftpContainer);
+
+        ContainerUtil.copyFileIntoContainers(
+                "/text/e2e.txt",
+                "/home/vsftpd/seatunnel/tmp/seatunnel/read/filter/text/name=tyrantlucifer/hobby=coding/e2e.txt",
+                ftpContainer);
+
+        ftpContainer.execInContainer("sh", "-c", "chmod -R 777 /home/vsftpd/seatunnel/");
+        ftpContainer.execInContainer("sh", "-c", "chown -R ftp:ftp /home/vsftpd/seatunnel/");
+
+        TestHelper helper = new TestHelper(container);
+        // -----filter based on the file directory at the same time, the expression needs to start
+        // with `path`--------
+        helper.execute("/json/ftp_to_access_for_json_path_filter.conf");
+
+        // -------filter based on file names, just simply write the regular file names--------
+        helper.execute("/json/ftp_to_access_for_json_name_filter.conf");
+
+        // delete path
+        String filterPath = "/home/vsftpd/seatunnel/tmp/seatunnel/read/filter";
+        deleteFileFromContainer(filterPath);
+    }
+
     private void assertJobExecution(TestContainer container, String configPath, List<String> params)
             throws IOException, InterruptedException {
         Container.ExecResult execResult = container.executeJob(configPath, params);

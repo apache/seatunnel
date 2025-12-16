@@ -21,14 +21,42 @@ import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.catalog.ClickhouseTypeConverter;
 import org.apache.seatunnel.connectors.seatunnel.common.util.CatalogUtil;
+
+import java.util.HashSet;
+import java.util.Set;
 
 import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkNotNull;
 
 public class ClickhouseCatalogUtil extends CatalogUtil {
 
+    private static final ThreadLocal<Set<String>> PRIMARY_KEY_COLUMNS =
+            ThreadLocal.withInitial(HashSet::new);
+
     public static final ClickhouseCatalogUtil INSTANCE = new ClickhouseCatalogUtil();
+
+    @Override
+    public String getCreateTableSql(
+            String template,
+            String database,
+            String table,
+            TableSchema tableSchema,
+            String comment,
+            String optionsKey) {
+        Set<String> pkColumns = PRIMARY_KEY_COLUMNS.get();
+        pkColumns.clear();
+        if (tableSchema.getPrimaryKey() != null) {
+            pkColumns.addAll(tableSchema.getPrimaryKey().getColumnNames());
+        }
+        try {
+            return super.getCreateTableSql(
+                    template, database, table, tableSchema, comment, optionsKey);
+        } finally {
+            pkColumns.clear();
+        }
+    }
 
     public String columnToConnectorType(Column column) {
         checkNotNull(column, "The column is required.");
@@ -38,6 +66,14 @@ public class ClickhouseCatalogUtil extends CatalogUtil {
         } else {
             columnType = ClickhouseTypeConverter.INSTANCE.reconvert(column).getColumnType();
         }
+
+        Set<String> pkColumns = PRIMARY_KEY_COLUMNS.get();
+        boolean isPrimaryKeyColumn = pkColumns != null && pkColumns.contains(column.getName());
+
+        if (column.isNullable() && !isUnsupportedNullableType(columnType) && !isPrimaryKeyColumn) {
+            columnType = "Nullable(" + columnType + ")";
+        }
+
         return String.format(
                 "`%s` %s %s",
                 column.getName(),
@@ -47,6 +83,10 @@ public class ClickhouseCatalogUtil extends CatalogUtil {
                         : "COMMENT '"
                                 + column.getComment().replace("'", "''").replace("\\", "\\\\")
                                 + "'");
+    }
+
+    private static boolean isUnsupportedNullableType(String columnType) {
+        return columnType.startsWith("Map(") || columnType.startsWith("Array(");
     }
 
     public String getDropTableSql(TablePath tablePath, boolean ignoreIfNotExists) {

@@ -50,7 +50,7 @@ Output data to hdfs file
 
 | Name                                  | Type    | Required | Default                                    | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 |---------------------------------------|---------|----------|--------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| fs.defaultFS                          | string  | yes      | -                                          | The hadoop cluster address that start with `hdfs://`, for example: `hdfs://hadoopcluster`                                                                                                                                                                                                                                                                                                                                                                                                |
+| fs.defaultFS                          | string  | yes      | -                                          | Hadoop cluster address. Supports the following formats:<br/>- Standard HDFS: `hdfs://hadoopcluster` or `hdfs://namenode:9000`<br/>- ViewFS (Federated HDFS): `viewfs://mycluster`<br/>See ViewFS configuration example below.                                                                                                                                                                                                                                                            |
 | path                                  | string  | yes      | -                                          | The target dir path is required.                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | tmp_path                              | string  | yes      | /tmp/seatunnel                             | The result file will write to a tmp path first and then use `mv` to submit tmp dir to target dir. Need a hdfs path.                                                                                                                                                                                                                                                                                                                                                                      |
 | hdfs_site_path                        | string  | no       | -                                          | The path of `hdfs-site.xml`, used to load ha configuration of namenodes                                                                                                                                                                                                                                                                                                                                                                                                                  |
@@ -238,6 +238,40 @@ HdfsFile {
     path = "/tmp/hive/warehouse/test2"
     compress_codec = "lzo"
 }
+```
+
+### ViewFS (Federated HDFS) Configuration Example
+
+ViewFS allows you to unify multiple HDFS clusters or namespaces into a single logical namespace. This is very useful for HDFS Federation scenarios.
+
+```hocon
+HdfsFile {
+    fs.defaultFS = "viewfs://mycluster"
+    path = "/data/output"
+    file_format_type = "parquet"
+    hdfs_site_path = "/path/to/core-site.xml"
+    data_save_mode = "DROP_DATA"
+}
+```
+
+Configure mount table in `core-site.xml`:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <property>
+        <name>fs.viewfs.mounttable.mycluster.link./data</name>
+        <value>hdfs://namenode1:9000/data</value>
+    </property>
+    <property>
+        <name>fs.viewfs.mounttable.mycluster.link./logs</name>
+        <value>hdfs://namenode2:9000/logs</value>
+    </property>
+    <property>
+        <name>fs.viewfs.mounttable.mycluster.link./tmp</name>
+        <value>hdfs://namenode3:9000/tmp</value>
+    </property>
+</configuration>
 ```
 
 ## Changelog

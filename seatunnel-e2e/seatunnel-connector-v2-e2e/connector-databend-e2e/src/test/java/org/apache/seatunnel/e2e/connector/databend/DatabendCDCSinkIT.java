@@ -75,9 +75,26 @@ public class DatabendCDCSinkIT extends TestSuiteBase implements TestResource {
                 container.executeJob("/databend/fake_to_databend_cdc.conf");
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
 
-        // Wait for the merge operation to complete
-        // Increased wait time to ensure merge operations finish
-        Thread.sleep(10000);
+        Awaitility.await()
+                .atMost(120, TimeUnit.SECONDS)
+                .pollInterval(1, TimeUnit.SECONDS)
+                .ignoreExceptions()
+                .untilAsserted(
+                        () -> {
+                            try (Statement stmt = connection.createStatement();
+                                    ResultSet rs =
+                                            stmt.executeQuery(
+                                                    "SELECT COUNT(*) as count FROM sink_table")) {
+                                if (rs.next()) {
+                                    int count = rs.getInt("count");
+                                    LOG.info(
+                                            "Current record count in sink_table: {}, expecting 3",
+                                            count);
+                                    Assertions.assertEquals(
+                                            3, count, "Expected 3 records in sink_table");
+                                }
+                            }
+                        });
 
         // Verify the sink results
         try (Statement statement = connection.createStatement()) {
@@ -269,23 +286,6 @@ public class DatabendCDCSinkIT extends TestSuiteBase implements TestResource {
             return false;
         }
     }
-
-    //    private synchronized Connection getConnection() throws SQLException {
-    //        if (this.connection == null || this.connection.isClosed()) {
-    //            LOG.info("Creating new database connection");
-    //            final Properties info = new Properties();
-    //            info.put("user", "root");
-    //            info.put("password", "");
-    //
-    //            String jdbcUrl =
-    //                    String.format(
-    //                            "jdbc:databend://%s:%d/%s?ssl=false",
-    //                            container.getHost(), container.getMappedPort(8000), DATABASE);
-    //
-    //            this.connection = DriverManager.getConnection(jdbcUrl, info);
-    //        }
-    //        return this.connection;
-    //    }
 
     private void initConnection()
             throws SQLException, ClassNotFoundException, InstantiationException,
