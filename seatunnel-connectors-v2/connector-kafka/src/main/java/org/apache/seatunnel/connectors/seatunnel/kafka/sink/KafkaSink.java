@@ -56,7 +56,7 @@ public class KafkaSink
     }
 
     @Override
-    public SinkWriter<SeaTunnelRow, KafkaCommitInfo, KafkaSinkState> createWriter(
+    public KafkaSinkWriter createWriter(
             SinkWriter.Context context) {
         return new KafkaSinkWriter(
                 context, seaTunnelRowType, pluginConfig, Collections.emptyList());
