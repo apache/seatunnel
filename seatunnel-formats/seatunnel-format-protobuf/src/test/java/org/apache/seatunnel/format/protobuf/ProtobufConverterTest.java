@@ -133,7 +133,7 @@ class ProtobufConverterTest {
                         + "    string zip = 4;\n"
                         + "  }\n"
                         + "\n"
-                        + "  Address address = 8;\n"
+                        + "  Address Address = 8;\n"
                         + "\n"
                         + "  map<string, float> attributes = 9;\n"
                         + "\n"
@@ -249,7 +249,7 @@ class ProtobufConverterTest {
 
         SeaTunnelRowType rowType =
                 new SeaTunnelRowType(
-                        new String[] {"TopLevelField", "myNestedObject"},
+                        new String[] {"TopLevelField", "MyNestedObject"},
                         new SeaTunnelDataType<?>[] {BasicType.STRING_TYPE, nestedType});
 
         SeaTunnelRow nestedRow = new SeaTunnelRow(2);
@@ -269,7 +269,7 @@ class ProtobufConverterTest {
                         + "    string NestedField = 1;\n"
                         + "    int32 AnotherField = 2;\n"
                         + "  }\n"
-                        + "  MyNestedObject myNestedObject = 2;\n"
+                        + "  MyNestedObject MyNestedObject = 2;\n"
                         + "}";
 
         String messageName = "TestMessage";
@@ -285,7 +285,7 @@ class ProtobufConverterTest {
 
         DynamicMessage nestedMessage =
                 (DynamicMessage)
-                        dynamicMessage.getField(descriptor.findFieldByName("myNestedObject"));
+                        dynamicMessage.getField(descriptor.findFieldByName("MyNestedObject"));
         Descriptors.Descriptor nestedDescriptor = descriptor.findNestedTypeByName("MyNestedObject");
         Assertions.assertEquals(
                 "nested_value",
