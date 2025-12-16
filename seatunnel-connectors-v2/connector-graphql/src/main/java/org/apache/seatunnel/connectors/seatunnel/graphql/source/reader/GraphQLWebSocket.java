@@ -98,7 +98,7 @@ public class GraphQLWebSocket {
         @Override
         public void onFailure(
                 @NotNull WebSocket webSocket, @NotNull Throwable t, @Nullable Response response) {
-            log.error("WebSocket connection failed: " + t.getMessage(), t);
+            log.error("WebSocket connection failed", t);
             scheduleReconnect();
         }
 
