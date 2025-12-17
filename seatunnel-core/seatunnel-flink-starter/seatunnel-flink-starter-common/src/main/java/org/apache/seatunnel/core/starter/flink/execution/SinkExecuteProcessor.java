@@ -17,11 +17,11 @@
 
 package org.apache.seatunnel.core.starter.flink.execution;
 
-import org.apache.seatunnel.api.sink.SupportSchemaEvolutionSink;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
+import org.apache.seatunnel.api.sink.SupportSchemaEvolutionSink;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.translation.flink.schema.BroadcastSchemaSinkOperator;
 import org.apache.seatunnel.translation.flink.sink.FlinkSink;
@@ -52,9 +52,7 @@ public class SinkExecuteProcessor extends AbstractSinkExecuteProcessor {
             DataStreamTableInfo stream, SeaTunnelSink sink, int parallelism, Config sinkConfig) {
         boolean isStreaming =
                 envConfig.hasPath("job.mode")
-                        && STREAMING
-                        .toString()
-                        .equalsIgnoreCase(envConfig.getString("job.mode"));
+                        && STREAMING.toString().equalsIgnoreCase(envConfig.getString("job.mode"));
         DataStream<SeaTunnelRow> ds = stream.getDataStream();
         if (isStreaming && sink instanceof SupportSchemaEvolutionSink) {
             // Insert broadcast-based schema operator to handle schema changes
@@ -66,8 +64,7 @@ public class SinkExecuteProcessor extends AbstractSinkExecuteProcessor {
                             .name("BroadcastSchemaHandler")
                             .setParallelism(parallelism);
         }
-        return ds
-                .sinkTo(
+        return ds.sinkTo(
                         SinkV1Adapter.wrap(
                                 new FlinkSink<>(sink, stream.getCatalogTables(), parallelism)))
                 .name(String.format("%s-Sink", sink.getPluginName()));
