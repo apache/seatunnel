@@ -227,6 +227,7 @@ public class EsRestClient implements Closeable {
         // Add runtime fields if provided (Elasticsearch 7.11+)
         if (runtimeFields != null && !runtimeFields.isEmpty()) {
             param.put("runtime_mappings", runtimeFields);
+            param.put("fields", new ArrayList<>(runtimeFields.keySet()));
         }
 
         String endpoint = "/" + index + "/_search?scroll=" + scrollTime;
@@ -415,6 +416,7 @@ public class EsRestClient implements Closeable {
                     doc.put(fieldName, entry.getValue());
                 }
             }
+            mergeFieldsFromResponse(doc, jsonNode.get("fields"));
             docs.add(doc);
         }
         return scrollResult;
@@ -933,6 +935,7 @@ public class EsRestClient implements Closeable {
         // Add runtime fields if provided (Elasticsearch 7.11+)
         if (runtimeFields != null && !runtimeFields.isEmpty()) {
             requestBody.put("runtime_mappings", runtimeFields);
+            requestBody.put("fields", new ArrayList<>(runtimeFields.keySet()));
         }
 
         // Add PIT information
@@ -1016,6 +1019,7 @@ public class EsRestClient implements Closeable {
                     doc.put(fieldName, entry.getValue());
                 }
             }
+            mergeFieldsFromResponse(doc, hit.get("fields"));
             docs.add(doc);
 
             // Get sort values from the last document for search_after
@@ -1041,5 +1045,40 @@ public class EsRestClient implements Closeable {
         boolean hasMore = docs.size() > 0 && totalHits > 0 && docs.size() < totalHits;
 
         return new PointInTimeResult(updatedPitId, docs, totalHits, searchAfter, hasMore);
+    }
+
+    private void mergeFieldsFromResponse(Map<String, Object> doc, JsonNode fieldsNode) {
+        if (fieldsNode == null || fieldsNode.isNull()) {
+            return;
+        }
+        for (Iterator<Map.Entry<String, JsonNode>> iterator = fieldsNode.fields();
+                iterator.hasNext(); ) {
+            Map.Entry<String, JsonNode> entry = iterator.next();
+            String fieldName = entry.getKey();
+            JsonNode valueNode = unwrapFieldValue(entry.getValue());
+            if (valueNode == null || valueNode.isNull()) {
+                continue;
+            }
+            if (valueNode instanceof TextNode) {
+                doc.put(fieldName, valueNode.textValue());
+            } else {
+                doc.put(fieldName, valueNode);
+            }
+        }
+    }
+
+    private JsonNode unwrapFieldValue(JsonNode fieldValue) {
+        if (fieldValue == null || fieldValue.isNull()) {
+            return fieldValue;
+        }
+        if (fieldValue.isArray()) {
+            if (fieldValue.size() == 0) {
+                return fieldValue;
+            }
+            if (fieldValue.size() == 1) {
+                return fieldValue.get(0);
+            }
+        }
+        return fieldValue;
     }
 }
