@@ -36,6 +36,7 @@ import org.apache.seatunnel.connectors.cdc.base.option.StopMode;
 import org.apache.seatunnel.connectors.cdc.base.source.BaseChangeStreamTableSourceFactory;
 import org.apache.seatunnel.connectors.cdc.base.utils.CatalogTableUtils;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.config.MySqlSourceConfigFactory;
+import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.config.MySqlIncrementalSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcCommonOptions;
 
 import com.google.auto.service.AutoService;
@@ -57,41 +58,41 @@ public class MySqlIncrementalSourceFactory extends BaseChangeStreamTableSourceFa
     public OptionRule optionRule() {
         return JdbcSourceOptions.getBaseRule()
                 .required(
-                        JdbcSourceOptions.USERNAME,
-                        JdbcSourceOptions.PASSWORD,
-                        JdbcCommonOptions.URL)
-                .exclusive(ConnectorCommonOptions.TABLE_NAMES, ConnectorCommonOptions.TABLE_PATTERN)
+                        MySqlIncrementalSourceOptions.USERNAME,
+                        MySqlIncrementalSourceOptions.PASSWORD,
+                        MySqlIncrementalSourceOptions.URL)
+                .exclusive(MySqlIncrementalSourceOptions.TABLE_NAMES, MySqlIncrementalSourceOptions.TABLE_PATTERN)
                 .optional(
-                        JdbcSourceOptions.DATABASE_NAMES,
-                        JdbcSourceOptions.SERVER_ID,
-                        JdbcSourceOptions.SERVER_TIME_ZONE,
-                        JdbcSourceOptions.CONNECT_TIMEOUT_MS,
-                        JdbcSourceOptions.CONNECT_MAX_RETRIES,
-                        JdbcSourceOptions.CONNECTION_POOL_SIZE,
-                        JdbcSourceOptions.CHUNK_KEY_EVEN_DISTRIBUTION_FACTOR_LOWER_BOUND,
-                        JdbcSourceOptions.CHUNK_KEY_EVEN_DISTRIBUTION_FACTOR_UPPER_BOUND,
-                        JdbcSourceOptions.SAMPLE_SHARDING_THRESHOLD,
-                        JdbcSourceOptions.INVERSE_SAMPLING_RATE,
-                        JdbcSourceOptions.TABLE_NAMES_CONFIG,
-                        JdbcSourceOptions.SCHEMA_CHANGES_ENABLED,
-                        JdbcCommonOptions.INT_TYPE_NARROWING)
-                .optional(MySqlSourceOptions.STARTUP_MODE, MySqlSourceOptions.STOP_MODE)
+                        MySqlIncrementalSourceOptions.DATABASE_NAMES,
+                        MySqlIncrementalSourceOptions.SERVER_ID,
+                        MySqlIncrementalSourceOptions.SERVER_TIME_ZONE,
+                        MySqlIncrementalSourceOptions.CONNECT_TIMEOUT_MS,
+                        MySqlIncrementalSourceOptions.CONNECT_MAX_RETRIES,
+                        MySqlIncrementalSourceOptions.CONNECTION_POOL_SIZE,
+                        MySqlIncrementalSourceOptions.CHUNK_KEY_EVEN_DISTRIBUTION_FACTOR_LOWER_BOUND,
+                        MySqlIncrementalSourceOptions.CHUNK_KEY_EVEN_DISTRIBUTION_FACTOR_UPPER_BOUND,
+                        MySqlIncrementalSourceOptions.SAMPLE_SHARDING_THRESHOLD,
+                        MySqlIncrementalSourceOptions.INVERSE_SAMPLING_RATE,
+                        MySqlIncrementalSourceOptions.TABLE_NAMES_CONFIG,
+                        MySqlIncrementalSourceOptions.SCHEMA_CHANGES_ENABLED,
+                        MySqlIncrementalSourceOptions.INT_TYPE_NARROWING)
+                .optional(MySqlIncrementalSourceOptions.STARTUP_MODE, MySqlIncrementalSourceOptions.STOP_MODE)
                 .conditional(
-                        MySqlSourceOptions.STARTUP_MODE,
+                        MySqlIncrementalSourceOptions.STARTUP_MODE,
                         StartupMode.INITIAL,
                         SourceOptions.EXACTLY_ONCE)
                 .conditional(
-                        MySqlSourceOptions.STARTUP_MODE,
+                        MySqlIncrementalSourceOptions.STARTUP_MODE,
                         StartupMode.SPECIFIC,
                         SourceOptions.STARTUP_SPECIFIC_OFFSET_FILE,
                         SourceOptions.STARTUP_SPECIFIC_OFFSET_POS)
                 .conditional(
-                        MySqlSourceOptions.STOP_MODE,
+                        MySqlIncrementalSourceOptions.STOP_MODE,
                         StopMode.SPECIFIC,
                         SourceOptions.STOP_SPECIFIC_OFFSET_FILE,
                         SourceOptions.STOP_SPECIFIC_OFFSET_POS)
                 .conditional(
-                        MySqlSourceOptions.STARTUP_MODE,
+                        MySqlIncrementalSourceOptions.STARTUP_MODE,
                         StartupMode.TIMESTAMP,
                         SourceOptions.STARTUP_TIMESTAMP)
                 .build();

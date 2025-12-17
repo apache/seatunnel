@@ -15,19 +15,29 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source;
+package org.apache.seatunnel.connectors.seatunnel.cdc.mysql.config;
 
+import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.api.configuration.SingleChoiceOption;
+import org.apache.seatunnel.api.options.table.CatalogOptions;
+import org.apache.seatunnel.connectors.cdc.base.option.JdbcSourceOptions;
 import org.apache.seatunnel.connectors.cdc.base.option.SourceOptions;
 import org.apache.seatunnel.connectors.cdc.base.option.StartupMode;
 import org.apache.seatunnel.connectors.cdc.base.option.StopMode;
 
 import java.util.Arrays;
 
-public class MySqlSourceOptions {
+public class MySqlIncrementalSourceOptions extends JdbcSourceOptions implements CatalogOptions {
+
+    public static final Option<Boolean> INT_TYPE_NARROWING =
+            Options.key("int_type_narrowing")
+                    .booleanType()
+                    .defaultValue(true)
+                    .withDescription(
+                            "int type narrowing, if true, the tinyint(1) type will be narrowed to the boolean type if without loss of precision. Support for MySQL at now.");
+
     public static final SingleChoiceOption<StartupMode> STARTUP_MODE =
-            (SingleChoiceOption)
                     Options.key(SourceOptions.STARTUP_MODE_KEY)
                             .singleChoice(
                                     StartupMode.class,
@@ -43,7 +53,6 @@ public class MySqlSourceOptions {
                                             + "\"initial\", \"earliest\", \"latest\" , \"specific\" or \"timestamp\"");
 
     public static final SingleChoiceOption<StopMode> STOP_MODE =
-            (SingleChoiceOption)
                     Options.key(SourceOptions.STOP_MODE_KEY)
                             .singleChoice(
                                     StopMode.class,
