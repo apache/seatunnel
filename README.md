@@ -134,6 +134,7 @@ Companies and organizations worldwide use SeaTunnel for research, production, an
 
 ## License
 
+Apache SeaTunnel is licensed under the
 [Apache 2.0 License](LICENSE)
 
 ## Frequently Asked Questions
@@ -163,3 +164,11 @@ Our [Official Documentation](https://seatunnel.apache.org/docs) includes detaile
 
 Join our Slack community for support and discussions: [SeaTunnel Slack](https://s.apache.org/seatunnel-slack).
 More information, please refer to [FAQ](https://seatunnel.apache.org/docs/faq). 
+
+### 7. Where can I find documentation and tutorials?
+
+Visit the official documentation: (https://seatunnel.apache.org/docs).
+
+### 8. How to I get help from the community?
+
+Join the Slack community or checl the FAQ: (https://seatunnel.apache.org/docs/faq).
