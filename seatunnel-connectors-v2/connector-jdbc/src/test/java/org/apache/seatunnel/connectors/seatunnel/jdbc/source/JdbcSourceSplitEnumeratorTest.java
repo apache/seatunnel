@@ -282,6 +282,81 @@ class JdbcSourceSplitEnumeratorTest {
     }
 
     @Test
+    void testLateRegisteredReaderReceivesNoMoreSplits() throws Exception {
+        int parallelism = 2;
+        TablePath tablePath = TablePath.of("db", "schema", "table");
+
+        Map<TablePath, JdbcSourceTable> tables = new HashMap<>();
+        tables.put(tablePath, createJdbcSourceTable(tablePath));
+
+        Set<Integer> registeredReaders = new HashSet<>(Collections.singleton(0));
+        Set<Integer> noMoreSplitsReaders = new HashSet<>();
+
+        SourceSplitEnumerator.Context<JdbcSourceSplit> context =
+                new SourceSplitEnumerator.Context<JdbcSourceSplit>() {
+                    @Override
+                    public int currentParallelism() {
+                        return parallelism;
+                    }
+
+                    @Override
+                    public Set<Integer> registeredReaders() {
+                        return new HashSet<>(registeredReaders);
+                    }
+
+                    @Override
+                    public void assignSplit(int subtaskId, List<JdbcSourceSplit> splits) {}
+
+                    @Override
+                    public void signalNoMoreSplits(int subtask) {
+                        noMoreSplitsReaders.add(subtask);
+                    }
+
+                    @Override
+                    public void sendEventToSourceReader(int subtaskId, SourceEvent event) {}
+
+                    @Override
+                    public MetricsContext getMetricsContext() {
+                        return null;
+                    }
+
+                    @Override
+                    public EventListener getEventListener() {
+                        return null;
+                    }
+                };
+
+        JdbcSourceConfig sourceConfig =
+                JdbcSourceConfig.builder()
+                        .jdbcConnectionConfig(
+                                JdbcConnectionConfig.builder()
+                                        .url("jdbc:mysql://localhost:3306/test")
+                                        .driverName("com.mysql.cj.jdbc.Driver")
+                                        .build())
+                        .build();
+
+        JdbcSourceState state =
+                new JdbcSourceState(
+                        new ArrayList<>(), new HashMap<Integer, List<JdbcSourceSplit>>());
+
+        JdbcSourceSplitEnumerator enumerator =
+                new JdbcSourceSplitEnumerator(context, sourceConfig, tables, state);
+
+        enumerator.open();
+        enumerator.run();
+
+        Assertions.assertEquals(Collections.singleton(0), noMoreSplitsReaders);
+
+        registeredReaders.add(1);
+        enumerator.registerReader(1);
+
+        Set<Integer> expected = new HashSet<>();
+        expected.add(0);
+        expected.add(1);
+        Assertions.assertEquals(expected, noMoreSplitsReaders);
+    }
+
+    @Test
     void testNoMoreSplitsSignalIsSentAtMostOnce() throws Exception {
         int parallelism = 1;
         TablePath tablePath = TablePath.of("db", "schema", "table");

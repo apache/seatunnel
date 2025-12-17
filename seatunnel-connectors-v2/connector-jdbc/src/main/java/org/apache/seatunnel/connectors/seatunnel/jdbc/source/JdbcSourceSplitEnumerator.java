@@ -32,6 +32,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -49,12 +50,12 @@ public class JdbcSourceSplitEnumerator
     private final Object stateLock = new Object();
 
     /**
-     * Indicates whether the enumerator has already notified all registered readers that there will
-     * be no more splits. This is used to avoid missing {@code NoMoreSplitsEvent} in failover
-     * scenarios where splits are added back via {@link #addSplitsBack(List, int)} instead of being
-     * produced via {@link #run()} again.
+     * Tracks which readers have already been notified that there will be no more splits. This is
+     * used to avoid missing {@code NoMoreSplitsEvent} in failover scenarios where splits are added
+     * back via {@link #addSplitsBack(List, int)} instead of being produced via {@link #run()}
+     * again, and to ensure late-registered readers can still receive the event.
      */
-    private boolean noMoreSplitsSignalSent;
+    private final Set<Integer> noMoreSplitsSignaledReaders;
 
     public JdbcSourceSplitEnumerator(
             Context<JdbcSourceSplit> context,
@@ -64,7 +65,7 @@ public class JdbcSourceSplitEnumerator
         this.context = context;
         this.tables = tables;
         this.splitter = ChunkSplitter.create(jdbcSourceConfig);
-        this.noMoreSplitsSignalSent = false;
+        this.noMoreSplitsSignaledReaders = new HashSet<>();
         if (sourceState == null) {
             this.pendingTables = new ConcurrentLinkedQueue<>(tables.keySet());
             this.pendingSplits = new HashMap<>();
@@ -203,10 +204,6 @@ public class JdbcSourceSplitEnumerator
      */
     private void maybeSignalNoMoreSplits() {
         synchronized (stateLock) {
-            if (noMoreSplitsSignalSent) {
-                return;
-            }
-
             if (!pendingTables.isEmpty()) {
                 return;
             }
@@ -232,9 +229,17 @@ public class JdbcSourceSplitEnumerator
                 return;
             }
 
-            LOG.info("No more splits to assign. Sending NoMoreSplitsEvent to reader {}.", readers);
-            readers.forEach(context::signalNoMoreSplits);
-            noMoreSplitsSignalSent = true;
+            Set<Integer> readersToSignal = new HashSet<>(readers);
+            readersToSignal.removeAll(noMoreSplitsSignaledReaders);
+            if (readersToSignal.isEmpty()) {
+                return;
+            }
+
+            LOG.info(
+                    "No more splits to assign. Sending NoMoreSplitsEvent to reader {}.",
+                    readersToSignal);
+            readersToSignal.forEach(context::signalNoMoreSplits);
+            noMoreSplitsSignaledReaders.addAll(readersToSignal);
         }
     }
 }
