@@ -69,11 +69,41 @@ import ChangeLog from '../changelog/connector-kafka.md';
 debezium_record_table_filter {
   database_name = "test"
   schema_name = "public" // null 如果不存在
-  table_name = "products"
+ table_name = "products"
 }
 ```
 
 只有 `test.public.products` 表的数据将被消费。
+
+## 元数据支持
+
+Kafka 源会在 `ConsumerRecord.timestamp` 大于等于 0 时，将其自动写入 SeaTunnel 行的 `EventTime` 元数据。可以借助 [Metadata 转换](../../transform-v2/metadata.md) 把这段时间戳暴露为普通字段，方便做分区或下游 SQL 处理。
+
+```hocon
+source {
+  Kafka {
+    plugin_output = "kafka_raw"
+    topic = "seatunnel_topic"
+    bootstrap.servers = "localhost:9092"
+    format = json
+  }
+}
+
+transform {
+  Metadata {
+    plugin_input = "kafka_raw"
+    plugin_output = "kafka_with_meta"
+    metadata_fields {
+      EventTime = kafka_ts # ConsumerRecord.timestamp (ms)
+    }
+  }
+  Sql {
+    plugin_input = "kafka_with_meta"
+    plugin_output = "kafka_enriched"
+    query = "select *, FROM_UNIXTIME(kafka_ts/1000, 'yyyy-MM-dd', 'Asia/Shanghai') as pt from kafka_with_meta where kafka_ts >= 0"
+  }
+}
+```
 
 ## 任务示例
 

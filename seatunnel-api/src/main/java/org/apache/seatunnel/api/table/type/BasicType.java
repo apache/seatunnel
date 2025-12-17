@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.api.table.type;
 
+import java.time.OffsetDateTime;
 import java.util.Objects;
 
 public class BasicType<T> implements SeaTunnelDataType<T> {
@@ -35,6 +36,8 @@ public class BasicType<T> implements SeaTunnelDataType<T> {
     public static final BasicType<Double> DOUBLE_TYPE =
             new BasicType<>(Double.class, SqlType.DOUBLE);
     public static final BasicType<Void> VOID_TYPE = new BasicType<>(Void.class, SqlType.NULL);
+    public static final LocalTimeType<OffsetDateTime> OFFSET_DATE_TIME_TYPE =
+            LocalTimeType.OFFSET_DATE_TIME_TYPE;
 
     // --------------------------------------------------------------------------------------------
 
