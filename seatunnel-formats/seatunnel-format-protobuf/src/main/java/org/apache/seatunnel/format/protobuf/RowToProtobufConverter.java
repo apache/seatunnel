@@ -56,7 +56,15 @@ public class RowToProtobufConverter implements Serializable {
                 if (resolvedValue instanceof byte[]) {
                     resolvedValue = ByteString.copyFrom((byte[]) resolvedValue);
                 }
-                builder.setField(descriptor.findFieldByName(fieldName), resolvedValue);
+                Descriptors.FieldDescriptor fieldDescriptor = descriptor.findFieldByName(fieldName);
+                if (fieldDescriptor == null) {
+                    throw new SeaTunnelProtobufFormatException(
+                            ProtobufFormatErrorCode.PROTOBUF_SCHEMA_ILLEGAL,
+                            String.format(
+                                    "Field '%s' not found in Protobuf schema. Available fields: %s",
+                                    fieldName, descriptor.getFields()));
+                }
+                builder.setField(fieldDescriptor, resolvedValue);
             }
         }
 
@@ -135,15 +143,46 @@ public class RowToProtobufConverter implements Serializable {
         SeaTunnelRow seaTunnelRow = (SeaTunnelRow) data;
         SeaTunnelDataType<?>[] fieldTypes = ((SeaTunnelRowType) seaTunnelDataType).getFieldTypes();
         String[] fieldNames = ((SeaTunnelRowType) seaTunnelDataType).getFieldNames();
-        Descriptors.Descriptor nestedTypeDescriptor = descriptor.findNestedTypeByName(fieldName);
+
+        // Get the field descriptor for the nested message field
+        Descriptors.FieldDescriptor fieldDescriptor = descriptor.findFieldByName(fieldName);
+        if (fieldDescriptor == null) {
+            throw new SeaTunnelProtobufFormatException(
+                    ProtobufFormatErrorCode.PROTOBUF_SCHEMA_ILLEGAL,
+                    String.format(
+                            "Field '%s' not found in Protobuf schema. Available fields: %s",
+                            fieldName, descriptor.getFields()));
+        }
+
+        // Get the message type descriptor from the field
+        Descriptors.Descriptor nestedTypeDescriptor = fieldDescriptor.getMessageType();
+        if (nestedTypeDescriptor == null) {
+            throw new SeaTunnelProtobufFormatException(
+                    ProtobufFormatErrorCode.PROTOBUF_SCHEMA_ILLEGAL,
+                    String.format(
+                            "Field '%s' is not a message type in Protobuf schema", fieldName));
+        }
+
         DynamicMessage.Builder nestedBuilder = DynamicMessage.newBuilder(nestedTypeDescriptor);
 
         for (int i = 0; i < fieldNames.length; i++) {
             Object resolvedValue =
                     resolveObject(
                             fieldNames[i], seaTunnelRow.getField(i), fieldTypes[i], nestedBuilder);
-            nestedBuilder.setField(
-                    nestedTypeDescriptor.findFieldByName(fieldNames[i]), resolvedValue);
+            if (resolvedValue != null) {
+                Descriptors.FieldDescriptor nestedFieldDescriptor =
+                        nestedTypeDescriptor.findFieldByName(fieldNames[i]);
+                if (nestedFieldDescriptor == null) {
+                    throw new SeaTunnelProtobufFormatException(
+                            ProtobufFormatErrorCode.PROTOBUF_SCHEMA_ILLEGAL,
+                            String.format(
+                                    "Field '%s' not found in nested message type '%s'. Available fields: %s",
+                                    fieldNames[i],
+                                    nestedTypeDescriptor.getName(),
+                                    nestedTypeDescriptor.getFields()));
+                }
+                nestedBuilder.setField(nestedFieldDescriptor, resolvedValue);
+            }
         }
 
         return nestedBuilder.build();
