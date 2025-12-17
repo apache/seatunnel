@@ -19,7 +19,6 @@ package org.apache.seatunnel.engine.core.protocol.codec;
 
 import com.hazelcast.client.impl.protocol.ClientMessage;
 import com.hazelcast.client.impl.protocol.Generated;
-import com.hazelcast.internal.serialization.Data;
 
 import static com.hazelcast.client.impl.protocol.ClientMessage.ForwardFrameIterator;
 import static com.hazelcast.client.impl.protocol.ClientMessage.Frame;
@@ -62,8 +61,6 @@ public final class SeaTunnelCancelJobCodec {
     public static class RequestParameters {
 
         public long jobId;
-
-        public Data jobImmutableInformation;
 
         public boolean force;
     }

@@ -21,6 +21,11 @@ import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.serializable.ClientToServerOperationDataSerializerHook;
 
+import com.hazelcast.nio.ObjectDataInput;
+import com.hazelcast.nio.ObjectDataOutput;
+
+import java.io.IOException;
+
 public class CancelJobOperation extends AbstractJobAsyncOperation {
     private boolean force;
 
@@ -40,6 +45,18 @@ public class CancelJobOperation extends AbstractJobAsyncOperation {
             return service.getCoordinatorService().stopJob(jobId);
         }
         return service.getCoordinatorService().cancelJob(jobId);
+    }
+
+    @Override
+    protected void writeInternal(ObjectDataOutput out) throws IOException {
+        super.writeInternal(out);
+        out.writeBoolean(force);
+    }
+
+    @Override
+    protected void readInternal(ObjectDataInput in) throws IOException {
+        super.readInternal(in);
+        force = in.readBoolean();
     }
 
     @Override
