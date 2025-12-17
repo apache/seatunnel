@@ -47,7 +47,6 @@ import org.apache.seatunnel.engine.server.operation.GetClusterHealthMetricsOpera
 import org.apache.seatunnel.engine.server.operation.GetJobMetricsOperation;
 import org.apache.seatunnel.engine.server.operation.GetJobStatusOperation;
 import org.apache.seatunnel.engine.server.operation.SavePointJobOperation;
-import org.apache.seatunnel.engine.server.operation.StopJobOperation;
 import org.apache.seatunnel.engine.server.operation.SubmitJobOperation;
 import org.apache.seatunnel.engine.server.rest.RestConstant;
 import org.apache.seatunnel.engine.server.rest.RestJobExecutionEnvironment;
@@ -513,7 +512,7 @@ public abstract class BaseService {
         if (!seaTunnelServer.isMasterNode()) {
             if (forceStop) {
                 NodeEngineUtil.sendOperationToMasterNode(
-                                node.nodeEngine, new StopJobOperation(jobId))
+                                node.nodeEngine, new CancelJobOperation(jobId, true))
                         .join();
                 return;
             }
@@ -523,7 +522,7 @@ public abstract class BaseService {
                         .join();
             } else {
                 NodeEngineUtil.sendOperationToMasterNode(
-                                node.nodeEngine, new CancelJobOperation(jobId))
+                                node.nodeEngine, new CancelJobOperation(jobId, false))
                         .join();
             }
 

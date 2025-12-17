@@ -120,7 +120,12 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
             } else if (null != clientCommandArgs.getCancelJobId()) {
                 List<String> cancelJobIds = clientCommandArgs.getCancelJobId();
                 for (String cancelJobId : cancelJobIds) {
-                    engineClient.getJobClient().cancelJob(Long.parseLong(cancelJobId));
+                    engineClient.getJobClient().cancelJob(Long.parseLong(cancelJobId), false);
+                }
+            } else if (null != clientCommandArgs.getForceCancelJobId()) {
+                List<String> forceCancelJobIds = clientCommandArgs.getForceCancelJobId();
+                for (String cancelJobId : forceCancelJobIds) {
+                    engineClient.getJobClient().cancelJob(Long.parseLong(cancelJobId), true);
                 }
             } else if (null != clientCommandArgs.getMetricsJobId()) {
                 String jobMetrics =

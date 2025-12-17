@@ -22,17 +22,23 @@ import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.serializable.ClientToServerOperationDataSerializerHook;
 
 public class CancelJobOperation extends AbstractJobAsyncOperation {
+    private boolean force;
+
     public CancelJobOperation() {
         super();
     }
 
-    public CancelJobOperation(long jobId) {
+    public CancelJobOperation(long jobId, boolean force) {
         super(jobId);
+        this.force = force;
     }
 
     @Override
     protected PassiveCompletableFuture<?> doRun() throws Exception {
         SeaTunnelServer service = getService();
+        if (force) {
+            return service.getCoordinatorService().stopJob(jobId);
+        }
         return service.getCoordinatorService().cancelJob(jobId);
     }
 

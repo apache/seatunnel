@@ -75,6 +75,12 @@ public class ClientCommandArgs extends AbstractCommandArgs {
     private List<String> cancelJobId;
 
     @Parameter(
+            names = {"-canf", "--cancel-job-force"},
+            variableArity = true,
+            description = "Force cancel job by JobId")
+    private List<String> forceCancelJobId;
+
+    @Parameter(
             names = {"--metrics"},
             description = "Get job metrics by JobId")
     private String metricsJobId;
