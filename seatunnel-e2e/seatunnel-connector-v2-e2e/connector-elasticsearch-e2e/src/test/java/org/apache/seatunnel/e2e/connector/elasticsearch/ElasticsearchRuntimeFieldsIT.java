@@ -178,21 +178,4 @@ public class ElasticsearchRuntimeFieldsIT extends TestSuiteBase implements TestR
         log.info("Runtime fields test completed successfully");
         log.info("Job output: {}", execResult.getStdout());
     }
-
-    /** Test runtime fields with Scroll API */
-    @TestTemplate
-    public void testRuntimeFieldsWithScrollApi(TestContainer container)
-            throws IOException, InterruptedException {
-        // This test verifies that runtime fields work correctly with Scroll API
-        Container.ExecResult execResult =
-                container.executeJob(
-                        "/elasticsearch/elasticsearch_source_with_runtime_fields.conf");
-        Assertions.assertEquals(0, execResult.getExitCode());
-
-        // Verify that runtime fields are included in the output
-        String output = execResult.getStdout();
-        Assertions.assertTrue(
-                output.contains("day_of_week") || output.contains("c_int_doubled"),
-                "Output should contain runtime field values");
-    }
 }
