@@ -23,6 +23,7 @@ import org.apache.seatunnel.api.table.connector.TableTransform;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableTransformFactory;
 import org.apache.seatunnel.api.table.factory.TableTransformFactoryContext;
+import org.apache.seatunnel.transform.common.TransformCommonOptions;
 
 import com.google.auto.service.AutoService;
 
@@ -65,7 +66,9 @@ public class PivotTransformFactory implements TableTransformFactory {
                 .optional(
                         PivotTransformConfig.DEFAULT_VALUE,
                         PivotTransformConfig.MAX_BUFFER_SIZE,
-                        PivotTransformConfig.GROUP_TIMEOUT_MS)
+                        PivotTransformConfig.GROUP_TIMEOUT_MS,
+                        TransformCommonOptions.MULTI_TABLES,
+                        TransformCommonOptions.TABLE_MATCH_REGEX)
                 .build();
     }
 
