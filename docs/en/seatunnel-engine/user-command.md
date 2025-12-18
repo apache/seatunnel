@@ -19,7 +19,8 @@ The output is as follows:
 Usage: seatunnel.sh [options]
   Options:
     --async                         Run the job asynchronously. When the job is submitted, the client will exit (default: false).
-    -can, --cancel-job              Cancel the job by JobId.
+    -can, --cancel-job              Cancel the job(s) by JobId.
+    -canf, --cancel-job-force       Force cancel job(s) by JobId.
     --check                         Whether to check the config (default: false).
     -cj, --close-job                Close the client and the task will also be closed (default: true).
     -cn, --cluster                  The name of the cluster.
@@ -122,6 +123,23 @@ This command will cancel the specified job. After canceling the job, the job wil
 Supports batch cancellation of jobs, and can cancel multiple jobs at one time.
 
 All breakpoint information of the canceled job will be deleted and cannot be resumed by seatunnel.sh -r &lt;jobId&gt;.
+
+## Force Canceling Jobs
+
+```shell
+sh bin/seatunnel.sh -canf <jobId1> [<jobId2> <jobId3> ...]
+```
+
+This command forcefully cancels the specified job(s).
+After cancellation, the job will be stopped and its status will be set to `CANCELED`.
+
+This command supports batch operations and allows multiple jobs to be force-canceled at once.
+
+All breakpoint information of the canceled job will be deleted and cannot be resumed by seatunnel.sh -r &lt;jobId&gt;.
+
+**Notes:**
+- If the job status is `DOING_SAVEPOINT` and the savepoint does not complete successfully, a forced stop (When the `force` option is enabled) will set the job status to `CANCELED`.
+- A forced stop may leave checkpoint data incomplete or in an inconsistent state. It should be used only for exceptional or abnormal situations.
 
 ## Configure The JVM Options
 

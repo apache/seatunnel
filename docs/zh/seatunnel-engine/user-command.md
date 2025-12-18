@@ -21,7 +21,8 @@ Usage: seatunnel.sh [options]
     --async                         Run the job asynchronously, when the job 
                                     is submitted, the client will exit 
                                     (default: false)
-    -can, --cancel-job              Cancel job by JobId
+    -can, --cancel-job              Cancel job(s) by JobId
+    -canf, --cancel-job-force       Force cancel job(s) by jobId
     --check                         Whether check config (default: false)
     -cj, --close-job                Close client the task will also be closed 
                                     (default: true)
@@ -138,6 +139,22 @@ bin/seatunnel.sh --config $SEATUNNEL_HOME/config/v2.batch.config.template
 
 被cancel的作业的所有断点信息都将被删除，无法通过seatunnel.sh -r &lt;jobId&gt;恢复。
 
+## 强制取消作业
+
+```shell
+./bin/seatunnel.sh -canf <jobId1> [<jobId2> <jobId3> ...]
+```
+
+该命令用于强制取消指定的作业。
+作业被取消后，将立即停止执行，其状态将变更为 `CANCELED`。
+
+该命令支持批量操作，可一次性强制取消多个作业。
+
+被cancel的作业的所有断点信息都将被删除，无法通过seatunnel.sh -r &lt;jobId&gt;恢复。
+
+**注意事项**
+- 当作业状态为 `DOING_SAVEPOINT` 且 Savepoint 未能成功完成时，启用强制取消（force 选项生效）将直接把作业状态设置为 CANCELED。
+- 强制取消可能会导致 Checkpoint 或 Savepoint 数据不完整或处于不一致状态， 仅建议在异常或紧急情况下使用该操作。
 
 ## 配置JVM参数
 
