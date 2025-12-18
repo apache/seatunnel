@@ -317,11 +317,42 @@ public class SqlServerCDCIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
-    @DisabledOnContainer(
-            value = {},
-            type = {EngineType.SPARK, EngineType.FLINK},
-            disabledReason =
-                    "This case requires obtaining the task health status and manually canceling the canceled task, which is currently only supported by the zeta engine.")
+    public void testEarliestStartupMode(TestContainer container) throws InterruptedException {
+        initializeSqlServerTable("column_type_test");
+
+        Long jobId = JobIdGenerator.newJobId();
+        CompletableFuture.runAsync(
+                () -> {
+                    try {
+                        container.executeJob(
+                                "/sqlservercdc_earliest_to_console.conf", String.valueOf(jobId));
+                    } catch (Exception e) {
+                        log.error("Execute earliest job exception: {}", e.getMessage());
+                        throw new RuntimeException(e);
+                    }
+                });
+
+        // give the job some time to start
+        TimeUnit.SECONDS.sleep(10);
+
+        // verify job stays running (i.e. no fatal exception like ArrayIndexOutOfBounds from
+        // Debezium)
+        await().atMost(2, TimeUnit.MINUTES)
+                .untilAsserted(
+                        () -> {
+                            String jobStatus = container.getJobStatus(String.valueOf(jobId));
+                            Assertions.assertEquals("RUNNING", jobStatus);
+                        });
+
+        try {
+            Container.ExecResult cancelJobResult = container.cancelJob(String.valueOf(jobId));
+            Assertions.assertEquals(0, cancelJobResult.getExitCode(), cancelJobResult.getStderr());
+        } catch (IOException | InterruptedException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    @TestTemplate
     public void testSqlServerCDCMetadataTrans(TestContainer container) throws InterruptedException {
         initializeSqlServerTable("column_type_test");
 
