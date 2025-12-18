@@ -24,6 +24,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import java.io.Serializable;
 
 /**
  * Serializer for PivotGroupState.
@@ -31,7 +32,7 @@ import java.io.ObjectOutputStream;
  * <p>This serializer uses Java serialization for simplicity. In production, you might want to use a
  * more efficient serialization framework like Kryo or Protobuf.
  */
-public class PivotStateSerializer implements Serializer<PivotGroupState> {
+public class PivotStateSerializer implements Serializer<PivotGroupState>, Serializable {
 
     private static final long serialVersionUID = 1L;
 
