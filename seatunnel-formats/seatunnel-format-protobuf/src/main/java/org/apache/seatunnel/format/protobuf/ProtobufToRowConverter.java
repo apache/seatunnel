@@ -143,13 +143,19 @@ public class ProtobufToRowConverter implements Serializable {
 
                 return res;
             case ROW:
-                Descriptors.Descriptor nestedTypeByName =
-                        descriptor.findNestedTypeByName(fieldName);
-                DynamicMessage s =
-                        (DynamicMessage)
-                                dynamicMessage.getField(
-                                        descriptor.findFieldByName(fieldName.toLowerCase()));
-                return converter(nestedTypeByName, s, (SeaTunnelRowType) dataType);
+                if (descriptor == null || dynamicMessage == null || fieldName == null) {
+                    return null;
+                }
+                Descriptors.FieldDescriptor rowField = descriptor.findFieldByName(fieldName);
+                if (rowField == null) {
+                    return null;
+                }
+                Descriptors.Descriptor rowDescriptor = rowField.getMessageType();
+                if (rowDescriptor == null) {
+                    return null;
+                }
+                DynamicMessage rowMessage = (DynamicMessage) dynamicMessage.getField(rowField);
+                return converter(rowDescriptor, rowMessage, (SeaTunnelRowType) dataType);
             case ARRAY:
                 SeaTunnelDataType<?> basicType = ((ArrayType<?, ?>) dataType).getElementType();
                 List<Object> list = (List<Object>) val;
