@@ -317,6 +317,11 @@ public class SqlServerCDCIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK, EngineType.FLINK},
+            disabledReason =
+                    "This case checks SqlServer CDC earliest startup mode only on Zeta engine.")
     public void testEarliestStartupMode(TestContainer container) throws InterruptedException {
         initializeSqlServerTable("column_type_test");
 
@@ -353,6 +358,11 @@ public class SqlServerCDCIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK, EngineType.FLINK},
+            disabledReason =
+                    "This case requires obtaining the task health status and manually canceling the canceled task, which is currently only supported by the zeta engine.")
     public void testSqlServerCDCMetadataTrans(TestContainer container) throws InterruptedException {
         initializeSqlServerTable("column_type_test");
 
