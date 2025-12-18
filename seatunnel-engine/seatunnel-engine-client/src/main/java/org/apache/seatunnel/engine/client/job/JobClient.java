@@ -152,24 +152,29 @@ public class JobClient {
     }
 
     public JobMetricsRunner.JobMetricsSummary getJobMetricsSummary(Long jobId) {
-        long sourceReadCount = 0L;
-        long sinkWriteCount = 0L;
         String jobMetrics = getJobMetrics(jobId);
         try {
             JsonNode jsonNode = OBJECT_MAPPER.readTree(jobMetrics);
-            JsonNode sourceReaders = jsonNode.get("SourceReceivedCount");
-            JsonNode sinkWriters = jsonNode.get("SinkWriteCount");
-            for (int i = 0; i < sourceReaders.size(); i++) {
-                JsonNode sourceReader = sourceReaders.get(i);
-                JsonNode sinkWriter = sinkWriters.get(i);
-                sourceReadCount += sourceReader.get("value").asLong();
-                sinkWriteCount += sinkWriter.get("value").asLong();
-            }
-            return new JobMetricsRunner.JobMetricsSummary(sourceReadCount, sinkWriteCount);
-            // Add NullPointerException because of metrics information can be empty like {}
+            long sourceReadCount = sumMetricValues(jsonNode.get("SourceReceivedCount"));
+            long sinkWriteCount = sumMetricValues(jsonNode.get("SinkWriteCount"));
+            long sourceReadBytes = sumMetricValues(jsonNode.get("SourceReceivedBytes"));
+            long sinkWriteBytes = sumMetricValues(jsonNode.get("SinkWriteBytes"));
+            return new JobMetricsRunner.JobMetricsSummary(
+                    sourceReadCount, sinkWriteCount, sourceReadBytes, sinkWriteBytes);
         } catch (JsonProcessingException | NullPointerException e) {
-            return new JobMetricsRunner.JobMetricsSummary(sourceReadCount, sinkWriteCount);
+            return new JobMetricsRunner.JobMetricsSummary(0L, 0L, 0L, 0L);
         }
+    }
+
+    private long sumMetricValues(JsonNode metricsNode) {
+        if (metricsNode == null) {
+            return 0L;
+        }
+        long sum = 0L;
+        for (int i = 0; i < metricsNode.size(); i++) {
+            sum += metricsNode.get(i).get("value").asLong();
+        }
+        return sum;
     }
 
     public List<JobPipelineCheckpointData> getCheckpointData(Long jobId) {

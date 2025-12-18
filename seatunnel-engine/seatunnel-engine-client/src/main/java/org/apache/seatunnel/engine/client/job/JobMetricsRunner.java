@@ -35,6 +35,8 @@ public class JobMetricsRunner implements Runnable {
     private LocalDateTime lastRunTime = LocalDateTime.now();
     private Long lastReadCount = 0L;
     private Long lastWriteCount = 0L;
+    private Long lastReadBytes = 0L;
+    private Long lastWriteBytes = 0L;
 
     public JobMetricsRunner(SeaTunnelClient seaTunnelClient, Long jobId) {
         this.seaTunnelClient = seaTunnelClient;
@@ -48,8 +50,17 @@ public class JobMetricsRunner implements Runnable {
             JobMetricsSummary jobMetricsSummary = seaTunnelClient.getJobMetricsSummary(jobId);
             LocalDateTime now = LocalDateTime.now();
             long seconds = Duration.between(lastRunTime, now).getSeconds();
-            long averageRead = (jobMetricsSummary.getSourceReadCount() - lastReadCount) / seconds;
-            long averageWrite = (jobMetricsSummary.getSinkWriteCount() - lastWriteCount) / seconds;
+            if (seconds <= 0) {
+                seconds = 1;
+            }
+            long averageReadCount =
+                    (jobMetricsSummary.getSourceReadCount() - lastReadCount) / seconds;
+            long averageWriteCount =
+                    (jobMetricsSummary.getSinkWriteCount() - lastWriteCount) / seconds;
+            long averageReadBytes =
+                    (jobMetricsSummary.getSourceReadBytes() - lastReadBytes) / seconds;
+            long averageWriteBytes =
+                    (jobMetricsSummary.getSinkWriteBytes() - lastWriteBytes) / seconds;
             log.info(
                     StringFormatUtils.formatTable(
                             "Job Progress Information",
@@ -59,10 +70,18 @@ public class JobMetricsRunner implements Runnable {
                             jobMetricsSummary.getSourceReadCount(),
                             "Write Count So Far",
                             jobMetricsSummary.getSinkWriteCount(),
+                            "Read Bytes So Far",
+                            formatBytes(jobMetricsSummary.getSourceReadBytes()),
+                            "Write Bytes So Far",
+                            formatBytes(jobMetricsSummary.getSinkWriteBytes()),
                             "Average Read Count",
-                            averageRead + "/s",
+                            averageReadCount + "/s",
                             "Average Write Count",
-                            averageWrite + "/s",
+                            averageWriteCount + "/s",
+                            "Average Read Bytes",
+                            formatBytes(averageReadBytes) + "/s",
+                            "Average Write Bytes",
+                            formatBytes(averageWriteBytes) + "/s",
                             "Last Statistic Time",
                             DateTimeUtils.toString(
                                     lastRunTime, DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS),
@@ -72,9 +91,33 @@ public class JobMetricsRunner implements Runnable {
             lastRunTime = now;
             lastReadCount = jobMetricsSummary.getSourceReadCount();
             lastWriteCount = jobMetricsSummary.getSinkWriteCount();
+            lastReadBytes = jobMetricsSummary.getSourceReadBytes();
+            lastWriteBytes = jobMetricsSummary.getSinkWriteBytes();
         } catch (Exception e) {
             log.warn("Failed to get job metrics summary, it maybe first-run");
         }
+    }
+
+    /**
+     * Format bytes to human-readable string.
+     *
+     * @param bytes bytes to format
+     * @return formatted string like "1.5 MB", "2.3 GB", etc.
+     */
+    private String formatBytes(long bytes) {
+        if (bytes < 1024) {
+            return bytes + " B";
+        }
+        double kb = bytes / 1024.0;
+        if (kb < 1024) {
+            return String.format("%.2f KB", kb);
+        }
+        double mb = kb / 1024.0;
+        if (mb < 1024) {
+            return String.format("%.2f MB", mb);
+        }
+        double gb = mb / 1024.0;
+        return String.format("%.2f GB", gb);
     }
 
     @Data
@@ -82,5 +125,7 @@ public class JobMetricsRunner implements Runnable {
     public static class JobMetricsSummary {
         private long sourceReadCount;
         private long sinkWriteCount;
+        private long sourceReadBytes;
+        private long sinkWriteBytes;
     }
 }
