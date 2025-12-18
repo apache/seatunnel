@@ -156,7 +156,7 @@ public class SeaTunnelClient implements SeaTunnelClientInstance, AutoCloseable {
 
     @Deprecated
     public void cancelJob(Long jobId) {
-        jobClient.cancelJob(jobId);
+        jobClient.cancelJob(jobId, false);
     }
 
     public JobDAGInfo getJobInfo(Long jobId) {
