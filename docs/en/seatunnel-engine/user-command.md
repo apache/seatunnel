@@ -18,25 +18,25 @@ The output is as follows:
 
 Usage: seatunnel.sh [options]
   Options:
-    --async                         Run the job asynchronously. When the job is submitted, the client will exit (default: false).
-    -can, --cancel-job              Cancel the job(s) by JobId.
-    -canf, --cancel-job-force       Force cancel job(s) by JobId.
-    --check                         Whether to check the config (default: false).
-    -cj, --close-job                Close the client and the task will also be closed (default: true).
-    -cn, --cluster                  The name of the cluster.
-    -c, --config                    Config file.
-    --decrypt                       Decrypt the config file. When both --decrypt and --encrypt are specified, only --encrypt will take effect (default: false). 
-    -m, --master, -e, --deploy-mode SeaTunnel job submit master, support [local, cluster] (default: cluster).
-    --encrypt                       Encrypt the config file. When both --decrypt and --encrypt are specified, only --encrypt will take effect (default: false). 
-    --get_running_job_metrics       Get metrics for running jobs (default: false).
-    -h, --help                      Show the usage message.
-    -j, --job-id                    Get the job status by JobId.
-    -l, --list                      List the job status (default: false).
-    --metrics                       Get the job metrics by JobId.
-    -n, --name                      The SeaTunnel job name (default: SeaTunnel).
-    -r, --restore                   Restore with savepoint by jobId.
-    -s, --savepoint                 Savepoint the job by jobId.
-    -i, --variable                  Variable substitution, such as -i city=beijing, or -i date=20190318. We use ',' as a separator. When inside "", ',' are treated as normal characters instead of delimiters. (default: []).
+    --async                                     Run the job asynchronously. When the job is submitted, the client will exit (default: false).
+    -can, --cancel, --cancel-job                Cancel the job(s) by JobId.
+    -f, --force-cancel, --force-cancel-job      Force cancel job(s) by JobId.
+    --check                                     Whether to check the config (default: false).
+    -cj, --close, --close-job                   Close the client and the task will also be closed (default: true).
+    -cn, --cluster                              The name of the cluster.
+    -c, --config                                Config file.
+    --decrypt                                   Decrypt the config file. When both --decrypt and --encrypt are specified, only --encrypt will take effect (default: false). 
+    -m, --master, -e, --deploy-mode             SeaTunnel job submit master, support [local, cluster] (default: cluster).
+    --encrypt                                   Encrypt the config file. When both --decrypt and --encrypt are specified, only --encrypt will take effect (default: false). 
+    --get_running_job_metrics                   Get metrics for running jobs (default: false).
+    -h, --help                                  Show the usage message.
+    -j, --job-id                                Get the job status by JobId.
+    -l, --list                                  List the job status (default: false).
+    --metrics                                   Get the job metrics by JobId.
+    -n, --name                                  The SeaTunnel job name (default: SeaTunnel).
+    -r, --restore, --restore-job                Restore with savepoint by jobId.
+    -s, --savepoint, --savepoint-job            Savepoint the job by jobId.
+    -i, --variable                              Variable substitution, such as -i city=beijing, or -i date=20190318. We use ',' as a separator. When inside "", ',' are treated as normal characters instead of delimiters. (default: []).
 
 ```
 
@@ -127,7 +127,7 @@ All breakpoint information of the canceled job will be deleted and cannot be res
 ## Force Canceling Jobs
 
 ```shell
-sh bin/seatunnel.sh -canf <jobId1> [<jobId2> <jobId3> ...]
+sh bin/seatunnel.sh -f <jobId1> [<jobId2> <jobId3> ...]
 ```
 
 This command forcefully cancels the specified job(s).

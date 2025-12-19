@@ -18,40 +18,40 @@ bin/seatunnel.sh -h
 
 Usage: seatunnel.sh [options]
   Options:
-    --async                         Run the job asynchronously, when the job 
-                                    is submitted, the client will exit 
-                                    (default: false)
-    -can, --cancel-job              Cancel job(s) by JobId
-    -canf, --cancel-job-force       Force cancel job(s) by jobId
-    --check                         Whether check config (default: false)
-    -cj, --close-job                Close client the task will also be closed 
-                                    (default: true)
-    -cn, --cluster                  The name of cluster
-    -c, --config                    Config file
-    --decrypt                       Decrypt config file, When both --decrypt 
-                                    and --encrypt are specified, only 
-                                    --encrypt will take effect (default: 
-                                    false) 
-    -m, --master, -e, --deploy-mode SeaTunnel job submit master, support 
-                                    [local, cluster] (default: cluster)
-    --encrypt                       Encrypt config file, when both --decrypt 
-                                    and --encrypt are specified, only 
-                                    --encrypt will take effect (default: 
-                                    false) 
-    --get_running_job_metrics       Gets metrics for running jobs (default: 
-                                    false) 
-    -h, --help                      Show the usage message
-    -j, --job-id                    Get job status by JobId
-    -l, --list                      list job status (default: false)
-    --metrics                       Get job metrics by JobId
-    -n, --name                      SeaTunnel job name (default: SeaTunnel)
-    -r, --restore                   restore with savepoint by jobId
-    -s, --savepoint                 savepoint job by jobId
-    -i, --variable                  Variable substitution, such as -i 
-                                    city=beijing, or -i date=20190318.We use 
-                                    ',' as separator, when inside "", ',' are 
-                                    treated as normal characters instead of 
-                                    delimiters. (default: [])
+    --async                                   Run the job asynchronously, when the job 
+                                              is submitted, the client will exit 
+                                              (default: false)
+    -can, --cancel, --cancel-job              Cancel job(s) by JobId
+    -f, --force-cancel, --force-cancel-job    Force cancel job(s) by jobId
+    --check                                   Whether check config (default: false)
+    -cj, --close, --close-job                 Close client the task will also be closed 
+                                              (default: true)
+    -cn, --cluster                            The name of cluster
+    -c, --config                              Config file
+    --decrypt                                 Decrypt config file, When both --decrypt 
+                                              and --encrypt are specified, only 
+                                              --encrypt will take effect (default: 
+                                              false) 
+    -m, --master, -e, --deploy-mode           SeaTunnel job submit master, support 
+                                              [local, cluster] (default: cluster)
+    --encrypt                                 Encrypt config file, when both --decrypt 
+                                              and --encrypt are specified, only 
+                                              --encrypt will take effect (default: 
+                                              false) 
+    --get_running_job_metrics                 Gets metrics for running jobs (default: 
+                                              false) 
+    -h, --help                                Show the usage message
+    -j, --job-id                              Get job status by JobId
+    -l, --list                                list job status (default: false)
+    --metrics                                 Get job metrics by JobId
+    -n, --name                                SeaTunnel job name (default: SeaTunnel)
+    -r, --restore, --restore-job              restore with savepoint by jobId
+    -s, --savepoint, --savepoint-job          savepoint job by jobId
+    -i, --variable                            Variable substitution, such as -i 
+                                              city=beijing, or -i date=20190318.We use 
+                                              ',' as separator, when inside "", ',' are 
+                                              treated as normal characters instead of 
+                                              delimiters. (default: [])
 
 ```
 
@@ -142,7 +142,7 @@ bin/seatunnel.sh --config $SEATUNNEL_HOME/config/v2.batch.config.template
 ## 强制取消作业
 
 ```shell
-./bin/seatunnel.sh -canf <jobId1> [<jobId2> <jobId3> ...]
+./bin/seatunnel.sh -f <jobId1> [<jobId2> <jobId3> ...]
 ```
 
 该命令用于强制取消指定的作业。
