@@ -41,7 +41,6 @@ public class OscarTypeConverter implements TypeConverter<BasicTypeDefine> {
     // ----------------------------int-----------------------------
     public static final String OSCAR_INT1 = "INT1";
     public static final String OSCAR_TINYINT = "TINYINT";
-    public static final String OSCAR_BYTE = "BYTE";
 
     public static final String OSCAR_INT2 = "INT2";
     public static final String OSCAR_SMALLINT = "SMALLINT";
@@ -128,10 +127,6 @@ public class OscarTypeConverter implements TypeConverter<BasicTypeDefine> {
                 break;
             case OSCAR_INT1:
                 builder.sourceType(OSCAR_INT1);
-                builder.dataType(BasicType.BYTE_TYPE);
-                break;
-            case OSCAR_BYTE:
-                builder.sourceType(OSCAR_BYTE);
                 builder.dataType(BasicType.BYTE_TYPE);
                 break;
             case OSCAR_SMALLINT:

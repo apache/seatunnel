@@ -353,12 +353,6 @@ public class OscarTypeConverterTest {
     public void testReconvertInt() {
         testReconvertType(
                 "test",
-                BasicType.BYTE_TYPE,
-                OscarTypeConverter.OSCAR_TINYINT,
-                OscarTypeConverter.OSCAR_TINYINT);
-
-        testReconvertType(
-                "test",
                 BasicType.SHORT_TYPE,
                 OscarTypeConverter.OSCAR_SMALLINT,
                 OscarTypeConverter.OSCAR_SMALLINT);

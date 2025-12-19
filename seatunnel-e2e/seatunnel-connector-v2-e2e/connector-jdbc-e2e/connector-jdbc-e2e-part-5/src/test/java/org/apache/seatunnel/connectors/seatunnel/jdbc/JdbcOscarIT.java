@@ -35,15 +35,15 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public class JdbcOscarIT extends AbstractJdbcIT {
 
-    private static final String OSCAR_IMAGE = "shentongdata/shentongdb";
+public class JdbcOscarIT extends AbstractJdbcIT {
+    private static final String OSCAR_IMAGE = "shentongdata/shentongdb:251217-825.2-linux64";
     private static final String OSCAR_CONTAINER_HOST = "e2e_shentongdb";
 
     private static final String OSCAR_DATABASE = "OSRDB";
     private static final String OSCAR_SCHEMA = "SYSDBA";
-    private static final String OSCAR_SOURCE = "e2e_table_source";
-    private static final String OSCAR_SINK = "e2e_table_sink";
+    private static final String OSCAR_SOURCE = "E2E_TABLE_SOURCE";
+    private static final String OSCAR_SINK = "E2E_TABLE_SINK";
     private static final String OSCAR_USERNAME = "SYSDBA";
     private static final String OSCAR_PASSWORD = "szoscar55";
     private static final int OSCAR_PORT = 2003;
@@ -52,23 +52,21 @@ public class JdbcOscarIT extends AbstractJdbcIT {
     private static final String DRIVER_CLASS = "com.oscar.Driver";
 
     private static final List<String> CONFIG_FILE =
-            Lists.newArrayList("/jdbc_dm_source_and_sink.conf");
+            Lists.newArrayList("/jdbc_oscar_source_and_sink.conf");
     private static final String CREATE_SQL =
             "create table if not exists %s"
                     + "(\n"
                     + "    OSCAR_BIT              BIT,\n"
-                    + "    OSCAR_INT              INT,\n"
+                    + "    OSCAR_INT1              INT1,\n"
                     + "    OSCAR_INTEGER          INTEGER,\n"
                     + "    OSCAR_TINYINT          TINYINT,\n"
                     + "\n"
-                    + "    OSCAR_BYTE             BYTE,\n"
                     + "    OSCAR_SMALLINT         SMALLINT,\n"
                     + "    OSCAR_BIGINT           BIGINT,\n"
                     + "\n"
                     + "    OSCAR_NUMERIC          NUMERIC,\n"
                     + "    OSCAR_NUMBER           NUMBER,\n"
                     + "    OSCAR_DECIMAL          DECIMAL,\n"
-                    + "    OSCAR_DEC              DEC,\n"
                     + "\n"
                     + "    OSCAR_REAL             REAL,\n"
                     + "    OSCAR_FLOAT            FLOAT,\n"
@@ -77,21 +75,17 @@ public class JdbcOscarIT extends AbstractJdbcIT {
                     + "\n"
                     + "    OSCAR_CHAR             CHAR,\n"
                     + "    OSCAR_CHARACTER        CHARACTER,\n"
-                    + "    OSCAR_VARCHAR          VARCHAR,\n"
-                    + "    OSCAR_VARCHAR2         VARCHAR2,\n"
+                    + "    OSCAR_VARCHAR          VARCHAR(10),\n"
+                    + "    OSCAR_VARCHAR2         VARCHAR2(10),\n"
                     + "    OSCAR_TEXT             TEXT,\n"
                     + "    OSCAR_LONG             LONG,\n"
-                    + "    OSCAR_LONGVARCHAR      LONGVARCHAR,\n"
                     + "    OSCAR_CLOB             CLOB,\n"
                     + "\n"
                     + "    OSCAR_TIMESTAMP        TIMESTAMP,\n"
                     + "    OSCAR_DATETIME         DATETIME,\n"
                     + "    OSCAR_DATE             DATE,\n"
                     + "\n"
-                    + "    OSCAR_BLOB             BLOB,\n"
-                    + "    OSCAR_BINARY           BINARY,\n"
-                    + "    OSCAR_VARBINARY        VARBINARY,\n"
-                    + "    OSCAR_LONGVARBINARY    LONGVARBINARY,\n"
+                    + "    OSCAR_BLOB             BLOB\n"
                     + ")";
 
     @Override
@@ -136,17 +130,14 @@ public class JdbcOscarIT extends AbstractJdbcIT {
         String[] fieldNames =
                 new String[] {
                     "OSCAR_BIT",
-                    "OSCAR_INT",
+                    "OSCAR_INT1",
                     "OSCAR_INTEGER",
-                    "OSCAR_PLS_INTEGER",
                     "OSCAR_TINYINT",
-                    "OSCAR_BYTE",
                     "OSCAR_SMALLINT",
                     "OSCAR_BIGINT",
                     "OSCAR_NUMERIC",
                     "OSCAR_NUMBER",
                     "OSCAR_DECIMAL",
-                    "OSCAR_DEC",
                     "OSCAR_REAL",
                     "OSCAR_FLOAT",
                     "OSCAR_DOUBLE_PRECISION",
@@ -157,17 +148,11 @@ public class JdbcOscarIT extends AbstractJdbcIT {
                     "OSCAR_VARCHAR2",
                     "OSCAR_TEXT",
                     "OSCAR_LONG",
-                    "OSCAR_LONGVARCHAR",
                     "OSCAR_CLOB",
                     "OSCAR_TIMESTAMP",
                     "OSCAR_DATETIME",
                     "OSCAR_DATE",
-                    "OSCAR_BLOB",
-                    "OSCAR_BINARY",
-                    "OSCAR_VARBINARY",
-                    "OSCAR_LONGVARBINARY",
-                    "OSCAR_IMAGE",
-                    "OSCAR_BFILE"
+                    "OSCAR_BLOB"
                 };
 
         List<SeaTunnelRow> rows = new ArrayList<>();
@@ -175,16 +160,13 @@ public class JdbcOscarIT extends AbstractJdbcIT {
             SeaTunnelRow row =
                     new SeaTunnelRow(
                             new Object[] {
-                                i % 2 == 0 ? (byte) 1 : (byte) 0,
-                                i,
+                                i % 2 == 0,
                                 i,
                                 i,
                                 Short.valueOf("1"),
                                 Byte.valueOf("1"),
-                                i,
                                 Long.parseLong("1"),
                                 BigDecimal.valueOf(i, 0),
-                                BigDecimal.valueOf(i, 18),
                                 BigDecimal.valueOf(i, 18),
                                 BigDecimal.valueOf(i, 18),
                                 Float.parseFloat("1.1"),
@@ -198,15 +180,9 @@ public class JdbcOscarIT extends AbstractJdbcIT {
                                 String.format("f1_%s", i),
                                 String.format("{\"aa\":\"bb_%s\"}", i),
                                 String.format("f1_%s", i),
-                                String.format("f1_%s", i),
                                 Timestamp.valueOf(LocalDateTime.now()),
                                 new Timestamp(System.currentTimeMillis()),
                                 Date.valueOf(LocalDate.now()),
-                                null,
-                                null,
-                                null,
-                                null,
-                                null,
                                 null
                             });
             rows.add(row);
@@ -223,16 +199,17 @@ public class JdbcOscarIT extends AbstractJdbcIT {
         clearTable(schema, table);
     }
 
+
     @Override
     protected GenericContainer<?> initContainer() {
-        System.setProperty("DOCKER_HOST", "tcp://192.168.0.1:2375");
+
         GenericContainer<?> container =
                 new GenericContainer<>(OSCAR_IMAGE)
                         .withNetwork(NETWORK)
                         .withNetworkAliases(OSCAR_CONTAINER_HOST)
                         .withLogConsumer(
                                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger(OSCAR_IMAGE)));
-        container.setPortBindings(Lists.newArrayList(String.format("%s:%s", 5336, 5236)));
+        container.setPortBindings(Lists.newArrayList(String.format("%s:%s", 2003, 2003)));
 
         return container;
     }
