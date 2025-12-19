@@ -69,7 +69,7 @@
         <system-rules.version>1.2.1</system-rules.version>
         <powermock.version>2.0.9</powermock.version>
         <slf4j.version>1.7.36</slf4j.version>
-        <log4j2.version>2.17.1</log4j2.version>
+        <log4j2.version>2.25.3</log4j2.version>
         <log4j2-disruptor.version>3.4.4</log4j2-disruptor.version>
         <log4j.version>1.2.17</log4j.version>
         <logback.version>1.2.3</logback.version>
