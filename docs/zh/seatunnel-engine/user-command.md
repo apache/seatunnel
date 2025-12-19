@@ -22,7 +22,7 @@ Usage: seatunnel.sh [options]
                                               is submitted, the client will exit 
                                               (default: false)
     -can, --cancel, --cancel-job              Cancel job(s) by JobId
-    -f, --force-cancel, --force-cancel-job    Force cancel job(s) by jobId
+    -f, --force-cancel, --force-cancel-job    Force Cancel job(s) by jobId
     --check                                   Whether check config (default: false)
     -cj, --close, --close-job                 Close client the task will also be closed 
                                               (default: true)

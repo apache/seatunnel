@@ -20,7 +20,7 @@ Usage: seatunnel.sh [options]
   Options:
     --async                                     Run the job asynchronously. When the job is submitted, the client will exit (default: false).
     -can, --cancel, --cancel-job                Cancel the job(s) by JobId.
-    -f, --force-cancel, --force-cancel-job      Force cancel job(s) by JobId.
+    -f, --force-cancel, --force-cancel-job      Force Cancel job(s) by JobId.
     --check                                     Whether to check the config (default: false).
     -cj, --close, --close-job                   Close the client and the task will also be closed (default: true).
     -cn, --cluster                              The name of the cluster.

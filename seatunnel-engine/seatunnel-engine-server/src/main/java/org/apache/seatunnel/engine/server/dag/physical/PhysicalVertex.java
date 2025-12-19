@@ -518,7 +518,8 @@ public class PhysicalVertex {
     }
 
     public void forceStop() {
-        if (getExecutionState().isEndState()) {
+        ExecutionState executionState = getExecutionState();
+        if (executionState == null || executionState.isEndState()) {
             return;
         }
         noticeTaskExecutionServiceCancel();
