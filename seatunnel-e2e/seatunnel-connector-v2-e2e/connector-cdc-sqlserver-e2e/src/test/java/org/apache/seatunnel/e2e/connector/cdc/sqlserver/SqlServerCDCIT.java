@@ -330,7 +330,7 @@ public class SqlServerCDCIT extends TestSuiteBase implements TestResource {
                 () -> {
                     try {
                         container.executeJob(
-                                "/sqlservercdc_earliest_to_console.conf", String.valueOf(jobId));
+                                "/sqlservercdc_earliest_to_sqlserver.conf", String.valueOf(jobId));
                     } catch (Exception e) {
                         log.error("Execute earliest job exception: {}", e.getMessage());
                         throw new RuntimeException(e);
