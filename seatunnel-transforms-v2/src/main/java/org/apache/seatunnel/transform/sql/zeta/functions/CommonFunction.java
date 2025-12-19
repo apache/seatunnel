@@ -24,14 +24,12 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonError;
 
-import net.sf.jsqlparser.expression.BinaryExpression;
 import net.sf.jsqlparser.expression.DoubleValue;
 import net.sf.jsqlparser.expression.Expression;
 import net.sf.jsqlparser.expression.Function;
 import net.sf.jsqlparser.expression.LongValue;
 import net.sf.jsqlparser.expression.NullValue;
 import net.sf.jsqlparser.expression.StringValue;
-import net.sf.jsqlparser.expression.operators.relational.ComparisonOperator;
 import net.sf.jsqlparser.expression.operators.relational.ExpressionList;
 import net.sf.jsqlparser.schema.Column;
 
@@ -45,17 +43,6 @@ public class CommonFunction {
             Expression expression, SeaTunnelRowType rowType) {
         if (expression instanceof NullValue) {
             return null;
-        }
-        if (expression instanceof ComparisonOperator) {
-            return BasicType.BOOLEAN_TYPE;
-        }
-        if (expression instanceof BinaryExpression) {
-            BinaryExpression binaryExpression = (BinaryExpression) expression;
-            SeaTunnelDataType leftType =
-                    resolveExpressionType(binaryExpression.getLeftExpression(), rowType);
-            SeaTunnelDataType rightType =
-                    resolveExpressionType(binaryExpression.getRightExpression(), rowType);
-            return unifyCollectionType(leftType, rightType);
         }
         if (expression instanceof DoubleValue) {
             return BasicType.DOUBLE_TYPE;
