@@ -517,7 +517,7 @@ public class PhysicalVertex {
         updateTaskState(taskExecutionState.getExecutionState());
     }
 
-    public void forceStop() {
+    public synchronized void forceStop() {
         ExecutionState executionState = getExecutionState();
         if (executionState == null || executionState.isEndState()) {
             return;
