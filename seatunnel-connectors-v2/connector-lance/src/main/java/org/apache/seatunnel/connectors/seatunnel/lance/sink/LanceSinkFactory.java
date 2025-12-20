@@ -21,6 +21,7 @@ import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.options.SinkConnectorCommonOptions;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.connector.TableSink;
@@ -63,7 +64,8 @@ public class LanceSinkFactory implements TableSinkFactory {
                         LanceSinkOptions.WRITE_MAX_BYTES_PER_FILE,
                         LanceSinkOptions.WRITE_MODE,
                         LanceSinkOptions.WRITE_ENABLE_STABLE_ROW_IDS,
-                        LanceSinkOptions.WRITE_STORAGE_OPTIONS)
+                        LanceSinkOptions.WRITE_STORAGE_OPTIONS,
+                        SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA)
                 .build();
     }
 
