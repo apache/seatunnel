@@ -82,7 +82,7 @@ import ChangeLog from '../changelog/connector-file-cos.md';
 | common-options             |         | 否  | -                   |
 | file_filter_modified_start | string  | 否  | -                   |
 | file_filter_modified_end   | string  | 否  | -                   |
-| quote_char                 | string  | 否  | -                   | 
+| quote_char                 | string  | 否  | "                   | 
 | escape_char                | string  | 否  | -                   |
 
 ### path [string]
