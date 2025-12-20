@@ -16,6 +16,8 @@
  */
 package org.apache.seatunnel.e2e.connector.redis;
 
+import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisContainerInfo;
+
 public class Redis7IT extends RedisTestCaseTemplateIT {
 
     @Override

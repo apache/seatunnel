@@ -414,6 +414,51 @@ public class KuduIT extends TestSuiteBase implements TestResource {
         kuduClient.deleteTable("kudu_source_table_2");
     }
 
+    @TestTemplate
+    public void testKuduMultipleReadWithRegex(TestContainer container)
+            throws IOException, InterruptedException {
+        initializeKuduTable("kudu_source_table_1");
+        initializeKuduTable("kudu_source_table_2");
+        batchInsertData("kudu_source_table_1");
+        batchInsertData("kudu_source_table_2");
+        Container.ExecResult execResult =
+                container.executeJob("/kudu_to_assert_with_pattern_tables.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+        kuduClient.deleteTable("kudu_source_table_1");
+        kuduClient.deleteTable("kudu_source_table_2");
+    }
+
+    @TestTemplate
+    public void testKuduWholeDatabaseRead(TestContainer container)
+            throws IOException, InterruptedException {
+        initializeKuduTable("kudu_source_table_1");
+        initializeKuduTable("kudu_source_table_2");
+        batchInsertData("kudu_source_table_1");
+        batchInsertData("kudu_source_table_2");
+        Container.ExecResult execResult =
+                container.executeJob("/kudu_to_assert_with_all_tables.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+        kuduClient.deleteTable("kudu_source_table_1");
+        kuduClient.deleteTable("kudu_source_table_2");
+    }
+
+    @TestTemplate
+    public void testKuduTableListWithRegex(TestContainer container)
+            throws IOException, InterruptedException {
+        initializeKuduTable("kudu_source_table_1");
+        initializeKuduTable("kudu_source_table_2");
+        initializeKuduTable("kudu_extra_1");
+        batchInsertData("kudu_source_table_1");
+        batchInsertData("kudu_source_table_2");
+        batchInsertData("kudu_extra_1");
+        Container.ExecResult execResult =
+                container.executeJob("/kudu_to_assert_with_table_list_pattern.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+        kuduClient.deleteTable("kudu_source_table_1");
+        kuduClient.deleteTable("kudu_source_table_2");
+        kuduClient.deleteTable("kudu_extra_1");
+    }
+
     @DisabledOnContainer(
             value = {},
             type = {EngineType.FLINK},
