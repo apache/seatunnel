@@ -27,13 +27,16 @@ import org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeSin
 
 import com.aliyun.odps.PartitionSpec;
 import com.aliyun.odps.TableSchema;
+import com.aliyun.odps.data.ArrayRecord;
 import com.aliyun.odps.data.Record;
+import com.aliyun.odps.data.RecordWriter;
 import com.aliyun.odps.tunnel.TableTunnel;
 import com.aliyun.odps.tunnel.TunnelException;
 import com.aliyun.odps.tunnel.streams.UpsertStream;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
+import java.util.Objects;
 
 @Slf4j
 public class MaxcomputeOutputFormat {
@@ -43,7 +46,9 @@ public class MaxcomputeOutputFormat {
     private final SeaTunnelRowType rowType;
     private final FormatterContext formatterContext;
 
+    private RecordWriter recordWriter;
     private UpsertStream upsertStream;
+    private TableTunnel.UploadSession uploadSession;
     private TableTunnel.UpsertSession upsertSession;
 
     public MaxcomputeOutputFormat(SeaTunnelRowType rowType, ReadonlyConfig readonlyConfig) {
@@ -55,22 +60,15 @@ public class MaxcomputeOutputFormat {
     }
 
     public void write(SeaTunnelRow seaTunnelRow) throws IOException, TunnelException {
-        ensureUpsertSessionAndWriter();
-        Record newRecord =
-                MaxcomputeTypeMapper.getMaxcomputeRowData(
-                        upsertSession.newRecord(),
-                        seaTunnelRow,
-                        this.tableSchema,
-                        this.rowType,
-                        formatterContext);
-
         switch (seaTunnelRow.getRowKind()) {
             case INSERT:
+                insertRecord(seaTunnelRow);
+                break;
             case UPDATE_AFTER:
-                upsertStream.upsert(newRecord);
+                upsertRecord(seaTunnelRow);
                 break;
             case DELETE:
-                upsertStream.delete(newRecord);
+                deleteRecord(seaTunnelRow);
                 break;
             default:
                 throw CommonError.unsupportedDataType(
@@ -81,6 +79,56 @@ public class MaxcomputeOutputFormat {
     }
 
     public void close() throws IOException, TunnelException {
+        closeUploadSession();
+        closeUpsertSession();
+    }
+
+    private void insertRecord(SeaTunnelRow seaTunnelRow) throws TunnelException, IOException {
+        ensureInsertSessionAndWriter();
+        Record arrayRecord =
+                MaxcomputeTypeMapper.getMaxcomputeRowData(
+                        new ArrayRecord(tableSchema),
+                        seaTunnelRow,
+                        this.tableSchema,
+                        this.rowType,
+                        formatterContext);
+        recordWriter.write(arrayRecord);
+    }
+
+    private void upsertRecord(SeaTunnelRow seaTunnelRow) throws TunnelException, IOException {
+        Record upsertRecord = getNewRecord(seaTunnelRow);
+        upsertStream.upsert(upsertRecord);
+    }
+
+    private void deleteRecord(SeaTunnelRow seaTunnelRow) throws TunnelException, IOException {
+        Record deleteRecord = getNewRecord(seaTunnelRow);
+        upsertStream.delete(deleteRecord);
+    }
+
+    private Record getNewRecord(SeaTunnelRow seaTunnelRow) throws TunnelException, IOException {
+        ensureUpsertSessionAndWriter();
+        return MaxcomputeTypeMapper.getMaxcomputeRowData(
+                upsertSession.newRecord(),
+                seaTunnelRow,
+                this.tableSchema,
+                this.rowType,
+                formatterContext);
+    }
+
+    private void closeUploadSession() throws IOException, TunnelException {
+        if (recordWriter != null) {
+            try {
+                recordWriter.close();
+            } finally {
+                recordWriter = null;
+            }
+        }
+        if (uploadSession != null) {
+            uploadSession.commit();
+        }
+    }
+
+    private void closeUpsertSession() throws IOException, TunnelException {
         if (upsertStream != null) {
             try {
                 upsertStream.close();
@@ -127,6 +175,36 @@ public class MaxcomputeOutputFormat {
                                     readonlyConfig.get(MaxcomputeSinkOptions.PROJECT),
                                     readonlyConfig.get(MaxcomputeSinkOptions.TABLE_NAME))
                             .build();
+        }
+    }
+
+    private void ensureInsertSessionAndWriter() throws TunnelException {
+        if (uploadSession == null) {
+            initializeInsertSession();
+            Objects.requireNonNull(uploadSession, "UploadSession was not initialized properly");
+        }
+        if (recordWriter == null) {
+            this.recordWriter = uploadSession.openBufferedWriter();
+            log.info("open record writer success");
+        }
+    }
+
+    private void initializeInsertSession() throws TunnelException {
+        TableTunnel tunnel = MaxcomputeUtil.getTableTunnel(readonlyConfig);
+        if (readonlyConfig.getOptional(MaxcomputeSinkOptions.PARTITION_SPEC).isPresent()) {
+            PartitionSpec partitionSpec =
+                    new PartitionSpec(readonlyConfig.get(MaxcomputeSinkOptions.PARTITION_SPEC));
+            uploadSession =
+                    tunnel.createUploadSession(
+                            readonlyConfig.get(MaxcomputeSinkOptions.PROJECT),
+                            readonlyConfig.get(MaxcomputeSinkOptions.TABLE_NAME),
+                            partitionSpec);
+
+        } else {
+            uploadSession =
+                    tunnel.createUploadSession(
+                            readonlyConfig.get(MaxcomputeSinkOptions.PROJECT),
+                            readonlyConfig.get(MaxcomputeSinkOptions.TABLE_NAME));
         }
     }
 }
