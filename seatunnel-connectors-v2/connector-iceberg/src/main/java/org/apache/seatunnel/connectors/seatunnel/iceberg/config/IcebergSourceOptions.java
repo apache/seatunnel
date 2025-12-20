@@ -33,50 +33,50 @@ public class IcebergSourceOptions extends IcebergCommonOptions {
             Options.key("start_snapshot_timestamp")
                     .longType()
                     .noDefaultValue()
-                    .withDescription(" the iceberg timestamp of starting snapshot ");
+                    .withDescription("The iceberg timestamp of starting snapshot.");
 
     public static final Option<Long> KEY_START_SNAPSHOT_ID =
             Options.key("start_snapshot_id")
                     .longType()
                     .noDefaultValue()
-                    .withDescription(" the iceberg id of starting snapshot ");
+                    .withDescription("The iceberg id of starting snapshot.");
 
     public static final Option<Long> KEY_END_SNAPSHOT_ID =
             Options.key("end_snapshot_id")
                     .longType()
                     .noDefaultValue()
-                    .withDescription(" the iceberg id of ending snapshot ");
+                    .withDescription("The iceberg id of ending snapshot.");
 
     public static final Option<Long> KEY_USE_SNAPSHOT_ID =
             Options.key("use_snapshot_id")
                     .longType()
                     .noDefaultValue()
-                    .withDescription(" the iceberg used snapshot id");
+                    .withDescription("The iceberg used snapshot id.");
 
     public static final Option<Long> KEY_USE_SNAPSHOT_TIMESTAMP =
             Options.key("use_snapshot_timestamp")
                     .longType()
                     .noDefaultValue()
-                    .withDescription(" the iceberg used snapshot timestamp");
+                    .withDescription("The iceberg used snapshot timestamp.");
 
     public static final Option<IcebergStreamScanStrategy> KEY_STREAM_SCAN_STRATEGY =
             Options.key("stream_scan_strategy")
                     .enumType(IcebergStreamScanStrategy.class)
                     .defaultValue(FROM_LATEST_SNAPSHOT)
-                    .withDescription(" the iceberg strategy of stream scanning");
+                    .withDescription("The iceberg strategy of stream scanning.");
 
     public static final Option<List<SourceTableConfig>> KEY_TABLE_LIST =
             Options.key("table_list")
                     .listType(SourceTableConfig.class)
                     .noDefaultValue()
-                    .withDescription(" the iceberg tables");
+                    .withDescription("The iceberg tables.");
 
     public static final Option<Long> KEY_INCREMENT_SCAN_INTERVAL =
             Options.key("increment.scan-interval")
                     .longType()
                     .defaultValue(2000L)
-                    .withDescription(" the interval of increment scan(mills)");
+                    .withDescription("The interval of increment scan (mills).");
 
     public static final Option<String> QUERY =
-            Options.key("query").stringType().noDefaultValue().withDescription("the select sql");
+            Options.key("query").stringType().noDefaultValue().withDescription("The select sql.");
 }

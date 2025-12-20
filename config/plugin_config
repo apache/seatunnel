@@ -96,3 +96,4 @@ connector-qdrant
 connector-typesense
 connector-cdc-opengauss
 connector-sensorsdata
+connector-hugegraph

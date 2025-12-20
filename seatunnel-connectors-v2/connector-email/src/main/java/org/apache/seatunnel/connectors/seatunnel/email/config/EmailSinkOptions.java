@@ -74,4 +74,17 @@ public class EmailSinkOptions {
                     .intType()
                     .defaultValue(465)
                     .withDescription("Select port for authentication.");
+
+    public static final Option<String> EMAIL_ATTACHMENT_NAME =
+            Options.key("email_attachment_name")
+                    .stringType()
+                    .defaultValue("emailsink.csv")
+                    .withDescription("The name of the email attachment file");
+
+    public static final Option<String> EMAIL_FIELD_DELIMITER =
+            Options.key("email_field_delimiter")
+                    .stringType()
+                    .defaultValue(",")
+                    .withDescription(
+                            "The delimiter used to separate fields in the attachment file");
 }

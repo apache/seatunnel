@@ -25,6 +25,8 @@ import org.apache.seatunnel.api.options.table.TableIdentifierOptions;
 import org.apache.seatunnel.api.options.table.TableSchemaOptions;
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.MetadataColumn;
+import org.apache.seatunnel.api.table.catalog.MetadataSchema;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
@@ -266,20 +268,38 @@ public class KafkaSourceConfig implements Serializable {
         }
         TablePath tablePath = getTablePathFromSchema(readonlyConfig, readonlyConfig.get(TOPIC));
 
-        return CatalogTable.of(
-                TableIdentifier.of("", tablePath),
-                tableSchema,
-                new HashMap<String, String>() {
-                    {
-                        Optional.ofNullable(readonlyConfig.get(PROTOBUF_MESSAGE_NAME))
-                                .ifPresent(value -> put(PROTOBUF_MESSAGE_NAME.key(), value));
+        CatalogTable catalogTable =
+                CatalogTable.of(
+                        TableIdentifier.of("", tablePath),
+                        tableSchema,
+                        new HashMap<String, String>() {
+                            {
+                                Optional.ofNullable(readonlyConfig.get(PROTOBUF_MESSAGE_NAME))
+                                        .ifPresent(
+                                                value -> put(PROTOBUF_MESSAGE_NAME.key(), value));
 
-                        Optional.ofNullable(readonlyConfig.get(PROTOBUF_SCHEMA))
-                                .ifPresent(value -> put(PROTOBUF_SCHEMA.key(), value));
-                    }
-                },
-                Collections.emptyList(),
-                null);
+                                Optional.ofNullable(readonlyConfig.get(PROTOBUF_SCHEMA))
+                                        .ifPresent(value -> put(PROTOBUF_SCHEMA.key(), value));
+                            }
+                        },
+                        Collections.emptyList(),
+                        null);
+
+        // Expose Kafka record timestamp as metadata 'EventTime' for Metadata transform
+        MetadataSchema metadataSchema =
+                MetadataSchema.builder()
+                        .column(
+                                MetadataColumn.of(
+                                        org.apache.seatunnel.api.table.type.CommonOptions.EVENT_TIME
+                                                .getName(),
+                                        BasicType.LONG_TYPE,
+                                        0L,
+                                        true,
+                                        null,
+                                        null))
+                        .build();
+
+        return CatalogTable.withMetadata(catalogTable, metadataSchema);
     }
 
     private TablePath getTablePathFromSchema(ReadonlyConfig readonlyConfig, String topicName) {
@@ -299,85 +319,110 @@ public class KafkaSourceConfig implements Serializable {
         SeaTunnelRowType seaTunnelRowType = catalogTable.getSeaTunnelRowType();
         MessageFormat format = readonlyConfig.get(FORMAT);
 
+        DeserializationSchema<SeaTunnelRow> schema;
+
         if (format == MessageFormat.NATIVE) {
-            return new NativeKafkaConnectDeserializationSchema(
-                    catalogTable, false, false, false, false);
+            schema =
+                    new NativeKafkaConnectDeserializationSchema(
+                            catalogTable, false, false, false, false);
+        } else if (!readonlyConfig.getOptional(ConnectorCommonOptions.SCHEMA).isPresent()) {
+            schema =
+                    TextDeserializationSchema.builder()
+                            .seaTunnelRowType(seaTunnelRowType)
+                            .delimiter(TextFormatConstant.PLACEHOLDER)
+                            .setCatalogTable(catalogTable)
+                            .build();
+        } else {
+            switch (format) {
+                case JSON:
+                    schema = new JsonDeserializationSchema(catalogTable, false, false);
+                    break;
+                case TEXT:
+                    String delimiter = readonlyConfig.get(FIELD_DELIMITER);
+                    schema =
+                            TextDeserializationSchema.builder()
+                                    .seaTunnelRowType(seaTunnelRowType)
+                                    .delimiter(delimiter)
+                                    .build();
+                    break;
+                case CANAL_JSON:
+                    schema =
+                            CanalJsonDeserializationSchema.builder(catalogTable)
+                                    .setIgnoreParseErrors(true)
+                                    .build();
+                    break;
+                case OGG_JSON:
+                    schema =
+                            OggJsonDeserializationSchema.builder(catalogTable)
+                                    .setIgnoreParseErrors(true)
+                                    .build();
+                    break;
+                case MAXWELL_JSON:
+                    schema =
+                            MaxWellJsonDeserializationSchema.builder(catalogTable)
+                                    .setIgnoreParseErrors(true)
+                                    .build();
+                    break;
+                case COMPATIBLE_KAFKA_CONNECT_JSON:
+                    Boolean keySchemaEnable =
+                            readonlyConfig.get(
+                                    KafkaConnectJsonFormatOptions.KEY_CONVERTER_SCHEMA_ENABLED);
+                    Boolean valueSchemaEnable =
+                            readonlyConfig.get(
+                                    KafkaConnectJsonFormatOptions.VALUE_CONVERTER_SCHEMA_ENABLED);
+                    schema =
+                            new CompatibleKafkaConnectDeserializationSchema(
+                                    catalogTable, keySchemaEnable, valueSchemaEnable, false, false);
+                    break;
+                case DEBEZIUM_JSON:
+                    boolean includeSchema = readonlyConfig.get(DEBEZIUM_RECORD_INCLUDE_SCHEMA);
+                    TableIdentifierConfig tableFilter =
+                            readonlyConfig.get(DEBEZIUM_RECORD_TABLE_FILTER);
+                    if (tableFilter != null) {
+                        TablePath tablePath =
+                                TablePath.of(
+                                        StringUtils.isNotEmpty(tableFilter.getDatabaseName())
+                                                ? tableFilter.getDatabaseName()
+                                                : null,
+                                        StringUtils.isNotEmpty(tableFilter.getSchemaName())
+                                                ? tableFilter.getSchemaName()
+                                                : null,
+                                        StringUtils.isNotEmpty(tableFilter.getTableName())
+                                                ? tableFilter.getTableName()
+                                                : null);
+                        Map<TablePath, DebeziumJsonDeserializationSchema> tableDeserializationMap =
+                                Collections.singletonMap(
+                                        tablePath,
+                                        new DebeziumJsonDeserializationSchema(
+                                                catalogTable, true, includeSchema));
+                        schema =
+                                new DebeziumJsonDeserializationSchemaDispatcher(
+                                        tableDeserializationMap, true, includeSchema);
+                    } else {
+                        schema =
+                                new DebeziumJsonDeserializationSchema(
+                                        catalogTable, true, includeSchema);
+                    }
+                    break;
+                case AVRO:
+                    schema = new AvroDeserializationSchema(catalogTable);
+                    break;
+                case PROTOBUF:
+                    schema = new ProtobufDeserializationSchema(catalogTable);
+                    break;
+                default:
+                    throw new SeaTunnelJsonFormatException(
+                            CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
+                            "Unsupported format: " + format);
+            }
         }
 
-        if (!readonlyConfig.getOptional(ConnectorCommonOptions.SCHEMA).isPresent()) {
-            return TextDeserializationSchema.builder()
-                    .seaTunnelRowType(seaTunnelRowType)
-                    .delimiter(TextFormatConstant.PLACEHOLDER)
-                    .setCatalogTable(catalogTable)
-                    .build();
+        if (schema instanceof NativeKafkaConnectDeserializationSchema
+                || schema instanceof CompatibleKafkaConnectDeserializationSchema) {
+            return schema;
         }
 
-        switch (format) {
-            case JSON:
-                return new JsonDeserializationSchema(catalogTable, false, false);
-            case TEXT:
-                String delimiter = readonlyConfig.get(FIELD_DELIMITER);
-                return TextDeserializationSchema.builder()
-                        .seaTunnelRowType(seaTunnelRowType)
-                        .delimiter(delimiter)
-                        .build();
-            case CANAL_JSON:
-                return CanalJsonDeserializationSchema.builder(catalogTable)
-                        .setIgnoreParseErrors(true)
-                        .build();
-            case OGG_JSON:
-                return OggJsonDeserializationSchema.builder(catalogTable)
-                        .setIgnoreParseErrors(true)
-                        .build();
-            case MAXWELL_JSON:
-                return MaxWellJsonDeserializationSchema.builder(catalogTable)
-                        .setIgnoreParseErrors(true)
-                        .build();
-
-            case COMPATIBLE_KAFKA_CONNECT_JSON:
-                Boolean keySchemaEnable =
-                        readonlyConfig.get(
-                                KafkaConnectJsonFormatOptions.KEY_CONVERTER_SCHEMA_ENABLED);
-                Boolean valueSchemaEnable =
-                        readonlyConfig.get(
-                                KafkaConnectJsonFormatOptions.VALUE_CONVERTER_SCHEMA_ENABLED);
-                return new CompatibleKafkaConnectDeserializationSchema(
-                        catalogTable, keySchemaEnable, valueSchemaEnable, false, false);
-            case DEBEZIUM_JSON:
-                boolean includeSchema = readonlyConfig.get(DEBEZIUM_RECORD_INCLUDE_SCHEMA);
-                TableIdentifierConfig tableFilter =
-                        readonlyConfig.get(DEBEZIUM_RECORD_TABLE_FILTER);
-                if (tableFilter != null) {
-                    TablePath tablePath =
-                            TablePath.of(
-                                    StringUtils.isNotEmpty(tableFilter.getDatabaseName())
-                                            ? tableFilter.getDatabaseName()
-                                            : null,
-                                    StringUtils.isNotEmpty(tableFilter.getSchemaName())
-                                            ? tableFilter.getSchemaName()
-                                            : null,
-                                    StringUtils.isNotEmpty(tableFilter.getTableName())
-                                            ? tableFilter.getTableName()
-                                            : null);
-                    Map<TablePath, DebeziumJsonDeserializationSchema> tableDeserializationMap =
-                            Collections.singletonMap(
-                                    tablePath,
-                                    new DebeziumJsonDeserializationSchema(
-                                            catalogTable, true, includeSchema));
-                    return new DebeziumJsonDeserializationSchemaDispatcher(
-                            tableDeserializationMap, true, includeSchema);
-                } else {
-                    return new DebeziumJsonDeserializationSchema(catalogTable, true, includeSchema);
-                }
-            case AVRO:
-                return new AvroDeserializationSchema(catalogTable);
-            case PROTOBUF:
-                return new ProtobufDeserializationSchema(catalogTable);
-            default:
-                throw new SeaTunnelJsonFormatException(
-                        CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
-                        "Unsupported format: " + format);
-        }
+        return new KafkaEventTimeDeserializationSchema(schema);
     }
 
     private TableSchema nativeTableSchema() {

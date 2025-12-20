@@ -1,0 +1,739 @@
+---
+sidebar_position: 4
+---
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+# 使用 Kubernetes 部署
+
+本部分提供了使用 SeaTunnel 与 Kubernetes 的快速指南。
+
+## 前置条件
+
+我们假设您已经在本地安装了以下内容：
+
+- [docker](https://docs.docker.com/)
+- [kubernetes](https://kubernetes.io/)
+- [helm](https://helm.sh/docs/intro/quickstart/)
+
+以便 `kubectl` 和 `helm` 命令在您的本地系统上可用。
+
+以 kubernetes [minikube](https://minikube.sigs.k8s.io/docs/start/) 为例，您可以使用以下命令启动集群：
+
+```bash
+minikube start --kubernetes-version=v1.23.3
+```
+
+## 安装
+
+### SeaTunnel Docker 镜像
+
+要使用 SeaTunnel 运行镜像，首先创建一个 `Dockerfile`：
+
+<Tabs
+  groupId="engine-type"
+  defaultValue="Zeta (local-mode)"
+  values={[
+    {label: 'Flink', value: 'flink'},
+    {label: 'Zeta (local-mode)', value: 'Zeta (local-mode)'},
+    {label: 'Zeta (cluster-mode)', value: 'Zeta (cluster-mode)'},
+  ]}>
+<TabItem value="flink">
+
+```Dockerfile
+FROM flink:1.13
+
+ENV SEATUNNEL_VERSION="2.3.13"
+ENV SEATUNNEL_HOME="/opt/seatunnel"
+
+RUN wget https://dlcdn.apache.org/seatunnel/${SEATUNNEL_VERSION}/apache-seatunnel-${SEATUNNEL_VERSION}-bin.tar.gz
+RUN tar -xzvf apache-seatunnel-${SEATUNNEL_VERSION}-bin.tar.gz
+RUN mv apache-seatunnel-${SEATUNNEL_VERSION} ${SEATUNNEL_HOME}
+
+RUN cd ${SEATUNNEL_HOME} && sh bin/install-plugin.sh ${SEATUNNEL_VERSION}
+```
+
+然后运行以下命令来构建镜像：
+```bash
+docker build -t seatunnel:2.3.13-flink-1.13 -f Dockerfile .
+```
+镜像 `seatunnel:2.3.13-flink-1.13` 需要存在于主机（minikube）中，以便部署可以进行。
+
+通过以下方式将镜像加载到 minikube：
+```bash
+minikube image load seatunnel:2.3.13-flink-1.13
+```
+
+</TabItem>
+
+<TabItem value="Zeta (local-mode)">
+
+```Dockerfile
+FROM openjdk:8
+
+ENV SEATUNNEL_VERSION="2.3.13"
+ENV SEATUNNEL_HOME="/opt/seatunnel"
+
+RUN wget https://dlcdn.apache.org/seatunnel/${SEATUNNEL_VERSION}/apache-seatunnel-${SEATUNNEL_VERSION}-bin.tar.gz
+RUN tar -xzvf apache-seatunnel-${SEATUNNEL_VERSION}-bin.tar.gz
+RUN mv apache-seatunnel-${SEATUNNEL_VERSION} ${SEATUNNEL_HOME}
+
+RUN cd ${SEATUNNEL_HOME} && sh bin/install-plugin.sh ${SEATUNNEL_VERSION}
+```
+
+然后运行以下命令来构建镜像：
+```bash
+docker build -t seatunnel:2.3.13 -f Dockerfile .
+```
+镜像 `seatunnel:2.3.13` 需要存在于主机（minikube）中，以便部署可以进行。
+
+通过以下方式将镜像加载到 minikube：
+```bash
+minikube image load seatunnel:2.3.13
+```
+
+</TabItem>
+
+<TabItem value="Zeta (cluster-mode)">
+
+```Dockerfile
+FROM openjdk:8
+
+ENV SEATUNNEL_VERSION="2.3.13"
+ENV SEATUNNEL_HOME="/opt/seatunnel"
+
+RUN wget https://dlcdn.apache.org/seatunnel/${SEATUNNEL_VERSION}/apache-seatunnel-${SEATUNNEL_VERSION}-bin.tar.gz
+RUN tar -xzvf apache-seatunnel-${SEATUNNEL_VERSION}-bin.tar.gz
+RUN mv apache-seatunnel-${SEATUNNEL_VERSION} ${SEATUNNEL_HOME}
+RUN mkdir -p $SEATUNNEL_HOME/logs
+RUN cd ${SEATUNNEL_HOME} && sh bin/install-plugin.sh ${SEATUNNEL_VERSION}
+```
+
+然后运行以下命令来构建镜像：
+```bash
+docker build -t seatunnel:2.3.13 -f Dockerfile .
+```
+镜像 `seatunnel:2.3.13` 需要存在于主机（minikube）中，以便部署可以进行。
+
+通过以下方式将镜像加载到 minikube：
+```bash
+minikube image load seatunnel:2.3.13
+```
+
+</TabItem>
+</Tabs>
+
+
+### 部署操作员
+
+<Tabs
+  groupId="engine-type"
+  defaultValue="Zeta (local-mode)"
+  values={[
+    {label: 'Flink', value: 'flink'},
+    {label: 'Zeta (local-mode)', value: 'Zeta (local-mode)'},
+    {label: 'Zeta (cluster-mode)', value: 'Zeta (cluster-mode)'},
+  ]}>
+<TabItem value="flink">
+
+以下步骤提供了设置 Flink Kubernetes Operator 的快速演练。
+您可以参考 [Flink Kubernetes Operator - Quick Start](https://nightlies.apache.org/flink/flink-kubernetes-operator-docs-main/docs/try-flink-kubernetes-operator/quick-start/) 了解更多详情。
+
+> 注意：以下所有 Kubernetes 资源都在默认命名空间中创建。
+
+在您的 Kubernetes 集群上安装证书管理器以启用添加 webhook 组件（每个 Kubernetes 集群只需一次）：
+
+```bash
+kubectl create -f https://github.com/jetstack/cert-manager/releases/download/v1.8.2/cert-manager.yaml
+```
+现在您可以使用包含的 Helm chart 部署最新稳定的 Flink Kubernetes Operator 版本：
+
+```bash
+helm repo add flink-operator-repo https://downloads.apache.org/flink/flink-kubernetes-operator-1.3.1/
+
+helm install flink-kubernetes-operator flink-operator-repo/flink-kubernetes-operator \
+--set image.repository=apache/flink-kubernetes-operator
+```
+
+您可以通过 `kubectl` 验证您的安装：
+
+```bash
+kubectl get pods
+NAME                                                   READY   STATUS    RESTARTS      AGE
+flink-kubernetes-operator-5f466b8549-mgchb             1/1     Running   3 (23h ago)   16d
+
+```
+
+</TabItem>
+
+
+<TabItem value="Zeta (local-mode)">
+无
+</TabItem>
+
+<TabItem value="Zeta (cluster-mode)">
+无
+</TabItem>
+</Tabs>
+
+## 运行 SeaTunnel 应用
+
+**运行应用**：SeaTunnel 已经提供了开箱即用的 [配置](https://github.com/apache/seatunnel/tree/dev/config)。
+
+<Tabs
+  groupId="engine-type"
+  defaultValue="Zeta (local-mode)"
+  values={[
+    {label: 'Flink', value: 'flink'},
+    {label: 'Zeta (local-mode)', value: 'Zeta (local-mode)'},
+    {label: 'Zeta (cluster-mode)', value: 'Zeta (cluster-mode)'},
+  ]}>
+<TabItem value="flink">
+
+在本指南中，我们将使用 [seatunnel.streaming.conf](https://github.com/apache/seatunnel/blob/2.3.13-release/config/v2.streaming.conf.template)：
+
+```conf
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 2000
+}
+
+source {
+    FakeSource {
+      plugin_output = "fake"
+      row.num = 160000
+      schema = {
+        fields {
+          name = "string"
+          age = "int"
+        }
+      }
+    }
+}
+
+transform {
+  FieldMapper {
+    plugin_input = "fake"
+    plugin_output = "fake1"
+    field_mapper = {
+      age = age
+      name = new_name
+    }
+  }
+}
+
+sink {
+  Console {
+    plugin_input = "fake1"
+  }
+}
+```
+
+在 Kubernetes 中为 seatunnel.streaming.conf 生成一个名为 seatunnel-config 的 configmap，以便我们可以在 pod 中挂载配置内容。
+```bash
+kubectl create cm seatunnel-config \
+--from-file=seatunnel.streaming.conf=seatunnel.streaming.conf
+```
+
+一旦 Flink Kubernetes Operator 按照前面的步骤运行，您就可以提交一个 Flink（SeaTunnel）作业：
+- 创建 `seatunnel-flink.yaml` FlinkDeployment 清单：
+```yaml
+apiVersion: flink.apache.org/v1beta1
+kind: FlinkDeployment
+metadata:
+  name: seatunnel-flink-streaming-example
+spec:
+  image: seatunnel:2.3.13-flink-1.13
+  flinkVersion: v1_13
+  flinkConfiguration:
+    taskmanager.numberOfTaskSlots: "2"
+  serviceAccount: flink
+  jobManager:
+    replicas: 1
+    resource:
+      memory: "1024m"
+      cpu: 1
+  taskManager:
+    resource:
+      memory: "1024m"
+      cpu: 1
+  podTemplate:
+    spec:
+      containers:
+        - name: flink-main-container
+          volumeMounts:
+            - name: seatunnel-config
+              mountPath: /data/seatunnel.streaming.conf
+              subPath: seatunnel.streaming.conf
+      volumes:
+        - name: seatunnel-config
+          configMap:
+            name: seatunnel-config
+            items:
+            - key: seatunnel.streaming.conf
+              path: seatunnel.streaming.conf
+  job:
+    jarURI: local:///opt/seatunnel/starter/seatunnel-flink-13-starter.jar
+    entryClass: org.apache.seatunnel.core.starter.flink.SeaTunnelFlink
+    args: ["--config", "/data/seatunnel.streaming.conf"]
+    parallelism: 2
+    upgradeMode: stateless
+```
+
+- 运行示例应用：
+```bash
+kubectl apply -f seatunnel-flink.yaml
+```
+
+</TabItem>
+
+<TabItem value="Zeta (local-mode)">
+
+在本指南中，我们将使用 [seatunnel.streaming.conf](https://github.com/apache/seatunnel/blob/2.3.13-release/config/v2.streaming.conf.template)：
+
+```conf
+env {
+  parallelism = 2
+  job.mode = "STREAMING"
+  checkpoint.interval = 2000
+}
+
+source {
+  FakeSource {
+    parallelism = 2
+    plugin_output = "fake"
+    row.num = 16
+    schema = {
+      fields {
+        name = "string"
+        age = "int"
+      }
+    }
+  }
+}
+
+sink {
+  Console {
+  }
+}
+```
+
+在 Kubernetes 中为 seatunnel.streaming.conf 生成一个名为 seatunnel-config 的 configmap，以便我们可以在 pod 中挂载配置内容。
+```bash
+kubectl create cm seatunnel-config \
+--from-file=seatunnel.streaming.conf=seatunnel.streaming.conf
+```
+- 创建 `seatunnel.yaml`：
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: seatunnel
+spec:
+  containers:
+  - name: seatunnel
+    image: seatunnel:2.3.13
+    command: ["/bin/sh","-c","/opt/seatunnel/bin/seatunnel.sh --config /data/seatunnel.streaming.conf -e local"]
+    resources:
+      limits:
+        cpu: "1"
+        memory: 4G
+      requests:
+        cpu: "1"
+        memory: 2G
+    volumeMounts:
+      - name: seatunnel-config
+        mountPath: /data/seatunnel.streaming.conf
+        subPath: seatunnel.streaming.conf
+  volumes:
+        - name: seatunnel-config
+          configMap:
+            name: seatunnel-config
+            items:
+            - key: seatunnel.streaming.conf
+              path: seatunnel.streaming.conf
+```
+
+- 运行示例应用：
+```bash
+kubectl apply -f seatunnel.yaml
+```
+
+</TabItem>
+
+
+<TabItem value="Zeta (cluster-mode)">
+
+在本指南中，我们将使用 [seatunnel.streaming.conf](https://github.com/apache/seatunnel/blob/2.3.13-release/config/v2.streaming.conf.template)：
+
+```conf
+env {
+  parallelism = 2
+  job.mode = "STREAMING"
+  checkpoint.interval = 2000
+}
+
+source {
+  FakeSource {
+    parallelism = 2
+    plugin_output = "fake"
+    row.num = 16
+    schema = {
+      fields {
+        name = "string"
+        age = "int"
+      }
+    }
+  }
+}
+
+sink {
+  Console {
+  }
+}
+```
+
+在 Kubernetes 中为 seatunnel.streaming.conf 生成一个名为 seatunnel-config 的 configmap，以便我们可以在 pod 中挂载配置内容。
+```bash
+kubectl create cm seatunnel-config \
+--from-file=seatunnel.streaming.conf=seatunnel.streaming.conf
+```
+
+然后，我们使用以下命令将 seatunnel 集群使用的一些配置文件加载到 configmap 中
+
+在本地创建 yaml 文件如下
+
+- 创建 `hazelcast-client.yaml`：
+
+```yaml
+
+hazelcast-client:
+  cluster-name: seatunnel
+  properties:
+    hazelcast.logging.type: log4j2
+  network:
+    cluster-members:
+      - localhost:5801
+
+```
+- 创建 `hazelcast.yaml`：
+
+```yaml
+
+hazelcast:
+  cluster-name: seatunnel
+  network:
+    rest-api:
+      enabled: true
+      endpoint-groups:
+        CLUSTER_WRITE:
+          enabled: true
+        DATA:
+          enabled: true
+    join:
+      tcp-ip:
+        enabled: true
+        member-list:
+          - localhost
+    port:
+      auto-increment: false
+      port: 5801
+  properties:
+    hazelcast.invocation.max.retry.count: 20
+    hazelcast.tcp.join.port.try.count: 30
+    hazelcast.logging.type: log4j2
+    hazelcast.operation.generic.thread.count: 50
+
+```
+- 创建 `seatunnel.yaml`：
+
+```yaml
+seatunnel:
+  engine:
+    history-job-expire-minutes: 1440
+    backup-count: 1
+    queue-type: blockingqueue
+    print-execution-info-interval: 60
+    print-job-metrics-info-interval: 60
+    slot-service:
+      dynamic-slot: true
+    checkpoint:
+      interval: 10000
+      timeout: 60000
+      storage:
+        type: hdfs
+        max-retained: 3
+        plugin-config:
+          namespace: /tmp/seatunnel/checkpoint_snapshot
+          storage.type: hdfs
+          fs.defaultFS: file:///tmp/ # 确保目录具有写入权限
+```
+
+使用以下命令为配置文件创建 configmaps
+
+```bash
+kubectl create configmap hazelcast-client  --from-file=hazelcast-client.yaml
+kubectl create configmap hazelcast  --from-file=hazelcast.yaml
+kubectl create configmap seatunnelmap  --from-file=seatunnel.yaml
+
+```
+
+部署 Reloader 以实现热部署
+我们在这里使用 Reloader 在修改配置文件或进行其他修改时自动重启 pod。您也可以直接给出配置文件的值，不使用 Reloader
+
+- [Reloader](https://github.com/stakater/Reloader/)
+
+```bash
+wget https://raw.githubusercontent.com/stakater/Reloader/master/deployments/kubernetes/reloader.yaml
+kubectl apply -f reloader.yaml
+
+```
+
+- 创建 `seatunnel-cluster.yml`：
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: seatunnel
+spec:
+  selector:
+    app: seatunnel
+  ports:
+  - port: 5801
+    name: seatunnel
+  clusterIP: None
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: seatunnel
+  annotations:
+    configmap.reloader.stakater.com/reload: "hazelcast,hazelcast-client,seatunnelmap"
+spec:
+  serviceName: "seatunnel"
+  replicas: 3  # 根据您的情况修改副本数
+  selector:
+    matchLabels:
+      app: seatunnel
+  template:
+    metadata:
+      labels:
+        app: seatunnel
+    spec:
+      containers:
+        - name: seatunnel
+          image: seatunnel:2.3.13
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 5801
+              name: client
+          command: ["/bin/sh","-c","/opt/seatunnel/bin/seatunnel-cluster.sh -DJvmOption=-Xms2G -Xmx2G"]
+          resources:
+            limits:
+              cpu: "1"
+              memory: 4G
+            requests:
+              cpu: "1"
+              memory: 2G
+          volumeMounts:
+            - mountPath: "/opt/seatunnel/config/hazelcast.yaml"
+              name: hazelcast
+              subPath: hazelcast.yaml
+            - mountPath: "/opt/seatunnel/config/hazelcast-client.yaml"
+              name: hazelcast-client
+              subPath: hazelcast-client.yaml
+            - mountPath: "/opt/seatunnel/config/seatunnel.yaml"
+              name: seatunnelmap
+              subPath: seatunnel.yaml
+            - mountPath: /data/seatunnel.streaming.conf
+              name: seatunnel-config
+              subPath: seatunnel.streaming.conf
+      volumes:
+        - name: hazelcast
+          configMap:
+            name: hazelcast
+            items:
+            - key: hazelcast.yaml
+              path: hazelcast.yaml
+        - name: hazelcast-client
+          configMap:
+            name: hazelcast-client
+            items:
+            - key: hazelcast-client.yaml
+              path: hazelcast-client.yaml
+        - name: seatunnelmap
+          configMap:
+            name: seatunnelmap
+            items:
+            - key: seatunnel.yaml
+              path: seatunnel.yaml
+        - name: seatunnel-config
+          configMap:
+            name: seatunnel-config
+            items:
+            - key: seatunnel.streaming.conf
+              path: seatunnel.streaming.conf
+```
+
+- 运行示例应用：
+```bash
+kubectl apply -f seatunnel-cluster.yml
+```
+
+</TabItem>
+</Tabs>
+
+**查看输出**
+
+<Tabs
+  groupId="engine-type"
+  defaultValue="Zeta (local-mode)"
+  values={[
+    {label: 'Flink', value: 'flink'},
+    {label: 'Zeta (local-mode)', value: 'Zeta (local-mode)'},
+    {label: 'Zeta (cluster-mode)', value: 'Zeta (cluster-mode)'},
+  ]}>
+<TabItem value="flink">
+
+您可以在成功启动后跟踪您的作业日志（在新环境中可能需要大约一分钟，之后需要几秒钟），您可以：
+
+```bash
+kubectl logs -f deploy/seatunnel-flink-streaming-example
+```
+看起来如下：
+
+```shell
+...
+2023-01-31 12:13:54,349 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Source: SeaTunnel FakeSource -> Sink Writer: Console (1/1) (1665d2d011b2f6cf6525c0e5e75ec251) switched from SCHEDULED to DEPLOYING.
+2023-01-31 12:13:56,684 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Deploying Source: SeaTunnel FakeSource -> Sink Writer: Console (1/1) (attempt #0) with attempt id 1665d2d011b2f6cf6525c0e5e75ec251 to seatunnel-flink-streaming-example-taskmanager-1-1 @ 100.103.244.106 (dataPort=39137) with allocation id fbe162650c4126649afcdaff00e46875
+2023-01-31 12:13:57,794 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Source: SeaTunnel FakeSource -> Sink Writer: Console (1/1) (1665d2d011b2f6cf6525c0e5e75ec251) switched from DEPLOYING to INITIALIZING.
+2023-01-31 12:13:58,203 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Source: SeaTunnel FakeSource -> Sink Writer: Console (1/1) (1665d2d011b2f6cf6525c0e5e75ec251) switched from INITIALIZING to RUNNING.
+```
+
+如果日志中出现 OOM 错误，您可以在 seatunnel.streaming.conf 中减少 `row.num` 值
+
+要公开 Flink Dashboard，您可以添加端口转发规则：
+```bash
+kubectl port-forward svc/seatunnel-flink-streaming-example-rest 8081
+```
+现在可以在 [localhost:8081](http://localhost:8081) 访问 Flink Dashboard。
+
+或启动 `minikube dashboard` 以获得基于 Web 的 Kubernetes 用户界面。
+
+TaskManager Stdout 日志中打印的内容：
+```bash
+kubectl logs \
+-l 'app in (seatunnel-flink-streaming-example), component in (taskmanager)' \
+--tail=-1 \
+-f
+```
+看起来如下（您的内容可能不同，因为我们使用 `FakeSource` 自动生成随机流数据）：
+
+```shell
+...
+subtaskIndex=0: row=159991 : VVgpp, 978840000
+subtaskIndex=0: row=159992 : JxrOC, 1493825495
+subtaskIndex=0: row=159993 : YmCZR, 654146216
+subtaskIndex=0: row=159994 : LdmUn, 643140261
+subtaskIndex=0: row=159995 : tURkE, 837012821
+subtaskIndex=0: row=159996 : uPDfd, 2021489045
+subtaskIndex=0: row=159997 : mjrdG, 2074957853
+subtaskIndex=0: row=159998 : xbeUi, 864518418
+subtaskIndex=0: row=159999 : sSWLb, 1924451911
+subtaskIndex=0: row=160000 : AuPlM, 1255017876
+```
+
+要停止您的作业并删除您的 FlinkDeployment，您可以简单地：
+
+```bash
+kubectl delete -f seatunnel-flink.yaml
+```
+</TabItem>
+
+<TabItem value="Zeta (local-mode)">
+
+您可以在成功启动后跟踪您的作业日志（在新环境中可能需要大约一分钟，之后需要几秒钟），您可以：
+
+```bash
+kubectl logs -f  seatunnel
+```
+
+看起来如下（您的内容可能不同，因为我们使用 `FakeSource` 自动生成随机流数据）：
+
+```shell
+...
+2023-10-07 08:20:12,797 INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=0  rowIndex=25673:  SeaTunnelRow#tableId= SeaTunnelRow#kind=INSERT : hRJdE, 1295862507
+2023-10-07 08:20:12,797 INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=0  rowIndex=25674:  SeaTunnelRow#tableId= SeaTunnelRow#kind=INSERT : kXlew, 935460726
+2023-10-07 08:20:12,797 INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=0  rowIndex=25675:  SeaTunnelRow#tableId= SeaTunnelRow#kind=INSERT : FrNOT, 1714358118
+2023-10-07 08:20:12,797 INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=0  rowIndex=25676:  SeaTunnelRow#tableId= SeaTunnelRow#kind=INSERT : kSajX, 126709414
+2023-10-07 08:20:12,797 INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=0  rowIndex=25677:  SeaTunnelRow#tableId= SeaTunnelRow#kind=INSERT : YhpQv, 2020198351
+2023-10-07 08:20:12,797 INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=0  rowIndex=25678:  SeaTunnelRow#tableId= SeaTunnelRow#kind=INSERT : nApin, 691339553
+2023-10-07 08:20:12,797 INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=0  rowIndex=25679:  SeaTunnelRow#tableId= SeaTunnelRow#kind=INSERT : KZNNa, 1720773736
+2023-10-07 08:20:12,797 INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=0  rowIndex=25680:  SeaTunnelRow#tableId= SeaTunnelRow#kind=INSERT : uCUBI, 490868386
+2023-10-07 08:20:12,797 INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=0  rowIndex=25681:  SeaTunnelRow#tableId= SeaTunnelRow#kind=INSERT : oTLmO, 98770781
+2023-10-07 08:20:12,797 INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=0  rowIndex=25682:  SeaTunnelRow#tableId= SeaTunnelRow#kind=INSERT : UECud, 835494636
+2023-10-07 08:20:12,797 INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=0  rowIndex=25683:  SeaTunnelRow#tableId= SeaTunnelRow#kind=INSERT : XNegY, 1602828896
+2023-10-07 08:20:12,797 INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=0  rowIndex=25684:  SeaTunnelRow#tableId= SeaTunnelRow#kind=INSERT : LcFBx, 1400869177
+2023-10-07 08:20:12,797 INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=0  rowIndex=25685:  SeaTunnelRow#tableId= SeaTunnelRow#kind=INSERT : EqSfF, 1933614060
+2023-10-07 08:20:12,797 INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=0  rowIndex=25686:  SeaTunnelRow#tableId= SeaTunnelRow#kind=INSERT : BODIs, 1839533801
+2023-10-07 08:20:12,797 INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=0  rowIndex=25687:  SeaTunnelRow#tableId= SeaTunnelRow#kind=INSERT : doxcI, 970104616
+2023-10-07 08:20:12,797 INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=0  rowIndex=25688:  SeaTunnelRow#tableId= SeaTunnelRow#kind=INSERT : IEVYn, 371893767
+2023-10-07 08:20:12,797 INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=0  rowIndex=25689:  SeaTunnelRow#tableId= SeaTunnelRow#kind=INSERT : YXYfq, 1719257882
+2023-10-07 08:20:12,797 INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=0  rowIndex=25690:  SeaTunnelRow#tableId= SeaTunnelRow#kind=INSERT : LFWEm, 725033360
+2023-10-07 08:20:12,797 INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=0  rowIndex=25691:  SeaTunnelRow#tableId= SeaTunnelRow#kind=INSERT : ypUrY, 1591744616
+2023-10-07 08:20:12,797 INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=0  rowIndex=25692:  SeaTunnelRow#tableId= SeaTunnelRow#kind=INSERT : rlnzJ, 412162913
+2023-10-07 08:20:12,797 INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=0  rowIndex=25693:  SeaTunnelRow#tableId= SeaTunnelRow#kind=INSERT : zWKnt, 976816261
+2023-10-07 08:20:12,797 INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=0  rowIndex=25694:  SeaTunnelRow#tableId= SeaTunnelRow#kind=INSERT : PXrsk, 43554541
+
+```
+
+要停止您的作业并删除您的 FlinkDeployment，您可以简单地：
+
+```bash
+kubectl delete -f seatunnel.yaml
+```
+</TabItem>
+
+<TabItem value="Zeta (cluster-mode)">
+
+您可以在成功启动后跟踪您的作业日志（在新环境中可能需要大约一分钟，之后需要几秒钟），您可以：
+
+```bash
+kubectl exec -it  seatunnel-1  -- tail -f /opt/seatunnel/logs/seatunnel-engine-server.log | grep ConsoleSinkWriter
+```
+
+看起来如下（您的内容可能不同，因为我们使用 `FakeSource` 自动生成随机流数据）：
+
+```shell
+...
+2023-10-10 08:05:07,283 INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=1  rowIndex=7:  SeaTunnelRow#tableId= SeaTunnelRow#kind=INSERT : IibHk, 820962465
+2023-10-10 08:05:07,283 INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=1  rowIndex=8:  SeaTunnelRow#tableId= SeaTunnelRow#kind=INSERT : lmKdb, 1072498088
+2023-10-10 08:05:07,283 INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=1  rowIndex=9:  SeaTunnelRow#tableId= SeaTunnelRow#kind=INSERT : iqGva, 918730371
+2023-10-10 08:05:07,284 INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=1  rowIndex=10:  SeaTunnelRow#tableId= SeaTunnelRow#kind=INSERT : JMHmq, 1130771733
+2023-10-10 08:05:07,284 INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=1  rowIndex=11:  SeaTunnelRow#tableId= SeaTunnelRow#kind=INSERT : rxoHF, 189596686
+2023-10-10 08:05:07,284 INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=1  rowIndex=12:  SeaTunnelRow#tableId= SeaTunnelRow#kind=INSERT : OSblw, 559472064
+2023-10-10 08:05:07,284 INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=1  rowIndex=13:  SeaTunnelRow#tableId= SeaTunnelRow#kind=INSERT : yTZjG, 1842482272
+2023-10-10 08:05:07,284 INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=1  rowIndex=14:  SeaTunnelRow#tableId= SeaTunnelRow#kind=INSERT : RRiMg, 1713777214
+2023-10-10 08:05:07,284 INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=1  rowIndex=15:  SeaTunnelRow#tableId= SeaTunnelRow#kind=INSERT : lRcsd, 1626041649
+2023-10-10 08:05:07,284 INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=1  rowIndex=16:  SeaTunnelRow#tableId= SeaTunnelRow#kind=INSERT : QrNNW, 41355294
+
+```
+
+要停止您的作业并删除您的 FlinkDeployment，您可以简单地：
+
+```bash
+kubectl delete -f  seatunnel-cluster.yaml
+```
+</TabItem>
+</Tabs>
+
+
+祝您 SeaTunnel 使用愉快！
+
+## 更多内容
+
+现在，您已经快速了解了 SeaTunnel，您可以查看 [连接器](../../connector-v2/source) 以找到 SeaTunnel 支持的所有源和汇。
+或者如果您想在另一种引擎集群中提交您的应用程序，请查看 [部署](../deployment.mdx)。
+
