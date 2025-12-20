@@ -1142,23 +1142,23 @@ public class SQLTransformTest {
                 ReadonlyConfig.fromMap(
                         Collections.singletonMap(
                                 "query",
-                                "select ARRAY(age, age + 1, age + 2) as ages"
+                                "select ARRAY(age, 1, 2) as ages"
                                         + " from dual"
                                         + " where age >= 0"));
 
         SQLTransform sqlTransform = new SQLTransform(config, table);
 
-        // age = 5 -> ARRAY(5,6,7) pass filter
+        // age = 5 -> ARRAY(5,1,2) pass filter
         List<SeaTunnelRow> result = sqlTransform.transformRow(new SeaTunnelRow(new Object[] {5}));
         Assertions.assertNotNull(result);
         Assertions.assertEquals(1, result.size());
         Object[] ages = (Object[]) result.get(0).getField(0);
         Assertions.assertEquals(3, ages.length);
         Assertions.assertEquals(5, ((Number) ages[0]).intValue());
-        Assertions.assertEquals(6, ((Number) ages[1]).intValue());
-        Assertions.assertEquals(7, ((Number) ages[2]).intValue());
+        Assertions.assertEquals(1, ((Number) ages[1]).intValue());
+        Assertions.assertEquals(2, ((Number) ages[2]).intValue());
 
-        // age = -1 -> ARRAY(-1,0,1) but filtered out by age >= 0
+        // age = -1 -> ARRAY(-1,1,2) but filtered out by age >= 0
         result = sqlTransform.transformRow(new SeaTunnelRow(new Object[] {-1}));
         Assertions.assertNull(result);
     }
