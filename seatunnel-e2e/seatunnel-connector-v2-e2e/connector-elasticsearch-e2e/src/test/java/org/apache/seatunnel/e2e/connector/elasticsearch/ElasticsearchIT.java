@@ -98,6 +98,8 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
 
     private EsRestClient esRestClient;
 
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+
     @BeforeEach
     @Override
     public void startUp() throws Exception {
