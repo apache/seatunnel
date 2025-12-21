@@ -420,6 +420,9 @@ public class PdfReadStrategy extends AbstractReadStrategy {
         PDFTextStripperByArea stripper = new PDFTextStripperByArea();
         stripper.setSortByPosition(true);
 
+        // Ensure proper character encoding handling
+        System.setProperty("file.encoding", "UTF-8");
+
         StringBuilder content = new StringBuilder();
 
         float regionStartY, regionHeight;
