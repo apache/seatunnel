@@ -64,7 +64,7 @@ public class ElasticsearchRuntimeFieldsIT extends TestSuiteBase implements TestR
     public void startUp() throws Exception {
         container =
                 new ElasticsearchContainer(
-                                DockerImageName.parse("elasticsearch:8.9.0")
+                                DockerImageName.parse("elasticsearch:7.11.1")
                                         .asCompatibleSubstituteFor(
                                                 "docker.elastic.co/elasticsearch/elasticsearch"))
                         .withNetwork(NETWORK)

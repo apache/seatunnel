@@ -21,28 +21,28 @@ import ChangeLog from '../changelog/connector-elasticsearch.md';
 
 ## 选项
 
-|           名称            | 类型      | 是否必须 |             默认值              |
-|-------------------------|---------|------|------------------------------|
-| hosts                   | array   | 是    | -                            |
-| index                   | string  | 是    | -                            |
-| schema_save_mode        | string  | 是    | CREATE_SCHEMA_WHEN_NOT_EXIST |
-| data_save_mode          | string  | 是    | APPEND_DATA                  |
-| index_type              | string  | 否    |                              |
-| primary_keys            | list    | 否    |                              |
-| key_delimiter           | string  | 否    | `_`                          |
-| username                | string  | 否    |                              |
-| password                | string  | 否    |                              |
-| max_retry_count         | int     | 否    | 3                            |
-| max_batch_size          | int     | 否    | 10                           |
-| tls_verify_certificate  | boolean | 否    | true                         |
-| tls_verify_hostnames    | boolean | 否    | true                         |
-| tls_keystore_path       | string  | 否    | -                            |
-| tls_keystore_password   | string  | 否    | -                            |
-| tls_truststore_path     | string  | 否    | -                            |
+|           名称           | 类型      | 是否必须 |             默认值              |
+|------------------------|---------|------|------------------------------|
+| hosts                  | array   | 是    | -                            |
+| index                  | string  | 是    | -                            |
+| schema_save_mode       | string  | 是    | CREATE_SCHEMA_WHEN_NOT_EXIST |
+| data_save_mode         | string  | 是    | APPEND_DATA                  |
+| index_type             | string  | 否    |                              |
+| primary_keys           | list    | 否    |                              |
+| key_delimiter          | string  | 否    | `_`                          |
+| username               | string  | 否    |                              |
+| password               | string  | 否    |                              |
+| max_retry_count        | int     | 否    | 3                            |
+| max_batch_size         | int     | 否    | 10                           |
+| tls_verify_certificate | boolean | 否    | true                         |
+| tls_verify_hostname    | boolean | 否    | true                         |
+| tls_keystore_path      | string  | 否    | -                            |
+| tls_keystore_password  | string  | 否    | -                            |
+| tls_truststore_path    | string  | 否    | -                            |
 | tls_truststore_password | string  | 否    | -                            |
-| common-options          |         | 否    | -                            |
-| vectorization_fields    | array   | 否    | -                            |
-| vector_dimensions       | int     | 否    | -                            |
+| common-options         |         | 否    | -                            |
+| vectorization_fields   | array   | 否    | -                            |
+| vector_dimensions      | int     | 否    | -                            |
 
 ### hosts [array]
 
