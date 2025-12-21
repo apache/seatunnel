@@ -1078,12 +1078,10 @@ public class SQLTransformTest {
 
         SQLTransform sqlTransform = new SQLTransform(config, table);
 
-        // Test with non-null name
         List<SeaTunnelRow> result =
                 sqlTransform.transformRow(new SeaTunnelRow(new Object[] {" John ", "Default"}));
         Assertions.assertEquals("John", result.get(0).getField(0));
 
-        // Test with null name
         result = sqlTransform.transformRow(new SeaTunnelRow(new Object[] {null, " Default "}));
         Assertions.assertEquals("Default", result.get(0).getField(0));
     }
