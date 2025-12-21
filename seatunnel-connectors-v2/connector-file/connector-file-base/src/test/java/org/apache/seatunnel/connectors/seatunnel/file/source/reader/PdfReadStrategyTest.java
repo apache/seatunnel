@@ -22,6 +22,8 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import lombok.extern.slf4j.Slf4j;
+
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.net.URL;
@@ -29,6 +31,7 @@ import java.nio.file.Paths;
 import java.util.List;
 import java.util.stream.Collectors;
 
+@Slf4j
 public class PdfReadStrategyTest {
 
     @Test
@@ -41,6 +44,9 @@ public class PdfReadStrategyTest {
         pdfReadStrategy.read(path, "", tempCollector);
 
         List<SeaTunnelRow> rows = tempCollector.getRows();
+        for (SeaTunnelRow row : rows) {
+            log.info(row.toString());
+        }
 
         List<SeaTunnelRow> headingElements = getHeadingElements(rows);
 
@@ -60,11 +66,14 @@ public class PdfReadStrategyTest {
         Assertions.assertEquals(11, ((List<Object>) rows.get(0).getField(7)).size());
 
         // check paragraph
-        Assertions.assertEquals(
+        String expectedParagraph =
                 "Groceries play a vital role in daily life, touching every aspect of health, convenience, and enjoyment.\n"
                         + "This comprehensive guide covers all things groceries—from what to shop for, strategies to save money, storage tips, and even how groceries have changed in the\n"
-                        + "modern era.",
-                rows.get(1).getField(3));
+                        + "modern era.";
+
+        Assertions.assertEquals(
+                expectedParagraph.length(), String.valueOf(rows.get(1).getField(3)).length());
+        Assertions.assertEquals(expectedParagraph, rows.get(1).getField(3));
 
         // check link element type
         int lastIndex = rows.size() - 1;
