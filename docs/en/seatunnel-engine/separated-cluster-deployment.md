@@ -134,6 +134,10 @@ The timeout time of the checkpoint. If the checkpoint cannot be completed within
 
 The minimum pause (in milliseconds) between consecutive checkpoints. This ensures that checkpoints are not triggered too frequently.
 
+**tolerable-failed**
+
+The number of consecutive checkpoint failures that can be tolerated before the job fails.
+
 Example
 
 ```yaml
@@ -147,6 +151,7 @@ seatunnel:
             interval: 300000
             timeout: 10000
             min-pause: 5000
+            tolerable-failed: 3
 ```
 
 **checkpoint storage**

@@ -334,6 +334,8 @@ public class JobMaster {
         jobCheckpointConfig.setCheckpointTimeout(defaultCheckpointConfig.getCheckpointTimeout());
         jobCheckpointConfig.setCheckpointInterval(defaultCheckpointConfig.getCheckpointInterval());
         jobCheckpointConfig.setCheckpointMinPause(defaultCheckpointConfig.getCheckpointMinPause());
+        jobCheckpointConfig.setCheckpointTolerableFailed(
+                defaultCheckpointConfig.getCheckpointTolerableFailed());
 
         CheckpointStorageConfig jobCheckpointStorageConfig = new CheckpointStorageConfig();
         jobCheckpointStorageConfig.setStorage(defaultCheckpointConfig.getStorage().getStorage());
@@ -362,6 +364,12 @@ public class JobMaster {
             jobCheckpointConfig.setCheckpointMinPause(
                     Long.parseLong(
                             jobEnv.get(EnvCommonOptions.CHECKPOINT_MIN_PAUSE.key()).toString()));
+        }
+        if (jobEnv.containsKey(EnvCommonOptions.CHECKPOINT_TOLERABLE_FAILED.key())) {
+            jobCheckpointConfig.setCheckpointTolerableFailed(
+                    Integer.parseInt(
+                            jobEnv.get(EnvCommonOptions.CHECKPOINT_TOLERABLE_FAILED.key())
+                                    .toString()));
         }
         return jobCheckpointConfig;
     }

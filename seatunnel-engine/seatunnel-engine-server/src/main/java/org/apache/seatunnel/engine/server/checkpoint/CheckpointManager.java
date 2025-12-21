@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.engine.server.checkpoint;
 
+import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
+
 import org.apache.seatunnel.api.tracing.MDCTracer;
 import org.apache.seatunnel.engine.checkpoint.storage.PipelineState;
 import org.apache.seatunnel.engine.checkpoint.storage.api.CheckpointStorage;
@@ -181,6 +183,11 @@ public class CheckpointManager {
                     String.format("The checkpoint coordinator(%s) don't exist", pipelineId));
         }
         return coordinator;
+    }
+
+    @VisibleForTesting
+    protected void setCheckpointCoordinator(int pipelineId, CheckpointCoordinator coordinator) {
+        coordinatorMap.put(pipelineId, coordinator);
     }
 
     /**

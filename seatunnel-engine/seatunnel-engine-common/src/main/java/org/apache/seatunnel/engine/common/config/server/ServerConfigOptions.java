@@ -135,6 +135,14 @@ public class ServerConfigOptions {
                                 "The minimum pause (in milliseconds) between consecutive checkpoints. "
                                         + "This ensures that checkpoints are not triggered too frequently and provides.");
 
+        public static final Option<Integer> CHECKPOINT_TOLERABLE_FAILED =
+                Options.key("tolerable-failed")
+                        .intType()
+                        .defaultValue(0)
+                        .withDescription(
+                                "The number of consecutive checkpoint failures that can be tolerated before the job fails. "
+                                        + "Default is 0, which means any checkpoint failure will cause the job to fail.");
+
         public static final Option<String> CHECKPOINT_STORAGE_TYPE =
                 Options.key("type")
                         .stringType()

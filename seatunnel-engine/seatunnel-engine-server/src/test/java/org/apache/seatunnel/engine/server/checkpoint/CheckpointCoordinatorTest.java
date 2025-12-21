@@ -18,13 +18,16 @@
 package org.apache.seatunnel.engine.server.checkpoint;
 
 import org.apache.seatunnel.common.utils.ReflectionUtils;
+import org.apache.seatunnel.engine.checkpoint.storage.PipelineState;
 import org.apache.seatunnel.engine.checkpoint.storage.api.CheckpointStorage;
+import org.apache.seatunnel.engine.checkpoint.storage.exception.CheckpointStorageException;
 import org.apache.seatunnel.engine.common.config.server.CheckpointConfig;
 import org.apache.seatunnel.engine.common.config.server.CheckpointStorageConfig;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.core.checkpoint.CheckpointType;
 import org.apache.seatunnel.engine.server.AbstractSeaTunnelServerTest;
 import org.apache.seatunnel.engine.server.checkpoint.operation.TaskAcknowledgeOperation;
+import org.apache.seatunnel.engine.server.checkpoint.operation.TaskReportStatusOperation;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.master.JobMaster;
@@ -287,6 +290,118 @@ public class CheckpointCoordinatorTest
     }
 
     @Test
+    void testTolerableFailedCheckpoints() throws Exception {
+        CheckpointConfig checkpointConfig = new CheckpointConfig();
+        checkpointConfig.setStorage(new CheckpointStorageConfig());
+        checkpointConfig.setCheckpointTimeout(500);
+        checkpointConfig.setCheckpointTolerableFailed(3);
+        checkpointConfig.setCheckpointEnable(true);
+
+        Map<Integer, CheckpointPlan> planMap = new HashMap<>();
+        TaskLocation task1 = new TaskLocation(new TaskGroupLocation(1L, 1, 1), 1, 1);
+
+        Map<TaskLocation, Set<Tuple2<ActionStateKey, Integer>>> subtaskActions = new HashMap<>();
+        subtaskActions.put(
+                task1, Collections.singleton(Tuple2.tuple2(new ActionStateKey("action1"), 0)));
+
+        Map<ActionStateKey, Integer> pipelineActions = new HashMap<>();
+        pipelineActions.put(new ActionStateKey("action1"), 1);
+        planMap.put(
+                1,
+                CheckpointPlan.builder()
+                        .pipelineId(1)
+                        .pipelineSubtasks(Collections.singleton(task1))
+                        .startingSubtasks(Collections.singleton(task1))
+                        .subtaskActions(subtaskActions)
+                        .pipelineActions(pipelineActions)
+                        .build());
+
+        ExecutorService executorService = Executors.newCachedThreadPool();
+        try {
+            TestCheckpointManager checkpointManager =
+                    new TestCheckpointManager(
+                            1L,
+                            nodeEngine,
+                            planMap,
+                            checkpointConfig,
+                            server.getCheckpointService().getCheckpointStorage(),
+                            executorService,
+                            nodeEngine.getHazelcastInstance().getMap(IMAP_RUNNING_JOB_STATE));
+
+            CheckpointCoordinator coordinator = checkpointManager.getCheckpointCoordinator(1);
+            checkpointManager.reportedPipelineRunning(1, false);
+            coordinator.reportedTask(
+                    new TaskReportStatusOperation(task1, SeaTunnelTaskState.RUNNING));
+
+            CompletableFuture<PendingCheckpoint> pendingCheckpoint1 =
+                    coordinator.createPendingCheckpoint(
+                            System.currentTimeMillis(), CheckpointType.CHECKPOINT_TYPE);
+            pendingCheckpoint1.join();
+            coordinator.startTriggerPendingCheckpoint(pendingCheckpoint1);
+            Thread.sleep(1000);
+            int failedCount1 = coordinator.getConsecutiveFailedCounter();
+            Assertions.assertEquals(
+                    1, failedCount1, "Failed counter should be 1 after first checkpoint timeout");
+            CompletableFuture<PendingCheckpoint> pendingCheckpoint2 =
+                    coordinator.createPendingCheckpoint(
+                            System.currentTimeMillis(), CheckpointType.CHECKPOINT_TYPE);
+            pendingCheckpoint2.join();
+            coordinator.startTriggerPendingCheckpoint(pendingCheckpoint2);
+
+            // Wait for second checkpoint to timeout and fail
+            Thread.sleep(1000);
+            int failedCount2 = coordinator.getConsecutiveFailedCounter();
+            Assertions.assertEquals(
+                    2, failedCount2, "Failed counter should be 2 after second checkpoint timeout");
+
+            // Simulate a successful checkpoint
+            CompletableFuture<PendingCheckpoint> pendingCheckpoint3 =
+                    coordinator.createPendingCheckpoint(
+                            System.currentTimeMillis(), CheckpointType.CHECKPOINT_TYPE);
+            PendingCheckpoint checkpoint3 = pendingCheckpoint3.join();
+            CheckpointBarrier barrier3 =
+                    new CheckpointBarrier(
+                            checkpoint3.getCheckpointId(),
+                            System.currentTimeMillis(),
+                            CheckpointType.CHECKPOINT_TYPE);
+            checkpointManager.acknowledgeTask(
+                    new TaskAcknowledgeOperation(
+                            task1,
+                            barrier3,
+                            Collections.singletonList(
+                                    new ActionSubtaskState(
+                                            new ActionStateKey("action1"),
+                                            0,
+                                            Collections.emptyList()))));
+
+            CompletedCheckpoint completedCheckpoint3 = checkpoint3.getCompletableFuture().join();
+            coordinator.completePendingCheckpoint(completedCheckpoint3);
+
+            // Verify counter is reset to 0 after successful checkpoint
+            int failedCountAfterSuccess = coordinator.getConsecutiveFailedCounter();
+            Assertions.assertEquals(
+                    0,
+                    failedCountAfterSuccess,
+                    "Failed counter should be reset to 0 after successful checkpoint");
+
+            // Trigger another checkpoint that will fail to verify counter starts from 0 again
+            CompletableFuture<PendingCheckpoint> pendingCheckpoint4 =
+                    coordinator.createPendingCheckpoint(
+                            System.currentTimeMillis(), CheckpointType.CHECKPOINT_TYPE);
+            coordinator.startTriggerPendingCheckpoint(pendingCheckpoint4);
+            Thread.sleep(1000);
+            int failedCountAfterReset = coordinator.getConsecutiveFailedCounter();
+            Assertions.assertEquals(
+                    1,
+                    failedCountAfterReset,
+                    "Failed counter should be 1 after failure following a successful checkpoint");
+
+        } finally {
+            executorService.shutdownNow();
+        }
+    }
+
+    @Test
     void testFilteringClosedTasksAndActions() {
         CheckpointConfig checkpointConfig = new CheckpointConfig();
         checkpointConfig.setStorage(new CheckpointStorageConfig());
@@ -368,6 +483,7 @@ public class CheckpointCoordinatorTest
 
 class TestCheckpointManager extends CheckpointManager {
     public List<TaskOperation> operations = new ArrayList<>();
+    public CheckpointCoordinator spyCoordinator;
 
     public TestCheckpointManager(
             long jobId,
@@ -393,5 +509,77 @@ class TestCheckpointManager extends CheckpointManager {
     protected InvocationFuture<?> sendOperationToMemberNode(TaskOperation operation) {
         this.operations.add(operation);
         return null;
+    }
+
+    public CheckpointCoordinator getCheckpointCoordinator(int pipelineId) {
+        CheckpointCoordinator coordinator = super.getCheckpointCoordinator(pipelineId);
+        if (coordinator == null) {
+            throw new RuntimeException(
+                    String.format("The checkpoint coordinator(%s) don't exist", pipelineId));
+        }
+
+        if (this.spyCoordinator == null) {
+            spyCoordinator = Mockito.spy(coordinator);
+            Mockito.doNothing()
+                    .when(spyCoordinator)
+                    .notifyCompleted(Mockito.any(CompletedCheckpoint.class));
+
+            CheckpointStorage testCheckpointStorage =
+                    new CheckpointStorage() {
+                        @Override
+                        public String storeCheckPoint(PipelineState pipelineState)
+                                throws CheckpointStorageException {
+                            return "";
+                        }
+
+                        @Override
+                        public void asyncStoreCheckPoint(PipelineState pipelineState)
+                                throws CheckpointStorageException {}
+
+                        @Override
+                        public List<PipelineState> getAllCheckpoints(String s)
+                                throws CheckpointStorageException {
+                            return Collections.emptyList();
+                        }
+
+                        @Override
+                        public List<PipelineState> getLatestCheckpoint(String s)
+                                throws CheckpointStorageException {
+                            return Collections.emptyList();
+                        }
+
+                        @Override
+                        public PipelineState getLatestCheckpointByJobIdAndPipelineId(
+                                String s, String s1) throws CheckpointStorageException {
+                            return null;
+                        }
+
+                        @Override
+                        public List<PipelineState> getCheckpointsByJobIdAndPipelineId(
+                                String s, String s1) throws CheckpointStorageException {
+                            return Collections.emptyList();
+                        }
+
+                        @Override
+                        public void deleteCheckpoint(String s) {}
+
+                        @Override
+                        public PipelineState getCheckpoint(String s, String s1, String s2)
+                                throws CheckpointStorageException {
+                            return null;
+                        }
+
+                        @Override
+                        public void deleteCheckpoint(String s, String s1, String s2)
+                                throws CheckpointStorageException {}
+
+                        @Override
+                        public void deleteCheckpoint(String s, String s1, List<String> list)
+                                throws CheckpointStorageException {}
+                    };
+            spyCoordinator.setCheckpointStorage(testCheckpointStorage);
+            setCheckpointCoordinator(1, spyCoordinator);
+        }
+        return spyCoordinator;
     }
 }

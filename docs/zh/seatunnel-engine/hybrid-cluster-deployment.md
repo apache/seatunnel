@@ -93,6 +93,10 @@ seatunnel:
 
 连续检查点之间的最小暂停时间(以毫秒为单位)，确保检查点不会频繁触发。
 
+**tolerable-failed**
+
+可容忍的连续检查点失败次数，超过该次数后作业将失败。
+
 示例
 
 ```yaml
@@ -106,6 +110,7 @@ seatunnel:
             interval: 300000
             timeout: 10000
             min-pause: 5000
+            tolerable-failed: 3
 ```
 
 **checkpoint storage**

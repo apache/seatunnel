@@ -98,7 +98,7 @@ public class CheckpointCoordinator {
 
     private final CheckpointManager checkpointManager;
 
-    private final CheckpointStorage checkpointStorage;
+    @Getter private CheckpointStorage checkpointStorage;
 
     @Getter private final CheckpointIDCounter checkpointIdCounter;
 
@@ -132,6 +132,8 @@ public class CheckpointCoordinator {
 
     private final AtomicInteger pendingCounter = new AtomicInteger(0);
 
+    private final AtomicInteger consecutiveFailedCounter = new AtomicInteger(0);
+
     private final AtomicBoolean schemaChanging = new AtomicBoolean(false);
 
     private final Object lock = new Object();
@@ -153,7 +155,7 @@ public class CheckpointCoordinator {
     // processed with one savepoint operation in the same time.
     private PendingCheckpoint savepointPendingCheckpoint;
 
-    private final String checkpointStateImapKey;
+    @Getter private final String checkpointStateImapKey;
 
     @SneakyThrows
     public CheckpointCoordinator(
@@ -287,6 +289,25 @@ public class CheckpointCoordinator {
         if (checkpointCoordinatorFuture.isDone()) {
             return;
         }
+
+        int failedCount = consecutiveFailedCounter.incrementAndGet();
+        int tolerableFailures = coordinatorConfig.getCheckpointTolerableFailed();
+
+        if (tolerableFailures > 0 && failedCount <= tolerableFailures) {
+            LOG.warn(
+                    "Checkpoint failed (consecutive failures: {}/{}): {}",
+                    failedCount,
+                    tolerableFailures,
+                    ExceptionUtils.getMessage(checkpointException));
+            cleanFailedCheckpoint(reason);
+            return;
+        }
+
+        LOG.error(
+                "Checkpoint failures exceeded tolerable limit ({}/{}), failing the job",
+                failedCount,
+                tolerableFailures);
+
         updateStatus(CheckpointCoordinatorStatus.FAILED);
         checkpointCoordinatorFuture.complete(
                 new CheckpointCoordinatorState(
@@ -630,7 +651,8 @@ public class CheckpointCoordinator {
         return new PassiveCompletableFuture<>(future);
     }
 
-    private void startTriggerPendingCheckpoint(
+    @VisibleForTesting
+    protected void startTriggerPendingCheckpoint(
             CompletableFuture<PendingCheckpoint> pendingCompletableFuture) {
         pendingCompletableFuture.thenAccept(
                 pendingCheckpoint -> {
@@ -717,7 +739,8 @@ public class CheckpointCoordinator {
         pendingCounter.incrementAndGet();
     }
 
-    private CompletableFuture<PendingCheckpoint> createPendingCheckpoint(
+    @VisibleForTesting
+    protected CompletableFuture<PendingCheckpoint> createPendingCheckpoint(
             long triggerTimestamp, CheckpointType checkpointType) {
         synchronized (lock) {
             CompletableFuture<Long> idFuture;
@@ -951,6 +974,13 @@ public class CheckpointCoordinator {
         notifyCompleted(completedCheckpoint);
         pendingCheckpoints.remove(checkpointId).abortCheckpointTimeoutFutureWhenIsCompleted();
         pendingCounter.decrementAndGet();
+        int lastestFailedCount = consecutiveFailedCounter.getAndSet(0);
+        if (lastestFailedCount > 0) {
+            LOG.info(
+                    "Reset consecutive failed counter from {} to 0 after checkpoint {} completed",
+                    lastestFailedCount,
+                    completedCheckpoint.getCheckpointId());
+        }
 
         if (isCompleted()) {
             cleanPendingCheckpoint(CheckpointCloseReason.CHECKPOINT_COORDINATOR_COMPLETED);
@@ -1112,8 +1142,32 @@ public class CheckpointCoordinator {
         }
     }
 
-    public String getCheckpointStateImapKey() {
-        return checkpointStateImapKey;
+    /**
+     * Clean only the failed checkpoint(s) without shutting down the coordinator. This is used for
+     * tolerable checkpoint failures to allow subsequent checkpoints to continue.
+     */
+    protected void cleanFailedCheckpoint(CheckpointCloseReason closedReason) {
+        synchronized (lock) {
+            LOG.info("start clean failed checkpoint cause {}", closedReason.message());
+            if (!pendingCheckpoints.isEmpty()) {
+                pendingCheckpoints
+                        .values()
+                        .forEach(
+                                pendingCheckpoint ->
+                                        pendingCheckpoint.abortCheckpoint(closedReason, null));
+                pendingCheckpoints.clear();
+            }
+            pendingCounter.set(0);
+        }
+    }
+
+    public int getConsecutiveFailedCounter() {
+        return consecutiveFailedCounter.get();
+    }
+
+    @VisibleForTesting
+    public void setCheckpointStorage(CheckpointStorage checkpointStorage) {
+        this.checkpointStorage = checkpointStorage;
     }
 
     /** Only for test */
