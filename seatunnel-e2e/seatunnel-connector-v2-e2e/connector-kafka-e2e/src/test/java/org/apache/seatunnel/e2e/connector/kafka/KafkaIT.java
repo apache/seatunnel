@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.e2e.connector.kafka;
 
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
@@ -126,6 +127,8 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
     private static final MessageFormat DEFAULT_FORMAT = MessageFormat.JSON;
 
     private static final String DEFAULT_FIELD_DELIMITER = ",";
+
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     private KafkaProducer<byte[], byte[]> producer;
 
@@ -1608,6 +1611,64 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         }
     }
 
+    @TestTemplate
+    public void testMultiTableSinkKafka(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                container.executeJob("/kafka/fake_to_kafka_multi_table_sink.conf");
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+
+        // Verify data in topic_1
+        List<String> topic1Data = getKafkaConsumerListDataWithTimeout("test_multi_table_topic_1");
+        Assertions.assertEquals(100, topic1Data.size(), "Topic 1 should have 100 records");
+        for (String data : topic1Data) {
+            JsonNode jsonNode = OBJECT_MAPPER.readTree(data);
+            Assertions.assertTrue(jsonNode.has("c_string"));
+            Assertions.assertTrue(jsonNode.has("c_int"));
+            Assertions.assertTrue(jsonNode.has("c_bigint"));
+        }
+
+        // Verify data in topic_2
+        List<String> topic2Data = getKafkaConsumerListDataWithTimeout("test_multi_table_topic_2");
+        Assertions.assertEquals(200, topic2Data.size(), "Topic 2 should have 200 records");
+        for (String data : topic2Data) {
+            JsonNode jsonNode = OBJECT_MAPPER.readTree(data);
+            Assertions.assertTrue(jsonNode.has("c_string"));
+            Assertions.assertTrue(jsonNode.has("c_double"));
+            Assertions.assertTrue(jsonNode.has("c_timestamp"));
+        }
+
+        log.info(
+                "Multi-table sink test passed: topic_1 has {} records, topic_2 has {} records",
+                topic1Data.size(),
+                topic2Data.size());
+    }
+
+    @TestTemplate
+    public void testMultiTableSinkKafkaWithPartitionKey(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                container.executeJob(
+                        "/kafka/fake_to_kafka_multi_table_sink_with_partition_key.conf");
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+
+        // Verify data in topic with partition key
+        List<String> topic1Data =
+                getKafkaConsumerListDataWithTimeout("test_multi_table_partition_topic_1");
+        Assertions.assertEquals(
+                100, topic1Data.size(), "Partition topic 1 should have 100 records");
+
+        List<String> topic2Data =
+                getKafkaConsumerListDataWithTimeout("test_multi_table_partition_topic_2");
+        Assertions.assertEquals(
+                150, topic2Data.size(), "Partition topic 2 should have 150 records");
+
+        log.info(
+                "Multi-table sink with partition key test passed: partition_topic_1 has {} records, partition_topic_2 has {} records",
+                topic1Data.size(),
+                topic2Data.size());
+    }
+
     public static String getTestConfigFile(String configFile)
             throws FileNotFoundException, URISyntaxException {
         URL resource = KafkaIT.class.getResource(configFile);
@@ -2031,5 +2092,45 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                     new MapType<>(BasicType.STRING_TYPE, BasicType.FLOAT_TYPE),
                     ArrayType.STRING_ARRAY_TYPE
                 });
+    }
+
+    private List<String> getKafkaConsumerListDataWithTimeout(String topicName) {
+        List<String> data = new ArrayList<>();
+        Properties props = kafkaConsumerConfig();
+        // Make sure we start from earliest to capture all records
+        props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
+        try (KafkaConsumer<String, String> consumer = new KafkaConsumer<>(props)) {
+            consumer.subscribe(Collections.singletonList(topicName));
+
+            // Poll for initial records
+            ConsumerRecords<String, String> initialRecords =
+                    consumer.poll(Duration.ofMillis(5000)); // Wait 5 seconds initially
+            for (ConsumerRecord<String, String> record : initialRecords) {
+                if (record.value() != null) {
+                    data.add(record.value());
+                }
+            }
+
+            // Continue polling for up to 30 seconds or until no new records for 3 consecutive polls
+            long startTime = System.currentTimeMillis();
+            long emptyPollCount = 0;
+            long maxTime = 30000; // 30 seconds max
+
+            while ((System.currentTimeMillis() - startTime) < maxTime && emptyPollCount < 3) {
+                ConsumerRecords<String, String> records = consumer.poll(Duration.ofMillis(2000));
+
+                if (records.isEmpty()) {
+                    emptyPollCount++;
+                } else {
+                    emptyPollCount = 0; // Reset counter when we get data
+                    for (ConsumerRecord<String, String> record : records) {
+                        if (record.value() != null) {
+                            data.add(record.value());
+                        }
+                    }
+                }
+            }
+        }
+        return data;
     }
 }
