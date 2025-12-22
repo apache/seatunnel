@@ -307,7 +307,7 @@ Note：key/value is of type byte[].
 
 ### Multiple Table Write
 
-Kafka Sink supports writing data from multiple tables to different Kafka topics. When the upstream source generates data from multiple tables, you can use the `${table_name}` placeholder in the `topic` configuration to dynamically route data to the corresponding topic based on the table name.
+Kafka Sink supports writing data from multiple tables to different Kafka topics. When the upstream source generates data from multiple tables, users can dynamically specify the topic's identifier by [configuring placeholders](./sink-options-placeholders.md).
 
 #### Configuration Example
 

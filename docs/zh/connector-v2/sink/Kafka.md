@@ -309,7 +309,7 @@ Note：key/value 需要 byte[]类型.
 
 ### 多表写入
 
-Kafka Sink 支持将多个表的数据写入到不同的 Kafka topic。当上游数据源产生多个表的数据时，可以在 `topic` 配置中使用 `${table_name}` 占位符，根据表名动态路由数据到对应的 topic。
+Kafka Sink 支持将多个表的数据写入到不同的 Kafka topic。当上游数据源产生多个表的数据时，用户可以通过[配置占位符](./sink-options-placeholders.md)动态指定主题的标识符。
 
 #### 配置示例
 
