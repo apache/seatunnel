@@ -45,7 +45,7 @@ public class PdfReadStrategyTest {
 
         List<SeaTunnelRow> rows = tempCollector.getRows();
         for (SeaTunnelRow row : rows) {
-            log.info(row.toString());
+            log.info("pdf read row: {}", row.toString());
         }
 
         List<SeaTunnelRow> headingElements = getHeadingElements(rows);
@@ -70,7 +70,15 @@ public class PdfReadStrategyTest {
                 "Groceries play a vital role in daily life, touching every aspect of health, convenience, and enjoyment.\n"
                         + "This comprehensive guide covers all things groceries—from what to shop for, strategies to save money, storage tips, and even how groceries have changed in the\n"
                         + "modern era.";
+        System.out.println("expectedParagraph length: " + expectedParagraph.length());
+        String paragraphStr = String.valueOf(rows.get(1).getField(3));
+        System.out.println("paragraphStr length: " + paragraphStr.length());
 
+        Assertions.assertEquals(
+                expectedParagraph.length(),
+                String.valueOf(rows.get(1).getField(3)).replace("\r\n", "").length());
+        Assertions.assertEquals(
+                expectedParagraph, String.valueOf(rows.get(1).getField(3)).replace("\r\n", ""));
         Assertions.assertEquals(
                 expectedParagraph.length(), String.valueOf(rows.get(1).getField(3)).length());
         Assertions.assertEquals(expectedParagraph, rows.get(1).getField(3));
