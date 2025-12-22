@@ -181,7 +181,6 @@ public class MaxcomputeOutputFormat {
     private void ensureInsertSessionAndWriter() throws TunnelException {
         if (uploadSession == null) {
             initializeInsertSession();
-            Objects.requireNonNull(uploadSession, "UploadSession was not initialized properly");
         }
         if (recordWriter == null) {
             this.recordWriter = uploadSession.openBufferedWriter();
