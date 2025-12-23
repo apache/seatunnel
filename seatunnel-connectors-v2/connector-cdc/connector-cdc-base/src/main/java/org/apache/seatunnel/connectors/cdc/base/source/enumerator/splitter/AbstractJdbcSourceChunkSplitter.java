@@ -447,15 +447,12 @@ public abstract class AbstractJdbcSourceChunkSplitter implements JdbcSourceChunk
         List<ConstraintKey> uniqueKeys = dialect.getUniqueKeys(jdbc, tableId);
         if (!uniqueKeys.isEmpty()) {
             for (ConstraintKey uniqueKey : uniqueKeys) {
-                List<ConstraintKey.ConstraintKeyColumn> uniqueKeyColumns =
-                        uniqueKey.getColumnNames();
-                for (ConstraintKey.ConstraintKeyColumn uniqueKeyColumn : uniqueKeyColumns) {
-                    Column column = table.columnWithName(uniqueKeyColumn.getColumnName());
-                    if (isEvenlySplitColumn(column)) {
-                        splitColumn = columnComparable(splitColumn, column);
-                        if (sqlTypePriority(splitColumn) == 1) {
-                            return splitColumn;
-                        }
+                Column firstColumn =
+                        table.columnWithName(uniqueKey.getColumnNames().get(0).getColumnName());
+                if (isEvenlySplitColumn(firstColumn)) {
+                    splitColumn = columnComparable(splitColumn, firstColumn);
+                    if (sqlTypePriority(splitColumn) == 1) {
+                        return splitColumn;
                     }
                 }
             }

@@ -48,16 +48,26 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
-public class JdbcSourceChunkSplitterTest {
+class JdbcSourceChunkSplitterTest {
 
     @Test
-    public void splitColumnTest() throws SQLException {
+    void splitColumnTest() throws SQLException {
         TestJdbcSourceChunkSplitter testJdbcSourceChunkSplitter =
                 new TestJdbcSourceChunkSplitter(null, new TestSourceDialect());
         Column splitColumn =
                 testJdbcSourceChunkSplitter.getSplitColumn(
                         null, new TestSourceDialect(), new TableId("", "", ""));
-        Assertions.assertEquals(splitColumn.typeName(), "tinyint");
+        Assertions.assertEquals("tinyint", splitColumn.typeName());
+    }
+
+    @Test
+    void splitColumnTestWithUniqueKey() throws SQLException {
+        TestJdbcSourceChunkSplitter testJdbcSourceChunkSplitter =
+                new TestJdbcSourceChunkSplitter(null, new TestSourceDialectWithUniqueKey());
+        Column splitColumn =
+                testJdbcSourceChunkSplitter.getSplitColumn(
+                        null, new TestSourceDialectWithUniqueKey(), new TableId("", "", ""));
+        Assertions.assertEquals("int", splitColumn.typeName());
     }
 
     private class TestJdbcSourceChunkSplitter extends AbstractJdbcSourceChunkSplitter {
@@ -245,6 +255,116 @@ public class JdbcSourceChunkSplitterTest {
         public List<ConstraintKey> getUniqueKeys(JdbcConnection jdbcConnection, TableId tableId)
                 throws SQLException {
             return new ArrayList<ConstraintKey>();
+        }
+    }
+
+    private class TestSourceDialectWithUniqueKey implements JdbcDataSourceDialect {
+
+        @Override
+        public String getName() {
+            return null;
+        }
+
+        @Override
+        public boolean isDataCollectionIdCaseSensitive(JdbcSourceConfig sourceConfig) {
+            return false;
+        }
+
+        @Override
+        public ChunkSplitter createChunkSplitter(JdbcSourceConfig sourceConfig) {
+            return null;
+        }
+
+        @Override
+        public List<TableId> discoverDataCollections(JdbcSourceConfig sourceConfig) {
+            return null;
+        }
+
+        @Override
+        public JdbcConnection openJdbcConnection(JdbcSourceConfig sourceConfig) {
+            return null;
+        }
+
+        @Override
+        public JdbcConnectionPoolFactory getPooledDataSourceFactory() {
+            return null;
+        }
+
+        @Override
+        public TableChanges.TableChange queryTableSchema(JdbcConnection jdbc, TableId tableId) {
+
+            Table table =
+                    Table.editor()
+                            .tableId(tableId)
+                            .addColumns(
+                                    Column.editor()
+                                            .name("string_col")
+                                            .jdbcType(Types.VARCHAR)
+                                            .type("varchar")
+                                            .create(),
+                                    Column.editor()
+                                            .name("smallint")
+                                            .jdbcType(Types.SMALLINT)
+                                            .type("smallint")
+                                            .create(),
+                                    Column.editor()
+                                            .name("int")
+                                            .jdbcType(Types.INTEGER)
+                                            .type("int")
+                                            .create(),
+                                    Column.editor()
+                                            .name("decimal")
+                                            .jdbcType(Types.DECIMAL)
+                                            .type("decimal")
+                                            .create(),
+                                    Column.editor()
+                                            .name("tinyint_col")
+                                            .jdbcType(Types.TINYINT)
+                                            .type("tinyint")
+                                            .create(),
+                                    Column.editor()
+                                            .name("bigint_col")
+                                            .jdbcType(Types.BIGINT)
+                                            .type("bigint")
+                                            .create())
+                            .create();
+            return new TableChanges.TableChange(TableChanges.TableChangeType.CREATE, table);
+        }
+
+        @Override
+        public FetchTask<SourceSplitBase> createFetchTask(SourceSplitBase sourceSplitBase) {
+            return null;
+        }
+
+        @Override
+        public JdbcSourceFetchTaskContext createFetchTaskContext(
+                SourceSplitBase sourceSplitBase, JdbcSourceConfig taskSourceConfig) {
+            return null;
+        }
+
+        @Override
+        public Optional<PrimaryKey> getPrimaryKey(JdbcConnection jdbcConnection, TableId tableId)
+                throws SQLException {
+            return Optional.of(PrimaryKey.of("pkName", Arrays.asList("bigint_col")));
+        }
+
+        @Override
+        public List<ConstraintKey> getUniqueKeys(JdbcConnection jdbcConnection, TableId tableId)
+                throws SQLException {
+            List<ConstraintKey> keys = new ArrayList<>();
+
+            // UK 1: (address, coin_type)
+            keys.add(
+                    ConstraintKey.of(
+                            ConstraintKey.ConstraintType.UNIQUE_KEY,
+                            "uk_1",
+                            Arrays.asList(
+                                    ConstraintKey.ConstraintKeyColumn.of(
+                                            "int", ConstraintKey.ColumnSortType.ASC),
+                                    ConstraintKey.ConstraintKeyColumn.of(
+                                            "smallint", ConstraintKey.ColumnSortType.ASC))));
+
+            return keys;
         }
     }
 }
