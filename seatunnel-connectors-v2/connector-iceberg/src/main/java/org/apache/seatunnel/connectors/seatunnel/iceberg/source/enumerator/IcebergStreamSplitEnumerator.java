@@ -115,8 +115,8 @@ public class IcebergStreamSplitEnumerator extends AbstractSplitEnumerator {
 
     @Override
     public void handleSplitRequest(int subtaskId) {
-        synchronized (stateLock) {
-            if (initialized) {
+        if (initialized) {
+            synchronized (stateLock) {
                 stateLock.notifyAll();
             }
         }
