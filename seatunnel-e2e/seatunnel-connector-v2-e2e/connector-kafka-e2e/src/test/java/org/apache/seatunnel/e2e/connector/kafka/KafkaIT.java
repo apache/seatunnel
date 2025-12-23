@@ -2020,6 +2020,7 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
 
     @TestTemplate
     public void testProtobufCaseSensitiveFieldNames(TestContainer container) throws Exception {
+        String topicName = "test_protobuf_case_sensitive_fieldnames_" + System.nanoTime();
         SeaTunnelRowType seaTunnelRowType = buildCaseSensitiveSeaTunnelRowType();
 
         Map<String, String> schemaProperties = new HashMap<>();
@@ -2068,7 +2069,7 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                         "Protobuf case-sensitive test");
 
         Map<String, Object> config = new HashMap<>();
-        config.put(KafkaBaseOptions.TOPIC.key(), "test_protobuf_case_sensitive_topic");
+        config.put(KafkaBaseOptions.TOPIC.key(), topicName);
         config.put(KafkaBaseOptions.BOOTSTRAP_SERVERS.key(), kafkaContainer.getBootstrapServers());
         config.put(KafkaBaseOptions.FORMAT.key(), MessageFormat.PROTOBUF);
         config.put("protobuf_message_name", "TestMessage");
@@ -2100,7 +2101,7 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
 
         List<SeaTunnelRow> kafkaSTRow =
                 getKafkaSTRow(
-                        "test_protobuf_case_sensitive_topic",
+                        topicName,
                         value -> {
                             try {
                                 return deserializationSchema.deserialize(value);
@@ -2138,9 +2139,10 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
 
     @TestTemplate
     public void testProtobufCaseSensitiveToAssert(TestContainer container) throws Exception {
+        String topicName = "test_protobuf_case_sensitive_toassert_" + System.nanoTime();
         SeaTunnelRowType seaTunnelRowType = buildCaseSensitiveSeaTunnelRowType();
 
-        // Write test data to Kafka first
+        // Write test data to Kafka first - load schema from config but use dynamic topic
         String confFile = "/protobuf/kafka_protobuf_case_sensitive_to_assert.conf";
         String path = getTestConfigFile(confFile);
         Config config = ConfigFactory.parseFile(new File(path));
@@ -2148,8 +2150,7 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         ReadonlyConfig readonlyConfig = ReadonlyConfig.fromConfig(sourceConfig);
 
         DefaultSeaTunnelRowSerializer serializer =
-                getDefaultSeaTunnelRowSerializer(
-                        "test_protobuf_case_sensitive_topic", seaTunnelRowType, readonlyConfig);
+                getDefaultSeaTunnelRowSerializer(topicName, seaTunnelRowType, readonlyConfig);
 
         List<SeaTunnelRow> testRows = createCaseSensitiveTestRows();
 
@@ -2165,7 +2166,7 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
 
         // Use SourceFlowTestUtils to read data from Kafka
         Map<String, Object> sourceOptions = new HashMap<>();
-        sourceOptions.put(KafkaBaseOptions.TOPIC.key(), "test_protobuf_case_sensitive_topic");
+        sourceOptions.put(KafkaBaseOptions.TOPIC.key(), topicName);
         sourceOptions.put(
                 KafkaBaseOptions.BOOTSTRAP_SERVERS.key(), kafkaContainer.getBootstrapServers());
         sourceOptions.put(KafkaBaseOptions.FORMAT.key(), MessageFormat.PROTOBUF);
