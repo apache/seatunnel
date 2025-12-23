@@ -57,7 +57,7 @@ class JdbcSourceChunkSplitterTest {
         Column splitColumn =
                 testJdbcSourceChunkSplitter.getSplitColumn(
                         null, new TestSourceDialect(), new TableId("", "", ""));
-        Assertions.assertEquals("tinyint", splitColumn.typeName());
+        Assertions.assertEquals("varchar", splitColumn.typeName());
     }
 
     @Test
@@ -357,6 +357,14 @@ class JdbcSourceChunkSplitterTest {
                     ConstraintKey.of(
                             ConstraintKey.ConstraintType.UNIQUE_KEY,
                             "uk_1",
+                            Arrays.asList(
+                                    ConstraintKey.ConstraintKeyColumn.of(
+                                            "string_col", ConstraintKey.ColumnSortType.ASC))));
+
+            keys.add(
+                    ConstraintKey.of(
+                            ConstraintKey.ConstraintType.UNIQUE_KEY,
+                            "uk_2",
                             Arrays.asList(
                                     ConstraintKey.ConstraintKeyColumn.of(
                                             "int", ConstraintKey.ColumnSortType.ASC),

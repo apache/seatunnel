@@ -429,15 +429,11 @@ public abstract class AbstractJdbcSourceChunkSplitter implements JdbcSourceChunk
 
         Optional<PrimaryKey> primaryKey = dialect.getPrimaryKey(jdbc, tableId);
         if (primaryKey.isPresent()) {
-            List<String> pkColumns = primaryKey.get().getColumnNames();
-
-            for (String pkColumn : pkColumns) {
-                Column column = table.columnWithName(pkColumn);
-                if (isEvenlySplitColumn(column)) {
-                    splitColumn = columnComparable(splitColumn, column);
-                    if (sqlTypePriority(splitColumn) == 1) {
-                        return splitColumn;
-                    }
+            Column firstColumn = table.columnWithName(primaryKey.get().getColumnNames().get(0));
+            if (isEvenlySplitColumn(firstColumn)) {
+                splitColumn = columnComparable(splitColumn, firstColumn);
+                if (sqlTypePriority(splitColumn) == 1) {
+                    return splitColumn;
                 }
             }
         } else {
