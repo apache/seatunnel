@@ -46,14 +46,16 @@ public class KuduSourceFactory implements TableSourceFactory {
         return OptionRule.builder()
                 .required(KuduSourceOptions.MASTER)
                 .optional(KuduSourceOptions.SCHEMA)
-                .optional(KuduSourceOptions.WORKER_COUNT)
-                .optional(KuduSourceOptions.OPERATION_TIMEOUT)
-                .optional(KuduSourceOptions.ADMIN_OPERATION_TIMEOUT)
-                .optional(KuduSourceOptions.QUERY_TIMEOUT)
-                .optional(KuduSourceOptions.SCAN_BATCH_SIZE_BYTES)
-                .optional(KuduSourceOptions.FILTER)
-                .optional(KuduSourceOptions.ENABLE_KERBEROS)
-                .optional(KuduSourceOptions.KERBEROS_KRB5_CONF)
+                .optional(
+                        KuduSourceOptions.WORKER_COUNT,
+                        KuduSourceOptions.OPERATION_TIMEOUT,
+                        KuduSourceOptions.ADMIN_OPERATION_TIMEOUT,
+                        KuduSourceOptions.QUERY_TIMEOUT,
+                        KuduSourceOptions.SCAN_BATCH_SIZE_BYTES,
+                        KuduSourceOptions.FILTER,
+                        KuduSourceOptions.USE_REGEX,
+                        KuduSourceOptions.ENABLE_KERBEROS,
+                        KuduSourceOptions.KERBEROS_KRB5_CONF)
                 .exclusive(KuduSourceOptions.TABLE_NAME, ConnectorCommonOptions.TABLE_LIST)
                 .conditional(
                         KuduSourceOptions.ENABLE_KERBEROS,

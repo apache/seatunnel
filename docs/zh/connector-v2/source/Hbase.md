@@ -31,6 +31,8 @@ import ChangeLog from '../changelog/connector-hbase.md';
 | is_binary_rowkey     | boolean  | 否  | false |
 | start_rowkey         | string   | 否  | -     |
 | end_rowkey           | string   | 否  | -     |
+| start_row_inclusive | boolean | 否  | true  |
+| end_row_inclusive   | boolean | 否  | false |
 | common-options       |          | 否  | -     |
 
 ### zookeeper_quorum [string]
@@ -72,6 +74,23 @@ HBase 的行键既可以是文本字符串，也可以是二进制数据。在 S
 ### end_rowkey
 
 扫描结束行
+
+### start_row_inclusive
+
+设置扫描范围是否包含起始行。当设置为 true 时,扫描结果将包含起始行。默认值: true (包含)。
+
+**注意:** 在大多数情况下,应保持默认值 (true)。仅当您有特定需求需要排除起始行时才修改此参数。
+
+### end_row_inclusive
+
+设置扫描范围是否包含结束行。当设置为 false 时,扫描结果将不包含结束行,遵循左闭右开的区间约定 [start, end)。默认值: false (不包含)。
+
+**注意:** 在大多数情况下,应保持默认值 (false),这遵循 HBase 标准的左闭右开区间约定。仅当您需要在扫描结果中包含结束行时才修改此参数。
+
+**重要提示:** 在使用多个 split 并行读取时,这两个参数的组合对数据完整性至关重要:
+- **默认配置 (start_row_inclusive=true, end_row_inclusive=false)**: 这是推荐的配置,可以确保跨 split 时不会丢失数据或产生重复数据。每个 split 遵循 [start, end) 左闭右开区间约定。
+- **都设置为 false (start_row_inclusive=false, end_row_inclusive=false)**: 这可能会导致**数据丢失**,因为边界行会被所有 split 排除在外。
+- **都设置为 true (start_row_inclusive=true, end_row_inclusive=true)**: 这可能会导致**数据重复**,因为边界行会被相邻的多个 split 重复包含。
 
 ### 常用选项
 

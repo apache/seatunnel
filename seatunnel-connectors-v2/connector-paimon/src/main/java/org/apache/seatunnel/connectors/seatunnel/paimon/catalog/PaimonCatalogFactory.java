@@ -55,7 +55,8 @@ public class PaimonCatalogFactory implements CatalogFactory {
                         PaimonSinkOptions.DATA_SAVE_MODE,
                         PaimonSinkOptions.PRIMARY_KEYS,
                         PaimonSinkOptions.PARTITION_KEYS,
-                        PaimonSinkOptions.WRITE_PROPS)
+                        PaimonSinkOptions.WRITE_PROPS,
+                        PaimonSinkOptions.BRANCH)
                 .conditional(
                         PaimonBaseOptions.CATALOG_TYPE,
                         PaimonCatalogEnum.HIVE,

@@ -285,7 +285,7 @@ networks:
 run `docker-compose up -d` command to start the cluster.
 
 
-You can run `docker logs -f seatunne_master`, `docker logs -f seatunnel_worker_1` to check the node log.
+You can run `docker logs -f seatunnel_master`, `docker logs -f seatunnel_worker_1` to check the node log.
 And when you call `http://localhost:5801/hazelcast/rest/maps/system-monitoring-information`, you will see there are 2 nodes as we excepted.
 
 After that, you can use client or restapi to submit job to this cluster.

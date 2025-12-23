@@ -68,7 +68,7 @@ import static org.awaitility.Awaitility.given;
 @Slf4j
 @Disabled
 public class JdbcDorisIT extends TestSuiteBase implements TestResource {
-    private static final String DOCKER_IMAGE = "zykkk/doris:1.2.2.1-avx2-x86_84";
+    private static final String DOCKER_IMAGE = "seatunnelhub/doris:1.2.2.1-avx2-x86_84";
     private static final String DRIVER_CLASS = "com.mysql.cj.jdbc.Driver";
     private static final String HOST = "doris_e2e";
     private static final int DOCKER_PORT = 9030;

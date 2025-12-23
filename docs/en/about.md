@@ -2,8 +2,8 @@
 
 <img src="https://seatunnel.apache.org/image/logo.png" alt="seatunnel logo" width="200px" height="200px" align="right" />
 
-[![Slack](https://img.shields.io/badge/slack-%23seatunnel-4f8eba?logo=slack)](https://s.apache.org/seatunnel-slack)
-[![Twitter Follow](https://img.shields.io/twitter/follow/ASFSeaTunnel.svg?label=Follow&logo=twitter)](https://twitter.com/ASFSeaTunnel)
+[![Slack](../images/seatunnel-slack.svg)](https://s.apache.org/seatunnel-slack)
+[![Twitter Follow](../images/ASFSeaTunnel.svg)](https://x.com/ASFSeaTunnel)
 
 SeaTunnel is a very easy-to-use, multimodal, ultra-high-performance, distributed data integration platform that supports real-time
 synchronization of massive data. It can synchronize tens of billions of data stably and efficiently every day, and has
