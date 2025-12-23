@@ -353,7 +353,6 @@ class JdbcSourceChunkSplitterTest {
                 throws SQLException {
             List<ConstraintKey> keys = new ArrayList<>();
 
-            // UK 1: (address, coin_type)
             keys.add(
                     ConstraintKey.of(
                             ConstraintKey.ConstraintType.UNIQUE_KEY,
