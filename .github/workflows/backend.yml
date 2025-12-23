@@ -58,6 +58,27 @@ jobs:
         run: ./mvnw -B -T 1 clean test -D"license.skipAddThirdParty"=true -pl seatunnel-ci-tools -am --no-snapshot-updates
         env:
           MAVEN_OPTS: -Xmx512m
+      - name: Check for .class files in git
+        run: |
+          echo "Checking for .class files tracked by git..."
+
+          # Find all .class files tracked by git
+          CLASS_FILES=$(git ls-files '*.class')
+
+          if [ -n "$CLASS_FILES" ]; then
+            echo "ERROR: The following .class files are tracked by git:"
+            echo "$CLASS_FILES"
+            echo ""
+            echo "Please remove .class files from the repository."
+            echo "These files should not be committed. You can remove them using:"
+            echo "  git rm --cached <file>.class"
+            echo "  git commit -m 'Remove .class files'"
+            echo ""
+            echo "Also, consider adding '*.class' to .gitignore if not already present."
+            exit 1
+          else
+            echo "No .class files found in git repository."
+          fi
 
   helm-chart-check:
     name: Check Helm Chart Syntax

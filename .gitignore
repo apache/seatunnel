@@ -1,5 +1,6 @@
 # Package Files #
 *.jar
+*.class
 *.zip
 *.tar.gz
 
