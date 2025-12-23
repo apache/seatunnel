@@ -1260,7 +1260,7 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                             "c_bool",
                             "c_string",
                             "c_bytes",
-                            "Address",
+                            "address",
                             "attributes",
                             "phone_numbers"
                         },
@@ -2201,7 +2201,7 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                     "MyIntField",
                     "CamelCaseString",
                     "snake_case_field",
-                    "NestedObject",
+                    "nestedObject",
                     "MyMapField"
                 },
                 new SeaTunnelDataType<?>[] {
@@ -2256,7 +2256,7 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                     "c_bool",
                     "c_string",
                     "c_bytes",
-                    "Address",
+                    "address",
                     "attributes",
                     "phone_numbers"
                 },
