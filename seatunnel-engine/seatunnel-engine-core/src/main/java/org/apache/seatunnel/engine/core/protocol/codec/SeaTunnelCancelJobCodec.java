@@ -59,9 +59,7 @@ public final class SeaTunnelCancelJobCodec {
     private SeaTunnelCancelJobCodec() {}
 
     public static class RequestParameters {
-
         public long jobId;
-
         public boolean force;
     }
 
