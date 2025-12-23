@@ -322,21 +322,22 @@ public class SqlToPaimonConverterTest {
     @Test
     public void testPiamonQuoteIdentifier() {
         String query =
-                "SELECT `decimal_col`, `int_col`, `char_col`, `timestamp_col`, `boolean_col` FROM table WHERE `int_col` > 3 OR `double_col` < 6.6 ";
+                "SELECT `decimal_col`, `int_col`, `char_col`, `timestamp_col`, `boolean_col`, time_col FROM table WHERE int_col > 3 OR `double_col` < 6.6 ";
 
         PlainSelect plainSelect = convertToPlainSelect(query);
         assertNotNull(plainSelect);
 
-        int[] ints =
+        int[] fieldIndex =
                 SqlToPaimonPredicateConverter.convertSqlSelectToPaimonProjectionIndex(
                         rowType.getFieldNames().toArray(new String[0]), plainSelect);
-        assertNotNull(ints);
-        assertEquals(5, ints.length);
-        assertEquals(4, ints[0]);
-        assertEquals(7, ints[1]);
-        assertEquals(0, ints[2]);
-        assertEquals(12, ints[3]);
-        assertEquals(2, ints[4]);
+        assertNotNull(fieldIndex);
+        assertEquals(6, fieldIndex.length);
+        assertEquals(4, fieldIndex[0]);
+        assertEquals(7, fieldIndex[1]);
+        assertEquals(0, fieldIndex[2]);
+        assertEquals(12, fieldIndex[3]);
+        assertEquals(2, fieldIndex[4]);
+        assertEquals(13, fieldIndex[5]);
 
         Predicate predicate =
                 SqlToPaimonPredicateConverter.convertSqlWhereToPaimonPredicate(
