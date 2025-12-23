@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.core.starter.flink;
 
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
+
 import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.constants.EngineType;
 import org.apache.seatunnel.core.starter.Starter;
@@ -57,6 +59,11 @@ public abstract class AbstractFlinkStarter implements Starter {
         command.add("${FLINK_HOME}/bin/flink");
         // set deploy mode, run or run-application
         command.add(flinkCommandArgs.getDeployMode().getDeployMode());
+        // set restore checkpoint
+        if (StringUtils.isNoneBlank(flinkCommandArgs.getFromSavepoint())) {
+            command.add("-s");
+            command.add(flinkCommandArgs.getFromSavepoint());
+        }
         // set submitted target master
         if (flinkCommandArgs.getMasterType() != null) {
             command.add("--target");
