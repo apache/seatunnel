@@ -281,14 +281,7 @@ public class PhysicalPlan {
             if (!targetState.isEndState()
                     && this.engineConfig != null
                     && this.engineConfig.isReportNonTerminalJobState()) {
-                jobMaster
-                        .getCoordinatorService()
-                        .getEventProcessor()
-                        .process(
-                                new JobStateEvent(
-                                        jobImmutableInformation.getJobId(),
-                                        jobImmutableInformation.getJobConfig().getName(),
-                                        targetState));
+                reportJobStateEvent(targetState);
             }
             stateProcess();
         } catch (Exception e) {
@@ -364,17 +357,25 @@ public class PhysicalPlan {
             case FINISHED:
                 stopJobStateProcess();
                 jobEndFuture.complete(new JobResult(jobStatus, errorBySubPlan.get()));
-                jobMaster
-                        .getCoordinatorService()
-                        .getEventProcessor()
-                        .process(
-                                new JobStateEvent(
-                                        jobImmutableInformation.getJobId(),
-                                        jobImmutableInformation.getJobConfig().getName(),
-                                        jobStatus));
+                reportJobStateEvent(jobStatus);
                 return;
             default:
                 throw new IllegalArgumentException("Unknown Job State: " + jobStatus);
+        }
+    }
+
+    private void reportJobStateEvent(JobStatus jobStatus) {
+        try {
+            jobMaster
+                    .getCoordinatorService()
+                    .getEventProcessor()
+                    .process(
+                            new JobStateEvent(
+                                    jobId,
+                                    jobImmutableInformation.getJobConfig().getName(),
+                                    jobStatus));
+        } catch (Exception e) {
+            log.warn("Report job {} state event failed", jobId, e);
         }
     }
 
