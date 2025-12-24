@@ -73,12 +73,14 @@ public class PdfReadStrategyTest {
         System.out.println("expectedParagraph length: " + expectedParagraph.length());
         String paragraphStr = String.valueOf(rows.get(1).getField(3));
         System.out.println("paragraphStr length: " + paragraphStr.length());
+        System.out.println(
+                "paragraphStr replace length: " + paragraphStr.replace("\r\n", "\n").length());
 
         Assertions.assertEquals(
                 expectedParagraph.length(),
-                String.valueOf(rows.get(1).getField(3)).replace("\r\n", "").length());
+                String.valueOf(rows.get(1).getField(3)).replace("\r\n", "\n").length());
         Assertions.assertEquals(
-                expectedParagraph, String.valueOf(rows.get(1).getField(3)).replace("\r\n", ""));
+                expectedParagraph, String.valueOf(rows.get(1).getField(3)).replace("\r\n", "\n"));
         Assertions.assertEquals(
                 expectedParagraph.length(), String.valueOf(rows.get(1).getField(3)).length());
         Assertions.assertEquals(expectedParagraph, rows.get(1).getField(3));
