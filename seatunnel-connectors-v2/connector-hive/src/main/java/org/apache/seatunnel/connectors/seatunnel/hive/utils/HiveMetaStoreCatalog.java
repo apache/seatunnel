@@ -38,6 +38,7 @@ import org.apache.seatunnel.connectors.seatunnel.hive.exception.HiveConnectorExc
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hive.conf.HiveConf;
 import org.apache.hadoop.hive.metastore.HiveMetaStoreClient;
+import org.apache.hadoop.hive.metastore.IMetaStoreClient;
 import org.apache.hadoop.hive.metastore.api.AlreadyExistsException;
 import org.apache.hadoop.hive.metastore.api.Database;
 import org.apache.hadoop.hive.metastore.api.Table;
@@ -51,6 +52,7 @@ import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
 import java.io.Serializable;
+import java.lang.reflect.Method;
 import java.net.MalformedURLException;
 import java.net.URI;
 import java.nio.file.Files;
@@ -70,6 +72,8 @@ import java.util.Objects;
 @Slf4j
 public class HiveMetaStoreCatalog implements Catalog, Closeable, Serializable {
     private static final List<String> HADOOP_CONF_FILES = ImmutableList.of("hive-site.xml");
+    private static final String RETRYING_METASTORE_CLIENT_CLASS_NAME =
+            "org.apache.hadoop.hive.metastore.RetryingMetaStoreClient";
 
     private final String metastoreUri;
     private final String hadoopConfDir;
@@ -82,7 +86,7 @@ public class HiveMetaStoreCatalog implements Catalog, Closeable, Serializable {
     private final String keytabPath;
     private final String remoteUser;
 
-    private transient HiveMetaStoreClient hiveClient;
+    private transient IMetaStoreClient hiveClient;
     private transient HiveConf hiveConf;
     private transient UserGroupInformation userGroupInformation;
 
@@ -106,7 +110,7 @@ public class HiveMetaStoreCatalog implements Catalog, Closeable, Serializable {
         return create(config);
     }
 
-    private synchronized HiveMetaStoreClient getClient() {
+    private synchronized IMetaStoreClient getClient() {
         if (hiveClient == null) {
             hiveClient = initializeClient();
         }
@@ -116,7 +120,7 @@ public class HiveMetaStoreCatalog implements Catalog, Closeable, Serializable {
         return hiveClient;
     }
 
-    private HiveMetaStoreClient initializeClient() {
+    private IMetaStoreClient initializeClient() {
         this.hiveConf = buildHiveConf();
         try {
             if (kerberosEnabled) {
@@ -125,7 +129,7 @@ public class HiveMetaStoreCatalog implements Catalog, Closeable, Serializable {
             if (remoteUserEnabled) {
                 return loginWithRemoteUser(hiveConf);
             }
-            return new HiveMetaStoreClient(hiveConf);
+            return createClient(hiveConf);
         } catch (Exception e) {
             String errMsg =
                     String.format(
@@ -133,6 +137,48 @@ public class HiveMetaStoreCatalog implements Catalog, Closeable, Serializable {
                             metastoreUri, hiveSitePath);
             throw new HiveConnectorException(
                     HiveConnectorErrorCode.INITIALIZE_HIVE_METASTORE_CLIENT_FAILED, errMsg, e);
+        }
+    }
+
+    private IMetaStoreClient createClient(HiveConf hiveConf) throws Exception {
+        IMetaStoreClient retryingClient = tryCreateRetryingClient(hiveConf);
+        if (retryingClient != null) {
+            return retryingClient;
+        }
+        return new HiveMetaStoreClient(hiveConf);
+    }
+
+    private IMetaStoreClient tryCreateRetryingClient(HiveConf hiveConf) {
+        try {
+            Class<?> clazz = Class.forName(RETRYING_METASTORE_CLIENT_CLASS_NAME);
+            for (Method method : clazz.getMethods()) {
+                if (!"getProxy".equals(method.getName())) {
+                    continue;
+                }
+                Class<?>[] parameterTypes = method.getParameterTypes();
+                if (parameterTypes.length == 2
+                        && parameterTypes[1] == boolean.class
+                        && parameterTypes[0].isInstance(hiveConf)) {
+                    Object proxy = method.invoke(null, hiveConf, true);
+                    if (proxy instanceof IMetaStoreClient) {
+                        log.info(
+                                "Using RetryingMetaStoreClient for Hive metastore connection [uris={}]",
+                                hiveConf.get("hive.metastore.uris"));
+                        return (IMetaStoreClient) proxy;
+                    }
+                }
+            }
+            log.warn(
+                    "RetryingMetaStoreClient found but no compatible getProxy method, falling back to HiveMetaStoreClient");
+            return null;
+        } catch (ClassNotFoundException e) {
+            log.debug("RetryingMetaStoreClient not found, falling back to HiveMetaStoreClient", e);
+            return null;
+        } catch (Exception e) {
+            log.warn(
+                    "Failed to create RetryingMetaStoreClient proxy, falling back to HiveMetaStoreClient",
+                    e);
+            return null;
         }
     }
 
@@ -198,8 +244,9 @@ public class HiveMetaStoreCatalog implements Catalog, Closeable, Serializable {
         // metastore URI format: thrift://host:9083
         // HiveServer2 JDBC URL format: jdbc:hive2://host:10000/default
         try {
-            if (metastoreUri != null && metastoreUri.startsWith("thrift://")) {
-                URI uri = new URI(metastoreUri);
+            String firstUri = getFirstMetastoreUri(metastoreUri);
+            if (firstUri != null && firstUri.startsWith("thrift://")) {
+                URI uri = new URI(firstUri);
                 String host = uri.getHost();
                 if (host != null) {
                     return String.format("jdbc:hive2://%s:10000/default", host);
@@ -214,7 +261,7 @@ public class HiveMetaStoreCatalog implements Catalog, Closeable, Serializable {
 
     private HiveConf buildHiveConf() {
         HiveConf hiveConf = new HiveConf();
-        hiveConf.set("hive.metastore.uris", metastoreUri);
+        hiveConf.set("hive.metastore.uris", normalizeMetastoreUris(metastoreUri));
         hiveConf.setBoolVar(HiveConf.ConfVars.METASTORE_EXECUTE_SET_UGI, false);
         hiveConf.setBoolean("hive.metastore.client.capability.check", false);
         hiveConf.setBoolean("hive.metastore.client.filter.enabled", false);
@@ -245,7 +292,7 @@ public class HiveMetaStoreCatalog implements Catalog, Closeable, Serializable {
         return hiveConf;
     }
 
-    private HiveMetaStoreClient loginWithKerberos(HiveConf hiveConf) throws Exception {
+    private IMetaStoreClient loginWithKerberos(HiveConf hiveConf) throws Exception {
         Configuration authConf = new Configuration();
         authConf.set("hadoop.security.authentication", "kerberos");
         return HadoopLoginFactory.loginWithKerberos(
@@ -255,13 +302,39 @@ public class HiveMetaStoreCatalog implements Catalog, Closeable, Serializable {
                 keytabPath,
                 (conf, ugi) -> {
                     this.userGroupInformation = ugi;
-                    return new HiveMetaStoreClient(hiveConf);
+                    return createClient(hiveConf);
                 });
     }
 
-    private HiveMetaStoreClient loginWithRemoteUser(HiveConf hiveConf) throws Exception {
+    private IMetaStoreClient loginWithRemoteUser(HiveConf hiveConf) throws Exception {
         return HadoopLoginFactory.loginWithRemoteUser(
-                new Configuration(), remoteUser, (conf, ugi) -> new HiveMetaStoreClient(hiveConf));
+                new Configuration(), remoteUser, (conf, ugi) -> createClient(hiveConf));
+    }
+
+    private static String normalizeMetastoreUris(String metastoreUri) {
+        if (metastoreUri == null) {
+            return null;
+        }
+        String[] uris = metastoreUri.split(",");
+        List<String> cleaned = new ArrayList<>(uris.length);
+        for (String uri : uris) {
+            String trimmed = uri.trim();
+            if (!trimmed.isEmpty()) {
+                cleaned.add(trimmed);
+            }
+        }
+        return String.join(",", cleaned);
+    }
+
+    private static String getFirstMetastoreUri(String metastoreUri) {
+        if (metastoreUri == null) {
+            return null;
+        }
+        int commaIndex = metastoreUri.indexOf(',');
+        if (commaIndex < 0) {
+            return metastoreUri.trim();
+        }
+        return metastoreUri.substring(0, commaIndex).trim();
     }
 
     public Table getTable(@NonNull String dbName, @NonNull String tableName) {
