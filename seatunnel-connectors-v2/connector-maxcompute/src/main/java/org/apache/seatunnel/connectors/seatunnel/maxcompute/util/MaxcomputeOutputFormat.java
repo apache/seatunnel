@@ -36,15 +36,17 @@ import com.aliyun.odps.tunnel.streams.UpsertStream;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
-import java.util.Objects;
 
 @Slf4j
 public class MaxcomputeOutputFormat {
-    private final ReadonlyConfig readonlyConfig;
+    private static final String UPLOAD_SESSION = "upload";
+    private static final String UPSERT_SESSION = "upsert";
 
-    private final TableSchema tableSchema;
     private final SeaTunnelRowType rowType;
+    private final ReadonlyConfig readonlyConfig;
+    private final TableSchema tableSchema;
     private final FormatterContext formatterContext;
+    private final boolean isUploadSession;
 
     private RecordWriter recordWriter;
     private UpsertStream upsertStream;
@@ -57,12 +59,28 @@ public class MaxcomputeOutputFormat {
         this.tableSchema = MaxcomputeUtil.getTable(readonlyConfig).getSchema();
         this.formatterContext =
                 new FormatterContext(readonlyConfig.get(FormatOptions.DATETIME_FORMAT));
+
+        if (UPLOAD_SESSION.equals(readonlyConfig.get(MaxcomputeSinkOptions.INSERT_STRATEGY))) {
+            isUploadSession = true;
+        } else if (UPSERT_SESSION.equals(
+                readonlyConfig.get(MaxcomputeSinkOptions.INSERT_STRATEGY))) {
+            isUploadSession = false;
+        } else {
+            throw CommonError.unsupportedDataType(
+                    MaxcomputeBaseOptions.PLUGIN_NAME,
+                    "insert_strategy",
+                    readonlyConfig.get(MaxcomputeSinkOptions.INSERT_STRATEGY));
+        }
     }
 
     public void write(SeaTunnelRow seaTunnelRow) throws IOException, TunnelException {
         switch (seaTunnelRow.getRowKind()) {
             case INSERT:
-                insertRecord(seaTunnelRow);
+                if (isUploadSession) {
+                    insertRecord(seaTunnelRow);
+                } else {
+                    upsertRecord(seaTunnelRow);
+                }
                 break;
             case UPDATE_AFTER:
                 upsertRecord(seaTunnelRow);

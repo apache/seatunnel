@@ -202,8 +202,6 @@ public class MaxComputeIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
-    @Disabled(
-            "maxcompute-emulator does not support upload session for now. MaxcomputeWriter uses upload session to insert data.")
     public void testMaxCompute(TestContainer container)
             throws IOException, InterruptedException, OdpsException {
         Odps odps = getTestOdps();
@@ -253,8 +251,6 @@ public class MaxComputeIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
-    @Disabled(
-            "maxcompute-emulator does not support upload session for now. MaxcomputeWriter uses upload session to insert data.")
     public void testMaxComputeMultiTable(TestContainer container)
             throws OdpsException, IOException, InterruptedException {
         Odps odps = getTestOdps();
