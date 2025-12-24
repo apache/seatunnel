@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.starrocks.client.source;
 
+import org.apache.seatunnel.shade.org.apache.commons.lang3.tuple.Pair;
+
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.common.source.arrow.reader.ArrowToSeatunnelRowReader;
@@ -41,8 +43,10 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Collectors;
 
 import static org.apache.seatunnel.connectors.seatunnel.starrocks.exception.StarRocksConnectorErrorCode.CLOSE_BE_READER_FAILED;
 
@@ -69,8 +73,19 @@ public class StarRocksBeReadClient implements Serializable {
                     StarRocksConnectorErrorCode.CREATE_BE_READER_FAILED,
                     String.format("Format of StarRocks BE address[%s] is illegal", beNodeInfo));
         }
-        this.ip = hostPort[0].trim();
-        this.port = Integer.parseInt(hostPort[1].trim());
+
+        // If the user has configured beHostPortMapping, we need to parse it
+        Map<String, Pair<String, String>> beHostPortMapping = formatBeHostPortMapping(sourceConfig);
+
+        if (beHostPortMapping.containsKey(hostPort[0].trim())) {
+            Pair<String, String> accessIpPort = beHostPortMapping.get(hostPort[0].trim());
+            this.ip = accessIpPort.getKey();
+            this.port = Integer.parseInt(accessIpPort.getValue());
+        } else {
+            this.ip = hostPort[0].trim();
+            this.port = Integer.parseInt(hostPort[1].trim());
+        }
+
         TBinaryProtocol.Factory factory = new TBinaryProtocol.Factory();
         TSocket socket =
                 new TSocket(
@@ -89,6 +104,29 @@ public class StarRocksBeReadClient implements Serializable {
         }
         TProtocol protocol = factory.getProtocol(socket);
         client = new TStarrocksExternalService.Client(protocol);
+    }
+
+    /**
+     * If the user has configured beHostPortMapping, we need to parse it
+     *
+     * @param sourceConfig sourceConfig
+     * @return <host, Pair<ip, port>>
+     */
+    private static Map<String, Pair<String, String>> formatBeHostPortMapping(
+            SourceConfig sourceConfig) {
+        return sourceConfig.getBeHostPortMapping().stream()
+                .collect(
+                        Collectors.toMap(
+                                mapping -> {
+                                    // host:be_port
+                                    String[] hostInfo = mapping.getHost_port().split(":");
+                                    return hostInfo[0];
+                                },
+                                mapping -> {
+                                    // accessible ip and be_port
+                                    String[] accessIpInfo = mapping.getIp_port().split(":");
+                                    return Pair.of(accessIpInfo[0], accessIpInfo[1]);
+                                }));
     }
 
     public void openScanner(QueryPartition partition, SeaTunnelRowType seaTunnelRowType) {

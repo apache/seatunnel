@@ -31,6 +31,19 @@ import java.util.Map;
 @Getter
 public class SourceConfig extends StarRocksConfig {
 
+    private int maxRetries = StarRocksSourceOptions.MAX_RETRIES.defaultValue();
+    private int requestTabletSize = StarRocksSourceOptions.QUERY_TABLET_SIZE.defaultValue();
+    private String scanFilter = StarRocksSourceOptions.SCAN_FILTER.defaultValue();
+    private long memLimit = StarRocksSourceOptions.SCAN_MEM_LIMIT.defaultValue();
+    private int queryTimeoutSec = StarRocksSourceOptions.SCAN_QUERY_TIMEOUT_SEC.defaultValue();
+    private int keepAliveMin = StarRocksSourceOptions.SCAN_KEEP_ALIVE_MIN.defaultValue();
+    private int batchRows = StarRocksSourceOptions.SCAN_BATCH_ROWS.defaultValue();
+    private int connectTimeoutMs = StarRocksSourceOptions.SCAN_CONNECT_TIMEOUT.defaultValue();
+    private List<StarRocksSourceTableConfig> tableConfigList = new ArrayList<>();
+    private List<BeHostPortMapping> beHostPortMapping = new ArrayList<>();
+
+    private Map<String, String> sourceOptionProps = new HashMap<>();
+
     public SourceConfig(ReadonlyConfig config) {
         super(config);
         this.maxRetries = config.get(StarRocksSourceOptions.MAX_RETRIES);
@@ -52,17 +65,6 @@ public class SourceConfig extends StarRocksConfig {
                             }
                         });
         this.tableConfigList = StarRocksSourceTableConfig.of(config);
+        this.beHostPortMapping = config.get(StarRocksSourceOptions.BE_HOST_PORT_MAPPING);
     }
-
-    private int maxRetries = StarRocksSourceOptions.MAX_RETRIES.defaultValue();
-    private int requestTabletSize = StarRocksSourceOptions.QUERY_TABLET_SIZE.defaultValue();
-    private String scanFilter = StarRocksSourceOptions.SCAN_FILTER.defaultValue();
-    private long memLimit = StarRocksSourceOptions.SCAN_MEM_LIMIT.defaultValue();
-    private int queryTimeoutSec = StarRocksSourceOptions.SCAN_QUERY_TIMEOUT_SEC.defaultValue();
-    private int keepAliveMin = StarRocksSourceOptions.SCAN_KEEP_ALIVE_MIN.defaultValue();
-    private int batchRows = StarRocksSourceOptions.SCAN_BATCH_ROWS.defaultValue();
-    private int connectTimeoutMs = StarRocksSourceOptions.SCAN_CONNECT_TIMEOUT.defaultValue();
-    private List<StarRocksSourceTableConfig> tableConfigList = new ArrayList<>();
-
-    private Map<String, String> sourceOptionProps = new HashMap<>();
 }

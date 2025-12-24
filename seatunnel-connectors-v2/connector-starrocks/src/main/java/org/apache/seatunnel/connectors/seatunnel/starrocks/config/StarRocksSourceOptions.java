@@ -20,6 +20,10 @@ package org.apache.seatunnel.connectors.seatunnel.starrocks.config;
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+
 public class StarRocksSourceOptions extends StarRocksBaseOptions {
     private static final long DEFAULT_SCAN_MEM_LIMIT = 1024 * 1024 * 1024L;
 
@@ -72,4 +76,10 @@ public class StarRocksSourceOptions extends StarRocksBaseOptions {
                     .stringType()
                     .noDefaultValue()
                     .withDescription("The parameter of the scan data from be");
+    public static final Option<List<BeHostPortMapping>> BE_HOST_PORT_MAPPING =
+            Options.key("be_host_port_mapping")
+                    .type(new TypeReference<List<BeHostPortMapping>>() {})
+                    .defaultValue(new ArrayList<>())
+                    .withDescription(
+                            "The mapping relationship between the host:be_port of the starrocks cluster BE and the accessible ip:be_port. This configuration is optional, mainly to solve scenarios where computing cluster cannot directly access be's host and be_port, such as starrocks deployed in k8s, but Flink cannot directly access be's host and be_port. For example, [{\"pingt-7f5cf4cfdc-cn-0.headless.olap:9060\"=\"xx.xx.xx.xx:31088\"}]");
 }
